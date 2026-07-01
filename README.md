@@ -52,12 +52,14 @@ width/style/color, uniform, physical-corner, and logical-corner border radius,
 text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip path, CSS mask, CSS mask border, object fit/position,
-list style, columns, font size, font weight, font family, font style, line
-height, letter spacing, text alignment, text direction, Unicode bidi, writing
-mode, text orientation, text transform, text indent, text
+list style, columns, font size, font weight, font family, font style, font
+stretch, font kerning, font feature and variation settings, font variant and
+font synthesis properties, line height, letter spacing, word spacing, tab size,
+text alignment, text direction, Unicode bidi, writing mode, text orientation,
+text transform, text indent, text
 wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
-text overflow, whitespace, word breaking, hyphen handling, overflow, opacity,
-aspect ratio, box shadow,
+text shadow, text overflow, line breaking, whitespace, word breaking, hyphen
+handling, overflow, opacity, aspect ratio, box shadow,
 outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
 filter, backdrop filter function components, transition, animation,
@@ -98,12 +100,14 @@ portable style tokens. Flex item and box-alignment utilities such as `flex-*`,
 `basis-*`, `grow-*`, `shrink-*`, `order-*`, `content-*`, `self-*`,
 `justify-items-*`, `justify-self-*`, and `place-*` are projected as well.
 Typography utilities such as `font-*`, `italic`, `not-italic`, `tracking-*`,
-text transform utilities, text decoration utilities, `underline-offset-*`,
-`indent-*`, `line-clamp-*`, `text-wrap`, `text-nowrap`, `text-balance`,
-`text-pretty`, `truncate`, `text-ellipsis`, `text-clip`, `whitespace-*`,
-`break-*`, and `hyphens-*` are projected into portable style tokens. Arbitrary
-property utilities for CSS writing modes and `ltr:`/`rtl:` variants are
-preserved in the same declaration model.
+`font-stretch-*`, `font-features-*`, font variant numeric utilities,
+`tab-*`, text transform utilities, text decoration utilities,
+`underline-offset-*`, `indent-*`, `line-clamp-*`, `text-shadow-*`,
+`text-wrap`, `text-nowrap`, `text-balance`, `text-pretty`, `truncate`,
+`text-ellipsis`, `text-clip`, `whitespace-*`, `break-*`, and `hyphens-*` are
+projected into portable style tokens. Arbitrary property utilities for CSS
+writing modes and `ltr:`/`rtl:` variants are preserved in the same declaration
+model.
 Background, object, list, and columns utilities such as `bg-*`, `object-*`,
 `list-*`, and `columns-*` are projected into portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,

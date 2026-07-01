@@ -8160,12 +8160,16 @@ mod tests {
             "font-mono italic tracking-wide uppercase underline decoration-wavy \
              decoration-[#663399]/50 decoration-2 underline-offset-4 truncate \
              whitespace-pre-wrap break-all hyphens-auto -indent-[2px] text-balance \
+             ordinal slashed-zero tabular-nums diagonal-fractions \
+             font-stretch-condensed font-features-[\"kern\"_1] tab-4 text-shadow-sm \
              [direction:rtl] [unicode-bidi:isolate] [writing-mode:vertical-rl] \
              [text-orientation:upright] \
              line-clamp-3 md:tracking-[0.2em] hover:decoration-[3px] \
              focus:text-pretty lg:line-clamp-none ltr:[direction:ltr] \
              rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
-             hover:[text-orientation:sideways]",
+             hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
+             hover:font-features-(--font-features) focus:text-shadow-[0_1px_2px_rgb(0_0_0_/_0.3)] \
+             lg:normal-nums",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -8180,6 +8184,14 @@ mod tests {
             style.declarations.get("letter-spacing").map(String::as_str),
             Some("0.025em")
         );
+        assert_eq!(style.font_stretch.as_deref(), Some("condensed"));
+        assert_eq!(style.font_feature_settings.as_deref(), Some("\"kern\" 1"));
+        assert_eq!(
+            style.font_variant_numeric.as_deref(),
+            Some("ordinal slashed-zero tabular-nums diagonal-fractions")
+        );
+        assert_eq!(style.tab_size.as_deref(), Some("4"));
+        assert_eq!(style.text_shadow.as_deref(), Some("var(--text-shadow-sm)"));
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
         assert_eq!(style.direction, Some(TextDirection::Rtl));
         assert_eq!(style.unicode_bidi, Some(UnicodeBidi::Isolate));
@@ -8242,6 +8254,14 @@ mod tests {
             style
                 .variant_declarations
                 .get("md")
+                .and_then(|styles| styles.get("font-stretch"))
+                .map(String::as_str),
+            Some("87.5%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
                 .and_then(|styles| styles.get("writing-mode"))
                 .map(String::as_str),
             Some("horizontal-tb")
@@ -8265,6 +8285,14 @@ mod tests {
         assert_eq!(
             style
                 .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("font-feature-settings"))
+                .map(String::as_str),
+            Some("var(--font-features)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
                 .get("focus")
                 .and_then(|styles| styles.get("text-wrap"))
                 .map(String::as_str),
@@ -8273,10 +8301,26 @@ mod tests {
         assert_eq!(
             style
                 .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("text-shadow"))
+                .map(String::as_str),
+            Some("0 1px 2px rgb(0 0 0 / 0.3)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
                 .get("lg")
                 .and_then(|styles| styles.get("-webkit-line-clamp"))
                 .map(String::as_str),
             Some("unset")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("lg")
+                .and_then(|styles| styles.get("font-variant-numeric"))
+                .map(String::as_str),
+            Some("normal")
         );
     }
 
