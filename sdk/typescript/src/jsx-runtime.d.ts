@@ -9,7 +9,7 @@ export interface WebCompatibleProps {
   id?: string;
   name?: string;
   className?: string;
-  style?: Record<string, StyleValue>;
+  style?: Record<string, StyleValue> | string;
   children?: unknown;
   disabled?: boolean;
   required?: boolean;

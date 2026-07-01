@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{GuiError, GuiResult};
 use crate::geometry::Orientation;
+use crate::html::{canonical_html_tag, component_for_intrinsic_tag, HTML_TAG_METADATA_KEY};
 use crate::native::NativeElement;
 use crate::react_aria::{AriaComponent, AriaElement, AriaProps, ReactAriaMapper};
 use crate::web::WebProps;
@@ -165,9 +166,9 @@ fn lower_node(node: &CompiledJsxNode) -> GuiResult<AriaElement> {
             children,
             ..
         } => {
-            let component = component_from_jsx_tag(tag)?;
+            let component = component_from_jsx_tag(tag, props)?;
             let mut element = AriaElement::new(key.clone(), component)
-                .with_props(props.clone().into_aria_props());
+                .with_props(props.clone().into_aria_props_for_tag(tag));
             element.children = children
                 .iter()
                 .map(lower_node)
@@ -177,13 +178,18 @@ fn lower_node(node: &CompiledJsxNode) -> GuiResult<AriaElement> {
     }
 }
 
-fn component_from_jsx_tag(tag: &str) -> GuiResult<AriaComponent> {
+fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaComponent> {
     match tag {
         "Button" | "button" => Ok(AriaComponent::Button),
         "Label" | "label" => Ok(AriaComponent::Label),
         "Text" | "span" | "p" | "strong" | "em" | "h1" | "h2" | "h3" => Ok(AriaComponent::Text),
         "TextField" => Ok(AriaComponent::TextField),
-        "Input" | "input" | "textarea" => Ok(AriaComponent::Input),
+        "Input" | "textarea" => Ok(AriaComponent::Input),
+        "input" => component_for_intrinsic_tag(tag, &props.attributes).ok_or_else(|| {
+            GuiError::UnsupportedAriaComponent {
+                component: tag.to_string(),
+            }
+        }),
         "Checkbox" => Ok(AriaComponent::Checkbox),
         "Switch" => Ok(AriaComponent::Switch),
         "RadioGroup" => Ok(AriaComponent::RadioGroup),
@@ -207,15 +213,20 @@ fn component_from_jsx_tag(tag: &str) -> GuiResult<AriaComponent> {
         "Slider" => Ok(AriaComponent::Slider),
         "ProgressBar" | "progress" => Ok(AriaComponent::ProgressBar),
         "Toolbar" => Ok(AriaComponent::Toolbar),
-        other => Err(GuiError::UnsupportedAriaComponent {
-            component: other.to_string(),
+        other => component_for_intrinsic_tag(other, &props.attributes).ok_or_else(|| {
+            GuiError::UnsupportedAriaComponent {
+                component: other.to_string(),
+            }
         }),
     }
 }
 
 impl CompiledProps {
-    fn into_aria_props(self) -> AriaProps {
+    fn into_aria_props_for_tag(self, tag: &str) -> AriaProps {
         let mut web = WebProps::new();
+        if let Some(html_tag) = canonical_html_tag(tag) {
+            web = web.attribute(HTML_TAG_METADATA_KEY, html_tag);
+        }
         if let Some(id) = self.id {
             web = web.id(id);
         }
@@ -342,6 +353,7 @@ fn parse_orientation(value: &str) -> Option<Orientation> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::html::{HTML_ELEMENTS, HTML_TAG_METADATA_KEY};
     use crate::native::NativeRole;
 
     #[test]
@@ -637,5 +649,73 @@ mod tests {
         assert_eq!(native.children[0].props.label.as_deref(), Some("Open"));
         assert_eq!(native.children[0].props.value.as_deref(), Some("open"));
         assert_eq!(native.children[0].props.action.as_deref(), Some("openFile"));
+    }
+
+    #[test]
+    fn lowers_all_known_html_elements_without_rejecting_intrinsic_tags() {
+        let bridge = ReactCompilerBridge::new();
+
+        for tag in HTML_ELEMENTS {
+            let props = if *tag == "input" {
+                CompiledProps {
+                    attributes: BTreeMap::from([("type".to_string(), "checkbox".to_string())]),
+                    ..CompiledProps::default()
+                }
+            } else {
+                CompiledProps::default()
+            };
+            let compiled = CompiledJsxNode::Element {
+                key: format!("{tag}-key"),
+                tag: tag.to_string(),
+                import_source: None,
+                props,
+                children: Vec::new(),
+            };
+
+            let native = bridge
+                .lower_to_native(&compiled)
+                .unwrap_or_else(|error| panic!("{tag} should lower to native IR: {error}"));
+
+            assert_eq!(
+                native
+                    .props
+                    .metadata
+                    .get(HTML_TAG_METADATA_KEY)
+                    .map(String::as_str),
+                Some(*tag)
+            );
+        }
+    }
+
+    #[test]
+    fn lowers_html_input_types_to_native_form_roles() {
+        let bridge = ReactCompilerBridge::new();
+        let input = |input_type: &str| CompiledJsxNode::Element {
+            key: format!("{input_type}-input"),
+            tag: "input".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([("type".to_string(), input_type.to_string())]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+
+        assert_eq!(
+            bridge.lower_to_native(&input("checkbox")).unwrap().role,
+            NativeRole::Checkbox
+        );
+        assert_eq!(
+            bridge.lower_to_native(&input("radio")).unwrap().role,
+            NativeRole::Radio
+        );
+        assert_eq!(
+            bridge.lower_to_native(&input("range")).unwrap().role,
+            NativeRole::Slider
+        );
+        assert_eq!(
+            bridge.lower_to_native(&input("email")).unwrap().role,
+            NativeRole::TextField
+        );
     }
 }

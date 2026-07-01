@@ -7,6 +7,9 @@ TSX into the serializable `UiFrame` format consumed by the Rust runtime. It is
 intentionally small and dependency-free while the compiler integration
 stabilizes. React Aria-compatible component names and props are supported, but
 the package is a general semantic UI bridge rather than a React Aria-only SDK.
+Intrinsic HTML element names are accepted as JSX strings. `style` can be an
+object or CSS text string, and `className` is preserved for the Rust-side
+Tailwind utility resolver.
 
 ## JSX Runtime
 

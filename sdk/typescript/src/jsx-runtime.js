@@ -102,9 +102,13 @@ function normalizeProps(props, tag) {
     if (value == null || name === 'key') continue;
     if (name === 'className') {
       out.className = String(value);
-    } else if (name === 'style' && typeof value === 'object') {
-      for (const [property, styleValue] of Object.entries(value)) {
-        if (styleValue != null) style[property] = styleValue;
+    } else if (name === 'style') {
+      if (typeof value === 'object') {
+        for (const [property, styleValue] of Object.entries(value)) {
+          if (styleValue != null) style[property] = styleValue;
+        }
+      } else if (typeof value === 'string') {
+        Object.assign(style, parseStyleText(value));
       }
     } else if (name.startsWith('on') && typeof value === 'string') {
       events[name] = value;
@@ -173,6 +177,20 @@ function normalizeProps(props, tag) {
   if (Object.keys(attributes).length > 0) out.attributes = attributes;
   if (Object.keys(events).length > 0) out.events = events;
   return out;
+}
+
+function parseStyleText(value) {
+  const style = {};
+  for (const declaration of value.split(';')) {
+    const separator = declaration.indexOf(':');
+    if (separator <= 0) continue;
+    const property = declaration.slice(0, separator).trim();
+    const styleValue = declaration.slice(separator + 1).trim();
+    if (property.length > 0 && styleValue.length > 0) {
+      style[property] = styleValue;
+    }
+  }
+  return style;
 }
 
 function applySemanticAttribute(out, name, value) {

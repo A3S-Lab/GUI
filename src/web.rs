@@ -88,9 +88,7 @@ impl WebProps {
             metadata.insert("className".to_string(), class_name.clone());
         }
         for (key, value) in &self.attributes {
-            if key.starts_with("aria-") || key.starts_with("data-") || is_portable_html_attr(key) {
-                metadata.insert(key.clone(), value.clone());
-            }
+            metadata.insert(key.clone(), value.clone());
         }
         metadata
     }
@@ -108,21 +106,4 @@ mod tests {
 
         assert_eq!(props.primary_action(), Some("primaryPress"));
     }
-}
-
-fn is_portable_html_attr(attribute: &str) -> bool {
-    matches!(
-        attribute,
-        "name"
-            | "title"
-            | "role"
-            | "type"
-            | "alt"
-            | "value"
-            | "placeholder"
-            | "disabled"
-            | "required"
-            | "checked"
-            | "selected"
-    )
 }

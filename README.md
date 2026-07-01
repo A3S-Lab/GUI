@@ -19,9 +19,10 @@ UI IR or the serializable `UiFrame` protocol.
 `a3s-gui` accepts Web-compatible UI data:
 
 - JSX/TSX-shaped element trees
-- semantic component or element names
+- semantic component names and HTML intrinsic element names
 - stable keys for reconciliation
-- `className` and inline `style` values
+- `className`, Tailwind utility classes, inline style objects, and CSS text
+  style strings
 - `aria-*`, `data-*`, and common HTML attributes
 - common HTML state props such as `disabled`, `required`, `checked`, and
   `selected`
@@ -30,6 +31,25 @@ UI IR or the serializable `UiFrame` protocol.
 
 The renderer normalizes those inputs into native roles, control state, metadata,
 portable style tokens, and action bindings.
+
+## Compatibility Scope
+
+The compiler bridge recognizes the HTML element surface exposed by the HTML
+Living Standard, plus common historical tags that appear in existing Web UI.
+Known intrinsic elements are mapped to the closest available native semantic
+role. Elements without a dedicated native role are represented as generic native
+views or text nodes, and the original tag is preserved in metadata under
+`data-a3s-html-tag`.
+
+The style layer accepts inline CSS declarations from style objects and CSS text.
+It also resolves a portable subset of Tailwind utility classes into native style
+tokens, including display, flex direction, alignment, justification, sizing,
+spacing, color, background color, border radius, and opacity. Inline styles are
+applied after class utilities so they keep normal inline-style precedence.
+
+CSS properties and Tailwind classes that do not yet have a portable native token
+remain available as raw `className`, style declarations, metadata, or
+`PortableStyle::unsupported` entries for platform adapters and future mappings.
 
 ## Architecture
 

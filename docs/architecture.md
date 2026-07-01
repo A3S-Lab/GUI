@@ -67,13 +67,14 @@ that emits the same protocol shape.
 
 Allowed data:
 
-- semantic component names
+- semantic component names and HTML intrinsic element names
 - labels, values, placeholders, orientation, disabled state, selected state,
   checked state, expanded state, ranged values
 - list, dialog, popover, tab, menu, and form structure
 - stable keys for reconciliation
-- `className` and inline `style` values as portable style input
-- `aria-*`, `data-*`, and common HTML attributes as metadata
+- `className`, Tailwind utility classes, inline `style` objects, and CSS text
+  style strings as portable style input
+- `aria-*`, `data-*`, and HTML attributes as metadata
 - React-style event prop names such as `onClick` and `onChange` with named
   callback functions, normalized into native actions
 
@@ -106,6 +107,12 @@ without linking platform SDKs. It is an executable specification for native
 adapters: given a `NativeElement`, it records the AppKit, WinUI, or GTK widget
 class, accessibility role, action binding, style tokens, events, and metadata
 that a real backend must apply.
+
+The compiler bridge accepts the HTML element registry exposed by `HTML_ELEMENTS`.
+Each recognized intrinsic tag lowers to the closest native semantic role, and
+the original tag is preserved as `data-a3s-html-tag` metadata. Generic HTML
+containers lower to `NativeRole::View`; unsupported custom elements with a
+hyphenated tag name also lower to a generic native view.
 
 `GuiRuntime` is the public orchestration API. It accepts compiled JSX trees,
 React Aria-compatible semantic trees, or native IR trees and renders them into
@@ -169,6 +176,10 @@ native widget class, native role, accessibility role, label/value/action
 bindings, semantic control state, Web metadata, event bindings, and parsed
 portable style tokens. It is safe to send to a platform process or language
 binding as JSON.
+Portable style parsing applies recognized Tailwind utility classes first and
+inline style declarations second, preserving inline style precedence. Unmapped
+CSS declarations are retained in `PortableStyle::unsupported` and in the raw
+blueprint style map.
 Native bindings can call `blueprint.config()` to derive a `NativeWidgetConfig`
 with setter-oriented values such as `enabled`, `visible`, `placeholder`,
 range bounds, selected/checked state, event action ids, metadata, and portable
@@ -180,8 +191,8 @@ passes, and `HandleWidgetDriver` stores the last config for each handle so
 `NativeWidgetConfig::create_setters()` and `NativeWidgetConfigPatch::setters()`
 produce `NativeWidgetSetter` operations such as `SetLabel`, `SetEnabled`,
 `SetVisible`, `SetPlaceholder`, `SetMinimum`, `SetMaximum`, `SetCurrent`,
-`SetEvents`, and `SetMetadata`. Platform bindings can map those operations to
-the corresponding AppKit, WinUI, or GTK property setters.
+`SetEvents`, `SetPortableStyle`, and `SetMetadata`. Platform bindings can map
+those operations to the corresponding AppKit, WinUI, or GTK property setters.
 The feature-gated handle adapters keep a replayable setter log in their handle
 state, so tests exercise the same create/update flow real native bindings will
 map to OS controls.

@@ -23,6 +23,7 @@ pub mod gtk4;
 #[cfg(all(feature = "gtk4-native", target_os = "linux"))]
 pub mod gtk4_native;
 pub mod host;
+pub mod html;
 pub mod interaction;
 pub mod native;
 #[cfg(any(
@@ -78,6 +79,7 @@ pub use gtk4_native::{
     Gtk4OsWidget,
 };
 pub use host::{HeadlessHost, HostNodeId, HostOperation, NativeHost};
+pub use html::{HTML_ELEMENTS, HTML_TAG_METADATA_KEY};
 pub use interaction::{InteractionChange, InteractionNodeState, InteractionState};
 pub use native::{ElementKey, NativeElement, NativeProps, NativeRole};
 pub use platform::{

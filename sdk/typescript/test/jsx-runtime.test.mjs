@@ -77,6 +77,28 @@ test('button marker creates stable compiled element', () => {
   assert.equal(root.children[0].value, 'Save');
 });
 
+test('intrinsic HTML elements preserve CSS text and Tailwind class names', () => {
+  const root = jsxs('article', {
+    className: 'flex flex-col gap-4 p-2 bg-[#663399]',
+    style: 'min-width: 280px; color: white;',
+    'data-testid': 'article',
+    children: jsxs('button', {
+      type: 'submit',
+      onClick: 'saveArticle',
+      children: 'Save',
+    }, 'save'),
+  }, 'article');
+
+  assert.equal(root.tag, 'article');
+  assert.equal(root.props.className, 'flex flex-col gap-4 p-2 bg-[#663399]');
+  assert.equal(root.props.style['min-width'], '280px');
+  assert.equal(root.props.style.color, 'white');
+  assert.equal(root.props.attributes['data-testid'], 'article');
+  assert.equal(root.children[0].tag, 'button');
+  assert.equal(root.children[0].props.attributes.type, 'submit');
+  assert.equal(root.children[0].props.events.onClick, 'saveArticle');
+});
+
 test('function event props compile to stable action ids', () => {
   const saveProfile = createAction('saveProfile', 'Save profile');
   const root = jsxs(Button, {
