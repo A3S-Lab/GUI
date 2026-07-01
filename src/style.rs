@@ -134,6 +134,10 @@ pub struct PortableStyle {
     pub line_height: Option<StyleLength>,
     pub letter_spacing: Option<StyleLength>,
     pub text_align: Option<TextAlign>,
+    pub direction: Option<TextDirection>,
+    pub unicode_bidi: Option<UnicodeBidi>,
+    pub writing_mode: Option<WritingMode>,
+    pub text_orientation: Option<TextOrientation>,
     pub text_transform: Option<TextTransform>,
     pub text_indent: Option<StyleLength>,
     pub text_wrap: Option<TextWrapMode>,
@@ -715,6 +719,12 @@ impl PortableStyle {
             "line-height" => self.line_height = parse_length(value_ref),
             "letter-spacing" => self.letter_spacing = parse_length(value_ref),
             "text-align" => self.text_align = parse_text_align(value_ref),
+            "direction" => self.direction = parse_text_direction(value_ref),
+            "unicode-bidi" => self.unicode_bidi = parse_unicode_bidi(value_ref),
+            "writing-mode" | "-webkit-writing-mode" => {
+                self.writing_mode = parse_writing_mode(value_ref);
+            }
+            "text-orientation" => self.text_orientation = parse_text_orientation(value_ref),
             "text-transform" => self.text_transform = parse_text_transform(value_ref),
             "text-indent" => self.text_indent = parse_length(value_ref),
             "text-wrap" | "text-wrap-mode" => self.text_wrap = parse_text_wrap(value_ref),
@@ -1456,6 +1466,44 @@ pub enum TextAlign {
     Center,
     End,
     Justify,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextDirection {
+    Ltr,
+    Rtl,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum UnicodeBidi {
+    Normal,
+    Embed,
+    Isolate,
+    BidiOverride,
+    IsolateOverride,
+    Plaintext,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WritingMode {
+    HorizontalTb,
+    VerticalRl,
+    VerticalLr,
+    SidewaysRl,
+    SidewaysLr,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextOrientation {
+    Mixed,
+    Upright,
+    Sideways,
+    SidewaysRight,
+    UseGlyphOrientation,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2351,6 +2399,48 @@ fn parse_text_align(value: &str) -> Option<TextAlign> {
         "center" => Some(TextAlign::Center),
         "right" | "end" => Some(TextAlign::End),
         "justify" => Some(TextAlign::Justify),
+        _ => None,
+    }
+}
+
+fn parse_text_direction(value: &str) -> Option<TextDirection> {
+    match value.trim() {
+        "ltr" => Some(TextDirection::Ltr),
+        "rtl" => Some(TextDirection::Rtl),
+        _ => None,
+    }
+}
+
+fn parse_unicode_bidi(value: &str) -> Option<UnicodeBidi> {
+    match value.trim() {
+        "normal" => Some(UnicodeBidi::Normal),
+        "embed" => Some(UnicodeBidi::Embed),
+        "isolate" => Some(UnicodeBidi::Isolate),
+        "bidi-override" => Some(UnicodeBidi::BidiOverride),
+        "isolate-override" => Some(UnicodeBidi::IsolateOverride),
+        "plaintext" => Some(UnicodeBidi::Plaintext),
+        _ => None,
+    }
+}
+
+fn parse_writing_mode(value: &str) -> Option<WritingMode> {
+    match value.trim() {
+        "horizontal-tb" => Some(WritingMode::HorizontalTb),
+        "vertical-rl" => Some(WritingMode::VerticalRl),
+        "vertical-lr" => Some(WritingMode::VerticalLr),
+        "sideways-rl" => Some(WritingMode::SidewaysRl),
+        "sideways-lr" => Some(WritingMode::SidewaysLr),
+        _ => None,
+    }
+}
+
+fn parse_text_orientation(value: &str) -> Option<TextOrientation> {
+    match value.trim() {
+        "mixed" => Some(TextOrientation::Mixed),
+        "upright" => Some(TextOrientation::Upright),
+        "sideways" => Some(TextOrientation::Sideways),
+        "sideways-right" => Some(TextOrientation::SidewaysRight),
+        "use-glyph-orientation" => Some(TextOrientation::UseGlyphOrientation),
         _ => None,
     }
 }
@@ -7719,6 +7809,10 @@ mod tests {
             .style("fontFamily", "ui-monospace, monospace")
             .style("fontStyle", "italic")
             .style("letterSpacing", "0.025em")
+            .style("direction", "rtl")
+            .style("unicodeBidi", "isolate-override")
+            .style("-webkitWritingMode", "vertical-lr")
+            .style("textOrientation", "upright")
             .style("textTransform", "uppercase")
             .style("textIndent", "2rem")
             .style("textWrap", "balance")
@@ -7744,6 +7838,10 @@ mod tests {
         );
         assert_eq!(style.font_style, Some(FontStyle::Italic));
         assert_eq!(style.letter_spacing, Some(StyleLength::Points(0.4)));
+        assert_eq!(style.direction, Some(TextDirection::Rtl));
+        assert_eq!(style.unicode_bidi, Some(UnicodeBidi::IsolateOverride));
+        assert_eq!(style.writing_mode, Some(WritingMode::VerticalLr));
+        assert_eq!(style.text_orientation, Some(TextOrientation::Upright));
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
         assert_eq!(style.text_indent, Some(StyleLength::Points(32.0)));
         assert_eq!(style.text_wrap, Some(TextWrapMode::Balance));
@@ -7773,6 +7871,7 @@ mod tests {
         assert_eq!(style.hyphens, Some(HyphensMode::Auto));
         assert!(!style.unsupported.contains_key("text-decoration-line"));
         assert!(!style.unsupported.contains_key("white-space"));
+        assert!(!style.unsupported.contains_key("-webkit-writing-mode"));
         assert!(!style.unsupported.contains_key("text-wrap"));
         assert!(!style.unsupported.contains_key("-webkit-line-clamp"));
     }
@@ -7783,8 +7882,12 @@ mod tests {
             "font-mono italic tracking-wide uppercase underline decoration-wavy \
              decoration-[#663399]/50 decoration-2 underline-offset-4 truncate \
              whitespace-pre-wrap break-all hyphens-auto -indent-[2px] text-balance \
+             [direction:rtl] [unicode-bidi:isolate] [writing-mode:vertical-rl] \
+             [text-orientation:upright] \
              line-clamp-3 md:tracking-[0.2em] hover:decoration-[3px] \
-             focus:text-pretty lg:line-clamp-none",
+             focus:text-pretty lg:line-clamp-none ltr:[direction:ltr] \
+             rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
+             hover:[text-orientation:sideways]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -7800,6 +7903,10 @@ mod tests {
             Some("0.025em")
         );
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
+        assert_eq!(style.direction, Some(TextDirection::Rtl));
+        assert_eq!(style.unicode_bidi, Some(UnicodeBidi::Isolate));
+        assert_eq!(style.writing_mode, Some(WritingMode::VerticalRl));
+        assert_eq!(style.text_orientation, Some(TextOrientation::Upright));
         assert_eq!(style.text_indent, Some(StyleLength::Points(-2.0)));
         assert_eq!(style.text_wrap, Some(TextWrapMode::Balance));
         assert_eq!(style.line_clamp.as_deref(), Some("3"));
@@ -7832,6 +7939,22 @@ mod tests {
         assert_eq!(
             style
                 .variant_declarations
+                .get("ltr")
+                .and_then(|styles| styles.get("direction"))
+                .map(String::as_str),
+            Some("ltr")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("rtl")
+                .and_then(|styles| styles.get("unicode-bidi"))
+                .map(String::as_str),
+            Some("plaintext")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
                 .get("md")
                 .and_then(|styles| styles.get("letter-spacing"))
                 .map(String::as_str),
@@ -7840,10 +7963,26 @@ mod tests {
         assert_eq!(
             style
                 .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("writing-mode"))
+                .map(String::as_str),
+            Some("horizontal-tb")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
                 .get("hover")
                 .and_then(|styles| styles.get("text-decoration-thickness"))
                 .map(String::as_str),
             Some("3px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("text-orientation"))
+                .map(String::as_str),
+            Some("sideways")
         );
         assert_eq!(
             style

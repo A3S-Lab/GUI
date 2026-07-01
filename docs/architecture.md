@@ -382,8 +382,9 @@ deterministically:
 - `objectFit`, `objectPosition`, `listStyleType`, `listStylePosition`,
   `columns`, `columnCount`, `columnWidth`
 - `fontFamily`, `fontStyle`, `fontSize`, `fontWeight`, `lineHeight`,
-  `letterSpacing`, `textAlign`, `textTransform`, `textIndent`, `textWrap`,
-  `lineClamp`, `boxOrient`
+  `letterSpacing`, `textAlign`, `direction`, `unicodeBidi`, `writingMode`,
+  `textOrientation`, `textTransform`, `textIndent`, `textWrap`, `lineClamp`,
+  `boxOrient`
 - SVG presentation properties such as `fill`, `fillOpacity`, `fillRule`,
   `clipRule`, `stroke`, `strokeWidth`, `strokeLinecap`, `strokeLinejoin`,
   `strokeMiterlimit`, `strokeDasharray`, `strokeDashoffset`, `strokeOpacity`,
@@ -453,6 +454,8 @@ utilities, `underline-offset-*`, `truncate`, `text-ellipsis`, `text-clip`,
 `indent-*`, `line-clamp-*`, `text-wrap`, `text-nowrap`, `text-balance`,
 `text-pretty`, `whitespace-*`, `break-*`, and `hyphens-*` project into the
 same declaration model.
+CSS writing-mode arbitrary property utilities and `ltr:`/`rtl:` variants are
+stored in the same declaration model.
 Common Tailwind background, object, list, and columns utilities such as `bg-*`,
 `object-*`, `list-*`, and `columns-*` project into the same declaration model.
 Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,

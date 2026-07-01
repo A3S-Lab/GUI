@@ -53,7 +53,8 @@ text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip path, CSS mask, CSS mask border, object fit/position,
 list style, columns, font size, font weight, font family, font style, line
-height, letter spacing, text alignment, text transform, text indent, text
+height, letter spacing, text alignment, text direction, Unicode bidi, writing
+mode, text orientation, text transform, text indent, text
 wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
 text overflow, whitespace, word breaking, hyphen handling, overflow, opacity,
 aspect ratio, box shadow,
@@ -100,7 +101,9 @@ Typography utilities such as `font-*`, `italic`, `not-italic`, `tracking-*`,
 text transform utilities, text decoration utilities, `underline-offset-*`,
 `indent-*`, `line-clamp-*`, `text-wrap`, `text-nowrap`, `text-balance`,
 `text-pretty`, `truncate`, `text-ellipsis`, `text-clip`, `whitespace-*`,
-`break-*`, and `hyphens-*` are projected into portable style tokens.
+`break-*`, and `hyphens-*` are projected into portable style tokens. Arbitrary
+property utilities for CSS writing modes and `ltr:`/`rtl:` variants are
+preserved in the same declaration model.
 Background, object, list, and columns utilities such as `bg-*`, `object-*`,
 `list-*`, and `columns-*` are projected into portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,

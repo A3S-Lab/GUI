@@ -104,8 +104,8 @@ pub use style::{
     LogicalEdgeColors, LogicalEdgeInsets, ObjectFit, OverflowMode, OverflowWrapMode,
     OverscrollBehavior, PointerEvents, PortableStyle, PositionMode, ResizeMode, ScrollBehavior,
     SelfAlignment, StrokeLineCap, StrokeLineJoin, StyleColor, StyleLength, StyleTime, TableLayout,
-    TextAlign, TextDecorationStyle, TextOverflow, TextTransform, TextWrapMode, UserSelect,
-    VisibilityMode, WhiteSpaceMode, WordBreakMode,
+    TextAlign, TextDecorationStyle, TextDirection, TextOrientation, TextOverflow, TextTransform,
+    TextWrapMode, UnicodeBidi, UserSelect, VisibilityMode, WhiteSpaceMode, WordBreakMode,
 };
 pub use svg::{SVG_ELEMENTS, SVG_TAG_METADATA_KEY};
 pub use web::WebProps;
