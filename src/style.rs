@@ -66,10 +66,24 @@ pub struct PortableStyle {
     pub color: Option<StyleColor>,
     pub background_color: Option<StyleColor>,
     pub border_radius: Option<StyleLength>,
+    pub font_family: Option<String>,
+    pub font_style: Option<FontStyle>,
     pub font_size: Option<StyleLength>,
     pub font_weight: Option<FontWeight>,
     pub line_height: Option<StyleLength>,
+    pub letter_spacing: Option<StyleLength>,
     pub text_align: Option<TextAlign>,
+    pub text_transform: Option<TextTransform>,
+    pub text_decoration_line: Option<String>,
+    pub text_decoration_color: Option<StyleColor>,
+    pub text_decoration_style: Option<TextDecorationStyle>,
+    pub text_decoration_thickness: Option<StyleLength>,
+    pub text_underline_offset: Option<StyleLength>,
+    pub text_overflow: Option<TextOverflow>,
+    pub white_space: Option<WhiteSpaceMode>,
+    pub word_break: Option<WordBreakMode>,
+    pub overflow_wrap: Option<OverflowWrapMode>,
+    pub hyphens: Option<HyphensMode>,
     pub overflow_x: Option<OverflowMode>,
     pub overflow_y: Option<OverflowMode>,
     pub visibility: Option<VisibilityMode>,
@@ -197,10 +211,27 @@ impl PortableStyle {
             "color" => self.color = parse_color(value_ref),
             "background" | "background-color" => self.background_color = parse_color(value_ref),
             "border-radius" => self.border_radius = parse_length(value_ref),
+            "font-family" => self.font_family = parse_css_string_token(value_ref),
+            "font-style" => self.font_style = parse_font_style(value_ref),
             "font-size" => self.font_size = parse_length(value_ref),
             "font-weight" => self.font_weight = parse_font_weight(value_ref),
             "line-height" => self.line_height = parse_length(value_ref),
+            "letter-spacing" => self.letter_spacing = parse_length(value_ref),
             "text-align" => self.text_align = parse_text_align(value_ref),
+            "text-transform" => self.text_transform = parse_text_transform(value_ref),
+            "text-decoration" => self.apply_text_decoration_shorthand(value_ref),
+            "text-decoration-line" => self.text_decoration_line = parse_css_string_token(value_ref),
+            "text-decoration-color" => self.text_decoration_color = parse_color(value_ref),
+            "text-decoration-style" => {
+                self.text_decoration_style = parse_text_decoration_style(value_ref);
+            }
+            "text-decoration-thickness" => self.text_decoration_thickness = parse_length(value_ref),
+            "text-underline-offset" => self.text_underline_offset = parse_length(value_ref),
+            "text-overflow" => self.text_overflow = parse_text_overflow(value_ref),
+            "white-space" => self.white_space = parse_white_space(value_ref),
+            "word-break" => self.word_break = parse_word_break(value_ref),
+            "overflow-wrap" => self.overflow_wrap = parse_overflow_wrap(value_ref),
+            "hyphens" => self.hyphens = parse_hyphens(value_ref),
             "overflow" => {
                 let overflow = parse_overflow(value_ref);
                 self.overflow_x = overflow;
@@ -261,6 +292,20 @@ impl PortableStyle {
                 self.outline_style = Some(style);
             } else if let Some(color) = parse_color(part) {
                 self.outline_color = Some(color);
+            }
+        }
+    }
+
+    fn apply_text_decoration_shorthand(&mut self, value: &str) {
+        for part in value.split_whitespace() {
+            if let Some(style) = parse_text_decoration_style(part) {
+                self.text_decoration_style = Some(style);
+            } else if let Some(thickness) = parse_length(part) {
+                self.text_decoration_thickness = Some(thickness);
+            } else if parse_text_decoration_line(part).is_some() {
+                self.text_decoration_line = Some(part.to_string());
+            } else if let Some(color) = parse_color(part) {
+                self.text_decoration_color = Some(color);
             }
         }
     }
@@ -459,6 +504,14 @@ pub enum BorderStyle {
     Outset,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FontStyle {
+    Normal,
+    Italic,
+    Oblique,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "camelCase")]
 pub enum FontWeight {
@@ -473,6 +526,68 @@ pub enum TextAlign {
     Center,
     End,
     Justify,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextTransform {
+    None,
+    Uppercase,
+    Lowercase,
+    Capitalize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextDecorationStyle {
+    Solid,
+    Double,
+    Dotted,
+    Dashed,
+    Wavy,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextOverflow {
+    Clip,
+    Ellipsis,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WhiteSpaceMode {
+    Normal,
+    NoWrap,
+    Pre,
+    PreLine,
+    PreWrap,
+    BreakSpaces,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WordBreakMode {
+    Normal,
+    BreakAll,
+    KeepAll,
+    BreakWord,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OverflowWrapMode {
+    Normal,
+    BreakWord,
+    Anywhere,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HyphensMode {
+    None,
+    Manual,
+    Auto,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -724,6 +839,15 @@ fn parse_border_style(value: &str) -> Option<BorderStyle> {
     }
 }
 
+fn parse_font_style(value: &str) -> Option<FontStyle> {
+    match value.trim() {
+        "normal" => Some(FontStyle::Normal),
+        "italic" => Some(FontStyle::Italic),
+        "oblique" => Some(FontStyle::Oblique),
+        _ => None,
+    }
+}
+
 fn parse_font_weight(value: &str) -> Option<FontWeight> {
     let value = value.trim();
     if let Ok(number) = value.parse::<u16>() {
@@ -745,6 +869,82 @@ fn parse_text_align(value: &str) -> Option<TextAlign> {
         "center" => Some(TextAlign::Center),
         "right" | "end" => Some(TextAlign::End),
         "justify" => Some(TextAlign::Justify),
+        _ => None,
+    }
+}
+
+fn parse_text_transform(value: &str) -> Option<TextTransform> {
+    match value.trim() {
+        "none" => Some(TextTransform::None),
+        "uppercase" => Some(TextTransform::Uppercase),
+        "lowercase" => Some(TextTransform::Lowercase),
+        "capitalize" => Some(TextTransform::Capitalize),
+        _ => None,
+    }
+}
+
+fn parse_text_decoration_line(value: &str) -> Option<&str> {
+    match value.trim() {
+        "none" | "underline" | "overline" | "line-through" | "blink" => Some(value.trim()),
+        _ => None,
+    }
+}
+
+fn parse_text_decoration_style(value: &str) -> Option<TextDecorationStyle> {
+    match value.trim() {
+        "solid" => Some(TextDecorationStyle::Solid),
+        "double" => Some(TextDecorationStyle::Double),
+        "dotted" => Some(TextDecorationStyle::Dotted),
+        "dashed" => Some(TextDecorationStyle::Dashed),
+        "wavy" => Some(TextDecorationStyle::Wavy),
+        _ => None,
+    }
+}
+
+fn parse_text_overflow(value: &str) -> Option<TextOverflow> {
+    match value.trim() {
+        "clip" => Some(TextOverflow::Clip),
+        "ellipsis" => Some(TextOverflow::Ellipsis),
+        _ => None,
+    }
+}
+
+fn parse_white_space(value: &str) -> Option<WhiteSpaceMode> {
+    match value.trim() {
+        "normal" => Some(WhiteSpaceMode::Normal),
+        "nowrap" => Some(WhiteSpaceMode::NoWrap),
+        "pre" => Some(WhiteSpaceMode::Pre),
+        "pre-line" => Some(WhiteSpaceMode::PreLine),
+        "pre-wrap" => Some(WhiteSpaceMode::PreWrap),
+        "break-spaces" => Some(WhiteSpaceMode::BreakSpaces),
+        _ => None,
+    }
+}
+
+fn parse_word_break(value: &str) -> Option<WordBreakMode> {
+    match value.trim() {
+        "normal" => Some(WordBreakMode::Normal),
+        "break-all" => Some(WordBreakMode::BreakAll),
+        "keep-all" => Some(WordBreakMode::KeepAll),
+        "break-word" => Some(WordBreakMode::BreakWord),
+        _ => None,
+    }
+}
+
+fn parse_overflow_wrap(value: &str) -> Option<OverflowWrapMode> {
+    match value.trim() {
+        "normal" => Some(OverflowWrapMode::Normal),
+        "break-word" => Some(OverflowWrapMode::BreakWord),
+        "anywhere" => Some(OverflowWrapMode::Anywhere),
+        _ => None,
+    }
+}
+
+fn parse_hyphens(value: &str) -> Option<HyphensMode> {
+    match value.trim() {
+        "none" => Some(HyphensMode::None),
+        "manual" => Some(HyphensMode::Manual),
+        "auto" => Some(HyphensMode::Auto),
         _ => None,
     }
 }
@@ -880,6 +1080,8 @@ fn is_css_length_expression(value: &str) -> bool {
             | "unset"
             | "revert"
             | "revert-layer"
+            | "normal"
+            | "from-font"
             | "min-content"
             | "max-content"
             | "fit-content"
@@ -1193,6 +1395,17 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         }
         return declarations;
     }
+    if class == "truncate" {
+        declarations.insert("overflow".to_string(), "hidden".to_string());
+        declarations.insert("text-overflow".to_string(), "ellipsis".to_string());
+        declarations.insert("white-space".to_string(), "nowrap".to_string());
+        return declarations;
+    }
+    if class == "break-normal" {
+        declarations.insert("overflow-wrap".to_string(), "normal".to_string());
+        declarations.insert("word-break".to_string(), "normal".to_string());
+        return declarations;
+    }
     let declaration = match class {
         "inline" => Some(("display", "inline".to_string())),
         "flex" | "inline-flex" => Some(("display", "flex".to_string())),
@@ -1309,12 +1522,50 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         "font-bold" => Some(("font-weight", "700".to_string())),
         "font-extrabold" => Some(("font-weight", "800".to_string())),
         "font-black" => Some(("font-weight", "900".to_string())),
+        "font-sans" => Some((
+            "font-family",
+            "ui-sans-serif, system-ui, sans-serif".to_string(),
+        )),
+        "font-serif" => Some(("font-family", "ui-serif, Georgia, serif".to_string())),
+        "font-mono" => Some(("font-family", "ui-monospace, monospace".to_string())),
+        "italic" => Some(("font-style", "italic".to_string())),
+        "not-italic" => Some(("font-style", "normal".to_string())),
         "text-left" => Some(("text-align", "left".to_string())),
         "text-center" => Some(("text-align", "center".to_string())),
         "text-right" => Some(("text-align", "right".to_string())),
         "text-justify" => Some(("text-align", "justify".to_string())),
         "text-start" => Some(("text-align", "start".to_string())),
         "text-end" => Some(("text-align", "end".to_string())),
+        "uppercase" => Some(("text-transform", "uppercase".to_string())),
+        "lowercase" => Some(("text-transform", "lowercase".to_string())),
+        "capitalize" => Some(("text-transform", "capitalize".to_string())),
+        "normal-case" => Some(("text-transform", "none".to_string())),
+        "underline" => Some(("text-decoration-line", "underline".to_string())),
+        "overline" => Some(("text-decoration-line", "overline".to_string())),
+        "line-through" => Some(("text-decoration-line", "line-through".to_string())),
+        "no-underline" => Some(("text-decoration-line", "none".to_string())),
+        "decoration-solid" => Some(("text-decoration-style", "solid".to_string())),
+        "decoration-double" => Some(("text-decoration-style", "double".to_string())),
+        "decoration-dotted" => Some(("text-decoration-style", "dotted".to_string())),
+        "decoration-dashed" => Some(("text-decoration-style", "dashed".to_string())),
+        "decoration-wavy" => Some(("text-decoration-style", "wavy".to_string())),
+        "decoration-auto" => Some(("text-decoration-thickness", "auto".to_string())),
+        "decoration-from-font" => Some(("text-decoration-thickness", "from-font".to_string())),
+        "underline-offset-auto" => Some(("text-underline-offset", "auto".to_string())),
+        "text-ellipsis" => Some(("text-overflow", "ellipsis".to_string())),
+        "text-clip" => Some(("text-overflow", "clip".to_string())),
+        "whitespace-normal" => Some(("white-space", "normal".to_string())),
+        "whitespace-nowrap" => Some(("white-space", "nowrap".to_string())),
+        "whitespace-pre" => Some(("white-space", "pre".to_string())),
+        "whitespace-pre-line" => Some(("white-space", "pre-line".to_string())),
+        "whitespace-pre-wrap" => Some(("white-space", "pre-wrap".to_string())),
+        "whitespace-break-spaces" => Some(("white-space", "break-spaces".to_string())),
+        "break-words" => Some(("overflow-wrap", "break-word".to_string())),
+        "break-all" => Some(("word-break", "break-all".to_string())),
+        "break-keep" => Some(("word-break", "keep-all".to_string())),
+        "hyphens-none" => Some(("hyphens", "none".to_string())),
+        "hyphens-manual" => Some(("hyphens", "manual".to_string())),
+        "hyphens-auto" => Some(("hyphens", "auto".to_string())),
         "border" => Some(("border-width", "1px".to_string())),
         "border-solid" => Some(("border-style", "solid".to_string())),
         "border-dashed" => Some(("border-style", "dashed".to_string())),
@@ -1460,6 +1711,17 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
         Some(("background-color".to_string(), value))
     } else if let Some(value) = class.strip_prefix("border-").and_then(tailwind_color_css) {
         Some(("border-color".to_string(), value))
+    } else if let Some(value) = class.strip_prefix("font-").and_then(tailwind_font_family) {
+        Some(("font-family".to_string(), value))
+    } else if let Some(value) = tailwind_letter_spacing(class) {
+        Some(("letter-spacing".to_string(), value))
+    } else if let Some((property, value)) = tailwind_decoration_declaration(class) {
+        Some((property, value))
+    } else if let Some(value) = class
+        .strip_prefix("underline-offset-")
+        .and_then(tailwind_underline_offset)
+    {
+        Some(("text-underline-offset".to_string(), value))
     } else if let Some(value) = class
         .strip_prefix("leading-")
         .and_then(tailwind_line_height)
@@ -1544,6 +1806,55 @@ fn tailwind_container_width(value: &str) -> Option<&'static str> {
         "7xl" => Some("80rem"),
         _ => None,
     }
+}
+
+fn tailwind_font_family(value: &str) -> Option<String> {
+    tailwind_arbitrary_or_custom_var(value)
+}
+
+fn tailwind_letter_spacing(class: &str) -> Option<String> {
+    let negative = class.starts_with("-tracking-");
+    let value = if negative {
+        class.strip_prefix("-tracking-")?
+    } else {
+        class.strip_prefix("tracking-")?
+    };
+    let value = match value {
+        "tighter" => "-0.05em".to_string(),
+        "tight" => "-0.025em".to_string(),
+        "normal" => "0em".to_string(),
+        "wide" => "0.025em".to_string(),
+        "wider" => "0.05em".to_string(),
+        "widest" => "0.1em".to_string(),
+        _ => tailwind_arbitrary_or_custom_var(value)
+            .or_else(|| parse_length(value).map(style_length_css))?,
+    };
+    Some(if negative {
+        format!("calc({value} * -1)")
+    } else {
+        value
+    })
+}
+
+fn tailwind_decoration_declaration(class: &str) -> Option<(String, String)> {
+    let value = class.strip_prefix("decoration-")?;
+    if let Some(value) = tailwind_decoration_thickness(value) {
+        return Some(("text-decoration-thickness".to_string(), value));
+    }
+    tailwind_color_css(value).map(|value| ("text-decoration-color".to_string(), value))
+}
+
+fn tailwind_decoration_thickness(value: &str) -> Option<String> {
+    match value {
+        "auto" => Some("auto".to_string()),
+        "from-font" => Some("from-font".to_string()),
+        _ => tailwind_border_width(value).map(style_length_css),
+    }
+}
+
+fn tailwind_underline_offset(value: &str) -> Option<String> {
+    tailwind_arbitrary_or_custom_var(value)
+        .or_else(|| tailwind_border_width(value).map(style_length_css))
 }
 
 fn tailwind_visual_effect_declaration(class: &str) -> Option<(String, String)> {
@@ -2808,6 +3119,120 @@ mod tests {
                 .and_then(|styles| styles.get("order"))
                 .map(String::as_str),
             Some("7")
+        );
+    }
+
+    #[test]
+    fn parses_css_typography_text_properties_into_portable_tokens() {
+        let web = WebProps::new()
+            .style("fontFamily", "ui-monospace, monospace")
+            .style("fontStyle", "italic")
+            .style("letterSpacing", "0.025em")
+            .style("textTransform", "uppercase")
+            .style("textDecorationLine", "underline")
+            .style("textDecorationColor", "#663399")
+            .style("textDecorationStyle", "wavy")
+            .style("textDecorationThickness", "from-font")
+            .style("textUnderlineOffset", "4px")
+            .style("textOverflow", "ellipsis")
+            .style("whiteSpace", "nowrap")
+            .style("wordBreak", "keep-all")
+            .style("overflowWrap", "anywhere")
+            .style("hyphens", "auto");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.font_family.as_deref(),
+            Some("ui-monospace, monospace")
+        );
+        assert_eq!(style.font_style, Some(FontStyle::Italic));
+        assert_eq!(style.letter_spacing, Some(StyleLength::Points(0.4)));
+        assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
+        assert_eq!(style.text_decoration_line.as_deref(), Some("underline"));
+        assert_eq!(
+            style.text_decoration_color,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.text_decoration_style, Some(TextDecorationStyle::Wavy));
+        assert_eq!(
+            style.text_decoration_thickness,
+            Some(StyleLength::Css("from-font".to_string()))
+        );
+        assert_eq!(style.text_underline_offset, Some(StyleLength::Points(4.0)));
+        assert_eq!(style.text_overflow, Some(TextOverflow::Ellipsis));
+        assert_eq!(style.white_space, Some(WhiteSpaceMode::NoWrap));
+        assert_eq!(style.word_break, Some(WordBreakMode::KeepAll));
+        assert_eq!(style.overflow_wrap, Some(OverflowWrapMode::Anywhere));
+        assert_eq!(style.hyphens, Some(HyphensMode::Auto));
+        assert!(!style.unsupported.contains_key("text-decoration-line"));
+        assert!(!style.unsupported.contains_key("white-space"));
+    }
+
+    #[test]
+    fn parses_tailwind_typography_text_utilities() {
+        let web = WebProps::new().class_name(
+            "font-mono italic tracking-wide uppercase underline decoration-wavy \
+             decoration-[#663399]/50 decoration-2 underline-offset-4 truncate \
+             whitespace-pre-wrap break-all hyphens-auto \
+             md:tracking-[0.2em] hover:decoration-[3px]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.font_family.as_deref(),
+            Some("ui-monospace, monospace")
+        );
+        assert_eq!(style.font_style, Some(FontStyle::Italic));
+        assert_eq!(style.letter_spacing, Some(StyleLength::Points(0.4)));
+        assert_eq!(
+            style.declarations.get("letter-spacing").map(String::as_str),
+            Some("0.025em")
+        );
+        assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
+        assert_eq!(style.text_decoration_line.as_deref(), Some("underline"));
+        assert_eq!(style.text_decoration_style, Some(TextDecorationStyle::Wavy));
+        assert_eq!(
+            style.text_decoration_color,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 128,
+            })
+        );
+        assert_eq!(
+            style.text_decoration_thickness,
+            Some(StyleLength::Points(2.0))
+        );
+        assert_eq!(style.text_underline_offset, Some(StyleLength::Points(4.0)));
+        assert_eq!(style.text_overflow, Some(TextOverflow::Ellipsis));
+        assert_eq!(style.overflow_x, Some(OverflowMode::Hidden));
+        assert_eq!(style.overflow_y, Some(OverflowMode::Hidden));
+        assert_eq!(style.white_space, Some(WhiteSpaceMode::PreWrap));
+        assert_eq!(style.word_break, Some(WordBreakMode::BreakAll));
+        assert_eq!(style.hyphens, Some(HyphensMode::Auto));
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("letter-spacing"))
+                .map(String::as_str),
+            Some("0.2em")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("text-decoration-thickness"))
+                .map(String::as_str),
+            Some("3px")
         );
     }
 

@@ -362,8 +362,11 @@ deterministically:
 - `width`, `height`, min/max sizes
 - `gap`, `rowGap`, `columnGap`, `padding*`, `margin*`
 - `border`, `borderWidth`, `borderStyle`, `borderColor`, `borderRadius`
-- `color`, `backgroundColor`, `fontSize`, `fontWeight`, `lineHeight`,
-  `textAlign`
+- `color`, `backgroundColor`, `fontFamily`, `fontStyle`, `fontSize`,
+  `fontWeight`, `lineHeight`, `letterSpacing`, `textAlign`, `textTransform`
+- `textDecorationLine`, `textDecorationColor`, `textDecorationStyle`,
+  `textDecorationThickness`, `textUnderlineOffset`, `textOverflow`,
+  `whiteSpace`, `wordBreak`, `overflowWrap`, `hyphens`
 - `overflow`, `overflowX`, `overflowY`
 - `aspectRatio`, `boxShadow`, `outline*`, `transform`, `filter`,
   `backdropFilter`
@@ -392,3 +395,8 @@ Common Tailwind Flexbox item and box-alignment utilities such as `flex-*`,
 `basis-*`, `grow-*`, `shrink-*`, `order-*`, `content-*`, `self-*`,
 `justify-items-*`, `justify-self-*`, and `place-*` project into the same
 declaration model.
+Common Tailwind typography and text utilities such as `font-*`, `italic`,
+`not-italic`, `tracking-*`, text transform utilities, text decoration
+utilities, `underline-offset-*`, `truncate`, `text-ellipsis`, `text-clip`,
+`whitespace-*`, `break-*`, and `hyphens-*` project into the same declaration
+model.
