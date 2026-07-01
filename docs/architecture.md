@@ -371,9 +371,10 @@ deterministically:
 - `grid`, `gridTemplate*`, `gridAutoColumns`, `gridAutoRows`, `gridAutoFlow`,
   `gridColumn*`, `gridRow*`, `gridArea`
 - `contain`, `container*`, `contentVisibility`, and `containIntrinsic*`
-- `width`, `height`, min/max sizes
-- `gap`, `rowGap`, `columnGap`, physical and logical `padding*`,
-  `margin*`
+- `width`, `height`, `inlineSize`, `blockSize`, and physical/logical min/max
+  sizes
+- `gap`, `rowGap`, `columnGap`, physical and logical `padding*`, `margin*`,
+  and Tailwind `space*` child-spacing metadata
 - `border`, physical and logical `borderWidth`, `borderStyle`,
   `borderColor`, uniform, physical-corner, and logical-corner `borderRadius`
 - `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
@@ -454,6 +455,9 @@ Common Tailwind Flexbox item and box-alignment utilities such as `flex-*`,
 `basis-*`, `grow-*`, `shrink-*`, `order-*`, `content-*`, `self-*`,
 `justify-items-*`, `justify-self-*`, and `place-*` project into the same
 declaration model.
+Common Tailwind sizing and child-spacing utilities such as `size-*`,
+`space-x-*`, `space-y-*`, `space-x-reverse`, and `space-y-reverse` project
+into the same declaration model.
 Common Tailwind typography and text utilities such as `font-*`, `italic`,
 `not-italic`, `tracking-*`, `font-stretch-*`, `font-features-*`, font variant
 numeric utilities, `tab-*`, text transform utilities, text decoration

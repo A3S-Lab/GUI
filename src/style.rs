@@ -36,6 +36,12 @@ pub struct PortableStyle {
     pub min_height: Option<StyleLength>,
     pub max_width: Option<StyleLength>,
     pub max_height: Option<StyleLength>,
+    pub inline_size: Option<StyleLength>,
+    pub block_size: Option<StyleLength>,
+    pub min_inline_size: Option<StyleLength>,
+    pub min_block_size: Option<StyleLength>,
+    pub max_inline_size: Option<StyleLength>,
+    pub max_block_size: Option<StyleLength>,
     pub gap: Option<StyleLength>,
     pub row_gap: Option<StyleLength>,
     pub column_gap: Option<StyleLength>,
@@ -69,6 +75,10 @@ pub struct PortableStyle {
     pub margin: EdgeInsets,
     pub scroll_margin: EdgeInsets,
     pub scroll_padding: EdgeInsets,
+    pub space_x: Option<StyleLength>,
+    pub space_y: Option<StyleLength>,
+    pub space_x_reverse: Option<String>,
+    pub space_y_reverse: Option<String>,
     pub logical_inset: LogicalEdgeInsets,
     pub logical_padding: LogicalEdgeInsets,
     pub logical_margin: LogicalEdgeInsets,
@@ -339,6 +349,12 @@ impl PortableStyle {
             "min-height" => self.min_height = parse_length(value_ref),
             "max-width" => self.max_width = parse_length(value_ref),
             "max-height" => self.max_height = parse_length(value_ref),
+            "inline-size" => self.inline_size = parse_length(value_ref),
+            "block-size" => self.block_size = parse_length(value_ref),
+            "min-inline-size" => self.min_inline_size = parse_length(value_ref),
+            "min-block-size" => self.min_block_size = parse_length(value_ref),
+            "max-inline-size" => self.max_inline_size = parse_length(value_ref),
+            "max-block-size" => self.max_block_size = parse_length(value_ref),
             "gap" => self.gap = parse_length(value_ref),
             "row-gap" => self.row_gap = parse_length(value_ref),
             "column-gap" => self.column_gap = parse_length(value_ref),
@@ -468,6 +484,8 @@ impl PortableStyle {
             "margin-right" => self.margin.right = parse_length(value_ref),
             "margin-bottom" => self.margin.bottom = parse_length(value_ref),
             "margin-left" => self.margin.left = parse_length(value_ref),
+            "space-x" => self.space_x = parse_length(value_ref),
+            "space-y" => self.space_y = parse_length(value_ref),
             "scroll-margin" => self.scroll_margin = parse_edge_insets(value_ref),
             "scroll-margin-block" => {
                 self.scroll_margin
@@ -1143,6 +1161,12 @@ impl PortableStyle {
             "--tw-divide-y-reverse" => {
                 self.divide_y_reverse = parse_non_empty_css_string(value);
             }
+            "--tw-space-x-reverse" => {
+                self.space_x_reverse = parse_non_empty_css_string(value);
+            }
+            "--tw-space-y-reverse" => {
+                self.space_y_reverse = parse_non_empty_css_string(value);
+            }
             "--tw-ordinal"
             | "--tw-slashed-zero"
             | "--tw-numeric-figure"
@@ -1478,6 +1502,9 @@ impl PortableStyle {
         if let Some(value) = class.strip_prefix("w-").and_then(tailwind_length) {
             self.width = Some(value);
         } else if let Some(value) = class.strip_prefix("h-").and_then(tailwind_length) {
+            self.height = Some(value);
+        } else if let Some(value) = class.strip_prefix("size-").and_then(tailwind_length) {
+            self.width = Some(value.clone());
             self.height = Some(value);
         } else if let Some(value) = class.strip_prefix("min-w-").and_then(tailwind_length) {
             self.min_width = Some(value);
@@ -3662,6 +3689,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.extend(formatting);
         return declarations;
     }
+    if let Some(space) = tailwind_space_declarations(class) {
+        declarations.extend(space);
+        return declarations;
+    }
     if let Some(divide) = tailwind_divide_declarations(class) {
         declarations.extend(divide);
         return declarations;
@@ -4036,6 +4067,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.extend(border_color);
         return declarations;
     }
+    if let Some(size) = tailwind_size_declarations(class) {
+        declarations.extend(size);
+        return declarations;
+    }
     if let Some((property, value)) = tailwind_prefixed_declaration(class) {
         declarations.insert(property, value);
     } else if let Some((edges, value)) = tailwind_edge_utility(class, "p") {
@@ -4120,6 +4155,15 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
     } else {
         None
     }
+}
+
+fn tailwind_size_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let value = class.strip_prefix("size-").and_then(tailwind_length)?;
+    let value = style_length_css(value);
+    let mut declarations = BTreeMap::new();
+    declarations.insert("width".to_string(), value.clone());
+    declarations.insert("height".to_string(), value);
+    Some(declarations)
 }
 
 fn tailwind_svg_presentation_declarations(class: &str) -> Option<BTreeMap<String, String>> {
@@ -4326,6 +4370,39 @@ fn tailwind_formatting_declarations(class: &str) -> Option<BTreeMap<String, Stri
         return Some(declarations);
     }
     None
+}
+
+fn tailwind_space_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    match class {
+        "space-x-reverse" => {
+            declarations.insert("--tw-space-x-reverse".to_string(), "1".to_string());
+            return Some(declarations);
+        }
+        "space-y-reverse" => {
+            declarations.insert("--tw-space-y-reverse".to_string(), "1".to_string());
+            return Some(declarations);
+        }
+        _ => {}
+    }
+    let (axis, value) = if let Some(value) = class.strip_prefix("space-x-") {
+        ("x", value)
+    } else if let Some(value) = class.strip_prefix("space-y-") {
+        ("y", value)
+    } else if let Some(value) = class.strip_prefix("-space-x-") {
+        ("x", value)
+    } else if let Some(value) = class.strip_prefix("-space-y-") {
+        ("y", value)
+    } else {
+        return None;
+    };
+    let mut length = tailwind_length(value)?;
+    if class.starts_with("-space-") {
+        length = negate_style_length(length)?;
+    }
+    declarations.insert(format!("--tw-space-{axis}-reverse"), "0".to_string());
+    declarations.insert(format!("space-{axis}"), style_length_css(length));
+    Some(declarations)
 }
 
 fn tailwind_divide_declarations(class: &str) -> Option<BTreeMap<String, String>> {
@@ -7609,6 +7686,40 @@ mod tests {
     }
 
     #[test]
+    fn parses_css_logical_size_properties_into_portable_tokens() {
+        let web = WebProps::new()
+            .style("inlineSize", "min-content")
+            .style("blockSize", "calc(100% - 2rem)")
+            .style("minInlineSize", "12rem")
+            .style("minBlockSize", "10px")
+            .style("maxInlineSize", "80vw")
+            .style("maxBlockSize", "clamp(10rem, 50vh, 40rem)");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.inline_size,
+            Some(StyleLength::Css("min-content".to_string()))
+        );
+        assert_eq!(
+            style.block_size,
+            Some(StyleLength::Css("calc(100% - 2rem)".to_string()))
+        );
+        assert_eq!(style.min_inline_size, Some(StyleLength::Points(192.0)));
+        assert_eq!(style.min_block_size, Some(StyleLength::Points(10.0)));
+        assert_eq!(
+            style.max_inline_size,
+            Some(StyleLength::Css("80vw".to_string()))
+        );
+        assert_eq!(
+            style.max_block_size,
+            Some(StyleLength::Css("clamp(10rem, 50vh, 40rem)".to_string()))
+        );
+        assert!(!style.unsupported.contains_key("inline-size"));
+        assert!(!style.unsupported.contains_key("max-block-size"));
+    }
+
+    #[test]
     fn parses_tailwind_logical_spacing_and_inset_utilities() {
         let web = WebProps::new().class_name(
             "start-4 end-[2rem] inset-bs-1 inset-be-(--footer) \
@@ -7843,6 +7954,63 @@ mod tests {
                 .and_then(|styles| styles.get("border-bottom-left-radius"))
                 .map(String::as_str),
             Some("calc(1rem + 2px)")
+        );
+    }
+
+    #[test]
+    fn parses_tailwind_size_and_child_spacing_utilities() {
+        let web = WebProps::new().class_name(
+            "size-10 space-x-4 -space-y-[2px] space-y-reverse \
+             md:size-[calc(100%_-_2rem)] hover:space-x-(--cluster-gap)",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.width, Some(StyleLength::Points(40.0)));
+        assert_eq!(style.height, Some(StyleLength::Points(40.0)));
+        assert_eq!(style.space_x, Some(StyleLength::Points(16.0)));
+        assert_eq!(style.space_y, Some(StyleLength::Points(-2.0)));
+        assert_eq!(style.space_x_reverse.as_deref(), Some("0"));
+        assert_eq!(style.space_y_reverse.as_deref(), Some("1"));
+        assert_eq!(
+            style.declarations.get("width").map(String::as_str),
+            Some("40px")
+        );
+        assert_eq!(
+            style.declarations.get("height").map(String::as_str),
+            Some("40px")
+        );
+        assert_eq!(
+            style.declarations.get("space-x").map(String::as_str),
+            Some("16px")
+        );
+        assert_eq!(
+            style.declarations.get("space-y").map(String::as_str),
+            Some("-2px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("width"))
+                .map(String::as_str),
+            Some("calc(100% - 2rem)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("height"))
+                .map(String::as_str),
+            Some("calc(100% - 2rem)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("space-x"))
+                .map(String::as_str),
+            Some("var(--cluster-gap)")
         );
     }
 

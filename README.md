@@ -45,9 +45,9 @@ logical inset, z-index, visibility, box sizing, box decoration break,
 isolation, mix blend mode, float, clear, vertical alignment, table layout, border
 collapse/spacing, caption side, flex direction/wrap/item
 sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
-shorthand/templates/auto tracks/auto flow/placement, sizing,
-gap/row-gap/column-gap, CSS containment and container query metadata, physical
-and logical spacing, uniform, physical-edge, and logical-edge border
+shorthand/templates/auto tracks/auto flow/placement, physical and logical
+sizing, gap/row-gap/column-gap, CSS containment and container query metadata,
+physical, logical, and child spacing, uniform, physical-edge, and logical-edge border
 width/style/color, uniform, physical-corner, and logical-corner border radius,
 text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
@@ -101,6 +101,9 @@ CSS Grid utilities such as `grid-cols-*`, `grid-rows-*`, `auto-cols-*`,
 portable style tokens. Flex item and box-alignment utilities such as `flex-*`,
 `basis-*`, `grow-*`, `shrink-*`, `order-*`, `content-*`, `self-*`,
 `justify-items-*`, `justify-self-*`, and `place-*` are projected as well.
+Sizing and child-spacing utilities such as `size-*`, `space-x-*`,
+`space-y-*`, `space-x-reverse`, and `space-y-reverse` are projected into
+portable layout tokens.
 Typography utilities such as `font-*`, `italic`, `not-italic`, `tracking-*`,
 `font-stretch-*`, `font-features-*`, font variant numeric utilities,
 `tab-*`, text transform utilities, text decoration utilities,
