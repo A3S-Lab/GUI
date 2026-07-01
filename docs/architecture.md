@@ -353,7 +353,10 @@ deterministically:
 - `display`
 - `position`, `inset`, `top`, `right`, `bottom`, `left`, `zIndex`
 - `visibility`
-- `flexDirection`, `flexWrap`, `alignItems`, `justifyContent`
+- `flexDirection`, `flexWrap`, `flex`, `flexBasis`, `flexGrow`,
+  `flexShrink`, `order`
+- `alignItems`, `alignContent`, `alignSelf`, `justifyContent`,
+  `justifyItems`, `justifySelf`, `placeContent`, `placeItems`, `placeSelf`
 - `grid`, `gridTemplate*`, `gridAutoColumns`, `gridAutoRows`, `gridAutoFlow`,
   `gridColumn*`, `gridRow*`, `gridArea`
 - `width`, `height`, min/max sizes
@@ -385,3 +388,7 @@ model.
 Common Tailwind Grid utilities such as `grid-cols-*`, `grid-rows-*`,
 `auto-cols-*`, `auto-rows-*`, `grid-flow-*`, `col-*`, and `row-*` project into
 the same declaration model.
+Common Tailwind Flexbox item and box-alignment utilities such as `flex-*`,
+`basis-*`, `grow-*`, `shrink-*`, `order-*`, `content-*`, `self-*`,
+`justify-items-*`, `justify-self-*`, and `place-*` project into the same
+declaration model.

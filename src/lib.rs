@@ -96,8 +96,8 @@ pub use renderer::Renderer;
 pub use runtime::GuiRuntime;
 pub use style::{
     AlignItems, BorderStyle, DisplayMode, EdgeInsets, FlexWrap, FontWeight, GridAutoFlow,
-    JustifyContent, OverflowMode, PointerEvents, PortableStyle, PositionMode, StyleColor,
-    StyleLength, TextAlign, UserSelect, VisibilityMode,
+    JustifyContent, OverflowMode, PointerEvents, PortableStyle, PositionMode, SelfAlignment,
+    StyleColor, StyleLength, TextAlign, UserSelect, VisibilityMode,
 };
 pub use web::WebProps;
 #[cfg(feature = "winui")]

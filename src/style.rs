@@ -14,8 +14,20 @@ pub struct PortableStyle {
     pub position: Option<PositionMode>,
     pub flex_direction: Option<Orientation>,
     pub flex_wrap: Option<FlexWrap>,
+    pub flex: Option<String>,
+    pub flex_basis: Option<StyleLength>,
+    pub flex_grow: Option<String>,
+    pub flex_shrink: Option<String>,
+    pub order: Option<String>,
     pub align_items: Option<AlignItems>,
+    pub align_content: Option<JustifyContent>,
+    pub align_self: Option<SelfAlignment>,
     pub justify_content: Option<JustifyContent>,
+    pub justify_items: Option<AlignItems>,
+    pub justify_self: Option<SelfAlignment>,
+    pub place_content: Option<String>,
+    pub place_items: Option<String>,
+    pub place_self: Option<String>,
     pub width: Option<StyleLength>,
     pub height: Option<StyleLength>,
     pub min_width: Option<StyleLength>,
@@ -100,8 +112,20 @@ impl PortableStyle {
             "position" => self.position = parse_position(value_ref),
             "flex-direction" => self.flex_direction = parse_flex_direction(value_ref),
             "flex-wrap" => self.flex_wrap = parse_flex_wrap(value_ref),
+            "flex" => self.flex = parse_css_string_token(value_ref),
+            "flex-basis" => self.flex_basis = parse_length(value_ref),
+            "flex-grow" => self.flex_grow = parse_css_string_token(value_ref),
+            "flex-shrink" => self.flex_shrink = parse_css_string_token(value_ref),
+            "order" => self.order = parse_css_string_token(value_ref),
             "align-items" => self.align_items = parse_align_items(value_ref),
+            "align-content" => self.align_content = parse_justify_content(value_ref),
+            "align-self" => self.align_self = parse_self_alignment(value_ref),
             "justify-content" => self.justify_content = parse_justify_content(value_ref),
+            "justify-items" => self.justify_items = parse_align_items(value_ref),
+            "justify-self" => self.justify_self = parse_self_alignment(value_ref),
+            "place-content" => self.place_content = parse_css_string_token(value_ref),
+            "place-items" => self.place_items = parse_css_string_token(value_ref),
+            "place-self" => self.place_self = parse_css_string_token(value_ref),
             "width" => self.width = parse_length(value_ref),
             "height" => self.height = parse_length(value_ref),
             "min-width" => self.min_width = parse_length(value_ref),
@@ -387,6 +411,7 @@ pub enum GridAutoFlow {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AlignItems {
+    Normal,
     Start,
     Center,
     End,
@@ -397,12 +422,26 @@ pub enum AlignItems {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum JustifyContent {
+    Normal,
     Start,
     Center,
     End,
     SpaceBetween,
     SpaceAround,
     SpaceEvenly,
+    Stretch,
+    Baseline,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SelfAlignment {
+    Auto,
+    Start,
+    Center,
+    End,
+    Stretch,
+    Baseline,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -632,6 +671,7 @@ fn parse_grid_auto_flow(value: &str) -> Option<GridAutoFlow> {
 
 fn parse_align_items(value: &str) -> Option<AlignItems> {
     match value.trim() {
+        "normal" => Some(AlignItems::Normal),
         "flex-start" | "start" => Some(AlignItems::Start),
         "center" => Some(AlignItems::Center),
         "flex-end" | "end" => Some(AlignItems::End),
@@ -643,12 +683,27 @@ fn parse_align_items(value: &str) -> Option<AlignItems> {
 
 fn parse_justify_content(value: &str) -> Option<JustifyContent> {
     match value.trim() {
+        "normal" => Some(JustifyContent::Normal),
         "flex-start" | "start" => Some(JustifyContent::Start),
         "center" => Some(JustifyContent::Center),
         "flex-end" | "end" => Some(JustifyContent::End),
         "space-between" => Some(JustifyContent::SpaceBetween),
         "space-around" => Some(JustifyContent::SpaceAround),
         "space-evenly" => Some(JustifyContent::SpaceEvenly),
+        "stretch" => Some(JustifyContent::Stretch),
+        "baseline" => Some(JustifyContent::Baseline),
+        _ => None,
+    }
+}
+
+fn parse_self_alignment(value: &str) -> Option<SelfAlignment> {
+    match value.trim() {
+        "auto" => Some(SelfAlignment::Auto),
+        "flex-start" | "start" => Some(SelfAlignment::Start),
+        "center" => Some(SelfAlignment::Center),
+        "flex-end" | "end" => Some(SelfAlignment::End),
+        "stretch" => Some(SelfAlignment::Stretch),
+        "baseline" => Some(SelfAlignment::Baseline),
         _ => None,
     }
 }
@@ -1162,12 +1217,71 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         "items-end" => Some(("align-items", "flex-end".to_string())),
         "items-stretch" => Some(("align-items", "stretch".to_string())),
         "items-baseline" => Some(("align-items", "baseline".to_string())),
+        "items-normal" => Some(("align-items", "normal".to_string())),
+        "content-normal" => Some(("align-content", "normal".to_string())),
+        "content-center" => Some(("align-content", "center".to_string())),
+        "content-start" => Some(("align-content", "flex-start".to_string())),
+        "content-end" => Some(("align-content", "flex-end".to_string())),
+        "content-between" => Some(("align-content", "space-between".to_string())),
+        "content-around" => Some(("align-content", "space-around".to_string())),
+        "content-evenly" => Some(("align-content", "space-evenly".to_string())),
+        "content-baseline" => Some(("align-content", "baseline".to_string())),
+        "content-stretch" => Some(("align-content", "stretch".to_string())),
+        "self-auto" => Some(("align-self", "auto".to_string())),
+        "self-start" => Some(("align-self", "flex-start".to_string())),
+        "self-center" => Some(("align-self", "center".to_string())),
+        "self-end" => Some(("align-self", "flex-end".to_string())),
+        "self-stretch" => Some(("align-self", "stretch".to_string())),
+        "self-baseline" => Some(("align-self", "baseline".to_string())),
+        "justify-normal" => Some(("justify-content", "normal".to_string())),
         "justify-start" => Some(("justify-content", "flex-start".to_string())),
         "justify-center" => Some(("justify-content", "center".to_string())),
         "justify-end" => Some(("justify-content", "flex-end".to_string())),
         "justify-between" => Some(("justify-content", "space-between".to_string())),
         "justify-around" => Some(("justify-content", "space-around".to_string())),
         "justify-evenly" => Some(("justify-content", "space-evenly".to_string())),
+        "justify-stretch" => Some(("justify-content", "stretch".to_string())),
+        "justify-items-normal" => Some(("justify-items", "normal".to_string())),
+        "justify-items-start" => Some(("justify-items", "flex-start".to_string())),
+        "justify-items-center" => Some(("justify-items", "center".to_string())),
+        "justify-items-end" => Some(("justify-items", "flex-end".to_string())),
+        "justify-items-stretch" => Some(("justify-items", "stretch".to_string())),
+        "justify-self-auto" => Some(("justify-self", "auto".to_string())),
+        "justify-self-start" => Some(("justify-self", "flex-start".to_string())),
+        "justify-self-center" => Some(("justify-self", "center".to_string())),
+        "justify-self-end" => Some(("justify-self", "flex-end".to_string())),
+        "justify-self-stretch" => Some(("justify-self", "stretch".to_string())),
+        "place-content-center" => Some(("place-content", "center".to_string())),
+        "place-content-start" => Some(("place-content", "start".to_string())),
+        "place-content-end" => Some(("place-content", "end".to_string())),
+        "place-content-between" => Some(("place-content", "space-between".to_string())),
+        "place-content-around" => Some(("place-content", "space-around".to_string())),
+        "place-content-evenly" => Some(("place-content", "space-evenly".to_string())),
+        "place-content-baseline" => Some(("place-content", "baseline".to_string())),
+        "place-content-stretch" => Some(("place-content", "stretch".to_string())),
+        "place-items-start" => Some(("place-items", "start".to_string())),
+        "place-items-center" => Some(("place-items", "center".to_string())),
+        "place-items-end" => Some(("place-items", "end".to_string())),
+        "place-items-baseline" => Some(("place-items", "baseline".to_string())),
+        "place-items-stretch" => Some(("place-items", "stretch".to_string())),
+        "place-self-auto" => Some(("place-self", "auto".to_string())),
+        "place-self-start" => Some(("place-self", "start".to_string())),
+        "place-self-center" => Some(("place-self", "center".to_string())),
+        "place-self-end" => Some(("place-self", "end".to_string())),
+        "place-self-stretch" => Some(("place-self", "stretch".to_string())),
+        "flex-1" => Some(("flex", "1".to_string())),
+        "flex-auto" => Some(("flex", "auto".to_string())),
+        "flex-initial" => Some(("flex", "0 auto".to_string())),
+        "flex-none" => Some(("flex", "none".to_string())),
+        "basis-auto" => Some(("flex-basis", "auto".to_string())),
+        "basis-full" => Some(("flex-basis", "100%".to_string())),
+        "grow" => Some(("flex-grow", "1".to_string())),
+        "grow-0" => Some(("flex-grow", "0".to_string())),
+        "shrink" => Some(("flex-shrink", "1".to_string())),
+        "shrink-0" => Some(("flex-shrink", "0".to_string())),
+        "order-first" => Some(("order", "-9999".to_string())),
+        "order-last" => Some(("order", "9999".to_string())),
+        "order-none" => Some(("order", "0".to_string())),
         "overflow-visible" => Some(("overflow", "visible".to_string())),
         "overflow-hidden" => Some(("overflow", "hidden".to_string())),
         "overflow-scroll" => Some(("overflow", "scroll".to_string())),
@@ -1329,6 +1443,19 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
         Some(("opacity".to_string(), trim_float(value)))
     } else if let Some(value) = tailwind_z_index(class) {
         Some(("z-index".to_string(), value))
+    } else if let Some(value) = class.strip_prefix("flex-").and_then(tailwind_flex_value) {
+        Some(("flex".to_string(), value))
+    } else if let Some(value) = class.strip_prefix("basis-").and_then(tailwind_basis_value) {
+        Some(("flex-basis".to_string(), value))
+    } else if let Some(value) = class.strip_prefix("grow-").and_then(tailwind_number_token) {
+        Some(("flex-grow".to_string(), value))
+    } else if let Some(value) = class
+        .strip_prefix("shrink-")
+        .and_then(tailwind_number_token)
+    {
+        Some(("flex-shrink".to_string(), value))
+    } else if let Some(value) = tailwind_order_value(class) {
+        Some(("order".to_string(), value))
     } else if let Some(value) = class.strip_prefix("bg-").and_then(tailwind_color_css) {
         Some(("background-color".to_string(), value))
     } else if let Some(value) = class.strip_prefix("border-").and_then(tailwind_color_css) {
@@ -1344,6 +1471,78 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
         Some(("border-radius".to_string(), style_length_css(value)))
     } else {
         None
+    }
+}
+
+fn tailwind_flex_value(value: &str) -> Option<String> {
+    match value {
+        "auto" => Some("auto".to_string()),
+        "initial" => Some("0 auto".to_string()),
+        "none" => Some("none".to_string()),
+        _ => tailwind_arbitrary_or_custom_var(value)
+            .or_else(|| tailwind_fraction(value).map(|value| format!("calc({value} * 100%)")))
+            .or_else(|| value.parse::<f64>().ok().map(trim_float)),
+    }
+}
+
+fn tailwind_basis_value(value: &str) -> Option<String> {
+    tailwind_arbitrary_or_custom_var(value)
+        .or_else(|| tailwind_container_width(value).map(ToString::to_string))
+        .or_else(|| tailwind_length(value).map(style_length_css))
+}
+
+fn tailwind_number_token(value: &str) -> Option<String> {
+    tailwind_arbitrary_or_custom_var(value).or_else(|| value.parse::<f64>().ok().map(trim_float))
+}
+
+fn tailwind_order_value(class: &str) -> Option<String> {
+    let negative = class.starts_with("-order-");
+    let value = if negative {
+        class.strip_prefix("-order-")?
+    } else {
+        class.strip_prefix("order-")?
+    };
+    let value = match value {
+        "first" if !negative => "-9999".to_string(),
+        "last" if !negative => "9999".to_string(),
+        "none" if !negative => "0".to_string(),
+        _ => tailwind_arbitrary_or_custom_var(value)
+            .or_else(|| value.parse::<i32>().ok().map(|value| value.to_string()))?,
+    };
+    Some(if negative {
+        format!("calc({value} * -1)")
+    } else {
+        value
+    })
+}
+
+fn tailwind_fraction(value: &str) -> Option<String> {
+    let (numerator, denominator) = value.split_once('/')?;
+    let numerator = numerator.parse::<f64>().ok()?;
+    let denominator = denominator.parse::<f64>().ok()?;
+    if denominator == 0.0 {
+        None
+    } else {
+        Some(trim_float(numerator / denominator))
+    }
+}
+
+fn tailwind_container_width(value: &str) -> Option<&'static str> {
+    match value {
+        "3xs" => Some("16rem"),
+        "2xs" => Some("18rem"),
+        "xs" => Some("20rem"),
+        "sm" => Some("24rem"),
+        "md" => Some("28rem"),
+        "lg" => Some("32rem"),
+        "xl" => Some("36rem"),
+        "2xl" => Some("42rem"),
+        "3xl" => Some("48rem"),
+        "4xl" => Some("56rem"),
+        "5xl" => Some("64rem"),
+        "6xl" => Some("72rem"),
+        "7xl" => Some("80rem"),
+        _ => None,
     }
 }
 
@@ -2530,6 +2729,85 @@ mod tests {
                 .and_then(|styles| styles.get("grid-column"))
                 .map(String::as_str),
             Some("span 3 / span 3")
+        );
+    }
+
+    #[test]
+    fn parses_css_flex_item_and_box_alignment_properties() {
+        let web = WebProps::new()
+            .style("flex", "1")
+            .style("flexBasis", "25%")
+            .style("flexGrow", "2")
+            .style("flexShrink", "0")
+            .style("order", "3")
+            .style("alignContent", "space-between")
+            .style("alignSelf", "stretch")
+            .style("justifyItems", "center")
+            .style("justifySelf", "end")
+            .style("placeContent", "center stretch")
+            .style("placeItems", "start")
+            .style("placeSelf", "end");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.flex.as_deref(), Some("1"));
+        assert_eq!(style.flex_basis, Some(StyleLength::Percent(25.0)));
+        assert_eq!(style.flex_grow.as_deref(), Some("2"));
+        assert_eq!(style.flex_shrink.as_deref(), Some("0"));
+        assert_eq!(style.order.as_deref(), Some("3"));
+        assert_eq!(style.align_content, Some(JustifyContent::SpaceBetween));
+        assert_eq!(style.align_self, Some(SelfAlignment::Stretch));
+        assert_eq!(style.justify_items, Some(AlignItems::Center));
+        assert_eq!(style.justify_self, Some(SelfAlignment::End));
+        assert_eq!(style.place_content.as_deref(), Some("center stretch"));
+        assert_eq!(style.place_items.as_deref(), Some("start"));
+        assert_eq!(style.place_self.as_deref(), Some("end"));
+        assert!(!style.unsupported.contains_key("flex-basis"));
+        assert!(!style.unsupported.contains_key("align-self"));
+    }
+
+    #[test]
+    fn parses_tailwind_flex_item_and_box_alignment_utilities() {
+        let web = WebProps::new().class_name(
+            "flex-1 basis-1/2 grow-2 shrink-0 order-first -order-2 \
+             content-between self-end justify-items-center justify-self-stretch \
+             place-content-evenly place-items-baseline place-self-start \
+             md:basis-[calc(50%_-_1rem)] hover:order-[7]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.flex.as_deref(), Some("1"));
+        assert_eq!(style.flex_basis, Some(StyleLength::Percent(50.0)));
+        assert_eq!(style.flex_grow.as_deref(), Some("2"));
+        assert_eq!(style.flex_shrink.as_deref(), Some("0"));
+        assert_eq!(style.order.as_deref(), Some("calc(2 * -1)"));
+        assert_eq!(style.align_content, Some(JustifyContent::SpaceBetween));
+        assert_eq!(style.align_self, Some(SelfAlignment::End));
+        assert_eq!(style.justify_items, Some(AlignItems::Center));
+        assert_eq!(style.justify_self, Some(SelfAlignment::Stretch));
+        assert_eq!(style.place_content.as_deref(), Some("space-evenly"));
+        assert_eq!(style.place_items.as_deref(), Some("baseline"));
+        assert_eq!(style.place_self.as_deref(), Some("start"));
+        assert_eq!(
+            style.declarations.get("flex-basis").map(String::as_str),
+            Some("50%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("flex-basis"))
+                .map(String::as_str),
+            Some("calc(50% - 1rem)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("order"))
+                .map(String::as_str),
+            Some("7")
         );
     }
 
