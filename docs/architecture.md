@@ -1,15 +1,12 @@
 # a3s-gui Architecture
 
-`a3s-gui` is a React Native-class runtime for rendering Web-authored UI as
-native controls.
+`a3s-gui` renders Web-compatible React/JSX UI trees as native controls.
 
-The authoring contract is Web-compatible syntax. A web developer should be able
-to write React/TSX-shaped code with familiar DOM-shaped props. Unlike React
-Native's dedicated component and style surface, the input is allowed to stay
-close to ordinary Web React: semantic element names, `className`, inline
-style objects, `aria-*`, `data-*`, and DOM-style event props. React Aria is one
-supported semantic source, but the renderer contract is the A3S Native UI IR:
-no WebView, no browser DOM, and no hidden HTML surface.
+The authoring contract is Web-compatible syntax: React/TSX-shaped trees,
+semantic element names, `className`, inline style objects, `aria-*`, `data-*`,
+and DOM-style event props. React Aria is one supported semantic source, but the
+renderer contract is the A3S Native UI IR: no WebView, no browser DOM, and no
+hidden HTML surface.
 
 ```text
 React / TSX source

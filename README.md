@@ -1,73 +1,35 @@
 # a3s-gui
 
-`a3s-gui` is a React Native-class GUI runtime implemented in Rust. It renders
-Web-compatible React/JSX UI trees into platform-native controls on macOS,
-Windows, and Linux without a WebView.
+`a3s-gui` is a Rust-native, cross-platform GUI renderer for
+Web-compatible React/JSX UI trees. It lowers semantic UI input into AppKit,
+WinUI, and GTK controls without embedding a WebView.
 
-Its differentiation is Web compatibility. React Native gives React developers a
-native target, but it does not directly render ordinary Web React interfaces as
-cross-platform native UI: Web components built around DOM tags, DOM-shaped
-props, CSS-shaped styles, and browser accessibility semantics must be rewritten
-or adapted to React Native's component and style model. `a3s-gui` is built for
-that gap. The input should be allowed to stay Web-shaped, while the output is
-real native UI.
+The crate exposes a native rendering pipeline and protocol boundary rather than
+a browser runtime. Inputs can come from the TypeScript JSX runtime, React
+Compiler output, React Aria-compatible components, direct protocol frames, or
+direct Rust `NativeElement` trees. All supported inputs lower into the same A3S
+Native UI IR before platform adapters create native widgets.
 
-It is not a React Aria-specific renderer. React Aria is one supported semantic
-source because it gives Web developers a strong accessibility vocabulary, but
-the library's core contract is more general: any Web-compatible compiler, SDK,
-or host that can produce the A3S Native UI IR or the serializable `UiFrame`
-protocol can render through the same native backends.
+React Aria is supported as an optional semantic source. It is not required by
+the core renderer; hosts can use any compiler or SDK that emits the A3S Native
+UI IR or the serializable `UiFrame` protocol.
 
-## First Principles
+## Supported Inputs
 
-The first principle is simple: **a Web React interface should be a valid source
-for cross-platform native UI**.
+`a3s-gui` accepts Web-compatible UI data:
 
-That means application code should be allowed to look and feel like normal Web
-UI code: React/JSX or TSX-shaped trees, semantic element names, stable keys,
-`className`, inline `style` objects, `aria-*`, `data-*`, common HTML state
-props, and React-style event props such as `onClick`, `onChange`, `onFocus`,
-`onBlur`, and `onPress`.
+- JSX/TSX-shaped element trees
+- semantic component or element names
+- stable keys for reconciliation
+- `className` and inline `style` values
+- `aria-*`, `data-*`, and common HTML attributes
+- common HTML state props such as `disabled`, `required`, `checked`, and
+  `selected`
+- React-style event props such as `onClick`, `onChange`, `onFocus`, `onBlur`,
+  and `onPress`
 
-The runtime target is the opposite of a browser: platform controls, platform
-accessibility, platform focus, platform event callbacks, and platform windowing.
-The Web-shaped surface is an authoring contract, not an instruction to embed
-HTML.
-
-From that principle, the design follows:
-
-1. **Web-compatible JSX is the public authoring contract.** Web developers
-   should not have to rewrite ordinary React UI into a separate native component
-   vocabulary before they can build native UI.
-2. **Native semantics are the renderer contract.** The core IR stores roles,
-   labels, values, state, metadata, style tokens, event bindings, and children
-   in a compact native tree.
-3. **Accessibility is structural, not an afterthought.** Labels, roles,
-   disabled/checked/selected/expanded state, ranges, focus, and relationships
-   are preserved before platform adapters create controls.
-4. **Framework inputs are adapters, not the foundation.** React Aria components,
-   React Compiler output, direct protocol frames, and direct Rust IR can all
-   lower into the same native pipeline.
-5. **No WebView fallback.** AppKit, WinUI, and GTK backends create real OS
-   widgets and route native callbacks back to Web-authored action ids.
-
-## Relationship To React Native
-
-`a3s-gui` belongs in the same broad product category as React Native: React
-authoring on top, native platform controls underneath.
-
-The compatibility target is different. React Native asks applications to author
-against React Native primitives such as `View`, `Text`, and `TextInput`, plus a
-React Native style system. That is a good native abstraction, but it is not the
-same surface as Web React. A normal Web React screen that renders `button`,
-`input`, `select`, `dialog`, `aria-*` state, `className`, and CSS-shaped inline
-styles cannot be handed to React Native and rendered directly as native
-cross-platform UI.
-
-`a3s-gui` aims to make that Web React surface the source of truth. The compiler
-and runtime normalize Web-shaped JSX into portable semantic roles, then native
-adapters create AppKit, WinUI, or GTK widgets. The goal is not to embed the Web;
-the goal is to let Web-compatible React code target native UI.
+The renderer normalizes those inputs into native roles, control state, metadata,
+portable style tokens, and action bindings.
 
 ## Architecture
 
@@ -124,13 +86,13 @@ state, portable style tokens, and host protocol types are serializable. A Swift,
 WinUI, GTK, Rust, or multi-process host can consume the same protocol without
 seeing JSX or a browser DOM.
 
-## Why This Is Not A WebView
+## Native Rendering Model
 
 The Web-compatible surface is intentionally source-level only. `a3s-gui` does
 not reuse DOM nodes, CSS layout engines, browser focus APIs, or WebView event
 loops. It preserves the semantic contract and then creates real native controls.
 
-Accepted Web-shaped inputs include `className`, inline `style`, `aria-*`,
+Accepted Web-compatible inputs include `className`, inline `style`, `aria-*`,
 `data-*`, HTML state props such as `disabled` and `required`, ranged attributes
 such as `min`/`max`/`aria-valuenow`, stable keys, and DOM-style event props.
 Those values are normalized into native props and portable style tokens.

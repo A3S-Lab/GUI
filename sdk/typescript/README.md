@@ -7,9 +7,6 @@ TSX into the serializable `UiFrame` format consumed by the Rust runtime. It is
 intentionally small and dependency-free while the compiler integration
 stabilizes. React Aria-compatible component names and props are supported, but
 the package is a general semantic UI bridge rather than a React Aria-only SDK.
-Compared with React Native, the package tries to preserve Web React/JSX syntax
-instead of requiring authors to rewrite screens around a separate native
-component vocabulary.
 
 ## JSX Runtime
 

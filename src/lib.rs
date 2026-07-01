@@ -1,11 +1,10 @@
 //! Rust-native GUI primitives for rendering Web-compatible React UI trees.
 //!
-//! `a3s-gui` is a React Native-class runtime with a stronger Web JSX
-//! compatibility target. It deliberately avoids WebView rendering: the core
-//! crate converts a Web-authored semantic component tree into a compact native
-//! UI IR, reconciles that tree, and drives a [`NativeHost`] implementation for
-//! each platform. React Aria is supported as one compatibility adapter, not as
-//! the only authoring model.
+//! `a3s-gui` deliberately avoids WebView rendering: the core crate converts a
+//! Web-authored semantic component tree into a compact native UI IR, reconciles
+//! that tree, and drives a [`NativeHost`] implementation for each platform.
+//! React Aria is supported as one compatibility adapter, not as the only
+//! authoring model.
 
 #![deny(unsafe_code)]
 
