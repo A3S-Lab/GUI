@@ -65,7 +65,21 @@ pub struct PortableStyle {
     pub outline_offset: Option<StyleLength>,
     pub color: Option<StyleColor>,
     pub background_color: Option<StyleColor>,
+    pub background_image: Option<String>,
+    pub background_position: Option<String>,
+    pub background_size: Option<String>,
+    pub background_repeat: Option<String>,
+    pub background_attachment: Option<BackgroundAttachment>,
+    pub background_origin: Option<BackgroundBox>,
+    pub background_clip: Option<BackgroundBox>,
     pub border_radius: Option<StyleLength>,
+    pub object_fit: Option<ObjectFit>,
+    pub object_position: Option<String>,
+    pub list_style_type: Option<String>,
+    pub list_style_position: Option<ListStylePosition>,
+    pub columns: Option<String>,
+    pub column_count: Option<String>,
+    pub column_width: Option<StyleLength>,
     pub font_family: Option<String>,
     pub font_style: Option<FontStyle>,
     pub font_size: Option<StyleLength>,
@@ -210,7 +224,26 @@ impl PortableStyle {
             "outline-offset" => self.outline_offset = parse_length(value_ref),
             "color" => self.color = parse_color(value_ref),
             "background" | "background-color" => self.background_color = parse_color(value_ref),
+            "background-image" => self.background_image = parse_css_string_token(value_ref),
+            "background-position" => self.background_position = parse_css_string_token(value_ref),
+            "background-size" => self.background_size = parse_css_string_token(value_ref),
+            "background-repeat" => self.background_repeat = parse_css_string_token(value_ref),
+            "background-attachment" => {
+                self.background_attachment = parse_background_attachment(value_ref);
+            }
+            "background-origin" => self.background_origin = parse_background_box(value_ref),
+            "background-clip" => self.background_clip = parse_background_box(value_ref),
             "border-radius" => self.border_radius = parse_length(value_ref),
+            "object-fit" => self.object_fit = parse_object_fit(value_ref),
+            "object-position" => self.object_position = parse_css_string_token(value_ref),
+            "list-style" => self.list_style_type = parse_css_string_token(value_ref),
+            "list-style-type" => self.list_style_type = parse_css_string_token(value_ref),
+            "list-style-position" => {
+                self.list_style_position = parse_list_style_position(value_ref);
+            }
+            "columns" => self.columns = parse_css_string_token(value_ref),
+            "column-count" => self.column_count = parse_css_string_token(value_ref),
+            "column-width" => self.column_width = parse_length(value_ref),
             "font-family" => self.font_family = parse_css_string_token(value_ref),
             "font-style" => self.font_style = parse_font_style(value_ref),
             "font-size" => self.font_size = parse_length(value_ref),
@@ -502,6 +535,40 @@ pub enum BorderStyle {
     Ridge,
     Inset,
     Outset,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BackgroundAttachment {
+    Fixed,
+    Local,
+    Scroll,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BackgroundBox {
+    BorderBox,
+    PaddingBox,
+    ContentBox,
+    Text,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ObjectFit {
+    Fill,
+    Contain,
+    Cover,
+    None,
+    ScaleDown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ListStylePosition {
+    Inside,
+    Outside,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -835,6 +902,44 @@ fn parse_border_style(value: &str) -> Option<BorderStyle> {
         "ridge" => Some(BorderStyle::Ridge),
         "inset" => Some(BorderStyle::Inset),
         "outset" => Some(BorderStyle::Outset),
+        _ => None,
+    }
+}
+
+fn parse_background_attachment(value: &str) -> Option<BackgroundAttachment> {
+    match value.trim() {
+        "fixed" => Some(BackgroundAttachment::Fixed),
+        "local" => Some(BackgroundAttachment::Local),
+        "scroll" => Some(BackgroundAttachment::Scroll),
+        _ => None,
+    }
+}
+
+fn parse_background_box(value: &str) -> Option<BackgroundBox> {
+    match value.trim() {
+        "border-box" => Some(BackgroundBox::BorderBox),
+        "padding-box" => Some(BackgroundBox::PaddingBox),
+        "content-box" => Some(BackgroundBox::ContentBox),
+        "text" => Some(BackgroundBox::Text),
+        _ => None,
+    }
+}
+
+fn parse_object_fit(value: &str) -> Option<ObjectFit> {
+    match value.trim() {
+        "fill" => Some(ObjectFit::Fill),
+        "contain" => Some(ObjectFit::Contain),
+        "cover" => Some(ObjectFit::Cover),
+        "none" => Some(ObjectFit::None),
+        "scale-down" => Some(ObjectFit::ScaleDown),
+        _ => None,
+    }
+}
+
+fn parse_list_style_position(value: &str) -> Option<ListStylePosition> {
+    match value.trim() {
+        "inside" => Some(ListStylePosition::Inside),
+        "outside" => Some(ListStylePosition::Outside),
         _ => None,
     }
 }
@@ -1554,6 +1659,55 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         "underline-offset-auto" => Some(("text-underline-offset", "auto".to_string())),
         "text-ellipsis" => Some(("text-overflow", "ellipsis".to_string())),
         "text-clip" => Some(("text-overflow", "clip".to_string())),
+        "bg-fixed" => Some(("background-attachment", "fixed".to_string())),
+        "bg-local" => Some(("background-attachment", "local".to_string())),
+        "bg-scroll" => Some(("background-attachment", "scroll".to_string())),
+        "bg-clip-border" => Some(("background-clip", "border-box".to_string())),
+        "bg-clip-padding" => Some(("background-clip", "padding-box".to_string())),
+        "bg-clip-content" => Some(("background-clip", "content-box".to_string())),
+        "bg-clip-text" => Some(("background-clip", "text".to_string())),
+        "bg-origin-border" => Some(("background-origin", "border-box".to_string())),
+        "bg-origin-padding" => Some(("background-origin", "padding-box".to_string())),
+        "bg-origin-content" => Some(("background-origin", "content-box".to_string())),
+        "bg-cover" => Some(("background-size", "cover".to_string())),
+        "bg-contain" => Some(("background-size", "contain".to_string())),
+        "bg-auto" => Some(("background-size", "auto".to_string())),
+        "bg-center" => Some(("background-position", "center".to_string())),
+        "bg-top" => Some(("background-position", "top".to_string())),
+        "bg-bottom" => Some(("background-position", "bottom".to_string())),
+        "bg-left" => Some(("background-position", "left".to_string())),
+        "bg-left-top" => Some(("background-position", "left top".to_string())),
+        "bg-left-bottom" => Some(("background-position", "left bottom".to_string())),
+        "bg-right" => Some(("background-position", "right".to_string())),
+        "bg-right-top" => Some(("background-position", "right top".to_string())),
+        "bg-right-bottom" => Some(("background-position", "right bottom".to_string())),
+        "bg-no-repeat" => Some(("background-repeat", "no-repeat".to_string())),
+        "bg-repeat" => Some(("background-repeat", "repeat".to_string())),
+        "bg-repeat-x" => Some(("background-repeat", "repeat-x".to_string())),
+        "bg-repeat-y" => Some(("background-repeat", "repeat-y".to_string())),
+        "bg-repeat-round" => Some(("background-repeat", "round".to_string())),
+        "bg-repeat-space" => Some(("background-repeat", "space".to_string())),
+        "bg-none" => Some(("background-image", "none".to_string())),
+        "object-contain" => Some(("object-fit", "contain".to_string())),
+        "object-cover" => Some(("object-fit", "cover".to_string())),
+        "object-fill" => Some(("object-fit", "fill".to_string())),
+        "object-none" => Some(("object-fit", "none".to_string())),
+        "object-scale-down" => Some(("object-fit", "scale-down".to_string())),
+        "object-bottom" => Some(("object-position", "bottom".to_string())),
+        "object-center" => Some(("object-position", "center".to_string())),
+        "object-left" => Some(("object-position", "left".to_string())),
+        "object-left-bottom" => Some(("object-position", "left bottom".to_string())),
+        "object-left-top" => Some(("object-position", "left top".to_string())),
+        "object-right" => Some(("object-position", "right".to_string())),
+        "object-right-bottom" => Some(("object-position", "right bottom".to_string())),
+        "object-right-top" => Some(("object-position", "right top".to_string())),
+        "object-top" => Some(("object-position", "top".to_string())),
+        "list-inside" => Some(("list-style-position", "inside".to_string())),
+        "list-outside" => Some(("list-style-position", "outside".to_string())),
+        "list-none" => Some(("list-style-type", "none".to_string())),
+        "list-disc" => Some(("list-style-type", "disc".to_string())),
+        "list-decimal" => Some(("list-style-type", "decimal".to_string())),
+        "columns-auto" => Some(("columns", "auto".to_string())),
         "whitespace-normal" => Some(("white-space", "normal".to_string())),
         "whitespace-nowrap" => Some(("white-space", "nowrap".to_string())),
         "whitespace-pre" => Some(("white-space", "pre".to_string())),
@@ -1639,6 +1793,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
     };
     if let Some((property, value)) = declaration {
         declarations.insert(property.to_string(), value);
+        return declarations;
+    }
+    if let Some((property, value)) = tailwind_media_declaration(class) {
+        declarations.insert(property, value);
         return declarations;
     }
     if let Some(text_size) = tailwind_text_size_declarations(class) {
@@ -1734,6 +1892,98 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
     } else {
         None
     }
+}
+
+fn tailwind_media_declaration(class: &str) -> Option<(String, String)> {
+    if let Some(value) = class
+        .strip_prefix("bg-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        if let Some((hint, hinted_value)) = value.split_once(':') {
+            if let Some(property) = match hint {
+                "color" => Some("background-color"),
+                "image" | "url" => Some("background-image"),
+                "length" | "size" => Some("background-size"),
+                "position" => Some("background-position"),
+                _ => None,
+            } {
+                return Some((property.to_string(), tailwind_arbitrary_value(hinted_value)));
+            }
+        }
+        let value = tailwind_arbitrary_value(value);
+        let property = if is_css_background_image_value(&value) {
+            "background-image"
+        } else if parse_color(&value).is_some() {
+            "background-color"
+        } else if is_background_position_value(&value) {
+            "background-position"
+        } else {
+            "background-size"
+        };
+        return Some((property.to_string(), value));
+    }
+    if let Some(value) = class
+        .strip_prefix("object-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some((
+            "object-position".to_string(),
+            tailwind_arbitrary_value(value),
+        ));
+    }
+    if let Some(value) = class
+        .strip_prefix("list-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some((
+            "list-style-type".to_string(),
+            tailwind_arbitrary_value(value),
+        ));
+    }
+    if let Some(value) = class
+        .strip_prefix("columns-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(("columns".to_string(), tailwind_arbitrary_value(value)));
+    }
+    if let Some(value) = class.strip_prefix("columns-") {
+        if let Some(value) = tailwind_columns_value(value) {
+            return Some(("columns".to_string(), value));
+        }
+    }
+    None
+}
+
+fn is_css_background_image_value(value: &str) -> bool {
+    matches!(
+        value.split_once('(').map(|(name, _)| name.trim()),
+        Some(
+            "url"
+                | "image"
+                | "image-set"
+                | "linear-gradient"
+                | "radial-gradient"
+                | "conic-gradient"
+                | "repeating-linear-gradient"
+                | "repeating-radial-gradient"
+                | "repeating-conic-gradient"
+        )
+    ) && value.ends_with(')')
+}
+
+fn is_background_position_value(value: &str) -> bool {
+    let parts = value.split_whitespace().collect::<Vec<_>>();
+    !parts.is_empty()
+        && parts.iter().all(|part| {
+            matches!(*part, "top" | "right" | "bottom" | "left" | "center")
+                || parse_length(part).is_some()
+        })
+}
+
+fn tailwind_columns_value(value: &str) -> Option<String> {
+    tailwind_arbitrary_or_custom_var(value)
+        .or_else(|| tailwind_container_width(value).map(ToString::to_string))
+        .or_else(|| value.parse::<u16>().ok().map(|value| value.to_string()))
 }
 
 fn tailwind_flex_value(value: &str) -> Option<String> {
@@ -3233,6 +3483,98 @@ mod tests {
                 .and_then(|styles| styles.get("text-decoration-thickness"))
                 .map(String::as_str),
             Some("3px")
+        );
+    }
+
+    #[test]
+    fn parses_css_background_object_list_and_columns_properties() {
+        let web = WebProps::new()
+            .style("backgroundImage", "url('/hero.png')")
+            .style("backgroundPosition", "center top")
+            .style("backgroundSize", "cover")
+            .style("backgroundRepeat", "no-repeat")
+            .style("backgroundAttachment", "fixed")
+            .style("backgroundOrigin", "content-box")
+            .style("backgroundClip", "padding-box")
+            .style("objectFit", "cover")
+            .style("objectPosition", "left bottom")
+            .style("listStyleType", "disc")
+            .style("listStylePosition", "inside")
+            .style("columns", "3")
+            .style("columnCount", "2")
+            .style("columnWidth", "12rem");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.background_image.as_deref(), Some("url('/hero.png')"));
+        assert_eq!(style.background_position.as_deref(), Some("center top"));
+        assert_eq!(style.background_size.as_deref(), Some("cover"));
+        assert_eq!(style.background_repeat.as_deref(), Some("no-repeat"));
+        assert_eq!(
+            style.background_attachment,
+            Some(BackgroundAttachment::Fixed)
+        );
+        assert_eq!(style.background_origin, Some(BackgroundBox::ContentBox));
+        assert_eq!(style.background_clip, Some(BackgroundBox::PaddingBox));
+        assert_eq!(style.object_fit, Some(ObjectFit::Cover));
+        assert_eq!(style.object_position.as_deref(), Some("left bottom"));
+        assert_eq!(style.list_style_type.as_deref(), Some("disc"));
+        assert_eq!(style.list_style_position, Some(ListStylePosition::Inside));
+        assert_eq!(style.columns.as_deref(), Some("3"));
+        assert_eq!(style.column_count.as_deref(), Some("2"));
+        assert_eq!(style.column_width, Some(StyleLength::Points(192.0)));
+        assert!(!style.unsupported.contains_key("background-image"));
+        assert!(!style.unsupported.contains_key("object-fit"));
+    }
+
+    #[test]
+    fn parses_tailwind_background_object_list_and_columns_utilities() {
+        let web = WebProps::new().class_name(
+            "bg-[url('/hero.png')] bg-cover bg-center bg-no-repeat bg-fixed \
+             bg-origin-content bg-clip-padding object-cover object-left-bottom \
+             list-inside list-disc columns-3 \
+             md:bg-[length:50%_auto] hover:object-[25%_75%]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.background_image.as_deref(), Some("url('/hero.png')"));
+        assert_eq!(style.background_size.as_deref(), Some("cover"));
+        assert_eq!(style.background_position.as_deref(), Some("center"));
+        assert_eq!(style.background_repeat.as_deref(), Some("no-repeat"));
+        assert_eq!(
+            style.background_attachment,
+            Some(BackgroundAttachment::Fixed)
+        );
+        assert_eq!(style.background_origin, Some(BackgroundBox::ContentBox));
+        assert_eq!(style.background_clip, Some(BackgroundBox::PaddingBox));
+        assert_eq!(style.object_fit, Some(ObjectFit::Cover));
+        assert_eq!(style.object_position.as_deref(), Some("left bottom"));
+        assert_eq!(style.list_style_position, Some(ListStylePosition::Inside));
+        assert_eq!(style.list_style_type.as_deref(), Some("disc"));
+        assert_eq!(style.columns.as_deref(), Some("3"));
+        assert_eq!(
+            style
+                .declarations
+                .get("background-image")
+                .map(String::as_str),
+            Some("url('/hero.png')")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("background-size"))
+                .map(String::as_str),
+            Some("50% auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("object-position"))
+                .map(String::as_str),
+            Some("25% 75%")
         );
     }
 

@@ -47,11 +47,12 @@ tokens. The current portable token set includes display, position, inset,
 z-index, visibility, flex direction/wrap/item sizing/grow/shrink/order,
 alignment, justification, place alignment, CSS Grid shorthand/templates/auto
 tracks/auto flow/placement, sizing, gap/row-gap/column-gap, spacing, border
-width/style/color/radius, text color, background color, font size, font weight,
-font family, font style, line height, letter spacing, text alignment, text
-transform, text decoration, text overflow, whitespace, word breaking, hyphen
-handling, overflow, opacity, aspect ratio, box shadow, outline, transform,
-filter, backdrop filter, cursor, pointer events, and user selection.
+width/style/color/radius, text color, background color/image/position/size/
+repeat/attachment/origin/clip, object fit/position, list style, columns, font
+size, font weight, font family, font style, line height, letter spacing, text
+alignment, text transform, text decoration, text overflow, whitespace, word
+breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow, outline,
+transform, filter, backdrop filter, cursor, pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `var(...)`, `clamp(...)`, viewport units, and sizing keywords, are
@@ -76,6 +77,8 @@ Typography utilities such as `font-*`, `italic`, `not-italic`, `tracking-*`,
 text transform utilities, text decoration utilities, `underline-offset-*`,
 `truncate`, `text-ellipsis`, `text-clip`, `whitespace-*`, `break-*`, and
 `hyphens-*` are projected into portable style tokens.
+Background, object, list, and columns utilities such as `bg-*`, `object-*`,
+`list-*`, and `columns-*` are projected into portable style tokens.
 Inline styles are applied after class utilities so they keep normal inline-style
 precedence.
 

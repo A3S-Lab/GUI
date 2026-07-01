@@ -362,8 +362,13 @@ deterministically:
 - `width`, `height`, min/max sizes
 - `gap`, `rowGap`, `columnGap`, `padding*`, `margin*`
 - `border`, `borderWidth`, `borderStyle`, `borderColor`, `borderRadius`
-- `color`, `backgroundColor`, `fontFamily`, `fontStyle`, `fontSize`,
-  `fontWeight`, `lineHeight`, `letterSpacing`, `textAlign`, `textTransform`
+- `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
+  `backgroundSize`, `backgroundRepeat`, `backgroundAttachment`,
+  `backgroundOrigin`, `backgroundClip`
+- `objectFit`, `objectPosition`, `listStyleType`, `listStylePosition`,
+  `columns`, `columnCount`, `columnWidth`
+- `fontFamily`, `fontStyle`, `fontSize`, `fontWeight`, `lineHeight`,
+  `letterSpacing`, `textAlign`, `textTransform`
 - `textDecorationLine`, `textDecorationColor`, `textDecorationStyle`,
   `textDecorationThickness`, `textUnderlineOffset`, `textOverflow`,
   `whiteSpace`, `wordBreak`, `overflowWrap`, `hyphens`
@@ -400,3 +405,5 @@ Common Tailwind typography and text utilities such as `font-*`, `italic`,
 utilities, `underline-offset-*`, `truncate`, `text-ellipsis`, `text-clip`,
 `whitespace-*`, `break-*`, and `hyphens-*` project into the same declaration
 model.
+Common Tailwind background, object, list, and columns utilities such as `bg-*`,
+`object-*`, `list-*`, and `columns-*` project into the same declaration model.
