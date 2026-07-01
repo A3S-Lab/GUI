@@ -84,6 +84,8 @@ pub struct PortableStyle {
     pub background_origin: Option<BackgroundBox>,
     pub background_clip: Option<BackgroundBox>,
     pub border_radius: Option<StyleLength>,
+    pub border_radii: CornerRadii,
+    pub logical_border_radii: LogicalCornerRadii,
     pub object_fit: Option<ObjectFit>,
     pub object_position: Option<String>,
     pub list_style_type: Option<String>,
@@ -445,7 +447,34 @@ impl PortableStyle {
             }
             "background-origin" => self.background_origin = parse_background_box(value_ref),
             "background-clip" => self.background_clip = parse_background_box(value_ref),
-            "border-radius" => self.border_radius = parse_length(value_ref),
+            "border-radius" => {
+                self.border_radius = parse_length(value_ref);
+                self.border_radii = parse_corner_radii(value_ref);
+            }
+            "border-top-left-radius" => {
+                self.border_radii.top_left = parse_corner_radius(value_ref);
+            }
+            "border-top-right-radius" => {
+                self.border_radii.top_right = parse_corner_radius(value_ref);
+            }
+            "border-bottom-right-radius" => {
+                self.border_radii.bottom_right = parse_corner_radius(value_ref);
+            }
+            "border-bottom-left-radius" => {
+                self.border_radii.bottom_left = parse_corner_radius(value_ref);
+            }
+            "border-start-start-radius" => {
+                self.logical_border_radii.start_start = parse_corner_radius(value_ref);
+            }
+            "border-start-end-radius" => {
+                self.logical_border_radii.start_end = parse_corner_radius(value_ref);
+            }
+            "border-end-end-radius" => {
+                self.logical_border_radii.end_end = parse_corner_radius(value_ref);
+            }
+            "border-end-start-radius" => {
+                self.logical_border_radii.end_start = parse_corner_radius(value_ref);
+            }
             "object-fit" => self.object_fit = parse_object_fit(value_ref),
             "object-position" => self.object_position = parse_css_string_token(value_ref),
             "list-style" => self.list_style_type = parse_css_string_token(value_ref),
@@ -924,13 +953,17 @@ impl PortableStyle {
             "justify-evenly" => self.justify_content = Some(JustifyContent::SpaceEvenly),
             "rounded" => self.border_radius = Some(StyleLength::Points(4.0)),
             "rounded-none" => self.border_radius = Some(StyleLength::Points(0.0)),
-            "rounded-sm" => self.border_radius = Some(StyleLength::Points(2.0)),
+            "rounded-xs" => self.border_radius = Some(StyleLength::Points(2.0)),
+            "rounded-sm" => self.border_radius = Some(StyleLength::Points(4.0)),
             "rounded-md" => self.border_radius = Some(StyleLength::Points(6.0)),
             "rounded-lg" => self.border_radius = Some(StyleLength::Points(8.0)),
             "rounded-xl" => self.border_radius = Some(StyleLength::Points(12.0)),
             "rounded-2xl" => self.border_radius = Some(StyleLength::Points(16.0)),
             "rounded-3xl" => self.border_radius = Some(StyleLength::Points(24.0)),
-            "rounded-full" => self.border_radius = Some(StyleLength::Points(9999.0)),
+            "rounded-4xl" => self.border_radius = Some(StyleLength::Points(32.0)),
+            "rounded-full" => {
+                self.border_radius = Some(StyleLength::Css("calc(infinity * 1px)".to_string()));
+            }
             _ => self.apply_tailwind_prefixed_utility(class),
         }
     }
@@ -964,8 +997,6 @@ impl PortableStyle {
             self.padding.apply_edges(edges, value);
         } else if let Some((edges, value)) = tailwind_edge_utility(class, "m") {
             self.margin.apply_edges(edges, value);
-        } else if let Some(value) = class.strip_prefix("rounded-").and_then(tailwind_length) {
-            self.border_radius = Some(value);
         }
     }
 }
@@ -1502,6 +1533,70 @@ enum LogicalEdgeSelection {
     BlockEnd,
     InlineStart,
     InlineEnd,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CornerRadius {
+    pub horizontal: StyleLength,
+    pub vertical: Option<StyleLength>,
+}
+
+impl CornerRadius {
+    fn circular(value: StyleLength) -> Self {
+        Self {
+            horizontal: value,
+            vertical: None,
+        }
+    }
+
+    fn elliptical(horizontal: StyleLength, vertical: StyleLength) -> Self {
+        Self {
+            horizontal,
+            vertical: Some(vertical),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CornerRadii {
+    pub top_left: Option<CornerRadius>,
+    pub top_right: Option<CornerRadius>,
+    pub bottom_right: Option<CornerRadius>,
+    pub bottom_left: Option<CornerRadius>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogicalCornerRadii {
+    pub start_start: Option<CornerRadius>,
+    pub start_end: Option<CornerRadius>,
+    pub end_end: Option<CornerRadius>,
+    pub end_start: Option<CornerRadius>,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum CornerSelection {
+    All,
+    Top,
+    Right,
+    Bottom,
+    Left,
+    TopLeft,
+    TopRight,
+    BottomRight,
+    BottomLeft,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum LogicalCornerSelection {
+    Start,
+    End,
+    StartStart,
+    StartEnd,
+    EndEnd,
+    EndStart,
 }
 
 pub fn normalize_css_property_name(property: &str) -> String {
@@ -2077,6 +2172,97 @@ fn parse_edge_insets(value: &str) -> EdgeInsets {
     edges
 }
 
+fn parse_corner_radius(value: &str) -> Option<CornerRadius> {
+    if let Some(length) = parse_length(value) {
+        return Some(CornerRadius::circular(length));
+    }
+    let values = value
+        .split_whitespace()
+        .filter_map(parse_length)
+        .collect::<Vec<_>>();
+    match values.as_slice() {
+        [horizontal] => Some(CornerRadius::circular(horizontal.clone())),
+        [horizontal, vertical, ..] => Some(CornerRadius::elliptical(
+            horizontal.clone(),
+            vertical.clone(),
+        )),
+        [] => None,
+    }
+}
+
+fn parse_corner_radii(value: &str) -> CornerRadii {
+    let (horizontal, vertical) = value
+        .split_once('/')
+        .map_or((value, None), |(horizontal, vertical)| {
+            (horizontal.trim(), Some(vertical.trim()))
+        });
+    let horizontal = parse_corner_radius_values(horizontal);
+    let vertical = vertical.map(parse_corner_radius_values);
+    let mut radii = CornerRadii::default();
+    let Some(horizontal) = expand_corner_values(&horizontal) else {
+        return radii;
+    };
+    let vertical = vertical
+        .as_ref()
+        .and_then(|values| expand_corner_values(values));
+    radii.top_left = Some(make_corner_radius(
+        &horizontal[0],
+        vertical.as_ref().map(|r| &r[0]),
+    ));
+    radii.top_right = Some(make_corner_radius(
+        &horizontal[1],
+        vertical.as_ref().map(|r| &r[1]),
+    ));
+    radii.bottom_right = Some(make_corner_radius(
+        &horizontal[2],
+        vertical.as_ref().map(|r| &r[2]),
+    ));
+    radii.bottom_left = Some(make_corner_radius(
+        &horizontal[3],
+        vertical.as_ref().map(|r| &r[3]),
+    ));
+    radii
+}
+
+fn parse_corner_radius_values(value: &str) -> Vec<StyleLength> {
+    if let Some(length) = parse_length(value) {
+        return vec![length];
+    }
+    value.split_whitespace().filter_map(parse_length).collect()
+}
+
+fn expand_corner_values(values: &[StyleLength]) -> Option<[StyleLength; 4]> {
+    match values {
+        [all] => Some([all.clone(), all.clone(), all.clone(), all.clone()]),
+        [top_left_bottom_right, top_right_bottom_left] => Some([
+            top_left_bottom_right.clone(),
+            top_right_bottom_left.clone(),
+            top_left_bottom_right.clone(),
+            top_right_bottom_left.clone(),
+        ]),
+        [top_left, top_right_bottom_left, bottom_right] => Some([
+            top_left.clone(),
+            top_right_bottom_left.clone(),
+            bottom_right.clone(),
+            top_right_bottom_left.clone(),
+        ]),
+        [top_left, top_right, bottom_right, bottom_left, ..] => Some([
+            top_left.clone(),
+            top_right.clone(),
+            bottom_right.clone(),
+            bottom_left.clone(),
+        ]),
+        [] => None,
+    }
+}
+
+fn make_corner_radius(horizontal: &StyleLength, vertical: Option<&StyleLength>) -> CornerRadius {
+    CornerRadius {
+        horizontal: horizontal.clone(),
+        vertical: vertical.cloned(),
+    }
+}
+
 fn parse_time(value: &str) -> Option<StyleTime> {
     let value = value.trim();
     if value.is_empty() {
@@ -2482,6 +2668,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         }
         return declarations;
     }
+    if let Some(radius) = tailwind_radius_declarations(class) {
+        declarations.extend(radius);
+        return declarations;
+    }
     if class == "truncate" {
         declarations.insert("overflow".to_string(), "hidden".to_string());
         declarations.insert("text-overflow".to_string(), "ellipsis".to_string());
@@ -2792,13 +2982,15 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         "aspect-video" => Some(("aspect-ratio", "16 / 9".to_string())),
         "rounded" => Some(("border-radius", "4px".to_string())),
         "rounded-none" => Some(("border-radius", "0px".to_string())),
-        "rounded-sm" => Some(("border-radius", "2px".to_string())),
+        "rounded-xs" => Some(("border-radius", "2px".to_string())),
+        "rounded-sm" => Some(("border-radius", "4px".to_string())),
         "rounded-md" => Some(("border-radius", "6px".to_string())),
         "rounded-lg" => Some(("border-radius", "8px".to_string())),
         "rounded-xl" => Some(("border-radius", "12px".to_string())),
         "rounded-2xl" => Some(("border-radius", "16px".to_string())),
         "rounded-3xl" => Some(("border-radius", "24px".to_string())),
-        "rounded-full" => Some(("border-radius", "9999px".to_string())),
+        "rounded-4xl" => Some(("border-radius", "32px".to_string())),
+        "rounded-full" => Some(("border-radius", "calc(infinity * 1px)".to_string())),
         _ => None,
     };
     if let Some((property, value)) = declaration {
@@ -2928,8 +3120,6 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
         Some(("line-height".to_string(), value))
     } else if let Some(value) = class.strip_prefix("text-").and_then(tailwind_color_css) {
         Some(("color".to_string(), value))
-    } else if let Some(value) = class.strip_prefix("rounded-").and_then(tailwind_length) {
-        Some(("border-radius".to_string(), style_length_css(value)))
     } else {
         None
     }
@@ -2987,6 +3177,85 @@ fn tailwind_stroke_declaration(value: &str) -> Option<(String, String)> {
 
 fn is_likely_stroke_width_value(value: &str) -> bool {
     !value.trim().starts_with("var(") && parse_length(value).is_some()
+}
+
+fn tailwind_radius_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    let suffix = class.strip_prefix("rounded")?;
+    let (physical, logical, value) = if suffix.is_empty() {
+        (Some(CornerSelection::All), None, "sm")
+    } else {
+        let suffix = suffix.strip_prefix('-')?;
+        if let Some(value) = suffix.strip_prefix("ss-") {
+            (None, Some(LogicalCornerSelection::StartStart), value)
+        } else if let Some(value) = suffix.strip_prefix("se-") {
+            (None, Some(LogicalCornerSelection::StartEnd), value)
+        } else if let Some(value) = suffix.strip_prefix("ee-") {
+            (None, Some(LogicalCornerSelection::EndEnd), value)
+        } else if let Some(value) = suffix.strip_prefix("es-") {
+            (None, Some(LogicalCornerSelection::EndStart), value)
+        } else if let Some(value) = suffix.strip_prefix("s-") {
+            (None, Some(LogicalCornerSelection::Start), value)
+        } else if let Some(value) = suffix.strip_prefix("e-") {
+            (None, Some(LogicalCornerSelection::End), value)
+        } else if let Some(value) = suffix.strip_prefix("tl-") {
+            (Some(CornerSelection::TopLeft), None, value)
+        } else if let Some(value) = suffix.strip_prefix("tr-") {
+            (Some(CornerSelection::TopRight), None, value)
+        } else if let Some(value) = suffix.strip_prefix("br-") {
+            (Some(CornerSelection::BottomRight), None, value)
+        } else if let Some(value) = suffix.strip_prefix("bl-") {
+            (Some(CornerSelection::BottomLeft), None, value)
+        } else if let Some(value) = suffix.strip_prefix("t-") {
+            (Some(CornerSelection::Top), None, value)
+        } else if let Some(value) = suffix.strip_prefix("r-") {
+            (Some(CornerSelection::Right), None, value)
+        } else if let Some(value) = suffix.strip_prefix("b-") {
+            (Some(CornerSelection::Bottom), None, value)
+        } else if let Some(value) = suffix.strip_prefix("l-") {
+            (Some(CornerSelection::Left), None, value)
+        } else {
+            (Some(CornerSelection::All), None, suffix)
+        }
+    };
+    let radius = CornerRadius::circular(tailwind_radius_value(value)?);
+    if let Some(selection) = physical {
+        insert_corner_radius_declarations(&mut declarations, selection, radius);
+    } else if let Some(selection) = logical {
+        insert_logical_corner_radius_declarations(&mut declarations, selection, radius);
+    }
+    Some(declarations)
+}
+
+fn tailwind_radius_value(value: &str) -> Option<StyleLength> {
+    if let Some(value) = tailwind_typed_custom_var(value, "length") {
+        return Some(StyleLength::Css(value));
+    }
+    if let Some(variable) = tailwind_custom_var(value) {
+        return Some(StyleLength::Css(variable));
+    }
+    if let Some(arbitrary) = value
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return parse_length(&tailwind_arbitrary_value(arbitrary));
+    }
+    match value {
+        "none" => Some(StyleLength::Points(0.0)),
+        "xs" => Some(StyleLength::Points(2.0)),
+        "sm" => Some(StyleLength::Points(4.0)),
+        "md" => Some(StyleLength::Points(6.0)),
+        "lg" => Some(StyleLength::Points(8.0)),
+        "xl" => Some(StyleLength::Points(12.0)),
+        "2xl" => Some(StyleLength::Points(16.0)),
+        "3xl" => Some(StyleLength::Points(24.0)),
+        "4xl" => Some(StyleLength::Points(32.0)),
+        "full" => Some(StyleLength::Css("calc(infinity * 1px)".to_string())),
+        _ if is_tailwind_identifier(value) => {
+            Some(StyleLength::Css(format!("var(--radius-{value})")))
+        }
+        _ => None,
+    }
 }
 
 fn tailwind_typed_custom_var(value: &str, expected_type: &str) -> Option<String> {
@@ -4447,6 +4716,77 @@ fn insert_logical_position_declaration(
     declarations.insert(property.to_string(), value);
 }
 
+fn insert_corner_radius_declarations(
+    declarations: &mut BTreeMap<String, String>,
+    corners: CornerSelection,
+    radius: CornerRadius,
+) {
+    let value = corner_radius_css(radius);
+    match corners {
+        CornerSelection::All => {
+            declarations.insert("border-radius".to_string(), value);
+        }
+        CornerSelection::Top => {
+            declarations.insert("border-top-left-radius".to_string(), value.clone());
+            declarations.insert("border-top-right-radius".to_string(), value);
+        }
+        CornerSelection::Right => {
+            declarations.insert("border-top-right-radius".to_string(), value.clone());
+            declarations.insert("border-bottom-right-radius".to_string(), value);
+        }
+        CornerSelection::Bottom => {
+            declarations.insert("border-bottom-right-radius".to_string(), value.clone());
+            declarations.insert("border-bottom-left-radius".to_string(), value);
+        }
+        CornerSelection::Left => {
+            declarations.insert("border-top-left-radius".to_string(), value.clone());
+            declarations.insert("border-bottom-left-radius".to_string(), value);
+        }
+        CornerSelection::TopLeft => {
+            declarations.insert("border-top-left-radius".to_string(), value);
+        }
+        CornerSelection::TopRight => {
+            declarations.insert("border-top-right-radius".to_string(), value);
+        }
+        CornerSelection::BottomRight => {
+            declarations.insert("border-bottom-right-radius".to_string(), value);
+        }
+        CornerSelection::BottomLeft => {
+            declarations.insert("border-bottom-left-radius".to_string(), value);
+        }
+    }
+}
+
+fn insert_logical_corner_radius_declarations(
+    declarations: &mut BTreeMap<String, String>,
+    corners: LogicalCornerSelection,
+    radius: CornerRadius,
+) {
+    let value = corner_radius_css(radius);
+    match corners {
+        LogicalCornerSelection::Start => {
+            declarations.insert("border-start-start-radius".to_string(), value.clone());
+            declarations.insert("border-end-start-radius".to_string(), value);
+        }
+        LogicalCornerSelection::End => {
+            declarations.insert("border-start-end-radius".to_string(), value.clone());
+            declarations.insert("border-end-end-radius".to_string(), value);
+        }
+        LogicalCornerSelection::StartStart => {
+            declarations.insert("border-start-start-radius".to_string(), value);
+        }
+        LogicalCornerSelection::StartEnd => {
+            declarations.insert("border-start-end-radius".to_string(), value);
+        }
+        LogicalCornerSelection::EndEnd => {
+            declarations.insert("border-end-end-radius".to_string(), value);
+        }
+        LogicalCornerSelection::EndStart => {
+            declarations.insert("border-end-start-radius".to_string(), value);
+        }
+    }
+}
+
 fn insert_border_width_declarations(
     declarations: &mut BTreeMap<String, String>,
     edges: EdgeSelection,
@@ -4489,6 +4829,15 @@ fn style_length_css(value: StyleLength) -> String {
     }
 }
 
+fn corner_radius_css(radius: CornerRadius) -> String {
+    let horizontal = style_length_css(radius.horizontal);
+    if let Some(vertical) = radius.vertical {
+        format!("{horizontal} {}", style_length_css(vertical))
+    } else {
+        horizontal
+    }
+}
+
 fn trim_float(value: f64) -> String {
     if value.fract() == 0.0 {
         format!("{value:.0}")
@@ -4499,6 +4848,13 @@ fn trim_float(value: f64) -> String {
 
 fn tailwind_arbitrary_value(value: &str) -> String {
     value.replace('_', " ")
+}
+
+fn is_tailwind_identifier(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_'))
 }
 
 fn is_tailwind_cursor(value: &str) -> bool {
@@ -5471,6 +5827,145 @@ mod tests {
                 .variant_declarations
                 .get("hover")
                 .and_then(|styles| styles.get("margin-inline-start"))
+                .map(String::as_str),
+            Some("calc(1rem + 2px)")
+        );
+    }
+
+    #[test]
+    fn parses_css_border_radius_corners_into_portable_tokens() {
+        let web = WebProps::new()
+            .style("borderRadius", "1px 2px 3px 4px / 5px 6px 7px 8px")
+            .style("borderTopLeftRadius", "10px 20px")
+            .style("borderStartStartRadius", "12px")
+            .style("borderStartEndRadius", "13px")
+            .style("borderEndEndRadius", "14px")
+            .style("borderEndStartRadius", "15px");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.border_radii.top_left,
+            Some(CornerRadius::elliptical(
+                StyleLength::Points(10.0),
+                StyleLength::Points(20.0)
+            ))
+        );
+        assert_eq!(
+            style.border_radii.top_right,
+            Some(CornerRadius::elliptical(
+                StyleLength::Points(2.0),
+                StyleLength::Points(6.0)
+            ))
+        );
+        assert_eq!(
+            style.border_radii.bottom_right,
+            Some(CornerRadius::elliptical(
+                StyleLength::Points(3.0),
+                StyleLength::Points(7.0)
+            ))
+        );
+        assert_eq!(
+            style.border_radii.bottom_left,
+            Some(CornerRadius::elliptical(
+                StyleLength::Points(4.0),
+                StyleLength::Points(8.0)
+            ))
+        );
+        assert_eq!(
+            style.logical_border_radii.start_start,
+            Some(CornerRadius::circular(StyleLength::Points(12.0)))
+        );
+        assert_eq!(
+            style.logical_border_radii.start_end,
+            Some(CornerRadius::circular(StyleLength::Points(13.0)))
+        );
+        assert_eq!(
+            style.logical_border_radii.end_end,
+            Some(CornerRadius::circular(StyleLength::Points(14.0)))
+        );
+        assert_eq!(
+            style.logical_border_radii.end_start,
+            Some(CornerRadius::circular(StyleLength::Points(15.0)))
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("border-top-left-radius")
+                .map(String::as_str),
+            Some("10px 20px")
+        );
+        assert!(!style.unsupported.contains_key("border-top-left-radius"));
+        assert!(!style.unsupported.contains_key("border-start-start-radius"));
+    }
+
+    #[test]
+    fn parses_tailwind_border_radius_corner_utilities() {
+        let web = WebProps::new().class_name(
+            "rounded-full rounded-t-lg rounded-br-[2rem] rounded-s-sm \
+             rounded-ee-(--radius-end) md:rounded-ss-xl \
+             hover:rounded-bl-[calc(1rem_+_2px)]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.border_radius,
+            Some(StyleLength::Css("calc(infinity * 1px)".to_string()))
+        );
+        assert_eq!(
+            style.border_radii.top_left,
+            Some(CornerRadius::circular(StyleLength::Points(8.0)))
+        );
+        assert_eq!(
+            style.border_radii.top_right,
+            Some(CornerRadius::circular(StyleLength::Points(8.0)))
+        );
+        assert_eq!(
+            style.border_radii.bottom_right,
+            Some(CornerRadius::circular(StyleLength::Points(32.0)))
+        );
+        assert_eq!(
+            style.logical_border_radii.start_start,
+            Some(CornerRadius::circular(StyleLength::Points(4.0)))
+        );
+        assert_eq!(
+            style.logical_border_radii.end_start,
+            Some(CornerRadius::circular(StyleLength::Points(4.0)))
+        );
+        assert_eq!(
+            style.logical_border_radii.end_end,
+            Some(CornerRadius::circular(StyleLength::Css(
+                "var(--radius-end)".to_string()
+            )))
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("border-bottom-right-radius")
+                .map(String::as_str),
+            Some("32px")
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("border-end-end-radius")
+                .map(String::as_str),
+            Some("var(--radius-end)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("border-start-start-radius"))
+                .map(String::as_str),
+            Some("12px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("border-bottom-left-radius"))
                 .map(String::as_str),
             Some("calc(1rem + 2px)")
         );

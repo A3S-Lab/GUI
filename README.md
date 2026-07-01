@@ -46,8 +46,8 @@ isolation, float, clear, vertical alignment, table layout, border
 collapse/spacing, caption side, flex direction/wrap/item
 sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, sizing,
-gap/row-gap/column-gap, physical and logical spacing, border
-width/style/color/radius, text color, background
+gap/row-gap/column-gap, physical and logical spacing, border width/style/color,
+uniform, physical-corner, and logical-corner border radius, text color, background
 color/image/position/size/repeat/attachment/origin/clip, object fit/position,
 list style, columns, font size, font weight, font family, font style, line
 height, letter spacing, text alignment, text transform, SVG fill/stroke
@@ -98,6 +98,11 @@ Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, `will-change-*`, `appearance-*`,
 `accent-*`, `caret-*`, `resize-*`, `scroll-*`, `snap-*`, `overscroll-*`, and
 `touch-*` are projected into portable style tokens.
+Border radius utilities such as `rounded-*`, `rounded-t-*`, `rounded-r-*`,
+`rounded-b-*`, `rounded-l-*`, `rounded-tl-*`, `rounded-tr-*`,
+`rounded-br-*`, `rounded-bl-*`, `rounded-s-*`, `rounded-e-*`,
+`rounded-ss-*`, `rounded-se-*`, `rounded-ee-*`, and `rounded-es-*` are
+projected into physical or logical corner radius tokens.
 Logical direction utilities such as `start-*`, `end-*`, `ms-*`, `me-*`,
 `mbs-*`, `mbe-*`, `mis-*`, `mie-*`, `ps-*`, `pe-*`, `pbs-*`, `pbe-*`,
 `pis-*`, `pie-*`, `scroll-ms-*`, `scroll-me-*`, `scroll-mbs-*`,
