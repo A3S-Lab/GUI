@@ -51,9 +51,10 @@ and logical-edge border width/style/color, uniform, physical-corner, and
 logical-corner border radius, text color, background
 color/image/position/size/repeat/attachment/origin/clip, object fit/position,
 list style, columns, font size, font weight, font family, font style, line
-height, letter spacing, text alignment, text transform, SVG fill/stroke
-presentation properties, text decoration, text overflow, whitespace, word
-breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow,
+height, letter spacing, text alignment, text transform, text indent, text
+wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
+text overflow, whitespace, word breaking, hyphen handling, overflow, opacity,
+aspect ratio, box shadow,
 outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
 filter, backdrop filter function components, transition, animation,
@@ -91,8 +92,9 @@ portable style tokens. Flex item and box-alignment utilities such as `flex-*`,
 `justify-items-*`, `justify-self-*`, and `place-*` are projected as well.
 Typography utilities such as `font-*`, `italic`, `not-italic`, `tracking-*`,
 text transform utilities, text decoration utilities, `underline-offset-*`,
-`truncate`, `text-ellipsis`, `text-clip`, `whitespace-*`, `break-*`, and
-`hyphens-*` are projected into portable style tokens.
+`indent-*`, `line-clamp-*`, `text-wrap`, `text-nowrap`, `text-balance`,
+`text-pretty`, `truncate`, `text-ellipsis`, `text-clip`, `whitespace-*`,
+`break-*`, and `hyphens-*` are projected into portable style tokens.
 Background, object, list, and columns utilities such as `bg-*`, `object-*`,
 `list-*`, and `columns-*` are projected into portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,

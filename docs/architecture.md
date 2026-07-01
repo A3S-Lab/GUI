@@ -379,7 +379,8 @@ deterministically:
 - `objectFit`, `objectPosition`, `listStyleType`, `listStylePosition`,
   `columns`, `columnCount`, `columnWidth`
 - `fontFamily`, `fontStyle`, `fontSize`, `fontWeight`, `lineHeight`,
-  `letterSpacing`, `textAlign`, `textTransform`
+  `letterSpacing`, `textAlign`, `textTransform`, `textIndent`, `textWrap`,
+  `lineClamp`, `boxOrient`
 - SVG presentation properties such as `fill`, `fillOpacity`, `fillRule`,
   `clipRule`, `stroke`, `strokeWidth`, `strokeLinecap`, `strokeLinejoin`,
   `strokeMiterlimit`, `strokeDasharray`, `strokeDashoffset`, `strokeOpacity`,
@@ -442,8 +443,9 @@ declaration model.
 Common Tailwind typography and text utilities such as `font-*`, `italic`,
 `not-italic`, `tracking-*`, text transform utilities, text decoration
 utilities, `underline-offset-*`, `truncate`, `text-ellipsis`, `text-clip`,
-`whitespace-*`, `break-*`, and `hyphens-*` project into the same declaration
-model.
+`indent-*`, `line-clamp-*`, `text-wrap`, `text-nowrap`, `text-balance`,
+`text-pretty`, `whitespace-*`, `break-*`, and `hyphens-*` project into the
+same declaration model.
 Common Tailwind background, object, list, and columns utilities such as `bg-*`,
 `object-*`, `list-*`, and `columns-*` project into the same declaration model.
 Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,

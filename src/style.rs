@@ -106,6 +106,10 @@ pub struct PortableStyle {
     pub letter_spacing: Option<StyleLength>,
     pub text_align: Option<TextAlign>,
     pub text_transform: Option<TextTransform>,
+    pub text_indent: Option<StyleLength>,
+    pub text_wrap: Option<TextWrapMode>,
+    pub line_clamp: Option<String>,
+    pub box_orient: Option<String>,
     pub fill: Option<StyleColor>,
     pub fill_opacity: Option<f64>,
     pub fill_rule: Option<FillRule>,
@@ -613,6 +617,14 @@ impl PortableStyle {
             "letter-spacing" => self.letter_spacing = parse_length(value_ref),
             "text-align" => self.text_align = parse_text_align(value_ref),
             "text-transform" => self.text_transform = parse_text_transform(value_ref),
+            "text-indent" => self.text_indent = parse_length(value_ref),
+            "text-wrap" | "text-wrap-mode" => self.text_wrap = parse_text_wrap(value_ref),
+            "line-clamp" | "-webkit-line-clamp" => {
+                self.line_clamp = parse_css_string_token(value_ref);
+            }
+            "box-orient" | "-webkit-box-orient" => {
+                self.box_orient = parse_css_string_token(value_ref);
+            }
             "fill" => self.fill = parse_color(value_ref),
             "fill-opacity" => self.fill_opacity = parse_opacity(value_ref),
             "fill-rule" => self.fill_rule = parse_fill_rule(value_ref),
@@ -1075,6 +1087,9 @@ impl PortableStyle {
             "inline" => self.display = Some(DisplayMode::Inline),
             "grid" => self.display = Some(DisplayMode::Grid),
             "inline-grid" => self.display = Some(DisplayMode::InlineGrid),
+            "line-clamp-1" | "line-clamp-2" | "line-clamp-3" | "line-clamp-4" | "line-clamp-5"
+            | "line-clamp-6" => self.display = Some(DisplayMode::WebkitBox),
+            "line-clamp-none" => self.display = Some(DisplayMode::Block),
             "hidden" => self.display = Some(DisplayMode::None),
             "static" => self.position = Some(PositionMode::Static),
             "fixed" => self.position = Some(PositionMode::Fixed),
@@ -1155,6 +1170,7 @@ pub enum DisplayMode {
     Block,
     Grid,
     InlineGrid,
+    WebkitBox,
     None,
 }
 
@@ -1369,6 +1385,16 @@ pub enum WhiteSpaceMode {
     PreLine,
     PreWrap,
     BreakSpaces,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TextWrapMode {
+    Wrap,
+    NoWrap,
+    Balance,
+    Pretty,
+    Stable,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1967,6 +1993,7 @@ fn parse_display(value: &str) -> Option<DisplayMode> {
         "block" | "inline-block" => Some(DisplayMode::Block),
         "grid" => Some(DisplayMode::Grid),
         "inline-grid" => Some(DisplayMode::InlineGrid),
+        "-webkit-box" => Some(DisplayMode::WebkitBox),
         "none" => Some(DisplayMode::None),
         _ => None,
     }
@@ -2226,6 +2253,17 @@ fn parse_white_space(value: &str) -> Option<WhiteSpaceMode> {
         "pre-line" => Some(WhiteSpaceMode::PreLine),
         "pre-wrap" => Some(WhiteSpaceMode::PreWrap),
         "break-spaces" => Some(WhiteSpaceMode::BreakSpaces),
+        _ => None,
+    }
+}
+
+fn parse_text_wrap(value: &str) -> Option<TextWrapMode> {
+    match value.trim() {
+        "wrap" => Some(TextWrapMode::Wrap),
+        "nowrap" => Some(TextWrapMode::NoWrap),
+        "balance" => Some(TextWrapMode::Balance),
+        "pretty" => Some(TextWrapMode::Pretty),
+        "stable" => Some(TextWrapMode::Stable),
         _ => None,
     }
 }
@@ -3082,6 +3120,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.insert("word-break".to_string(), "normal".to_string());
         return declarations;
     }
+    if let Some(line_clamp) = tailwind_line_clamp_declarations(class) {
+        declarations.extend(line_clamp);
+        return declarations;
+    }
     if let Some(motion) = tailwind_motion_declarations(class) {
         declarations.extend(motion);
         return declarations;
@@ -3240,6 +3282,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         "text-justify" => Some(("text-align", "justify".to_string())),
         "text-start" => Some(("text-align", "start".to_string())),
         "text-end" => Some(("text-align", "end".to_string())),
+        "text-wrap" => Some(("text-wrap", "wrap".to_string())),
+        "text-nowrap" => Some(("text-wrap", "nowrap".to_string())),
+        "text-balance" => Some(("text-wrap", "balance".to_string())),
+        "text-pretty" => Some(("text-wrap", "pretty".to_string())),
         "uppercase" => Some(("text-transform", "uppercase".to_string())),
         "lowercase" => Some(("text-transform", "lowercase".to_string())),
         "capitalize" => Some(("text-transform", "capitalize".to_string())),
@@ -3525,6 +3571,8 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
         .and_then(tailwind_line_height)
     {
         Some(("line-height".to_string(), value))
+    } else if let Some(value) = tailwind_text_indent(class) {
+        Some(("text-indent".to_string(), value))
     } else if let Some(value) = class.strip_prefix("text-").and_then(tailwind_color_css) {
         Some(("color".to_string(), value))
     } else {
@@ -5474,6 +5522,40 @@ fn tailwind_text_size_declarations(class: &str) -> Option<BTreeMap<String, Strin
     Some(declarations)
 }
 
+fn tailwind_line_clamp_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let value = class.strip_prefix("line-clamp-")?;
+    let mut declarations = BTreeMap::new();
+    if value == "none" {
+        declarations.insert("overflow".to_string(), "visible".to_string());
+        declarations.insert("display".to_string(), "block".to_string());
+        declarations.insert("-webkit-box-orient".to_string(), "horizontal".to_string());
+        declarations.insert("-webkit-line-clamp".to_string(), "unset".to_string());
+        return Some(declarations);
+    }
+    let value = tailwind_line_clamp_value(value)?;
+    declarations.insert("overflow".to_string(), "hidden".to_string());
+    declarations.insert("display".to_string(), "-webkit-box".to_string());
+    declarations.insert("-webkit-box-orient".to_string(), "vertical".to_string());
+    declarations.insert("-webkit-line-clamp".to_string(), value);
+    Some(declarations)
+}
+
+fn tailwind_line_clamp_value(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_typed_custom_var(value, "number") {
+        return Some(value);
+    }
+    if let Some(value) = tailwind_custom_var(value) {
+        return Some(value);
+    }
+    if let Some(arbitrary) = value
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(tailwind_arbitrary_value(arbitrary));
+    }
+    value.parse::<u32>().ok().map(|value| value.to_string())
+}
+
 fn tailwind_length(value: &str) -> Option<StyleLength> {
     if let Some(arbitrary) = value
         .strip_prefix('[')
@@ -5523,6 +5605,17 @@ fn tailwind_line_height(value: &str) -> Option<String> {
         "loose" => Some("2".to_string()),
         _ => tailwind_length(value).map(style_length_css),
     }
+}
+
+fn tailwind_text_indent(class: &str) -> Option<String> {
+    let negative = class.starts_with('-');
+    let class = class.strip_prefix('-').unwrap_or(class);
+    let value = class.strip_prefix("indent-")?;
+    let mut length = tailwind_length(value)?;
+    if negative {
+        length = negate_style_length(length)?;
+    }
+    Some(style_length_css(length))
 }
 
 fn tailwind_opacity(value: &str) -> Option<f64> {
@@ -6961,6 +7054,11 @@ mod tests {
             .style("fontStyle", "italic")
             .style("letterSpacing", "0.025em")
             .style("textTransform", "uppercase")
+            .style("textIndent", "2rem")
+            .style("textWrap", "balance")
+            .style("lineClamp", "3")
+            .style("display", "-webkit-box")
+            .style("-webkitBoxOrient", "vertical")
             .style("textDecorationLine", "underline")
             .style("textDecorationColor", "#663399")
             .style("textDecorationStyle", "wavy")
@@ -6981,6 +7079,11 @@ mod tests {
         assert_eq!(style.font_style, Some(FontStyle::Italic));
         assert_eq!(style.letter_spacing, Some(StyleLength::Points(0.4)));
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
+        assert_eq!(style.text_indent, Some(StyleLength::Points(32.0)));
+        assert_eq!(style.text_wrap, Some(TextWrapMode::Balance));
+        assert_eq!(style.line_clamp.as_deref(), Some("3"));
+        assert_eq!(style.display, Some(DisplayMode::WebkitBox));
+        assert_eq!(style.box_orient.as_deref(), Some("vertical"));
         assert_eq!(style.text_decoration_line.as_deref(), Some("underline"));
         assert_eq!(
             style.text_decoration_color,
@@ -7004,6 +7107,8 @@ mod tests {
         assert_eq!(style.hyphens, Some(HyphensMode::Auto));
         assert!(!style.unsupported.contains_key("text-decoration-line"));
         assert!(!style.unsupported.contains_key("white-space"));
+        assert!(!style.unsupported.contains_key("text-wrap"));
+        assert!(!style.unsupported.contains_key("-webkit-line-clamp"));
     }
 
     #[test]
@@ -7011,8 +7116,9 @@ mod tests {
         let web = WebProps::new().class_name(
             "font-mono italic tracking-wide uppercase underline decoration-wavy \
              decoration-[#663399]/50 decoration-2 underline-offset-4 truncate \
-             whitespace-pre-wrap break-all hyphens-auto \
-             md:tracking-[0.2em] hover:decoration-[3px]",
+             whitespace-pre-wrap break-all hyphens-auto -indent-[2px] text-balance \
+             line-clamp-3 md:tracking-[0.2em] hover:decoration-[3px] \
+             focus:text-pretty lg:line-clamp-none",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -7028,6 +7134,13 @@ mod tests {
             Some("0.025em")
         );
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
+        assert_eq!(style.text_indent, Some(StyleLength::Points(-2.0)));
+        assert_eq!(style.text_wrap, Some(TextWrapMode::Balance));
+        assert_eq!(style.line_clamp.as_deref(), Some("3"));
+        assert_eq!(style.box_orient.as_deref(), Some("vertical"));
+        assert_eq!(style.display, Some(DisplayMode::WebkitBox));
+        assert_eq!(style.overflow_x, Some(OverflowMode::Hidden));
+        assert_eq!(style.overflow_y, Some(OverflowMode::Hidden));
         assert_eq!(style.text_decoration_line.as_deref(), Some("underline"));
         assert_eq!(style.text_decoration_style, Some(TextDecorationStyle::Wavy));
         assert_eq!(
@@ -7065,6 +7178,22 @@ mod tests {
                 .and_then(|styles| styles.get("text-decoration-thickness"))
                 .map(String::as_str),
             Some("3px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("text-wrap"))
+                .map(String::as_str),
+            Some("pretty")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("lg")
+                .and_then(|styles| styles.get("-webkit-line-clamp"))
+                .map(String::as_str),
+            Some("unset")
         );
     }
 
