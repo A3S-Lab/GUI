@@ -375,6 +375,10 @@ deterministically:
 - `overflow`, `overflowX`, `overflowY`
 - `aspectRatio`, `boxShadow`, `outline*`, `transform`, `filter`,
   `backdropFilter`
+- `transition*`, `animation*`, `willChange`
+- `appearance`, `accentColor`, `caretColor`, `resize`
+- `scrollBehavior`, `scrollMargin*`, `scrollPadding*`, `scrollSnap*`,
+  `overscrollBehavior*`, `touchAction`
 - `cursor`, `pointerEvents`, `userSelect`
 - `opacity`
 
@@ -407,3 +411,8 @@ utilities, `underline-offset-*`, `truncate`, `text-ellipsis`, `text-clip`,
 model.
 Common Tailwind background, object, list, and columns utilities such as `bg-*`,
 `object-*`, `list-*`, and `columns-*` project into the same declaration model.
+Common Tailwind motion, interaction, and scroll utilities such as
+`transition-*`, `duration-*`, `delay-*`, `ease-*`, `animate-*`,
+`will-change-*`, `appearance-*`, `accent-*`, `caret-*`, `resize-*`,
+`scroll-*`, `snap-*`, `overscroll-*`, and `touch-*` project into the same
+declaration model.

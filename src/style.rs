@@ -55,6 +55,8 @@ pub struct PortableStyle {
     pub inset: EdgeInsets,
     pub padding: EdgeInsets,
     pub margin: EdgeInsets,
+    pub scroll_margin: EdgeInsets,
+    pub scroll_padding: EdgeInsets,
     pub border_width: EdgeInsets,
     pub border_color: Option<StyleColor>,
     pub border_style: Option<BorderStyle>,
@@ -64,6 +66,8 @@ pub struct PortableStyle {
     pub outline_style: Option<BorderStyle>,
     pub outline_offset: Option<StyleLength>,
     pub color: Option<StyleColor>,
+    pub accent_color: Option<StyleColor>,
+    pub caret_color: Option<StyleColor>,
     pub background_color: Option<StyleColor>,
     pub background_image: Option<String>,
     pub background_position: Option<String>,
@@ -106,6 +110,31 @@ pub struct PortableStyle {
     pub transform: Option<String>,
     pub filter: Option<String>,
     pub backdrop_filter: Option<String>,
+    pub transition: Option<String>,
+    pub transition_property: Option<String>,
+    pub transition_duration: Option<StyleTime>,
+    pub transition_timing_function: Option<String>,
+    pub transition_delay: Option<StyleTime>,
+    pub transition_behavior: Option<String>,
+    pub animation: Option<String>,
+    pub animation_name: Option<String>,
+    pub animation_duration: Option<StyleTime>,
+    pub animation_timing_function: Option<String>,
+    pub animation_delay: Option<StyleTime>,
+    pub animation_iteration_count: Option<String>,
+    pub animation_direction: Option<String>,
+    pub animation_fill_mode: Option<String>,
+    pub animation_play_state: Option<String>,
+    pub will_change: Option<String>,
+    pub appearance: Option<String>,
+    pub resize: Option<ResizeMode>,
+    pub scroll_behavior: Option<ScrollBehavior>,
+    pub scroll_snap_type: Option<String>,
+    pub scroll_snap_align: Option<String>,
+    pub scroll_snap_stop: Option<String>,
+    pub overscroll_behavior_x: Option<OverscrollBehavior>,
+    pub overscroll_behavior_y: Option<OverscrollBehavior>,
+    pub touch_action: Option<String>,
     pub cursor: Option<String>,
     pub pointer_events: Option<PointerEvents>,
     pub user_select: Option<UserSelect>,
@@ -208,6 +237,28 @@ impl PortableStyle {
             "margin-right" => self.margin.right = parse_length(value_ref),
             "margin-bottom" => self.margin.bottom = parse_length(value_ref),
             "margin-left" => self.margin.left = parse_length(value_ref),
+            "scroll-margin" => self.scroll_margin = parse_edge_insets(value_ref),
+            "scroll-margin-block" => self
+                .scroll_margin
+                .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref)),
+            "scroll-margin-inline" => self
+                .scroll_margin
+                .apply_edges_opt(EdgeSelection::X, parse_length(value_ref)),
+            "scroll-margin-top" => self.scroll_margin.top = parse_length(value_ref),
+            "scroll-margin-right" => self.scroll_margin.right = parse_length(value_ref),
+            "scroll-margin-bottom" => self.scroll_margin.bottom = parse_length(value_ref),
+            "scroll-margin-left" => self.scroll_margin.left = parse_length(value_ref),
+            "scroll-padding" => self.scroll_padding = parse_edge_insets(value_ref),
+            "scroll-padding-block" => self
+                .scroll_padding
+                .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref)),
+            "scroll-padding-inline" => self
+                .scroll_padding
+                .apply_edges_opt(EdgeSelection::X, parse_length(value_ref)),
+            "scroll-padding-top" => self.scroll_padding.top = parse_length(value_ref),
+            "scroll-padding-right" => self.scroll_padding.right = parse_length(value_ref),
+            "scroll-padding-bottom" => self.scroll_padding.bottom = parse_length(value_ref),
+            "scroll-padding-left" => self.scroll_padding.left = parse_length(value_ref),
             "border" => self.apply_border_shorthand(value_ref),
             "border-width" => self.border_width = parse_edge_insets(value_ref),
             "border-top-width" => self.border_width.top = parse_length(value_ref),
@@ -223,6 +274,8 @@ impl PortableStyle {
             "outline-style" => self.outline_style = parse_border_style(value_ref),
             "outline-offset" => self.outline_offset = parse_length(value_ref),
             "color" => self.color = parse_color(value_ref),
+            "accent-color" => self.accent_color = parse_color(value_ref),
+            "caret-color" => self.caret_color = parse_color(value_ref),
             "background" | "background-color" => self.background_color = parse_color(value_ref),
             "background-image" => self.background_image = parse_css_string_token(value_ref),
             "background-position" => self.background_position = parse_css_string_token(value_ref),
@@ -278,6 +331,48 @@ impl PortableStyle {
             "transform" => self.transform = parse_css_string_token(value_ref),
             "filter" => self.filter = parse_css_string_token(value_ref),
             "backdrop-filter" => self.backdrop_filter = parse_css_string_token(value_ref),
+            "transition" => self.transition = parse_css_string_token(value_ref),
+            "transition-property" => {
+                self.transition_property = parse_css_string_token(value_ref);
+            }
+            "transition-duration" => self.transition_duration = parse_time(value_ref),
+            "transition-timing-function" => {
+                self.transition_timing_function = parse_css_string_token(value_ref);
+            }
+            "transition-delay" => self.transition_delay = parse_time(value_ref),
+            "transition-behavior" => self.transition_behavior = parse_css_string_token(value_ref),
+            "animation" => self.animation = parse_css_string_token(value_ref),
+            "animation-name" => self.animation_name = parse_css_string_token(value_ref),
+            "animation-duration" => self.animation_duration = parse_time(value_ref),
+            "animation-timing-function" => {
+                self.animation_timing_function = parse_css_string_token(value_ref);
+            }
+            "animation-delay" => self.animation_delay = parse_time(value_ref),
+            "animation-iteration-count" => {
+                self.animation_iteration_count = parse_css_string_token(value_ref);
+            }
+            "animation-direction" => self.animation_direction = parse_css_string_token(value_ref),
+            "animation-fill-mode" => self.animation_fill_mode = parse_css_string_token(value_ref),
+            "animation-play-state" => self.animation_play_state = parse_css_string_token(value_ref),
+            "will-change" => self.will_change = parse_css_string_token(value_ref),
+            "appearance" => self.appearance = parse_css_string_token(value_ref),
+            "resize" => self.resize = parse_resize(value_ref),
+            "scroll-behavior" => self.scroll_behavior = parse_scroll_behavior(value_ref),
+            "scroll-snap-type" => self.scroll_snap_type = parse_css_string_token(value_ref),
+            "scroll-snap-align" => self.scroll_snap_align = parse_css_string_token(value_ref),
+            "scroll-snap-stop" => self.scroll_snap_stop = parse_css_string_token(value_ref),
+            "overscroll-behavior" => {
+                let overscroll = parse_overscroll_behavior(value_ref);
+                self.overscroll_behavior_x = overscroll;
+                self.overscroll_behavior_y = overscroll;
+            }
+            "overscroll-behavior-x" => {
+                self.overscroll_behavior_x = parse_overscroll_behavior(value_ref);
+            }
+            "overscroll-behavior-y" => {
+                self.overscroll_behavior_y = parse_overscroll_behavior(value_ref);
+            }
+            "touch-action" => self.touch_action = parse_css_string_token(value_ref),
             "cursor" => self.cursor = parse_css_string_token(value_ref),
             "pointer-events" => self.pointer_events = parse_pointer_events(value_ref),
             "user-select" => self.user_select = parse_user_select(value_ref),
@@ -692,6 +787,32 @@ pub enum UserSelect {
     Contain,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ResizeMode {
+    None,
+    Both,
+    Horizontal,
+    Vertical,
+    Block,
+    Inline,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ScrollBehavior {
+    Auto,
+    Smooth,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OverscrollBehavior {
+    Auto,
+    Contain,
+    None,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "camelCase")]
 pub enum StyleLength {
@@ -706,6 +827,22 @@ impl StyleLength {
         match self {
             StyleLength::Points(value) => Some(*value),
             StyleLength::Percent(_) | StyleLength::Auto | StyleLength::Css(_) => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "value", rename_all = "camelCase")]
+pub enum StyleTime {
+    Milliseconds(f64),
+    Css(String),
+}
+
+impl StyleTime {
+    pub fn milliseconds(&self) -> Option<f64> {
+        match self {
+            StyleTime::Milliseconds(value) => Some(*value),
+            StyleTime::Css(_) => None,
         }
     }
 }
@@ -1106,6 +1243,35 @@ fn parse_user_select(value: &str) -> Option<UserSelect> {
     }
 }
 
+fn parse_resize(value: &str) -> Option<ResizeMode> {
+    match value.trim() {
+        "none" => Some(ResizeMode::None),
+        "both" => Some(ResizeMode::Both),
+        "horizontal" => Some(ResizeMode::Horizontal),
+        "vertical" => Some(ResizeMode::Vertical),
+        "block" => Some(ResizeMode::Block),
+        "inline" => Some(ResizeMode::Inline),
+        _ => None,
+    }
+}
+
+fn parse_scroll_behavior(value: &str) -> Option<ScrollBehavior> {
+    match value.trim() {
+        "auto" => Some(ScrollBehavior::Auto),
+        "smooth" => Some(ScrollBehavior::Smooth),
+        _ => None,
+    }
+}
+
+fn parse_overscroll_behavior(value: &str) -> Option<OverscrollBehavior> {
+    match value.trim() {
+        "auto" => Some(OverscrollBehavior::Auto),
+        "contain" => Some(OverscrollBehavior::Contain),
+        "none" => Some(OverscrollBehavior::None),
+        _ => None,
+    }
+}
+
 fn parse_edge_insets(value: &str) -> EdgeInsets {
     let values = value
         .split_whitespace()
@@ -1135,6 +1301,47 @@ fn parse_edge_insets(value: &str) -> EdgeInsets {
         }
     }
     edges
+}
+
+fn parse_time(value: &str) -> Option<StyleTime> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    if value == "0" {
+        return Some(StyleTime::Milliseconds(0.0));
+    }
+    if let Some(milliseconds) = value.strip_suffix("ms") {
+        return milliseconds
+            .trim()
+            .parse::<f64>()
+            .ok()
+            .map(StyleTime::Milliseconds);
+    }
+    if let Some(seconds) = value.strip_suffix('s') {
+        return seconds
+            .trim()
+            .parse::<f64>()
+            .ok()
+            .map(|value| StyleTime::Milliseconds(value * 1000.0));
+    }
+    if is_css_time_expression(value) {
+        return Some(StyleTime::Css(value.to_string()));
+    }
+    None
+}
+
+fn is_css_time_expression(value: &str) -> bool {
+    if matches!(
+        value,
+        "inherit" | "initial" | "unset" | "revert" | "revert-layer"
+    ) {
+        return true;
+    }
+    matches!(
+        value.split_once('(').map(|(name, _)| name.trim()),
+        Some("calc" | "min" | "max" | "clamp" | "var")
+    ) && value.ends_with(')')
 }
 
 fn parse_length(value: &str) -> Option<StyleLength> {
@@ -1511,6 +1718,14 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.insert("word-break".to_string(), "normal".to_string());
         return declarations;
     }
+    if let Some(motion) = tailwind_motion_declarations(class) {
+        declarations.extend(motion);
+        return declarations;
+    }
+    if let Some(interaction) = tailwind_interaction_declarations(class) {
+        declarations.extend(interaction);
+        return declarations;
+    }
     let declaration = match class {
         "inline" => Some(("display", "inline".to_string())),
         "flex" | "inline-flex" => Some(("display", "flex".to_string())),
@@ -1799,6 +2014,14 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.insert(property, value);
         return declarations;
     }
+    if let Some((edges, value)) = tailwind_edge_utility(class, "scroll-m") {
+        insert_edge_declarations(&mut declarations, "scroll-margin", edges, value);
+        return declarations;
+    }
+    if let Some((edges, value)) = tailwind_edge_utility(class, "scroll-p") {
+        insert_edge_declarations(&mut declarations, "scroll-padding", edges, value);
+        return declarations;
+    }
     if let Some(text_size) = tailwind_text_size_declarations(class) {
         declarations.extend(text_size);
         return declarations;
@@ -1869,6 +2092,13 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
         Some(("background-color".to_string(), value))
     } else if let Some(value) = class.strip_prefix("border-").and_then(tailwind_color_css) {
         Some(("border-color".to_string(), value))
+    } else if let Some(value) = class
+        .strip_prefix("accent-")
+        .and_then(tailwind_accent_color_css)
+    {
+        Some(("accent-color".to_string(), value))
+    } else if let Some(value) = class.strip_prefix("caret-").and_then(tailwind_color_css) {
+        Some(("caret-color".to_string(), value))
     } else if let Some(value) = class.strip_prefix("font-").and_then(tailwind_font_family) {
         Some(("font-family".to_string(), value))
     } else if let Some(value) = tailwind_letter_spacing(class) {
@@ -1892,6 +2122,270 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
     } else {
         None
     }
+}
+
+fn tailwind_motion_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    match class {
+        "transition" => {
+            declarations.insert(
+                "transition-property".to_string(),
+                "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter".to_string(),
+            );
+            insert_tailwind_default_transition(&mut declarations);
+            return Some(declarations);
+        }
+        "transition-all" => {
+            declarations.insert("transition-property".to_string(), "all".to_string());
+            insert_tailwind_default_transition(&mut declarations);
+            return Some(declarations);
+        }
+        "transition-colors" => {
+            declarations.insert(
+                "transition-property".to_string(),
+                "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke".to_string(),
+            );
+            insert_tailwind_default_transition(&mut declarations);
+            return Some(declarations);
+        }
+        "transition-opacity" => {
+            declarations.insert("transition-property".to_string(), "opacity".to_string());
+            insert_tailwind_default_transition(&mut declarations);
+            return Some(declarations);
+        }
+        "transition-shadow" => {
+            declarations.insert("transition-property".to_string(), "box-shadow".to_string());
+            insert_tailwind_default_transition(&mut declarations);
+            return Some(declarations);
+        }
+        "transition-transform" => {
+            declarations.insert(
+                "transition-property".to_string(),
+                "transform, translate, scale, rotate".to_string(),
+            );
+            insert_tailwind_default_transition(&mut declarations);
+            return Some(declarations);
+        }
+        "transition-none" => {
+            declarations.insert("transition-property".to_string(), "none".to_string());
+            return Some(declarations);
+        }
+        "transition-discrete" => {
+            declarations.insert(
+                "transition-behavior".to_string(),
+                "allow-discrete".to_string(),
+            );
+            return Some(declarations);
+        }
+        "transition-normal" => {
+            declarations.insert("transition-behavior".to_string(), "normal".to_string());
+            return Some(declarations);
+        }
+        "animate-spin" => {
+            declarations.insert(
+                "animation".to_string(),
+                "spin 1s linear infinite".to_string(),
+            );
+            return Some(declarations);
+        }
+        "animate-ping" => {
+            declarations.insert(
+                "animation".to_string(),
+                "ping 1s cubic-bezier(0, 0, 0.2, 1) infinite".to_string(),
+            );
+            return Some(declarations);
+        }
+        "animate-pulse" => {
+            declarations.insert(
+                "animation".to_string(),
+                "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite".to_string(),
+            );
+            return Some(declarations);
+        }
+        "animate-bounce" => {
+            declarations.insert("animation".to_string(), "bounce 1s infinite".to_string());
+            return Some(declarations);
+        }
+        "animate-none" => {
+            declarations.insert("animation".to_string(), "none".to_string());
+            return Some(declarations);
+        }
+        _ => {}
+    }
+
+    if let Some(value) = class
+        .strip_prefix("transition-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert(
+            "transition-property".to_string(),
+            tailwind_arbitrary_value(value),
+        );
+        insert_tailwind_default_transition(&mut declarations);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("transition-")
+        .and_then(tailwind_custom_var)
+    {
+        declarations.insert("transition-property".to_string(), value);
+        insert_tailwind_default_transition(&mut declarations);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("duration-")
+        .and_then(tailwind_time_value)
+    {
+        declarations.insert("transition-duration".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("delay-").and_then(tailwind_time_value) {
+        declarations.insert("transition-delay".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("ease-").and_then(tailwind_easing_value) {
+        declarations.insert("transition-timing-function".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("animate-")
+        .and_then(tailwind_animation_value)
+    {
+        declarations.insert("animation".to_string(), value);
+        return Some(declarations);
+    }
+
+    None
+}
+
+fn insert_tailwind_default_transition(declarations: &mut BTreeMap<String, String>) {
+    declarations.insert(
+        "transition-timing-function".to_string(),
+        "cubic-bezier(0.4, 0, 0.2, 1)".to_string(),
+    );
+    declarations.insert("transition-duration".to_string(), "150ms".to_string());
+}
+
+fn tailwind_time_value(value: &str) -> Option<String> {
+    if value == "initial" {
+        return Some("initial".to_string());
+    }
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    value.parse::<f64>().ok().map(|value| {
+        if value == 0.0 {
+            "0ms".to_string()
+        } else {
+            format!("{}ms", trim_float(value))
+        }
+    })
+}
+
+fn tailwind_easing_value(value: &str) -> Option<String> {
+    match value {
+        "linear" => Some("linear".to_string()),
+        "in" => Some("cubic-bezier(0.4, 0, 1, 1)".to_string()),
+        "out" => Some("cubic-bezier(0, 0, 0.2, 1)".to_string()),
+        "in-out" => Some("cubic-bezier(0.4, 0, 0.2, 1)".to_string()),
+        "initial" => Some("initial".to_string()),
+        _ => tailwind_arbitrary_or_custom_var(value),
+    }
+}
+
+fn tailwind_animation_value(value: &str) -> Option<String> {
+    match value {
+        "none" => Some("none".to_string()),
+        _ => tailwind_arbitrary_or_custom_var(value),
+    }
+}
+
+fn tailwind_interaction_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    let declaration = match class {
+        "appearance-none" => Some(("appearance", "none".to_string())),
+        "appearance-auto" => Some(("appearance", "auto".to_string())),
+        "will-change-auto" => Some(("will-change", "auto".to_string())),
+        "will-change-scroll" => Some(("will-change", "scroll-position".to_string())),
+        "will-change-contents" => Some(("will-change", "contents".to_string())),
+        "will-change-transform" => Some(("will-change", "transform".to_string())),
+        "scroll-auto" => Some(("scroll-behavior", "auto".to_string())),
+        "scroll-smooth" => Some(("scroll-behavior", "smooth".to_string())),
+        "snap-none" => Some(("scroll-snap-type", "none".to_string())),
+        "snap-x" => Some((
+            "scroll-snap-type",
+            "x var(--tw-scroll-snap-strictness)".to_string(),
+        )),
+        "snap-y" => Some((
+            "scroll-snap-type",
+            "y var(--tw-scroll-snap-strictness)".to_string(),
+        )),
+        "snap-both" => Some((
+            "scroll-snap-type",
+            "both var(--tw-scroll-snap-strictness)".to_string(),
+        )),
+        "snap-mandatory" => Some(("--tw-scroll-snap-strictness", "mandatory".to_string())),
+        "snap-proximity" => Some(("--tw-scroll-snap-strictness", "proximity".to_string())),
+        "snap-start" => Some(("scroll-snap-align", "start".to_string())),
+        "snap-end" => Some(("scroll-snap-align", "end".to_string())),
+        "snap-center" => Some(("scroll-snap-align", "center".to_string())),
+        "snap-align-none" => Some(("scroll-snap-align", "none".to_string())),
+        "snap-normal" => Some(("scroll-snap-stop", "normal".to_string())),
+        "snap-always" => Some(("scroll-snap-stop", "always".to_string())),
+        "overscroll-auto" => Some(("overscroll-behavior", "auto".to_string())),
+        "overscroll-contain" => Some(("overscroll-behavior", "contain".to_string())),
+        "overscroll-none" => Some(("overscroll-behavior", "none".to_string())),
+        "overscroll-x-auto" => Some(("overscroll-behavior-x", "auto".to_string())),
+        "overscroll-x-contain" => Some(("overscroll-behavior-x", "contain".to_string())),
+        "overscroll-x-none" => Some(("overscroll-behavior-x", "none".to_string())),
+        "overscroll-y-auto" => Some(("overscroll-behavior-y", "auto".to_string())),
+        "overscroll-y-contain" => Some(("overscroll-behavior-y", "contain".to_string())),
+        "overscroll-y-none" => Some(("overscroll-behavior-y", "none".to_string())),
+        "touch-auto" => Some(("touch-action", "auto".to_string())),
+        "touch-none" => Some(("touch-action", "none".to_string())),
+        "touch-pan-x" => Some(("touch-action", "pan-x".to_string())),
+        "touch-pan-left" => Some(("touch-action", "pan-left".to_string())),
+        "touch-pan-right" => Some(("touch-action", "pan-right".to_string())),
+        "touch-pan-y" => Some(("touch-action", "pan-y".to_string())),
+        "touch-pan-up" => Some(("touch-action", "pan-up".to_string())),
+        "touch-pan-down" => Some(("touch-action", "pan-down".to_string())),
+        "touch-pinch-zoom" => Some(("touch-action", "pinch-zoom".to_string())),
+        "touch-manipulation" => Some(("touch-action", "manipulation".to_string())),
+        _ => None,
+    };
+    if let Some((property, value)) = declaration {
+        declarations.insert(property.to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("appearance-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert("appearance".to_string(), tailwind_arbitrary_value(value));
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("will-change-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert("will-change".to_string(), tailwind_arbitrary_value(value));
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("will-change-")
+        .and_then(tailwind_custom_var)
+    {
+        declarations.insert("will-change".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("touch-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert("touch-action".to_string(), tailwind_arbitrary_value(value));
+        return Some(declarations);
+    }
+    None
 }
 
 fn tailwind_media_declaration(class: &str) -> Option<(String, String)> {
@@ -2700,10 +3194,19 @@ fn tailwind_color(value: &str) -> Option<StyleColor> {
         "white" => parse_color("#fff"),
         "transparent" => Some(StyleColor::Keyword("transparent".to_string())),
         "current" => Some(StyleColor::Keyword("currentColor".to_string())),
+        "inherit" => Some(StyleColor::Keyword("inherit".to_string())),
         other if is_tailwind_palette_color(other) => Some(StyleColor::Keyword(other.to_string())),
         _ => None,
     }?;
     Some(apply_tailwind_color_opacity(color, opacity))
+}
+
+fn tailwind_accent_color_css(value: &str) -> Option<String> {
+    if value == "auto" {
+        Some("auto".to_string())
+    } else {
+        tailwind_color_css(value)
+    }
 }
 
 fn tailwind_color_css(value: &str) -> Option<String> {
@@ -2727,6 +3230,7 @@ fn tailwind_color_css(value: &str) -> Option<String> {
             .map(|color| style_color_css(&apply_tailwind_color_opacity(color, opacity))),
         "transparent" => Some("transparent".to_string()),
         "current" => Some("currentColor".to_string()),
+        "inherit" => Some("inherit".to_string()),
         other if is_tailwind_palette_color(other) => Some(other.to_string()),
         _ => None,
     }?;
@@ -3816,6 +4320,200 @@ mod tests {
                 .and_then(|styles| styles.get("outline"))
                 .map(String::as_str),
             Some("3px solid red")
+        );
+    }
+
+    #[test]
+    fn parses_css_motion_scroll_and_interaction_properties() {
+        let web = WebProps::new()
+            .style("transition", "opacity 200ms ease-in")
+            .style("transitionProperty", "opacity")
+            .style("transitionDuration", "200ms")
+            .style("transitionTimingFunction", "ease-in")
+            .style("transitionDelay", "0.25s")
+            .style("transitionBehavior", "allow-discrete")
+            .style("animation", "fade 1.5s ease-out both")
+            .style("animationName", "fade")
+            .style("animationDuration", "1.5s")
+            .style("animationTimingFunction", "ease-out")
+            .style("animationDelay", "var(--delay)")
+            .style("animationIterationCount", "infinite")
+            .style("animationDirection", "alternate")
+            .style("animationFillMode", "both")
+            .style("animationPlayState", "running")
+            .style("willChange", "transform")
+            .style("appearance", "none")
+            .style("accentColor", "#663399")
+            .style("caretColor", "currentColor")
+            .style("resize", "horizontal")
+            .style("scrollBehavior", "smooth")
+            .style("scrollMargin", "1px 2px")
+            .style("scrollMarginTop", "12px")
+            .style("scrollPadding", "4px 8px")
+            .style("scrollPaddingInline", "10px")
+            .style("scrollSnapType", "x mandatory")
+            .style("scrollSnapAlign", "center")
+            .style("scrollSnapStop", "always")
+            .style("overscrollBehavior", "contain")
+            .style("overscrollBehaviorX", "none")
+            .style("touchAction", "pan-x pinch-zoom");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.transition.as_deref(), Some("opacity 200ms ease-in"));
+        assert_eq!(style.transition_property.as_deref(), Some("opacity"));
+        assert_eq!(
+            style.transition_duration,
+            Some(StyleTime::Milliseconds(200.0))
+        );
+        assert_eq!(style.transition_timing_function.as_deref(), Some("ease-in"));
+        assert_eq!(style.transition_delay, Some(StyleTime::Milliseconds(250.0)));
+        assert_eq!(style.transition_behavior.as_deref(), Some("allow-discrete"));
+        assert_eq!(style.animation.as_deref(), Some("fade 1.5s ease-out both"));
+        assert_eq!(style.animation_name.as_deref(), Some("fade"));
+        assert_eq!(
+            style.animation_duration,
+            Some(StyleTime::Milliseconds(1500.0))
+        );
+        assert_eq!(style.animation_timing_function.as_deref(), Some("ease-out"));
+        assert_eq!(
+            style.animation_delay,
+            Some(StyleTime::Css("var(--delay)".to_string()))
+        );
+        assert_eq!(style.animation_iteration_count.as_deref(), Some("infinite"));
+        assert_eq!(style.animation_direction.as_deref(), Some("alternate"));
+        assert_eq!(style.animation_fill_mode.as_deref(), Some("both"));
+        assert_eq!(style.animation_play_state.as_deref(), Some("running"));
+        assert_eq!(style.will_change.as_deref(), Some("transform"));
+        assert_eq!(style.appearance.as_deref(), Some("none"));
+        assert_eq!(
+            style.accent_color,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 255,
+            })
+        );
+        assert_eq!(
+            style.caret_color,
+            Some(StyleColor::Keyword("currentColor".to_string()))
+        );
+        assert_eq!(style.resize, Some(ResizeMode::Horizontal));
+        assert_eq!(style.scroll_behavior, Some(ScrollBehavior::Smooth));
+        assert_eq!(style.scroll_margin.top, Some(StyleLength::Points(12.0)));
+        assert_eq!(style.scroll_margin.right, Some(StyleLength::Points(2.0)));
+        assert_eq!(style.scroll_margin.bottom, Some(StyleLength::Points(1.0)));
+        assert_eq!(style.scroll_margin.left, Some(StyleLength::Points(2.0)));
+        assert_eq!(style.scroll_padding.top, Some(StyleLength::Points(4.0)));
+        assert_eq!(style.scroll_padding.right, Some(StyleLength::Points(10.0)));
+        assert_eq!(style.scroll_padding.bottom, Some(StyleLength::Points(4.0)));
+        assert_eq!(style.scroll_padding.left, Some(StyleLength::Points(10.0)));
+        assert_eq!(style.scroll_snap_type.as_deref(), Some("x mandatory"));
+        assert_eq!(style.scroll_snap_align.as_deref(), Some("center"));
+        assert_eq!(style.scroll_snap_stop.as_deref(), Some("always"));
+        assert_eq!(style.overscroll_behavior_x, Some(OverscrollBehavior::None));
+        assert_eq!(
+            style.overscroll_behavior_y,
+            Some(OverscrollBehavior::Contain)
+        );
+        assert_eq!(style.touch_action.as_deref(), Some("pan-x pinch-zoom"));
+        assert!(!style.unsupported.contains_key("transition-duration"));
+        assert!(!style.unsupported.contains_key("scroll-snap-type"));
+    }
+
+    #[test]
+    fn parses_tailwind_motion_scroll_and_interaction_utilities() {
+        let web = WebProps::new().class_name(
+            "transition-opacity duration-300 delay-75 ease-in-out transition-discrete \
+             animate-spin will-change-transform appearance-none accent-[#663399]/50 \
+             caret-white resize-y scroll-smooth scroll-mt-4 scroll-px-2 \
+             snap-x snap-mandatory snap-center snap-always overscroll-x-contain \
+             overscroll-y-none touch-pan-x md:duration-[1s] \
+             hover:animate-[wiggle_1s_ease-in-out_infinite] focus:will-change-[opacity]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.transition_property.as_deref(), Some("opacity"));
+        assert_eq!(
+            style.transition_duration,
+            Some(StyleTime::Milliseconds(300.0))
+        );
+        assert_eq!(style.transition_delay, Some(StyleTime::Milliseconds(75.0)));
+        assert_eq!(
+            style.transition_timing_function.as_deref(),
+            Some("cubic-bezier(0.4, 0, 0.2, 1)")
+        );
+        assert_eq!(style.transition_behavior.as_deref(), Some("allow-discrete"));
+        assert_eq!(style.animation.as_deref(), Some("spin 1s linear infinite"));
+        assert_eq!(style.will_change.as_deref(), Some("transform"));
+        assert_eq!(style.appearance.as_deref(), Some("none"));
+        assert_eq!(
+            style.accent_color,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 128,
+            })
+        );
+        assert_eq!(
+            style.caret_color,
+            Some(StyleColor::Rgba {
+                red: 255,
+                green: 255,
+                blue: 255,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.resize, Some(ResizeMode::Vertical));
+        assert_eq!(style.scroll_behavior, Some(ScrollBehavior::Smooth));
+        assert_eq!(style.scroll_margin.top, Some(StyleLength::Points(16.0)));
+        assert_eq!(style.scroll_padding.left, Some(StyleLength::Points(8.0)));
+        assert_eq!(style.scroll_padding.right, Some(StyleLength::Points(8.0)));
+        assert_eq!(
+            style.scroll_snap_type.as_deref(),
+            Some("x var(--tw-scroll-snap-strictness)")
+        );
+        assert_eq!(
+            style
+                .custom_properties
+                .get("--tw-scroll-snap-strictness")
+                .map(String::as_str),
+            Some("mandatory")
+        );
+        assert_eq!(style.scroll_snap_align.as_deref(), Some("center"));
+        assert_eq!(style.scroll_snap_stop.as_deref(), Some("always"));
+        assert_eq!(
+            style.overscroll_behavior_x,
+            Some(OverscrollBehavior::Contain)
+        );
+        assert_eq!(style.overscroll_behavior_y, Some(OverscrollBehavior::None));
+        assert_eq!(style.touch_action.as_deref(), Some("pan-x"));
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("transition-duration"))
+                .map(String::as_str),
+            Some("1s")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("animation"))
+                .map(String::as_str),
+            Some("wiggle 1s ease-in-out infinite")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("will-change"))
+                .map(String::as_str),
+            Some("opacity")
         );
     }
 }

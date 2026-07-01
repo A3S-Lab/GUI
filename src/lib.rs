@@ -97,9 +97,10 @@ pub use runtime::GuiRuntime;
 pub use style::{
     AlignItems, BackgroundAttachment, BackgroundBox, BorderStyle, DisplayMode, EdgeInsets,
     FlexWrap, FontStyle, FontWeight, GridAutoFlow, HyphensMode, JustifyContent, ListStylePosition,
-    ObjectFit, OverflowMode, OverflowWrapMode, PointerEvents, PortableStyle, PositionMode,
-    SelfAlignment, StyleColor, StyleLength, TextAlign, TextDecorationStyle, TextOverflow,
-    TextTransform, UserSelect, VisibilityMode, WhiteSpaceMode, WordBreakMode,
+    ObjectFit, OverflowMode, OverflowWrapMode, OverscrollBehavior, PointerEvents, PortableStyle,
+    PositionMode, ResizeMode, ScrollBehavior, SelfAlignment, StyleColor, StyleLength, StyleTime,
+    TextAlign, TextDecorationStyle, TextOverflow, TextTransform, UserSelect, VisibilityMode,
+    WhiteSpaceMode, WordBreakMode,
 };
 pub use web::WebProps;
 #[cfg(feature = "winui")]

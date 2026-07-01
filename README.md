@@ -48,7 +48,10 @@ repeat/attachment/origin/clip, object fit/position, list style, columns, font
 size, font weight, font family, font style, line height, letter spacing, text
 alignment, text transform, text decoration, text overflow, whitespace, word
 breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow, outline,
-transform, filter, backdrop filter, cursor, pointer events, and user selection.
+transform, filter, backdrop filter, transition, animation, will-change,
+appearance, accent color, caret color, resize, scroll behavior, scroll
+margin/padding, scroll snap, overscroll behavior, touch action, cursor, pointer
+events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `var(...)`, `clamp(...)`, viewport units, and sizing keywords, are
@@ -75,6 +78,10 @@ text transform utilities, text decoration utilities, `underline-offset-*`,
 `hyphens-*` are projected into portable style tokens.
 Background, object, list, and columns utilities such as `bg-*`, `object-*`,
 `list-*`, and `columns-*` are projected into portable style tokens.
+Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
+`delay-*`, `ease-*`, `animate-*`, `will-change-*`, `appearance-*`,
+`accent-*`, `caret-*`, `resize-*`, `scroll-*`, `snap-*`, `overscroll-*`, and
+`touch-*` are projected into portable style tokens.
 Inline styles are applied after class utilities so they keep normal inline-style
 precedence.
 
