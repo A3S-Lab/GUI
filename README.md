@@ -64,7 +64,7 @@ text alignment, text direction, Unicode bidi, writing mode, text orientation,
 text transform, text indent, text
 wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
 text decoration skip ink, underline offset/position, text shadow, text overflow,
-line breaking, whitespace, word breaking, hyphen
+text emphasis, line breaking, whitespace, word breaking, hyphen
 handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
 rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
@@ -119,8 +119,9 @@ Typography utilities such as `font-*`, `italic`, `not-italic`,
 `font-features-*`, font variant numeric utilities,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
-`text-underline-position` properties, `indent-*`, `line-clamp-*`, `text-shadow-*`,
-`text-wrap`, `text-nowrap`, `text-balance`, `text-pretty`, `truncate`,
+`text-underline-position` properties, arbitrary `text-emphasis-*` properties,
+`indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
+`text-balance`, `text-pretty`, `truncate`,
 `text-ellipsis`, `text-clip`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, and generated-content utilities such as `content-[...]`,
 `content-(...)`, and `content-none` are projected into portable style tokens.

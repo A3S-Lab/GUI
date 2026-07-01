@@ -401,7 +401,8 @@ deterministically:
   `colorInterpolation`, and `colorInterpolationFilters`
 - `textDecorationLine`, `textDecorationColor`, `textDecorationStyle`,
   `textDecorationThickness`, `textDecorationSkipInk`, `textUnderlineOffset`,
-  `textUnderlinePosition`, `textShadow`, `textOverflow`, `lineBreak`,
+  `textUnderlinePosition`, `textEmphasisStyle`, `textEmphasisColor`,
+  `textEmphasisPosition`, `textShadow`, `textOverflow`, `lineBreak`,
   `whiteSpace`, `wordBreak`, `overflowWrap`, `hyphens`
 - `overflow`, `overflowX`, `overflowY`
 - `aspectRatio`, `boxShadow`, Tailwind `ring*` and `divide*` metadata,
@@ -473,8 +474,9 @@ Common Tailwind typography and text utilities such as `font-*`, `italic`,
 `font-stretch-*`, `font-features-*`, font variant numeric utilities, `tab-*`,
 text transform utilities, text decoration
 utilities, `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
-`text-underline-position` properties, `truncate`, `text-ellipsis`, `text-clip`,
-`indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
+`text-underline-position` properties, arbitrary `text-emphasis-*` properties,
+`truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`,
+`text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, and generated-content utilities such as `content-[...]`,
 `content-(...)`, and `content-none` project into the same declaration model.

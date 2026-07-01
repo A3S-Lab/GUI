@@ -222,6 +222,9 @@ pub struct PortableStyle {
     pub text_decoration_skip_ink: Option<String>,
     pub text_underline_offset: Option<StyleLength>,
     pub text_underline_position: Option<String>,
+    pub text_emphasis_style: Option<String>,
+    pub text_emphasis_color: Option<StyleColor>,
+    pub text_emphasis_position: Option<String>,
     pub text_shadow: Option<String>,
     pub text_overflow: Option<TextOverflow>,
     pub line_break: Option<String>,
@@ -914,6 +917,24 @@ impl PortableStyle {
             "text-underline-position" => {
                 self.text_underline_position = parse_css_string_token(value_ref);
             }
+            "text-emphasis" | "-webkit-text-emphasis" | "webkit-text-emphasis" => {
+                self.apply_text_emphasis_shorthand(value_ref);
+            }
+            "text-emphasis-style"
+            | "-webkit-text-emphasis-style"
+            | "webkit-text-emphasis-style" => {
+                self.text_emphasis_style = parse_css_string_token(value_ref);
+            }
+            "text-emphasis-color"
+            | "-webkit-text-emphasis-color"
+            | "webkit-text-emphasis-color" => {
+                self.text_emphasis_color = parse_color(value_ref);
+            }
+            "text-emphasis-position"
+            | "-webkit-text-emphasis-position"
+            | "webkit-text-emphasis-position" => {
+                self.text_emphasis_position = parse_css_string_token(value_ref);
+            }
             "text-shadow" => self.text_shadow = parse_css_string_token(value_ref),
             "text-overflow" => self.text_overflow = parse_text_overflow(value_ref),
             "line-break" => self.line_break = parse_css_string_token(value_ref),
@@ -1141,6 +1162,20 @@ impl PortableStyle {
             } else if let Some(color) = parse_color(part) {
                 self.text_decoration_color = Some(color);
             }
+        }
+    }
+
+    fn apply_text_emphasis_shorthand(&mut self, value: &str) {
+        let mut style_parts = Vec::new();
+        for part in value.split_whitespace() {
+            if is_text_emphasis_style_token(part) {
+                style_parts.push(part);
+            } else if let Some(color) = parse_color(part) {
+                self.text_emphasis_color = Some(color);
+            }
+        }
+        if !style_parts.is_empty() {
+            self.text_emphasis_style = Some(style_parts.join(" "));
         }
     }
 
@@ -2858,6 +2893,14 @@ fn parse_text_decoration_style(value: &str) -> Option<TextDecorationStyle> {
         "wavy" => Some(TextDecorationStyle::Wavy),
         _ => None,
     }
+}
+
+fn is_text_emphasis_style_token(value: &str) -> bool {
+    matches!(
+        value.trim(),
+        "none" | "filled" | "open" | "dot" | "circle" | "double-circle" | "triangle" | "sesame"
+    ) || value.trim().starts_with('"')
+        || value.trim().starts_with('\'')
 }
 
 fn parse_text_overflow(value: &str) -> Option<TextOverflow> {
@@ -9182,6 +9225,8 @@ mod tests {
             .style("textDecorationSkipInk", "none")
             .style("textUnderlineOffset", "4px")
             .style("textUnderlinePosition", "under left")
+            .style("textEmphasis", "filled sesame #663399")
+            .style("WebkitTextEmphasisPosition", "under right")
             .style("textShadow", "0 1px 2px rgb(0 0 0 / 0.3)")
             .style("textOverflow", "ellipsis")
             .style("lineBreak", "strict")
@@ -9266,6 +9311,17 @@ mod tests {
         assert_eq!(style.text_decoration_skip_ink.as_deref(), Some("none"));
         assert_eq!(style.text_underline_offset, Some(StyleLength::Points(4.0)));
         assert_eq!(style.text_underline_position.as_deref(), Some("under left"));
+        assert_eq!(style.text_emphasis_style.as_deref(), Some("filled sesame"));
+        assert_eq!(
+            style.text_emphasis_color,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.text_emphasis_position.as_deref(), Some("under right"));
         assert_eq!(
             style.text_shadow.as_deref(),
             Some("0 1px 2px rgb(0 0 0 / 0.3)")
@@ -9279,6 +9335,10 @@ mod tests {
         assert!(!style.unsupported.contains_key("text-decoration-line"));
         assert!(!style.unsupported.contains_key("text-decoration-skip-ink"));
         assert!(!style.unsupported.contains_key("text-underline-position"));
+        assert!(!style.unsupported.contains_key("text-emphasis"));
+        assert!(!style
+            .unsupported
+            .contains_key("webkit-text-emphasis-position"));
         assert!(!style.unsupported.contains_key("font-feature-settings"));
         assert!(!style.unsupported.contains_key("font-variant-numeric"));
         assert!(!style.unsupported.contains_key("white-space"));
@@ -9300,12 +9360,15 @@ mod tests {
              font-stretch-condensed font-features-[\"kern\"_1] tab-4 text-shadow-sm \
              [direction:rtl] [unicode-bidi:isolate] [writing-mode:vertical-rl] \
              [text-orientation:upright] [text-decoration-skip-ink:none] \
-             [text-underline-position:under_left] \
+             [text-underline-position:under_left] [text-emphasis-style:open_dot] \
+             [text-emphasis-color:#663399] [text-emphasis-position:under_right] \
              line-clamp-3 md:tracking-[0.2em] hover:decoration-[3px] \
              focus:text-pretty lg:line-clamp-none ltr:[direction:ltr] \
              rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
              hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
              hover:[text-decoration-skip-ink:all] focus:[text-underline-position:left] \
+             hover:[text-emphasis-style:filled_sesame] focus:[text-emphasis-color:#663399] \
+             active:[text-emphasis-position:over_left] \
              hover:font-features-(--font-features) focus:text-shadow-[0_1px_2px_rgb(0_0_0_/_0.3)] \
              lg:normal-nums content-none before:content-['Hello_World'] \
              after:content-(--suffix-content) hover:content-['Hello\\_World'] \
@@ -9365,6 +9428,17 @@ mod tests {
         assert_eq!(style.text_decoration_skip_ink.as_deref(), Some("none"));
         assert_eq!(style.text_underline_offset, Some(StyleLength::Points(4.0)));
         assert_eq!(style.text_underline_position.as_deref(), Some("under left"));
+        assert_eq!(style.text_emphasis_style.as_deref(), Some("open dot"));
+        assert_eq!(
+            style.text_emphasis_color,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.text_emphasis_position.as_deref(), Some("under right"));
         assert_eq!(style.text_overflow, Some(TextOverflow::Ellipsis));
         assert_eq!(style.overflow_x, Some(OverflowMode::Hidden));
         assert_eq!(style.overflow_y, Some(OverflowMode::Hidden));
@@ -9476,6 +9550,30 @@ mod tests {
                 .and_then(|styles| styles.get("text-underline-position"))
                 .map(String::as_str),
             Some("left")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("text-emphasis-style"))
+                .map(String::as_str),
+            Some("filled sesame")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("text-emphasis-color"))
+                .map(String::as_str),
+            Some("#663399")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("text-emphasis-position"))
+                .map(String::as_str),
+            Some("over left")
         );
         assert_eq!(
             style
