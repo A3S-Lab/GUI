@@ -31,6 +31,11 @@ pub struct PortableStyle {
     pub border_width: EdgeInsets,
     pub border_color: Option<StyleColor>,
     pub border_style: Option<BorderStyle>,
+    pub box_shadow: Option<String>,
+    pub outline_width: Option<StyleLength>,
+    pub outline_color: Option<StyleColor>,
+    pub outline_style: Option<BorderStyle>,
+    pub outline_offset: Option<StyleLength>,
     pub color: Option<StyleColor>,
     pub background_color: Option<StyleColor>,
     pub border_radius: Option<StyleLength>,
@@ -42,6 +47,13 @@ pub struct PortableStyle {
     pub overflow_y: Option<OverflowMode>,
     pub visibility: Option<VisibilityMode>,
     pub z_index: Option<i32>,
+    pub aspect_ratio: Option<String>,
+    pub transform: Option<String>,
+    pub filter: Option<String>,
+    pub backdrop_filter: Option<String>,
+    pub cursor: Option<String>,
+    pub pointer_events: Option<PointerEvents>,
+    pub user_select: Option<UserSelect>,
     pub opacity: Option<f64>,
     pub unsupported: BTreeMap<String, String>,
 }
@@ -120,6 +132,12 @@ impl PortableStyle {
             "border-left-width" => self.border_width.left = parse_length(value_ref),
             "border-color" => self.border_color = parse_color(value_ref),
             "border-style" => self.border_style = parse_border_style(value_ref),
+            "box-shadow" => self.box_shadow = parse_css_string_token(value_ref),
+            "outline" => self.apply_outline_shorthand(value_ref),
+            "outline-width" => self.outline_width = parse_length(value_ref),
+            "outline-color" => self.outline_color = parse_color(value_ref),
+            "outline-style" => self.outline_style = parse_border_style(value_ref),
+            "outline-offset" => self.outline_offset = parse_length(value_ref),
             "color" => self.color = parse_color(value_ref),
             "background" | "background-color" => self.background_color = parse_color(value_ref),
             "border-radius" => self.border_radius = parse_length(value_ref),
@@ -136,6 +154,13 @@ impl PortableStyle {
             "overflow-y" => self.overflow_y = parse_overflow(value_ref),
             "visibility" => self.visibility = parse_visibility(value_ref),
             "z-index" => self.z_index = parse_z_index(value_ref),
+            "aspect-ratio" => self.aspect_ratio = parse_css_string_token(value_ref),
+            "transform" => self.transform = parse_css_string_token(value_ref),
+            "filter" => self.filter = parse_css_string_token(value_ref),
+            "backdrop-filter" => self.backdrop_filter = parse_css_string_token(value_ref),
+            "cursor" => self.cursor = parse_css_string_token(value_ref),
+            "pointer-events" => self.pointer_events = parse_pointer_events(value_ref),
+            "user-select" => self.user_select = parse_user_select(value_ref),
             "opacity" => self.opacity = value_ref.trim().parse::<f64>().ok(),
             other => {
                 self.unsupported.insert(other.to_string(), value);
@@ -168,6 +193,18 @@ impl PortableStyle {
                 self.border_style = Some(style);
             } else if let Some(color) = parse_color(part) {
                 self.border_color = Some(color);
+            }
+        }
+    }
+
+    fn apply_outline_shorthand(&mut self, value: &str) {
+        for part in value.split_whitespace() {
+            if let Some(width) = parse_length(part) {
+                self.outline_width = Some(width);
+            } else if let Some(style) = parse_border_style(part) {
+                self.outline_style = Some(style);
+            } else if let Some(color) = parse_color(part) {
+                self.outline_color = Some(color);
             }
         }
     }
@@ -373,6 +410,23 @@ pub enum VisibilityMode {
     Visible,
     Hidden,
     Collapse,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PointerEvents {
+    Auto,
+    None,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum UserSelect {
+    Auto,
+    Text,
+    None,
+    All,
+    Contain,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -609,6 +663,34 @@ fn parse_visibility(value: &str) -> Option<VisibilityMode> {
 
 fn parse_z_index(value: &str) -> Option<i32> {
     value.trim().parse::<i32>().ok()
+}
+
+fn parse_css_string_token(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
+}
+
+fn parse_pointer_events(value: &str) -> Option<PointerEvents> {
+    match value.trim() {
+        "auto" => Some(PointerEvents::Auto),
+        "none" => Some(PointerEvents::None),
+        _ => None,
+    }
+}
+
+fn parse_user_select(value: &str) -> Option<UserSelect> {
+    match value.trim() {
+        "auto" => Some(UserSelect::Auto),
+        "text" => Some(UserSelect::Text),
+        "none" => Some(UserSelect::None),
+        "all" => Some(UserSelect::All),
+        "contain" => Some(UserSelect::Contain),
+        _ => None,
+    }
 }
 
 fn parse_edge_insets(value: &str) -> EdgeInsets {
@@ -1073,6 +1155,59 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         "border-double" => Some(("border-style", "double".to_string())),
         "border-hidden" => Some(("border-style", "hidden".to_string())),
         "border-none" => Some(("border-style", "none".to_string())),
+        "outline" => Some(("outline-width", "1px".to_string())),
+        "outline-none" => Some(("outline", "2px solid transparent".to_string())),
+        "outline-hidden" => Some(("outline-style", "none".to_string())),
+        "outline-solid" => Some(("outline-style", "solid".to_string())),
+        "outline-dashed" => Some(("outline-style", "dashed".to_string())),
+        "outline-dotted" => Some(("outline-style", "dotted".to_string())),
+        "outline-double" => Some(("outline-style", "double".to_string())),
+        "shadow" => Some((
+            "box-shadow",
+            "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)".to_string(),
+        )),
+        "shadow-xs" => Some(("box-shadow", "0 1px rgb(0 0 0 / 0.05)".to_string())),
+        "shadow-sm" => Some(("box-shadow", "0 1px 2px 0 rgb(0 0 0 / 0.05)".to_string())),
+        "shadow-md" => Some((
+            "box-shadow",
+            "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)".to_string(),
+        )),
+        "shadow-lg" => Some((
+            "box-shadow",
+            "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)".to_string(),
+        )),
+        "shadow-xl" => Some((
+            "box-shadow",
+            "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)".to_string(),
+        )),
+        "shadow-2xl" => Some((
+            "box-shadow",
+            "0 25px 50px -12px rgb(0 0 0 / 0.25)".to_string(),
+        )),
+        "shadow-inner" => Some((
+            "box-shadow",
+            "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)".to_string(),
+        )),
+        "shadow-none" => Some(("box-shadow", "none".to_string())),
+        "transform" => Some(("transform", "translateZ(0)".to_string())),
+        "transform-none" => Some(("transform", "none".to_string())),
+        "filter" => Some(("filter", "var(--tw-filter)".to_string())),
+        "filter-none" => Some(("filter", "none".to_string())),
+        "backdrop-filter" => Some(("backdrop-filter", "var(--tw-backdrop-filter)".to_string())),
+        "backdrop-filter-none" => Some(("backdrop-filter", "none".to_string())),
+        "pointer-events-auto" => Some(("pointer-events", "auto".to_string())),
+        "pointer-events-none" => Some(("pointer-events", "none".to_string())),
+        "select-auto" => Some(("user-select", "auto".to_string())),
+        "select-text" => Some(("user-select", "text".to_string())),
+        "select-none" => Some(("user-select", "none".to_string())),
+        "select-all" => Some(("user-select", "all".to_string())),
+        "resize-none" => Some(("resize", "none".to_string())),
+        "resize" => Some(("resize", "both".to_string())),
+        "resize-x" => Some(("resize", "horizontal".to_string())),
+        "resize-y" => Some(("resize", "vertical".to_string())),
+        "aspect-auto" => Some(("aspect-ratio", "auto".to_string())),
+        "aspect-square" => Some(("aspect-ratio", "1 / 1".to_string())),
+        "aspect-video" => Some(("aspect-ratio", "16 / 9".to_string())),
         "rounded" => Some(("border-radius", "4px".to_string())),
         "rounded-none" => Some(("border-radius", "0px".to_string())),
         "rounded-sm" => Some(("border-radius", "2px".to_string())),
@@ -1090,6 +1225,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
     }
     if let Some(text_size) = tailwind_text_size_declarations(class) {
         declarations.extend(text_size);
+        return declarations;
+    }
+    if let Some((property, value)) = tailwind_visual_effect_declaration(class) {
+        declarations.insert(property, value);
         return declarations;
     }
     if let Some((properties, value)) = tailwind_inset_utility(class) {
@@ -1149,6 +1288,94 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
     } else {
         None
     }
+}
+
+fn tailwind_visual_effect_declaration(class: &str) -> Option<(String, String)> {
+    if let Some(value) = class
+        .strip_prefix("shadow-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(("box-shadow".to_string(), tailwind_arbitrary_value(value)));
+    }
+    if let Some(value) = class
+        .strip_prefix("outline-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(("outline".to_string(), tailwind_arbitrary_value(value)));
+    }
+    if let Some(value) = class
+        .strip_prefix("outline-offset-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some((
+            "outline-offset".to_string(),
+            tailwind_arbitrary_value(value),
+        ));
+    }
+    if let Some(value) = class
+        .strip_prefix("cursor-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(("cursor".to_string(), tailwind_arbitrary_value(value)));
+    }
+    if let Some(value) = class
+        .strip_prefix("aspect-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(("aspect-ratio".to_string(), tailwind_arbitrary_value(value)));
+    }
+    if let Some(value) = class
+        .strip_prefix("transform-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(("transform".to_string(), tailwind_arbitrary_value(value)));
+    }
+    if let Some(value) = class
+        .strip_prefix("filter-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(("filter".to_string(), tailwind_arbitrary_value(value)));
+    }
+    if let Some(value) = class
+        .strip_prefix("backdrop-filter-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some((
+            "backdrop-filter".to_string(),
+            tailwind_arbitrary_value(value),
+        ));
+    }
+    if let Some(value) = class
+        .strip_prefix("outline-offset-")
+        .and_then(tailwind_length)
+    {
+        return Some(("outline-offset".to_string(), style_length_css(value)));
+    }
+    if let Some(value) = class
+        .strip_prefix("outline-")
+        .and_then(tailwind_border_width)
+    {
+        return Some(("outline-width".to_string(), style_length_css(value)));
+    }
+    if let Some(value) = class.strip_prefix("outline-").and_then(tailwind_color_css) {
+        return Some(("outline-color".to_string(), value));
+    }
+    if let Some(value) = class.strip_prefix("cursor-") {
+        if is_tailwind_cursor(value) {
+            return Some(("cursor".to_string(), value.to_string()));
+        }
+    }
+    if let Some(value) = class.strip_prefix("aspect-") {
+        if let Some((width, height)) = value.split_once('/') {
+            if width.parse::<f64>().is_ok() && height.parse::<f64>().is_ok() {
+                return Some(("aspect-ratio".to_string(), format!("{width} / {height}")));
+            }
+        }
+    }
+    if let Some(value) = tailwind_transform_declaration(class) {
+        return Some(("transform".to_string(), value));
+    }
+    None
 }
 
 fn insert_edge_declarations(
@@ -1270,6 +1497,121 @@ fn trim_float(value: f64) -> String {
 
 fn tailwind_arbitrary_value(value: &str) -> String {
     value.replace('_', " ")
+}
+
+fn is_tailwind_cursor(value: &str) -> bool {
+    matches!(
+        value,
+        "auto"
+            | "default"
+            | "pointer"
+            | "wait"
+            | "text"
+            | "move"
+            | "help"
+            | "not-allowed"
+            | "none"
+            | "context-menu"
+            | "progress"
+            | "cell"
+            | "crosshair"
+            | "vertical-text"
+            | "alias"
+            | "copy"
+            | "no-drop"
+            | "grab"
+            | "grabbing"
+            | "all-scroll"
+            | "col-resize"
+            | "row-resize"
+            | "n-resize"
+            | "e-resize"
+            | "s-resize"
+            | "w-resize"
+            | "ne-resize"
+            | "nw-resize"
+            | "se-resize"
+            | "sw-resize"
+            | "ew-resize"
+            | "ns-resize"
+            | "nesw-resize"
+            | "nwse-resize"
+            | "zoom-in"
+            | "zoom-out"
+    )
+}
+
+fn tailwind_transform_declaration(class: &str) -> Option<String> {
+    if let Some(suffix) = class.strip_prefix("rotate-") {
+        if let Some(value) = tailwind_rotate_value(suffix) {
+            return Some(format!("rotate({value})"));
+        }
+    }
+    if let Some(suffix) = class.strip_prefix("-rotate-") {
+        if let Some(value) = tailwind_rotate_value(suffix) {
+            return Some(format!("rotate(-{value})"));
+        }
+    }
+    if let Some(value) = class.strip_prefix("scale-").and_then(tailwind_scale_value) {
+        return Some(format!("scale({value})"));
+    }
+    if let Some(value) = class
+        .strip_prefix("scale-x-")
+        .and_then(tailwind_scale_value)
+    {
+        return Some(format!("scaleX({value})"));
+    }
+    if let Some(value) = class
+        .strip_prefix("scale-y-")
+        .and_then(tailwind_scale_value)
+    {
+        return Some(format!("scaleY({value})"));
+    }
+    if let Some(suffix) = class.strip_prefix("translate-x-") {
+        if let Some(value) = tailwind_translate_value(suffix) {
+            return Some(format!("translateX({value})"));
+        }
+    }
+    if let Some(suffix) = class.strip_prefix("-translate-x-") {
+        if let Some(value) = tailwind_translate_value(suffix) {
+            return Some(format!("translateX(-{value})"));
+        }
+    }
+    if let Some(suffix) = class.strip_prefix("translate-y-") {
+        if let Some(value) = tailwind_translate_value(suffix) {
+            return Some(format!("translateY({value})"));
+        }
+    }
+    if let Some(suffix) = class.strip_prefix("-translate-y-") {
+        if let Some(value) = tailwind_translate_value(suffix) {
+            return Some(format!("translateY(-{value})"));
+        }
+    }
+    None
+}
+
+fn tailwind_rotate_value(value: &str) -> Option<String> {
+    if let Some(arbitrary) = value
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(tailwind_arbitrary_value(arbitrary));
+    }
+    Some(format!("{}deg", trim_float(value.parse::<f64>().ok()?)))
+}
+
+fn tailwind_scale_value(value: &str) -> Option<String> {
+    if let Some(arbitrary) = value
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(tailwind_arbitrary_value(arbitrary));
+    }
+    Some(trim_float(value.parse::<f64>().ok()? / 100.0))
+}
+
+fn tailwind_translate_value(value: &str) -> Option<String> {
+    tailwind_length(value).map(style_length_css)
 }
 
 fn tailwind_text_size_declarations(class: &str) -> Option<BTreeMap<String, String>> {
@@ -1731,10 +2073,8 @@ mod tests {
                 .map(String::as_str),
             Some("#663399")
         );
-        assert_eq!(
-            style.unsupported.get("box-shadow").map(String::as_str),
-            Some("0 1px 3px black")
-        );
+        assert_eq!(style.box_shadow.as_deref(), Some("0 1px 3px black"));
+        assert!(!style.unsupported.contains_key("box-shadow"));
     }
 
     #[test]
@@ -2024,6 +2364,96 @@ mod tests {
                 .and_then(|styles| styles.get("background-color"))
                 .map(String::as_str),
             Some("rgba(0, 0, 0, 0.4)")
+        );
+    }
+
+    #[test]
+    fn parses_css_visual_effect_and_interaction_properties() {
+        let web = WebProps::new()
+            .style("boxShadow", "0 2px 8px rgb(0 0 0 / 25%)")
+            .style("outline", "2px dashed #ff0000")
+            .style("outlineOffset", "4px")
+            .style("transform", "translateX(4px) rotate(15deg)")
+            .style("filter", "blur(4px)")
+            .style("backdropFilter", "saturate(150%)")
+            .style("aspectRatio", "4 / 3")
+            .style("cursor", "pointer")
+            .style("pointerEvents", "none")
+            .style("userSelect", "text");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.box_shadow.as_deref(),
+            Some("0 2px 8px rgb(0 0 0 / 25%)")
+        );
+        assert_eq!(style.outline_width, Some(StyleLength::Points(2.0)));
+        assert_eq!(style.outline_style, Some(BorderStyle::Dashed));
+        assert_eq!(
+            style.outline_color,
+            Some(StyleColor::Rgba {
+                red: 255,
+                green: 0,
+                blue: 0,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.outline_offset, Some(StyleLength::Points(4.0)));
+        assert_eq!(
+            style.transform.as_deref(),
+            Some("translateX(4px) rotate(15deg)")
+        );
+        assert_eq!(style.filter.as_deref(), Some("blur(4px)"));
+        assert_eq!(style.backdrop_filter.as_deref(), Some("saturate(150%)"));
+        assert_eq!(style.aspect_ratio.as_deref(), Some("4 / 3"));
+        assert_eq!(style.cursor.as_deref(), Some("pointer"));
+        assert_eq!(style.pointer_events, Some(PointerEvents::None));
+        assert_eq!(style.user_select, Some(UserSelect::Text));
+        assert!(!style.unsupported.contains_key("box-shadow"));
+    }
+
+    #[test]
+    fn parses_tailwind_visual_effect_and_interaction_utilities() {
+        let web = WebProps::new().class_name(
+            "shadow-lg outline-2 outline-offset-4 outline-blue-600 cursor-pointer \
+             pointer-events-none select-none aspect-video filter-none backdrop-filter-none \
+             rotate-45 hover:shadow-[0_0_4px_black] focus:outline-[3px_solid_red]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.box_shadow.as_deref(),
+            Some("0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)")
+        );
+        assert_eq!(style.outline_width, Some(StyleLength::Points(2.0)));
+        assert_eq!(style.outline_offset, Some(StyleLength::Points(16.0)));
+        assert_eq!(
+            style.outline_color,
+            Some(StyleColor::Keyword("blue-600".to_string()))
+        );
+        assert_eq!(style.cursor.as_deref(), Some("pointer"));
+        assert_eq!(style.pointer_events, Some(PointerEvents::None));
+        assert_eq!(style.user_select, Some(UserSelect::None));
+        assert_eq!(style.aspect_ratio.as_deref(), Some("16 / 9"));
+        assert_eq!(style.filter.as_deref(), Some("none"));
+        assert_eq!(style.backdrop_filter.as_deref(), Some("none"));
+        assert_eq!(style.transform.as_deref(), Some("rotate(45deg)"));
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("box-shadow"))
+                .map(String::as_str),
+            Some("0 0 4px black")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("outline"))
+                .map(String::as_str),
+            Some("3px solid red")
         );
     }
 }

@@ -360,6 +360,9 @@ deterministically:
 - `color`, `backgroundColor`, `fontSize`, `fontWeight`, `lineHeight`,
   `textAlign`
 - `overflow`, `overflowX`, `overflowY`
+- `aspectRatio`, `boxShadow`, `outline*`, `transform`, `filter`,
+  `backdropFilter`
+- `cursor`, `pointerEvents`, `userSelect`
 - `opacity`
 
 CSS custom properties are stored separately. Tailwind variant utilities are
@@ -373,3 +376,7 @@ viewport/container units, and sizing keywords such as `min-content`.
 CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
 RGBA tokens when possible. Tailwind color opacity modifiers are preserved for
 both base and variant utilities.
+Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
+`outline-*`, `cursor-*`, `pointer-events-*`, `select-*`, `aspect-*`,
+`filter-*`, and basic transform utilities project into the same declaration
+model.
