@@ -219,7 +219,9 @@ pub struct PortableStyle {
     pub text_decoration_color: Option<StyleColor>,
     pub text_decoration_style: Option<TextDecorationStyle>,
     pub text_decoration_thickness: Option<StyleLength>,
+    pub text_decoration_skip_ink: Option<String>,
     pub text_underline_offset: Option<StyleLength>,
+    pub text_underline_position: Option<String>,
     pub text_shadow: Option<String>,
     pub text_overflow: Option<TextOverflow>,
     pub line_break: Option<String>,
@@ -905,7 +907,13 @@ impl PortableStyle {
                 self.text_decoration_style = parse_text_decoration_style(value_ref);
             }
             "text-decoration-thickness" => self.text_decoration_thickness = parse_length(value_ref),
+            "text-decoration-skip-ink" => {
+                self.text_decoration_skip_ink = parse_css_string_token(value_ref);
+            }
             "text-underline-offset" => self.text_underline_offset = parse_length(value_ref),
+            "text-underline-position" => {
+                self.text_underline_position = parse_css_string_token(value_ref);
+            }
             "text-shadow" => self.text_shadow = parse_css_string_token(value_ref),
             "text-overflow" => self.text_overflow = parse_text_overflow(value_ref),
             "line-break" => self.line_break = parse_css_string_token(value_ref),
@@ -9171,7 +9179,9 @@ mod tests {
             .style("textDecorationColor", "#663399")
             .style("textDecorationStyle", "wavy")
             .style("textDecorationThickness", "from-font")
+            .style("textDecorationSkipInk", "none")
             .style("textUnderlineOffset", "4px")
+            .style("textUnderlinePosition", "under left")
             .style("textShadow", "0 1px 2px rgb(0 0 0 / 0.3)")
             .style("textOverflow", "ellipsis")
             .style("lineBreak", "strict")
@@ -9253,7 +9263,9 @@ mod tests {
             style.text_decoration_thickness,
             Some(StyleLength::Css("from-font".to_string()))
         );
+        assert_eq!(style.text_decoration_skip_ink.as_deref(), Some("none"));
         assert_eq!(style.text_underline_offset, Some(StyleLength::Points(4.0)));
+        assert_eq!(style.text_underline_position.as_deref(), Some("under left"));
         assert_eq!(
             style.text_shadow.as_deref(),
             Some("0 1px 2px rgb(0 0 0 / 0.3)")
@@ -9265,6 +9277,8 @@ mod tests {
         assert_eq!(style.overflow_wrap, Some(OverflowWrapMode::Anywhere));
         assert_eq!(style.hyphens, Some(HyphensMode::Auto));
         assert!(!style.unsupported.contains_key("text-decoration-line"));
+        assert!(!style.unsupported.contains_key("text-decoration-skip-ink"));
+        assert!(!style.unsupported.contains_key("text-underline-position"));
         assert!(!style.unsupported.contains_key("font-feature-settings"));
         assert!(!style.unsupported.contains_key("font-variant-numeric"));
         assert!(!style.unsupported.contains_key("white-space"));
@@ -9285,11 +9299,13 @@ mod tests {
              ordinal slashed-zero tabular-nums diagonal-fractions \
              font-stretch-condensed font-features-[\"kern\"_1] tab-4 text-shadow-sm \
              [direction:rtl] [unicode-bidi:isolate] [writing-mode:vertical-rl] \
-             [text-orientation:upright] \
+             [text-orientation:upright] [text-decoration-skip-ink:none] \
+             [text-underline-position:under_left] \
              line-clamp-3 md:tracking-[0.2em] hover:decoration-[3px] \
              focus:text-pretty lg:line-clamp-none ltr:[direction:ltr] \
              rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
              hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
+             hover:[text-decoration-skip-ink:all] focus:[text-underline-position:left] \
              hover:font-features-(--font-features) focus:text-shadow-[0_1px_2px_rgb(0_0_0_/_0.3)] \
              lg:normal-nums content-none before:content-['Hello_World'] \
              after:content-(--suffix-content) hover:content-['Hello\\_World'] \
@@ -9346,7 +9362,9 @@ mod tests {
             style.text_decoration_thickness,
             Some(StyleLength::Points(2.0))
         );
+        assert_eq!(style.text_decoration_skip_ink.as_deref(), Some("none"));
         assert_eq!(style.text_underline_offset, Some(StyleLength::Points(4.0)));
+        assert_eq!(style.text_underline_position.as_deref(), Some("under left"));
         assert_eq!(style.text_overflow, Some(TextOverflow::Ellipsis));
         assert_eq!(style.overflow_x, Some(OverflowMode::Hidden));
         assert_eq!(style.overflow_y, Some(OverflowMode::Hidden));
@@ -9442,6 +9460,22 @@ mod tests {
                 .and_then(|styles| styles.get("overflow-wrap"))
                 .map(String::as_str),
             Some("var(--overflow-wrap)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("text-decoration-skip-ink"))
+                .map(String::as_str),
+            Some("all")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("text-underline-position"))
+                .map(String::as_str),
+            Some("left")
         );
         assert_eq!(
             style

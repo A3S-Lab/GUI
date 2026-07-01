@@ -400,9 +400,9 @@ deterministically:
   `vectorEffect`, `paintOrder`, `shapeRendering`, `textRendering`,
   `colorInterpolation`, and `colorInterpolationFilters`
 - `textDecorationLine`, `textDecorationColor`, `textDecorationStyle`,
-  `textDecorationThickness`, `textUnderlineOffset`, `textShadow`,
-  `textOverflow`, `lineBreak`, `whiteSpace`, `wordBreak`, `overflowWrap`,
-  `hyphens`
+  `textDecorationThickness`, `textDecorationSkipInk`, `textUnderlineOffset`,
+  `textUnderlinePosition`, `textShadow`, `textOverflow`, `lineBreak`,
+  `whiteSpace`, `wordBreak`, `overflowWrap`, `hyphens`
 - `overflow`, `overflowX`, `overflowY`
 - `aspectRatio`, `boxShadow`, Tailwind `ring*` and `divide*` metadata,
   `outline*`, `transform`, `filter`,
@@ -472,7 +472,8 @@ Common Tailwind typography and text utilities such as `font-*`, `italic`,
 `not-italic`, `antialiased`, `subpixel-antialiased`, `tracking-*`,
 `font-stretch-*`, `font-features-*`, font variant numeric utilities, `tab-*`,
 text transform utilities, text decoration
-utilities, `underline-offset-*`, `truncate`, `text-ellipsis`, `text-clip`,
+utilities, `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
+`text-underline-position` properties, `truncate`, `text-ellipsis`, `text-clip`,
 `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, and generated-content utilities such as `content-[...]`,
