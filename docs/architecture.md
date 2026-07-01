@@ -395,14 +395,17 @@ deterministically:
   `fontWeight`, `fontStretch`, `fontPalette`, `fontLanguageOverride`,
   `fontKerning`, `fontOpticalSizing`, `WebkitFontSmoothing`,
   `MozOsxFontSmoothing`, `fontFeatureSettings`, `fontVariationSettings`,
-  `fontVariant*`, `fontSynthesis*`, `lineHeight`,
+  `fontVariant*`, `fontSynthesis*`, `lineHeight`, `dominantBaseline`,
+  `baselineSource`, `alignmentBaseline`, `baselineShift`, `lineFitEdge`,
+  `inlineSizing`, `initialLetter*`,
   `letterSpacing`, `wordSpacing`, `tabSize`, `textAlign`, `textAlignLast`,
   `textJustify`, `textSizeAdjust`, `WebkitTextSizeAdjust`,
   `MozTextSizeAdjust`, `MsTextSizeAdjust`, `direction`, `unicodeBidi`,
   `writingMode`, `textOrientation`,
   `textCombineUpright`, `textTransform`, `textIndent`, `textWrap`,
   `textWrapMode`, `textWrapStyle`, `textSpacingTrim`, `textAutospace`,
-  `textBox*`, `hangingPunctuation`, `lineClamp`, `boxOrient`
+  `textBox*`, `hangingPunctuation`, `lineClamp`, `blockEllipsis`,
+  `continue`, `maxLines`, `boxOrient`
 - SVG presentation properties such as `fill`, `fillOpacity`, `fillRule`,
   `clipRule`, `stroke`, `strokeWidth`, `strokeLinecap`, `strokeLinejoin`,
   `strokeMiterlimit`, `strokeDasharray`, `strokeDashoffset`, `strokeOpacity`,
@@ -496,8 +499,10 @@ font variant numeric utilities, `tab-*`, text transform utilities, text decorati
 utilities, `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
 arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
-`text-justify`, `text-wrap-*`, `text-spacing-trim`, `text-autospace`,
-`text-box*`, `white-space-collapse`, and `hanging-punctuation` properties,
+`text-justify`, baseline and initial-letter properties, `text-wrap-*`,
+`text-spacing-trim`, `text-autospace`,
+`text-box*`, `white-space-collapse`, `hanging-punctuation`, and line-clamp
+longhand properties,
 arbitrary `ruby-*`
 properties, `truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`,
 `text-shadow-*`, `text-wrap`, `text-nowrap`,

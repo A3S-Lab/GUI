@@ -210,6 +210,15 @@ pub struct PortableStyle {
     pub font_synthesis_small_caps: Option<String>,
     pub font_synthesis_position: Option<String>,
     pub line_height: Option<StyleLength>,
+    pub dominant_baseline: Option<String>,
+    pub baseline_source: Option<String>,
+    pub alignment_baseline: Option<String>,
+    pub baseline_shift: Option<String>,
+    pub line_fit_edge: Option<String>,
+    pub inline_sizing: Option<String>,
+    pub initial_letter: Option<String>,
+    pub initial_letter_align: Option<String>,
+    pub initial_letter_wrap: Option<String>,
     pub letter_spacing: Option<StyleLength>,
     pub word_spacing: Option<StyleLength>,
     pub tab_size: Option<String>,
@@ -237,6 +246,10 @@ pub struct PortableStyle {
     pub text_box_edge: Option<String>,
     pub hanging_punctuation: Option<String>,
     pub line_clamp: Option<String>,
+    pub block_ellipsis: Option<String>,
+    #[serde(rename = "continue")]
+    pub continue_mode: Option<String>,
+    pub max_lines: Option<String>,
     pub box_orient: Option<String>,
     pub fill: Option<StyleColor>,
     pub fill_opacity: Option<f64>,
@@ -970,6 +983,17 @@ impl PortableStyle {
                 self.font_synthesis_position = parse_css_string_token(value_ref);
             }
             "line-height" => self.line_height = parse_length(value_ref),
+            "dominant-baseline" => self.dominant_baseline = parse_css_string_token(value_ref),
+            "baseline-source" => self.baseline_source = parse_css_string_token(value_ref),
+            "alignment-baseline" => self.alignment_baseline = parse_css_string_token(value_ref),
+            "baseline-shift" => self.baseline_shift = parse_css_string_token(value_ref),
+            "line-fit-edge" => self.line_fit_edge = parse_css_string_token(value_ref),
+            "inline-sizing" => self.inline_sizing = parse_css_string_token(value_ref),
+            "initial-letter" => self.initial_letter = parse_css_string_token(value_ref),
+            "initial-letter-align" => {
+                self.initial_letter_align = parse_css_string_token(value_ref);
+            }
+            "initial-letter-wrap" => self.initial_letter_wrap = parse_css_string_token(value_ref),
             "letter-spacing" => self.letter_spacing = parse_length(value_ref),
             "word-spacing" => self.word_spacing = parse_length(value_ref),
             "tab-size" | "-moz-tab-size" => self.tab_size = parse_css_string_token(value_ref),
@@ -1021,6 +1045,9 @@ impl PortableStyle {
             "line-clamp" | "-webkit-line-clamp" => {
                 self.line_clamp = parse_css_string_token(value_ref);
             }
+            "block-ellipsis" => self.block_ellipsis = parse_css_string_token(value_ref),
+            "continue" => self.continue_mode = parse_css_string_token(value_ref),
+            "max-lines" => self.max_lines = parse_css_string_token(value_ref),
             "box-orient" | "-webkit-box-orient" => {
                 self.box_orient = parse_css_string_token(value_ref);
             }
@@ -9688,6 +9715,15 @@ mod tests {
             .style("fontSynthesisStyle", "auto")
             .style("fontSynthesisSmallCaps", "none")
             .style("fontSynthesisPosition", "auto")
+            .style("dominantBaseline", "central")
+            .style("baselineSource", "first")
+            .style("alignmentBaseline", "text-before-edge")
+            .style("baselineShift", "super")
+            .style("lineFitEdge", "leading")
+            .style("inlineSizing", "stretch")
+            .style("initialLetter", "3 2")
+            .style("initialLetterAlign", "border-box")
+            .style("initialLetterWrap", "first")
             .style("letterSpacing", "0.025em")
             .style("wordSpacing", "0.125em")
             .style("tabSize", "4")
@@ -9714,6 +9750,9 @@ mod tests {
             .style("textBoxEdge", "cap alphabetic")
             .style("hangingPunctuation", "first allow-end")
             .style("lineClamp", "3")
+            .style("blockEllipsis", "\"...\"")
+            .style("continue", "discard")
+            .style("maxLines", "4")
             .style("display", "-webkit-box")
             .style("-webkitBoxOrient", "vertical")
             .style("textDecorationLine", "underline")
@@ -9786,6 +9825,18 @@ mod tests {
         assert_eq!(style.font_synthesis_style.as_deref(), Some("auto"));
         assert_eq!(style.font_synthesis_small_caps.as_deref(), Some("none"));
         assert_eq!(style.font_synthesis_position.as_deref(), Some("auto"));
+        assert_eq!(style.dominant_baseline.as_deref(), Some("central"));
+        assert_eq!(style.baseline_source.as_deref(), Some("first"));
+        assert_eq!(
+            style.alignment_baseline.as_deref(),
+            Some("text-before-edge")
+        );
+        assert_eq!(style.baseline_shift.as_deref(), Some("super"));
+        assert_eq!(style.line_fit_edge.as_deref(), Some("leading"));
+        assert_eq!(style.inline_sizing.as_deref(), Some("stretch"));
+        assert_eq!(style.initial_letter.as_deref(), Some("3 2"));
+        assert_eq!(style.initial_letter_align.as_deref(), Some("border-box"));
+        assert_eq!(style.initial_letter_wrap.as_deref(), Some("first"));
         assert_eq!(style.letter_spacing, Some(StyleLength::Points(0.4)));
         assert_eq!(style.word_spacing, Some(StyleLength::Points(2.0)));
         assert_eq!(style.tab_size.as_deref(), Some("4"));
@@ -9818,6 +9869,9 @@ mod tests {
             Some("first allow-end")
         );
         assert_eq!(style.line_clamp.as_deref(), Some("3"));
+        assert_eq!(style.block_ellipsis.as_deref(), Some("\"...\""));
+        assert_eq!(style.continue_mode.as_deref(), Some("discard"));
+        assert_eq!(style.max_lines.as_deref(), Some("4"));
         assert_eq!(style.display, Some(DisplayMode::WebkitBox));
         assert_eq!(style.box_orient.as_deref(), Some("vertical"));
         assert_eq!(style.text_decoration_line.as_deref(), Some("underline"));
@@ -9877,6 +9931,18 @@ mod tests {
         assert!(!style.unsupported.contains_key("font-language-override"));
         assert!(!style.unsupported.contains_key("font-variant-numeric"));
         assert!(!style.unsupported.contains_key("text-size-adjust"));
+        assert!(!style.unsupported.contains_key("dominant-baseline"));
+        assert!(!style.unsupported.contains_key("baseline-source"));
+        assert!(!style.unsupported.contains_key("alignment-baseline"));
+        assert!(!style.unsupported.contains_key("baseline-shift"));
+        assert!(!style.unsupported.contains_key("line-fit-edge"));
+        assert!(!style.unsupported.contains_key("inline-sizing"));
+        assert!(!style.unsupported.contains_key("initial-letter"));
+        assert!(!style.unsupported.contains_key("initial-letter-align"));
+        assert!(!style.unsupported.contains_key("initial-letter-wrap"));
+        assert!(!style.unsupported.contains_key("block-ellipsis"));
+        assert!(!style.unsupported.contains_key("continue"));
+        assert!(!style.unsupported.contains_key("max-lines"));
         assert!(!style.unsupported.contains_key("webkit-text-size-adjust"));
         assert!(!style.unsupported.contains_key("moz-text-size-adjust"));
         assert!(!style.unsupported.contains_key("ms-text-size-adjust"));
@@ -9941,6 +10007,11 @@ mod tests {
              font-stretch-condensed font-features-[\"kern\"_1] tab-4 text-shadow-sm \
              [font:italic_1rem/1.5_serif] [font-size-adjust:0.5] \
              [font-palette:dark] [font-language-override:\"TRK\"] \
+             [dominant-baseline:central] [baseline-source:first] \
+             [alignment-baseline:text-before-edge] [baseline-shift:super] \
+             [line-fit-edge:leading] [inline-sizing:stretch] \
+             [initial-letter:3_2] [initial-letter-align:border-box] \
+             [initial-letter-wrap:first] \
              [text-size-adjust:100%] \
              [-webkit-text-size-adjust:none] [-moz-text-size-adjust:auto] \
              [-ms-text-size-adjust:80%] \
@@ -9956,6 +10027,9 @@ mod tests {
              hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
              hover:[font-size-adjust:0.6] focus:[text-size-adjust:none] \
              hover:[font-palette:light] focus:[font-language-override:normal] \
+             hover:[dominant-baseline:hanging] focus:[baseline-shift:sub] \
+             active:[initial-letter:2] before:[initial-letter-wrap:all] \
+             after:[block-ellipsis:auto] visited:[max-lines:none] \
              hover:[text-align-last:right] focus:[text-justify:inter-character] \
              visited:[hanging-punctuation:last_force-end] \
              active:[text-combine-upright:digits_2] \
@@ -9963,6 +10037,7 @@ mod tests {
              [text-wrap-style:stable] [text-spacing-trim:space-all] \
              [text-autospace:ideograph-alpha] [text-box:trim-both_cap_alphabetic] \
              [text-box-trim:trim-start] [text-box-edge:cap_alphabetic] \
+             [block-ellipsis:\"...\"] [continue:discard] [max-lines:4] \
              hover:[text-decoration-skip-ink:all] focus:[text-underline-position:left] \
              hover:[text-emphasis-style:filled_sesame] focus:[text-emphasis-color:#663399] \
              active:[text-emphasis-position:over_left] \
@@ -9997,6 +10072,18 @@ mod tests {
         assert_eq!(style.font_size_adjust.as_deref(), Some("0.5"));
         assert_eq!(style.font_palette.as_deref(), Some("dark"));
         assert_eq!(style.font_language_override.as_deref(), Some("\"TRK\""));
+        assert_eq!(style.dominant_baseline.as_deref(), Some("central"));
+        assert_eq!(style.baseline_source.as_deref(), Some("first"));
+        assert_eq!(
+            style.alignment_baseline.as_deref(),
+            Some("text-before-edge")
+        );
+        assert_eq!(style.baseline_shift.as_deref(), Some("super"));
+        assert_eq!(style.line_fit_edge.as_deref(), Some("leading"));
+        assert_eq!(style.inline_sizing.as_deref(), Some("stretch"));
+        assert_eq!(style.initial_letter.as_deref(), Some("3 2"));
+        assert_eq!(style.initial_letter_align.as_deref(), Some("border-box"));
+        assert_eq!(style.initial_letter_wrap.as_deref(), Some("first"));
         assert_eq!(
             style.font_variant_numeric.as_deref(),
             Some("ordinal slashed-zero tabular-nums diagonal-fractions")
@@ -10029,6 +10116,9 @@ mod tests {
             Some("first allow-end")
         );
         assert_eq!(style.line_clamp.as_deref(), Some("3"));
+        assert_eq!(style.block_ellipsis.as_deref(), Some("\"...\""));
+        assert_eq!(style.continue_mode.as_deref(), Some("discard"));
+        assert_eq!(style.max_lines.as_deref(), Some("4"));
         assert_eq!(style.box_orient.as_deref(), Some("vertical"));
         assert_eq!(style.display, Some(DisplayMode::WebkitBox));
         assert_eq!(style.overflow_x, Some(OverflowMode::Hidden));
@@ -10145,6 +10235,54 @@ mod tests {
                 .and_then(|styles| styles.get("font-language-override"))
                 .map(String::as_str),
             Some("normal")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("dominant-baseline"))
+                .map(String::as_str),
+            Some("hanging")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("baseline-shift"))
+                .map(String::as_str),
+            Some("sub")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("initial-letter"))
+                .map(String::as_str),
+            Some("2")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("initial-letter-wrap"))
+                .map(String::as_str),
+            Some("all")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("after")
+                .and_then(|styles| styles.get("block-ellipsis"))
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("visited")
+                .and_then(|styles| styles.get("max-lines"))
+                .map(String::as_str),
+            Some("none")
         );
         assert_eq!(
             style

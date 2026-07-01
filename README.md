@@ -63,11 +63,13 @@ CSS page selection, orphans/widows, fragmentation breaks, font shorthand, font s
 font weight, font family, font style, font stretch, font palette,
 font language override, font kerning, font optical sizing, font smoothing hints,
 font feature and variation settings, font variant and
-font synthesis properties, line height, letter spacing, word spacing, tab size,
+font synthesis properties, line height, baseline alignment metadata,
+initial letter metadata, inline sizing, letter spacing, word spacing, tab size,
 text alignment, final-line alignment, text justification, text size adjustment,
 text direction, Unicode bidi, writing
 mode, text orientation, text combine upright, text transform, text indent, text
 wrapping, text spacing, text autospace, text box trim/edge, line clamp,
+line clamp longhands,
 SVG fill/stroke presentation properties, text decoration,
 text decoration skip ink, underline offset/position, text shadow, text overflow,
 text emphasis, ruby layout, hanging punctuation, line breaking, whitespace,
@@ -135,8 +137,10 @@ font variant numeric utilities,
 `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
 arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
-`text-justify`, `text-wrap-*`, `text-spacing-trim`, `text-autospace`,
-`text-box*`, `white-space-collapse`, and `hanging-punctuation` properties,
+`text-justify`, baseline and initial-letter properties,
+`text-wrap-*`, `text-spacing-trim`, `text-autospace`,
+`text-box*`, `white-space-collapse`, `hanging-punctuation`, and line-clamp
+longhand properties,
 arbitrary `ruby-*`
 properties, `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `truncate`,
