@@ -40,24 +40,25 @@ or text nodes, and the original tag is preserved in metadata under
 The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
 properties separately, and projects supported declarations into native style
-tokens. The current portable token set includes display, position, inset,
-logical inset,
-z-index, visibility, box sizing, box decoration break, isolation, float, clear,
-vertical alignment, table layout, border collapse/spacing, caption side, flex
-direction/wrap/item sizing/grow/shrink/order, alignment, justification, place
-alignment, CSS Grid shorthand/templates/auto tracks/auto flow/placement, sizing,
-gap/row-gap/column-gap, physical and logical spacing, border width/style/color/radius, text color,
-background color/image/position/size/repeat/attachment/origin/clip, object
-fit/position, list style, columns, font size, font weight, font family, font
-style, line height, letter spacing, text alignment, text transform, text
-SVG fill/stroke presentation properties, decoration, text overflow, whitespace,
-word breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow,
+tokens. The current portable token set includes display, position, physical and
+logical inset, z-index, visibility, box sizing, box decoration break,
+isolation, float, clear, vertical alignment, table layout, border
+collapse/spacing, caption side, flex direction/wrap/item
+sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
+shorthand/templates/auto tracks/auto flow/placement, sizing,
+gap/row-gap/column-gap, physical and logical spacing, border
+width/style/color/radius, text color, background
+color/image/position/size/repeat/attachment/origin/clip, object fit/position,
+list style, columns, font size, font weight, font family, font style, line
+height, letter spacing, text alignment, text transform, SVG fill/stroke
+presentation properties, text decoration, text overflow, whitespace, word
+breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow,
 outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
-filter, backdrop filter function components, transition, animation, will-change,
-appearance, accent color, caret color, resize, scroll behavior, physical and
-logical scroll margin/padding, scroll snap, overscroll behavior, touch action, cursor, pointer
-events, and user selection.
+filter, backdrop filter function components, transition, animation,
+will-change, appearance, accent color, caret color, resize, scroll behavior,
+physical and logical scroll margin/padding, scroll snap, overscroll behavior,
+touch action, cursor, pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `var(...)`, `clamp(...)`, viewport units, and sizing keywords, are
