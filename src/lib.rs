@@ -37,6 +37,7 @@ pub mod react_aria;
 pub mod renderer;
 pub mod runtime;
 pub mod style;
+pub mod svg;
 pub mod web;
 #[cfg(feature = "winui")]
 pub mod winui;
@@ -97,12 +98,14 @@ pub use runtime::GuiRuntime;
 pub use style::{
     AlignItems, BackfaceVisibility, BackgroundAttachment, BackgroundBox, BorderCollapse,
     BorderStyle, BoxDecorationBreak, BoxSizing, CaptionSide, ClearMode, DisplayMode, EdgeInsets,
-    FlexWrap, FloatMode, FontStyle, FontWeight, GridAutoFlow, HyphensMode, IsolationMode,
+    FillRule, FlexWrap, FloatMode, FontStyle, FontWeight, GridAutoFlow, HyphensMode, IsolationMode,
     JustifyContent, ListStylePosition, ObjectFit, OverflowMode, OverflowWrapMode,
     OverscrollBehavior, PointerEvents, PortableStyle, PositionMode, ResizeMode, ScrollBehavior,
-    SelfAlignment, StyleColor, StyleLength, StyleTime, TableLayout, TextAlign, TextDecorationStyle,
-    TextOverflow, TextTransform, UserSelect, VisibilityMode, WhiteSpaceMode, WordBreakMode,
+    SelfAlignment, StrokeLineCap, StrokeLineJoin, StyleColor, StyleLength, StyleTime, TableLayout,
+    TextAlign, TextDecorationStyle, TextOverflow, TextTransform, UserSelect, VisibilityMode,
+    WhiteSpaceMode, WordBreakMode,
 };
+pub use svg::{SVG_ELEMENTS, SVG_TAG_METADATA_KEY};
 pub use web::WebProps;
 #[cfg(feature = "winui")]
 pub use winui::{

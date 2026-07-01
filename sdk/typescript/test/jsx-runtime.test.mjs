@@ -99,6 +99,30 @@ test('intrinsic HTML elements preserve CSS text and Tailwind class names', () =>
   assert.equal(root.children[0].props.events.onClick, 'saveArticle');
 });
 
+test('intrinsic SVG elements preserve presentation props and Tailwind class names', () => {
+  const root = jsxs('svg', {
+    className: 'size-4 fill-none stroke-current stroke-2',
+    viewBox: '0 0 24 24',
+    'aria-hidden': true,
+    children: jsxs('path', {
+      d: 'M4 12h16',
+      fill: 'none',
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+    }, 'line'),
+  }, 'icon');
+
+  assert.equal(root.tag, 'svg');
+  assert.equal(root.props.className, 'size-4 fill-none stroke-current stroke-2');
+  assert.equal(root.props.attributes.viewBox, '0 0 24 24');
+  assert.equal(root.props.attributes['aria-hidden'], 'true');
+  assert.equal(root.children[0].tag, 'path');
+  assert.equal(root.children[0].props.attributes.d, 'M4 12h16');
+  assert.equal(root.children[0].props.attributes.fill, 'none');
+  assert.equal(root.children[0].props.attributes.strokeLinecap, 'round');
+  assert.equal(root.children[0].props.attributes.strokeLinejoin, 'round');
+});
+
 test('CSS text parser preserves delimiters inside functions and strings', () => {
   const root = jsxs('div', {
     style: `

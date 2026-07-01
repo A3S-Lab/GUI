@@ -5,11 +5,11 @@ JSX protocol bridge for `a3s-gui`.
 This package provides the protocol-side JSX runtime used to emit the
 serializable `UiFrame` format consumed by the Rust runtime. The package has no
 runtime dependencies while the compiler integration stabilizes.
-React Aria-compatible component names, semantic UI component names, and
-intrinsic HTML element names are accepted as JSX tags. `style` can be an object
-or CSS text string, and `className` is preserved for the Rust-side Tailwind
-utility resolver, including variant-prefixed utilities. CSS text parsing
-preserves delimiters inside strings, functions, and URLs.
+React Aria-compatible component names, semantic UI component names, intrinsic
+HTML element names, and intrinsic SVG element names are accepted as JSX tags.
+`style` can be an object or CSS text string, and `className` is preserved for
+the Rust-side Tailwind utility resolver, including variant-prefixed utilities.
+CSS text parsing preserves delimiters inside strings, functions, and URLs.
 
 ## JSX Runtime
 

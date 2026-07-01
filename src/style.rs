@@ -94,6 +94,24 @@ pub struct PortableStyle {
     pub letter_spacing: Option<StyleLength>,
     pub text_align: Option<TextAlign>,
     pub text_transform: Option<TextTransform>,
+    pub fill: Option<StyleColor>,
+    pub fill_opacity: Option<f64>,
+    pub fill_rule: Option<FillRule>,
+    pub clip_rule: Option<FillRule>,
+    pub stroke: Option<StyleColor>,
+    pub stroke_width: Option<StyleLength>,
+    pub stroke_linecap: Option<StrokeLineCap>,
+    pub stroke_linejoin: Option<StrokeLineJoin>,
+    pub stroke_miterlimit: Option<String>,
+    pub stroke_dasharray: Option<String>,
+    pub stroke_dashoffset: Option<StyleLength>,
+    pub stroke_opacity: Option<f64>,
+    pub vector_effect: Option<String>,
+    pub paint_order: Option<String>,
+    pub shape_rendering: Option<String>,
+    pub text_rendering: Option<String>,
+    pub color_interpolation: Option<String>,
+    pub color_interpolation_filters: Option<String>,
     pub text_decoration_line: Option<String>,
     pub text_decoration_color: Option<StyleColor>,
     pub text_decoration_style: Option<TextDecorationStyle>,
@@ -346,6 +364,26 @@ impl PortableStyle {
             "letter-spacing" => self.letter_spacing = parse_length(value_ref),
             "text-align" => self.text_align = parse_text_align(value_ref),
             "text-transform" => self.text_transform = parse_text_transform(value_ref),
+            "fill" => self.fill = parse_color(value_ref),
+            "fill-opacity" => self.fill_opacity = parse_opacity(value_ref),
+            "fill-rule" => self.fill_rule = parse_fill_rule(value_ref),
+            "clip-rule" => self.clip_rule = parse_fill_rule(value_ref),
+            "stroke" => self.stroke = parse_color(value_ref),
+            "stroke-width" => self.stroke_width = parse_length(value_ref),
+            "stroke-linecap" => self.stroke_linecap = parse_stroke_linecap(value_ref),
+            "stroke-linejoin" => self.stroke_linejoin = parse_stroke_linejoin(value_ref),
+            "stroke-miterlimit" => self.stroke_miterlimit = parse_css_string_token(value_ref),
+            "stroke-dasharray" => self.stroke_dasharray = parse_css_string_token(value_ref),
+            "stroke-dashoffset" => self.stroke_dashoffset = parse_length(value_ref),
+            "stroke-opacity" => self.stroke_opacity = parse_opacity(value_ref),
+            "vector-effect" => self.vector_effect = parse_css_string_token(value_ref),
+            "paint-order" => self.paint_order = parse_css_string_token(value_ref),
+            "shape-rendering" => self.shape_rendering = parse_css_string_token(value_ref),
+            "text-rendering" => self.text_rendering = parse_css_string_token(value_ref),
+            "color-interpolation" => self.color_interpolation = parse_css_string_token(value_ref),
+            "color-interpolation-filters" => {
+                self.color_interpolation_filters = parse_css_string_token(value_ref);
+            }
             "text-decoration" => self.apply_text_decoration_shorthand(value_ref),
             "text-decoration-line" => self.text_decoration_line = parse_css_string_token(value_ref),
             "text-decoration-color" => self.text_decoration_color = parse_color(value_ref),
@@ -437,7 +475,7 @@ impl PortableStyle {
             "cursor" => self.cursor = parse_css_string_token(value_ref),
             "pointer-events" => self.pointer_events = parse_pointer_events(value_ref),
             "user-select" => self.user_select = parse_user_select(value_ref),
-            "opacity" => self.opacity = value_ref.trim().parse::<f64>().ok(),
+            "opacity" => self.opacity = parse_opacity(value_ref),
             other => {
                 self.unsupported.insert(other.to_string(), value);
             }
@@ -1005,6 +1043,31 @@ pub enum TextTransform {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum FillRule {
+    Nonzero,
+    Evenodd,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StrokeLineCap {
+    Butt,
+    Round,
+    Square,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StrokeLineJoin {
+    Arcs,
+    Bevel,
+    Miter,
+    MiterClip,
+    Round,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum TextDecorationStyle {
     Solid,
     Double,
@@ -1501,6 +1564,34 @@ fn parse_text_transform(value: &str) -> Option<TextTransform> {
     }
 }
 
+fn parse_fill_rule(value: &str) -> Option<FillRule> {
+    match value.trim() {
+        "nonzero" => Some(FillRule::Nonzero),
+        "evenodd" => Some(FillRule::Evenodd),
+        _ => None,
+    }
+}
+
+fn parse_stroke_linecap(value: &str) -> Option<StrokeLineCap> {
+    match value.trim() {
+        "butt" => Some(StrokeLineCap::Butt),
+        "round" => Some(StrokeLineCap::Round),
+        "square" => Some(StrokeLineCap::Square),
+        _ => None,
+    }
+}
+
+fn parse_stroke_linejoin(value: &str) -> Option<StrokeLineJoin> {
+    match value.trim() {
+        "arcs" => Some(StrokeLineJoin::Arcs),
+        "bevel" => Some(StrokeLineJoin::Bevel),
+        "miter" => Some(StrokeLineJoin::Miter),
+        "miter-clip" => Some(StrokeLineJoin::MiterClip),
+        "round" => Some(StrokeLineJoin::Round),
+        _ => None,
+    }
+}
+
 fn parse_text_decoration_line(value: &str) -> Option<&str> {
     match value.trim() {
         "none" | "underline" | "overline" | "line-through" | "blink" => Some(value.trim()),
@@ -1644,6 +1735,14 @@ fn parse_caption_side(value: &str) -> Option<CaptionSide> {
 
 fn parse_z_index(value: &str) -> Option<i32> {
     value.trim().parse::<i32>().ok()
+}
+
+fn parse_opacity(value: &str) -> Option<f64> {
+    let value = value.trim();
+    if let Some(percent) = value.strip_suffix('%') {
+        return Some((percent.trim().parse::<f64>().ok()? / 100.0).clamp(0.0, 1.0));
+    }
+    value.parse::<f64>().ok().map(|value| value.clamp(0.0, 1.0))
 }
 
 fn parse_css_string_token(value: &str) -> Option<String> {
@@ -2233,6 +2332,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.extend(interaction);
         return declarations;
     }
+    if let Some(svg) = tailwind_svg_presentation_declarations(class) {
+        declarations.extend(svg);
+        return declarations;
+    }
     if let Some(formatting) = tailwind_formatting_declarations(class) {
         declarations.extend(formatting);
         return declarations;
@@ -2642,6 +2745,72 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
         Some(("color".to_string(), value))
     } else if let Some(value) = class.strip_prefix("rounded-").and_then(tailwind_length) {
         Some(("border-radius".to_string(), style_length_css(value)))
+    } else {
+        None
+    }
+}
+
+fn tailwind_svg_presentation_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    if let Some(value) = class
+        .strip_prefix("fill-")
+        .and_then(tailwind_svg_paint_value)
+    {
+        declarations.insert("fill".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("stroke-") {
+        let (property, value) = tailwind_stroke_declaration(value)?;
+        declarations.insert(property, value);
+        return Some(declarations);
+    }
+    None
+}
+
+fn tailwind_svg_paint_value(value: &str) -> Option<String> {
+    if value == "none" {
+        return Some("none".to_string());
+    }
+    if let Some(value) = tailwind_typed_custom_var(value, "color") {
+        return Some(value);
+    }
+    tailwind_color_css(value).or_else(|| tailwind_custom_var(value))
+}
+
+fn tailwind_stroke_declaration(value: &str) -> Option<(String, String)> {
+    if let Some(value) = tailwind_typed_custom_var(value, "length") {
+        return Some(("stroke-width".to_string(), value));
+    }
+    if let Some(value) = tailwind_typed_custom_var(value, "color") {
+        return Some(("stroke".to_string(), value));
+    }
+    if let Some(arbitrary) = value
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        let value = tailwind_arbitrary_value(arbitrary);
+        if is_likely_stroke_width_value(&value) {
+            return Some(("stroke-width".to_string(), value));
+        }
+        return Some(("stroke".to_string(), value));
+    }
+    if let Ok(width) = value.parse::<f64>() {
+        return Some(("stroke-width".to_string(), trim_float(width)));
+    }
+    tailwind_svg_paint_value(value).map(|value| ("stroke".to_string(), value))
+}
+
+fn is_likely_stroke_width_value(value: &str) -> bool {
+    !value.trim().starts_with("var(") && parse_length(value).is_some()
+}
+
+fn tailwind_typed_custom_var(value: &str, expected_type: &str) -> Option<String> {
+    let value = value
+        .strip_prefix('(')
+        .and_then(|value| value.strip_suffix(')'))?;
+    let (value_type, variable) = value.split_once(':')?;
+    if value_type == expected_type && !variable.trim().is_empty() {
+        Some(format!("var({})", variable.trim()))
     } else {
         None
     }
@@ -5455,6 +5624,131 @@ mod tests {
                 .and_then(|styles| styles.get("background-color"))
                 .map(String::as_str),
             Some("rgba(0, 0, 0, 0.4)")
+        );
+    }
+
+    #[test]
+    fn parses_svg_presentation_properties_into_portable_tokens() {
+        let web = WebProps::new()
+            .style("fill", "#663399")
+            .style("fillOpacity", "50%")
+            .style("fillRule", "evenodd")
+            .style("clipRule", "nonzero")
+            .style("stroke", "currentColor")
+            .style("strokeWidth", "2")
+            .style("strokeLinecap", "round")
+            .style("strokeLinejoin", "bevel")
+            .style("strokeMiterlimit", "4")
+            .style("strokeDasharray", "2 4")
+            .style("strokeDashoffset", "1px")
+            .style("strokeOpacity", "0.25")
+            .style("vectorEffect", "non-scaling-stroke")
+            .style("paintOrder", "stroke fill markers")
+            .style("shapeRendering", "geometricPrecision")
+            .style("textRendering", "optimizeLegibility")
+            .style("colorInterpolation", "sRGB")
+            .style("colorInterpolationFilters", "linearRGB");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.fill,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.fill_opacity, Some(0.5));
+        assert_eq!(style.fill_rule, Some(FillRule::Evenodd));
+        assert_eq!(style.clip_rule, Some(FillRule::Nonzero));
+        assert_eq!(
+            style.stroke,
+            Some(StyleColor::Keyword("currentColor".to_string()))
+        );
+        assert_eq!(style.stroke_width, Some(StyleLength::Points(2.0)));
+        assert_eq!(style.stroke_linecap, Some(StrokeLineCap::Round));
+        assert_eq!(style.stroke_linejoin, Some(StrokeLineJoin::Bevel));
+        assert_eq!(style.stroke_miterlimit.as_deref(), Some("4"));
+        assert_eq!(style.stroke_dasharray.as_deref(), Some("2 4"));
+        assert_eq!(style.stroke_dashoffset, Some(StyleLength::Points(1.0)));
+        assert_eq!(style.stroke_opacity, Some(0.25));
+        assert_eq!(style.vector_effect.as_deref(), Some("non-scaling-stroke"));
+        assert_eq!(style.paint_order.as_deref(), Some("stroke fill markers"));
+        assert_eq!(style.shape_rendering.as_deref(), Some("geometricPrecision"));
+        assert_eq!(style.text_rendering.as_deref(), Some("optimizeLegibility"));
+        assert_eq!(style.color_interpolation.as_deref(), Some("sRGB"));
+        assert_eq!(
+            style.color_interpolation_filters.as_deref(),
+            Some("linearRGB")
+        );
+        assert!(!style.unsupported.contains_key("fill-rule"));
+        assert!(!style.unsupported.contains_key("stroke-width"));
+    }
+
+    #[test]
+    fn parses_tailwind_svg_presentation_utilities() {
+        let web = WebProps::new().class_name(
+            "fill-[#663399]/50 stroke-current stroke-2 hover:fill-none \
+             md:stroke-[3px] focus:stroke-[#ff0000] active:fill-(--icon-fill)",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.fill,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 128,
+            })
+        );
+        assert_eq!(
+            style.stroke,
+            Some(StyleColor::Keyword("currentColor".to_string()))
+        );
+        assert_eq!(style.stroke_width, Some(StyleLength::Points(2.0)));
+        assert_eq!(
+            style.declarations.get("fill").map(String::as_str),
+            Some("rgba(102, 51, 153, 0.5)")
+        );
+        assert_eq!(
+            style.declarations.get("stroke-width").map(String::as_str),
+            Some("2")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("fill"))
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("stroke-width"))
+                .map(String::as_str),
+            Some("3px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("stroke"))
+                .map(String::as_str),
+            Some("#ff0000")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("fill"))
+                .map(String::as_str),
+            Some("var(--icon-fill)")
         );
     }
 

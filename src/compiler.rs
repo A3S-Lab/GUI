@@ -7,6 +7,7 @@ use crate::geometry::Orientation;
 use crate::html::{canonical_html_tag, component_for_intrinsic_tag, HTML_TAG_METADATA_KEY};
 use crate::native::NativeElement;
 use crate::react_aria::{AriaComponent, AriaElement, AriaProps, ReactAriaMapper};
+use crate::svg::{canonical_svg_tag, component_for_svg_tag, SVG_TAG_METADATA_KEY};
 use crate::web::WebProps;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -213,11 +214,11 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "Slider" => Ok(AriaComponent::Slider),
         "ProgressBar" | "progress" => Ok(AriaComponent::ProgressBar),
         "Toolbar" => Ok(AriaComponent::Toolbar),
-        other => component_for_intrinsic_tag(other, &props.attributes).ok_or_else(|| {
-            GuiError::UnsupportedAriaComponent {
+        other => component_for_intrinsic_tag(other, &props.attributes)
+            .or_else(|| component_for_svg_tag(other))
+            .ok_or_else(|| GuiError::UnsupportedAriaComponent {
                 component: other.to_string(),
-            }
-        }),
+            }),
     }
 }
 
@@ -226,6 +227,9 @@ impl CompiledProps {
         let mut web = WebProps::new();
         if let Some(html_tag) = canonical_html_tag(tag) {
             web = web.attribute(HTML_TAG_METADATA_KEY, html_tag);
+        }
+        if let Some(svg_tag) = canonical_svg_tag(tag) {
+            web = web.attribute(SVG_TAG_METADATA_KEY, svg_tag);
         }
         if let Some(id) = self.id {
             web = web.id(id);
@@ -355,6 +359,7 @@ mod tests {
     use super::*;
     use crate::html::{HTML_ELEMENTS, HTML_TAG_METADATA_KEY};
     use crate::native::NativeRole;
+    use crate::svg::{SVG_ELEMENTS, SVG_TAG_METADATA_KEY};
 
     #[test]
     fn lowers_compiled_react_aria_button_json_to_native_button() {
@@ -681,6 +686,34 @@ mod tests {
                     .props
                     .metadata
                     .get(HTML_TAG_METADATA_KEY)
+                    .map(String::as_str),
+                Some(*tag)
+            );
+        }
+    }
+
+    #[test]
+    fn lowers_all_known_svg_elements_without_rejecting_intrinsic_tags() {
+        let bridge = ReactCompilerBridge::new();
+
+        for tag in SVG_ELEMENTS {
+            let compiled = CompiledJsxNode::Element {
+                key: format!("{tag}-key"),
+                tag: tag.to_string(),
+                import_source: None,
+                props: CompiledProps::default(),
+                children: Vec::new(),
+            };
+
+            let native = bridge
+                .lower_to_native(&compiled)
+                .unwrap_or_else(|error| panic!("{tag} should lower to native IR: {error}"));
+
+            assert_eq!(
+                native
+                    .props
+                    .metadata
+                    .get(SVG_TAG_METADATA_KEY)
                     .map(String::as_str),
                 Some(*tag)
             );

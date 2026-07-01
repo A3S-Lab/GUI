@@ -15,7 +15,8 @@ are supported as one protocol input shape.
 The protocol accepts the following input data:
 
 - JSX/TSX-shaped element records
-- semantic component names and HTML intrinsic element names
+- semantic component names, HTML intrinsic element names, and SVG intrinsic
+  element names
 - stable keys for reconciliation
 - `className`, Tailwind utility classes, inline style objects, and CSS text
   style strings
@@ -31,10 +32,12 @@ portable style tokens, and action bindings.
 ## Compatibility Scope
 
 The compiler bridge recognizes the HTML element surface exposed by the HTML
-Living Standard plus common historical tags. Known intrinsic elements are mapped
-to native semantic roles where a matching role exists. Elements without a
-dedicated native role are represented as generic native views or text nodes, and
-the original tag is preserved in metadata under `data-a3s-html-tag`.
+Living Standard plus common historical tags. It also recognizes common SVG
+intrinsic element names used by JSX icon and vector trees. Known intrinsic
+elements are mapped to native semantic roles where a matching role exists.
+Elements without a dedicated native role are represented as generic native views
+or text nodes, and the original tag is preserved in metadata under
+`data-a3s-html-tag` or `data-a3s-svg-tag`.
 
 The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
@@ -48,13 +51,14 @@ gap/row-gap/column-gap, spacing, border width/style/color/radius, text color,
 background color/image/position/size/repeat/attachment/origin/clip, object
 fit/position, list style, columns, font size, font weight, font family, font
 style, line height, letter spacing, text alignment, text transform, text
-decoration, text overflow, whitespace, word breaking, hyphen handling, overflow,
-opacity, aspect ratio, box shadow, outline, transform, translate, rotate, scale,
-transform origin/style, perspective, backface visibility, filter, filter
-function components, backdrop filter, backdrop filter function components,
-transition, animation, will-change, appearance, accent color, caret color,
-resize, scroll behavior, scroll margin/padding, scroll snap, overscroll
-behavior, touch action, cursor, pointer events, and user selection.
+SVG fill/stroke presentation properties, decoration, text overflow, whitespace,
+word breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow,
+outline, transform, translate, rotate, scale, transform origin/style,
+perspective, backface visibility, filter, filter function components, backdrop
+filter, backdrop filter function components, transition, animation, will-change,
+appearance, accent color, caret color, resize, scroll behavior, scroll
+margin/padding, scroll snap, overscroll behavior, touch action, cursor, pointer
+events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `var(...)`, `clamp(...)`, viewport units, and sizing keywords, are
@@ -70,7 +74,9 @@ preserved in the generated declarations and portable color tokens. Formatting
 and table utilities such as `box-*`, `box-decoration-*`, `isolate`,
 `isolation-auto`, `float-*`, `clear-*`, `align-*`, `table-*`,
 `border-collapse`, `border-separate`, `border-spacing-*`, and `caption-*` are
-projected into portable style tokens. Common
+projected into portable style tokens. SVG presentation utilities such as
+`fill-*`, `stroke-*`, and `stroke-{width}` are projected into portable style
+tokens. Common
 visual-effect utilities such as `shadow-*`, `outline-*`, `cursor-*`,
 `pointer-events-*`, `select-*`, `aspect-*`, transform utilities such as
 `translate-*`, `scale-*`, `rotate-*`, `skew-*`, `origin-*`, `perspective-*`,

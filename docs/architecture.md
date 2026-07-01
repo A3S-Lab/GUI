@@ -67,7 +67,8 @@ fixtures, or another compiler that emits the same protocol shape.
 
 Allowed data:
 
-- semantic component names and HTML intrinsic element names
+- semantic component names, HTML intrinsic element names, and SVG intrinsic
+  element names
 - labels, values, placeholders, orientation, disabled state, selected state,
   checked state, expanded state, ranged values
 - list, dialog, popover, tab, menu, and form structure
@@ -113,6 +114,10 @@ Each recognized intrinsic tag lowers to the closest native semantic role, and
 the original tag is preserved as `data-a3s-html-tag` metadata. Generic HTML
 containers lower to `NativeRole::View`; unsupported custom elements with a
 hyphenated tag name also lower to a generic native view.
+The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering
+path for vector and icon JSX trees. Recognized SVG tags lower to generic native
+views or text nodes and preserve the original tag as `data-a3s-svg-tag`
+metadata.
 
 `GuiRuntime` is the public orchestration API. It accepts compiled JSX trees,
 React Aria-compatible semantic trees, or native IR trees and renders them into
@@ -372,6 +377,11 @@ deterministically:
   `columns`, `columnCount`, `columnWidth`
 - `fontFamily`, `fontStyle`, `fontSize`, `fontWeight`, `lineHeight`,
   `letterSpacing`, `textAlign`, `textTransform`
+- SVG presentation properties such as `fill`, `fillOpacity`, `fillRule`,
+  `clipRule`, `stroke`, `strokeWidth`, `strokeLinecap`, `strokeLinejoin`,
+  `strokeMiterlimit`, `strokeDasharray`, `strokeDashoffset`, `strokeOpacity`,
+  `vectorEffect`, `paintOrder`, `shapeRendering`, `textRendering`,
+  `colorInterpolation`, and `colorInterpolationFilters`
 - `textDecorationLine`, `textDecorationColor`, `textDecorationStyle`,
   `textDecorationThickness`, `textUnderlineOffset`, `textOverflow`,
   `whiteSpace`, `wordBreak`, `overflowWrap`, `hyphens`
@@ -409,6 +419,8 @@ Common Tailwind formatting and table utilities such as `box-*`,
 `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`, `clear-*`,
 `align-*`, `table-*`, `border-collapse`, `border-separate`,
 `border-spacing-*`, and `caption-*` project into the same declaration model.
+Common Tailwind SVG presentation utilities such as `fill-*`, `stroke-*`, and
+`stroke-{width}` project into the same declaration model.
 Common Tailwind transform utilities such as `translate-*`, `scale-*`,
 `rotate-*`, `skew-*`, `origin-*`, `perspective-*`, `backface-*`, and
 `transform-*` project into individual transform properties or the transform
