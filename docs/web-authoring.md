@@ -1,8 +1,8 @@
 # Web-Compatible Input
 
-`a3s-gui` accepts React/TSX-shaped element trees. The example below uses
-React Aria-compatible component names and DOM-style props that the TypeScript
-SDK serializes into a `UiFrame`:
+`a3s-gui` accepts structured element records generated from JSX. The example
+below uses supported React Aria component names and DOM-style props that the
+TypeScript SDK serializes into a `UiFrame`:
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
@@ -54,11 +54,11 @@ props; it does not require a WebView or DOM node.
 
 ## Compiler Bridge Shape
 
-The React Compiler integration lowers TSX into a serializable tree with the same
+The compiler bridge lowers JSX into a serializable tree with the same
 information carried by JSX props:
 
-- React Aria component identity
-- stable React key
+- supported component identity
+- stable element key
 - text children
 - `className`
 - inline `style`

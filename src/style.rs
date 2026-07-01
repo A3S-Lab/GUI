@@ -87,6 +87,16 @@ pub struct PortableStyle {
     pub outline_color: Option<StyleColor>,
     pub outline_style: Option<BorderStyle>,
     pub outline_offset: Option<StyleLength>,
+    pub ring_shadow: Option<String>,
+    pub ring_color: Option<String>,
+    pub inset_ring_shadow: Option<String>,
+    pub inset_ring_color: Option<String>,
+    pub divide_x_width: Option<StyleLength>,
+    pub divide_y_width: Option<StyleLength>,
+    pub divide_x_reverse: Option<String>,
+    pub divide_y_reverse: Option<String>,
+    pub divide_color: Option<StyleColor>,
+    pub divide_style: Option<BorderStyle>,
     pub color: Option<StyleColor>,
     pub accent_color: Option<StyleColor>,
     pub caret_color: Option<StyleColor>,
@@ -639,12 +649,16 @@ impl PortableStyle {
             "border-right-style" => self.border_styles.right = parse_border_style(value_ref),
             "border-bottom-style" => self.border_styles.bottom = parse_border_style(value_ref),
             "border-left-style" => self.border_styles.left = parse_border_style(value_ref),
-            "box-shadow" => self.box_shadow = parse_css_string_token(value_ref),
+            "box-shadow" => self.apply_box_shadow_property(value_ref),
             "outline" => self.apply_outline_shorthand(value_ref),
             "outline-width" => self.outline_width = parse_length(value_ref),
             "outline-color" => self.outline_color = parse_color(value_ref),
             "outline-style" => self.outline_style = parse_border_style(value_ref),
             "outline-offset" => self.outline_offset = parse_length(value_ref),
+            "divide-x-width" => self.divide_x_width = parse_length(value_ref),
+            "divide-y-width" => self.divide_y_width = parse_length(value_ref),
+            "divide-color" => self.divide_color = parse_color(value_ref),
+            "divide-style" => self.divide_style = parse_border_style(value_ref),
             "color" => self.color = parse_color(value_ref),
             "accent-color" => self.accent_color = parse_color(value_ref),
             "caret-color" => self.caret_color = parse_color(value_ref),
@@ -1029,6 +1043,16 @@ impl PortableStyle {
         }
     }
 
+    fn apply_box_shadow_property(&mut self, value: &str) {
+        if value.trim() == tailwind_box_shadow_pipeline() {
+            self.box_shadow = self
+                .compose_tailwind_box_shadow()
+                .or_else(|| parse_css_string_token(value));
+            return;
+        }
+        self.box_shadow = parse_css_string_token(value);
+    }
+
     fn apply_column_rule_shorthand(&mut self, value: &str) {
         self.column_rule = parse_css_string_token(value);
         for part in value.split_whitespace() {
@@ -1093,6 +1117,31 @@ impl PortableStyle {
             }
             "--tw-backdrop-sepia" => {
                 self.backdrop_filter_sepia = parse_non_empty_css_string(value);
+            }
+            "--tw-ring-shadow" => {
+                self.ring_shadow = parse_non_empty_css_string(value);
+                self.box_shadow = self.compose_tailwind_box_shadow();
+            }
+            "--tw-ring-color" => {
+                self.ring_color = parse_non_empty_css_string(value);
+                self.box_shadow = self.compose_tailwind_box_shadow();
+            }
+            "--tw-ring-inset" => {
+                self.box_shadow = self.compose_tailwind_box_shadow();
+            }
+            "--tw-inset-ring-shadow" => {
+                self.inset_ring_shadow = parse_non_empty_css_string(value);
+                self.box_shadow = self.compose_tailwind_box_shadow();
+            }
+            "--tw-inset-ring-color" => {
+                self.inset_ring_color = parse_non_empty_css_string(value);
+                self.box_shadow = self.compose_tailwind_box_shadow();
+            }
+            "--tw-divide-x-reverse" => {
+                self.divide_x_reverse = parse_non_empty_css_string(value);
+            }
+            "--tw-divide-y-reverse" => {
+                self.divide_y_reverse = parse_non_empty_css_string(value);
             }
             "--tw-ordinal"
             | "--tw-slashed-zero"
@@ -1320,6 +1369,33 @@ impl PortableStyle {
             self.backdrop_filter_saturate.as_deref(),
             self.backdrop_filter_sepia.as_deref(),
         ])
+    }
+
+    fn compose_tailwind_box_shadow(&self) -> Option<String> {
+        let mut parts = Vec::new();
+        if let Some(shadow) = self.inset_ring_shadow.as_deref() {
+            parts.push(compose_tailwind_ring_shadow(
+                shadow,
+                self.inset_ring_color.as_deref(),
+                false,
+            ));
+        }
+        if let Some(shadow) = self.ring_shadow.as_deref() {
+            let inset = self
+                .custom_properties
+                .get("--tw-ring-inset")
+                .is_some_and(|value| value.trim() == "inset");
+            parts.push(compose_tailwind_ring_shadow(
+                shadow,
+                self.ring_color.as_deref(),
+                inset,
+            ));
+        }
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join(", "))
+        }
     }
 
     fn apply_tailwind_utility(&mut self, class: &str) {
@@ -3586,6 +3662,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.extend(formatting);
         return declarations;
     }
+    if let Some(divide) = tailwind_divide_declarations(class) {
+        declarations.extend(divide);
+        return declarations;
+    }
     if let Some(transform) = tailwind_transform_declarations(class) {
         declarations.extend(transform);
         return declarations;
@@ -3928,6 +4008,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.insert(property, value);
         return declarations;
     }
+    if let Some(ring) = tailwind_ring_declarations(class) {
+        declarations.extend(ring);
+        return declarations;
+    }
     if let Some((property, value)) = tailwind_grid_declaration(class) {
         declarations.insert(property, value);
         return declarations;
@@ -4242,6 +4326,93 @@ fn tailwind_formatting_declarations(class: &str) -> Option<BTreeMap<String, Stri
         return Some(declarations);
     }
     None
+}
+
+fn tailwind_divide_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    match class {
+        "divide-x" => {
+            declarations.insert("--tw-divide-x-reverse".to_string(), "0".to_string());
+            declarations.insert("divide-x-width".to_string(), "1px".to_string());
+            return Some(declarations);
+        }
+        "divide-y" => {
+            declarations.insert("--tw-divide-y-reverse".to_string(), "0".to_string());
+            declarations.insert("divide-y-width".to_string(), "1px".to_string());
+            return Some(declarations);
+        }
+        "divide-x-reverse" => {
+            declarations.insert("--tw-divide-x-reverse".to_string(), "1".to_string());
+            return Some(declarations);
+        }
+        "divide-y-reverse" => {
+            declarations.insert("--tw-divide-y-reverse".to_string(), "1".to_string());
+            return Some(declarations);
+        }
+        "divide-solid" => {
+            declarations.insert("divide-style".to_string(), "solid".to_string());
+            return Some(declarations);
+        }
+        "divide-dashed" => {
+            declarations.insert("divide-style".to_string(), "dashed".to_string());
+            return Some(declarations);
+        }
+        "divide-dotted" => {
+            declarations.insert("divide-style".to_string(), "dotted".to_string());
+            return Some(declarations);
+        }
+        "divide-double" => {
+            declarations.insert("divide-style".to_string(), "double".to_string());
+            return Some(declarations);
+        }
+        "divide-hidden" => {
+            declarations.insert("divide-style".to_string(), "hidden".to_string());
+            return Some(declarations);
+        }
+        "divide-none" => {
+            declarations.insert("divide-style".to_string(), "none".to_string());
+            return Some(declarations);
+        }
+        _ => {}
+    }
+    if let Some(value) = class.strip_prefix("divide-x-") {
+        declarations.insert("--tw-divide-x-reverse".to_string(), "0".to_string());
+        declarations.insert(
+            "divide-x-width".to_string(),
+            style_length_css(tailwind_divide_width(value)?),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("divide-y-") {
+        declarations.insert("--tw-divide-y-reverse".to_string(), "0".to_string());
+        declarations.insert(
+            "divide-y-width".to_string(),
+            style_length_css(tailwind_divide_width(value)?),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("divide-") {
+        declarations.insert(
+            "divide-color".to_string(),
+            tailwind_divide_color_value(value)?,
+        );
+        return Some(declarations);
+    }
+    None
+}
+
+fn tailwind_divide_width(value: &str) -> Option<StyleLength> {
+    if let Some(value) = tailwind_typed_custom_var(value, "length") {
+        return Some(StyleLength::Css(value));
+    }
+    tailwind_border_width(value)
+}
+
+fn tailwind_divide_color_value(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_typed_custom_var(value, "color") {
+        return Some(value);
+    }
+    tailwind_border_color_value(value)
 }
 
 fn tailwind_container_declarations(class: &str) -> Option<BTreeMap<String, String>> {
@@ -5593,6 +5764,114 @@ fn tailwind_visual_effect_declaration(class: &str) -> Option<(String, String)> {
         return Some(("transform".to_string(), value));
     }
     None
+}
+
+fn tailwind_ring_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    match class {
+        "ring" => {
+            insert_tailwind_ring_width_declarations(&mut declarations, false, "1px".to_string());
+            return Some(declarations);
+        }
+        "ring-inset" => {
+            declarations.insert("--tw-ring-inset".to_string(), "inset".to_string());
+            declarations.insert(
+                "box-shadow".to_string(),
+                tailwind_box_shadow_pipeline().to_string(),
+            );
+            return Some(declarations);
+        }
+        "inset-ring" => {
+            insert_tailwind_ring_width_declarations(&mut declarations, true, "1px".to_string());
+            return Some(declarations);
+        }
+        _ => {}
+    }
+    if let Some(value) = class.strip_prefix("ring-") {
+        if let Some(width) = tailwind_ring_width(value) {
+            insert_tailwind_ring_width_declarations(&mut declarations, false, width);
+            return Some(declarations);
+        }
+        declarations.insert(
+            "--tw-ring-color".to_string(),
+            tailwind_ring_color_value(value)?,
+        );
+        declarations.insert(
+            "box-shadow".to_string(),
+            tailwind_box_shadow_pipeline().to_string(),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("inset-ring-") {
+        if let Some(width) = tailwind_ring_width(value) {
+            insert_tailwind_ring_width_declarations(&mut declarations, true, width);
+            return Some(declarations);
+        }
+        declarations.insert(
+            "--tw-inset-ring-color".to_string(),
+            tailwind_ring_color_value(value)?,
+        );
+        declarations.insert(
+            "box-shadow".to_string(),
+            tailwind_box_shadow_pipeline().to_string(),
+        );
+        return Some(declarations);
+    }
+    None
+}
+
+fn insert_tailwind_ring_width_declarations(
+    declarations: &mut BTreeMap<String, String>,
+    inset: bool,
+    width: String,
+) {
+    let property = if inset {
+        "--tw-inset-ring-shadow"
+    } else {
+        "--tw-ring-shadow"
+    };
+    let prefix = if inset { "inset " } else { "" };
+    declarations.insert(property.to_string(), format!("{prefix}0 0 0 {width}"));
+    declarations.insert(
+        "box-shadow".to_string(),
+        tailwind_box_shadow_pipeline().to_string(),
+    );
+}
+
+fn tailwind_ring_width(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    value
+        .parse::<f64>()
+        .ok()
+        .map(|value| format!("{}px", trim_float(value)))
+}
+
+fn tailwind_ring_color_value(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_typed_custom_var(value, "color") {
+        return Some(value);
+    }
+    tailwind_border_color_value(value)
+}
+
+fn tailwind_box_shadow_pipeline() -> &'static str {
+    "var(--tw-inset-ring-shadow), var(--tw-ring-shadow)"
+}
+
+fn compose_tailwind_ring_shadow(shadow: &str, color: Option<&str>, force_inset: bool) -> String {
+    let mut shadow = shadow.trim().to_string();
+    if force_inset && !shadow.starts_with("inset ") {
+        shadow = format!("inset {shadow}");
+    }
+    let Some(color) = color.map(str::trim).filter(|color| !color.is_empty()) else {
+        return shadow;
+    };
+    if shadow.contains(color) {
+        shadow
+    } else {
+        format!("{shadow} {color}")
+    }
 }
 
 fn tailwind_grid_declaration(class: &str) -> Option<(String, String)> {
@@ -8909,6 +9188,82 @@ mod tests {
                 .and_then(|styles| styles.get("outline"))
                 .map(String::as_str),
             Some("3px solid red")
+        );
+    }
+
+    #[test]
+    fn parses_tailwind_ring_and_divide_utilities() {
+        let web = WebProps::new().class_name(
+            "ring-inset ring-2 ring-blue-500/50 inset-ring inset-ring-[#663399]/50 \
+             divide-x-2 divide-y-[3px] divide-y-reverse divide-dashed divide-[#663399]/50 \
+             hover:ring-[3px] focus:divide-solid active:inset-ring-(--inner-ring)",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.ring_shadow.as_deref(), Some("0 0 0 2px"));
+        assert_eq!(style.ring_color.as_deref(), Some("blue-500 / 50%"));
+        assert_eq!(style.inset_ring_shadow.as_deref(), Some("inset 0 0 0 1px"));
+        assert_eq!(
+            style.inset_ring_color.as_deref(),
+            Some("rgba(102, 51, 153, 0.5)")
+        );
+        assert_eq!(
+            style.box_shadow.as_deref(),
+            Some("inset 0 0 0 1px rgba(102, 51, 153, 0.5), inset 0 0 0 2px blue-500 / 50%")
+        );
+        assert_eq!(style.divide_x_width, Some(StyleLength::Points(2.0)));
+        assert_eq!(style.divide_y_width, Some(StyleLength::Points(3.0)));
+        assert_eq!(style.divide_x_reverse.as_deref(), Some("0"));
+        assert_eq!(style.divide_y_reverse.as_deref(), Some("1"));
+        assert_eq!(
+            style.divide_color,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 128,
+            })
+        );
+        assert_eq!(style.divide_style, Some(BorderStyle::Dashed));
+        assert_eq!(
+            style
+                .custom_properties
+                .get("--tw-ring-inset")
+                .map(String::as_str),
+            Some("inset")
+        );
+        assert_eq!(
+            style.declarations.get("divide-x-width").map(String::as_str),
+            Some("2px")
+        );
+        assert_eq!(
+            style.declarations.get("divide-y-width").map(String::as_str),
+            Some("3px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("--tw-ring-shadow"))
+                .map(String::as_str),
+            Some("0 0 0 3px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("divide-style"))
+                .map(String::as_str),
+            Some("solid")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("--tw-inset-ring-shadow"))
+                .map(String::as_str),
+            Some("inset 0 0 0 var(--inner-ring)")
         );
     }
 

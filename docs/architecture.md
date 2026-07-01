@@ -399,7 +399,8 @@ deterministically:
   `textOverflow`, `lineBreak`, `whiteSpace`, `wordBreak`, `overflowWrap`,
   `hyphens`
 - `overflow`, `overflowX`, `overflowY`
-- `aspectRatio`, `boxShadow`, `outline*`, `transform`, `filter`,
+- `aspectRatio`, `boxShadow`, Tailwind `ring*` and `divide*` metadata,
+  `outline*`, `transform`, `filter`,
   `backdropFilter`
 - `translate`, `rotate`, `scale`, `transformOrigin`, `transformStyle`,
   `backfaceVisibility`, `perspective`, `perspectiveOrigin`
@@ -426,9 +427,9 @@ CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
 RGBA tokens when possible. Tailwind color opacity modifiers are preserved for
 both base and variant utilities.
 Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
-`outline-*`, `cursor-*`, `pointer-events-*`, `select-*`, `aspect-*`,
-`mix-blend-*`, `bg-blend-*`, and `mask-*` project into the same declaration
-model.
+`ring-*`, `inset-ring-*`, `outline-*`, `cursor-*`, `pointer-events-*`,
+`select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`, and `mask-*` project into
+the same declaration model.
 Tailwind container marker utilities such as `@container`, `@container-size`,
 and named container forms project into container declarations. Container query
 variants such as `@md:` are stored in `variant_declarations`.
@@ -470,10 +471,11 @@ Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,
 `rounded-tr-*`, `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`,
 `rounded-e-*`, `rounded-ss-*`, `rounded-se-*`, `rounded-ee-*`, and
 `rounded-es-*` project into physical or logical corner radius tokens.
-Tailwind border width and color utilities such as `border-*`, `border-x-*`,
+Tailwind border width, color, and divide utilities such as `border-*`, `border-x-*`,
 `border-y-*`, `border-t-*`, `border-r-*`, `border-b-*`, `border-l-*`,
-`border-s-*`, `border-e-*`, `border-bs-*`, and `border-be-*` project into
-physical or logical border tokens.
+`border-s-*`, `border-e-*`, `border-bs-*`, `border-be-*`, `divide-x-*`,
+`divide-y-*`, `divide-*-reverse`, `divide-{color}`, and `divide-{style}`
+project into physical, logical, or native child-divider tokens.
 Common Tailwind motion, interaction, and scroll utilities such as
 `transition-*`, `duration-*`, `delay-*`, `ease-*`, `animate-*`,
 `will-change-*`, `appearance-*`, `accent-*`, `caret-*`, `resize-*`,

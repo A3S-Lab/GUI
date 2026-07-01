@@ -60,8 +60,8 @@ text alignment, text direction, Unicode bidi, writing mode, text orientation,
 text transform, text indent, text
 wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
 text shadow, text overflow, line breaking, whitespace, word breaking, hyphen
-handling, overflow, opacity, aspect ratio, box shadow,
-outline, transform, translate, rotate, scale, transform origin/style,
+handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
+rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
 filter, backdrop filter function components, transition, animation,
 will-change, appearance, accent color, caret color, resize, scroll behavior,
@@ -85,7 +85,8 @@ and table utilities such as `box-*`, `box-decoration-*`, `isolate`,
 projected into portable style tokens. SVG presentation utilities such as
 `fill-*`, `stroke-*`, and `stroke-{width}` are projected into portable style
 tokens. Common
-visual-effect utilities such as `shadow-*`, `outline-*`, `cursor-*`,
+visual-effect utilities such as `shadow-*`, `ring-*`, `inset-ring-*`,
+`outline-*`, `cursor-*`,
 `pointer-events-*`, `select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`, and
 `mask-*`, transform utilities such as `translate-*`, `scale-*`, `rotate-*`,
 `skew-*`, `origin-*`, `perspective-*`, and composable filter utilities such as
@@ -122,11 +123,12 @@ Border radius utilities such as `rounded-*`, `rounded-t-*`, `rounded-r-*`,
 `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`, `rounded-e-*`,
 `rounded-ss-*`, `rounded-se-*`, `rounded-ee-*`, and `rounded-es-*` are
 projected into physical or logical corner radius tokens.
-Border width and color utilities such as `border-*`, `border-x-*`,
+Border width, color, and divide utilities such as `border-*`, `border-x-*`,
 `border-y-*`, `border-t-*`, `border-r-*`, `border-b-*`, `border-l-*`,
-`border-s-*`, `border-e-*`, `border-bs-*`, and `border-be-*` are projected
-into physical or logical border tokens according to their generated CSS
-property.
+`border-s-*`, `border-e-*`, `border-bs-*`, `border-be-*`, `divide-x-*`,
+`divide-y-*`, `divide-*-reverse`, `divide-{color}`, and `divide-{style}` are
+projected into physical, logical, or native child-divider tokens according to
+their generated CSS property.
 Logical direction utilities such as `start-*`, `end-*`, `ms-*`, `me-*`,
 `mbs-*`, `mbe-*`, `mis-*`, `mie-*`, `ps-*`, `pe-*`, `pbs-*`, `pbe-*`,
 `pis-*`, `pie-*`, `scroll-ms-*`, `scroll-me-*`, `scroll-mbs-*`,
