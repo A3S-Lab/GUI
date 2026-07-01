@@ -381,18 +381,21 @@ deterministically:
 - `clipPath`, `mask*`, and `maskBorder*`
 - `objectFit`, `objectPosition`, `listStyleType`, `listStylePosition`,
   `columns`, `columnCount`, `columnWidth`
-- `fontFamily`, `fontStyle`, `fontSize`, `fontWeight`, `lineHeight`,
-  `letterSpacing`, `textAlign`, `direction`, `unicodeBidi`, `writingMode`,
-  `textOrientation`, `textTransform`, `textIndent`, `textWrap`, `lineClamp`,
-  `boxOrient`
+- `fontFamily`, `fontStyle`, `fontSize`, `fontWeight`, `fontStretch`,
+  `fontKerning`, `fontOpticalSizing`, `fontFeatureSettings`,
+  `fontVariationSettings`, `fontVariant*`, `fontSynthesis*`, `lineHeight`,
+  `letterSpacing`, `wordSpacing`, `tabSize`, `textAlign`, `direction`,
+  `unicodeBidi`, `writingMode`, `textOrientation`, `textTransform`,
+  `textIndent`, `textWrap`, `lineClamp`, `boxOrient`
 - SVG presentation properties such as `fill`, `fillOpacity`, `fillRule`,
   `clipRule`, `stroke`, `strokeWidth`, `strokeLinecap`, `strokeLinejoin`,
   `strokeMiterlimit`, `strokeDasharray`, `strokeDashoffset`, `strokeOpacity`,
   `vectorEffect`, `paintOrder`, `shapeRendering`, `textRendering`,
   `colorInterpolation`, and `colorInterpolationFilters`
 - `textDecorationLine`, `textDecorationColor`, `textDecorationStyle`,
-  `textDecorationThickness`, `textUnderlineOffset`, `textOverflow`,
-  `whiteSpace`, `wordBreak`, `overflowWrap`, `hyphens`
+  `textDecorationThickness`, `textUnderlineOffset`, `textShadow`,
+  `textOverflow`, `lineBreak`, `whiteSpace`, `wordBreak`, `overflowWrap`,
+  `hyphens`
 - `overflow`, `overflowX`, `overflowY`
 - `aspectRatio`, `boxShadow`, `outline*`, `transform`, `filter`,
   `backdropFilter`
@@ -449,11 +452,12 @@ Common Tailwind Flexbox item and box-alignment utilities such as `flex-*`,
 `justify-items-*`, `justify-self-*`, and `place-*` project into the same
 declaration model.
 Common Tailwind typography and text utilities such as `font-*`, `italic`,
-`not-italic`, `tracking-*`, text transform utilities, text decoration
+`not-italic`, `tracking-*`, `font-stretch-*`, `font-features-*`, font variant
+numeric utilities, `tab-*`, text transform utilities, text decoration
 utilities, `underline-offset-*`, `truncate`, `text-ellipsis`, `text-clip`,
-`indent-*`, `line-clamp-*`, `text-wrap`, `text-nowrap`, `text-balance`,
-`text-pretty`, `whitespace-*`, `break-*`, and `hyphens-*` project into the
-same declaration model.
+`indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
+`text-balance`, `text-pretty`, `whitespace-*`, `break-*`, and `hyphens-*`
+project into the same declaration model.
 CSS writing-mode arbitrary property utilities and `ltr:`/`rtl:` variants are
 stored in the same declaration model.
 Common Tailwind background, object, list, and columns utilities such as `bg-*`,
