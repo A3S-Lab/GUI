@@ -189,6 +189,8 @@ pub struct PortableStyle {
     pub word_spacing: Option<StyleLength>,
     pub tab_size: Option<String>,
     pub text_align: Option<TextAlign>,
+    pub text_align_last: Option<String>,
+    pub text_justify: Option<String>,
     pub text_size_adjust: Option<String>,
     pub webkit_text_size_adjust: Option<String>,
     pub moz_text_size_adjust: Option<String>,
@@ -201,6 +203,7 @@ pub struct PortableStyle {
     pub text_transform: Option<TextTransform>,
     pub text_indent: Option<StyleLength>,
     pub text_wrap: Option<TextWrapMode>,
+    pub hanging_punctuation: Option<String>,
     pub line_clamp: Option<String>,
     pub box_orient: Option<String>,
     pub fill: Option<StyleColor>,
@@ -879,6 +882,8 @@ impl PortableStyle {
             "word-spacing" => self.word_spacing = parse_length(value_ref),
             "tab-size" | "-moz-tab-size" => self.tab_size = parse_css_string_token(value_ref),
             "text-align" => self.text_align = parse_text_align(value_ref),
+            "text-align-last" => self.text_align_last = parse_css_string_token(value_ref),
+            "text-justify" => self.text_justify = parse_css_string_token(value_ref),
             "text-size-adjust" => self.text_size_adjust = parse_css_string_token(value_ref),
             "-webkit-text-size-adjust" | "webkit-text-size-adjust" => {
                 self.webkit_text_size_adjust = parse_css_string_token(value_ref);
@@ -905,6 +910,7 @@ impl PortableStyle {
             "text-transform" => self.text_transform = parse_text_transform(value_ref),
             "text-indent" => self.text_indent = parse_length(value_ref),
             "text-wrap" | "text-wrap-mode" => self.text_wrap = parse_text_wrap(value_ref),
+            "hanging-punctuation" => self.hanging_punctuation = parse_css_string_token(value_ref),
             "line-clamp" | "-webkit-line-clamp" => {
                 self.line_clamp = parse_css_string_token(value_ref);
             }
@@ -9341,6 +9347,8 @@ mod tests {
             .style("WebkitTextSizeAdjust", "none")
             .style("MozTextSizeAdjust", "auto")
             .style("msTextSizeAdjust", "80%")
+            .style("textAlignLast", "center")
+            .style("textJustify", "inter-character")
             .style("direction", "rtl")
             .style("unicodeBidi", "isolate-override")
             .style("-webkitWritingMode", "vertical-lr")
@@ -9349,6 +9357,7 @@ mod tests {
             .style("textTransform", "uppercase")
             .style("textIndent", "2rem")
             .style("textWrap", "balance")
+            .style("hangingPunctuation", "first allow-end")
             .style("lineClamp", "3")
             .style("display", "-webkit-box")
             .style("-webkitBoxOrient", "vertical")
@@ -9422,6 +9431,8 @@ mod tests {
         assert_eq!(style.webkit_text_size_adjust.as_deref(), Some("none"));
         assert_eq!(style.moz_text_size_adjust.as_deref(), Some("auto"));
         assert_eq!(style.ms_text_size_adjust.as_deref(), Some("80%"));
+        assert_eq!(style.text_align_last.as_deref(), Some("center"));
+        assert_eq!(style.text_justify.as_deref(), Some("inter-character"));
         assert_eq!(style.direction, Some(TextDirection::Rtl));
         assert_eq!(style.unicode_bidi, Some(UnicodeBidi::IsolateOverride));
         assert_eq!(style.writing_mode, Some(WritingMode::VerticalLr));
@@ -9430,6 +9441,10 @@ mod tests {
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
         assert_eq!(style.text_indent, Some(StyleLength::Points(32.0)));
         assert_eq!(style.text_wrap, Some(TextWrapMode::Balance));
+        assert_eq!(
+            style.hanging_punctuation.as_deref(),
+            Some("first allow-end")
+        );
         assert_eq!(style.line_clamp.as_deref(), Some("3"));
         assert_eq!(style.display, Some(DisplayMode::WebkitBox));
         assert_eq!(style.box_orient.as_deref(), Some("vertical"));
@@ -9486,12 +9501,15 @@ mod tests {
         assert!(!style.unsupported.contains_key("webkit-text-size-adjust"));
         assert!(!style.unsupported.contains_key("moz-text-size-adjust"));
         assert!(!style.unsupported.contains_key("ms-text-size-adjust"));
+        assert!(!style.unsupported.contains_key("text-align-last"));
+        assert!(!style.unsupported.contains_key("text-justify"));
         assert!(!style.unsupported.contains_key("white-space"));
         assert!(!style.unsupported.contains_key("text-shadow"));
         assert!(!style.unsupported.contains_key("webkit-font-smoothing"));
         assert!(!style.unsupported.contains_key("moz-osx-font-smoothing"));
         assert!(!style.unsupported.contains_key("-webkit-writing-mode"));
         assert!(!style.unsupported.contains_key("text-combine-upright"));
+        assert!(!style.unsupported.contains_key("hanging-punctuation"));
         assert!(!style.unsupported.contains_key("text-wrap"));
         assert!(!style.unsupported.contains_key("-webkit-line-clamp"));
     }
@@ -9519,6 +9537,7 @@ mod tests {
              [font-size-adjust:0.5] [text-size-adjust:100%] \
              [-webkit-text-size-adjust:none] [-moz-text-size-adjust:auto] \
              [-ms-text-size-adjust:80%] \
+             [text-align-last:center] [text-justify:inter-word] \
              [direction:rtl] [unicode-bidi:isolate] [writing-mode:vertical-rl] \
              [text-orientation:upright] [text-combine-upright:all] \
              [text-decoration-skip-ink:none] \
@@ -9529,6 +9548,8 @@ mod tests {
              rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
              hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
              hover:[font-size-adjust:0.6] focus:[text-size-adjust:none] \
+             hover:[text-align-last:right] focus:[text-justify:inter-character] \
+             visited:[hanging-punctuation:last_force-end] \
              active:[text-combine-upright:digits_2] \
              hover:[text-decoration-skip-ink:all] focus:[text-underline-position:left] \
              hover:[text-emphasis-style:filled_sesame] focus:[text-emphasis-color:#663399] \
@@ -9536,6 +9557,7 @@ mod tests {
              hover:font-features-(--font-features) focus:text-shadow-[0_1px_2px_rgb(0_0_0_/_0.3)] \
              lg:normal-nums content-none before:content-['Hello_World'] \
              after:content-(--suffix-content) hover:content-['Hello\\_World'] \
+             [hanging-punctuation:first_allow-end] \
              hover:wrap-break-word focus:wrap-[normal] active:wrap-(--overflow-wrap) \
              md:subpixel-antialiased",
         );
@@ -9566,6 +9588,8 @@ mod tests {
         assert_eq!(style.webkit_text_size_adjust.as_deref(), Some("none"));
         assert_eq!(style.moz_text_size_adjust.as_deref(), Some("auto"));
         assert_eq!(style.ms_text_size_adjust.as_deref(), Some("80%"));
+        assert_eq!(style.text_align_last.as_deref(), Some("center"));
+        assert_eq!(style.text_justify.as_deref(), Some("inter-word"));
         assert_eq!(style.text_shadow.as_deref(), Some("var(--text-shadow-sm)"));
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
         assert_eq!(style.direction, Some(TextDirection::Rtl));
@@ -9575,6 +9599,10 @@ mod tests {
         assert_eq!(style.text_combine_upright.as_deref(), Some("all"));
         assert_eq!(style.text_indent, Some(StyleLength::Points(-2.0)));
         assert_eq!(style.text_wrap, Some(TextWrapMode::Balance));
+        assert_eq!(
+            style.hanging_punctuation.as_deref(),
+            Some("first allow-end")
+        );
         assert_eq!(style.line_clamp.as_deref(), Some("3"));
         assert_eq!(style.box_orient.as_deref(), Some("vertical"));
         assert_eq!(style.display, Some(DisplayMode::WebkitBox));
@@ -9680,6 +9708,30 @@ mod tests {
                 .and_then(|styles| styles.get("text-size-adjust"))
                 .map(String::as_str),
             Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("text-align-last"))
+                .map(String::as_str),
+            Some("right")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("text-justify"))
+                .map(String::as_str),
+            Some("inter-character")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("visited")
+                .and_then(|styles| styles.get("hanging-punctuation"))
+                .map(String::as_str),
+            Some("last force-end")
         );
         assert_eq!(
             style

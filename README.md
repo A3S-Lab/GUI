@@ -61,12 +61,13 @@ font weight, font family, font style, font
 stretch, font kerning, font optical sizing, font smoothing hints,
 font feature and variation settings, font variant and
 font synthesis properties, line height, letter spacing, word spacing, tab size,
-text alignment, text size adjustment, text direction, Unicode bidi, writing
+text alignment, final-line alignment, text justification, text size adjustment,
+text direction, Unicode bidi, writing
 mode, text orientation, text combine upright, text transform, text indent, text
 wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
 text decoration skip ink, underline offset/position, text shadow, text overflow,
-text emphasis, ruby layout, line breaking, whitespace, word breaking, hyphen
-handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
+text emphasis, ruby layout, hanging punctuation, line breaking, whitespace,
+word breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
 rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
 filter, backdrop filter function components, transition, animation,
@@ -123,9 +124,9 @@ font variant numeric utilities,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
-arbitrary `text-size-adjust` and `text-combine-upright` properties,
-arbitrary `ruby-*` properties, `indent-*`, `line-clamp-*`, `text-shadow-*`,
-`text-wrap`, `text-nowrap`,
+arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
+`text-justify`, and `hanging-punctuation` properties, arbitrary `ruby-*`
+properties, `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `truncate`,
 `text-ellipsis`, `text-clip`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, and generated-content utilities such as `content-[...]`,
