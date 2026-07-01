@@ -52,7 +52,7 @@ physical-edge, and logical-edge border width/style/color, uniform,
 physical-corner, and logical-corner border radius,
 text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
-CSS clip path, CSS mask, CSS mask border, object fit/position,
+CSS clip, CSS clip path, CSS mask, CSS mask border, object fit/position,
 list style, columns, column rule/span/fill, fragmentation breaks, font size,
 font weight, font family, font style, font
 stretch, font kerning, font feature and variation settings, font variant and
@@ -84,11 +84,13 @@ preserved in the generated declarations and portable color tokens. Display
 utilities such as `inline`, `inline-block`, `flow-root`, `contents`,
 `list-item`, `table-*`, `inline-table`, `flex`, `inline-flex`, `grid`,
 `inline-grid`, and `hidden` are projected into portable display tokens.
-Formatting and table utilities such as `box-*`, `box-decoration-*`, `isolate`,
-`isolation-auto`, `float-*`, `clear-*`, `align-*`, `border-collapse`,
-`border-separate`, `border-spacing-*`, and `caption-*` are projected into
-portable style tokens. SVG presentation utilities such as `fill-*`,
-`stroke-*`, and `stroke-{width}` are projected into portable style tokens. Common
+Screen-reader utilities such as `sr-only` and `not-sr-only` are projected into
+their generated declaration groups. Formatting and table utilities such as
+`box-*`, `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`,
+`clear-*`, `align-*`, `border-collapse`, `border-separate`,
+`border-spacing-*`, and `caption-*` are projected into portable style tokens.
+SVG presentation utilities such as `fill-*`, `stroke-*`, and `stroke-{width}`
+are projected into portable style tokens. Common
 visual-effect utilities such as `shadow-*`, `ring-*`, `inset-ring-*`,
 `outline-*`, `cursor-*`,
 `pointer-events-*`, `select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`, and

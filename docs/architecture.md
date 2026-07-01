@@ -382,7 +382,7 @@ deterministically:
 - `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
   `backgroundSize`, `backgroundRepeat`, `backgroundAttachment`,
   `backgroundOrigin`, `backgroundClip`, `backgroundBlendMode`
-- `clipPath`, `mask*`, and `maskBorder*`
+- `clip`, `clipPath`, `mask*`, and `maskBorder*`
 - `objectFit`, `objectPosition`, `listStyleType`, `listStylePosition`,
   `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
   `columnFill`, `breakBefore`, `breakAfter`, `breakInside`
@@ -444,7 +444,8 @@ Common Tailwind formatting and table utilities such as `box-*`,
 `caption-*` project into the same declaration model. Tailwind display
 utilities such as `inline-block`, `flow-root`, `contents`, `list-item`,
 `table-*`, `inline-table`, `inline-flex`, and `inline-grid` project into
-portable display tokens.
+portable display tokens. Tailwind screen-reader utilities such as `sr-only`
+and `not-sr-only` project into their generated declaration groups.
 Common Tailwind SVG presentation utilities such as `fill-*`, `stroke-*`, and
 `stroke-{width}` project into the same declaration model.
 Common Tailwind transform utilities such as `translate-*`, `scale-*`,

@@ -120,6 +120,7 @@ pub struct PortableStyle {
     pub background_origin: Option<BackgroundBox>,
     pub background_clip: Option<BackgroundBox>,
     pub background_blend_mode: Option<String>,
+    pub clip: Option<String>,
     pub clip_path: Option<String>,
     pub mask: Option<String>,
     pub mask_image: Option<String>,
@@ -703,6 +704,7 @@ impl PortableStyle {
             "background-blend-mode" => {
                 self.background_blend_mode = parse_css_string_token(value_ref);
             }
+            "clip" => self.clip = parse_css_string_token(value_ref),
             "clip-path" => self.clip_path = parse_css_string_token(value_ref),
             "mask" | "-webkit-mask" => self.mask = parse_css_string_token(value_ref),
             "mask-image" | "-webkit-mask-image" => {
@@ -3744,6 +3746,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.extend(radius);
         return declarations;
     }
+    if let Some(screen_reader) = tailwind_screen_reader_declarations(class) {
+        declarations.extend(screen_reader);
+        return declarations;
+    }
     if class == "truncate" {
         declarations.insert("overflow".to_string(), "hidden".to_string());
         declarations.insert("text-overflow".to_string(), "ellipsis".to_string());
@@ -4296,6 +4302,36 @@ fn tailwind_content_declaration(class: &str) -> Option<(String, String)> {
         .strip_prefix("content-")
         .and_then(tailwind_custom_var)
         .map(|value| ("content".to_string(), value))
+}
+
+fn tailwind_screen_reader_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    match class {
+        "sr-only" => {
+            declarations.insert("position".to_string(), "absolute".to_string());
+            declarations.insert("width".to_string(), "1px".to_string());
+            declarations.insert("height".to_string(), "1px".to_string());
+            declarations.insert("padding".to_string(), "0".to_string());
+            declarations.insert("margin".to_string(), "-1px".to_string());
+            declarations.insert("overflow".to_string(), "hidden".to_string());
+            declarations.insert("clip".to_string(), "rect(0, 0, 0, 0)".to_string());
+            declarations.insert("white-space".to_string(), "nowrap".to_string());
+            declarations.insert("border-width".to_string(), "0".to_string());
+        }
+        "not-sr-only" => {
+            declarations.insert("position".to_string(), "static".to_string());
+            declarations.insert("width".to_string(), "auto".to_string());
+            declarations.insert("height".to_string(), "auto".to_string());
+            declarations.insert("padding".to_string(), "0".to_string());
+            declarations.insert("margin".to_string(), "0".to_string());
+            declarations.insert("overflow".to_string(), "visible".to_string());
+            declarations.insert("clip".to_string(), "auto".to_string());
+            declarations.insert("white-space".to_string(), "normal".to_string());
+            declarations.insert("border-width".to_string(), "0".to_string());
+        }
+        _ => return None,
+    }
+    Some(declarations)
 }
 
 fn tailwind_svg_presentation_declarations(class: &str) -> Option<BTreeMap<String, String>> {
@@ -7507,6 +7543,7 @@ mod tests {
             .style("overflow", "hidden")
             .style("--brand-accent", "#663399")
             .style("backgroundColor", "#663399")
+            .style("clip", "rect(0, 0, 0, 0)")
             .style("boxShadow", "0 1px 3px black");
 
         let style = PortableStyle::from_web(&web);
@@ -7565,7 +7602,9 @@ mod tests {
                 .map(String::as_str),
             Some("#663399")
         );
+        assert_eq!(style.clip.as_deref(), Some("rect(0, 0, 0, 0)"));
         assert_eq!(style.box_shadow.as_deref(), Some("0 1px 3px black"));
+        assert!(!style.unsupported.contains_key("clip"));
         assert!(!style.unsupported.contains_key("box-shadow"));
     }
 
@@ -7799,6 +7838,76 @@ mod tests {
                 .and_then(|styles| styles.get("display"))
                 .map(String::as_str),
             Some("table-row")
+        );
+    }
+
+    #[test]
+    fn parses_tailwind_screen_reader_utilities() {
+        let web = WebProps::new().class_name("sr-only focus:not-sr-only");
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.position, Some(PositionMode::Absolute));
+        assert_eq!(style.width, Some(StyleLength::Points(1.0)));
+        assert_eq!(style.height, Some(StyleLength::Points(1.0)));
+        assert_eq!(style.padding.top, Some(StyleLength::Points(0.0)));
+        assert_eq!(style.padding.right, Some(StyleLength::Points(0.0)));
+        assert_eq!(style.padding.bottom, Some(StyleLength::Points(0.0)));
+        assert_eq!(style.padding.left, Some(StyleLength::Points(0.0)));
+        assert_eq!(style.margin.top, Some(StyleLength::Points(-1.0)));
+        assert_eq!(style.margin.right, Some(StyleLength::Points(-1.0)));
+        assert_eq!(style.margin.bottom, Some(StyleLength::Points(-1.0)));
+        assert_eq!(style.margin.left, Some(StyleLength::Points(-1.0)));
+        assert_eq!(style.overflow_x, Some(OverflowMode::Hidden));
+        assert_eq!(style.overflow_y, Some(OverflowMode::Hidden));
+        assert_eq!(style.clip.as_deref(), Some("rect(0, 0, 0, 0)"));
+        assert_eq!(style.white_space, Some(WhiteSpaceMode::NoWrap));
+        assert_eq!(style.border_width.top, Some(StyleLength::Points(0.0)));
+        assert_eq!(style.border_width.right, Some(StyleLength::Points(0.0)));
+        assert_eq!(style.border_width.bottom, Some(StyleLength::Points(0.0)));
+        assert_eq!(style.border_width.left, Some(StyleLength::Points(0.0)));
+        assert_eq!(
+            style.declarations.get("clip").map(String::as_str),
+            Some("rect(0, 0, 0, 0)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("position"))
+                .map(String::as_str),
+            Some("static")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("width"))
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("height"))
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("clip"))
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("white-space"))
+                .map(String::as_str),
+            Some("normal")
         );
     }
 
