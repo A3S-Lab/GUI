@@ -326,6 +326,13 @@ pub struct PortableStyle {
     pub scale: Option<String>,
     pub transform_origin: Option<String>,
     pub transform_style: Option<String>,
+    pub transform_box: Option<String>,
+    pub offset: Option<String>,
+    pub offset_path: Option<String>,
+    pub offset_distance: Option<String>,
+    pub offset_rotate: Option<String>,
+    pub offset_anchor: Option<String>,
+    pub offset_position: Option<String>,
     pub backface_visibility: Option<BackfaceVisibility>,
     pub perspective: Option<StyleLength>,
     pub perspective_origin: Option<String>,
@@ -1171,6 +1178,13 @@ impl PortableStyle {
             "scale" => self.scale = self.resolve_tailwind_scale(value_ref),
             "transform-origin" => self.transform_origin = parse_css_string_token(value_ref),
             "transform-style" => self.transform_style = parse_css_string_token(value_ref),
+            "transform-box" => self.transform_box = parse_css_string_token(value_ref),
+            "offset" => self.offset = parse_css_string_token(value_ref),
+            "offset-path" => self.offset_path = parse_css_string_token(value_ref),
+            "offset-distance" => self.offset_distance = parse_css_string_token(value_ref),
+            "offset-rotate" => self.offset_rotate = parse_css_string_token(value_ref),
+            "offset-anchor" => self.offset_anchor = parse_css_string_token(value_ref),
+            "offset-position" => self.offset_position = parse_css_string_token(value_ref),
             "backface-visibility" => {
                 self.backface_visibility = parse_backface_visibility(value_ref)
             }
@@ -11253,6 +11267,13 @@ mod tests {
             .style("outline", "2px dashed #ff0000")
             .style("outlineOffset", "4px")
             .style("transform", "translateX(4px) rotate(15deg)")
+            .style("transformBox", "fill-box")
+            .style("offset", "path('M 0 0 L 100 0') 40% auto")
+            .style("offsetPath", "ray(45deg closest-side)")
+            .style("offsetDistance", "40%")
+            .style("offsetRotate", "auto 90deg")
+            .style("offsetAnchor", "center")
+            .style("offsetPosition", "left top")
             .style("filter", "blur(4px)")
             .style("backdropFilter", "saturate(150%)")
             .style("aspectRatio", "4 / 3")
@@ -11282,6 +11303,19 @@ mod tests {
             style.transform.as_deref(),
             Some("translateX(4px) rotate(15deg)")
         );
+        assert_eq!(style.transform_box.as_deref(), Some("fill-box"));
+        assert_eq!(
+            style.offset.as_deref(),
+            Some("path('M 0 0 L 100 0') 40% auto")
+        );
+        assert_eq!(
+            style.offset_path.as_deref(),
+            Some("ray(45deg closest-side)")
+        );
+        assert_eq!(style.offset_distance.as_deref(), Some("40%"));
+        assert_eq!(style.offset_rotate.as_deref(), Some("auto 90deg"));
+        assert_eq!(style.offset_anchor.as_deref(), Some("center"));
+        assert_eq!(style.offset_position.as_deref(), Some("left top"));
         assert_eq!(style.filter.as_deref(), Some("blur(4px)"));
         assert_eq!(style.backdrop_filter.as_deref(), Some("saturate(150%)"));
         assert_eq!(style.aspect_ratio.as_deref(), Some("4 / 3"));
@@ -11289,6 +11323,13 @@ mod tests {
         assert_eq!(style.pointer_events, Some(PointerEvents::None));
         assert_eq!(style.user_select, Some(UserSelect::Text));
         assert!(!style.unsupported.contains_key("box-shadow"));
+        assert!(!style.unsupported.contains_key("transform-box"));
+        assert!(!style.unsupported.contains_key("offset"));
+        assert!(!style.unsupported.contains_key("offset-path"));
+        assert!(!style.unsupported.contains_key("offset-distance"));
+        assert!(!style.unsupported.contains_key("offset-rotate"));
+        assert!(!style.unsupported.contains_key("offset-anchor"));
+        assert!(!style.unsupported.contains_key("offset-position"));
     }
 
     #[test]
@@ -11422,7 +11463,12 @@ mod tests {
              backdrop-blur-md backdrop-brightness-75 backdrop-contrast-125 \
              backdrop-grayscale backdrop-hue-rotate-30 backdrop-invert \
              backdrop-opacity-50 backdrop-saturate-150 backdrop-sepia \
-             hover:blur-[2px] focus:translate-x-[calc(100%_-_1rem)]",
+             [transform-box:fill-box] [offset:path('M_0_0_L_100_0')_40%_auto] \
+             [offset-path:ray(45deg_closest-side)] [offset-distance:40%] \
+             [offset-rotate:auto_90deg] [offset-anchor:center] [offset-position:left_top] \
+             hover:blur-[2px] focus:translate-x-[calc(100%_-_1rem)] \
+             md:[transform-box:view-box] hover:[offset-distance:75%] \
+             focus:[offset-path:path('M_0_0_L_0_100')] active:[offset-rotate:reverse]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -11435,6 +11481,19 @@ mod tests {
             Some("translateZ(0) rotateX(12deg) rotateY(35deg) skewX(6deg)")
         );
         assert_eq!(style.transform_origin.as_deref(), Some("top right"));
+        assert_eq!(style.transform_box.as_deref(), Some("fill-box"));
+        assert_eq!(
+            style.offset.as_deref(),
+            Some("path('M 0 0 L 100 0') 40% auto")
+        );
+        assert_eq!(
+            style.offset_path.as_deref(),
+            Some("ray(45deg closest-side)")
+        );
+        assert_eq!(style.offset_distance.as_deref(), Some("40%"));
+        assert_eq!(style.offset_rotate.as_deref(), Some("auto 90deg"));
+        assert_eq!(style.offset_anchor.as_deref(), Some("center"));
+        assert_eq!(style.offset_position.as_deref(), Some("left top"));
         assert_eq!(style.perspective, Some(StyleLength::Points(300.0)));
         assert_eq!(style.backface_visibility, Some(BackfaceVisibility::Hidden));
         assert_eq!(style.filter_blur.as_deref(), Some("blur(8px)"));
@@ -11479,6 +11538,38 @@ mod tests {
                 .and_then(|styles| styles.get("translate"))
                 .map(String::as_str),
             Some("var(--tw-translate-x) var(--tw-translate-y, 0)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("transform-box"))
+                .map(String::as_str),
+            Some("view-box")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("offset-distance"))
+                .map(String::as_str),
+            Some("75%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("offset-path"))
+                .map(String::as_str),
+            Some("path('M 0 0 L 0 100')")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("offset-rotate"))
+                .map(String::as_str),
+            Some("reverse")
         );
     }
 

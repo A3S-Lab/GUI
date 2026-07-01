@@ -426,7 +426,8 @@ deterministically:
   `outline*`, `transform`, `filter`,
   `backdropFilter`
 - `translate`, `rotate`, `scale`, `transformOrigin`, `transformStyle`,
-  `backfaceVisibility`, `perspective`, `perspectiveOrigin`
+  `transformBox`, `offset*`, `backfaceVisibility`, `perspective`,
+  `perspectiveOrigin`
 - filter function components such as blur, brightness, contrast, drop shadow,
   grayscale, hue rotate, invert, saturate, and sepia
 - backdrop-filter function components such as backdrop blur, brightness,
@@ -478,8 +479,9 @@ Common Tailwind SVG presentation utilities such as `fill-*`, `stroke-*`, and
 filter color properties, project into the same declaration model.
 Common Tailwind transform utilities such as `translate-*`, `scale-*`,
 `rotate-*`, `skew-*`, `origin-*`, `perspective-*`, `backface-*`, and
-`transform-*` project into individual transform properties or the transform
-function pipeline.
+`transform-*`, plus arbitrary `transform-box` and CSS Motion Path properties,
+project into individual transform properties or the transform function
+pipeline.
 Common Tailwind filter and backdrop-filter utilities such as `blur-*`,
 `brightness-*`, `contrast-*`, `drop-shadow-*`, `grayscale`, `hue-rotate-*`,
 `invert-*`, `saturate-*`, `sepia-*`, and `backdrop-*` project into composable

@@ -76,6 +76,7 @@ text decoration skip ink, underline offset/position, text shadow, text overflow,
 text emphasis, ruby layout, hanging punctuation, line breaking, whitespace,
 whitespace collapse, word breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
 rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
+transform box, CSS Motion Path offset metadata,
 perspective, backface visibility, filter, filter function components, backdrop
 filter, backdrop filter function components, transition, animation,
 scroll-driven animation timelines and ranges, CSS View Transitions metadata,
@@ -115,7 +116,8 @@ visual-effect utilities such as `shadow-*`, `ring-*`, `inset-ring-*`,
 `outline-*`, `cursor-*`,
 `pointer-events-*`, `select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`, and
 `mask-*`, transform utilities such as `translate-*`, `scale-*`, `rotate-*`,
-`skew-*`, `origin-*`, `perspective-*`, and composable filter utilities such as
+`skew-*`, `origin-*`, `perspective-*`, arbitrary `transform-box` and CSS
+Motion Path properties, and composable filter utilities such as
 `blur-*`, `brightness-*`, `contrast-*`, `drop-shadow-*`, `grayscale`,
 `hue-rotate-*`, `invert-*`, `saturate-*`, `sepia-*`, and `backdrop-*` are
 projected into the same declaration model. Container marker utilities such as
