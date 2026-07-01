@@ -1,4 +1,4 @@
-# Web-Compatible Input
+# Structured Web Input
 
 `a3s-gui` accepts structured element records generated from JSX. The example
 below uses supported React Aria component names and DOM-style props that the
@@ -50,7 +50,7 @@ frame reaches the Rust renderer.
 
 The zero-dependency SDK also exports component markers with the same names for
 tests and compiler fixtures. The bridge reads serialized component identity and
-props; it does not require a WebView or DOM node.
+props; DOM nodes are not part of the protocol.
 
 ## Compiler Bridge Shape
 
@@ -123,12 +123,12 @@ native label. The renderer emits typed native commands for these widgets,
 including updates and keyed reorders, so state changes do not remount stable
 native controls.
 Those commands are serializable and can be delivered to an OS-bound AppKit,
-WinUI, or GTK host without WebView involvement.
+WinUI, or GTK host.
 
 The backend execution path is independent of the source syntax:
 
 ```text
-React Aria TSX
+Structured TSX input
         |
         v
 NativeElement
@@ -167,7 +167,7 @@ emit ranged change events with the current double value, and progress
 indicators consume the same min/max/current setter state.
 
 The Linux `gtk4-native` feature exercises the same path with `gtk4-rs`.
-`Gtk4NativeSurface` maps the React Aria command stream to real GTK4 widgets for
+`Gtk4NativeSurface` maps the native command stream to real GTK4 widgets for
 windows, boxes, labels, buttons, entries, check buttons, switches, drop-downs,
 list boxes, rows, notebook tabs, separators, scales, and progress bars. React
 Aria `Tabs` trees become native `gtk::Notebook` pages with `TabPanel` content
@@ -179,13 +179,13 @@ Linux-only and requires GTK4 development libraries plus `pkg-config`.
 The Windows `winui-native` feature follows the same contract with WinUI 3 and
 the Windows App SDK. `WinUiNativeSurface` creates real XAML windows, panels,
 text blocks, buttons, text boxes, checkboxes, radio buttons, combo boxes, list
-boxes, tab views, tab view items, sliders, and progress bars; it does not enable
-WebView2. React Aria `Tabs` trees become native `TabView` / `TabViewItem`
+boxes, tab views, tab view items, sliders, and progress bars through XAML
+controls. React Aria `Tabs` trees become native `TabView` / `TabViewItem`
 controls, with `TabPanel` content attached as native XAML content. WinUI events
-are queued as native events and routed back to serialized action ids. The
-React Aria `Switch` semantic remains in the IR, while `winio-winui3` 0.4.2 is
-bridged through a native CheckBox-backed toggle until the generated WinUI
-bindings expose `ToggleSwitch`.
+are queued as native events and routed back to serialized action ids. The React
+Aria `Switch` semantic remains in the IR, while `winio-winui3` 0.4.2 is bridged
+through a native CheckBox-backed toggle until the generated WinUI bindings
+expose `ToggleSwitch`.
 
 At runtime the compiled tree crosses the host boundary as a `UiFrame`:
 
@@ -270,6 +270,7 @@ renderer folds those into a single native text field.
 
 ## Compatibility Boundary
 
-The syntax is Web-compatible. The runtime is native. Code that assumes a live
-browser DOM, CSSOM, or `HTMLElement` instance is outside the portable contract
-and can be reported by the compiler bridge before runtime.
+The portable input contract covers the supported JSX, DOM-style prop, ARIA,
+HTML attribute, CSS, and Tailwind subset documented above. Browser DOM, CSSOM,
+and `HTMLElement` instances are outside the runtime protocol and can be reported
+by the compiler bridge before runtime.
