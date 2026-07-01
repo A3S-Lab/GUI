@@ -162,6 +162,7 @@ pub struct PortableStyle {
     pub font_family: Option<String>,
     pub font_style: Option<FontStyle>,
     pub font_size: Option<StyleLength>,
+    pub font_size_adjust: Option<String>,
     pub font_weight: Option<FontWeight>,
     pub font_stretch: Option<String>,
     pub font_kerning: Option<String>,
@@ -188,6 +189,10 @@ pub struct PortableStyle {
     pub word_spacing: Option<StyleLength>,
     pub tab_size: Option<String>,
     pub text_align: Option<TextAlign>,
+    pub text_size_adjust: Option<String>,
+    pub webkit_text_size_adjust: Option<String>,
+    pub moz_text_size_adjust: Option<String>,
+    pub ms_text_size_adjust: Option<String>,
     pub direction: Option<TextDirection>,
     pub unicode_bidi: Option<UnicodeBidi>,
     pub writing_mode: Option<WritingMode>,
@@ -818,6 +823,7 @@ impl PortableStyle {
             "font-family" => self.font_family = parse_css_string_token(value_ref),
             "font-style" => self.font_style = parse_font_style(value_ref),
             "font-size" => self.font_size = parse_length(value_ref),
+            "font-size-adjust" => self.font_size_adjust = parse_css_string_token(value_ref),
             "font-weight" => self.font_weight = parse_font_weight(value_ref),
             "font-stretch" => self.font_stretch = parse_css_string_token(value_ref),
             "font-kerning" => self.font_kerning = parse_css_string_token(value_ref),
@@ -872,6 +878,16 @@ impl PortableStyle {
             "word-spacing" => self.word_spacing = parse_length(value_ref),
             "tab-size" | "-moz-tab-size" => self.tab_size = parse_css_string_token(value_ref),
             "text-align" => self.text_align = parse_text_align(value_ref),
+            "text-size-adjust" => self.text_size_adjust = parse_css_string_token(value_ref),
+            "-webkit-text-size-adjust" | "webkit-text-size-adjust" => {
+                self.webkit_text_size_adjust = parse_css_string_token(value_ref);
+            }
+            "-moz-text-size-adjust" | "moz-text-size-adjust" => {
+                self.moz_text_size_adjust = parse_css_string_token(value_ref);
+            }
+            "-ms-text-size-adjust" | "ms-text-size-adjust" => {
+                self.ms_text_size_adjust = parse_css_string_token(value_ref);
+            }
             "direction" => self.direction = parse_text_direction(value_ref),
             "unicode-bidi" => self.unicode_bidi = parse_unicode_bidi(value_ref),
             "writing-mode" | "-webkit-writing-mode" => {
@@ -9296,6 +9312,7 @@ mod tests {
             .style("MozOsxFontSmoothing", "grayscale")
             .style("fontFeatureSettings", "\"kern\" 1, \"liga\" 0")
             .style("fontVariationSettings", "\"wght\" 650")
+            .style("fontSizeAdjust", "0.5")
             .style("fontVariant", "small-caps tabular-nums")
             .style("fontVariantAlternates", "historical-forms")
             .style("fontVariantCaps", "small-caps")
@@ -9312,6 +9329,10 @@ mod tests {
             .style("letterSpacing", "0.025em")
             .style("wordSpacing", "0.125em")
             .style("tabSize", "4")
+            .style("textSizeAdjust", "100%")
+            .style("WebkitTextSizeAdjust", "none")
+            .style("MozTextSizeAdjust", "auto")
+            .style("msTextSizeAdjust", "80%")
             .style("direction", "rtl")
             .style("unicodeBidi", "isolate-override")
             .style("-webkitWritingMode", "vertical-lr")
@@ -9359,6 +9380,7 @@ mod tests {
             style.font_variation_settings.as_deref(),
             Some("\"wght\" 650")
         );
+        assert_eq!(style.font_size_adjust.as_deref(), Some("0.5"));
         assert_eq!(
             style.font_variant.as_deref(),
             Some("small-caps tabular-nums")
@@ -9387,6 +9409,10 @@ mod tests {
         assert_eq!(style.letter_spacing, Some(StyleLength::Points(0.4)));
         assert_eq!(style.word_spacing, Some(StyleLength::Points(2.0)));
         assert_eq!(style.tab_size.as_deref(), Some("4"));
+        assert_eq!(style.text_size_adjust.as_deref(), Some("100%"));
+        assert_eq!(style.webkit_text_size_adjust.as_deref(), Some("none"));
+        assert_eq!(style.moz_text_size_adjust.as_deref(), Some("auto"));
+        assert_eq!(style.ms_text_size_adjust.as_deref(), Some("80%"));
         assert_eq!(style.direction, Some(TextDirection::Rtl));
         assert_eq!(style.unicode_bidi, Some(UnicodeBidi::IsolateOverride));
         assert_eq!(style.writing_mode, Some(WritingMode::VerticalLr));
@@ -9444,7 +9470,12 @@ mod tests {
             .unsupported
             .contains_key("webkit-text-emphasis-position"));
         assert!(!style.unsupported.contains_key("font-feature-settings"));
+        assert!(!style.unsupported.contains_key("font-size-adjust"));
         assert!(!style.unsupported.contains_key("font-variant-numeric"));
+        assert!(!style.unsupported.contains_key("text-size-adjust"));
+        assert!(!style.unsupported.contains_key("webkit-text-size-adjust"));
+        assert!(!style.unsupported.contains_key("moz-text-size-adjust"));
+        assert!(!style.unsupported.contains_key("ms-text-size-adjust"));
         assert!(!style.unsupported.contains_key("white-space"));
         assert!(!style.unsupported.contains_key("text-shadow"));
         assert!(!style.unsupported.contains_key("webkit-font-smoothing"));
@@ -9462,6 +9493,9 @@ mod tests {
              whitespace-pre-wrap break-all wrap-anywhere hyphens-auto -indent-[2px] text-balance \
              ordinal slashed-zero tabular-nums diagonal-fractions \
              font-stretch-condensed font-features-[\"kern\"_1] tab-4 text-shadow-sm \
+             [font-size-adjust:0.5] [text-size-adjust:100%] \
+             [-webkit-text-size-adjust:none] [-moz-text-size-adjust:auto] \
+             [-ms-text-size-adjust:80%] \
              [direction:rtl] [unicode-bidi:isolate] [writing-mode:vertical-rl] \
              [text-orientation:upright] [text-decoration-skip-ink:none] \
              [text-underline-position:under_left] [text-emphasis-style:open_dot] \
@@ -9470,6 +9504,7 @@ mod tests {
              focus:text-pretty lg:line-clamp-none ltr:[direction:ltr] \
              rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
              hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
+             hover:[font-size-adjust:0.6] focus:[text-size-adjust:none] \
              hover:[text-decoration-skip-ink:all] focus:[text-underline-position:left] \
              hover:[text-emphasis-style:filled_sesame] focus:[text-emphasis-color:#663399] \
              active:[text-emphasis-position:over_left] \
@@ -9496,11 +9531,16 @@ mod tests {
         assert_eq!(style.webkit_font_smoothing.as_deref(), Some("antialiased"));
         assert_eq!(style.moz_osx_font_smoothing.as_deref(), Some("grayscale"));
         assert_eq!(style.font_feature_settings.as_deref(), Some("\"kern\" 1"));
+        assert_eq!(style.font_size_adjust.as_deref(), Some("0.5"));
         assert_eq!(
             style.font_variant_numeric.as_deref(),
             Some("ordinal slashed-zero tabular-nums diagonal-fractions")
         );
         assert_eq!(style.tab_size.as_deref(), Some("4"));
+        assert_eq!(style.text_size_adjust.as_deref(), Some("100%"));
+        assert_eq!(style.webkit_text_size_adjust.as_deref(), Some("none"));
+        assert_eq!(style.moz_text_size_adjust.as_deref(), Some("auto"));
+        assert_eq!(style.ms_text_size_adjust.as_deref(), Some("80%"));
         assert_eq!(style.text_shadow.as_deref(), Some("var(--text-shadow-sm)"));
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
         assert_eq!(style.direction, Some(TextDirection::Rtl));
@@ -9598,6 +9638,22 @@ mod tests {
                 .and_then(|styles| styles.get("font-stretch"))
                 .map(String::as_str),
             Some("87.5%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("font-size-adjust"))
+                .map(String::as_str),
+            Some("0.6")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("text-size-adjust"))
+                .map(String::as_str),
+            Some("none")
         );
         assert_eq!(
             style

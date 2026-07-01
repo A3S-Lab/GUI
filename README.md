@@ -56,13 +56,13 @@ text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip, CSS clip path, CSS mask, CSS mask border, object fit/position,
 list style type/position/image, columns, column rule/span/fill,
-fragmentation breaks, font size,
+fragmentation breaks, font size and font size adjustment,
 font weight, font family, font style, font
 stretch, font kerning, font optical sizing, font smoothing hints,
 font feature and variation settings, font variant and
 font synthesis properties, line height, letter spacing, word spacing, tab size,
-text alignment, text direction, Unicode bidi, writing mode, text orientation,
-text transform, text indent, text
+text alignment, text size adjustment, text direction, Unicode bidi, writing
+mode, text orientation, text transform, text indent, text
 wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
 text decoration skip ink, underline offset/position, text shadow, text overflow,
 text emphasis, ruby layout, line breaking, whitespace, word breaking, hyphen
@@ -118,12 +118,13 @@ Sizing and child-spacing utilities such as `size-*`, `space-x-*`,
 portable layout tokens.
 Typography utilities such as `font-*`, `italic`, `not-italic`,
 `antialiased`, `subpixel-antialiased`, `tracking-*`, `font-stretch-*`,
-`font-features-*`, font variant numeric utilities,
+`font-features-*`, arbitrary `font-size-adjust` properties,
+font variant numeric utilities,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
-arbitrary `ruby-*` properties, `indent-*`, `line-clamp-*`, `text-shadow-*`,
-`text-wrap`, `text-nowrap`,
+arbitrary `text-size-adjust` properties, arbitrary `ruby-*` properties,
+`indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `truncate`,
 `text-ellipsis`, `text-clip`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, and generated-content utilities such as `content-[...]`,
