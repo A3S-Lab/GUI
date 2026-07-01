@@ -1,21 +1,22 @@
 # a3s-gui Architecture
 
-`a3s-gui` renders React/JSX-compatible UI trees as native controls.
+`a3s-gui` accepts structured UI input and emits native platform commands for
+AppKit, WinUI, and GTK4 backends.
 
 The input contract is structured element data: React/TSX-shaped trees, semantic
 element names, `className`, inline style objects, `aria-*`, `data-*`, and
-DOM-style event props. React Aria-compatible components are one supported
-semantic source. The renderer consumes A3S Native UI IR and does not provide a
-WebView, browser DOM, or hidden HTML surface.
+DOM-style event props. React Aria-compatible component names are supported
+semantic identifiers. The renderer consumes A3S Native UI IR; host adapters
+create native widgets rather than embedding a browser surface.
 
 ```text
-React / TSX source
+JSX / TSX source
         |
         v
 @a3s-lab/gui JSX runtime
         |
         v
-React Compiler output
+Compiled element records
         |
         v
 UiFrame protocol
@@ -59,11 +60,11 @@ Action ids
 
 ## Contract
 
-The bridge accepts semantic component names plus Web-compatible props and event
-names. The native renderer receives a typed, portable protocol rather than
-React component instances. Source components may come from
-`react-aria-components`, the zero-dependency marker exports used by compiler
-fixtures, or another compiler that emits the same protocol shape.
+The bridge accepts semantic component names, HTML and SVG intrinsic names,
+common Web props, and event names. The native renderer receives a typed,
+portable protocol rather than React component instances. Input records may come
+from `react-aria-components`, the zero-dependency marker exports used by
+compiler fixtures, or another compiler that emits the same protocol shape.
 
 Allowed data:
 
@@ -107,7 +108,7 @@ The pure Rust `PlatformPlanningHost` implements the same `NativeHost` contract
 without linking platform SDKs. It is an executable specification for native
 adapters: given a `NativeElement`, it records the AppKit, WinUI, or GTK widget
 class, accessibility role, action binding, style tokens, events, and metadata
-that a real backend must apply.
+that a platform backend applies.
 
 The compiler bridge accepts the HTML element registry exposed by `HTML_ELEMENTS`.
 Each recognized intrinsic tag lowers to the closest native semantic role, and
@@ -151,7 +152,7 @@ JavaScript does not see native widget handles; native backends do not see JSX.
 The same rule applies to native rendering commands: platform hosts receive
 serializable command records and blueprints, not React component instances.
 
-`NativeProtocolSession` is the intended host boundary for a native platform
+`NativeProtocolSession` is a serializable host boundary for a native platform
 process. It owns a `GuiRuntime<PlatformPlanningHost<_>>`, accepts `UiFrame`
 values, returns only the new `PlatformCommand` records for that render pass,
 and dispatches `HostEvent` values back to registered action ids. A native
@@ -229,8 +230,8 @@ For platform bindings that already expose clonable native handle wrappers,
 `HandleWidgetDriver` provides the storage and command glue. The platform only
 implements `NativeHandleAdapter`, returning handles from `create_handle` and
 applying updates, child attachment, removal, and root assignment to those
-handles. This is the intended path for real `NSView`, WinUI object, and GTK
-object wrappers. Adapters can implement `update_handle_config` to receive the
+handles. This path supports `NSView`, WinUI object, and GTK object wrappers.
+Adapters can implement `update_handle_config` to receive the
 typed config patch for native setter updates, or use the default full-blueprint
 update method while bootstrapping. The feature modules expose `AppKitHandleAdapter`,
 `WinUiHandleAdapter`, and `Gtk4HandleAdapter` surfaces for that path.
@@ -256,8 +257,8 @@ Feature-gated platform executor surfaces:
   `AppKitNativeSurface`.
   The shared renderer still owns
   reconciliation and config diffs; the surface applies typed
-  `NativeWidgetSetter` operations directly to AppKit controls. This is the first
-  in-process OS SDK backend and has no WebView fallback. `NSButton` controls are
+  `NativeWidgetSetter` operations directly to AppKit controls. The backend
+  creates in-process AppKit controls directly. `NSButton` controls are
   wired to Objective-C
   target/action callbacks that enqueue `NativeEventKind::Press` records, and
   editable `NSTextField` controls use an `NSTextFieldDelegate` to enqueue
@@ -295,15 +296,15 @@ Feature-gated platform executor surfaces:
   `CheckBox`, `RadioButton`, `ComboBox`, `ListBox`, `ContentDialog`, `ToolTip`,
   `Grid`, `TabView`, `TabViewItem`, `Border(separator)`, `Slider`, and
   `ProgressBar` objects through
-  `WinUiNativeSurface`. It does not enable
-  WebView2 and has no WebView fallback. WinUI callbacks enqueue press, change,
+  `WinUiNativeSurface`. The backend creates WinUI controls directly. WinUI
+  callbacks enqueue press, change,
   focus, blur, toggle, selection-change, and ranged value events through the
   same `NativeEventSource` and action routing path as AppKit and GTK. Semantic
   `Tabs` trees fold `TabList` and ordered `TabPanel` children into native
   `TabViewItem` objects and route WinUI tab selection changes with the
   serialized selection value when one is available. `Separator` uses a native
-  XAML `Border` loaded through WinUI's markup runtime so the surface remains
-  native without WebView/WebView2. Semantic `Toolbar` trees create horizontal
+  XAML `Border` loaded through WinUI's markup runtime. Semantic `Toolbar` trees
+  create horizontal
   native `StackPanel` containers, keeping toolbar children as real XAML
   controls. Semantic `Dialog` trees create native `ContentDialog` controls
   whose content is populated with real XAML children. Semantic `Popover`
@@ -337,7 +338,7 @@ Feature-gated platform executor surfaces:
   trees become native notebook pages with source tab labels, native panel
   widgets, and selection-change events carrying the selected tab value when
   available. It is a Linux-only feature so macOS and Windows builds can enable
-  all portable features without linking GTK. A Linux host must provide GTK4
+  all portable features without linking GTK. Linux builds require GTK4
   development libraries and `pkg-config`. GTK callbacks
   enqueue press, text change, focus, blur, toggle, and selection-change events
   through the same `NativeEventSource` and action routing path as AppKit.
@@ -406,10 +407,10 @@ deterministically:
 - `opacity`
 
 CSS custom properties are stored separately. Tailwind variant utilities are
-stored under `variant_declarations` so a future state or responsive layer can
-apply them without reparsing `className`. Unsupported style declarations are
-preserved so the compiler or design tooling can warn without silently dropping
-source declarations.
+stored under `variant_declarations` so state or responsive processing can apply
+them without reparsing `className`. Unsupported style declarations are
+preserved so callers can report unmapped declarations without dropping source
+data.
 CSS length values that cannot be converted to numeric points or percentages are
 kept as `StyleLength::Css`, including `calc(...)`, `var(...)`, `clamp(...)`,
 viewport/container units, and sizing keywords such as `min-content`.

@@ -366,8 +366,8 @@ App SDK package bootstrap to create real `Microsoft.UI.Xaml.Window`,
 `StackPanel`, `TextBlock`, `Button`, `TextBox`, `CheckBox`, `RadioButton`,
 `ComboBox`, `ListBox`, `Grid`, `TabView`, `TabViewItem`, `ContentDialog`,
 `ToolTip`, menu `StackPanel`/`Button` fallback controls, `Border(separator)`,
-`Slider`, and `ProgressBar` objects directly. It does not enable WebView2 and
-does not render HTML.
+`Slider`, and `ProgressBar` objects directly. It uses WinUI controls as the
+rendered surface.
 
 On Linux, the `gtk4-native` feature adds an in-process GTK4 surface behind the
 same `NativeWidgetSurface` contract. It creates `gtk::ApplicationWindow`,
