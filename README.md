@@ -68,13 +68,14 @@ initial letter metadata, inline sizing, letter spacing, word spacing, tab size,
 text alignment, final-line alignment, text justification, text size adjustment,
 text direction, Unicode bidi, writing
 mode, text orientation, text combine upright, text transform, text indent, text
-wrapping, text spacing, text autospace, text box trim/edge, line clamp,
+wrapping, wrap control, text spacing, text autospace, word space transform,
+text box trim/edge, line clamp,
 line clamp longhands,
 SVG fill/stroke/marker presentation properties, SVG rendering hints, SVG paint
 server and filter color properties, text decoration,
 text decoration skip ink, underline offset/position, text shadow, text overflow,
 text emphasis, ruby layout, hanging punctuation, line breaking, whitespace,
-whitespace collapse, word breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
+whitespace collapse/trim, word breaking, hyphen handling and limits, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
 rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
 transform box, CSS Motion Path offset metadata,
 perspective, backface visibility, filter, filter function components, backdrop
@@ -141,9 +142,12 @@ font variant numeric utilities,
 `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
 arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
-`text-justify`, baseline and initial-letter properties,
-`text-wrap-*`, `text-spacing-trim`, `text-autospace`,
-`text-box*`, `white-space-collapse`, `hanging-punctuation`, and line-clamp
+`text-align-all`, `text-group-align`, `text-justify`, baseline and
+initial-letter properties,
+`text-wrap-*`, arbitrary `wrap-*`, `line-padding`, `text-spacing`,
+`text-spacing-trim`, `text-autospace`, `word-space-transform`,
+`text-box*`, `white-space-collapse`, `white-space-trim`,
+`hanging-punctuation`, hyphenation limit properties, and line-clamp
 longhand properties,
 arbitrary `ruby-*`
 properties, `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,

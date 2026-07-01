@@ -398,12 +398,14 @@ deterministically:
   `fontVariant*`, `fontSynthesis*`, `lineHeight`, `dominantBaseline`,
   `baselineSource`, `alignmentBaseline`, `baselineShift`, `lineFitEdge`,
   `inlineSizing`, `initialLetter*`,
-  `letterSpacing`, `wordSpacing`, `tabSize`, `textAlign`, `textAlignLast`,
-  `textJustify`, `textSizeAdjust`, `WebkitTextSizeAdjust`,
+  `letterSpacing`, `wordSpacing`, `tabSize`, `textAlign`, `textAlignAll`,
+  `textAlignLast`, `textGroupAlign`, `textJustify`, `wordSpaceTransform`,
+  `textSizeAdjust`, `WebkitTextSizeAdjust`,
   `MozTextSizeAdjust`, `MsTextSizeAdjust`, `direction`, `unicodeBidi`,
   `writingMode`, `textOrientation`,
   `textCombineUpright`, `textTransform`, `textIndent`, `textWrap`,
-  `textWrapMode`, `textWrapStyle`, `textSpacingTrim`, `textAutospace`,
+  `textWrapMode`, `textWrapStyle`, `wrapBefore`, `wrapAfter`, `wrapInside`,
+  `linePadding`, `textSpacing`, `textSpacingTrim`, `textAutospace`,
   `textBox*`, `hangingPunctuation`, `lineClamp`, `blockEllipsis`,
   `continue`, `maxLines`, `boxOrient`
 - SVG presentation properties such as `fill`, `fillOpacity`, `fillRule`,
@@ -418,7 +420,8 @@ deterministically:
   `textUnderlinePosition`, `textEmphasisStyle`, `textEmphasisColor`,
   `textEmphasisPosition`, `rubyAlign`, `rubyPosition`, `rubyMerge`,
   `rubyOverhang`, `textShadow`, `textOverflow`, `lineBreak`, `whiteSpace`,
-  `whiteSpaceCollapse`, `wordBreak`, `overflowWrap`, `hyphens`
+  `whiteSpaceCollapse`, `whiteSpaceTrim`, `wordBreak`, `overflowWrap`,
+  `hyphens`, `hyphenateCharacter`, and `hyphenateLimit*`
 - `overflow`, `overflowX`, `overflowY`, `overflowBlock`, `overflowInline`,
   `overflowClipMargin`, `overflowAnchor`
 - `emptyCells`
@@ -504,9 +507,12 @@ font variant numeric utilities, `tab-*`, text transform utilities, text decorati
 utilities, `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
 arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
-`text-justify`, baseline and initial-letter properties, `text-wrap-*`,
-`text-spacing-trim`, `text-autospace`,
-`text-box*`, `white-space-collapse`, `hanging-punctuation`, and line-clamp
+`text-align-all`, `text-group-align`, `text-justify`, baseline and
+initial-letter properties, `text-wrap-*`, arbitrary `wrap-*`,
+`line-padding`, `text-spacing`, `text-spacing-trim`, `text-autospace`,
+`word-space-transform`,
+`text-box*`, `white-space-collapse`, `white-space-trim`,
+`hanging-punctuation`, hyphenation limit properties, and line-clamp
 longhand properties,
 arbitrary `ruby-*`
 properties, `truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`,

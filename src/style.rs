@@ -223,8 +223,11 @@ pub struct PortableStyle {
     pub word_spacing: Option<StyleLength>,
     pub tab_size: Option<String>,
     pub text_align: Option<TextAlign>,
+    pub text_align_all: Option<String>,
     pub text_align_last: Option<String>,
+    pub text_group_align: Option<String>,
     pub text_justify: Option<String>,
+    pub word_space_transform: Option<String>,
     pub text_size_adjust: Option<String>,
     pub webkit_text_size_adjust: Option<String>,
     pub moz_text_size_adjust: Option<String>,
@@ -239,6 +242,11 @@ pub struct PortableStyle {
     pub text_wrap: Option<TextWrapMode>,
     pub text_wrap_mode: Option<String>,
     pub text_wrap_style: Option<String>,
+    pub wrap_before: Option<String>,
+    pub wrap_after: Option<String>,
+    pub wrap_inside: Option<String>,
+    pub line_padding: Option<String>,
+    pub text_spacing: Option<String>,
     pub text_spacing_trim: Option<String>,
     pub text_autospace: Option<String>,
     pub text_box: Option<String>,
@@ -298,9 +306,15 @@ pub struct PortableStyle {
     pub line_break: Option<String>,
     pub white_space: Option<WhiteSpaceMode>,
     pub white_space_collapse: Option<String>,
+    pub white_space_trim: Option<String>,
     pub word_break: Option<WordBreakMode>,
     pub overflow_wrap: Option<OverflowWrapMode>,
     pub hyphens: Option<HyphensMode>,
+    pub hyphenate_character: Option<String>,
+    pub hyphenate_limit_zone: Option<String>,
+    pub hyphenate_limit_chars: Option<String>,
+    pub hyphenate_limit_lines: Option<String>,
+    pub hyphenate_limit_last: Option<String>,
     pub overflow_x: Option<OverflowMode>,
     pub overflow_y: Option<OverflowMode>,
     pub overflow_block: Option<OverflowMode>,
@@ -1015,8 +1029,11 @@ impl PortableStyle {
             "word-spacing" => self.word_spacing = parse_length(value_ref),
             "tab-size" | "-moz-tab-size" => self.tab_size = parse_css_string_token(value_ref),
             "text-align" => self.text_align = parse_text_align(value_ref),
+            "text-align-all" => self.text_align_all = parse_css_string_token(value_ref),
             "text-align-last" => self.text_align_last = parse_css_string_token(value_ref),
+            "text-group-align" => self.text_group_align = parse_css_string_token(value_ref),
             "text-justify" => self.text_justify = parse_css_string_token(value_ref),
+            "word-space-transform" => self.word_space_transform = parse_css_string_token(value_ref),
             "text-size-adjust" => self.text_size_adjust = parse_css_string_token(value_ref),
             "-webkit-text-size-adjust" | "webkit-text-size-adjust" => {
                 self.webkit_text_size_adjust = parse_css_string_token(value_ref);
@@ -1051,6 +1068,11 @@ impl PortableStyle {
                 self.text_wrap_mode = parse_css_string_token(value_ref);
             }
             "text-wrap-style" => self.text_wrap_style = parse_css_string_token(value_ref),
+            "wrap-before" => self.wrap_before = parse_css_string_token(value_ref),
+            "wrap-after" => self.wrap_after = parse_css_string_token(value_ref),
+            "wrap-inside" => self.wrap_inside = parse_css_string_token(value_ref),
+            "line-padding" => self.line_padding = parse_css_string_token(value_ref),
+            "text-spacing" => self.text_spacing = parse_css_string_token(value_ref),
             "text-spacing-trim" => self.text_spacing_trim = parse_css_string_token(value_ref),
             "text-autospace" | "-ms-text-autospace" | "ms-text-autospace" => {
                 self.text_autospace = parse_css_string_token(value_ref);
@@ -1141,9 +1163,21 @@ impl PortableStyle {
             "white-space-collapse" => {
                 self.white_space_collapse = parse_css_string_token(value_ref);
             }
+            "white-space-trim" => self.white_space_trim = parse_css_string_token(value_ref),
             "word-break" => self.word_break = parse_word_break(value_ref),
             "overflow-wrap" => self.overflow_wrap = parse_overflow_wrap(value_ref),
             "hyphens" => self.hyphens = parse_hyphens(value_ref),
+            "hyphenate-character" => self.hyphenate_character = parse_css_string_token(value_ref),
+            "hyphenate-limit-zone" => self.hyphenate_limit_zone = parse_css_string_token(value_ref),
+            "hyphenate-limit-chars" => {
+                self.hyphenate_limit_chars = parse_css_string_token(value_ref);
+            }
+            "hyphenate-limit-lines" => {
+                self.hyphenate_limit_lines = parse_css_string_token(value_ref);
+            }
+            "hyphenate-limit-last" => {
+                self.hyphenate_limit_last = parse_css_string_token(value_ref);
+            }
             "overflow" => {
                 let overflow = parse_overflow(value_ref);
                 self.overflow_x = overflow;
@@ -9783,8 +9817,11 @@ mod tests {
             .style("WebkitTextSizeAdjust", "none")
             .style("MozTextSizeAdjust", "auto")
             .style("msTextSizeAdjust", "80%")
+            .style("textAlignAll", "justify")
             .style("textAlignLast", "center")
+            .style("textGroupAlign", "end")
             .style("textJustify", "inter-character")
+            .style("wordSpaceTransform", "space")
             .style("direction", "rtl")
             .style("unicodeBidi", "isolate-override")
             .style("-webkitWritingMode", "vertical-lr")
@@ -9795,6 +9832,11 @@ mod tests {
             .style("textWrap", "balance")
             .style("textWrapMode", "nowrap")
             .style("textWrapStyle", "pretty")
+            .style("wrapBefore", "avoid")
+            .style("wrapAfter", "avoid")
+            .style("wrapInside", "avoid")
+            .style("linePadding", "0.5em")
+            .style("textSpacing", "trim-start allow-end")
             .style("textSpacingTrim", "trim-start")
             .style("textAutospace", "ideograph-alpha ideograph-numeric")
             .style("textBox", "trim-both cap alphabetic")
@@ -9821,9 +9863,15 @@ mod tests {
             .style("lineBreak", "strict")
             .style("whiteSpace", "nowrap")
             .style("whiteSpaceCollapse", "preserve-breaks")
+            .style("whiteSpaceTrim", "discard-before")
             .style("wordBreak", "keep-all")
             .style("overflowWrap", "anywhere")
-            .style("hyphens", "auto");
+            .style("hyphens", "auto")
+            .style("hyphenateCharacter", "\"=\"")
+            .style("hyphenateLimitZone", "8%")
+            .style("hyphenateLimitChars", "6 3 2")
+            .style("hyphenateLimitLines", "2")
+            .style("hyphenateLimitLast", "always");
 
         let style = PortableStyle::from_web(&web);
 
@@ -9896,8 +9944,11 @@ mod tests {
         assert_eq!(style.webkit_text_size_adjust.as_deref(), Some("none"));
         assert_eq!(style.moz_text_size_adjust.as_deref(), Some("auto"));
         assert_eq!(style.ms_text_size_adjust.as_deref(), Some("80%"));
+        assert_eq!(style.text_align_all.as_deref(), Some("justify"));
         assert_eq!(style.text_align_last.as_deref(), Some("center"));
+        assert_eq!(style.text_group_align.as_deref(), Some("end"));
         assert_eq!(style.text_justify.as_deref(), Some("inter-character"));
+        assert_eq!(style.word_space_transform.as_deref(), Some("space"));
         assert_eq!(style.direction, Some(TextDirection::Rtl));
         assert_eq!(style.unicode_bidi, Some(UnicodeBidi::IsolateOverride));
         assert_eq!(style.writing_mode, Some(WritingMode::VerticalLr));
@@ -9908,6 +9959,11 @@ mod tests {
         assert_eq!(style.text_wrap, Some(TextWrapMode::NoWrap));
         assert_eq!(style.text_wrap_mode.as_deref(), Some("nowrap"));
         assert_eq!(style.text_wrap_style.as_deref(), Some("pretty"));
+        assert_eq!(style.wrap_before.as_deref(), Some("avoid"));
+        assert_eq!(style.wrap_after.as_deref(), Some("avoid"));
+        assert_eq!(style.wrap_inside.as_deref(), Some("avoid"));
+        assert_eq!(style.line_padding.as_deref(), Some("0.5em"));
+        assert_eq!(style.text_spacing.as_deref(), Some("trim-start allow-end"));
         assert_eq!(style.text_spacing_trim.as_deref(), Some("trim-start"));
         assert_eq!(
             style.text_autospace.as_deref(),
@@ -9966,9 +10022,15 @@ mod tests {
             style.white_space_collapse.as_deref(),
             Some("preserve-breaks")
         );
+        assert_eq!(style.white_space_trim.as_deref(), Some("discard-before"));
         assert_eq!(style.word_break, Some(WordBreakMode::KeepAll));
         assert_eq!(style.overflow_wrap, Some(OverflowWrapMode::Anywhere));
         assert_eq!(style.hyphens, Some(HyphensMode::Auto));
+        assert_eq!(style.hyphenate_character.as_deref(), Some("\"=\""));
+        assert_eq!(style.hyphenate_limit_zone.as_deref(), Some("8%"));
+        assert_eq!(style.hyphenate_limit_chars.as_deref(), Some("6 3 2"));
+        assert_eq!(style.hyphenate_limit_lines.as_deref(), Some("2"));
+        assert_eq!(style.hyphenate_limit_last.as_deref(), Some("always"));
         assert!(!style.unsupported.contains_key("text-decoration-line"));
         assert!(!style.unsupported.contains_key("text-decoration-skip-ink"));
         assert!(!style.unsupported.contains_key("text-underline-position"));
@@ -9998,8 +10060,11 @@ mod tests {
         assert!(!style.unsupported.contains_key("webkit-text-size-adjust"));
         assert!(!style.unsupported.contains_key("moz-text-size-adjust"));
         assert!(!style.unsupported.contains_key("ms-text-size-adjust"));
+        assert!(!style.unsupported.contains_key("text-align-all"));
         assert!(!style.unsupported.contains_key("text-align-last"));
+        assert!(!style.unsupported.contains_key("text-group-align"));
         assert!(!style.unsupported.contains_key("text-justify"));
+        assert!(!style.unsupported.contains_key("word-space-transform"));
         assert!(!style.unsupported.contains_key("white-space"));
         assert!(!style.unsupported.contains_key("text-shadow"));
         assert!(!style.unsupported.contains_key("webkit-font-smoothing"));
@@ -10010,12 +10075,23 @@ mod tests {
         assert!(!style.unsupported.contains_key("text-wrap"));
         assert!(!style.unsupported.contains_key("text-wrap-mode"));
         assert!(!style.unsupported.contains_key("text-wrap-style"));
+        assert!(!style.unsupported.contains_key("wrap-before"));
+        assert!(!style.unsupported.contains_key("wrap-after"));
+        assert!(!style.unsupported.contains_key("wrap-inside"));
+        assert!(!style.unsupported.contains_key("line-padding"));
+        assert!(!style.unsupported.contains_key("text-spacing"));
         assert!(!style.unsupported.contains_key("text-spacing-trim"));
         assert!(!style.unsupported.contains_key("text-autospace"));
         assert!(!style.unsupported.contains_key("text-box"));
         assert!(!style.unsupported.contains_key("text-box-trim"));
         assert!(!style.unsupported.contains_key("text-box-edge"));
         assert!(!style.unsupported.contains_key("white-space-collapse"));
+        assert!(!style.unsupported.contains_key("white-space-trim"));
+        assert!(!style.unsupported.contains_key("hyphenate-character"));
+        assert!(!style.unsupported.contains_key("hyphenate-limit-zone"));
+        assert!(!style.unsupported.contains_key("hyphenate-limit-chars"));
+        assert!(!style.unsupported.contains_key("hyphenate-limit-lines"));
+        assert!(!style.unsupported.contains_key("hyphenate-limit-last"));
         assert!(!style.unsupported.contains_key("-webkit-line-clamp"));
     }
 
@@ -10067,7 +10143,9 @@ mod tests {
              [text-size-adjust:100%] \
              [-webkit-text-size-adjust:none] [-moz-text-size-adjust:auto] \
              [-ms-text-size-adjust:80%] \
-             [text-align-last:center] [text-justify:inter-word] \
+             [text-align-all:justify] [text-align-last:center] \
+             [text-group-align:end] [text-justify:inter-word] \
+             [word-space-transform:space] \
              [direction:rtl] [unicode-bidi:isolate] [writing-mode:vertical-rl] \
              [text-orientation:upright] [text-combine-upright:all] \
              [text-decoration-skip-ink:none] \
@@ -10082,14 +10160,21 @@ mod tests {
              hover:[dominant-baseline:hanging] focus:[baseline-shift:sub] \
              active:[initial-letter:2] before:[initial-letter-wrap:all] \
              after:[block-ellipsis:auto] visited:[max-lines:none] \
+             md:[text-align-all:center] hover:[text-group-align:start] \
+             focus:[word-space-transform:ideographs] \
              hover:[text-align-last:right] focus:[text-justify:inter-character] \
              visited:[hanging-punctuation:last_force-end] \
              active:[text-combine-upright:digits_2] \
              [white-space-collapse:preserve-breaks] [text-wrap-mode:nowrap] \
-             [text-wrap-style:stable] [text-spacing-trim:space-all] \
+             [text-wrap-style:stable] [wrap-before:avoid] [wrap-after:avoid] \
+             [wrap-inside:avoid] [line-padding:0.5em] \
+             [text-spacing:trim-start_allow-end] [text-spacing-trim:space-all] \
              [text-autospace:ideograph-alpha] [text-box:trim-both_cap_alphabetic] \
              [text-box-trim:trim-start] [text-box-edge:cap_alphabetic] \
              [block-ellipsis:\"...\"] [continue:discard] [max-lines:4] \
+             [white-space-trim:discard-before] [hyphenate-character:\"=\"] \
+             [hyphenate-limit-zone:8%] [hyphenate-limit-chars:6_3_2] \
+             [hyphenate-limit-lines:2] [hyphenate-limit-last:always] \
              hover:[text-decoration-skip-ink:all] focus:[text-underline-position:left] \
              hover:[text-emphasis-style:filled_sesame] focus:[text-emphasis-color:#663399] \
              active:[text-emphasis-position:over_left] \
@@ -10097,7 +10182,8 @@ mod tests {
              lg:normal-nums content-none before:content-['Hello_World'] \
              after:content-(--suffix-content) hover:content-['Hello\\_World'] \
              hover:[white-space-collapse:preserve-spaces] focus:[text-wrap-style:pretty] \
-             active:[text-spacing-trim:trim-auto] before:[text-box-trim:none] \
+             active:[text-spacing-trim:trim-auto] before:[wrap-before:auto] \
+             after:[hyphenate-limit-lines:no-limit] before:[text-box-trim:none] \
              after:[text-box-edge:text] visited:[text-autospace:no-autospace] \
              [hanging-punctuation:first_allow-end] \
              hover:wrap-break-word focus:wrap-[normal] active:wrap-(--overflow-wrap) \
@@ -10145,8 +10231,11 @@ mod tests {
         assert_eq!(style.webkit_text_size_adjust.as_deref(), Some("none"));
         assert_eq!(style.moz_text_size_adjust.as_deref(), Some("auto"));
         assert_eq!(style.ms_text_size_adjust.as_deref(), Some("80%"));
+        assert_eq!(style.text_align_all.as_deref(), Some("justify"));
         assert_eq!(style.text_align_last.as_deref(), Some("center"));
+        assert_eq!(style.text_group_align.as_deref(), Some("end"));
         assert_eq!(style.text_justify.as_deref(), Some("inter-word"));
+        assert_eq!(style.word_space_transform.as_deref(), Some("space"));
         assert_eq!(style.text_shadow.as_deref(), Some("var(--text-shadow-sm)"));
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
         assert_eq!(style.direction, Some(TextDirection::Rtl));
@@ -10158,6 +10247,11 @@ mod tests {
         assert_eq!(style.text_wrap, Some(TextWrapMode::NoWrap));
         assert_eq!(style.text_wrap_mode.as_deref(), Some("nowrap"));
         assert_eq!(style.text_wrap_style.as_deref(), Some("stable"));
+        assert_eq!(style.wrap_before.as_deref(), Some("avoid"));
+        assert_eq!(style.wrap_after.as_deref(), Some("avoid"));
+        assert_eq!(style.wrap_inside.as_deref(), Some("avoid"));
+        assert_eq!(style.line_padding.as_deref(), Some("0.5em"));
+        assert_eq!(style.text_spacing.as_deref(), Some("trim-start allow-end"));
         assert_eq!(style.text_spacing_trim.as_deref(), Some("space-all"));
         assert_eq!(style.text_autospace.as_deref(), Some("ideograph-alpha"));
         assert_eq!(style.text_box.as_deref(), Some("trim-both cap alphabetic"));
@@ -10212,9 +10306,15 @@ mod tests {
             style.white_space_collapse.as_deref(),
             Some("preserve-breaks")
         );
+        assert_eq!(style.white_space_trim.as_deref(), Some("discard-before"));
         assert_eq!(style.word_break, Some(WordBreakMode::BreakAll));
         assert_eq!(style.overflow_wrap, Some(OverflowWrapMode::Anywhere));
         assert_eq!(style.hyphens, Some(HyphensMode::Auto));
+        assert_eq!(style.hyphenate_character.as_deref(), Some("\"=\""));
+        assert_eq!(style.hyphenate_limit_zone.as_deref(), Some("8%"));
+        assert_eq!(style.hyphenate_limit_chars.as_deref(), Some("6 3 2"));
+        assert_eq!(style.hyphenate_limit_lines.as_deref(), Some("2"));
+        assert_eq!(style.hyphenate_limit_last.as_deref(), Some("always"));
         assert_eq!(style.content.as_deref(), Some("none"));
         assert_eq!(
             style
@@ -10335,6 +10435,46 @@ mod tests {
                 .and_then(|styles| styles.get("max-lines"))
                 .map(String::as_str),
             Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("text-align-all"))
+                .map(String::as_str),
+            Some("center")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("text-group-align"))
+                .map(String::as_str),
+            Some("start")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("word-space-transform"))
+                .map(String::as_str),
+            Some("ideographs")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("wrap-before"))
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("after")
+                .and_then(|styles| styles.get("hyphenate-limit-lines"))
+                .map(String::as_str),
+            Some("no-limit")
         );
         assert_eq!(
             style
