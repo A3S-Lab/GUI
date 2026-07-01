@@ -42,6 +42,7 @@ The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
 properties separately, and projects supported declarations into native style
 tokens. The current portable token set includes the CSS display mode family,
+including internal table and ruby display modes,
 position, physical and logical inset, z-index, visibility, box sizing, box
 decoration break, isolation, mix blend mode, float, clear, vertical alignment,
 table layout, border collapse/spacing, caption side, flex direction/wrap/item
@@ -64,7 +65,7 @@ text alignment, text direction, Unicode bidi, writing mode, text orientation,
 text transform, text indent, text
 wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
 text decoration skip ink, underline offset/position, text shadow, text overflow,
-text emphasis, line breaking, whitespace, word breaking, hyphen
+text emphasis, ruby layout, line breaking, whitespace, word breaking, hyphen
 handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
 rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
@@ -88,6 +89,7 @@ preserved in the generated declarations and portable color tokens. Display
 utilities such as `inline`, `inline-block`, `flow-root`, `contents`,
 `list-item`, `table-*`, `inline-table`, `flex`, `inline-flex`, `grid`,
 `inline-grid`, and `hidden` are projected into portable display tokens.
+Arbitrary `display: ruby*` properties are projected into the same token.
 Screen-reader utilities such as `sr-only` and `not-sr-only` are projected into
 their generated declaration groups. Formatting and table utilities such as
 `box-*`, `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`,
@@ -120,7 +122,8 @@ Typography utilities such as `font-*`, `italic`, `not-italic`,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
-`indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
+arbitrary `ruby-*` properties, `indent-*`, `line-clamp-*`, `text-shadow-*`,
+`text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `truncate`,
 `text-ellipsis`, `text-clip`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, and generated-content utilities such as `content-[...]`,

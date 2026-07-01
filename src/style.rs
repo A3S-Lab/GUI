@@ -225,6 +225,10 @@ pub struct PortableStyle {
     pub text_emphasis_style: Option<String>,
     pub text_emphasis_color: Option<StyleColor>,
     pub text_emphasis_position: Option<String>,
+    pub ruby_align: Option<String>,
+    pub ruby_position: Option<String>,
+    pub ruby_merge: Option<String>,
+    pub ruby_overhang: Option<String>,
     pub text_shadow: Option<String>,
     pub text_overflow: Option<TextOverflow>,
     pub line_break: Option<String>,
@@ -935,6 +939,10 @@ impl PortableStyle {
             | "webkit-text-emphasis-position" => {
                 self.text_emphasis_position = parse_css_string_token(value_ref);
             }
+            "ruby-align" => self.ruby_align = parse_css_string_token(value_ref),
+            "ruby-position" => self.ruby_position = parse_css_string_token(value_ref),
+            "ruby-merge" => self.ruby_merge = parse_css_string_token(value_ref),
+            "ruby-overhang" => self.ruby_overhang = parse_css_string_token(value_ref),
             "text-shadow" => self.text_shadow = parse_css_string_token(value_ref),
             "text-overflow" => self.text_overflow = parse_text_overflow(value_ref),
             "line-break" => self.line_break = parse_css_string_token(value_ref),
@@ -1676,6 +1684,11 @@ pub enum DisplayMode {
     TableHeaderGroup,
     TableRowGroup,
     TableRow,
+    Ruby,
+    RubyBase,
+    RubyText,
+    RubyBaseContainer,
+    RubyTextContainer,
     WebkitBox,
     None,
 }
@@ -2591,6 +2604,11 @@ fn parse_display(value: &str) -> Option<DisplayMode> {
         "table-header-group" => Some(DisplayMode::TableHeaderGroup),
         "table-row-group" => Some(DisplayMode::TableRowGroup),
         "table-row" => Some(DisplayMode::TableRow),
+        "ruby" => Some(DisplayMode::Ruby),
+        "ruby-base" => Some(DisplayMode::RubyBase),
+        "ruby-text" => Some(DisplayMode::RubyText),
+        "ruby-base-container" => Some(DisplayMode::RubyBaseContainer),
+        "ruby-text-container" => Some(DisplayMode::RubyTextContainer),
         "-webkit-box" => Some(DisplayMode::WebkitBox),
         "none" => Some(DisplayMode::None),
         _ => None,
@@ -7722,6 +7740,11 @@ mod tests {
             ("table-header-group", DisplayMode::TableHeaderGroup),
             ("table-row-group", DisplayMode::TableRowGroup),
             ("table-row", DisplayMode::TableRow),
+            ("ruby", DisplayMode::Ruby),
+            ("ruby-base", DisplayMode::RubyBase),
+            ("ruby-text", DisplayMode::RubyText),
+            ("ruby-base-container", DisplayMode::RubyBaseContainer),
+            ("ruby-text-container", DisplayMode::RubyTextContainer),
         ];
 
         for (display, expected) in cases {
@@ -7729,6 +7752,87 @@ mod tests {
             assert_eq!(style.display, Some(expected));
             assert!(!style.unsupported.contains_key("display"));
         }
+    }
+
+    #[test]
+    fn parses_css_ruby_layout_properties() {
+        let web = WebProps::new()
+            .style("display", "ruby")
+            .style("rubyAlign", "space-around")
+            .style("rubyPosition", "under")
+            .style("rubyMerge", "collapse")
+            .style("rubyOverhang", "auto");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.display, Some(DisplayMode::Ruby));
+        assert_eq!(style.ruby_align.as_deref(), Some("space-around"));
+        assert_eq!(style.ruby_position.as_deref(), Some("under"));
+        assert_eq!(style.ruby_merge.as_deref(), Some("collapse"));
+        assert_eq!(style.ruby_overhang.as_deref(), Some("auto"));
+        assert!(!style.unsupported.contains_key("ruby-align"));
+        assert!(!style.unsupported.contains_key("ruby-position"));
+        assert!(!style.unsupported.contains_key("ruby-merge"));
+        assert!(!style.unsupported.contains_key("ruby-overhang"));
+    }
+
+    #[test]
+    fn parses_tailwind_arbitrary_ruby_layout_properties() {
+        let web = WebProps::new().class_name(
+            "[display:ruby] [ruby-align:space-around] [ruby-position:over] \
+             [ruby-merge:collapse] [ruby-overhang:auto] \
+             motion-safe:[display:ruby-text] hover:[ruby-position:under] \
+             focus:[ruby-align:center] active:[ruby-merge:separate] \
+             rtl:[ruby-overhang:none]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.display, Some(DisplayMode::Ruby));
+        assert_eq!(style.ruby_align.as_deref(), Some("space-around"));
+        assert_eq!(style.ruby_position.as_deref(), Some("over"));
+        assert_eq!(style.ruby_merge.as_deref(), Some("collapse"));
+        assert_eq!(style.ruby_overhang.as_deref(), Some("auto"));
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("motion-safe")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("ruby-text")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("ruby-position"))
+                .map(String::as_str),
+            Some("under")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("ruby-align"))
+                .map(String::as_str),
+            Some("center")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("ruby-merge"))
+                .map(String::as_str),
+            Some("separate")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("rtl")
+                .and_then(|styles| styles.get("ruby-overhang"))
+                .map(String::as_str),
+            Some("none")
+        );
     }
 
     #[test]

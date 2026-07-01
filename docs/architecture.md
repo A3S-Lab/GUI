@@ -358,7 +358,7 @@ CSS declarations and projects the subset that native adapters can apply
 deterministically:
 
 - `display`, including inline, block, flow-root, contents, list-item, flex,
-  grid, and table display modes
+  grid, table, and ruby display modes
 - `boxSizing`, `boxDecorationBreak`, `isolation`, `mixBlendMode`
 - `float`, `clear`, `verticalAlign`
 - `tableLayout`, `borderCollapse`, `borderSpacing`, `captionSide`
@@ -402,8 +402,9 @@ deterministically:
 - `textDecorationLine`, `textDecorationColor`, `textDecorationStyle`,
   `textDecorationThickness`, `textDecorationSkipInk`, `textUnderlineOffset`,
   `textUnderlinePosition`, `textEmphasisStyle`, `textEmphasisColor`,
-  `textEmphasisPosition`, `textShadow`, `textOverflow`, `lineBreak`,
-  `whiteSpace`, `wordBreak`, `overflowWrap`, `hyphens`
+  `textEmphasisPosition`, `rubyAlign`, `rubyPosition`, `rubyMerge`,
+  `rubyOverhang`, `textShadow`, `textOverflow`, `lineBreak`, `whiteSpace`,
+  `wordBreak`, `overflowWrap`, `hyphens`
 - `overflow`, `overflowX`, `overflowY`
 - `aspectRatio`, `boxShadow`, Tailwind `ring*` and `divide*` metadata,
   `outline*`, `transform`, `filter`,
@@ -447,8 +448,9 @@ Common Tailwind formatting and table utilities such as `box-*`,
 `caption-*` project into the same declaration model. Tailwind display
 utilities such as `inline-block`, `flow-root`, `contents`, `list-item`,
 `table-*`, `inline-table`, `inline-flex`, and `inline-grid` project into
-portable display tokens. Tailwind screen-reader utilities such as `sr-only`
-and `not-sr-only` project into their generated declaration groups.
+portable display tokens. Arbitrary `display: ruby*` properties project into the
+same display token. Tailwind screen-reader utilities such as `sr-only` and
+`not-sr-only` project into their generated declaration groups.
 Common Tailwind SVG presentation utilities such as `fill-*`, `stroke-*`, and
 `stroke-{width}` project into the same declaration model.
 Common Tailwind transform utilities such as `translate-*`, `scale-*`,
@@ -475,8 +477,8 @@ Common Tailwind typography and text utilities such as `font-*`, `italic`,
 text transform utilities, text decoration
 utilities, `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
-`truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`,
-`text-shadow-*`, `text-wrap`, `text-nowrap`,
+arbitrary `ruby-*` properties, `truncate`, `text-ellipsis`, `text-clip`,
+`indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, and generated-content utilities such as `content-[...]`,
 `content-(...)`, and `content-none` project into the same declaration model.
