@@ -97,15 +97,15 @@ pub use renderer::Renderer;
 pub use runtime::GuiRuntime;
 pub use style::{
     AlignItems, BackfaceVisibility, BackgroundAttachment, BackgroundBox, BlendMode, BorderCollapse,
-    BorderStyle, BoxDecorationBreak, BoxSizing, CaptionSide, ClearMode, CornerRadii, CornerRadius,
-    DisplayMode, EdgeBorderStyles, EdgeColors, EdgeInsets, FillRule, FlexWrap, FloatMode,
-    FontStyle, FontWeight, GridAutoFlow, HyphensMode, IsolationMode, JustifyContent,
-    ListStylePosition, LogicalBorderStyles, LogicalCornerRadii, LogicalEdgeColors,
-    LogicalEdgeInsets, ObjectFit, OverflowMode, OverflowWrapMode, OverscrollBehavior,
-    PointerEvents, PortableStyle, PositionMode, ResizeMode, ScrollBehavior, SelfAlignment,
-    StrokeLineCap, StrokeLineJoin, StyleColor, StyleLength, StyleTime, TableLayout, TextAlign,
-    TextDecorationStyle, TextOverflow, TextTransform, TextWrapMode, UserSelect, VisibilityMode,
-    WhiteSpaceMode, WordBreakMode,
+    BorderStyle, BoxDecorationBreak, BoxSizing, CaptionSide, ClearMode, ContainerType,
+    ContentVisibility, CornerRadii, CornerRadius, DisplayMode, EdgeBorderStyles, EdgeColors,
+    EdgeInsets, FillRule, FlexWrap, FloatMode, FontStyle, FontWeight, GridAutoFlow, HyphensMode,
+    IsolationMode, JustifyContent, ListStylePosition, LogicalBorderStyles, LogicalCornerRadii,
+    LogicalEdgeColors, LogicalEdgeInsets, ObjectFit, OverflowMode, OverflowWrapMode,
+    OverscrollBehavior, PointerEvents, PortableStyle, PositionMode, ResizeMode, ScrollBehavior,
+    SelfAlignment, StrokeLineCap, StrokeLineJoin, StyleColor, StyleLength, StyleTime, TableLayout,
+    TextAlign, TextDecorationStyle, TextOverflow, TextTransform, TextWrapMode, UserSelect,
+    VisibilityMode, WhiteSpaceMode, WordBreakMode,
 };
 pub use svg::{SVG_ELEMENTS, SVG_TAG_METADATA_KEY};
 pub use web::WebProps;

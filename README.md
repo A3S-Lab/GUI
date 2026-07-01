@@ -46,9 +46,10 @@ isolation, mix blend mode, float, clear, vertical alignment, table layout, borde
 collapse/spacing, caption side, flex direction/wrap/item
 sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, sizing,
-gap/row-gap/column-gap, physical and logical spacing, uniform, physical-edge,
-and logical-edge border width/style/color, uniform, physical-corner, and
-logical-corner border radius, text color, background
+gap/row-gap/column-gap, CSS containment and container query metadata, physical
+and logical spacing, uniform, physical-edge, and logical-edge border
+width/style/color, uniform, physical-corner, and logical-corner border radius,
+text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip path, CSS mask, CSS mask border, object fit/position,
 list style, columns, font size, font weight, font family, font style, line
@@ -86,7 +87,10 @@ visual-effect utilities such as `shadow-*`, `outline-*`, `cursor-*`,
 `skew-*`, `origin-*`, `perspective-*`, and composable filter utilities such as
 `blur-*`, `brightness-*`, `contrast-*`, `drop-shadow-*`, `grayscale`,
 `hue-rotate-*`, `invert-*`, `saturate-*`, `sepia-*`, and `backdrop-*` are
-projected into the same declaration model. Core
+projected into the same declaration model. Container marker utilities such as
+`@container`, `@container-size`, named container forms, and container query
+variants such as `@md:` are resolved or preserved in the same declaration
+model. Core
 CSS Grid utilities such as `grid-cols-*`, `grid-rows-*`, `auto-cols-*`,
 `auto-rows-*`, `grid-flow-*`, `col-*`, and `row-*` are also projected into
 portable style tokens. Flex item and box-alignment utilities such as `flex-*`,

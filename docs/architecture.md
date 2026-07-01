@@ -369,6 +369,7 @@ deterministically:
   `justifyItems`, `justifySelf`, `placeContent`, `placeItems`, `placeSelf`
 - `grid`, `gridTemplate*`, `gridAutoColumns`, `gridAutoRows`, `gridAutoFlow`,
   `gridColumn*`, `gridRow*`, `gridArea`
+- `contain`, `container*`, `contentVisibility`, and `containIntrinsic*`
 - `width`, `height`, min/max sizes
 - `gap`, `rowGap`, `columnGap`, physical and logical `padding*`,
   `margin*`
@@ -422,6 +423,9 @@ Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
 `outline-*`, `cursor-*`, `pointer-events-*`, `select-*`, `aspect-*`,
 `mix-blend-*`, `bg-blend-*`, and `mask-*` project into the same declaration
 model.
+Tailwind container marker utilities such as `@container`, `@container-size`,
+and named container forms project into container declarations. Container query
+variants such as `@md:` are stored in `variant_declarations`.
 Common Tailwind formatting and table utilities such as `box-*`,
 `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`, `clear-*`,
 `align-*`, `table-*`, `border-collapse`, `border-separate`,

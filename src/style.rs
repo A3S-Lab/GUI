@@ -54,6 +54,16 @@ pub struct PortableStyle {
     pub grid_row_start: Option<String>,
     pub grid_row_end: Option<String>,
     pub grid_area: Option<String>,
+    pub contain: Option<String>,
+    pub container: Option<String>,
+    pub container_type: Option<ContainerType>,
+    pub container_name: Option<String>,
+    pub content_visibility: Option<ContentVisibility>,
+    pub contain_intrinsic_size: Option<String>,
+    pub contain_intrinsic_width: Option<String>,
+    pub contain_intrinsic_height: Option<String>,
+    pub contain_intrinsic_inline_size: Option<String>,
+    pub contain_intrinsic_block_size: Option<String>,
     pub inset: EdgeInsets,
     pub padding: EdgeInsets,
     pub margin: EdgeInsets,
@@ -304,6 +314,28 @@ impl PortableStyle {
             "grid-row-start" => self.grid_row_start = parse_css_string_token(value_ref),
             "grid-row-end" => self.grid_row_end = parse_css_string_token(value_ref),
             "grid-area" => self.grid_area = parse_css_string_token(value_ref),
+            "contain" => self.contain = parse_css_string_token(value_ref),
+            "container" => self.apply_container_shorthand(value_ref),
+            "container-type" => self.container_type = parse_container_type(value_ref),
+            "container-name" => self.container_name = parse_css_string_token(value_ref),
+            "content-visibility" => {
+                self.content_visibility = parse_content_visibility(value_ref);
+            }
+            "contain-intrinsic-size" => {
+                self.contain_intrinsic_size = parse_css_string_token(value_ref);
+            }
+            "contain-intrinsic-width" => {
+                self.contain_intrinsic_width = parse_css_string_token(value_ref);
+            }
+            "contain-intrinsic-height" => {
+                self.contain_intrinsic_height = parse_css_string_token(value_ref);
+            }
+            "contain-intrinsic-inline-size" => {
+                self.contain_intrinsic_inline_size = parse_css_string_token(value_ref);
+            }
+            "contain-intrinsic-block-size" => {
+                self.contain_intrinsic_block_size = parse_css_string_token(value_ref);
+            }
             "inset" => self.inset = parse_edge_insets(value_ref),
             "inset-block" => {
                 self.inset
@@ -828,6 +860,23 @@ impl PortableStyle {
             .insert(property, value);
     }
 
+    fn apply_container_shorthand(&mut self, value: &str) {
+        self.container = parse_css_string_token(value);
+        let Some(value) = self.container.as_deref() else {
+            return;
+        };
+        if let Some((name, container_type)) = value.split_once('/') {
+            self.container_name = parse_css_string_token(name);
+            self.container_type = parse_container_type(container_type);
+            return;
+        }
+        if let Some(container_type) = parse_container_type(value) {
+            self.container_type = Some(container_type);
+        } else {
+            self.container_name = parse_css_string_token(value);
+        }
+    }
+
     fn apply_border_shorthand(&mut self, value: &str) {
         for part in value.split_whitespace() {
             if let Some(width) = parse_length(part) {
@@ -1282,6 +1331,22 @@ pub enum GridAutoFlow {
     Dense,
     RowDense,
     ColumnDense,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ContainerType {
+    Normal,
+    Size,
+    InlineSize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ContentVisibility {
+    Visible,
+    Auto,
+    Hidden,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2141,6 +2206,24 @@ fn parse_grid_auto_flow(value: &str) -> Option<GridAutoFlow> {
         ["dense"] => Some(GridAutoFlow::Dense),
         ["row", "dense"] | ["dense", "row"] => Some(GridAutoFlow::RowDense),
         ["column", "dense"] | ["dense", "column"] => Some(GridAutoFlow::ColumnDense),
+        _ => None,
+    }
+}
+
+fn parse_container_type(value: &str) -> Option<ContainerType> {
+    match value.trim() {
+        "normal" => Some(ContainerType::Normal),
+        "size" => Some(ContainerType::Size),
+        "inline-size" => Some(ContainerType::InlineSize),
+        _ => None,
+    }
+}
+
+fn parse_content_visibility(value: &str) -> Option<ContentVisibility> {
+    match value.trim() {
+        "visible" => Some(ContentVisibility::Visible),
+        "auto" => Some(ContentVisibility::Auto),
+        "hidden" => Some(ContentVisibility::Hidden),
         _ => None,
     }
 }
@@ -3239,6 +3322,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.extend(line_clamp);
         return declarations;
     }
+    if let Some(container) = tailwind_container_declarations(class) {
+        declarations.extend(container);
+        return declarations;
+    }
     if let Some(motion) = tailwind_motion_declarations(class) {
         declarations.extend(motion);
         return declarations;
@@ -3907,6 +3994,33 @@ fn tailwind_formatting_declarations(class: &str) -> Option<BTreeMap<String, Stri
         return Some(declarations);
     }
     None
+}
+
+fn tailwind_container_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let (base, name) = class.split_once('/').unwrap_or((class, ""));
+    let container_type = match base {
+        "@container" => "inline-size",
+        "@container-size" => "size",
+        "@container-normal" => "normal",
+        _ => return None,
+    };
+    let mut declarations = BTreeMap::new();
+    declarations.insert("container-type".to_string(), container_type.to_string());
+    if !name.is_empty() {
+        declarations.insert("container-name".to_string(), tailwind_container_name(name));
+    }
+    Some(declarations)
+}
+
+fn tailwind_container_name(value: &str) -> String {
+    if let Some(arbitrary) = value
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        tailwind_arbitrary_value(arbitrary)
+    } else {
+        value.to_string()
+    }
 }
 
 fn tailwind_border_spacing_declaration(class: &str) -> Option<(SpacingAxis, String)> {
@@ -7336,6 +7450,90 @@ mod tests {
                 .and_then(|styles| styles.get("mask-image"))
                 .map(String::as_str),
             Some("var(--mask-image)")
+        );
+    }
+
+    #[test]
+    fn parses_css_containment_and_container_properties() {
+        let web = WebProps::new()
+            .style("contain", "layout paint")
+            .style("container", "sidebar / inline-size")
+            .style("containerType", "size")
+            .style("containerName", "main")
+            .style("contentVisibility", "auto")
+            .style("containIntrinsicSize", "auto 320px")
+            .style("containIntrinsicWidth", "240px")
+            .style("containIntrinsicHeight", "120px")
+            .style("containIntrinsicInlineSize", "50vw")
+            .style("containIntrinsicBlockSize", "25vh");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.contain.as_deref(), Some("layout paint"));
+        assert_eq!(style.container.as_deref(), Some("sidebar / inline-size"));
+        assert_eq!(style.container_type, Some(ContainerType::Size));
+        assert_eq!(style.container_name.as_deref(), Some("main"));
+        assert_eq!(style.content_visibility, Some(ContentVisibility::Auto));
+        assert_eq!(style.contain_intrinsic_size.as_deref(), Some("auto 320px"));
+        assert_eq!(style.contain_intrinsic_width.as_deref(), Some("240px"));
+        assert_eq!(style.contain_intrinsic_height.as_deref(), Some("120px"));
+        assert_eq!(style.contain_intrinsic_inline_size.as_deref(), Some("50vw"));
+        assert_eq!(style.contain_intrinsic_block_size.as_deref(), Some("25vh"));
+        assert!(!style.unsupported.contains_key("contain"));
+        assert!(!style.unsupported.contains_key("container-type"));
+        assert!(!style.unsupported.contains_key("content-visibility"));
+    }
+
+    #[test]
+    fn parses_tailwind_container_query_markers_and_variants() {
+        let web = WebProps::new().class_name(
+            "@container/sidebar @md:flex @container-size/[detail_panel] \
+             hover:@container-normal lg:@container/[wide_panel]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.container_type, Some(ContainerType::Size));
+        assert_eq!(style.container_name.as_deref(), Some("detail panel"));
+        assert_eq!(
+            style.declarations.get("container-type").map(String::as_str),
+            Some("size")
+        );
+        assert_eq!(
+            style.declarations.get("container-name").map(String::as_str),
+            Some("detail panel")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("@md")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("flex")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("container-type"))
+                .map(String::as_str),
+            Some("normal")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("lg")
+                .and_then(|styles| styles.get("container-type"))
+                .map(String::as_str),
+            Some("inline-size")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("lg")
+                .and_then(|styles| styles.get("container-name"))
+                .map(String::as_str),
+            Some("wide panel")
         );
     }
 
