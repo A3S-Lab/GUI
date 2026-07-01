@@ -62,7 +62,7 @@ stretch, font kerning, font optical sizing, font smoothing hints,
 font feature and variation settings, font variant and
 font synthesis properties, line height, letter spacing, word spacing, tab size,
 text alignment, text size adjustment, text direction, Unicode bidi, writing
-mode, text orientation, text transform, text indent, text
+mode, text orientation, text combine upright, text transform, text indent, text
 wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
 text decoration skip ink, underline offset/position, text shadow, text overflow,
 text emphasis, ruby layout, line breaking, whitespace, word breaking, hyphen
@@ -123,8 +123,9 @@ font variant numeric utilities,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
-arbitrary `text-size-adjust` properties, arbitrary `ruby-*` properties,
-`indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
+arbitrary `text-size-adjust` and `text-combine-upright` properties,
+arbitrary `ruby-*` properties, `indent-*`, `line-clamp-*`, `text-shadow-*`,
+`text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `truncate`,
 `text-ellipsis`, `text-clip`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, and generated-content utilities such as `content-[...]`,

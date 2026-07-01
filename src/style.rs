@@ -197,6 +197,7 @@ pub struct PortableStyle {
     pub unicode_bidi: Option<UnicodeBidi>,
     pub writing_mode: Option<WritingMode>,
     pub text_orientation: Option<TextOrientation>,
+    pub text_combine_upright: Option<String>,
     pub text_transform: Option<TextTransform>,
     pub text_indent: Option<StyleLength>,
     pub text_wrap: Option<TextWrapMode>,
@@ -894,6 +895,13 @@ impl PortableStyle {
                 self.writing_mode = parse_writing_mode(value_ref);
             }
             "text-orientation" => self.text_orientation = parse_text_orientation(value_ref),
+            "text-combine-upright"
+            | "-webkit-text-combine"
+            | "webkit-text-combine"
+            | "-ms-text-combine-horizontal"
+            | "ms-text-combine-horizontal" => {
+                self.text_combine_upright = parse_css_string_token(value_ref);
+            }
             "text-transform" => self.text_transform = parse_text_transform(value_ref),
             "text-indent" => self.text_indent = parse_length(value_ref),
             "text-wrap" | "text-wrap-mode" => self.text_wrap = parse_text_wrap(value_ref),
@@ -9337,6 +9345,7 @@ mod tests {
             .style("unicodeBidi", "isolate-override")
             .style("-webkitWritingMode", "vertical-lr")
             .style("textOrientation", "upright")
+            .style("textCombineUpright", "digits 2")
             .style("textTransform", "uppercase")
             .style("textIndent", "2rem")
             .style("textWrap", "balance")
@@ -9417,6 +9426,7 @@ mod tests {
         assert_eq!(style.unicode_bidi, Some(UnicodeBidi::IsolateOverride));
         assert_eq!(style.writing_mode, Some(WritingMode::VerticalLr));
         assert_eq!(style.text_orientation, Some(TextOrientation::Upright));
+        assert_eq!(style.text_combine_upright.as_deref(), Some("digits 2"));
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
         assert_eq!(style.text_indent, Some(StyleLength::Points(32.0)));
         assert_eq!(style.text_wrap, Some(TextWrapMode::Balance));
@@ -9481,8 +9491,21 @@ mod tests {
         assert!(!style.unsupported.contains_key("webkit-font-smoothing"));
         assert!(!style.unsupported.contains_key("moz-osx-font-smoothing"));
         assert!(!style.unsupported.contains_key("-webkit-writing-mode"));
+        assert!(!style.unsupported.contains_key("text-combine-upright"));
         assert!(!style.unsupported.contains_key("text-wrap"));
         assert!(!style.unsupported.contains_key("-webkit-line-clamp"));
+    }
+
+    #[test]
+    fn parses_prefixed_text_combine_aliases() {
+        let webkit =
+            PortableStyle::from_web(&WebProps::new().style("WebkitTextCombine", "digits 2"));
+        assert_eq!(webkit.text_combine_upright.as_deref(), Some("digits 2"));
+        assert!(!webkit.unsupported.contains_key("webkit-text-combine"));
+
+        let ms = PortableStyle::from_web(&WebProps::new().style("-msTextCombineHorizontal", "all"));
+        assert_eq!(ms.text_combine_upright.as_deref(), Some("all"));
+        assert!(!ms.unsupported.contains_key("-ms-text-combine-horizontal"));
     }
 
     #[test]
@@ -9497,7 +9520,8 @@ mod tests {
              [-webkit-text-size-adjust:none] [-moz-text-size-adjust:auto] \
              [-ms-text-size-adjust:80%] \
              [direction:rtl] [unicode-bidi:isolate] [writing-mode:vertical-rl] \
-             [text-orientation:upright] [text-decoration-skip-ink:none] \
+             [text-orientation:upright] [text-combine-upright:all] \
+             [text-decoration-skip-ink:none] \
              [text-underline-position:under_left] [text-emphasis-style:open_dot] \
              [text-emphasis-color:#663399] [text-emphasis-position:under_right] \
              line-clamp-3 md:tracking-[0.2em] hover:decoration-[3px] \
@@ -9505,6 +9529,7 @@ mod tests {
              rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
              hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
              hover:[font-size-adjust:0.6] focus:[text-size-adjust:none] \
+             active:[text-combine-upright:digits_2] \
              hover:[text-decoration-skip-ink:all] focus:[text-underline-position:left] \
              hover:[text-emphasis-style:filled_sesame] focus:[text-emphasis-color:#663399] \
              active:[text-emphasis-position:over_left] \
@@ -9547,6 +9572,7 @@ mod tests {
         assert_eq!(style.unicode_bidi, Some(UnicodeBidi::Isolate));
         assert_eq!(style.writing_mode, Some(WritingMode::VerticalRl));
         assert_eq!(style.text_orientation, Some(TextOrientation::Upright));
+        assert_eq!(style.text_combine_upright.as_deref(), Some("all"));
         assert_eq!(style.text_indent, Some(StyleLength::Points(-2.0)));
         assert_eq!(style.text_wrap, Some(TextWrapMode::Balance));
         assert_eq!(style.line_clamp.as_deref(), Some("3"));
@@ -9662,6 +9688,14 @@ mod tests {
                 .and_then(|styles| styles.get("writing-mode"))
                 .map(String::as_str),
             Some("horizontal-tb")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("text-combine-upright"))
+                .map(String::as_str),
+            Some("digits 2")
         );
         assert_eq!(
             style

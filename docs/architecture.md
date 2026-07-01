@@ -394,7 +394,8 @@ deterministically:
   `letterSpacing`, `wordSpacing`, `tabSize`, `textAlign`, `textSizeAdjust`,
   `WebkitTextSizeAdjust`, `MozTextSizeAdjust`, `MsTextSizeAdjust`,
   `direction`, `unicodeBidi`, `writingMode`, `textOrientation`,
-  `textTransform`, `textIndent`, `textWrap`, `lineClamp`, `boxOrient`
+  `textCombineUpright`, `textTransform`, `textIndent`, `textWrap`,
+  `lineClamp`, `boxOrient`
 - SVG presentation properties such as `fill`, `fillOpacity`, `fillRule`,
   `clipRule`, `stroke`, `strokeWidth`, `strokeLinecap`, `strokeLinejoin`,
   `strokeMiterlimit`, `strokeDasharray`, `strokeDashoffset`, `strokeOpacity`,
@@ -478,8 +479,9 @@ Common Tailwind typography and text utilities such as `font-*`, `italic`,
 font variant numeric utilities, `tab-*`, text transform utilities, text decoration
 utilities, `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
-arbitrary `text-size-adjust` properties, arbitrary `ruby-*` properties,
-`truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`,
+arbitrary `text-size-adjust` and `text-combine-upright` properties,
+arbitrary `ruby-*` properties, `truncate`, `text-ellipsis`, `text-clip`,
+`indent-*`, `line-clamp-*`,
 `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, and generated-content utilities such as `content-[...]`,
