@@ -413,7 +413,8 @@ deterministically:
   `textEmphasisPosition`, `rubyAlign`, `rubyPosition`, `rubyMerge`,
   `rubyOverhang`, `textShadow`, `textOverflow`, `lineBreak`, `whiteSpace`,
   `whiteSpaceCollapse`, `wordBreak`, `overflowWrap`, `hyphens`
-- `overflow`, `overflowX`, `overflowY`
+- `overflow`, `overflowX`, `overflowY`, `overflowBlock`, `overflowInline`,
+  `overflowClipMargin`, `overflowAnchor`
 - `aspectRatio`, `boxShadow`, Tailwind `ring*` and `divide*` metadata,
   `outline*`, `transform`, `filter`,
   `backdropFilter`
@@ -430,7 +431,8 @@ deterministically:
 - `scrollBehavior`, `scrollTimeline*`, `viewTimeline*`, `timelineScope`,
   physical and logical `scrollMargin*`,
   `scrollPadding*`, `scrollSnap*`, `scrollbarGutter`, `scrollbarWidth`,
-  `scrollbarColor`, `overscrollBehavior*`, `touchAction`
+  `scrollbarColor`, `overscrollBehavior*`, `overscrollBehaviorBlock`,
+  `overscrollBehaviorInline`, `touchAction`
 - `cursor`, `pointerEvents`, `userSelect`
 - `opacity`
 
@@ -524,8 +526,9 @@ arbitrary scroll-driven animation properties such as `animation-timeline`,
 `accent-*`, `caret-*`, `resize-*`,
 `scheme-*`, `forced-color-adjust-*`, `field-sizing-*`, `scroll-*`, `snap-*`,
 `scrollbar-*`, `scrollbar-gutter-*`, `scrollbar-thumb-*`,
-`scrollbar-track-*`, `overscroll-*`, and `touch-*` project into the same
-declaration model.
+`scrollbar-track-*`, `overscroll-*`, arbitrary logical overflow, overflow clip
+margin, scroll anchoring, and logical overscroll properties, and `touch-*`
+project into the same declaration model.
 Tailwind logical direction utilities such as `start-*`, `end-*`, `ms-*`,
 `me-*`, `mbs-*`, `mbe-*`, `mis-*`, `mie-*`, `ps-*`, `pe-*`, `pbs-*`,
 `pbe-*`, `pis-*`, `pie-*`, `scroll-ms-*`, `scroll-me-*`, `scroll-mbs-*`,

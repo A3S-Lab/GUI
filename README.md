@@ -78,7 +78,8 @@ filter, backdrop filter function components, transition, animation,
 scroll-driven animation timelines and ranges,
 will-change, color scheme, forced color adjustment, field sizing, appearance,
 accent color, caret color, resize, scroll behavior, physical and logical scroll
-margin/padding, scroll snap, scrollbar gutter/width/color, overscroll behavior,
+margin/padding, scroll snap, scrollbar gutter/width/color, scroll anchoring,
+logical overflow, overflow clip margin, overscroll behavior,
 touch action, cursor, pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
@@ -156,7 +157,9 @@ properties such as `animation-timeline`, `scroll-timeline`, and
 `scheme-*`, `forced-color-adjust-*`, `field-sizing-*`, `accent-*`,
 `caret-*`, `resize-*`, `scroll-*`, `snap-*`, `scrollbar-*`,
 `scrollbar-gutter-*`, `scrollbar-thumb-*`, `scrollbar-track-*`,
-`overscroll-*`, and `touch-*` are projected into portable style tokens.
+`overscroll-*`, arbitrary logical overflow, overflow clip margin, scroll
+anchoring, and logical overscroll properties, and `touch-*` are projected into
+portable style tokens.
 Border radius utilities such as `rounded-*`, `rounded-t-*`, `rounded-r-*`,
 `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`, `rounded-tr-*`,
 `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`, `rounded-e-*`,

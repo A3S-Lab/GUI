@@ -277,6 +277,10 @@ pub struct PortableStyle {
     pub hyphens: Option<HyphensMode>,
     pub overflow_x: Option<OverflowMode>,
     pub overflow_y: Option<OverflowMode>,
+    pub overflow_block: Option<OverflowMode>,
+    pub overflow_inline: Option<OverflowMode>,
+    pub overflow_clip_margin: Option<String>,
+    pub overflow_anchor: Option<String>,
     pub visibility: Option<VisibilityMode>,
     pub z_index: Option<i32>,
     pub isolation: Option<IsolationMode>,
@@ -362,6 +366,8 @@ pub struct PortableStyle {
     pub scrollbar_track_color: Option<String>,
     pub overscroll_behavior_x: Option<OverscrollBehavior>,
     pub overscroll_behavior_y: Option<OverscrollBehavior>,
+    pub overscroll_behavior_block: Option<OverscrollBehavior>,
+    pub overscroll_behavior_inline: Option<OverscrollBehavior>,
     pub touch_action: Option<String>,
     pub cursor: Option<String>,
     pub pointer_events: Option<PointerEvents>,
@@ -1075,6 +1081,12 @@ impl PortableStyle {
             }
             "overflow-x" => self.overflow_x = parse_overflow(value_ref),
             "overflow-y" => self.overflow_y = parse_overflow(value_ref),
+            "overflow-block" => self.overflow_block = parse_overflow(value_ref),
+            "overflow-inline" => self.overflow_inline = parse_overflow(value_ref),
+            "overflow-clip-margin" => {
+                self.overflow_clip_margin = parse_css_string_token(value_ref);
+            }
+            "overflow-anchor" => self.overflow_anchor = parse_css_string_token(value_ref),
             "visibility" => self.visibility = parse_visibility(value_ref),
             "z-index" => self.z_index = parse_z_index(value_ref),
             "isolation" => self.isolation = parse_isolation(value_ref),
@@ -1166,6 +1178,12 @@ impl PortableStyle {
             }
             "overscroll-behavior-y" => {
                 self.overscroll_behavior_y = parse_overscroll_behavior(value_ref);
+            }
+            "overscroll-behavior-block" => {
+                self.overscroll_behavior_block = parse_overscroll_behavior(value_ref);
+            }
+            "overscroll-behavior-inline" => {
+                self.overscroll_behavior_inline = parse_overscroll_behavior(value_ref);
             }
             "touch-action" => self.touch_action = parse_css_string_token(value_ref),
             "cursor" => self.cursor = parse_css_string_token(value_ref),
@@ -11131,8 +11149,14 @@ mod tests {
             .style("scrollbarGutter", "stable both-edges")
             .style("scrollbarWidth", "thin")
             .style("scrollbarColor", "red blue")
+            .style("overflowBlock", "clip")
+            .style("overflowInline", "auto")
+            .style("overflowClipMargin", "content-box 8px")
+            .style("overflowAnchor", "none")
             .style("overscrollBehavior", "contain")
             .style("overscrollBehaviorX", "none")
+            .style("overscrollBehaviorBlock", "contain")
+            .style("overscrollBehaviorInline", "none")
             .style("touchAction", "pan-x pinch-zoom");
 
         let style = PortableStyle::from_web(&web);
@@ -11210,10 +11234,25 @@ mod tests {
         assert_eq!(style.scrollbar_gutter.as_deref(), Some("stable both-edges"));
         assert_eq!(style.scrollbar_width.as_deref(), Some("thin"));
         assert_eq!(style.scrollbar_color.as_deref(), Some("red blue"));
+        assert_eq!(style.overflow_block, Some(OverflowMode::Clip));
+        assert_eq!(style.overflow_inline, Some(OverflowMode::Auto));
+        assert_eq!(
+            style.overflow_clip_margin.as_deref(),
+            Some("content-box 8px")
+        );
+        assert_eq!(style.overflow_anchor.as_deref(), Some("none"));
         assert_eq!(style.overscroll_behavior_x, Some(OverscrollBehavior::None));
         assert_eq!(
             style.overscroll_behavior_y,
             Some(OverscrollBehavior::Contain)
+        );
+        assert_eq!(
+            style.overscroll_behavior_block,
+            Some(OverscrollBehavior::Contain)
+        );
+        assert_eq!(
+            style.overscroll_behavior_inline,
+            Some(OverscrollBehavior::None)
         );
         assert_eq!(style.touch_action.as_deref(), Some("pan-x pinch-zoom"));
         assert!(!style.unsupported.contains_key("transition-duration"));
@@ -11232,6 +11271,12 @@ mod tests {
         assert!(!style.unsupported.contains_key("scroll-snap-type"));
         assert!(!style.unsupported.contains_key("color-scheme"));
         assert!(!style.unsupported.contains_key("scrollbar-color"));
+        assert!(!style.unsupported.contains_key("overflow-block"));
+        assert!(!style.unsupported.contains_key("overflow-inline"));
+        assert!(!style.unsupported.contains_key("overflow-clip-margin"));
+        assert!(!style.unsupported.contains_key("overflow-anchor"));
+        assert!(!style.unsupported.contains_key("overscroll-behavior-block"));
+        assert!(!style.unsupported.contains_key("overscroll-behavior-inline"));
     }
 
     #[test]
@@ -11255,7 +11300,12 @@ mod tests {
              focus:will-change-[opacity] md:[animation-timeline:view()] \
              hover:[animation-range:cover_0%_contain_100%] \
              focus:[scroll-timeline-axis:block] active:[view-timeline-inset:auto] \
-             before:[timeline-scope:none]",
+             before:[timeline-scope:none] \
+             [overflow-block:clip] [overflow-inline:auto] \
+             [overflow-clip-margin:content-box_8px] [overflow-anchor:none] \
+             [overscroll-behavior-block:contain] [overscroll-behavior-inline:none] \
+             hover:[overflow-clip-margin:border-box_2px] focus:[overflow-anchor:auto] \
+             active:[overscroll-behavior-block:none]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -11348,6 +11398,21 @@ mod tests {
             style.scrollbar_color.as_deref(),
             Some("rgba(102, 51, 153, 0.5) var(--scrollbar-track)")
         );
+        assert_eq!(style.overflow_block, Some(OverflowMode::Clip));
+        assert_eq!(style.overflow_inline, Some(OverflowMode::Auto));
+        assert_eq!(
+            style.overflow_clip_margin.as_deref(),
+            Some("content-box 8px")
+        );
+        assert_eq!(style.overflow_anchor.as_deref(), Some("none"));
+        assert_eq!(
+            style.overscroll_behavior_block,
+            Some(OverscrollBehavior::Contain)
+        );
+        assert_eq!(
+            style.overscroll_behavior_inline,
+            Some(OverscrollBehavior::None)
+        );
         assert_eq!(
             style
                 .variant_declarations
@@ -11409,6 +11474,30 @@ mod tests {
                 .variant_declarations
                 .get("before")
                 .and_then(|styles| styles.get("timeline-scope"))
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("overflow-clip-margin"))
+                .map(String::as_str),
+            Some("border-box 2px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("overflow-anchor"))
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("overscroll-behavior-block"))
                 .map(String::as_str),
             Some("none")
         );
