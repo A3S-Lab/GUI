@@ -56,7 +56,8 @@ color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip, CSS clip path, CSS mask, CSS mask border, object fit/position,
 list style, columns, column rule/span/fill, fragmentation breaks, font size,
 font weight, font family, font style, font
-stretch, font kerning, font feature and variation settings, font variant and
+stretch, font kerning, font optical sizing, font smoothing hints,
+font feature and variation settings, font variant and
 font synthesis properties, line height, letter spacing, word spacing, tab size,
 text alignment, text direction, Unicode bidi, writing mode, text orientation,
 text transform, text indent, text
@@ -111,8 +112,9 @@ portable style tokens. Flex item and box-alignment utilities such as `flex-*`,
 Sizing and child-spacing utilities such as `size-*`, `space-x-*`,
 `space-y-*`, `space-x-reverse`, and `space-y-reverse` are projected into
 portable layout tokens.
-Typography utilities such as `font-*`, `italic`, `not-italic`, `tracking-*`,
-`font-stretch-*`, `font-features-*`, font variant numeric utilities,
+Typography utilities such as `font-*`, `italic`, `not-italic`,
+`antialiased`, `subpixel-antialiased`, `tracking-*`, `font-stretch-*`,
+`font-features-*`, font variant numeric utilities,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, `indent-*`, `line-clamp-*`, `text-shadow-*`,
 `text-wrap`, `text-nowrap`, `text-balance`, `text-pretty`, `truncate`,

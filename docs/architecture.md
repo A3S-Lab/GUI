@@ -387,8 +387,9 @@ deterministically:
   `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
   `columnFill`, `breakBefore`, `breakAfter`, `breakInside`
 - `fontFamily`, `fontStyle`, `fontSize`, `fontWeight`, `fontStretch`,
-  `fontKerning`, `fontOpticalSizing`, `fontFeatureSettings`,
-  `fontVariationSettings`, `fontVariant*`, `fontSynthesis*`, `lineHeight`,
+  `fontKerning`, `fontOpticalSizing`, `WebkitFontSmoothing`,
+  `MozOsxFontSmoothing`, `fontFeatureSettings`, `fontVariationSettings`,
+  `fontVariant*`, `fontSynthesis*`, `lineHeight`,
   `letterSpacing`, `wordSpacing`, `tabSize`, `textAlign`, `direction`,
   `unicodeBidi`, `writingMode`, `textOrientation`, `textTransform`,
   `textIndent`, `textWrap`, `lineClamp`, `boxOrient`
@@ -467,8 +468,9 @@ Common Tailwind sizing and child-spacing utilities such as `size-*`,
 `space-x-*`, `space-y-*`, `space-x-reverse`, and `space-y-reverse` project
 into the same declaration model.
 Common Tailwind typography and text utilities such as `font-*`, `italic`,
-`not-italic`, `tracking-*`, `font-stretch-*`, `font-features-*`, font variant
-numeric utilities, `tab-*`, text transform utilities, text decoration
+`not-italic`, `antialiased`, `subpixel-antialiased`, `tracking-*`,
+`font-stretch-*`, `font-features-*`, font variant numeric utilities, `tab-*`,
+text transform utilities, text decoration
 utilities, `underline-offset-*`, `truncate`, `text-ellipsis`, `text-clip`,
 `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `whitespace-*`, `wrap-*`, word-break utilities,

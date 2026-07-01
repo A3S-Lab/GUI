@@ -165,6 +165,8 @@ pub struct PortableStyle {
     pub font_stretch: Option<String>,
     pub font_kerning: Option<String>,
     pub font_optical_sizing: Option<String>,
+    pub webkit_font_smoothing: Option<String>,
+    pub moz_osx_font_smoothing: Option<String>,
     pub font_feature_settings: Option<String>,
     pub font_variation_settings: Option<String>,
     pub font_variant: Option<String>,
@@ -810,6 +812,12 @@ impl PortableStyle {
             "font-kerning" => self.font_kerning = parse_css_string_token(value_ref),
             "font-optical-sizing" => {
                 self.font_optical_sizing = parse_css_string_token(value_ref);
+            }
+            "-webkit-font-smoothing" | "webkit-font-smoothing" => {
+                self.webkit_font_smoothing = parse_css_string_token(value_ref);
+            }
+            "-moz-osx-font-smoothing" | "moz-osx-font-smoothing" => {
+                self.moz_osx_font_smoothing = parse_css_string_token(value_ref);
             }
             "font-feature-settings" => {
                 self.font_feature_settings = parse_css_string_token(value_ref);
@@ -3771,6 +3779,22 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
     }
     if let Some(font_features) = tailwind_font_feature_declarations(class) {
         declarations.extend(font_features);
+        return declarations;
+    }
+    if class == "antialiased" {
+        declarations.insert(
+            "-webkit-font-smoothing".to_string(),
+            "antialiased".to_string(),
+        );
+        declarations.insert(
+            "-moz-osx-font-smoothing".to_string(),
+            "grayscale".to_string(),
+        );
+        return declarations;
+    }
+    if class == "subpixel-antialiased" {
+        declarations.insert("-webkit-font-smoothing".to_string(), "auto".to_string());
+        declarations.insert("-moz-osx-font-smoothing".to_string(), "auto".to_string());
         return declarations;
     }
     if let Some(container) = tailwind_container_declarations(class) {
@@ -9102,6 +9126,8 @@ mod tests {
             .style("fontStretch", "semi-condensed")
             .style("fontKerning", "normal")
             .style("fontOpticalSizing", "auto")
+            .style("WebkitFontSmoothing", "antialiased")
+            .style("MozOsxFontSmoothing", "grayscale")
             .style("fontFeatureSettings", "\"kern\" 1, \"liga\" 0")
             .style("fontVariationSettings", "\"wght\" 650")
             .style("fontVariant", "small-caps tabular-nums")
@@ -9153,6 +9179,8 @@ mod tests {
         assert_eq!(style.font_stretch.as_deref(), Some("semi-condensed"));
         assert_eq!(style.font_kerning.as_deref(), Some("normal"));
         assert_eq!(style.font_optical_sizing.as_deref(), Some("auto"));
+        assert_eq!(style.webkit_font_smoothing.as_deref(), Some("antialiased"));
+        assert_eq!(style.moz_osx_font_smoothing.as_deref(), Some("grayscale"));
         assert_eq!(
             style.font_feature_settings.as_deref(),
             Some("\"kern\" 1, \"liga\" 0")
@@ -9230,6 +9258,8 @@ mod tests {
         assert!(!style.unsupported.contains_key("font-variant-numeric"));
         assert!(!style.unsupported.contains_key("white-space"));
         assert!(!style.unsupported.contains_key("text-shadow"));
+        assert!(!style.unsupported.contains_key("webkit-font-smoothing"));
+        assert!(!style.unsupported.contains_key("moz-osx-font-smoothing"));
         assert!(!style.unsupported.contains_key("-webkit-writing-mode"));
         assert!(!style.unsupported.contains_key("text-wrap"));
         assert!(!style.unsupported.contains_key("-webkit-line-clamp"));
@@ -9238,7 +9268,7 @@ mod tests {
     #[test]
     fn parses_tailwind_typography_text_utilities() {
         let web = WebProps::new().class_name(
-            "font-mono italic tracking-wide uppercase underline decoration-wavy \
+            "font-mono italic antialiased tracking-wide uppercase underline decoration-wavy \
              decoration-[#663399]/50 decoration-2 underline-offset-4 truncate \
              whitespace-pre-wrap break-all wrap-anywhere hyphens-auto -indent-[2px] text-balance \
              ordinal slashed-zero tabular-nums diagonal-fractions \
@@ -9252,7 +9282,8 @@ mod tests {
              hover:font-features-(--font-features) focus:text-shadow-[0_1px_2px_rgb(0_0_0_/_0.3)] \
              lg:normal-nums content-none before:content-['Hello_World'] \
              after:content-(--suffix-content) hover:content-['Hello\\_World'] \
-             hover:wrap-break-word focus:wrap-[normal] active:wrap-(--overflow-wrap)",
+             hover:wrap-break-word focus:wrap-[normal] active:wrap-(--overflow-wrap) \
+             md:subpixel-antialiased",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -9268,6 +9299,8 @@ mod tests {
             Some("0.025em")
         );
         assert_eq!(style.font_stretch.as_deref(), Some("condensed"));
+        assert_eq!(style.webkit_font_smoothing.as_deref(), Some("antialiased"));
+        assert_eq!(style.moz_osx_font_smoothing.as_deref(), Some("grayscale"));
         assert_eq!(style.font_feature_settings.as_deref(), Some("\"kern\" 1"));
         assert_eq!(
             style.font_variant_numeric.as_deref(),
@@ -9326,6 +9359,22 @@ mod tests {
                 .and_then(|styles| styles.get("unicode-bidi"))
                 .map(String::as_str),
             Some("plaintext")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("-webkit-font-smoothing"))
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("-moz-osx-font-smoothing"))
+                .map(String::as_str),
+            Some("auto")
         );
         assert_eq!(
             style
