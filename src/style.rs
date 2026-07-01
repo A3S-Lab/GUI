@@ -146,8 +146,14 @@ pub struct PortableStyle {
     pub border_radius: Option<StyleLength>,
     pub border_radii: CornerRadii,
     pub logical_border_radii: LogicalCornerRadii,
+    pub image_rendering: Option<String>,
+    pub image_orientation: Option<String>,
+    pub image_resolution: Option<String>,
     pub object_fit: Option<ObjectFit>,
     pub object_position: Option<String>,
+    pub shape_outside: Option<String>,
+    pub shape_margin: Option<StyleLength>,
+    pub shape_image_threshold: Option<f64>,
     pub list_style_type: Option<String>,
     pub list_style_position: Option<ListStylePosition>,
     pub list_style_image: Option<String>,
@@ -806,8 +812,14 @@ impl PortableStyle {
             "border-end-start-radius" => {
                 self.logical_border_radii.end_start = parse_corner_radius(value_ref);
             }
+            "image-rendering" => self.image_rendering = parse_css_string_token(value_ref),
+            "image-orientation" => self.image_orientation = parse_css_string_token(value_ref),
+            "image-resolution" => self.image_resolution = parse_css_string_token(value_ref),
             "object-fit" => self.object_fit = parse_object_fit(value_ref),
             "object-position" => self.object_position = parse_css_string_token(value_ref),
+            "shape-outside" => self.shape_outside = parse_css_string_token(value_ref),
+            "shape-margin" => self.shape_margin = parse_length(value_ref),
+            "shape-image-threshold" => self.shape_image_threshold = parse_opacity(value_ref),
             "list-style" => self.list_style_type = parse_css_string_token(value_ref),
             "list-style-type" => self.list_style_type = parse_css_string_token(value_ref),
             "list-style-position" => {
@@ -9977,8 +9989,14 @@ mod tests {
             .style("backgroundAttachment", "fixed")
             .style("backgroundOrigin", "content-box")
             .style("backgroundClip", "padding-box")
+            .style("imageRendering", "pixelated")
+            .style("imageOrientation", "from-image")
+            .style("imageResolution", "300dpi")
             .style("objectFit", "cover")
             .style("objectPosition", "left bottom")
+            .style("shapeOutside", "circle(50% at 50% 50%)")
+            .style("shapeMargin", "2rem")
+            .style("shapeImageThreshold", "65%")
             .style("listStyleType", "disc")
             .style("listStylePosition", "inside")
             .style("listStyleImage", "url('/marker.svg')")
@@ -10007,8 +10025,17 @@ mod tests {
         );
         assert_eq!(style.background_origin, Some(BackgroundBox::ContentBox));
         assert_eq!(style.background_clip, Some(BackgroundBox::PaddingBox));
+        assert_eq!(style.image_rendering.as_deref(), Some("pixelated"));
+        assert_eq!(style.image_orientation.as_deref(), Some("from-image"));
+        assert_eq!(style.image_resolution.as_deref(), Some("300dpi"));
         assert_eq!(style.object_fit, Some(ObjectFit::Cover));
         assert_eq!(style.object_position.as_deref(), Some("left bottom"));
+        assert_eq!(
+            style.shape_outside.as_deref(),
+            Some("circle(50% at 50% 50%)")
+        );
+        assert_eq!(style.shape_margin, Some(StyleLength::Points(32.0)));
+        assert_eq!(style.shape_image_threshold, Some(0.65));
         assert_eq!(style.list_style_type.as_deref(), Some("disc"));
         assert_eq!(style.list_style_position, Some(ListStylePosition::Inside));
         assert_eq!(
@@ -10036,7 +10063,13 @@ mod tests {
         assert_eq!(style.break_after.as_deref(), Some("avoid-column"));
         assert_eq!(style.break_inside.as_deref(), Some("avoid"));
         assert!(!style.unsupported.contains_key("background-image"));
+        assert!(!style.unsupported.contains_key("image-rendering"));
+        assert!(!style.unsupported.contains_key("image-orientation"));
+        assert!(!style.unsupported.contains_key("image-resolution"));
         assert!(!style.unsupported.contains_key("object-fit"));
+        assert!(!style.unsupported.contains_key("shape-outside"));
+        assert!(!style.unsupported.contains_key("shape-margin"));
+        assert!(!style.unsupported.contains_key("shape-image-threshold"));
         assert!(!style.unsupported.contains_key("list-style-image"));
         assert!(!style.unsupported.contains_key("column-rule"));
         assert!(!style.unsupported.contains_key("page-break-inside"));
@@ -10047,10 +10080,16 @@ mod tests {
         let web = WebProps::new().class_name(
             "bg-[url('/hero.png')] bg-cover bg-center bg-no-repeat bg-fixed \
              bg-origin-content bg-clip-padding object-cover object-left-bottom \
+             [image-rendering:pixelated] [image-orientation:from-image] \
+             [image-resolution:300dpi] [shape-outside:circle(50%_at_50%_50%)] \
+             [shape-margin:2rem] [shape-image-threshold:65%] \
              list-inside list-disc list-image-[url('/marker.svg')] columns-3 break-before-page break-after-avoid-column \
              break-inside-avoid md:bg-[length:50%_auto] hover:object-[25%_75%] \
              md:list-image-(--marker-image) hover:list-image-none \
-             focus:break-before-[recto] lg:break-inside-(--break-inside)",
+             focus:break-before-[recto] lg:break-inside-(--break-inside) \
+             hover:[image-rendering:crisp-edges] md:[image-resolution:from-image] \
+             focus:[shape-outside:inset(10px)] active:[shape-margin:calc(1rem_+_2px)] \
+             before:[shape-image-threshold:0.25]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -10065,8 +10104,17 @@ mod tests {
         );
         assert_eq!(style.background_origin, Some(BackgroundBox::ContentBox));
         assert_eq!(style.background_clip, Some(BackgroundBox::PaddingBox));
+        assert_eq!(style.image_rendering.as_deref(), Some("pixelated"));
+        assert_eq!(style.image_orientation.as_deref(), Some("from-image"));
+        assert_eq!(style.image_resolution.as_deref(), Some("300dpi"));
         assert_eq!(style.object_fit, Some(ObjectFit::Cover));
         assert_eq!(style.object_position.as_deref(), Some("left bottom"));
+        assert_eq!(
+            style.shape_outside.as_deref(),
+            Some("circle(50% at 50% 50%)")
+        );
+        assert_eq!(style.shape_margin, Some(StyleLength::Points(32.0)));
+        assert_eq!(style.shape_image_threshold, Some(0.65));
         assert_eq!(style.list_style_position, Some(ListStylePosition::Inside));
         assert_eq!(style.list_style_type.as_deref(), Some("disc"));
         assert_eq!(
@@ -10116,6 +10164,52 @@ mod tests {
                 .map(String::as_str),
             Some("25% 75%")
         );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("image-rendering"))
+                .map(String::as_str),
+            Some("crisp-edges")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("image-resolution"))
+                .map(String::as_str),
+            Some("from-image")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("shape-outside"))
+                .map(String::as_str),
+            Some("inset(10px)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("shape-margin"))
+                .map(String::as_str),
+            Some("calc(1rem + 2px)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("shape-image-threshold"))
+                .map(String::as_str),
+            Some("0.25")
+        );
+        assert!(!style.unsupported.contains_key("image-rendering"));
+        assert!(!style.unsupported.contains_key("image-orientation"));
+        assert!(!style.unsupported.contains_key("image-resolution"));
+        assert!(!style.unsupported.contains_key("shape-outside"));
+        assert!(!style.unsupported.contains_key("shape-margin"));
+        assert!(!style.unsupported.contains_key("shape-image-threshold"));
         assert_eq!(
             style
                 .variant_declarations

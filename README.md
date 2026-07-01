@@ -54,8 +54,10 @@ physical-edge, and logical-edge border width/style/color, uniform,
 physical-corner, and logical-corner border radius,
 text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
-CSS clip, CSS clip path, CSS mask, CSS mask border, object fit/position,
-list style type/position/image, columns, column rule/span/fill,
+CSS clip, CSS clip path, CSS mask, CSS mask border,
+CSS image rendering/orientation/resolution, object fit/position,
+CSS Shapes shape-outside/margin/threshold, list style type/position/image,
+columns, column rule/span/fill,
 fragmentation breaks, font size and font size adjustment,
 font weight, font family, font style, font
 stretch, font kerning, font optical sizing, font smoothing hints,
@@ -137,7 +139,9 @@ writing modes and `ltr:`/`rtl:` variants are preserved in the same declaration
 model.
 Background, object, list, columns, and fragmentation utilities such as `bg-*`,
 `object-*`, `list-*`, `list-image-*`, `columns-*`, `break-before-*`,
-`break-after-*`, and `break-inside-*` are projected into portable style tokens.
+`break-after-*`, and `break-inside-*`, plus arbitrary CSS image and shape
+properties such as `image-rendering` and `shape-outside`, are projected into
+portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, `will-change-*`, `appearance-*`,
 `scheme-*`, `forced-color-adjust-*`, `field-sizing-*`, `accent-*`,

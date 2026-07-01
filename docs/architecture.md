@@ -383,8 +383,9 @@ deterministically:
   `backgroundSize`, `backgroundRepeat`, `backgroundAttachment`,
   `backgroundOrigin`, `backgroundClip`, `backgroundBlendMode`
 - `clip`, `clipPath`, `mask*`, and `maskBorder*`
-- `objectFit`, `objectPosition`, `listStyleType`, `listStylePosition`,
-  `listStyleImage`,
+- `imageRendering`, `imageOrientation`, `imageResolution`, `objectFit`,
+  `objectPosition`, `shapeOutside`, `shapeMargin`, `shapeImageThreshold`,
+  `listStyleType`, `listStylePosition`, `listStyleImage`,
   `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
   `columnFill`, `breakBefore`, `breakAfter`, `breakInside`
 - `fontFamily`, `fontStyle`, `fontSize`, `fontSizeAdjust`, `fontWeight`, `fontStretch`,
@@ -492,8 +493,9 @@ CSS writing-mode arbitrary property utilities and `ltr:`/`rtl:` variants are
 stored in the same declaration model.
 Common Tailwind background, object, list, columns, and fragmentation utilities
 such as `bg-*`, `object-*`, `list-*`, `list-image-*`, `columns-*`,
-`break-before-*`, `break-after-*`, and `break-inside-*` project into the same
-declaration model.
+`break-before-*`, `break-after-*`, and `break-inside-*`, plus arbitrary CSS
+image and shape properties such as `image-rendering` and `shape-outside`,
+project into the same declaration model.
 Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,
 `rounded-r-*`, `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`,
 `rounded-tr-*`, `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`,
