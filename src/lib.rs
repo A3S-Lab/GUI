@@ -1,10 +1,9 @@
-//! Rust-native GUI primitives for rendering Web-compatible React UI trees.
+//! Rust-native GUI primitives for rendering React/JSX-compatible UI trees.
 //!
-//! `a3s-gui` deliberately avoids WebView rendering: the core crate converts a
-//! Web-authored semantic component tree into a compact native UI IR, reconciles
-//! that tree, and drives a [`NativeHost`] implementation for each platform.
-//! React Aria is supported as one compatibility adapter, not as the only
-//! authoring model.
+//! `a3s-gui` converts semantic component trees into a compact native UI IR,
+//! reconciles that tree, and drives a [`NativeHost`] implementation for each
+//! platform without embedding a WebView. React Aria-compatible component names
+//! and props are supported as one input format.
 
 #![deny(unsafe_code)]
 
@@ -96,7 +95,8 @@ pub use react_aria::{AriaComponent, AriaElement, AriaProps, ReactAriaMapper};
 pub use renderer::Renderer;
 pub use runtime::GuiRuntime;
 pub use style::{
-    AlignItems, DisplayMode, EdgeInsets, JustifyContent, PortableStyle, StyleColor, StyleLength,
+    AlignItems, BorderStyle, DisplayMode, EdgeInsets, FlexWrap, FontWeight, JustifyContent,
+    OverflowMode, PortableStyle, PositionMode, StyleColor, StyleLength, TextAlign, VisibilityMode,
 };
 pub use web::WebProps;
 #[cfg(feature = "winui")]

@@ -1,22 +1,21 @@
 # a3s-gui
 
-`a3s-gui` is a Rust-native, cross-platform GUI renderer for
-Web-compatible React/JSX UI trees. It lowers semantic UI input into AppKit,
-WinUI, and GTK controls without embedding a WebView.
+`a3s-gui` is a Rust crate that converts React/JSX-compatible UI trees into a
+native command stream for AppKit, WinUI, and GTK4. Platform backends create
+native widgets directly; the renderer does not embed a WebView.
 
-The crate exposes a native rendering pipeline and protocol boundary rather than
-a browser runtime. Inputs can come from the TypeScript JSX runtime, React
-Compiler output, React Aria-compatible components, direct protocol frames, or
-direct Rust `NativeElement` trees. All supported inputs lower into the same A3S
-Native UI IR before platform adapters create native widgets.
+Inputs can come from the TypeScript JSX runtime, React Compiler output,
+React Aria-compatible components, direct protocol frames, or direct Rust
+`NativeElement` trees. Supported inputs lower into the same A3S Native UI IR
+before platform adapters create native widgets.
 
-React Aria is supported as an optional semantic source. It is not required by
-the core renderer; hosts can use any compiler or SDK that emits the A3S Native
+React Aria-compatible component names and props are supported as one input
+format. The core renderer accepts any compiler or SDK that emits the A3S Native
 UI IR or the serializable `UiFrame` protocol.
 
 ## Supported Inputs
 
-`a3s-gui` accepts Web-compatible UI data:
+`a3s-gui` accepts the following input data:
 
 - JSX/TSX-shaped element trees
 - semantic component names and HTML intrinsic element names
@@ -42,10 +41,19 @@ views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag`.
 
 The style layer accepts inline CSS declarations from style objects and CSS text.
-It also resolves a portable subset of Tailwind utility classes into native style
-tokens, including display, flex direction, alignment, justification, sizing,
-spacing, color, background color, border radius, and opacity. Inline styles are
-applied after class utilities so they keep normal inline-style precedence.
+It normalizes property names into a declaration map, preserves CSS custom
+properties separately, and projects supported declarations into native style
+tokens. The current portable token set includes display, position, inset,
+z-index, visibility, flex direction/wrap, alignment, justification, sizing,
+gap/row-gap/column-gap, spacing, border width/style/color/radius, text color,
+background color, font size, font weight, line height, text alignment, overflow,
+and opacity.
+
+Tailwind utility classes are resolved into the same declaration model. Base
+utilities are projected into current native style tokens; variant utilities such
+as `hover:`, `focus:`, and responsive prefixes are preserved in
+`variant_declarations`. Inline styles are applied after class utilities so they
+keep normal inline-style precedence.
 
 CSS properties and Tailwind classes that do not yet have a portable native token
 remain available as raw `className`, style declarations, metadata, or
@@ -55,15 +63,15 @@ remain available as raw `className`, style declarations, metadata, or
 
 `a3s-gui` is split into four layers:
 
-1. **Web-compatible authoring layer**: accepts JSX/TSX-shaped trees and
+1. **Input layer**: accepts JSX/TSX-shaped trees and
    DOM-shaped props from the TypeScript SDK, React Compiler bridge, React Aria
    adapters, or another compiler that emits the same protocol.
-2. **A3S Native UI IR**: stores a semantic, accessibility-first tree of native
-   roles, state, labels, values, Web metadata, portable style tokens, event
-   bindings, and children.
+2. **A3S Native UI IR**: stores native roles, state, labels, values,
+   accessibility metadata, Web metadata, portable style tokens, event bindings,
+   and children.
 3. **Renderer and protocol runtime**: reconciles keyed trees, emits incremental
    native commands, tracks interaction state, and routes native events back to
-   registered Web action ids.
+   registered action ids.
 4. **Native host adapters**: create and update platform controls such as AppKit,
    WinUI, and GTK widgets.
 
@@ -98,7 +106,7 @@ Native event callbacks
 InteractionState + EventRouter
         |
         v
-Web-authored action ids
+Action ids
 ```
 
 The command stream, native widget blueprints, accessibility roles, control
@@ -108,9 +116,9 @@ seeing JSX or a browser DOM.
 
 ## Native Rendering Model
 
-The Web-compatible surface is intentionally source-level only. `a3s-gui` does
-not reuse DOM nodes, CSS layout engines, browser focus APIs, or WebView event
-loops. It preserves the semantic contract and then creates real native controls.
+`a3s-gui` does not implement DOM nodes, browser CSS layout, browser focus APIs,
+or WebView event loops. It maps accepted element names and props to native IR,
+then creates native controls through the selected platform adapter.
 
 Accepted Web-compatible inputs include `className`, inline `style`, `aria-*`,
 `data-*`, HTML state props such as `disabled` and `required`, ranged attributes
@@ -146,7 +154,7 @@ runtime.render_native(&tree)?;
 # Ok::<(), a3s_gui::GuiError>(())
 ```
 
-The same shape can come from ordinary TSX through the prototype TypeScript SDK:
+The TypeScript SDK can produce the same frame shape from TSX:
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
@@ -171,8 +179,8 @@ export const frame = createUiFrame('save-frame', root, {
 });
 ```
 
-React Aria remains a first-class compatibility path when an application wants
-its component vocabulary:
+React Aria-compatible component names and props can be lowered through the same
+JSX runtime:
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
@@ -262,9 +270,9 @@ runtime drains those events and routes them through the same
 `InteractionState`/`EventRouter` path as protocol `HostEvent` input.
 
 For real platform bindings, `HandleWidgetDriver` stores thread-affine native
-handles returned by a `NativeHandleAdapter`; the core traits intentionally do
-not require `Send`, because AppKit, WinUI, and GTK widgets belong to their UI
-thread. The feature modules expose `AppKitHandleAdapter`,
+handles returned by a `NativeHandleAdapter`; the core traits do not require
+`Send`, because AppKit, WinUI, and GTK widgets belong to their UI thread. The
+feature modules expose `AppKitHandleAdapter`,
 `WinUiHandleAdapter`, and `Gtk4HandleAdapter` as handle-driver entry points for
 platform bindings.
 
@@ -320,7 +328,7 @@ runtime.render_compiled(&compiled)?;
 
 The same embedded-host event path is used by protocol hosts and native platform
 callbacks: native events update `InteractionState` and resolve through the
-registered Web action ids.
+registered action ids.
 
 ## Supported Semantic Roles
 
@@ -351,12 +359,12 @@ registered Web action ids.
 
 ## TypeScript SDK
 
-The prototype TypeScript SDK lives in `sdk/typescript`. It provides a zero-deps
-JSX runtime and protocol helpers that produce the same `UiFrame` JSON consumed
-by the Rust runtime. Event props can be authored as normal named functions or
-`createAction` markers; the protocol boundary serializes those callbacks as
-stable action ids. The SDK exports generic semantic component markers and
-React Aria-compatible marker shapes for tests and compiler fixtures.
+The TypeScript SDK lives in `sdk/typescript`. It provides a zero-dependency JSX
+runtime and protocol helpers that produce the same `UiFrame` JSON consumed by
+the Rust runtime. Event props can be named functions or `createAction` markers;
+the protocol boundary serializes those callbacks as stable action ids. The SDK
+exports generic semantic component markers and React Aria-compatible marker
+shapes for tests and compiler fixtures.
 
 ## Validation
 

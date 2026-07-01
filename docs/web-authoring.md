@@ -1,6 +1,8 @@
-# Web-Compatible Authoring
+# Web-Compatible Input
 
-`a3s-gui` starts from a Web developer experience:
+`a3s-gui` accepts React/TSX-shaped element trees. The example below uses
+React Aria-compatible component names and DOM-style props that the TypeScript
+SDK serializes into a `UiFrame`:
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
@@ -42,13 +44,13 @@ export const frame = createUiFrame('profile', root, {
 });
 ```
 
-This is normal React/TSX and normal React Aria authoring syntax. The app author
-should not import native widget names or write Rust UI code.
+The resulting frame contains semantic component names, DOM-style props, action
+ids, and optional window options. Native widget selection happens after the
+frame reaches the Rust renderer.
 
 The zero-dependency SDK also exports component markers with the same names for
-tests and compiler fixtures. Production authoring should stay compatible with
-`react-aria-components`; the bridge cares about component identity and props,
-not about a WebView or DOM node.
+tests and compiler fixtures. The bridge reads serialized component identity and
+props; it does not require a WebView or DOM node.
 
 ## Compiler Bridge Shape
 
@@ -75,7 +77,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 
 ## Native Lowering Rules
 
-| Web-authored input | Native IR output |
+| Input field | Native IR output |
 | --- | --- |
 | `className` | preserved in `WebProps.class_name` for style resolution |
 | `style={{...}}` | preserved in `WebProps.style` and parsed into `PortableStyle` |
@@ -117,12 +119,13 @@ families:
 
 Top-level Web attributes such as `aria-label` are accepted by the compiler
 bridge and preserved in the native accessibility metadata while also feeding the
-native label. The renderer emits typed native commands for these widgets, including updates
-and keyed reorders, so React state changes do not remount stable native controls.
+native label. The renderer emits typed native commands for these widgets,
+including updates and keyed reorders, so state changes do not remount stable
+native controls.
 Those commands are serializable and can be delivered to an OS-bound AppKit,
 WinUI, or GTK host without WebView involvement.
 
-The backend execution path is independent of authoring syntax:
+The backend execution path is independent of the source syntax:
 
 ```text
 React Aria TSX
@@ -168,11 +171,10 @@ The Linux `gtk4-native` feature exercises the same path with `gtk4-rs`.
 windows, boxes, labels, buttons, entries, check buttons, switches, drop-downs,
 list boxes, rows, notebook tabs, separators, scales, and progress bars. React
 Aria `Tabs` trees become native `gtk::Notebook` pages with `TabPanel` content
-attached as native GTK widgets. GTK signals enqueue native press, change, focus, blur,
-toggle, and selection-change events; programmatic setter updates are suppressed
-so render diffs do not trigger Web-authored actions. The feature is Linux-only
-and requires GTK4 development libraries plus
-`pkg-config`.
+attached as native GTK widgets. GTK signals enqueue native press, change, focus,
+blur, toggle, and selection-change events; programmatic setter updates are
+suppressed so render diffs do not trigger serialized actions. The feature is
+Linux-only and requires GTK4 development libraries plus `pkg-config`.
 
 The Windows `winui-native` feature follows the same contract with WinUI 3 and
 the Windows App SDK. `WinUiNativeSurface` creates real XAML windows, panels,
@@ -180,7 +182,7 @@ text blocks, buttons, text boxes, checkboxes, radio buttons, combo boxes, list
 boxes, tab views, tab view items, sliders, and progress bars; it does not enable
 WebView2. React Aria `Tabs` trees become native `TabView` / `TabViewItem`
 controls, with `TabPanel` content attached as native XAML content. WinUI events
-are queued as native events and routed back to the Web-authored action ids. The
+are queued as native events and routed back to serialized action ids. The
 React Aria `Switch` semantic remains in the IR, while `winio-winui3` 0.4.2 is
 bridged through a native CheckBox-backed toggle until the generated WinUI
 bindings expose `ToggleSwitch`.
@@ -209,8 +211,8 @@ If labels are not needed, the TypeScript SDK can infer `UiFrame.actions` from
 the compiled event props. Explicit `defineAction(...)` calls are still useful
 when the host wants labels for menus, logs, or command palettes.
 
-The window wrapper is part of the host protocol, not the authoring component
-tree. Web developers still write normal React Aria components; hosts decide
+The window wrapper is part of the host protocol, not the source component
+tree. The source tree stays independent of host surface selection; hosts decide
 which frames become windows, panels, or embedded surfaces.
 
 Native platform hosts can use `NativeProtocolSession` as the frame boundary:
@@ -236,7 +238,7 @@ let response = session.dispatch_host_event(&HostEvent {
 
 React callbacks are compiled to stable action identifiers. Native adapters emit
 typed events; `GuiRuntime` first updates portable focus/value/selection state in
-`InteractionState`, then `EventRouter` maps the event back to the Web-authored
+`InteractionState`, then `EventRouter` maps the event back to the serialized
 action id and `ActionRegistry` validates that the action exists.
 
 ```text
@@ -258,11 +260,10 @@ NativeEventKind::Press
 ActionInvocation { action: "saveProfile" }
 ```
 
-React Aria's `onPress` is preferred over `onClick` when both are present, so
-component authors can use idiomatic React Aria APIs without losing native press
-semantics.
+React Aria's `onPress` is preferred over `onClick` when both are present, so the
+compiled frame keeps native press semantics.
 
-For folded controls, event ownership follows React Aria authoring patterns. For
+For folded controls, event ownership follows the source element structure. For
 example, `TextField` receives the visible label, while `Input` can own
 `onChange`, `placeholder`, inline style, and `data-*` metadata; the native
 renderer folds those into a single native text field.
@@ -271,4 +272,4 @@ renderer folds those into a single native text field.
 
 The syntax is Web-compatible. The runtime is native. Code that assumes a live
 browser DOM, CSSOM, or `HTMLElement` instance is outside the portable contract
-and should be caught by the compiler bridge before runtime.
+and can be reported by the compiler bridge before runtime.

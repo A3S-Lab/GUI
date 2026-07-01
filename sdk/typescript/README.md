@@ -1,15 +1,15 @@
 # @a3s-lab/gui
 
-Web-compatible authoring bridge for `a3s-gui`.
+JSX protocol bridge for `a3s-gui`.
 
 This package provides the protocol-side JSX runtime used to lower Web-compatible
-TSX into the serializable `UiFrame` format consumed by the Rust runtime. It is
-intentionally small and dependency-free while the compiler integration
-stabilizes. React Aria-compatible component names and props are supported, but
-the package is a general semantic UI bridge rather than a React Aria-only SDK.
+TSX into the serializable `UiFrame` format consumed by the Rust runtime. The
+package has no runtime dependencies while the compiler integration stabilizes.
+React Aria-compatible component names and props are supported. General semantic
+UI component names are also accepted, so the SDK is not limited to React Aria.
 Intrinsic HTML element names are accepted as JSX strings. `style` can be an
 object or CSS text string, and `className` is preserved for the Rust-side
-Tailwind utility resolver.
+Tailwind utility resolver, including variant-prefixed utilities.
 
 ## JSX Runtime
 
@@ -42,8 +42,8 @@ native control-state fields consumed by the Rust renderer. Marker exports
 include form and selection components such as `RadioGroup`, `Radio`, `Select`,
 `ListBoxItem`, `Dialog`, `Popover`, `Tabs`, `TabList`, `Tab`, `TabPanel`,
 `Menu`, `MenuItem`, `Slider`, and `ProgressBar`, plus structural markers such as
-`Separator` and `Toolbar`; authors still use Web-compatible semantic JSX instead
-of platform widget names.
+`Separator` and `Toolbar`; the emitted frame uses semantic JSX element names
+rather than platform widget class names.
 
 The emitted frame is plain JSON:
 

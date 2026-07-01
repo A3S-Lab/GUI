@@ -1,12 +1,12 @@
 # a3s-gui Architecture
 
-`a3s-gui` renders Web-compatible React/JSX UI trees as native controls.
+`a3s-gui` renders React/JSX-compatible UI trees as native controls.
 
-The authoring contract is Web-compatible syntax: React/TSX-shaped trees,
-semantic element names, `className`, inline style objects, `aria-*`, `data-*`,
-and DOM-style event props. React Aria is one supported semantic source, but the
-renderer contract is the A3S Native UI IR: no WebView, no browser DOM, and no
-hidden HTML surface.
+The input contract is structured element data: React/TSX-shaped trees, semantic
+element names, `className`, inline style objects, `aria-*`, `data-*`, and
+DOM-style event props. React Aria-compatible components are one supported
+semantic source. The renderer consumes A3S Native UI IR and does not provide a
+WebView, browser DOM, or hidden HTML surface.
 
 ```text
 React / TSX source
@@ -54,16 +54,16 @@ InteractionState
 EventRouter
         |
         v
-Web-authored action ids
+Action ids
 ```
 
 ## Contract
 
-The bridge accepts semantic component names plus Web-compatible syntax. This
-keeps authoring familiar while giving the native renderer a typed, portable
-contract. The source components may come from `react-aria-components`, the
-zero-dependency marker exports used by compiler fixtures, or another compiler
-that emits the same protocol shape.
+The bridge accepts semantic component names plus Web-compatible props and event
+names. The native renderer receives a typed, portable protocol rather than
+React component instances. Source components may come from
+`react-aria-components`, the zero-dependency marker exports used by compiler
+fixtures, or another compiler that emits the same protocol shape.
 
 Allowed data:
 
@@ -119,7 +119,7 @@ React Aria-compatible semantic trees, or native IR trees and renders them into
 any `NativeHost`. `InteractionState` updates platform-independent focus, value,
 checked, selected, and expanded state from native events before action routing.
 `EventRouter` maps native events such as press, change, focus, and selection
-change back to Web-authored action identifiers such as `onClick` and `onChange`.
+change back to serialized action identifiers such as `onClick` and `onChange`.
 `ActionRegistry` records and validates those action ids before they are handed
 to the JavaScript/React state bridge.
 
@@ -139,17 +139,17 @@ The JS/Rust bridge uses serializable protocol types:
 - `NativeRenderResponse`: the native root plus the incremental platform
   commands emitted by a render pass.
 - `HostEvent`: a native event emitted by a platform backend.
-- `HostEventResponse`: the validated Web action invocation for that event.
+- `HostEventResponse`: the validated action invocation for that event.
 
-The protocol keeps React authoring and platform backends decoupled. JavaScript
-does not see native widget handles; native backends do not see JSX.
+The protocol decouples input generation from platform backend execution.
+JavaScript does not see native widget handles; native backends do not see JSX.
 The same rule applies to native rendering commands: platform hosts receive
 serializable command records and blueprints, not React component instances.
 
 `NativeProtocolSession` is the intended host boundary for a native platform
 process. It owns a `GuiRuntime<PlatformPlanningHost<_>>`, accepts `UiFrame`
 values, returns only the new `PlatformCommand` records for that render pass,
-and dispatches `HostEvent` values back to registered Web action ids. A native
+and dispatches `HostEvent` values back to registered action ids. A native
 host can keep one session per native surface or window and apply the returned
 commands on its UI thread.
 
@@ -176,15 +176,17 @@ native widget class, native role, accessibility role, label/value/action
 bindings, semantic control state, Web metadata, event bindings, and parsed
 portable style tokens. It is safe to send to a platform process or language
 binding as JSON.
-Portable style parsing applies recognized Tailwind utility classes first and
-inline style declarations second, preserving inline style precedence. Unmapped
-CSS declarations are retained in `PortableStyle::unsupported` and in the raw
-blueprint style map.
+Portable style parsing stores normalized CSS declarations, CSS custom
+properties, and Tailwind variant declarations before projecting supported values
+into native style tokens. Recognized Tailwind utility classes are applied first
+and inline style declarations second, preserving inline style precedence.
+Unmapped CSS declarations are retained in `PortableStyle::unsupported` and in
+the raw blueprint style map.
 Native bindings can call `blueprint.config()` to derive a `NativeWidgetConfig`
 with setter-oriented values such as `enabled`, `visible`, `placeholder`,
 range bounds, selected/checked state, event action ids, metadata, and portable
-style. This keeps AppKit, WinUI, and GTK bindings from reinterpreting Web-shaped
-semantic fields differently.
+style. This keeps AppKit, WinUI, and GTK bindings from reinterpreting protocol
+fields differently.
 `NativeWidgetConfig::diff()` returns a `NativeWidgetConfigPatch` for update
 passes, and `HandleWidgetDriver` stores the last config for each handle so
 `NativeHandleAdapter::update_handle_config()` can apply only changed setters.
@@ -294,7 +296,7 @@ Feature-gated platform executor surfaces:
   same `NativeEventSource` and action routing path as AppKit and GTK. Semantic
   `Tabs` trees fold `TabList` and ordered `TabPanel` children into native
   `TabViewItem` objects and route WinUI tab selection changes with the
-  Web-authored selection value when one is available. `Separator` uses a native
+  serialized selection value when one is available. `Separator` uses a native
   XAML `Border` loaded through WinUI's markup runtime so the surface remains
   native without WebView/WebView2. Semantic `Toolbar` trees create horizontal
   native `StackPanel` containers, keeping toolbar children as real XAML
@@ -327,7 +329,7 @@ Feature-gated platform executor surfaces:
   children, `gtk::PopoverMenuBar` surfaces, and `gio::SimpleAction` activation
   callbacks.
   Semantic `Tabs`
-  trees become native notebook pages with Web-authored tab labels, native panel
+  trees become native notebook pages with source tab labels, native panel
   widgets, and selection-change events carrying the selected tab value when
   available. It is a Linux-only feature so macOS and Windows builds can enable
   all portable features without linking GTK. A Linux host must provide GTK4
@@ -344,18 +346,24 @@ dispatch logic, while backend-local menu details stay in focused modules.
 
 ## Style Contract
 
-`WebProps` keeps the original Web style map. `PortableStyle` parses the subset
-that native adapters can apply deterministically:
+`WebProps` keeps the original Web style map. `PortableStyle` keeps normalized
+CSS declarations and projects the subset that native adapters can apply
+deterministically:
 
 - `display`
-- `flexDirection`
-- `alignItems`
-- `justifyContent`
+- `position`, `inset`, `top`, `right`, `bottom`, `left`, `zIndex`
+- `visibility`
+- `flexDirection`, `flexWrap`, `alignItems`, `justifyContent`
 - `width`, `height`, min/max sizes
-- `gap`, `padding*`, `margin*`
-- `color`, `backgroundColor`
-- `borderRadius`
+- `gap`, `rowGap`, `columnGap`, `padding*`, `margin*`
+- `border`, `borderWidth`, `borderStyle`, `borderColor`, `borderRadius`
+- `color`, `backgroundColor`, `fontSize`, `fontWeight`, `lineHeight`,
+  `textAlign`
+- `overflow`, `overflowX`, `overflowY`
 - `opacity`
 
-Unsupported style declarations are preserved so the compiler or design tooling
-can warn without silently dropping author intent.
+CSS custom properties are stored separately. Tailwind variant utilities are
+stored under `variant_declarations` so a future state or responsive layer can
+apply them without reparsing `className`. Unsupported style declarations are
+preserved so the compiler or design tooling can warn without silently dropping
+source declarations.
