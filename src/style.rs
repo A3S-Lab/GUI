@@ -65,6 +65,10 @@ pub struct PortableStyle {
     pub container_type: Option<ContainerType>,
     pub container_name: Option<String>,
     pub content: Option<String>,
+    pub counter_reset: Option<String>,
+    pub counter_increment: Option<String>,
+    pub counter_set: Option<String>,
+    pub quotes: Option<String>,
     pub content_visibility: Option<ContentVisibility>,
     pub contain_intrinsic_size: Option<String>,
     pub contain_intrinsic_width: Option<String>,
@@ -411,6 +415,10 @@ impl PortableStyle {
             "container-type" => self.container_type = parse_container_type(value_ref),
             "container-name" => self.container_name = parse_css_string_token(value_ref),
             "content" => self.content = parse_css_string_token(value_ref),
+            "counter-reset" => self.counter_reset = parse_css_string_token(value_ref),
+            "counter-increment" => self.counter_increment = parse_css_string_token(value_ref),
+            "counter-set" => self.counter_set = parse_css_string_token(value_ref),
+            "quotes" => self.quotes = parse_css_string_token(value_ref),
             "content-visibility" => {
                 self.content_visibility = parse_content_visibility(value_ref);
             }
@@ -9059,6 +9067,10 @@ mod tests {
             .style("containerType", "size")
             .style("containerName", "main")
             .style("content", "\"*\"")
+            .style("counterReset", "section 0")
+            .style("counterIncrement", "section 1")
+            .style("counterSet", "chapter 2")
+            .style("quotes", "\"\\201C\" \"\\201D\" \"\\2018\" \"\\2019\"")
             .style("contentVisibility", "auto")
             .style("containIntrinsicSize", "auto 320px")
             .style("containIntrinsicWidth", "240px")
@@ -9073,6 +9085,13 @@ mod tests {
         assert_eq!(style.container_type, Some(ContainerType::Size));
         assert_eq!(style.container_name.as_deref(), Some("main"));
         assert_eq!(style.content.as_deref(), Some("\"*\""));
+        assert_eq!(style.counter_reset.as_deref(), Some("section 0"));
+        assert_eq!(style.counter_increment.as_deref(), Some("section 1"));
+        assert_eq!(style.counter_set.as_deref(), Some("chapter 2"));
+        assert_eq!(
+            style.quotes.as_deref(),
+            Some("\"\\201C\" \"\\201D\" \"\\2018\" \"\\2019\"")
+        );
         assert_eq!(style.content_visibility, Some(ContentVisibility::Auto));
         assert_eq!(style.contain_intrinsic_size.as_deref(), Some("auto 320px"));
         assert_eq!(style.contain_intrinsic_width.as_deref(), Some("240px"));
@@ -9082,7 +9101,60 @@ mod tests {
         assert!(!style.unsupported.contains_key("contain"));
         assert!(!style.unsupported.contains_key("container-type"));
         assert!(!style.unsupported.contains_key("content"));
+        assert!(!style.unsupported.contains_key("counter-reset"));
+        assert!(!style.unsupported.contains_key("counter-increment"));
+        assert!(!style.unsupported.contains_key("counter-set"));
+        assert!(!style.unsupported.contains_key("quotes"));
         assert!(!style.unsupported.contains_key("content-visibility"));
+    }
+
+    #[test]
+    fn parses_tailwind_arbitrary_counter_and_quotes_properties() {
+        let web = WebProps::new().class_name(
+            "[counter-reset:section_0] [counter-increment:section_1] \
+             [counter-set:chapter_2] [quotes:\"\\201C\"_\"\\201D\"] \
+             hover:[counter-reset:item_4] focus:[counter-increment:item_-1] \
+             active:[counter-set:chapter_3] before:[quotes:none]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.counter_reset.as_deref(), Some("section 0"));
+        assert_eq!(style.counter_increment.as_deref(), Some("section 1"));
+        assert_eq!(style.counter_set.as_deref(), Some("chapter 2"));
+        assert_eq!(style.quotes.as_deref(), Some("\"\\201C\" \"\\201D\""));
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("counter-reset"))
+                .map(String::as_str),
+            Some("item 4")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("counter-increment"))
+                .map(String::as_str),
+            Some("item -1")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("counter-set"))
+                .map(String::as_str),
+            Some("chapter 3")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("quotes"))
+                .map(String::as_str),
+            Some("none")
+        );
     }
 
     #[test]

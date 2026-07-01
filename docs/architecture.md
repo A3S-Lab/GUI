@@ -371,8 +371,8 @@ deterministically:
   `justifyItems`, `justifySelf`, `placeContent`, `placeItems`, `placeSelf`
 - `grid`, `gridTemplate*`, `gridAutoColumns`, `gridAutoRows`, `gridAutoFlow`,
   `gridColumn*`, `gridRow*`, `gridArea`
-- `contain`, `container*`, `content`, `contentVisibility`, and
-  `containIntrinsic*`
+- `contain`, `container*`, `content`, `counterReset`, `counterIncrement`,
+  `counterSet`, `quotes`, `contentVisibility`, and `containIntrinsic*`
 - `width`, `height`, `inlineSize`, `blockSize`, and physical/logical min/max
   sizes
 - `gap`, `rowGap`, `columnGap`, physical and logical `padding*`, `margin*`,
@@ -485,8 +485,9 @@ arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
 properties, `truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`,
 `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `whitespace-*`, `wrap-*`, word-break utilities,
-`hyphens-*`, and generated-content utilities such as `content-[...]`,
-`content-(...)`, and `content-none` project into the same declaration model.
+`hyphens-*`, generated-content utilities such as `content-[...]`,
+`content-(...)`, and `content-none`, and arbitrary `counter-*` and `quotes`
+properties project into the same declaration model.
 CSS writing-mode arbitrary property utilities and `ltr:`/`rtl:` variants are
 stored in the same declaration model.
 Common Tailwind background, object, list, columns, and fragmentation utilities

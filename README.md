@@ -48,8 +48,8 @@ decoration break, isolation, mix blend mode, float, clear, vertical alignment,
 table layout, border collapse/spacing, caption side, flex direction/wrap/item
 sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, physical and logical
-sizing, gap/row-gap/column-gap, CSS containment, generated content, and
-container query metadata, physical, logical, and child spacing, uniform,
+sizing, gap/row-gap/column-gap, CSS containment, generated content,
+CSS counters, quotes, and container query metadata, physical, logical, and child spacing, uniform,
 physical-edge, and logical-edge border width/style/color, uniform,
 physical-corner, and logical-corner border radius,
 text color, background
@@ -129,8 +129,9 @@ arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
 properties, `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `truncate`,
 `text-ellipsis`, `text-clip`, `whitespace-*`, `wrap-*`, word-break utilities,
-`hyphens-*`, and generated-content utilities such as `content-[...]`,
-`content-(...)`, and `content-none` are projected into portable style tokens.
+`hyphens-*`, generated-content utilities such as `content-[...]`,
+`content-(...)`, and `content-none`, and arbitrary `counter-*` and `quotes`
+properties are projected into portable style tokens.
 Arbitrary property utilities for CSS
 writing modes and `ltr:`/`rtl:` variants are preserved in the same declaration
 model.
