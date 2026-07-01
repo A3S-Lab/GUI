@@ -14,6 +14,15 @@ pub struct PortableStyle {
     pub box_sizing: Option<BoxSizing>,
     pub box_decoration_break: Option<BoxDecorationBreak>,
     pub position: Option<PositionMode>,
+    pub anchor_name: Option<String>,
+    pub anchor_scope: Option<String>,
+    pub position_anchor: Option<String>,
+    pub position_area: Option<String>,
+    pub position_try: Option<String>,
+    pub position_try_fallbacks: Option<String>,
+    pub position_try_order: Option<String>,
+    pub position_try_options: Option<String>,
+    pub position_visibility: Option<String>,
     pub flex_direction: Option<Orientation>,
     pub flex_wrap: Option<FlexWrap>,
     pub flex: Option<String>,
@@ -391,6 +400,17 @@ impl PortableStyle {
                 self.box_decoration_break = parse_box_decoration_break(value_ref);
             }
             "position" => self.position = parse_position(value_ref),
+            "anchor-name" => self.anchor_name = parse_css_string_token(value_ref),
+            "anchor-scope" => self.anchor_scope = parse_css_string_token(value_ref),
+            "position-anchor" => self.position_anchor = parse_css_string_token(value_ref),
+            "position-area" => self.position_area = parse_css_string_token(value_ref),
+            "position-try" => self.position_try = parse_css_string_token(value_ref),
+            "position-try-fallbacks" => {
+                self.position_try_fallbacks = parse_css_string_token(value_ref);
+            }
+            "position-try-order" => self.position_try_order = parse_css_string_token(value_ref),
+            "position-try-options" => self.position_try_options = parse_css_string_token(value_ref),
+            "position-visibility" => self.position_visibility = parse_css_string_token(value_ref),
             "flex-direction" => self.flex_direction = parse_flex_direction(value_ref),
             "flex-wrap" => self.flex_wrap = parse_flex_wrap(value_ref),
             "flex" => self.flex = parse_css_string_token(value_ref),
@@ -3634,7 +3654,17 @@ fn is_css_length_expression(value: &str) -> bool {
     }
     if matches!(
         value.split_once('(').map(|(name, _)| name.trim()),
-        Some("calc" | "min" | "max" | "clamp" | "var" | "env" | "fit-content")
+        Some(
+            "anchor"
+                | "anchor-size"
+                | "calc"
+                | "min"
+                | "max"
+                | "clamp"
+                | "var"
+                | "env"
+                | "fit-content",
+        )
     ) && value.ends_with(')')
     {
         return true;
@@ -8452,9 +8482,20 @@ mod tests {
     #[test]
     fn parses_css_logical_edge_properties_into_portable_tokens() {
         let web = WebProps::new()
+            .style("anchorName", "--trigger")
+            .style("anchorScope", "--trigger")
+            .style("positionAnchor", "--trigger")
+            .style("positionArea", "bottom center")
+            .style("positionTry", "flip-block")
+            .style("positionTryFallbacks", "--top, --bottom")
+            .style("positionTryOrder", "most-width")
+            .style("positionTryOptions", "flip-inline")
+            .style("positionVisibility", "anchors-visible")
             .style("insetBlock", "3px 4px")
             .style("insetInlineStart", "1rem")
             .style("insetInlineEnd", "2rem")
+            .style("top", "anchor(bottom)")
+            .style("width", "anchor-size(width)")
             .style("paddingInline", "10px")
             .style("paddingBlockEnd", "4px")
             .style("marginBlock", "1px 2px")
@@ -8466,6 +8507,25 @@ mod tests {
 
         let style = PortableStyle::from_web(&web);
 
+        assert_eq!(style.anchor_name.as_deref(), Some("--trigger"));
+        assert_eq!(style.anchor_scope.as_deref(), Some("--trigger"));
+        assert_eq!(style.position_anchor.as_deref(), Some("--trigger"));
+        assert_eq!(style.position_area.as_deref(), Some("bottom center"));
+        assert_eq!(style.position_try.as_deref(), Some("flip-block"));
+        assert_eq!(
+            style.position_try_fallbacks.as_deref(),
+            Some("--top, --bottom")
+        );
+        assert_eq!(style.position_try_order.as_deref(), Some("most-width"));
+        assert_eq!(style.position_try_options.as_deref(), Some("flip-inline"));
+        assert_eq!(
+            style.position_visibility.as_deref(),
+            Some("anchors-visible")
+        );
+        assert_eq!(
+            style.inset.top,
+            Some(StyleLength::Css("anchor(bottom)".to_string()))
+        );
         assert_eq!(
             style.logical_inset.block_start,
             Some(StyleLength::Points(3.0))
@@ -8527,6 +8587,10 @@ mod tests {
             style.logical_scroll_padding.inline_end,
             Some(StyleLength::Points(7.0))
         );
+        assert_eq!(
+            style.width,
+            Some(StyleLength::Css("anchor-size(width)".to_string()))
+        );
         assert_eq!(style.padding.left, Some(StyleLength::Points(10.0)));
         assert_eq!(style.padding.right, Some(StyleLength::Points(10.0)));
         assert_eq!(
@@ -8536,6 +8600,15 @@ mod tests {
                 .map(String::as_str),
             Some("auto")
         );
+        assert!(!style.unsupported.contains_key("anchor-name"));
+        assert!(!style.unsupported.contains_key("anchor-scope"));
+        assert!(!style.unsupported.contains_key("position-anchor"));
+        assert!(!style.unsupported.contains_key("position-area"));
+        assert!(!style.unsupported.contains_key("position-try"));
+        assert!(!style.unsupported.contains_key("position-try-fallbacks"));
+        assert!(!style.unsupported.contains_key("position-try-order"));
+        assert!(!style.unsupported.contains_key("position-try-options"));
+        assert!(!style.unsupported.contains_key("position-visibility"));
         assert!(!style.unsupported.contains_key("inset-inline-start"));
         assert!(!style.unsupported.contains_key("padding-block-end"));
     }
@@ -8577,14 +8650,45 @@ mod tests {
     #[test]
     fn parses_tailwind_logical_spacing_and_inset_utilities() {
         let web = WebProps::new().class_name(
-            "start-4 end-[2rem] inset-bs-1 inset-be-(--footer) \
+            "[anchor-name:--trigger] [anchor-scope:--trigger] \
+             [position-anchor:--trigger] [position-area:bottom_center] \
+             [position-try:flip-block] [position-try-fallbacks:--top,--bottom] \
+             [position-try-order:most-width] [position-try-options:flip-inline] \
+             [position-visibility:anchors-visible] \
+             top-[anchor(bottom)] w-[anchor-size(width)] \
+             start-4 end-[2rem] inset-bs-1 inset-be-(--footer) \
              ms-auto me-2 -mbs-1 pbs-3 pie-4 \
              scroll-ms-2 scroll-me-[10px] scroll-pbs-1 scroll-pe-(--snap) \
-             md:start-8 hover:ms-[calc(1rem_+_2px)]",
+             md:start-8 hover:ms-[calc(1rem_+_2px)] \
+             hover:[position-area:top_center] focus:[position-try:flip-inline] \
+             active:[position-visibility:no-overflow]",
         );
 
         let style = PortableStyle::from_web(&web);
 
+        assert_eq!(style.anchor_name.as_deref(), Some("--trigger"));
+        assert_eq!(style.anchor_scope.as_deref(), Some("--trigger"));
+        assert_eq!(style.position_anchor.as_deref(), Some("--trigger"));
+        assert_eq!(style.position_area.as_deref(), Some("bottom center"));
+        assert_eq!(style.position_try.as_deref(), Some("flip-block"));
+        assert_eq!(
+            style.position_try_fallbacks.as_deref(),
+            Some("--top,--bottom")
+        );
+        assert_eq!(style.position_try_order.as_deref(), Some("most-width"));
+        assert_eq!(style.position_try_options.as_deref(), Some("flip-inline"));
+        assert_eq!(
+            style.position_visibility.as_deref(),
+            Some("anchors-visible")
+        );
+        assert_eq!(
+            style.inset.top,
+            Some(StyleLength::Css("anchor(bottom)".to_string()))
+        );
+        assert_eq!(
+            style.width,
+            Some(StyleLength::Css("anchor-size(width)".to_string()))
+        );
         assert_eq!(
             style.logical_inset.inline_start,
             Some(StyleLength::Points(16.0))
@@ -8670,6 +8774,30 @@ mod tests {
                 .and_then(|styles| styles.get("margin-inline-start"))
                 .map(String::as_str),
             Some("calc(1rem + 2px)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("position-area"))
+                .map(String::as_str),
+            Some("top center")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("position-try"))
+                .map(String::as_str),
+            Some("flip-inline")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("position-visibility"))
+                .map(String::as_str),
+            Some("no-overflow")
         );
     }
 

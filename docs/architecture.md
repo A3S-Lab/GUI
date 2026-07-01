@@ -362,8 +362,10 @@ deterministically:
 - `boxSizing`, `boxDecorationBreak`, `isolation`, `mixBlendMode`
 - `float`, `clear`, `verticalAlign`
 - `tableLayout`, `borderCollapse`, `borderSpacing`, `captionSide`
-- `position`, `inset`, `insetBlock*`, `insetInline*`, `start`, `end`,
-  `top`, `right`, `bottom`, `left`, `zIndex`
+- `position`, `anchorName`, `anchorScope`, `positionAnchor`,
+  `positionArea`, `positionTry*`, `positionVisibility`, `inset`,
+  `insetBlock*`, `insetInline*`, `start`, `end`, `top`, `right`, `bottom`,
+  `left`, `zIndex`
 - `visibility`
 - `flexDirection`, `flexWrap`, `flex`, `flexBasis`, `flexGrow`,
   `flexShrink`, `order`
@@ -439,7 +441,8 @@ preserved so callers can report unmapped declarations without dropping source
 data.
 CSS length values that cannot be converted to numeric points or percentages are
 kept as `StyleLength::Css`, including `calc(...)`, `var(...)`, `clamp(...)`,
-viewport/container units, and sizing keywords such as `min-content`.
+`anchor(...)`, `anchor-size(...)`, viewport/container units, and sizing
+keywords such as `min-content`.
 CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
 RGBA tokens when possible. Tailwind color opacity modifiers are preserved for
 both base and variant utilities.
@@ -496,8 +499,9 @@ properties, `truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`
 `hyphens-*`, generated-content utilities such as `content-[...]`,
 `content-(...)`, and `content-none`, and arbitrary `counter-*` and `quotes`
 properties project into the same declaration model.
-CSS writing-mode arbitrary property utilities and `ltr:`/`rtl:` variants are
-stored in the same declaration model.
+CSS writing-mode arbitrary property utilities, CSS Anchor Positioning arbitrary
+properties such as `anchor-name` and `position-area`, and `ltr:`/`rtl:`
+variants are stored in the same declaration model.
 Common Tailwind background, object, list, columns, and fragmentation utilities
 such as `bg-*`, `object-*`, `list-*`, `list-image-*`, `columns-*`,
 `break-before-*`, `break-after-*`, and `break-inside-*`, plus arbitrary CSS

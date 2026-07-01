@@ -44,8 +44,9 @@ properties separately, and projects supported declarations into native style
 tokens. The current portable token set includes the CSS display mode family,
 including internal table and ruby display modes,
 position, physical and logical inset, z-index, visibility, box sizing, box
-decoration break, isolation, mix blend mode, float, clear, vertical alignment,
-table layout, border collapse/spacing, caption side, flex direction/wrap/item
+decoration break, CSS Anchor Positioning metadata, isolation, mix blend mode,
+float, clear, vertical alignment, table layout, border collapse/spacing,
+caption side, flex direction/wrap/item
 sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, physical and logical
 sizing, gap/row-gap/column-gap, CSS containment, generated content,
@@ -81,8 +82,9 @@ margin/padding, scroll snap, scrollbar gutter/width/color, overscroll behavior,
 touch action, cursor, pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
-`calc(...)`, `var(...)`, `clamp(...)`, viewport units, and sizing keywords, are
-preserved as CSS length tokens for platform adapters that can consume them.
+`calc(...)`, `var(...)`, `clamp(...)`, `anchor(...)`, `anchor-size(...)`,
+viewport units, and sizing keywords, are preserved as CSS length tokens for
+platform adapters that can consume them.
 CSS color values support hex, RGB/RGBA, HSL/HSLA, slash alpha syntax, and
 keyword preservation.
 
@@ -139,9 +141,9 @@ properties, `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowr
 `hyphens-*`, generated-content utilities such as `content-[...]`,
 `content-(...)`, and `content-none`, and arbitrary `counter-*` and `quotes`
 properties are projected into portable style tokens.
-Arbitrary property utilities for CSS
-writing modes and `ltr:`/`rtl:` variants are preserved in the same declaration
-model.
+Arbitrary property utilities for CSS writing modes, CSS Anchor Positioning
+properties such as `anchor-name` and `position-area`, and `ltr:`/`rtl:`
+variants are preserved in the same declaration model.
 Background, object, list, columns, and fragmentation utilities such as `bg-*`,
 `object-*`, `list-*`, `list-image-*`, `columns-*`, `break-before-*`,
 `break-after-*`, and `break-inside-*`, plus arbitrary CSS image and shape
