@@ -25,6 +25,21 @@ pub struct PortableStyle {
     pub gap: Option<StyleLength>,
     pub row_gap: Option<StyleLength>,
     pub column_gap: Option<StyleLength>,
+    pub grid: Option<String>,
+    pub grid_template: Option<String>,
+    pub grid_template_columns: Option<String>,
+    pub grid_template_rows: Option<String>,
+    pub grid_template_areas: Option<String>,
+    pub grid_auto_columns: Option<String>,
+    pub grid_auto_rows: Option<String>,
+    pub grid_auto_flow: Option<GridAutoFlow>,
+    pub grid_column: Option<String>,
+    pub grid_column_start: Option<String>,
+    pub grid_column_end: Option<String>,
+    pub grid_row: Option<String>,
+    pub grid_row_start: Option<String>,
+    pub grid_row_end: Option<String>,
+    pub grid_area: Option<String>,
     pub inset: EdgeInsets,
     pub padding: EdgeInsets,
     pub margin: EdgeInsets,
@@ -96,6 +111,23 @@ impl PortableStyle {
             "gap" => self.gap = parse_length(value_ref),
             "row-gap" => self.row_gap = parse_length(value_ref),
             "column-gap" => self.column_gap = parse_length(value_ref),
+            "grid" => self.grid = parse_css_string_token(value_ref),
+            "grid-template" => self.grid_template = parse_css_string_token(value_ref),
+            "grid-template-columns" => {
+                self.grid_template_columns = parse_css_string_token(value_ref);
+            }
+            "grid-template-rows" => self.grid_template_rows = parse_css_string_token(value_ref),
+            "grid-template-areas" => self.grid_template_areas = parse_css_string_token(value_ref),
+            "grid-auto-columns" => self.grid_auto_columns = parse_css_string_token(value_ref),
+            "grid-auto-rows" => self.grid_auto_rows = parse_css_string_token(value_ref),
+            "grid-auto-flow" => self.grid_auto_flow = parse_grid_auto_flow(value_ref),
+            "grid-column" => self.grid_column = parse_css_string_token(value_ref),
+            "grid-column-start" => self.grid_column_start = parse_css_string_token(value_ref),
+            "grid-column-end" => self.grid_column_end = parse_css_string_token(value_ref),
+            "grid-row" => self.grid_row = parse_css_string_token(value_ref),
+            "grid-row-start" => self.grid_row_start = parse_css_string_token(value_ref),
+            "grid-row-end" => self.grid_row_end = parse_css_string_token(value_ref),
+            "grid-area" => self.grid_area = parse_css_string_token(value_ref),
             "inset" => self.inset = parse_edge_insets(value_ref),
             "top" => self.inset.top = parse_length(value_ref),
             "right" => self.inset.right = parse_length(value_ref),
@@ -344,6 +376,16 @@ pub enum FlexWrap {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum GridAutoFlow {
+    Row,
+    Column,
+    Dense,
+    RowDense,
+    ColumnDense,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum AlignItems {
     Start,
     Center,
@@ -573,6 +615,17 @@ fn parse_flex_wrap(value: &str) -> Option<FlexWrap> {
         "nowrap" => Some(FlexWrap::NoWrap),
         "wrap" => Some(FlexWrap::Wrap),
         "wrap-reverse" => Some(FlexWrap::WrapReverse),
+        _ => None,
+    }
+}
+
+fn parse_grid_auto_flow(value: &str) -> Option<GridAutoFlow> {
+    match value.split_whitespace().collect::<Vec<_>>().as_slice() {
+        ["row"] => Some(GridAutoFlow::Row),
+        ["column"] => Some(GridAutoFlow::Column),
+        ["dense"] => Some(GridAutoFlow::Dense),
+        ["row", "dense"] | ["dense", "row"] => Some(GridAutoFlow::RowDense),
+        ["column", "dense"] | ["dense", "column"] => Some(GridAutoFlow::ColumnDense),
         _ => None,
     }
 }
@@ -1231,6 +1284,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.insert(property, value);
         return declarations;
     }
+    if let Some((property, value)) = tailwind_grid_declaration(class) {
+        declarations.insert(property, value);
+        return declarations;
+    }
     if let Some((properties, value)) = tailwind_inset_utility(class) {
         insert_position_declarations(&mut declarations, properties, value);
         return declarations;
@@ -1376,6 +1433,169 @@ fn tailwind_visual_effect_declaration(class: &str) -> Option<(String, String)> {
         return Some(("transform".to_string(), value));
     }
     None
+}
+
+fn tailwind_grid_declaration(class: &str) -> Option<(String, String)> {
+    let declaration = match class {
+        "grid-flow-row" => Some(("grid-auto-flow", "row".to_string())),
+        "grid-flow-col" => Some(("grid-auto-flow", "column".to_string())),
+        "grid-flow-dense" => Some(("grid-auto-flow", "dense".to_string())),
+        "grid-flow-row-dense" => Some(("grid-auto-flow", "row dense".to_string())),
+        "grid-flow-col-dense" => Some(("grid-auto-flow", "column dense".to_string())),
+        "auto-cols-auto" => Some(("grid-auto-columns", "auto".to_string())),
+        "auto-cols-min" => Some(("grid-auto-columns", "min-content".to_string())),
+        "auto-cols-max" => Some(("grid-auto-columns", "max-content".to_string())),
+        "auto-cols-fr" => Some(("grid-auto-columns", "minmax(0, 1fr)".to_string())),
+        "auto-rows-auto" => Some(("grid-auto-rows", "auto".to_string())),
+        "auto-rows-min" => Some(("grid-auto-rows", "min-content".to_string())),
+        "auto-rows-max" => Some(("grid-auto-rows", "max-content".to_string())),
+        "auto-rows-fr" => Some(("grid-auto-rows", "minmax(0, 1fr)".to_string())),
+        "col-auto" => Some(("grid-column", "auto".to_string())),
+        "col-span-full" => Some(("grid-column", "1 / -1".to_string())),
+        "row-auto" => Some(("grid-row", "auto".to_string())),
+        "row-span-full" => Some(("grid-row", "1 / -1".to_string())),
+        _ => None,
+    };
+    if let Some((property, value)) = declaration {
+        return Some((property.to_string(), value));
+    }
+    if let Some(value) = class
+        .strip_prefix("grid-cols-")
+        .and_then(tailwind_grid_track_list)
+    {
+        return Some(("grid-template-columns".to_string(), value));
+    }
+    if let Some(value) = class
+        .strip_prefix("grid-rows-")
+        .and_then(tailwind_grid_track_list)
+    {
+        return Some(("grid-template-rows".to_string(), value));
+    }
+    if let Some(value) = class
+        .strip_prefix("auto-cols-")
+        .and_then(tailwind_grid_auto_track)
+    {
+        return Some(("grid-auto-columns".to_string(), value));
+    }
+    if let Some(value) = class
+        .strip_prefix("auto-rows-")
+        .and_then(tailwind_grid_auto_track)
+    {
+        return Some(("grid-auto-rows".to_string(), value));
+    }
+    if let Some(value) = class
+        .strip_prefix("col-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(("grid-column".to_string(), tailwind_arbitrary_value(value)));
+    }
+    if let Some(value) = class
+        .strip_prefix("row-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(("grid-row".to_string(), tailwind_arbitrary_value(value)));
+    }
+    if let Some(value) = class.strip_prefix("col-").and_then(tailwind_custom_var) {
+        return Some(("grid-column".to_string(), value));
+    }
+    if let Some(value) = class.strip_prefix("row-").and_then(tailwind_custom_var) {
+        return Some(("grid-row".to_string(), value));
+    }
+    if let Some(value) = class.strip_prefix("col-span-").and_then(tailwind_grid_line) {
+        return Some((
+            "grid-column".to_string(),
+            format!("span {value} / span {value}"),
+        ));
+    }
+    if let Some(value) = class.strip_prefix("row-span-").and_then(tailwind_grid_line) {
+        return Some((
+            "grid-row".to_string(),
+            format!("span {value} / span {value}"),
+        ));
+    }
+    if let Some(value) = tailwind_grid_line_utility(class, "col-start-") {
+        return Some(("grid-column-start".to_string(), value));
+    }
+    if let Some(value) = tailwind_grid_line_utility(class, "col-end-") {
+        return Some(("grid-column-end".to_string(), value));
+    }
+    if let Some(value) = tailwind_grid_line_utility(class, "row-start-") {
+        return Some(("grid-row-start".to_string(), value));
+    }
+    if let Some(value) = tailwind_grid_line_utility(class, "row-end-") {
+        return Some(("grid-row-end".to_string(), value));
+    }
+    None
+}
+
+fn tailwind_grid_track_list(value: &str) -> Option<String> {
+    if matches!(value, "none" | "subgrid") {
+        return Some(value.to_string());
+    }
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    let count = value.parse::<u16>().ok()?;
+    if count == 0 {
+        return None;
+    }
+    Some(format!("repeat({count}, minmax(0, 1fr))"))
+}
+
+fn tailwind_grid_auto_track(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    match value {
+        "auto" => Some("auto".to_string()),
+        "min" => Some("min-content".to_string()),
+        "max" => Some("max-content".to_string()),
+        "fr" => Some("minmax(0, 1fr)".to_string()),
+        _ => None,
+    }
+}
+
+fn tailwind_grid_line_utility(class: &str, prefix: &str) -> Option<String> {
+    if let Some(value) = class.strip_prefix(prefix).and_then(tailwind_grid_line) {
+        return Some(value);
+    }
+    let negative_prefix = format!("-{prefix}");
+    let value = class
+        .strip_prefix(&negative_prefix)
+        .and_then(tailwind_grid_line)?;
+    Some(format!("calc({value} * -1)"))
+}
+
+fn tailwind_grid_line(value: &str) -> Option<String> {
+    if value == "auto" {
+        return Some("auto".to_string());
+    }
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    value.parse::<u16>().ok().map(|value| value.to_string())
+}
+
+fn tailwind_arbitrary_or_custom_var(value: &str) -> Option<String> {
+    if let Some(arbitrary) = value
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some(tailwind_arbitrary_value(arbitrary));
+    }
+    tailwind_custom_var(value)
+}
+
+fn tailwind_custom_var(value: &str) -> Option<String> {
+    let variable = value
+        .strip_prefix('(')
+        .and_then(|value| value.strip_suffix(')'))?
+        .trim();
+    if variable.is_empty() {
+        None
+    } else {
+        Some(format!("var({variable})"))
+    }
 }
 
 fn insert_edge_declarations(
@@ -2213,6 +2433,103 @@ mod tests {
         assert_eq!(
             style.declarations.get("line-height").map(String::as_str),
             Some("1.25")
+        );
+    }
+
+    #[test]
+    fn parses_css_grid_properties_into_portable_tokens() {
+        let web = WebProps::new()
+            .style("display", "grid")
+            .style("grid", "auto-flow 1fr / 100px")
+            .style("gridTemplateColumns", "repeat(3, minmax(0, 1fr))")
+            .style("gridTemplateRows", "auto 1fr")
+            .style("gridTemplateAreas", "\"header header\" \"nav main\"")
+            .style("gridAutoColumns", "minmax(0, 1fr)")
+            .style("gridAutoRows", "min-content")
+            .style("gridAutoFlow", "column dense")
+            .style("gridColumn", "span 2 / span 2")
+            .style("gridColumnStart", "1")
+            .style("gridColumnEnd", "-1")
+            .style("gridRow", "1 / -1")
+            .style("gridRowStart", "2")
+            .style("gridRowEnd", "4")
+            .style("gridArea", "main");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.display, Some(DisplayMode::Grid));
+        assert_eq!(style.grid.as_deref(), Some("auto-flow 1fr / 100px"));
+        assert_eq!(
+            style.grid_template_columns.as_deref(),
+            Some("repeat(3, minmax(0, 1fr))")
+        );
+        assert_eq!(style.grid_template_rows.as_deref(), Some("auto 1fr"));
+        assert_eq!(
+            style.grid_template_areas.as_deref(),
+            Some("\"header header\" \"nav main\"")
+        );
+        assert_eq!(style.grid_auto_columns.as_deref(), Some("minmax(0, 1fr)"));
+        assert_eq!(style.grid_auto_rows.as_deref(), Some("min-content"));
+        assert_eq!(style.grid_auto_flow, Some(GridAutoFlow::ColumnDense));
+        assert_eq!(style.grid_column.as_deref(), Some("span 2 / span 2"));
+        assert_eq!(style.grid_column_start.as_deref(), Some("1"));
+        assert_eq!(style.grid_column_end.as_deref(), Some("-1"));
+        assert_eq!(style.grid_row.as_deref(), Some("1 / -1"));
+        assert_eq!(style.grid_row_start.as_deref(), Some("2"));
+        assert_eq!(style.grid_row_end.as_deref(), Some("4"));
+        assert_eq!(style.grid_area.as_deref(), Some("main"));
+        assert!(!style.unsupported.contains_key("grid-template-columns"));
+        assert!(!style.unsupported.contains_key("grid-auto-flow"));
+    }
+
+    #[test]
+    fn parses_tailwind_grid_utilities_into_portable_tokens() {
+        let web = WebProps::new().class_name(
+            "grid grid-cols-3 grid-rows-[auto_1fr] auto-cols-fr auto-rows-min \
+             grid-flow-col-dense col-span-2 -col-start-2 col-end-[-1] \
+             row-span-full row-start-2 row-end-4 \
+             md:grid-cols-6 hover:col-span-[3]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.display, Some(DisplayMode::Grid));
+        assert_eq!(
+            style.grid_template_columns.as_deref(),
+            Some("repeat(3, minmax(0, 1fr))")
+        );
+        assert_eq!(style.grid_template_rows.as_deref(), Some("auto 1fr"));
+        assert_eq!(style.grid_auto_columns.as_deref(), Some("minmax(0, 1fr)"));
+        assert_eq!(style.grid_auto_rows.as_deref(), Some("min-content"));
+        assert_eq!(style.grid_auto_flow, Some(GridAutoFlow::ColumnDense));
+        assert_eq!(style.grid_column.as_deref(), Some("span 2 / span 2"));
+        assert_eq!(style.grid_column_start.as_deref(), Some("calc(2 * -1)"));
+        assert_eq!(style.grid_column_end.as_deref(), Some("-1"));
+        assert_eq!(style.grid_row.as_deref(), Some("1 / -1"));
+        assert_eq!(style.grid_row_start.as_deref(), Some("2"));
+        assert_eq!(style.grid_row_end.as_deref(), Some("4"));
+        assert_eq!(
+            style
+                .declarations
+                .get("grid-template-columns")
+                .map(String::as_str),
+            Some("repeat(3, minmax(0, 1fr))")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("grid-template-columns"))
+                .map(String::as_str),
+            Some("repeat(6, minmax(0, 1fr))")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("grid-column"))
+                .map(String::as_str),
+            Some("span 3 / span 3")
         );
     }
 

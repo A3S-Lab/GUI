@@ -354,6 +354,8 @@ deterministically:
 - `position`, `inset`, `top`, `right`, `bottom`, `left`, `zIndex`
 - `visibility`
 - `flexDirection`, `flexWrap`, `alignItems`, `justifyContent`
+- `grid`, `gridTemplate*`, `gridAutoColumns`, `gridAutoRows`, `gridAutoFlow`,
+  `gridColumn*`, `gridRow*`, `gridArea`
 - `width`, `height`, min/max sizes
 - `gap`, `rowGap`, `columnGap`, `padding*`, `margin*`
 - `border`, `borderWidth`, `borderStyle`, `borderColor`, `borderRadius`
@@ -380,3 +382,6 @@ Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
 `outline-*`, `cursor-*`, `pointer-events-*`, `select-*`, `aspect-*`,
 `filter-*`, and basic transform utilities project into the same declaration
 model.
+Common Tailwind Grid utilities such as `grid-cols-*`, `grid-rows-*`,
+`auto-cols-*`, `auto-rows-*`, `grid-flow-*`, `col-*`, and `row-*` project into
+the same declaration model.

@@ -95,9 +95,9 @@ pub use react_aria::{AriaComponent, AriaElement, AriaProps, ReactAriaMapper};
 pub use renderer::Renderer;
 pub use runtime::GuiRuntime;
 pub use style::{
-    AlignItems, BorderStyle, DisplayMode, EdgeInsets, FlexWrap, FontWeight, JustifyContent,
-    OverflowMode, PointerEvents, PortableStyle, PositionMode, StyleColor, StyleLength, TextAlign,
-    UserSelect, VisibilityMode,
+    AlignItems, BorderStyle, DisplayMode, EdgeInsets, FlexWrap, FontWeight, GridAutoFlow,
+    JustifyContent, OverflowMode, PointerEvents, PortableStyle, PositionMode, StyleColor,
+    StyleLength, TextAlign, UserSelect, VisibilityMode,
 };
 pub use web::WebProps;
 #[cfg(feature = "winui")]

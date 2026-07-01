@@ -44,11 +44,12 @@ The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
 properties separately, and projects supported declarations into native style
 tokens. The current portable token set includes display, position, inset,
-z-index, visibility, flex direction/wrap, alignment, justification, sizing,
-gap/row-gap/column-gap, spacing, border width/style/color/radius, text color,
-background color, font size, font weight, line height, text alignment, overflow,
-opacity, aspect ratio, box shadow, outline, transform, filter, backdrop filter,
-cursor, pointer events, and user selection.
+z-index, visibility, flex direction/wrap, alignment, justification, CSS Grid
+shorthand/templates/auto tracks/auto flow/placement, sizing, gap/row-gap/column-gap,
+spacing, border width/style/color/radius, text color, background color, font
+size, font weight, line height, text alignment, overflow, opacity, aspect ratio,
+box shadow, outline, transform, filter, backdrop filter, cursor, pointer
+events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `var(...)`, `clamp(...)`, viewport units, and sizing keywords, are
@@ -63,8 +64,11 @@ as `hover:`, `focus:`, and responsive prefixes are preserved in
 preserved in the generated declarations and portable color tokens. Common
 visual-effect utilities such as `shadow-*`, `outline-*`, `cursor-*`,
 `pointer-events-*`, `select-*`, `aspect-*`, `filter-*`, and basic transform
-utilities are projected into the same declaration model. Inline styles are
-applied after class utilities so they keep normal inline-style precedence.
+utilities are projected into the same declaration model. Core CSS Grid
+utilities such as `grid-cols-*`, `grid-rows-*`, `auto-cols-*`, `auto-rows-*`,
+`grid-flow-*`, `col-*`, and `row-*` are also projected into portable style
+tokens. Inline styles are applied after class utilities so they keep normal
+inline-style precedence.
 
 CSS properties and Tailwind classes that do not yet have a portable native token
 remain available as raw `className`, style declarations, metadata, or
