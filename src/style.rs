@@ -216,6 +216,13 @@ pub struct PortableStyle {
     pub text_transform: Option<TextTransform>,
     pub text_indent: Option<StyleLength>,
     pub text_wrap: Option<TextWrapMode>,
+    pub text_wrap_mode: Option<String>,
+    pub text_wrap_style: Option<String>,
+    pub text_spacing_trim: Option<String>,
+    pub text_autospace: Option<String>,
+    pub text_box: Option<String>,
+    pub text_box_trim: Option<String>,
+    pub text_box_edge: Option<String>,
     pub hanging_punctuation: Option<String>,
     pub line_clamp: Option<String>,
     pub box_orient: Option<String>,
@@ -255,6 +262,7 @@ pub struct PortableStyle {
     pub text_overflow: Option<TextOverflow>,
     pub line_break: Option<String>,
     pub white_space: Option<WhiteSpaceMode>,
+    pub white_space_collapse: Option<String>,
     pub word_break: Option<WordBreakMode>,
     pub overflow_wrap: Option<OverflowWrapMode>,
     pub hyphens: Option<HyphensMode>,
@@ -939,7 +947,22 @@ impl PortableStyle {
             }
             "text-transform" => self.text_transform = parse_text_transform(value_ref),
             "text-indent" => self.text_indent = parse_length(value_ref),
-            "text-wrap" | "text-wrap-mode" => self.text_wrap = parse_text_wrap(value_ref),
+            "text-wrap" => {
+                self.text_wrap = parse_text_wrap(value_ref);
+                self.text_wrap_mode = parse_css_string_token(value_ref);
+            }
+            "text-wrap-mode" => {
+                self.text_wrap = parse_text_wrap(value_ref);
+                self.text_wrap_mode = parse_css_string_token(value_ref);
+            }
+            "text-wrap-style" => self.text_wrap_style = parse_css_string_token(value_ref),
+            "text-spacing-trim" => self.text_spacing_trim = parse_css_string_token(value_ref),
+            "text-autospace" | "-ms-text-autospace" | "ms-text-autospace" => {
+                self.text_autospace = parse_css_string_token(value_ref);
+            }
+            "text-box" => self.text_box = parse_css_string_token(value_ref),
+            "text-box-trim" => self.text_box_trim = parse_css_string_token(value_ref),
+            "text-box-edge" => self.text_box_edge = parse_css_string_token(value_ref),
             "hanging-punctuation" => self.hanging_punctuation = parse_css_string_token(value_ref),
             "line-clamp" | "-webkit-line-clamp" => {
                 self.line_clamp = parse_css_string_token(value_ref);
@@ -1007,6 +1030,9 @@ impl PortableStyle {
             "text-overflow" => self.text_overflow = parse_text_overflow(value_ref),
             "line-break" => self.line_break = parse_css_string_token(value_ref),
             "white-space" => self.white_space = parse_white_space(value_ref),
+            "white-space-collapse" => {
+                self.white_space_collapse = parse_css_string_token(value_ref);
+            }
             "word-break" => self.word_break = parse_word_break(value_ref),
             "overflow-wrap" => self.overflow_wrap = parse_overflow_wrap(value_ref),
             "hyphens" => self.hyphens = parse_hyphens(value_ref),
@@ -9454,6 +9480,13 @@ mod tests {
             .style("textTransform", "uppercase")
             .style("textIndent", "2rem")
             .style("textWrap", "balance")
+            .style("textWrapMode", "nowrap")
+            .style("textWrapStyle", "pretty")
+            .style("textSpacingTrim", "trim-start")
+            .style("textAutospace", "ideograph-alpha ideograph-numeric")
+            .style("textBox", "trim-both cap alphabetic")
+            .style("textBoxTrim", "trim-both")
+            .style("textBoxEdge", "cap alphabetic")
             .style("hangingPunctuation", "first allow-end")
             .style("lineClamp", "3")
             .style("display", "-webkit-box")
@@ -9471,6 +9504,7 @@ mod tests {
             .style("textOverflow", "ellipsis")
             .style("lineBreak", "strict")
             .style("whiteSpace", "nowrap")
+            .style("whiteSpaceCollapse", "preserve-breaks")
             .style("wordBreak", "keep-all")
             .style("overflowWrap", "anywhere")
             .style("hyphens", "auto");
@@ -9543,7 +9577,17 @@ mod tests {
         assert_eq!(style.text_combine_upright.as_deref(), Some("digits 2"));
         assert_eq!(style.text_transform, Some(TextTransform::Uppercase));
         assert_eq!(style.text_indent, Some(StyleLength::Points(32.0)));
-        assert_eq!(style.text_wrap, Some(TextWrapMode::Balance));
+        assert_eq!(style.text_wrap, Some(TextWrapMode::NoWrap));
+        assert_eq!(style.text_wrap_mode.as_deref(), Some("nowrap"));
+        assert_eq!(style.text_wrap_style.as_deref(), Some("pretty"));
+        assert_eq!(style.text_spacing_trim.as_deref(), Some("trim-start"));
+        assert_eq!(
+            style.text_autospace.as_deref(),
+            Some("ideograph-alpha ideograph-numeric")
+        );
+        assert_eq!(style.text_box.as_deref(), Some("trim-both cap alphabetic"));
+        assert_eq!(style.text_box_trim.as_deref(), Some("trim-both"));
+        assert_eq!(style.text_box_edge.as_deref(), Some("cap alphabetic"));
         assert_eq!(
             style.hanging_punctuation.as_deref(),
             Some("first allow-end")
@@ -9587,6 +9631,10 @@ mod tests {
         assert_eq!(style.text_overflow, Some(TextOverflow::Ellipsis));
         assert_eq!(style.line_break.as_deref(), Some("strict"));
         assert_eq!(style.white_space, Some(WhiteSpaceMode::NoWrap));
+        assert_eq!(
+            style.white_space_collapse.as_deref(),
+            Some("preserve-breaks")
+        );
         assert_eq!(style.word_break, Some(WordBreakMode::KeepAll));
         assert_eq!(style.overflow_wrap, Some(OverflowWrapMode::Anywhere));
         assert_eq!(style.hyphens, Some(HyphensMode::Auto));
@@ -9617,6 +9665,14 @@ mod tests {
         assert!(!style.unsupported.contains_key("text-combine-upright"));
         assert!(!style.unsupported.contains_key("hanging-punctuation"));
         assert!(!style.unsupported.contains_key("text-wrap"));
+        assert!(!style.unsupported.contains_key("text-wrap-mode"));
+        assert!(!style.unsupported.contains_key("text-wrap-style"));
+        assert!(!style.unsupported.contains_key("text-spacing-trim"));
+        assert!(!style.unsupported.contains_key("text-autospace"));
+        assert!(!style.unsupported.contains_key("text-box"));
+        assert!(!style.unsupported.contains_key("text-box-trim"));
+        assert!(!style.unsupported.contains_key("text-box-edge"));
+        assert!(!style.unsupported.contains_key("white-space-collapse"));
         assert!(!style.unsupported.contains_key("-webkit-line-clamp"));
     }
 
@@ -9639,6 +9695,15 @@ mod tests {
 
         assert_eq!(style.font_language_override.as_deref(), Some("\"SRB\""));
         assert!(!style.unsupported.contains_key("moz-font-language-override"));
+    }
+
+    #[test]
+    fn parses_prefixed_text_autospace_alias() {
+        let style =
+            PortableStyle::from_web(&WebProps::new().style("MsTextAutospace", "ideograph-alpha"));
+
+        assert_eq!(style.text_autospace.as_deref(), Some("ideograph-alpha"));
+        assert!(!style.unsupported.contains_key("ms-text-autospace"));
     }
 
     #[test]
@@ -9669,12 +9734,19 @@ mod tests {
              hover:[text-align-last:right] focus:[text-justify:inter-character] \
              visited:[hanging-punctuation:last_force-end] \
              active:[text-combine-upright:digits_2] \
+             [white-space-collapse:preserve-breaks] [text-wrap-mode:nowrap] \
+             [text-wrap-style:stable] [text-spacing-trim:space-all] \
+             [text-autospace:ideograph-alpha] [text-box:trim-both_cap_alphabetic] \
+             [text-box-trim:trim-start] [text-box-edge:cap_alphabetic] \
              hover:[text-decoration-skip-ink:all] focus:[text-underline-position:left] \
              hover:[text-emphasis-style:filled_sesame] focus:[text-emphasis-color:#663399] \
              active:[text-emphasis-position:over_left] \
              hover:font-features-(--font-features) focus:text-shadow-[0_1px_2px_rgb(0_0_0_/_0.3)] \
              lg:normal-nums content-none before:content-['Hello_World'] \
              after:content-(--suffix-content) hover:content-['Hello\\_World'] \
+             hover:[white-space-collapse:preserve-spaces] focus:[text-wrap-style:pretty] \
+             active:[text-spacing-trim:trim-auto] before:[text-box-trim:none] \
+             after:[text-box-edge:text] visited:[text-autospace:no-autospace] \
              [hanging-punctuation:first_allow-end] \
              hover:wrap-break-word focus:wrap-[normal] active:wrap-(--overflow-wrap) \
              md:subpixel-antialiased",
@@ -9719,7 +9791,14 @@ mod tests {
         assert_eq!(style.text_orientation, Some(TextOrientation::Upright));
         assert_eq!(style.text_combine_upright.as_deref(), Some("all"));
         assert_eq!(style.text_indent, Some(StyleLength::Points(-2.0)));
-        assert_eq!(style.text_wrap, Some(TextWrapMode::Balance));
+        assert_eq!(style.text_wrap, Some(TextWrapMode::NoWrap));
+        assert_eq!(style.text_wrap_mode.as_deref(), Some("nowrap"));
+        assert_eq!(style.text_wrap_style.as_deref(), Some("stable"));
+        assert_eq!(style.text_spacing_trim.as_deref(), Some("space-all"));
+        assert_eq!(style.text_autospace.as_deref(), Some("ideograph-alpha"));
+        assert_eq!(style.text_box.as_deref(), Some("trim-both cap alphabetic"));
+        assert_eq!(style.text_box_trim.as_deref(), Some("trim-start"));
+        assert_eq!(style.text_box_edge.as_deref(), Some("cap alphabetic"));
         assert_eq!(
             style.hanging_punctuation.as_deref(),
             Some("first allow-end")
@@ -9762,6 +9841,10 @@ mod tests {
         assert_eq!(style.overflow_x, Some(OverflowMode::Hidden));
         assert_eq!(style.overflow_y, Some(OverflowMode::Hidden));
         assert_eq!(style.white_space, Some(WhiteSpaceMode::PreWrap));
+        assert_eq!(
+            style.white_space_collapse.as_deref(),
+            Some("preserve-breaks")
+        );
         assert_eq!(style.word_break, Some(WordBreakMode::BreakAll));
         assert_eq!(style.overflow_wrap, Some(OverflowWrapMode::Anywhere));
         assert_eq!(style.hyphens, Some(HyphensMode::Auto));
@@ -9861,6 +9944,54 @@ mod tests {
                 .and_then(|styles| styles.get("text-justify"))
                 .map(String::as_str),
             Some("inter-character")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("white-space-collapse"))
+                .map(String::as_str),
+            Some("preserve-spaces")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("text-wrap-style"))
+                .map(String::as_str),
+            Some("pretty")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("text-spacing-trim"))
+                .map(String::as_str),
+            Some("trim-auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("text-box-trim"))
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("after")
+                .and_then(|styles| styles.get("text-box-edge"))
+                .map(String::as_str),
+            Some("text")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("visited")
+                .and_then(|styles| styles.get("text-autospace"))
+                .map(String::as_str),
+            Some("no-autospace")
         );
         assert_eq!(
             style

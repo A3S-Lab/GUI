@@ -398,7 +398,8 @@ deterministically:
   `MozTextSizeAdjust`, `MsTextSizeAdjust`, `direction`, `unicodeBidi`,
   `writingMode`, `textOrientation`,
   `textCombineUpright`, `textTransform`, `textIndent`, `textWrap`,
-  `hangingPunctuation`, `lineClamp`, `boxOrient`
+  `textWrapMode`, `textWrapStyle`, `textSpacingTrim`, `textAutospace`,
+  `textBox*`, `hangingPunctuation`, `lineClamp`, `boxOrient`
 - SVG presentation properties such as `fill`, `fillOpacity`, `fillRule`,
   `clipRule`, `stroke`, `strokeWidth`, `strokeLinecap`, `strokeLinejoin`,
   `strokeMiterlimit`, `strokeDasharray`, `strokeDashoffset`, `strokeOpacity`,
@@ -409,7 +410,7 @@ deterministically:
   `textUnderlinePosition`, `textEmphasisStyle`, `textEmphasisColor`,
   `textEmphasisPosition`, `rubyAlign`, `rubyPosition`, `rubyMerge`,
   `rubyOverhang`, `textShadow`, `textOverflow`, `lineBreak`, `whiteSpace`,
-  `wordBreak`, `overflowWrap`, `hyphens`
+  `whiteSpaceCollapse`, `wordBreak`, `overflowWrap`, `hyphens`
 - `overflow`, `overflowX`, `overflowY`
 - `aspectRatio`, `boxShadow`, Tailwind `ring*` and `divide*` metadata,
   `outline*`, `transform`, `filter`,
@@ -484,7 +485,9 @@ font variant numeric utilities, `tab-*`, text transform utilities, text decorati
 utilities, `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
 arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
-`text-justify`, and `hanging-punctuation` properties, arbitrary `ruby-*`
+`text-justify`, `text-wrap-*`, `text-spacing-trim`, `text-autospace`,
+`text-box*`, `white-space-collapse`, and `hanging-punctuation` properties,
+arbitrary `ruby-*`
 properties, `truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`,
 `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `whitespace-*`, `wrap-*`, word-break utilities,

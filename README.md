@@ -66,10 +66,11 @@ font synthesis properties, line height, letter spacing, word spacing, tab size,
 text alignment, final-line alignment, text justification, text size adjustment,
 text direction, Unicode bidi, writing
 mode, text orientation, text combine upright, text transform, text indent, text
-wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
+wrapping, text spacing, text autospace, text box trim/edge, line clamp,
+SVG fill/stroke presentation properties, text decoration,
 text decoration skip ink, underline offset/position, text shadow, text overflow,
 text emphasis, ruby layout, hanging punctuation, line breaking, whitespace,
-word breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
+whitespace collapse, word breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
 rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
 filter, backdrop filter function components, transition, animation,
@@ -128,7 +129,9 @@ font variant numeric utilities,
 `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
 arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
-`text-justify`, and `hanging-punctuation` properties, arbitrary `ruby-*`
+`text-justify`, `text-wrap-*`, `text-spacing-trim`, `text-autospace`,
+`text-box*`, `white-space-collapse`, and `hanging-punctuation` properties,
+arbitrary `ruby-*`
 properties, `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `truncate`,
 `text-ellipsis`, `text-clip`, `whitespace-*`, `wrap-*`, word-break utilities,
