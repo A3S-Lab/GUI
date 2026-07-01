@@ -169,12 +169,15 @@ pub struct PortableStyle {
     pub break_before: Option<String>,
     pub break_after: Option<String>,
     pub break_inside: Option<String>,
+    pub font: Option<String>,
     pub font_family: Option<String>,
     pub font_style: Option<FontStyle>,
     pub font_size: Option<StyleLength>,
     pub font_size_adjust: Option<String>,
     pub font_weight: Option<FontWeight>,
     pub font_stretch: Option<String>,
+    pub font_palette: Option<String>,
+    pub font_language_override: Option<String>,
     pub font_kerning: Option<String>,
     pub font_optical_sizing: Option<String>,
     pub webkit_font_smoothing: Option<String>,
@@ -844,12 +847,19 @@ impl PortableStyle {
             "break-inside" | "page-break-inside" => {
                 self.break_inside = parse_css_string_token(value_ref);
             }
+            "font" => self.font = parse_css_string_token(value_ref),
             "font-family" => self.font_family = parse_css_string_token(value_ref),
             "font-style" => self.font_style = parse_font_style(value_ref),
             "font-size" => self.font_size = parse_length(value_ref),
             "font-size-adjust" => self.font_size_adjust = parse_css_string_token(value_ref),
             "font-weight" => self.font_weight = parse_font_weight(value_ref),
             "font-stretch" => self.font_stretch = parse_css_string_token(value_ref),
+            "font-palette" => self.font_palette = parse_css_string_token(value_ref),
+            "font-language-override"
+            | "-moz-font-language-override"
+            | "moz-font-language-override" => {
+                self.font_language_override = parse_css_string_token(value_ref);
+            }
             "font-kerning" => self.font_kerning = parse_css_string_token(value_ref),
             "font-optical-sizing" => {
                 self.font_optical_sizing = parse_css_string_token(value_ref);
@@ -9401,9 +9411,12 @@ mod tests {
     #[test]
     fn parses_css_typography_text_properties_into_portable_tokens() {
         let web = WebProps::new()
+            .style("font", "italic small-caps 16px/1.5 ui-serif")
             .style("fontFamily", "ui-monospace, monospace")
             .style("fontStyle", "italic")
             .style("fontStretch", "semi-condensed")
+            .style("fontPalette", "dark")
+            .style("fontLanguageOverride", "\"TRK\"")
             .style("fontKerning", "normal")
             .style("fontOpticalSizing", "auto")
             .style("WebkitFontSmoothing", "antialiased")
@@ -9465,11 +9478,17 @@ mod tests {
         let style = PortableStyle::from_web(&web);
 
         assert_eq!(
+            style.font.as_deref(),
+            Some("italic small-caps 16px/1.5 ui-serif")
+        );
+        assert_eq!(
             style.font_family.as_deref(),
             Some("ui-monospace, monospace")
         );
         assert_eq!(style.font_style, Some(FontStyle::Italic));
         assert_eq!(style.font_stretch.as_deref(), Some("semi-condensed"));
+        assert_eq!(style.font_palette.as_deref(), Some("dark"));
+        assert_eq!(style.font_language_override.as_deref(), Some("\"TRK\""));
         assert_eq!(style.font_kerning.as_deref(), Some("normal"));
         assert_eq!(style.font_optical_sizing.as_deref(), Some("auto"));
         assert_eq!(style.webkit_font_smoothing.as_deref(), Some("antialiased"));
@@ -9578,8 +9597,11 @@ mod tests {
         assert!(!style
             .unsupported
             .contains_key("webkit-text-emphasis-position"));
+        assert!(!style.unsupported.contains_key("font"));
         assert!(!style.unsupported.contains_key("font-feature-settings"));
         assert!(!style.unsupported.contains_key("font-size-adjust"));
+        assert!(!style.unsupported.contains_key("font-palette"));
+        assert!(!style.unsupported.contains_key("font-language-override"));
         assert!(!style.unsupported.contains_key("font-variant-numeric"));
         assert!(!style.unsupported.contains_key("text-size-adjust"));
         assert!(!style.unsupported.contains_key("webkit-text-size-adjust"));
@@ -9611,6 +9633,15 @@ mod tests {
     }
 
     #[test]
+    fn parses_prefixed_font_language_override_alias() {
+        let style =
+            PortableStyle::from_web(&WebProps::new().style("MozFontLanguageOverride", "\"SRB\""));
+
+        assert_eq!(style.font_language_override.as_deref(), Some("\"SRB\""));
+        assert!(!style.unsupported.contains_key("moz-font-language-override"));
+    }
+
+    #[test]
     fn parses_tailwind_typography_text_utilities() {
         let web = WebProps::new().class_name(
             "font-mono italic antialiased tracking-wide uppercase underline decoration-wavy \
@@ -9618,7 +9649,9 @@ mod tests {
              whitespace-pre-wrap break-all wrap-anywhere hyphens-auto -indent-[2px] text-balance \
              ordinal slashed-zero tabular-nums diagonal-fractions \
              font-stretch-condensed font-features-[\"kern\"_1] tab-4 text-shadow-sm \
-             [font-size-adjust:0.5] [text-size-adjust:100%] \
+             [font:italic_1rem/1.5_serif] [font-size-adjust:0.5] \
+             [font-palette:dark] [font-language-override:\"TRK\"] \
+             [text-size-adjust:100%] \
              [-webkit-text-size-adjust:none] [-moz-text-size-adjust:auto] \
              [-ms-text-size-adjust:80%] \
              [text-align-last:center] [text-justify:inter-word] \
@@ -9632,6 +9665,7 @@ mod tests {
              rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
              hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
              hover:[font-size-adjust:0.6] focus:[text-size-adjust:none] \
+             hover:[font-palette:light] focus:[font-language-override:normal] \
              hover:[text-align-last:right] focus:[text-justify:inter-character] \
              visited:[hanging-punctuation:last_force-end] \
              active:[text-combine-upright:digits_2] \
@@ -9661,8 +9695,11 @@ mod tests {
         assert_eq!(style.font_stretch.as_deref(), Some("condensed"));
         assert_eq!(style.webkit_font_smoothing.as_deref(), Some("antialiased"));
         assert_eq!(style.moz_osx_font_smoothing.as_deref(), Some("grayscale"));
+        assert_eq!(style.font.as_deref(), Some("italic 1rem/1.5 serif"));
         assert_eq!(style.font_feature_settings.as_deref(), Some("\"kern\" 1"));
         assert_eq!(style.font_size_adjust.as_deref(), Some("0.5"));
+        assert_eq!(style.font_palette.as_deref(), Some("dark"));
+        assert_eq!(style.font_language_override.as_deref(), Some("\"TRK\""));
         assert_eq!(
             style.font_variant_numeric.as_deref(),
             Some("ordinal slashed-zero tabular-nums diagonal-fractions")
@@ -9784,6 +9821,22 @@ mod tests {
                 .and_then(|styles| styles.get("font-size-adjust"))
                 .map(String::as_str),
             Some("0.6")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("font-palette"))
+                .map(String::as_str),
+            Some("light")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("font-language-override"))
+                .map(String::as_str),
+            Some("normal")
         );
         assert_eq!(
             style

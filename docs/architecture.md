@@ -388,7 +388,8 @@ deterministically:
   `listStyleType`, `listStylePosition`, `listStyleImage`,
   `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
   `columnFill`, `breakBefore`, `breakAfter`, `breakInside`
-- `fontFamily`, `fontStyle`, `fontSize`, `fontSizeAdjust`, `fontWeight`, `fontStretch`,
+- `font`, `fontFamily`, `fontStyle`, `fontSize`, `fontSizeAdjust`,
+  `fontWeight`, `fontStretch`, `fontPalette`, `fontLanguageOverride`,
   `fontKerning`, `fontOpticalSizing`, `WebkitFontSmoothing`,
   `MozOsxFontSmoothing`, `fontFeatureSettings`, `fontVariationSettings`,
   `fontVariant*`, `fontSynthesis*`, `lineHeight`,
@@ -477,7 +478,8 @@ Common Tailwind sizing and child-spacing utilities such as `size-*`,
 into the same declaration model.
 Common Tailwind typography and text utilities such as `font-*`, `italic`,
 `not-italic`, `antialiased`, `subpixel-antialiased`, `tracking-*`,
-`font-stretch-*`, `font-features-*`, arbitrary `font-size-adjust` properties,
+`font-stretch-*`, `font-features-*`, arbitrary `font`, `font-size-adjust`,
+`font-palette`, and `font-language-override` properties,
 font variant numeric utilities, `tab-*`, text transform utilities, text decoration
 utilities, `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,

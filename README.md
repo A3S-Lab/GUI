@@ -58,9 +58,9 @@ CSS clip, CSS clip path, CSS mask, CSS mask border,
 CSS image rendering/orientation/resolution, object fit/position,
 CSS Shapes shape-outside/margin/threshold, list style type/position/image,
 columns, column rule/span/fill,
-fragmentation breaks, font size and font size adjustment,
-font weight, font family, font style, font
-stretch, font kerning, font optical sizing, font smoothing hints,
+fragmentation breaks, font shorthand, font size and font size adjustment,
+font weight, font family, font style, font stretch, font palette,
+font language override, font kerning, font optical sizing, font smoothing hints,
 font feature and variation settings, font variant and
 font synthesis properties, line height, letter spacing, word spacing, tab size,
 text alignment, final-line alignment, text justification, text size adjustment,
@@ -121,7 +121,8 @@ Sizing and child-spacing utilities such as `size-*`, `space-x-*`,
 portable layout tokens.
 Typography utilities such as `font-*`, `italic`, `not-italic`,
 `antialiased`, `subpixel-antialiased`, `tracking-*`, `font-stretch-*`,
-`font-features-*`, arbitrary `font-size-adjust` properties,
+`font-features-*`, arbitrary `font`, `font-size-adjust`, `font-palette`, and
+`font-language-override` properties,
 font variant numeric utilities,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
