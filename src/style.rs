@@ -108,8 +108,34 @@ pub struct PortableStyle {
     pub z_index: Option<i32>,
     pub aspect_ratio: Option<String>,
     pub transform: Option<String>,
+    pub translate: Option<String>,
+    pub rotate: Option<String>,
+    pub scale: Option<String>,
+    pub transform_origin: Option<String>,
+    pub transform_style: Option<String>,
+    pub backface_visibility: Option<BackfaceVisibility>,
+    pub perspective: Option<StyleLength>,
+    pub perspective_origin: Option<String>,
     pub filter: Option<String>,
+    pub filter_blur: Option<String>,
+    pub filter_brightness: Option<String>,
+    pub filter_contrast: Option<String>,
+    pub filter_drop_shadow: Option<String>,
+    pub filter_grayscale: Option<String>,
+    pub filter_hue_rotate: Option<String>,
+    pub filter_invert: Option<String>,
+    pub filter_saturate: Option<String>,
+    pub filter_sepia: Option<String>,
     pub backdrop_filter: Option<String>,
+    pub backdrop_filter_blur: Option<String>,
+    pub backdrop_filter_brightness: Option<String>,
+    pub backdrop_filter_contrast: Option<String>,
+    pub backdrop_filter_grayscale: Option<String>,
+    pub backdrop_filter_hue_rotate: Option<String>,
+    pub backdrop_filter_invert: Option<String>,
+    pub backdrop_filter_opacity: Option<String>,
+    pub backdrop_filter_saturate: Option<String>,
+    pub backdrop_filter_sepia: Option<String>,
     pub transition: Option<String>,
     pub transition_property: Option<String>,
     pub transition_duration: Option<StyleTime>,
@@ -162,6 +188,7 @@ impl PortableStyle {
         let value_ref = value.as_str();
         self.record_declaration(&property, value_ref);
         if property.starts_with("--") {
+            self.apply_tailwind_custom_property(&property, value_ref);
             return;
         }
         match property.as_str() {
@@ -328,9 +355,19 @@ impl PortableStyle {
             "visibility" => self.visibility = parse_visibility(value_ref),
             "z-index" => self.z_index = parse_z_index(value_ref),
             "aspect-ratio" => self.aspect_ratio = parse_css_string_token(value_ref),
-            "transform" => self.transform = parse_css_string_token(value_ref),
-            "filter" => self.filter = parse_css_string_token(value_ref),
-            "backdrop-filter" => self.backdrop_filter = parse_css_string_token(value_ref),
+            "transform" => self.apply_transform_property(value_ref),
+            "translate" => self.translate = self.resolve_tailwind_translate(value_ref),
+            "rotate" => self.rotate = self.resolve_tailwind_rotate(value_ref),
+            "scale" => self.scale = self.resolve_tailwind_scale(value_ref),
+            "transform-origin" => self.transform_origin = parse_css_string_token(value_ref),
+            "transform-style" => self.transform_style = parse_css_string_token(value_ref),
+            "backface-visibility" => {
+                self.backface_visibility = parse_backface_visibility(value_ref)
+            }
+            "perspective" => self.perspective = parse_length(value_ref),
+            "perspective-origin" => self.perspective_origin = parse_css_string_token(value_ref),
+            "filter" => self.apply_filter_property(value_ref),
+            "backdrop-filter" => self.apply_backdrop_filter_property(value_ref),
             "transition" => self.transition = parse_css_string_token(value_ref),
             "transition-property" => {
                 self.transition_property = parse_css_string_token(value_ref);
@@ -436,6 +473,218 @@ impl PortableStyle {
                 self.text_decoration_color = Some(color);
             }
         }
+    }
+
+    fn apply_tailwind_custom_property(&mut self, property: &str, value: &str) {
+        match property {
+            "--tw-blur" => self.filter_blur = parse_non_empty_css_string(value),
+            "--tw-brightness" => self.filter_brightness = parse_non_empty_css_string(value),
+            "--tw-contrast" => self.filter_contrast = parse_non_empty_css_string(value),
+            "--tw-drop-shadow" => self.filter_drop_shadow = parse_non_empty_css_string(value),
+            "--tw-grayscale" => self.filter_grayscale = parse_non_empty_css_string(value),
+            "--tw-hue-rotate" => self.filter_hue_rotate = parse_non_empty_css_string(value),
+            "--tw-invert" => self.filter_invert = parse_non_empty_css_string(value),
+            "--tw-saturate" => self.filter_saturate = parse_non_empty_css_string(value),
+            "--tw-sepia" => self.filter_sepia = parse_non_empty_css_string(value),
+            "--tw-backdrop-blur" => {
+                self.backdrop_filter_blur = parse_non_empty_css_string(value);
+            }
+            "--tw-backdrop-brightness" => {
+                self.backdrop_filter_brightness = parse_non_empty_css_string(value);
+            }
+            "--tw-backdrop-contrast" => {
+                self.backdrop_filter_contrast = parse_non_empty_css_string(value);
+            }
+            "--tw-backdrop-grayscale" => {
+                self.backdrop_filter_grayscale = parse_non_empty_css_string(value);
+            }
+            "--tw-backdrop-hue-rotate" => {
+                self.backdrop_filter_hue_rotate = parse_non_empty_css_string(value);
+            }
+            "--tw-backdrop-invert" => {
+                self.backdrop_filter_invert = parse_non_empty_css_string(value);
+            }
+            "--tw-backdrop-opacity" => {
+                self.backdrop_filter_opacity = parse_non_empty_css_string(value);
+            }
+            "--tw-backdrop-saturate" => {
+                self.backdrop_filter_saturate = parse_non_empty_css_string(value);
+            }
+            "--tw-backdrop-sepia" => {
+                self.backdrop_filter_sepia = parse_non_empty_css_string(value);
+            }
+            _ => {}
+        }
+    }
+
+    fn apply_transform_property(&mut self, value: &str) {
+        if value.trim() == "none" {
+            self.transform = Some("none".to_string());
+            return;
+        }
+        if is_tailwind_transform_pipeline(value) {
+            self.transform = self
+                .compose_tailwind_transform(value.contains("translateZ(0)"))
+                .or_else(|| parse_css_string_token(value));
+            return;
+        }
+        self.transform = parse_css_string_token(value);
+    }
+
+    fn resolve_tailwind_translate(&self, value: &str) -> Option<String> {
+        if !is_tailwind_translate_pipeline(value) {
+            return parse_css_string_token(value);
+        }
+        let x = self
+            .custom_properties
+            .get("--tw-translate-x")
+            .map(String::as_str)
+            .unwrap_or("0");
+        let y = self
+            .custom_properties
+            .get("--tw-translate-y")
+            .map(String::as_str)
+            .unwrap_or("0");
+        let z = self.custom_properties.get("--tw-translate-z");
+        Some(match z {
+            Some(z) => format!("{x} {y} {z}"),
+            None => format!("{x} {y}"),
+        })
+    }
+
+    fn resolve_tailwind_rotate(&self, value: &str) -> Option<String> {
+        if value == "var(--tw-rotate)" {
+            return self.custom_properties.get("--tw-rotate").cloned();
+        }
+        parse_css_string_token(value)
+    }
+
+    fn resolve_tailwind_scale(&self, value: &str) -> Option<String> {
+        if !is_tailwind_scale_pipeline(value) {
+            return parse_css_string_token(value);
+        }
+        let x = self
+            .custom_properties
+            .get("--tw-scale-x")
+            .map(String::as_str)
+            .unwrap_or("100%");
+        let y = self
+            .custom_properties
+            .get("--tw-scale-y")
+            .map(String::as_str)
+            .unwrap_or("100%");
+        let z = self.custom_properties.get("--tw-scale-z");
+        Some(match z {
+            Some(z) => format!("{x} {y} {z}"),
+            None => format!("{x} {y}"),
+        })
+    }
+
+    fn compose_tailwind_transform(&self, gpu: bool) -> Option<String> {
+        let mut parts = Vec::new();
+        if gpu {
+            parts.push("translateZ(0)".to_string());
+        }
+        for property in [
+            "--tw-rotate-x",
+            "--tw-rotate-y",
+            "--tw-rotate-z",
+            "--tw-skew-x",
+            "--tw-skew-y",
+        ] {
+            if let Some(value) = self.custom_properties.get(property) {
+                if !value.trim().is_empty() {
+                    parts.push(value.clone());
+                }
+            }
+        }
+        if parts.is_empty() {
+            None
+        } else {
+            Some(parts.join(" "))
+        }
+    }
+
+    fn apply_filter_property(&mut self, value: &str) {
+        if value.trim() == "none" {
+            self.clear_filter_components();
+            self.filter = Some("none".to_string());
+            return;
+        }
+        if is_tailwind_filter_pipeline(value) {
+            self.filter = self
+                .compose_filter()
+                .or_else(|| parse_css_string_token(value));
+            return;
+        }
+        self.filter = parse_css_string_token(value);
+    }
+
+    fn apply_backdrop_filter_property(&mut self, value: &str) {
+        if value.trim() == "none" {
+            self.clear_backdrop_filter_components();
+            self.backdrop_filter = Some("none".to_string());
+            return;
+        }
+        if is_tailwind_backdrop_filter_pipeline(value) {
+            self.backdrop_filter = self
+                .compose_backdrop_filter()
+                .or_else(|| parse_css_string_token(value));
+            return;
+        }
+        self.backdrop_filter = parse_css_string_token(value);
+    }
+
+    fn clear_filter_components(&mut self) {
+        self.filter_blur = None;
+        self.filter_brightness = None;
+        self.filter_contrast = None;
+        self.filter_drop_shadow = None;
+        self.filter_grayscale = None;
+        self.filter_hue_rotate = None;
+        self.filter_invert = None;
+        self.filter_saturate = None;
+        self.filter_sepia = None;
+    }
+
+    fn clear_backdrop_filter_components(&mut self) {
+        self.backdrop_filter_blur = None;
+        self.backdrop_filter_brightness = None;
+        self.backdrop_filter_contrast = None;
+        self.backdrop_filter_grayscale = None;
+        self.backdrop_filter_hue_rotate = None;
+        self.backdrop_filter_invert = None;
+        self.backdrop_filter_opacity = None;
+        self.backdrop_filter_saturate = None;
+        self.backdrop_filter_sepia = None;
+    }
+
+    fn compose_filter(&self) -> Option<String> {
+        join_css_functions([
+            self.filter_blur.as_deref(),
+            self.filter_brightness.as_deref(),
+            self.filter_contrast.as_deref(),
+            self.filter_drop_shadow.as_deref(),
+            self.filter_grayscale.as_deref(),
+            self.filter_hue_rotate.as_deref(),
+            self.filter_invert.as_deref(),
+            self.filter_saturate.as_deref(),
+            self.filter_sepia.as_deref(),
+        ])
+    }
+
+    fn compose_backdrop_filter(&self) -> Option<String> {
+        join_css_functions([
+            self.backdrop_filter_blur.as_deref(),
+            self.backdrop_filter_brightness.as_deref(),
+            self.backdrop_filter_contrast.as_deref(),
+            self.backdrop_filter_grayscale.as_deref(),
+            self.backdrop_filter_hue_rotate.as_deref(),
+            self.backdrop_filter_invert.as_deref(),
+            self.backdrop_filter_opacity.as_deref(),
+            self.backdrop_filter_saturate.as_deref(),
+            self.backdrop_filter_sepia.as_deref(),
+        ])
     }
 
     fn apply_tailwind_utility(&mut self, class: &str) {
@@ -785,6 +1034,13 @@ pub enum UserSelect {
     None,
     All,
     Contain,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BackfaceVisibility {
+    Visible,
+    Hidden,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1224,6 +1480,69 @@ fn parse_css_string_token(value: &str) -> Option<String> {
     }
 }
 
+fn parse_non_empty_css_string(value: &str) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
+}
+
+fn join_css_functions<const N: usize>(values: [Option<&str>; N]) -> Option<String> {
+    let parts = values
+        .into_iter()
+        .flatten()
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(" "))
+    }
+}
+
+fn is_tailwind_translate_pipeline(value: &str) -> bool {
+    value.contains("var(--tw-translate-x)") || value.contains("var(--tw-translate-y)")
+}
+
+fn is_tailwind_scale_pipeline(value: &str) -> bool {
+    value.contains("var(--tw-scale-x)") || value.contains("var(--tw-scale-y)")
+}
+
+fn is_tailwind_transform_pipeline(value: &str) -> bool {
+    value.contains("var(--tw-rotate-x)")
+        || value.contains("var(--tw-rotate-y)")
+        || value.contains("var(--tw-rotate-z)")
+        || value.contains("var(--tw-skew-x)")
+        || value.contains("var(--tw-skew-y)")
+}
+
+fn is_tailwind_filter_pipeline(value: &str) -> bool {
+    value.contains("var(--tw-blur)")
+        || value.contains("var(--tw-brightness)")
+        || value.contains("var(--tw-contrast)")
+        || value.contains("var(--tw-drop-shadow)")
+        || value.contains("var(--tw-grayscale)")
+        || value.contains("var(--tw-hue-rotate)")
+        || value.contains("var(--tw-invert)")
+        || value.contains("var(--tw-saturate)")
+        || value.contains("var(--tw-sepia)")
+}
+
+fn is_tailwind_backdrop_filter_pipeline(value: &str) -> bool {
+    value.contains("var(--tw-backdrop-blur)")
+        || value.contains("var(--tw-backdrop-brightness)")
+        || value.contains("var(--tw-backdrop-contrast)")
+        || value.contains("var(--tw-backdrop-grayscale)")
+        || value.contains("var(--tw-backdrop-hue-rotate)")
+        || value.contains("var(--tw-backdrop-invert)")
+        || value.contains("var(--tw-backdrop-opacity)")
+        || value.contains("var(--tw-backdrop-saturate)")
+        || value.contains("var(--tw-backdrop-sepia)")
+}
+
 fn parse_pointer_events(value: &str) -> Option<PointerEvents> {
     match value.trim() {
         "auto" => Some(PointerEvents::Auto),
@@ -1239,6 +1558,14 @@ fn parse_user_select(value: &str) -> Option<UserSelect> {
         "none" => Some(UserSelect::None),
         "all" => Some(UserSelect::All),
         "contain" => Some(UserSelect::Contain),
+        _ => None,
+    }
+}
+
+fn parse_backface_visibility(value: &str) -> Option<BackfaceVisibility> {
+    match value.trim() {
+        "visible" => Some(BackfaceVisibility::Visible),
+        "hidden" => Some(BackfaceVisibility::Hidden),
         _ => None,
     }
 }
@@ -1393,6 +1720,7 @@ fn is_css_length_expression(value: &str) -> bool {
             | "revert"
             | "revert-layer"
             | "normal"
+            | "none"
             | "from-font"
             | "min-content"
             | "max-content"
@@ -1724,6 +2052,18 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
     }
     if let Some(interaction) = tailwind_interaction_declarations(class) {
         declarations.extend(interaction);
+        return declarations;
+    }
+    if let Some(transform) = tailwind_transform_declarations(class) {
+        declarations.extend(transform);
+        return declarations;
+    }
+    if let Some(filter) = tailwind_filter_declarations(class) {
+        declarations.extend(filter);
+        return declarations;
+    }
+    if let Some(backdrop_filter) = tailwind_backdrop_filter_declarations(class) {
+        declarations.extend(backdrop_filter);
         return declarations;
     }
     let declaration = match class {
@@ -2122,6 +2462,518 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
     } else {
         None
     }
+}
+
+fn tailwind_transform_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    let declaration = match class {
+        "transform-none" => Some(("transform", "none".to_string())),
+        "transform-gpu" => Some(("transform", tailwind_transform_pipeline(true))),
+        "transform-cpu" | "transform" => Some(("transform", tailwind_transform_pipeline(false))),
+        "transform-flat" => Some(("transform-style", "flat".to_string())),
+        "transform-3d" => Some(("transform-style", "preserve-3d".to_string())),
+        "backface-visible" => Some(("backface-visibility", "visible".to_string())),
+        "backface-hidden" => Some(("backface-visibility", "hidden".to_string())),
+        "perspective-none" => Some(("perspective", "none".to_string())),
+        "perspective-dramatic" => Some(("perspective", "100px".to_string())),
+        "perspective-near" => Some(("perspective", "300px".to_string())),
+        "perspective-normal" => Some(("perspective", "500px".to_string())),
+        "perspective-midrange" => Some(("perspective", "800px".to_string())),
+        "perspective-distant" => Some(("perspective", "1200px".to_string())),
+        "origin-center" => Some(("transform-origin", "center".to_string())),
+        "origin-top" => Some(("transform-origin", "top".to_string())),
+        "origin-top-right" => Some(("transform-origin", "top right".to_string())),
+        "origin-right" => Some(("transform-origin", "right".to_string())),
+        "origin-bottom-right" => Some(("transform-origin", "bottom right".to_string())),
+        "origin-bottom" => Some(("transform-origin", "bottom".to_string())),
+        "origin-bottom-left" => Some(("transform-origin", "bottom left".to_string())),
+        "origin-left" => Some(("transform-origin", "left".to_string())),
+        "origin-top-left" => Some(("transform-origin", "top left".to_string())),
+        _ => None,
+    };
+    if let Some((property, value)) = declaration {
+        declarations.insert(property.to_string(), value);
+        return Some(declarations);
+    }
+
+    if let Some(value) = class
+        .strip_prefix("transform-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert("transform".to_string(), tailwind_arbitrary_value(value));
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("transform-")
+        .and_then(tailwind_custom_var)
+    {
+        declarations.insert("transform".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("origin-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert(
+            "transform-origin".to_string(),
+            tailwind_arbitrary_value(value),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("origin-").and_then(tailwind_custom_var) {
+        declarations.insert("transform-origin".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("perspective-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert("perspective".to_string(), tailwind_arbitrary_value(value));
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("perspective-")
+        .and_then(tailwind_custom_var)
+    {
+        declarations.insert("perspective".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some((axis, value)) = tailwind_translate_declaration(class) {
+        insert_tailwind_axis_declarations(
+            &mut declarations,
+            "translate",
+            "--tw-translate",
+            axis,
+            value,
+            "0",
+        );
+        return Some(declarations);
+    }
+    if let Some((axis, value)) = tailwind_scale_declaration(class) {
+        insert_tailwind_axis_declarations(
+            &mut declarations,
+            "scale",
+            "--tw-scale",
+            axis,
+            value,
+            "100%",
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = tailwind_rotate_declaration(class) {
+        declarations.insert("--tw-rotate".to_string(), value);
+        declarations.insert("rotate".to_string(), "var(--tw-rotate)".to_string());
+        return Some(declarations);
+    }
+    if let Some((property, value)) = tailwind_transform_function_declaration(class) {
+        declarations.insert(property, value);
+        declarations.insert("transform".to_string(), tailwind_transform_pipeline(false));
+        return Some(declarations);
+    }
+    None
+}
+
+fn insert_tailwind_axis_declarations(
+    declarations: &mut BTreeMap<String, String>,
+    property: &str,
+    variable_prefix: &str,
+    axis: TransformAxis,
+    value: String,
+    default_value: &str,
+) {
+    match axis {
+        TransformAxis::All => {
+            declarations.insert(format!("{variable_prefix}-x"), value.clone());
+            declarations.insert(format!("{variable_prefix}-y"), value);
+            declarations.insert(
+                property.to_string(),
+                format!("var({variable_prefix}-x) var({variable_prefix}-y)"),
+            );
+        }
+        TransformAxis::X => {
+            declarations.insert(format!("{variable_prefix}-x"), value);
+            declarations.insert(
+                property.to_string(),
+                format!("var({variable_prefix}-x) var({variable_prefix}-y, {default_value})"),
+            );
+        }
+        TransformAxis::Y => {
+            declarations.insert(format!("{variable_prefix}-y"), value);
+            declarations.insert(
+                property.to_string(),
+                format!("var({variable_prefix}-x, {default_value}) var({variable_prefix}-y)"),
+            );
+        }
+        TransformAxis::Z => {
+            declarations.insert(format!("{variable_prefix}-z"), value);
+            declarations.insert(
+                property.to_string(),
+                format!(
+                    "var({variable_prefix}-x, {default_value}) var({variable_prefix}-y, {default_value}) var({variable_prefix}-z)"
+                ),
+            );
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum TransformAxis {
+    All,
+    X,
+    Y,
+    Z,
+}
+
+fn tailwind_translate_declaration(class: &str) -> Option<(TransformAxis, String)> {
+    let (negative, class) = strip_negative_prefix(class);
+    let (axis, value) = if let Some(value) = class.strip_prefix("translate-x-") {
+        (TransformAxis::X, value)
+    } else if let Some(value) = class.strip_prefix("translate-y-") {
+        (TransformAxis::Y, value)
+    } else if let Some(value) = class.strip_prefix("translate-z-") {
+        (TransformAxis::Z, value)
+    } else if let Some(value) = class.strip_prefix("translate-") {
+        (TransformAxis::All, value)
+    } else {
+        return None;
+    };
+    Some((axis, tailwind_signed_length_value(value, negative)?))
+}
+
+fn tailwind_scale_declaration(class: &str) -> Option<(TransformAxis, String)> {
+    let (negative, class) = strip_negative_prefix(class);
+    let (axis, value) = if let Some(value) = class.strip_prefix("scale-x-") {
+        (TransformAxis::X, value)
+    } else if let Some(value) = class.strip_prefix("scale-y-") {
+        (TransformAxis::Y, value)
+    } else if let Some(value) = class.strip_prefix("scale-z-") {
+        (TransformAxis::Z, value)
+    } else if let Some(value) = class.strip_prefix("scale-") {
+        (TransformAxis::All, value)
+    } else {
+        return None;
+    };
+    Some((axis, tailwind_signed_scale_value(value, negative)?))
+}
+
+fn tailwind_rotate_declaration(class: &str) -> Option<String> {
+    let (negative, class) = strip_negative_prefix(class);
+    let value = class.strip_prefix("rotate-")?;
+    tailwind_signed_angle_value(value, negative)
+}
+
+fn tailwind_transform_function_declaration(class: &str) -> Option<(String, String)> {
+    let (negative, class) = strip_negative_prefix(class);
+    if let Some(value) = class.strip_prefix("rotate-x-") {
+        return Some((
+            "--tw-rotate-x".to_string(),
+            format!("rotateX({})", tailwind_signed_angle_value(value, negative)?),
+        ));
+    }
+    if let Some(value) = class.strip_prefix("rotate-y-") {
+        return Some((
+            "--tw-rotate-y".to_string(),
+            format!("rotateY({})", tailwind_signed_angle_value(value, negative)?),
+        ));
+    }
+    if let Some(value) = class.strip_prefix("rotate-z-") {
+        return Some((
+            "--tw-rotate-z".to_string(),
+            format!("rotateZ({})", tailwind_signed_angle_value(value, negative)?),
+        ));
+    }
+    if let Some(value) = class.strip_prefix("skew-x-") {
+        return Some((
+            "--tw-skew-x".to_string(),
+            format!("skewX({})", tailwind_signed_angle_value(value, negative)?),
+        ));
+    }
+    if let Some(value) = class.strip_prefix("skew-y-") {
+        return Some((
+            "--tw-skew-y".to_string(),
+            format!("skewY({})", tailwind_signed_angle_value(value, negative)?),
+        ));
+    }
+    None
+}
+
+fn strip_negative_prefix(value: &str) -> (bool, &str) {
+    if let Some(value) = value.strip_prefix('-') {
+        (true, value)
+    } else {
+        (false, value)
+    }
+}
+
+fn tailwind_signed_length_value(value: &str, negative: bool) -> Option<String> {
+    let value = tailwind_arbitrary_or_custom_var(value).or_else(|| {
+        if value == "full" {
+            Some("100%".to_string())
+        } else {
+            tailwind_length(value).map(style_length_css)
+        }
+    })?;
+    Some(if negative {
+        negate_css_value(&value)
+    } else {
+        value
+    })
+}
+
+fn tailwind_signed_scale_value(value: &str, negative: bool) -> Option<String> {
+    let value = tailwind_arbitrary_or_custom_var(value).or_else(|| {
+        value
+            .parse::<f64>()
+            .ok()
+            .map(|value| format!("{}%", trim_float(value)))
+    })?;
+    Some(if negative {
+        negate_css_value(&value)
+    } else {
+        value
+    })
+}
+
+fn tailwind_signed_angle_value(value: &str, negative: bool) -> Option<String> {
+    let value = tailwind_arbitrary_or_custom_var(value).or_else(|| {
+        value
+            .parse::<f64>()
+            .ok()
+            .map(|value| format!("{}deg", trim_float(value)))
+    })?;
+    Some(if negative {
+        negate_css_value(&value)
+    } else {
+        value
+    })
+}
+
+fn negate_css_value(value: &str) -> String {
+    if value.starts_with("var(") || value.starts_with("calc(") {
+        format!("calc({value} * -1)")
+    } else if let Some(number) = value.strip_prefix('-') {
+        number.to_string()
+    } else {
+        format!("-{value}")
+    }
+}
+
+fn tailwind_transform_pipeline(gpu: bool) -> String {
+    let pipeline = "var(--tw-rotate-x) var(--tw-rotate-y) var(--tw-rotate-z) var(--tw-skew-x) var(--tw-skew-y)";
+    if gpu {
+        format!("translateZ(0) {pipeline}")
+    } else {
+        pipeline.to_string()
+    }
+}
+
+fn tailwind_filter_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    if class == "filter-none" {
+        declarations.insert("filter".to_string(), "none".to_string());
+        return Some(declarations);
+    }
+    if class == "filter" {
+        declarations.insert("filter".to_string(), tailwind_filter_pipeline());
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("filter-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert("filter".to_string(), tailwind_arbitrary_value(value));
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("filter-").and_then(tailwind_custom_var) {
+        declarations.insert("filter".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some((property, value)) = tailwind_filter_component_declaration(class, "") {
+        declarations.insert(property, value);
+        declarations.insert("filter".to_string(), tailwind_filter_pipeline());
+        return Some(declarations);
+    }
+    None
+}
+
+fn tailwind_backdrop_filter_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    if matches!(class, "backdrop-filter-none" | "backdrop-none") {
+        declarations.insert("backdrop-filter".to_string(), "none".to_string());
+        return Some(declarations);
+    }
+    if matches!(class, "backdrop-filter" | "backdrop") {
+        declarations.insert(
+            "backdrop-filter".to_string(),
+            tailwind_backdrop_filter_pipeline(),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("backdrop-filter-[")
+        .or_else(|| class.strip_prefix("backdrop-["))
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert(
+            "backdrop-filter".to_string(),
+            tailwind_arbitrary_value(value),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("backdrop-filter-")
+        .or_else(|| class.strip_prefix("backdrop-"))
+        .and_then(tailwind_custom_var)
+    {
+        declarations.insert("backdrop-filter".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some((property, value)) = tailwind_filter_component_declaration(class, "backdrop-") {
+        declarations.insert(property, value);
+        declarations.insert(
+            "backdrop-filter".to_string(),
+            tailwind_backdrop_filter_pipeline(),
+        );
+        return Some(declarations);
+    }
+    None
+}
+
+fn tailwind_filter_component_declaration(class: &str, prefix: &str) -> Option<(String, String)> {
+    let class = class.strip_prefix(prefix)?;
+    let variable_prefix = if prefix.is_empty() {
+        "--tw"
+    } else {
+        "--tw-backdrop"
+    };
+    if let Some(value) = class.strip_prefix("blur") {
+        let value = tailwind_optional_suffix(value)?;
+        let value = tailwind_blur_value(value)?;
+        return Some((format!("{variable_prefix}-blur"), value));
+    }
+    if let Some(value) = class.strip_prefix("brightness-") {
+        let value = tailwind_percent_filter_value(value, "brightness")?;
+        return Some((format!("{variable_prefix}-brightness"), value));
+    }
+    if let Some(value) = class.strip_prefix("contrast-") {
+        let value = tailwind_percent_filter_value(value, "contrast")?;
+        return Some((format!("{variable_prefix}-contrast"), value));
+    }
+    if prefix.is_empty() {
+        if let Some(value) = class.strip_prefix("drop-shadow") {
+            let value = tailwind_optional_suffix(value)?;
+            let value = tailwind_drop_shadow_value(value)?;
+            return Some(("--tw-drop-shadow".to_string(), value));
+        }
+    }
+    if let Some(value) = class.strip_prefix("grayscale") {
+        let value = tailwind_optional_suffix(value)?;
+        let value = tailwind_binary_filter_value(value, "grayscale")?;
+        return Some((format!("{variable_prefix}-grayscale"), value));
+    }
+    if let Some(value) = class.strip_prefix("hue-rotate-") {
+        let (negative, value) = strip_negative_prefix(value);
+        let value = tailwind_signed_angle_value(value, negative)?;
+        return Some((
+            format!("{variable_prefix}-hue-rotate"),
+            format!("hue-rotate({value})"),
+        ));
+    }
+    if let Some(value) = class.strip_prefix("-hue-rotate-") {
+        let value = tailwind_signed_angle_value(value, true)?;
+        return Some((
+            format!("{variable_prefix}-hue-rotate"),
+            format!("hue-rotate({value})"),
+        ));
+    }
+    if let Some(value) = class.strip_prefix("invert") {
+        let value = tailwind_optional_suffix(value)?;
+        let value = tailwind_binary_filter_value(value, "invert")?;
+        return Some((format!("{variable_prefix}-invert"), value));
+    }
+    if prefix == "backdrop-" {
+        if let Some(value) = class.strip_prefix("opacity-") {
+            let value = tailwind_percent_filter_value(value, "opacity")?;
+            return Some(("--tw-backdrop-opacity".to_string(), value));
+        }
+    }
+    if let Some(value) = class.strip_prefix("saturate-") {
+        let value = tailwind_percent_filter_value(value, "saturate")?;
+        return Some((format!("{variable_prefix}-saturate"), value));
+    }
+    if let Some(value) = class.strip_prefix("sepia") {
+        let value = tailwind_optional_suffix(value)?;
+        let value = tailwind_binary_filter_value(value, "sepia")?;
+        return Some((format!("{variable_prefix}-sepia"), value));
+    }
+    None
+}
+
+fn tailwind_optional_suffix(value: &str) -> Option<&str> {
+    if value.is_empty() {
+        Some("DEFAULT")
+    } else {
+        value.strip_prefix('-')
+    }
+}
+
+fn tailwind_blur_value(value: &str) -> Option<String> {
+    match value {
+        "DEFAULT" => Some("blur(8px)".to_string()),
+        "none" => Some(String::new()),
+        "xs" => Some("blur(4px)".to_string()),
+        "sm" => Some("blur(8px)".to_string()),
+        "md" => Some("blur(12px)".to_string()),
+        "lg" => Some("blur(16px)".to_string()),
+        "xl" => Some("blur(24px)".to_string()),
+        "2xl" => Some("blur(40px)".to_string()),
+        "3xl" => Some("blur(64px)".to_string()),
+        _ => tailwind_arbitrary_or_custom_var(value).map(|value| format!("blur({value})")),
+    }
+}
+
+fn tailwind_percent_filter_value(value: &str, function: &str) -> Option<String> {
+    let value = tailwind_arbitrary_or_custom_var(value).or_else(|| {
+        value
+            .parse::<f64>()
+            .ok()
+            .map(|value| format!("{}%", trim_float(value)))
+    })?;
+    Some(format!("{function}({value})"))
+}
+
+fn tailwind_binary_filter_value(value: &str, function: &str) -> Option<String> {
+    let value = match value {
+        "DEFAULT" => "100%".to_string(),
+        "0" => "0%".to_string(),
+        _ => tailwind_arbitrary_or_custom_var(value)?,
+    };
+    Some(format!("{function}({value})"))
+}
+
+fn tailwind_drop_shadow_value(value: &str) -> Option<String> {
+    let shadow = match value {
+        "DEFAULT" => "0 1px 2px rgb(0 0 0 / 0.1), 0 1px 1px rgb(0 0 0 / 0.06)".to_string(),
+        "xs" => "0 1px 1px rgb(0 0 0 / 0.05)".to_string(),
+        "sm" => "0 1px 2px rgb(0 0 0 / 0.15)".to_string(),
+        "md" => "0 3px 3px rgb(0 0 0 / 0.12)".to_string(),
+        "lg" => "0 4px 4px rgb(0 0 0 / 0.15)".to_string(),
+        "xl" => "0 9px 7px rgb(0 0 0 / 0.1)".to_string(),
+        "2xl" => "0 25px 25px rgb(0 0 0 / 0.15)".to_string(),
+        "none" => "0 0 #0000".to_string(),
+        _ => tailwind_arbitrary_or_custom_var(value)?,
+    };
+    Some(format!("drop-shadow({shadow})"))
+}
+
+fn tailwind_filter_pipeline() -> String {
+    "var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-drop-shadow) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia)"
+        .to_string()
+}
+
+fn tailwind_backdrop_filter_pipeline() -> String {
+    "var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)"
+        .to_string()
 }
 
 fn tailwind_motion_declarations(class: &str) -> Option<BTreeMap<String, String>> {
@@ -4304,7 +5156,7 @@ mod tests {
         assert_eq!(style.aspect_ratio.as_deref(), Some("16 / 9"));
         assert_eq!(style.filter.as_deref(), Some("none"));
         assert_eq!(style.backdrop_filter.as_deref(), Some("none"));
-        assert_eq!(style.transform.as_deref(), Some("rotate(45deg)"));
+        assert_eq!(style.rotate.as_deref(), Some("45deg"));
         assert_eq!(
             style
                 .variant_declarations
@@ -4320,6 +5172,76 @@ mod tests {
                 .and_then(|styles| styles.get("outline"))
                 .map(String::as_str),
             Some("3px solid red")
+        );
+    }
+
+    #[test]
+    fn parses_composable_tailwind_transform_and_filter_utilities() {
+        let web = WebProps::new().class_name(
+            "translate-x-4 translate-y-2 scale-x-125 scale-y-75 -rotate-45 \
+             rotate-x-12 rotate-y-[35deg] skew-x-6 transform-gpu origin-top-right \
+             perspective-near backface-hidden blur-sm brightness-125 contrast-150 \
+             grayscale hue-rotate-15 invert-0 saturate-200 sepia drop-shadow-md \
+             backdrop-blur-md backdrop-brightness-75 backdrop-contrast-125 \
+             backdrop-grayscale backdrop-hue-rotate-30 backdrop-invert \
+             backdrop-opacity-50 backdrop-saturate-150 backdrop-sepia \
+             hover:blur-[2px] focus:translate-x-[calc(100%_-_1rem)]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.translate.as_deref(), Some("16px 8px"));
+        assert_eq!(style.scale.as_deref(), Some("125% 75%"));
+        assert_eq!(style.rotate.as_deref(), Some("-45deg"));
+        assert_eq!(
+            style.transform.as_deref(),
+            Some("translateZ(0) rotateX(12deg) rotateY(35deg) skewX(6deg)")
+        );
+        assert_eq!(style.transform_origin.as_deref(), Some("top right"));
+        assert_eq!(style.perspective, Some(StyleLength::Points(300.0)));
+        assert_eq!(style.backface_visibility, Some(BackfaceVisibility::Hidden));
+        assert_eq!(style.filter_blur.as_deref(), Some("blur(8px)"));
+        assert_eq!(style.filter_brightness.as_deref(), Some("brightness(125%)"));
+        assert_eq!(style.filter_contrast.as_deref(), Some("contrast(150%)"));
+        assert_eq!(style.filter_grayscale.as_deref(), Some("grayscale(100%)"));
+        assert_eq!(
+            style.filter_hue_rotate.as_deref(),
+            Some("hue-rotate(15deg)")
+        );
+        assert_eq!(style.filter_invert.as_deref(), Some("invert(0%)"));
+        assert_eq!(style.filter_saturate.as_deref(), Some("saturate(200%)"));
+        assert_eq!(style.filter_sepia.as_deref(), Some("sepia(100%)"));
+        assert_eq!(
+            style.filter.as_deref(),
+            Some("blur(8px) brightness(125%) contrast(150%) drop-shadow(0 3px 3px rgb(0 0 0 / 0.12)) grayscale(100%) hue-rotate(15deg) invert(0%) saturate(200%) sepia(100%)")
+        );
+        assert_eq!(
+            style.backdrop_filter.as_deref(),
+            Some("blur(12px) brightness(75%) contrast(125%) grayscale(100%) hue-rotate(30deg) invert(100%) opacity(50%) saturate(150%) sepia(100%)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("--tw-blur"))
+                .map(String::as_str),
+            Some("blur(2px)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("filter"))
+                .map(String::as_str),
+            Some(tailwind_filter_pipeline().as_str())
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("translate"))
+                .map(String::as_str),
+            Some("var(--tw-translate-x) var(--tw-translate-y, 0)")
         );
     }
 

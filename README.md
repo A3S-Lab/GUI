@@ -48,10 +48,12 @@ repeat/attachment/origin/clip, object fit/position, list style, columns, font
 size, font weight, font family, font style, line height, letter spacing, text
 alignment, text transform, text decoration, text overflow, whitespace, word
 breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow, outline,
-transform, filter, backdrop filter, transition, animation, will-change,
+transform, translate, rotate, scale, transform origin/style, perspective,
+backface visibility, filter, filter function components, backdrop filter,
+backdrop filter function components, transition, animation, will-change,
 appearance, accent color, caret color, resize, scroll behavior, scroll
-margin/padding, scroll snap, overscroll behavior, touch action, cursor, pointer
-events, and user selection.
+margin/padding, scroll snap, overscroll behavior, touch action, cursor,
+pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `var(...)`, `clamp(...)`, viewport units, and sizing keywords, are
@@ -65,12 +67,15 @@ as `hover:`, `focus:`, and responsive prefixes are preserved in
 `variant_declarations`. Tailwind color opacity modifiers such as `/50` are
 preserved in the generated declarations and portable color tokens. Common
 visual-effect utilities such as `shadow-*`, `outline-*`, `cursor-*`,
-`pointer-events-*`, `select-*`, `aspect-*`, `filter-*`, and basic transform
-utilities are projected into the same declaration model. Core CSS Grid
-utilities such as `grid-cols-*`, `grid-rows-*`, `auto-cols-*`, `auto-rows-*`,
-`grid-flow-*`, `col-*`, and `row-*` are also projected into portable style
-tokens. Flex item and box-alignment utilities such as `flex-*`, `basis-*`,
-`grow-*`, `shrink-*`, `order-*`, `content-*`, `self-*`,
+`pointer-events-*`, `select-*`, `aspect-*`, transform utilities such as
+`translate-*`, `scale-*`, `rotate-*`, `skew-*`, `origin-*`, `perspective-*`,
+and composable filter utilities such as `blur-*`, `brightness-*`, `contrast-*`,
+`drop-shadow-*`, `grayscale`, `hue-rotate-*`, `invert-*`, `saturate-*`,
+`sepia-*`, and `backdrop-*` are projected into the same declaration model. Core
+CSS Grid utilities such as `grid-cols-*`, `grid-rows-*`, `auto-cols-*`,
+`auto-rows-*`, `grid-flow-*`, `col-*`, and `row-*` are also projected into
+portable style tokens. Flex item and box-alignment utilities such as `flex-*`,
+`basis-*`, `grow-*`, `shrink-*`, `order-*`, `content-*`, `self-*`,
 `justify-items-*`, `justify-self-*`, and `place-*` are projected as well.
 Typography utilities such as `font-*`, `italic`, `not-italic`, `tracking-*`,
 text transform utilities, text decoration utilities, `underline-offset-*`,

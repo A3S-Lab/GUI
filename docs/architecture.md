@@ -375,6 +375,12 @@ deterministically:
 - `overflow`, `overflowX`, `overflowY`
 - `aspectRatio`, `boxShadow`, `outline*`, `transform`, `filter`,
   `backdropFilter`
+- `translate`, `rotate`, `scale`, `transformOrigin`, `transformStyle`,
+  `backfaceVisibility`, `perspective`, `perspectiveOrigin`
+- filter function components such as blur, brightness, contrast, drop shadow,
+  grayscale, hue rotate, invert, saturate, and sepia
+- backdrop-filter function components such as backdrop blur, brightness,
+  contrast, grayscale, hue rotate, invert, opacity, saturate, and sepia
 - `transition*`, `animation*`, `willChange`
 - `appearance`, `accentColor`, `caretColor`, `resize`
 - `scrollBehavior`, `scrollMargin*`, `scrollPadding*`, `scrollSnap*`,
@@ -394,9 +400,16 @@ CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
 RGBA tokens when possible. Tailwind color opacity modifiers are preserved for
 both base and variant utilities.
 Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
-`outline-*`, `cursor-*`, `pointer-events-*`, `select-*`, `aspect-*`,
-`filter-*`, and basic transform utilities project into the same declaration
-model.
+`outline-*`, `cursor-*`, `pointer-events-*`, `select-*`, and `aspect-*` project
+into the same declaration model.
+Common Tailwind transform utilities such as `translate-*`, `scale-*`,
+`rotate-*`, `skew-*`, `origin-*`, `perspective-*`, `backface-*`, and
+`transform-*` project into individual transform properties or the transform
+function pipeline.
+Common Tailwind filter and backdrop-filter utilities such as `blur-*`,
+`brightness-*`, `contrast-*`, `drop-shadow-*`, `grayscale`, `hue-rotate-*`,
+`invert-*`, `saturate-*`, `sepia-*`, and `backdrop-*` project into composable
+filter tokens.
 Common Tailwind Grid utilities such as `grid-cols-*`, `grid-rows-*`,
 `auto-cols-*`, `auto-rows-*`, `grid-flow-*`, `col-*`, and `row-*` project into
 the same declaration model.
