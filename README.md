@@ -46,7 +46,7 @@ including internal table and ruby display modes,
 position, physical and logical inset, z-index, visibility, box sizing, box
 decoration break, CSS Anchor Positioning metadata, isolation, mix blend mode,
 float, clear, vertical alignment, table layout, border collapse/spacing,
-caption side, flex direction/wrap/item
+caption side, empty cells, flex direction/wrap/item
 sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, physical and logical
 sizing, gap/row-gap/column-gap, CSS containment, generated content,
@@ -59,7 +59,7 @@ CSS clip, CSS clip path, CSS mask, CSS mask border,
 CSS image rendering/orientation/resolution, object fit/position,
 CSS Shapes shape-outside/margin/threshold, list style type/position/image,
 columns, column rule/span/fill,
-fragmentation breaks, font shorthand, font size and font size adjustment,
+CSS page selection, orphans/widows, fragmentation breaks, font shorthand, font size and font size adjustment,
 font weight, font family, font style, font stretch, font palette,
 font language override, font kerning, font optical sizing, font smoothing hints,
 font feature and variation settings, font variant and
@@ -75,9 +75,10 @@ whitespace collapse, word breaking, hyphen handling, overflow, opacity, aspect r
 rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
 filter, backdrop filter function components, transition, animation,
-scroll-driven animation timelines and ranges,
-will-change, color scheme, forced color adjustment, field sizing, appearance,
-accent color, caret color, resize, scroll behavior, physical and logical scroll
+scroll-driven animation timelines and ranges, CSS View Transitions metadata,
+will-change, color scheme, forced color adjustment, print color adjustment,
+field sizing, appearance, accent color, caret color and caret shape metadata,
+resize, scroll behavior, physical and logical scroll
 margin/padding, scroll snap, scrollbar gutter/width/color, scroll anchoring,
 logical overflow, overflow clip margin, overscroll behavior,
 touch action, cursor, pointer events, and user selection.
@@ -102,7 +103,8 @@ Screen-reader utilities such as `sr-only` and `not-sr-only` are projected into
 their generated declaration groups. Formatting and table utilities such as
 `box-*`, `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`,
 `clear-*`, `align-*`, `border-collapse`, `border-separate`,
-`border-spacing-*`, and `caption-*` are projected into portable style tokens.
+`border-spacing-*`, `caption-*`, and arbitrary `empty-cells` properties are
+projected into portable style tokens.
 SVG presentation utilities such as `fill-*`, `stroke-*`, and `stroke-{width}`
 are projected into portable style tokens. Common
 visual-effect utilities such as `shadow-*`, `ring-*`, `inset-ring-*`,
@@ -148,14 +150,18 @@ variants are preserved in the same declaration model.
 Background, object, list, columns, and fragmentation utilities such as `bg-*`,
 `object-*`, `list-*`, `list-image-*`, `columns-*`, `break-before-*`,
 `break-after-*`, and `break-inside-*`, plus arbitrary CSS image and shape
-properties such as `image-rendering` and `shape-outside`, are projected into
+properties such as `image-rendering` and `shape-outside`, and arbitrary paged
+media properties such as `page`, `orphans`, and `widows`, are projected into
 portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, arbitrary scroll-driven animation
 properties such as `animation-timeline`, `scroll-timeline`, and
-`view-timeline`, `will-change-*`, `appearance-*`,
-`scheme-*`, `forced-color-adjust-*`, `field-sizing-*`, `accent-*`,
-`caret-*`, `resize-*`, `scroll-*`, `snap-*`, `scrollbar-*`,
+`view-timeline`, arbitrary CSS View Transitions properties,
+`will-change-*`, `appearance-*`,
+`scheme-*`, `forced-color-adjust-*`, arbitrary `print-color-adjust`,
+`field-sizing-*`, `accent-*`,
+`caret-*`, arbitrary `caret`, `caret-animation`, and `caret-shape`
+properties, `resize-*`, `scroll-*`, `snap-*`, `scrollbar-*`,
 `scrollbar-gutter-*`, `scrollbar-thumb-*`, `scrollbar-track-*`,
 `overscroll-*`, arbitrary logical overflow, overflow clip margin, scroll
 anchoring, and logical overscroll properties, and `touch-*` are projected into

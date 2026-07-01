@@ -175,6 +175,9 @@ pub struct PortableStyle {
     pub column_rule_color: Option<StyleColor>,
     pub column_span: Option<String>,
     pub column_fill: Option<String>,
+    pub page: Option<String>,
+    pub orphans: Option<String>,
+    pub widows: Option<String>,
     pub break_before: Option<String>,
     pub break_after: Option<String>,
     pub break_inside: Option<String>,
@@ -292,6 +295,7 @@ pub struct PortableStyle {
     pub border_collapse: Option<BorderCollapse>,
     pub border_spacing: Option<String>,
     pub caption_side: Option<CaptionSide>,
+    pub empty_cells: Option<String>,
     pub aspect_ratio: Option<String>,
     pub transform: Option<String>,
     pub translate: Option<String>,
@@ -341,11 +345,20 @@ pub struct PortableStyle {
     pub animation_range: Option<String>,
     pub animation_range_start: Option<String>,
     pub animation_range_end: Option<String>,
+    pub view_transition_name: Option<String>,
+    pub view_transition_class: Option<String>,
+    pub view_transition_group: Option<String>,
+    pub view_transition_scope: Option<String>,
     pub will_change: Option<String>,
     pub color_scheme: Option<String>,
     pub forced_color_adjust: Option<String>,
+    pub print_color_adjust: Option<String>,
+    pub color_adjust: Option<String>,
     pub field_sizing: Option<String>,
     pub appearance: Option<String>,
+    pub caret: Option<String>,
+    pub caret_animation: Option<String>,
+    pub caret_shape: Option<String>,
     pub resize: Option<ResizeMode>,
     pub scroll_behavior: Option<ScrollBehavior>,
     pub scroll_timeline: Option<String>,
@@ -884,6 +897,9 @@ impl PortableStyle {
             "column-rule-color" => self.column_rule_color = parse_color(value_ref),
             "column-span" => self.column_span = parse_css_string_token(value_ref),
             "column-fill" => self.column_fill = parse_css_string_token(value_ref),
+            "page" => self.page = parse_css_string_token(value_ref),
+            "orphans" => self.orphans = parse_css_string_token(value_ref),
+            "widows" => self.widows = parse_css_string_token(value_ref),
             "break-before" | "page-break-before" => {
                 self.break_before = parse_css_string_token(value_ref);
             }
@@ -1100,6 +1116,7 @@ impl PortableStyle {
                 self.border_spacing = self.resolve_tailwind_border_spacing(value_ref)
             }
             "caption-side" => self.caption_side = parse_caption_side(value_ref),
+            "empty-cells" => self.empty_cells = parse_css_string_token(value_ref),
             "aspect-ratio" => self.aspect_ratio = parse_css_string_token(value_ref),
             "transform" => self.apply_transform_property(value_ref),
             "translate" => self.translate = self.resolve_tailwind_translate(value_ref),
@@ -1143,12 +1160,30 @@ impl PortableStyle {
                 self.animation_range_start = parse_css_string_token(value_ref);
             }
             "animation-range-end" => self.animation_range_end = parse_css_string_token(value_ref),
+            "view-transition-name" => {
+                self.view_transition_name = parse_css_string_token(value_ref);
+            }
+            "view-transition-class" => {
+                self.view_transition_class = parse_css_string_token(value_ref);
+            }
+            "view-transition-group" => {
+                self.view_transition_group = parse_css_string_token(value_ref);
+            }
+            "view-transition-scope" => {
+                self.view_transition_scope = parse_css_string_token(value_ref);
+            }
             "will-change" => self.will_change = parse_css_string_token(value_ref),
             "color-scheme" => self.color_scheme = parse_css_string_token(value_ref),
             "forced-color-adjust" => self.forced_color_adjust = parse_css_string_token(value_ref),
+            "print-color-adjust" | "-webkit-print-color-adjust" | "webkit-print-color-adjust" => {
+                self.print_color_adjust = parse_css_string_token(value_ref);
+            }
+            "color-adjust" => self.color_adjust = parse_css_string_token(value_ref),
             "field-sizing" => self.field_sizing = parse_css_string_token(value_ref),
             "appearance" => self.appearance = parse_css_string_token(value_ref),
+            "caret" => self.caret = parse_css_string_token(value_ref),
             "resize" => self.resize = parse_resize(value_ref),
+            "caret-animation" => self.caret_animation = parse_css_string_token(value_ref),
             "scroll-behavior" => self.scroll_behavior = parse_scroll_behavior(value_ref),
             "scroll-timeline" => self.scroll_timeline = parse_css_string_token(value_ref),
             "scroll-timeline-name" => {
@@ -1187,6 +1222,7 @@ impl PortableStyle {
             }
             "touch-action" => self.touch_action = parse_css_string_token(value_ref),
             "cursor" => self.cursor = parse_css_string_token(value_ref),
+            "caret-shape" => self.caret_shape = parse_css_string_token(value_ref),
             "pointer-events" => self.pointer_events = parse_pointer_events(value_ref),
             "user-select" => self.user_select = parse_user_select(value_ref),
             "opacity" => self.opacity = parse_opacity(value_ref),
@@ -9027,7 +9063,8 @@ mod tests {
             .style("tableLayout", "fixed")
             .style("borderCollapse", "separate")
             .style("borderSpacing", "4px 8px")
-            .style("captionSide", "bottom");
+            .style("captionSide", "bottom")
+            .style("emptyCells", "hide");
 
         let style = PortableStyle::from_web(&web);
 
@@ -9041,8 +9078,10 @@ mod tests {
         assert_eq!(style.border_collapse, Some(BorderCollapse::Separate));
         assert_eq!(style.border_spacing.as_deref(), Some("4px 8px"));
         assert_eq!(style.caption_side, Some(CaptionSide::Bottom));
+        assert_eq!(style.empty_cells.as_deref(), Some("hide"));
         assert!(!style.unsupported.contains_key("box-sizing"));
         assert!(!style.unsupported.contains_key("table-layout"));
+        assert!(!style.unsupported.contains_key("empty-cells"));
     }
 
     #[test]
@@ -9050,7 +9089,8 @@ mod tests {
         let web = WebProps::new().class_name(
             "box-border box-decoration-clone isolate float-start clear-both \
              align-text-bottom table-fixed border-separate border-spacing-x-2 \
-             border-spacing-y-4 caption-bottom hover:align-[4px] md:table-auto",
+             border-spacing-y-4 caption-bottom [empty-cells:show] \
+             hover:align-[4px] md:table-auto focus:[empty-cells:hide]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -9065,6 +9105,7 @@ mod tests {
         assert_eq!(style.border_collapse, Some(BorderCollapse::Separate));
         assert_eq!(style.border_spacing.as_deref(), Some("8px 16px"));
         assert_eq!(style.caption_side, Some(CaptionSide::Bottom));
+        assert_eq!(style.empty_cells.as_deref(), Some("show"));
         assert_eq!(
             style
                 .custom_properties
@@ -9094,6 +9135,14 @@ mod tests {
                 .and_then(|styles| styles.get("table-layout"))
                 .map(String::as_str),
             Some("auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("empty-cells"))
+                .map(String::as_str),
+            Some("hide")
         );
     }
 
@@ -10369,6 +10418,9 @@ mod tests {
             .style("columnRuleColor", "rgb(10 20 30)")
             .style("columnSpan", "all")
             .style("columnFill", "balance")
+            .style("page", "chapter")
+            .style("orphans", "3")
+            .style("widows", "4")
             .style("breakBefore", "page")
             .style("breakAfter", "avoid-column")
             .style("pageBreakInside", "avoid");
@@ -10419,6 +10471,9 @@ mod tests {
         );
         assert_eq!(style.column_span.as_deref(), Some("all"));
         assert_eq!(style.column_fill.as_deref(), Some("balance"));
+        assert_eq!(style.page.as_deref(), Some("chapter"));
+        assert_eq!(style.orphans.as_deref(), Some("3"));
+        assert_eq!(style.widows.as_deref(), Some("4"));
         assert_eq!(style.break_before.as_deref(), Some("page"));
         assert_eq!(style.break_after.as_deref(), Some("avoid-column"));
         assert_eq!(style.break_inside.as_deref(), Some("avoid"));
@@ -10432,6 +10487,9 @@ mod tests {
         assert!(!style.unsupported.contains_key("shape-image-threshold"));
         assert!(!style.unsupported.contains_key("list-style-image"));
         assert!(!style.unsupported.contains_key("column-rule"));
+        assert!(!style.unsupported.contains_key("page"));
+        assert!(!style.unsupported.contains_key("orphans"));
+        assert!(!style.unsupported.contains_key("widows"));
         assert!(!style.unsupported.contains_key("page-break-inside"));
     }
 
@@ -10443,13 +10501,16 @@ mod tests {
              [image-rendering:pixelated] [image-orientation:from-image] \
              [image-resolution:300dpi] [shape-outside:circle(50%_at_50%_50%)] \
              [shape-margin:2rem] [shape-image-threshold:65%] \
-             list-inside list-disc list-image-[url('/marker.svg')] columns-3 break-before-page break-after-avoid-column \
+             list-inside list-disc list-image-[url('/marker.svg')] columns-3 \
+             [page:chapter] [orphans:3] [widows:4] \
+             break-before-page break-after-avoid-column \
              break-inside-avoid md:bg-[length:50%_auto] hover:object-[25%_75%] \
              md:list-image-(--marker-image) hover:list-image-none \
              focus:break-before-[recto] lg:break-inside-(--break-inside) \
              hover:[image-rendering:crisp-edges] md:[image-resolution:from-image] \
              focus:[shape-outside:inset(10px)] active:[shape-margin:calc(1rem_+_2px)] \
-             before:[shape-image-threshold:0.25]",
+             before:[shape-image-threshold:0.25] hover:[page:appendix] \
+             focus:[orphans:2] active:[widows:5]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -10482,6 +10543,9 @@ mod tests {
             Some("url('/marker.svg')")
         );
         assert_eq!(style.columns.as_deref(), Some("3"));
+        assert_eq!(style.page.as_deref(), Some("chapter"));
+        assert_eq!(style.orphans.as_deref(), Some("3"));
+        assert_eq!(style.widows.as_deref(), Some("4"));
         assert_eq!(style.break_before.as_deref(), Some("page"));
         assert_eq!(style.break_after.as_deref(), Some("avoid-column"));
         assert_eq!(style.break_inside.as_deref(), Some("avoid"));
@@ -10570,6 +10634,9 @@ mod tests {
         assert!(!style.unsupported.contains_key("shape-outside"));
         assert!(!style.unsupported.contains_key("shape-margin"));
         assert!(!style.unsupported.contains_key("shape-image-threshold"));
+        assert!(!style.unsupported.contains_key("page"));
+        assert!(!style.unsupported.contains_key("orphans"));
+        assert!(!style.unsupported.contains_key("widows"));
         assert_eq!(
             style
                 .variant_declarations
@@ -10585,6 +10652,30 @@ mod tests {
                 .and_then(|styles| styles.get("break-inside"))
                 .map(String::as_str),
             Some("var(--break-inside)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("page"))
+                .map(String::as_str),
+            Some("appendix")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("orphans"))
+                .map(String::as_str),
+            Some("2")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("widows"))
+                .map(String::as_str),
+            Some("5")
         );
     }
 
@@ -11122,13 +11213,23 @@ mod tests {
             .style("animationRange", "entry 10% cover 80%")
             .style("animationRangeStart", "entry 10%")
             .style("animationRangeEnd", "cover 80%")
+            .style("viewTransitionName", "card")
+            .style("viewTransitionClass", "shared card")
+            .style("viewTransitionGroup", "contain")
+            .style("viewTransitionScope", "root")
             .style("willChange", "transform")
             .style("colorScheme", "light dark")
             .style("forcedColorAdjust", "none")
+            .style("printColorAdjust", "exact")
+            .style("WebkitPrintColorAdjust", "economy")
+            .style("colorAdjust", "exact")
             .style("fieldSizing", "content")
             .style("appearance", "none")
             .style("accentColor", "#663399")
             .style("caretColor", "currentColor")
+            .style("caret", "bar currentColor")
+            .style("caretAnimation", "manual")
+            .style("caretShape", "block")
             .style("resize", "horizontal")
             .style("scrollBehavior", "smooth")
             .style("scrollTimeline", "--scroller inline")
@@ -11192,9 +11293,15 @@ mod tests {
         );
         assert_eq!(style.animation_range_start.as_deref(), Some("entry 10%"));
         assert_eq!(style.animation_range_end.as_deref(), Some("cover 80%"));
+        assert_eq!(style.view_transition_name.as_deref(), Some("card"));
+        assert_eq!(style.view_transition_class.as_deref(), Some("shared card"));
+        assert_eq!(style.view_transition_group.as_deref(), Some("contain"));
+        assert_eq!(style.view_transition_scope.as_deref(), Some("root"));
         assert_eq!(style.will_change.as_deref(), Some("transform"));
         assert_eq!(style.color_scheme.as_deref(), Some("light dark"));
         assert_eq!(style.forced_color_adjust.as_deref(), Some("none"));
+        assert_eq!(style.print_color_adjust.as_deref(), Some("exact"));
+        assert_eq!(style.color_adjust.as_deref(), Some("exact"));
         assert_eq!(style.field_sizing.as_deref(), Some("content"));
         assert_eq!(style.appearance.as_deref(), Some("none"));
         assert_eq!(
@@ -11210,6 +11317,9 @@ mod tests {
             style.caret_color,
             Some(StyleColor::Keyword("currentColor".to_string()))
         );
+        assert_eq!(style.caret.as_deref(), Some("bar currentColor"));
+        assert_eq!(style.caret_animation.as_deref(), Some("manual"));
+        assert_eq!(style.caret_shape.as_deref(), Some("block"));
         assert_eq!(style.resize, Some(ResizeMode::Horizontal));
         assert_eq!(style.scroll_behavior, Some(ScrollBehavior::Smooth));
         assert_eq!(style.scroll_timeline.as_deref(), Some("--scroller inline"));
@@ -11260,6 +11370,10 @@ mod tests {
         assert!(!style.unsupported.contains_key("animation-range"));
         assert!(!style.unsupported.contains_key("animation-range-start"));
         assert!(!style.unsupported.contains_key("animation-range-end"));
+        assert!(!style.unsupported.contains_key("view-transition-name"));
+        assert!(!style.unsupported.contains_key("view-transition-class"));
+        assert!(!style.unsupported.contains_key("view-transition-group"));
+        assert!(!style.unsupported.contains_key("view-transition-scope"));
         assert!(!style.unsupported.contains_key("scroll-timeline"));
         assert!(!style.unsupported.contains_key("scroll-timeline-name"));
         assert!(!style.unsupported.contains_key("scroll-timeline-axis"));
@@ -11270,6 +11384,12 @@ mod tests {
         assert!(!style.unsupported.contains_key("timeline-scope"));
         assert!(!style.unsupported.contains_key("scroll-snap-type"));
         assert!(!style.unsupported.contains_key("color-scheme"));
+        assert!(!style.unsupported.contains_key("print-color-adjust"));
+        assert!(!style.unsupported.contains_key("webkit-print-color-adjust"));
+        assert!(!style.unsupported.contains_key("color-adjust"));
+        assert!(!style.unsupported.contains_key("caret"));
+        assert!(!style.unsupported.contains_key("caret-animation"));
+        assert!(!style.unsupported.contains_key("caret-shape"));
         assert!(!style.unsupported.contains_key("scrollbar-color"));
         assert!(!style.unsupported.contains_key("overflow-block"));
         assert!(!style.unsupported.contains_key("overflow-inline"));
@@ -11287,18 +11407,24 @@ mod tests {
              caret-white resize-y scroll-smooth scroll-mt-4 scroll-px-2 \
              [animation-timeline:--gallery] [animation-range:entry_10%_cover_80%] \
              [animation-range-start:entry_10%] [animation-range-end:cover_80%] \
+             [view-transition-name:card] [view-transition-class:shared_card] \
+             [view-transition-group:contain] [view-transition-scope:root] \
              [scroll-timeline:--scroller_inline] [scroll-timeline-name:--scroller] \
              [scroll-timeline-axis:inline] [view-timeline:--card_block] \
              [view-timeline-name:--card] [view-timeline-axis:block] \
              [view-timeline-inset:10%_20%] [timeline-scope:--gallery] \
              snap-x snap-mandatory snap-center snap-always overscroll-x-contain \
              overscroll-y-none touch-pan-x scheme-only-dark forced-color-adjust-none \
+             [print-color-adjust:exact] [color-adjust:exact] \
+             [caret:bar_currentColor] [caret-animation:manual] [caret-shape:block] \
              field-sizing-content scrollbar-gutter-both scrollbar-thin \
              scrollbar-thumb-[#663399]/50 scrollbar-track-(--scrollbar-track) \
              md:duration-[1s] md:scheme-light-dark \
              hover:animate-[wiggle_1s_ease-in-out_infinite] hover:scrollbar-thumb-blue-500 \
              focus:will-change-[opacity] md:[animation-timeline:view()] \
              hover:[animation-range:cover_0%_contain_100%] \
+             md:[view-transition-name:avatar] hover:[view-transition-class:active_card] \
+             focus:[print-color-adjust:economy] active:[caret-shape:underscore] \
              focus:[scroll-timeline-axis:block] active:[view-timeline-inset:auto] \
              before:[timeline-scope:none] \
              [overflow-block:clip] [overflow-inline:auto] \
@@ -11329,9 +11455,15 @@ mod tests {
         );
         assert_eq!(style.animation_range_start.as_deref(), Some("entry 10%"));
         assert_eq!(style.animation_range_end.as_deref(), Some("cover 80%"));
+        assert_eq!(style.view_transition_name.as_deref(), Some("card"));
+        assert_eq!(style.view_transition_class.as_deref(), Some("shared card"));
+        assert_eq!(style.view_transition_group.as_deref(), Some("contain"));
+        assert_eq!(style.view_transition_scope.as_deref(), Some("root"));
         assert_eq!(style.will_change.as_deref(), Some("transform"));
         assert_eq!(style.color_scheme.as_deref(), Some("only dark"));
         assert_eq!(style.forced_color_adjust.as_deref(), Some("none"));
+        assert_eq!(style.print_color_adjust.as_deref(), Some("exact"));
+        assert_eq!(style.color_adjust.as_deref(), Some("exact"));
         assert_eq!(style.field_sizing.as_deref(), Some("content"));
         assert_eq!(style.appearance.as_deref(), Some("none"));
         assert_eq!(
@@ -11352,6 +11484,9 @@ mod tests {
                 alpha: 255,
             })
         );
+        assert_eq!(style.caret.as_deref(), Some("bar currentColor"));
+        assert_eq!(style.caret_animation.as_deref(), Some("manual"));
+        assert_eq!(style.caret_shape.as_deref(), Some("block"));
         assert_eq!(style.resize, Some(ResizeMode::Vertical));
         assert_eq!(style.scroll_behavior, Some(ScrollBehavior::Smooth));
         assert_eq!(style.scroll_timeline.as_deref(), Some("--scroller inline"));
@@ -11452,6 +11587,38 @@ mod tests {
                 .and_then(|styles| styles.get("animation-range"))
                 .map(String::as_str),
             Some("cover 0% contain 100%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("view-transition-name"))
+                .map(String::as_str),
+            Some("avatar")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("view-transition-class"))
+                .map(String::as_str),
+            Some("active card")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("print-color-adjust"))
+                .map(String::as_str),
+            Some("economy")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("caret-shape"))
+                .map(String::as_str),
+            Some("underscore")
         );
         assert_eq!(
             style

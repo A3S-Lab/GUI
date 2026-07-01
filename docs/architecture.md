@@ -389,7 +389,8 @@ deterministically:
   `objectPosition`, `shapeOutside`, `shapeMargin`, `shapeImageThreshold`,
   `listStyleType`, `listStylePosition`, `listStyleImage`,
   `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
-  `columnFill`, `breakBefore`, `breakAfter`, `breakInside`
+  `columnFill`, `page`, `orphans`, `widows`, `breakBefore`, `breakAfter`,
+  `breakInside`
 - `font`, `fontFamily`, `fontStyle`, `fontSize`, `fontSizeAdjust`,
   `fontWeight`, `fontStretch`, `fontPalette`, `fontLanguageOverride`,
   `fontKerning`, `fontOpticalSizing`, `WebkitFontSmoothing`,
@@ -415,6 +416,7 @@ deterministically:
   `whiteSpaceCollapse`, `wordBreak`, `overflowWrap`, `hyphens`
 - `overflow`, `overflowX`, `overflowY`, `overflowBlock`, `overflowInline`,
   `overflowClipMargin`, `overflowAnchor`
+- `emptyCells`
 - `aspectRatio`, `boxShadow`, Tailwind `ring*` and `divide*` metadata,
   `outline*`, `transform`, `filter`,
   `backdropFilter`
@@ -425,9 +427,10 @@ deterministically:
 - backdrop-filter function components such as backdrop blur, brightness,
   contrast, grayscale, hue rotate, invert, opacity, saturate, and sepia
 - `transition*`, `animation*`, `animationTimeline`, `animationRange*`,
-  `willChange`
-- `colorScheme`, `forcedColorAdjust`, `fieldSizing`, `appearance`,
-  `accentColor`, `caretColor`, `resize`
+  `viewTransition*`, `willChange`
+- `colorScheme`, `forcedColorAdjust`, `printColorAdjust`, `colorAdjust`,
+  `fieldSizing`, `appearance`, `accentColor`, `caretColor`, `caret`,
+  `caretAnimation`, `caretShape`, `resize`
 - `scrollBehavior`, `scrollTimeline*`, `viewTimeline*`, `timelineScope`,
   physical and logical `scrollMargin*`,
   `scrollPadding*`, `scrollSnap*`, `scrollbarGutter`, `scrollbarWidth`,
@@ -458,7 +461,8 @@ variants such as `@md:` are stored in `variant_declarations`.
 Common Tailwind formatting and table utilities such as `box-*`,
 `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`, `clear-*`,
 `align-*`, `border-collapse`, `border-separate`, `border-spacing-*`, and
-`caption-*` project into the same declaration model. Tailwind display
+`caption-*`, plus arbitrary `empty-cells` properties, project into the same
+declaration model. Tailwind display
 utilities such as `inline-block`, `flow-root`, `contents`, `list-item`,
 `table-*`, `inline-table`, `inline-flex`, and `inline-grid` project into
 portable display tokens. Arbitrary `display: ruby*` properties project into the
@@ -507,7 +511,8 @@ variants are stored in the same declaration model.
 Common Tailwind background, object, list, columns, and fragmentation utilities
 such as `bg-*`, `object-*`, `list-*`, `list-image-*`, `columns-*`,
 `break-before-*`, `break-after-*`, and `break-inside-*`, plus arbitrary CSS
-image and shape properties such as `image-rendering` and `shape-outside`,
+image and shape properties such as `image-rendering` and `shape-outside`, and
+arbitrary paged media properties such as `page`, `orphans`, and `widows`,
 project into the same declaration model.
 Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,
 `rounded-r-*`, `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`,
@@ -522,9 +527,12 @@ project into physical, logical, or native child-divider tokens.
 Common Tailwind motion, interaction, and scroll utilities such as
 `transition-*`, `duration-*`, `delay-*`, `ease-*`, `animate-*`,
 arbitrary scroll-driven animation properties such as `animation-timeline`,
-`scroll-timeline`, and `view-timeline`, `will-change-*`, `appearance-*`,
-`accent-*`, `caret-*`, `resize-*`,
-`scheme-*`, `forced-color-adjust-*`, `field-sizing-*`, `scroll-*`, `snap-*`,
+`scroll-timeline`, and `view-timeline`, arbitrary CSS View Transitions
+properties, `will-change-*`, `appearance-*`,
+`accent-*`, `caret-*`, arbitrary `caret`, `caret-animation`, and
+`caret-shape` properties, `resize-*`,
+`scheme-*`, `forced-color-adjust-*`, arbitrary `print-color-adjust`,
+`field-sizing-*`, `scroll-*`, `snap-*`,
 `scrollbar-*`, `scrollbar-gutter-*`, `scrollbar-thumb-*`,
 `scrollbar-track-*`, `overscroll-*`, arbitrary logical overflow, overflow clip
 margin, scroll anchoring, and logical overscroll properties, and `touch-*`
