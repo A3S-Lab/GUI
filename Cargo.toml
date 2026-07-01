@@ -2,11 +2,11 @@
 name = "a3s-gui"
 version = "0.1.0"
 edition = "2021"
-description = "Rust-native cross-platform GUI renderer for React Aria semantic UI trees"
+description = "Rust-native cross-platform GUI renderer for Web-compatible React UI trees"
 license = "MIT"
 repository = "https://github.com/A3S-Lab/GUI"
 homepage = "https://github.com/A3S-Lab/a3s"
-keywords = ["a3s", "gui", "native", "react-aria", "accessibility"]
+keywords = ["a3s", "gui", "native", "web-ui", "accessibility"]
 categories = ["gui", "rendering", "accessibility"]
 
 [lib]

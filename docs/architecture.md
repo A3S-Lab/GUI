@@ -1,11 +1,15 @@
 # a3s-gui Architecture
 
-`a3s-gui` renders Web-authored UI as native controls.
+`a3s-gui` is a React Native-class runtime for rendering Web-authored UI as
+native controls.
 
 The authoring contract is Web-compatible syntax. A web developer should be able
-to write React/TSX and React Aria code with familiar DOM-shaped props. The
-runtime contract is native: no WebView, no browser DOM, and no hidden HTML
-surface.
+to write React/TSX-shaped code with familiar DOM-shaped props. Unlike React
+Native's dedicated component and style surface, the input is allowed to stay
+close to ordinary Web React: semantic element names, `className`, inline
+style objects, `aria-*`, `data-*`, and DOM-style event props. React Aria is one
+supported semantic source, but the renderer contract is the A3S Native UI IR:
+no WebView, no browser DOM, and no hidden HTML surface.
 
 ```text
 React / TSX source
@@ -23,7 +27,7 @@ UiFrame protocol
 ReactCompilerBridge
         |
         v
-React Aria semantic tree
+Semantic UI tree
         |
         v
 A3S Native UI IR
@@ -58,12 +62,11 @@ Web-authored action ids
 
 ## Contract
 
-The bridge accepts React Aria component semantics plus Web-compatible syntax.
-This keeps authoring familiar while giving the native renderer a typed,
-portable contract.
-The source components may come from `react-aria-components` or from the
-zero-dependency marker exports used by compiler fixtures; both lower to the same
-protocol shape.
+The bridge accepts semantic component names plus Web-compatible syntax. This
+keeps authoring familiar while giving the native renderer a typed, portable
+contract. The source components may come from `react-aria-components`, the
+zero-dependency marker exports used by compiler fixtures, or another compiler
+that emits the same protocol shape.
 
 Allowed data:
 
@@ -108,8 +111,8 @@ class, accessibility role, action binding, style tokens, events, and metadata
 that a real backend must apply.
 
 `GuiRuntime` is the public orchestration API. It accepts compiled JSX trees,
-React Aria semantic trees, or native IR trees and renders them into any
-`NativeHost`. `InteractionState` updates platform-independent focus, value,
+React Aria-compatible semantic trees, or native IR trees and renders them into
+any `NativeHost`. `InteractionState` updates platform-independent focus, value,
 checked, selected, and expanded state from native events before action routing.
 `EventRouter` maps native events such as press, change, focus, and selection
 change back to Web-authored action identifiers such as `onClick` and `onChange`.
@@ -166,14 +169,14 @@ This keeps React reconciliation in the Rust core and keeps platform adapters
 focused on native object lifetime and thread-affine UI work.
 `NativeWidgetBlueprint` carries the platform family (`appKit`, `winUI`, `gtk4`),
 native widget class, native role, accessibility role, label/value/action
-bindings, React Aria control state, Web metadata, event bindings, and parsed
+bindings, semantic control state, Web metadata, event bindings, and parsed
 portable style tokens. It is safe to send to a platform process or language
 binding as JSON.
 Native bindings can call `blueprint.config()` to derive a `NativeWidgetConfig`
 with setter-oriented values such as `enabled`, `visible`, `placeholder`,
 range bounds, selected/checked state, event action ids, metadata, and portable
-style. This keeps AppKit, WinUI, and GTK bindings from reinterpreting Web and
-React Aria fields differently.
+style. This keeps AppKit, WinUI, and GTK bindings from reinterpreting Web-shaped
+semantic fields differently.
 `NativeWidgetConfig::diff()` returns a `NativeWidgetConfigPatch` for update
 passes, and `HandleWidgetDriver` stores the last config for each handle so
 `NativeHandleAdapter::update_handle_config()` can apply only changed setters.
@@ -250,19 +253,19 @@ Feature-gated platform executor surfaces:
   `NSButton(radio)` children, and selected radios apply native checked state.
   `NSComboBox` controls receive `ListBoxItem` children as native
   AppKit object values and enqueue `NativeEventKind::SelectionChange` records.
-  Independent React Aria `ListBox` trees create native `NSScrollView`
+  Independent semantic `ListBox` trees create native `NSScrollView`
   containers with AppKit row controls and enqueue selection-change records with
   the selected item value.
-  React Aria `Toolbar` trees create native `NSStackView` containers for tool
+  Semantic `Toolbar` trees create native `NSStackView` containers for tool
   controls.
-  React Aria `Dialog` trees create native `NSPanel` windows whose content views
+  Semantic `Dialog` trees create native `NSPanel` windows whose content views
   are populated with native children.
-  React Aria `Popover` trees create native `NSPopover` overlays whose content
+  Semantic `Popover` trees create native `NSPopover` overlays whose content
   view controllers hold native children.
-  React Aria `Tabs` trees fold `TabList` and ordered `TabPanel` children into
+  Semantic `Tabs` trees fold `TabList` and ordered `TabPanel` children into
   native `NSTabViewItem` objects whose content views are the panel views;
   `NSTabViewDelegate` callbacks enqueue tab selection-change records.
-  React Aria `Menu` trees create native `NSMenu` objects with `NSMenuItem`
+  Semantic `Menu` trees create native `NSMenu` objects with `NSMenuItem`
   children; root menus are installed as the application main menu, and menu item
   target/action callbacks enqueue press records.
   `Separator` creates native `NSBox` separators. `NSSlider` controls enqueue
@@ -280,21 +283,21 @@ Feature-gated platform executor surfaces:
   `WinUiNativeSurface`. It does not enable
   WebView2 and has no WebView fallback. WinUI callbacks enqueue press, change,
   focus, blur, toggle, selection-change, and ranged value events through the
-  same `NativeEventSource` and action routing path as AppKit and GTK. React Aria
+  same `NativeEventSource` and action routing path as AppKit and GTK. Semantic
   `Tabs` trees fold `TabList` and ordered `TabPanel` children into native
   `TabViewItem` objects and route WinUI tab selection changes with the
   Web-authored selection value when one is available. `Separator` uses a native
   XAML `Border` loaded through WinUI's markup runtime so the surface remains
-  native without WebView/WebView2. React Aria `Toolbar` trees create horizontal
+  native without WebView/WebView2. Semantic `Toolbar` trees create horizontal
   native `StackPanel` containers, keeping toolbar children as real XAML
-  controls. React Aria `Dialog` trees create native `ContentDialog` controls
-  whose content is populated with real XAML children. React Aria `Popover`
+  controls. Semantic `Dialog` trees create native `ContentDialog` controls
+  whose content is populated with real XAML children. Semantic `Popover`
   trees create ToolTip-backed native overlay surfaces with real XAML children
   because `winio-winui3` 0.4.2 does not expose a strong `Flyout` binding yet.
-  React Aria `Menu` trees use native XAML `StackPanel` menu surfaces with native
+  Semantic `Menu` trees use native XAML `StackPanel` menu surfaces with native
   `Button` menu items while `winio-winui3` 0.4.2 lacks strong `MenuFlyout` and
   `MenuBar` bindings.
-  React Aria `Switch` keeps
+  The semantic `Switch` role keeps
   its native `Switch` semantic in the IR; with `winio-winui3` 0.4.2, the native
   surface temporarily backs that state with a WinUI `CheckBox` because the
   generated bindings do not expose `ToggleSwitch` yet.
@@ -308,14 +311,14 @@ Feature-gated platform executor surfaces:
   `gtk::PopoverMenuBar`, `gio::Menu`, `gio::MenuItem`, `gtk::Notebook`,
   `gtk::Separator`, `gtk::Scale`, and `gtk::ProgressBar`
   objects through `Gtk4NativeSurface`.
-  React Aria `Toolbar` trees use native `gtk::Box(toolbar)` containers.
-  React Aria `Dialog` trees use native `gtk::Dialog` windows and content areas.
-  React Aria `Popover` trees use native `gtk::Popover` overlays with native
+  Semantic `Toolbar` trees use native `gtk::Box(toolbar)` containers.
+  Semantic `Dialog` trees use native `gtk::Dialog` windows and content areas.
+  Semantic `Popover` trees use native `gtk::Popover` overlays with native
   GTK children.
-  React Aria `Menu` trees use native `gio::Menu` models, `gio::MenuItem`
+  Semantic `Menu` trees use native `gio::Menu` models, `gio::MenuItem`
   children, `gtk::PopoverMenuBar` surfaces, and `gio::SimpleAction` activation
   callbacks.
-  React Aria `Tabs`
+  Semantic `Tabs`
   trees become native notebook pages with Web-authored tab labels, native panel
   widgets, and selection-change events carrying the selected tab value when
   available. It is a Linux-only feature so macOS and Windows builds can enable

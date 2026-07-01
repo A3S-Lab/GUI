@@ -2,10 +2,14 @@
 
 Web-compatible authoring bridge for `a3s-gui`.
 
-This package provides the protocol-side JSX runtime used to lower React
-Aria-shaped TSX into the serializable `UiFrame` format consumed by the Rust
-runtime. It is intentionally small and dependency-free while the React Compiler
-integration stabilizes.
+This package provides the protocol-side JSX runtime used to lower Web-compatible
+TSX into the serializable `UiFrame` format consumed by the Rust runtime. It is
+intentionally small and dependency-free while the compiler integration
+stabilizes. React Aria-compatible component names and props are supported, but
+the package is a general semantic UI bridge rather than a React Aria-only SDK.
+Compared with React Native, the package tries to preserve Web React/JSX syntax
+instead of requiring authors to rewrite screens around a separate native
+component vocabulary.
 
 ## JSX Runtime
 
@@ -31,15 +35,15 @@ When labels are not needed, `createUiFrame` can infer actions from JSX event
 props. Use `defineAction` when the host needs action metadata beyond the stable
 id.
 
-The runtime accepts React Aria state props such as `isDisabled` and
+The runtime accepts React Aria-style state props such as `isDisabled` and
 Web-compatible aliases such as `disabled`, `required`, `aria-expanded`,
 `aria-selected`, `min`, `max`, and `aria-valuenow`; these normalize to the same
 native control-state fields consumed by the Rust renderer. Marker exports
 include form and selection components such as `RadioGroup`, `Radio`, `Select`,
 `ListBoxItem`, `Dialog`, `Popover`, `Tabs`, `TabList`, `Tab`, `TabPanel`,
 `Menu`, `MenuItem`, `Slider`, and `ProgressBar`, plus structural markers such as
-`Separator` and `Toolbar`; authors still use Web-compatible React Aria-shaped JSX instead of
-platform widget names.
+`Separator` and `Toolbar`; authors still use Web-compatible semantic JSX instead
+of platform widget names.
 
 The emitted frame is plain JSON:
 
