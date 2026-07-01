@@ -1,22 +1,20 @@
 # a3s-gui
 
-`a3s-gui` is a Rust crate for rendering structured UI trees as native platform
-controls. It accepts serializable `UiFrame` protocol frames, direct Rust
-`NativeElement` trees, and JSX-shaped input emitted by SDK or compiler
-integrations. Platform backends target AppKit, WinUI, and GTK4 directly; the
-renderer does not embed or require a WebView.
+`a3s-gui` is a Rust crate that converts structured UI descriptions into a
+serializable native UI intermediate representation and native command stream. It
+accepts `UiFrame` protocol frames, Rust `NativeElement` trees, and compiled JSX
+node records.
 
-All supported input paths lower into the same A3S Native UI IR before platform
-adapters create native widgets. React Aria-compatible component names and props
-are supported as one protocol input shape.
+The core renderer is backend-independent. Platform adapters translate the native
+command stream into AppKit, WinUI, or GTK4 widgets.
 
 ## Supported Inputs
 
 The protocol accepts the following input data:
 
 - JSX/TSX-shaped element records
-- semantic component names, HTML intrinsic element names, and SVG intrinsic
-  element names
+- semantic component names, React Aria-compatible component names, HTML
+  intrinsic element names, and SVG intrinsic element names
 - stable keys for reconciliation
 - `className`, Tailwind utility classes, inline style objects, and CSS text
   style strings
@@ -159,12 +157,11 @@ state, portable style tokens, and host protocol types are serializable. A Swift,
 WinUI, GTK, Rust, or multi-process host can consume the same protocol without
 seeing JSX or a browser DOM.
 
-## Native Rendering
+## Rendering Model
 
-`a3s-gui` is not a browser embedding layer. It does not provide DOM nodes,
-browser CSS layout, browser focus APIs, or WebView event loops. It maps accepted
-element records and props to native IR, then creates native controls through the
-selected platform adapter.
+The renderer maps accepted element records and props to native IR, then creates
+native controls through the selected platform adapter. It does not expose DOM
+nodes, browser CSS layout, or browser focus APIs as runtime primitives.
 
 Accepted input fields include `className`, inline `style`, `aria-*`,
 `data-*`, HTML state props such as `disabled` and `required`, ranged attributes
@@ -251,8 +248,7 @@ export const frame = createUiFrame('react-aria-save-frame', root, {
 });
 ```
 
-The compiler bridge can consume a structured JSX tree produced after React
-Compiler transforms:
+Compiled JSX node records can be submitted through `render_compiled`:
 
 ```rust
 use a3s_gui::{CompiledJsxNode, Gtk4Adapter, GuiRuntime, PlatformPlanningHost};
