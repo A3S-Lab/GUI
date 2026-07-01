@@ -52,12 +52,15 @@ and opacity.
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `var(...)`, `clamp(...)`, viewport units, and sizing keywords, are
 preserved as CSS length tokens for platform adapters that can consume them.
+CSS color values support hex, RGB/RGBA, HSL/HSLA, slash alpha syntax, and
+keyword preservation.
 
 Tailwind utility classes are resolved into the same declaration model. Base
 utilities are projected into current native style tokens; variant utilities such
 as `hover:`, `focus:`, and responsive prefixes are preserved in
-`variant_declarations`. Inline styles are applied after class utilities so they
-keep normal inline-style precedence.
+`variant_declarations`. Tailwind color opacity modifiers such as `/50` are
+preserved in the generated declarations and portable color tokens. Inline styles
+are applied after class utilities so they keep normal inline-style precedence.
 
 CSS properties and Tailwind classes that do not yet have a portable native token
 remain available as raw `className`, style declarations, metadata, or

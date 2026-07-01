@@ -370,3 +370,6 @@ source declarations.
 CSS length values that cannot be converted to numeric points or percentages are
 kept as `StyleLength::Css`, including `calc(...)`, `var(...)`, `clamp(...)`,
 viewport/container units, and sizing keywords such as `min-content`.
+CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
+RGBA tokens when possible. Tailwind color opacity modifiers are preserved for
+both base and variant utilities.

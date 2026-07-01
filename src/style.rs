@@ -780,6 +780,9 @@ fn parse_color(value: &str) -> Option<StyleColor> {
     if let Some(color) = parse_rgb_function(value) {
         return Some(color);
     }
+    if let Some(color) = parse_hsl_function(value) {
+        return Some(color);
+    }
     if value.is_empty() {
         None
     } else {
@@ -827,12 +830,17 @@ fn parse_rgb_function(value: &str) -> Option<StyleColor> {
         .strip_prefix("rgb(")
         .or_else(|| value.strip_prefix("rgba("))?
         .strip_suffix(')')?;
-    let content = content.replace(',', " ");
-    let mut parts = content.split_whitespace();
-    let red = parse_rgb_channel(parts.next()?)?;
-    let green = parse_rgb_channel(parts.next()?)?;
-    let blue = parse_rgb_channel(parts.next()?)?;
-    let alpha = parts.next().and_then(parse_alpha_channel).unwrap_or(255);
+    let (channels, alpha) = parse_color_function_parts(content);
+    if channels.len() < 3 {
+        return None;
+    }
+    let red = parse_rgb_channel(&channels[0])?;
+    let green = parse_rgb_channel(&channels[1])?;
+    let blue = parse_rgb_channel(&channels[2])?;
+    let alpha = alpha
+        .as_deref()
+        .and_then(parse_alpha_channel)
+        .unwrap_or(255);
     Some(StyleColor::Rgba {
         red,
         green,
@@ -842,14 +850,119 @@ fn parse_rgb_function(value: &str) -> Option<StyleColor> {
 }
 
 fn parse_rgb_channel(value: &str) -> Option<u8> {
+    let value = value.trim();
+    if let Some(percent) = value.strip_suffix('%') {
+        let percent = percent.trim().parse::<f64>().ok()?;
+        return Some(((percent.clamp(0.0, 100.0) / 100.0) * 255.0).round() as u8);
+    }
     value.trim().parse::<u8>().ok()
+}
+
+fn parse_hsl_function(value: &str) -> Option<StyleColor> {
+    let content = value
+        .strip_prefix("hsl(")
+        .or_else(|| value.strip_prefix("hsla("))?
+        .strip_suffix(')')?;
+    let (channels, alpha) = parse_color_function_parts(content);
+    if channels.len() < 3 {
+        return None;
+    }
+    let hue = parse_hue_degrees(&channels[0])?;
+    let saturation = parse_percent_fraction(&channels[1])?;
+    let lightness = parse_percent_fraction(&channels[2])?;
+    let alpha = alpha
+        .as_deref()
+        .and_then(parse_alpha_channel)
+        .unwrap_or(255);
+    let (red, green, blue) = hsl_to_rgb(hue, saturation, lightness);
+    Some(StyleColor::Rgba {
+        red,
+        green,
+        blue,
+        alpha,
+    })
+}
+
+fn parse_color_function_parts(content: &str) -> (Vec<String>, Option<String>) {
+    let content = content.replace(',', " ");
+    let mut channels = Vec::new();
+    let mut alpha = None;
+    let mut alpha_next = false;
+    for part in content.split_whitespace() {
+        if part == "/" {
+            alpha_next = true;
+        } else if let Some((before, after)) = part.split_once('/') {
+            if !before.is_empty() {
+                channels.push(before.to_string());
+            }
+            if !after.is_empty() {
+                alpha = Some(after.to_string());
+            }
+            alpha_next = false;
+        } else if alpha_next {
+            alpha = Some(part.to_string());
+            alpha_next = false;
+        } else {
+            channels.push(part.to_string());
+        }
+    }
+    if alpha.is_none() && channels.len() > 3 {
+        alpha = channels.pop();
+    }
+    (channels, alpha)
+}
+
+fn parse_hue_degrees(value: &str) -> Option<f64> {
+    let value = value.trim();
+    let degrees = if let Some(degrees) = value.strip_suffix("deg") {
+        degrees.trim().parse::<f64>().ok()?
+    } else if let Some(turns) = value.strip_suffix("turn") {
+        turns.trim().parse::<f64>().ok()? * 360.0
+    } else if let Some(radians) = value.strip_suffix("rad") {
+        radians.trim().parse::<f64>().ok()?.to_degrees()
+    } else if let Some(gradians) = value.strip_suffix("grad") {
+        gradians.trim().parse::<f64>().ok()? * 0.9
+    } else {
+        value.parse::<f64>().ok()?
+    };
+    Some(degrees.rem_euclid(360.0))
+}
+
+fn parse_percent_fraction(value: &str) -> Option<f64> {
+    let value = value.trim().strip_suffix('%')?.trim();
+    Some((value.parse::<f64>().ok()? / 100.0).clamp(0.0, 1.0))
+}
+
+fn hsl_to_rgb(hue: f64, saturation: f64, lightness: f64) -> (u8, u8, u8) {
+    let chroma = (1.0 - (2.0 * lightness - 1.0).abs()) * saturation;
+    let hue_prime = hue / 60.0;
+    let x = chroma * (1.0 - (hue_prime % 2.0 - 1.0).abs());
+    let (red1, green1, blue1) = if (0.0..1.0).contains(&hue_prime) {
+        (chroma, x, 0.0)
+    } else if (1.0..2.0).contains(&hue_prime) {
+        (x, chroma, 0.0)
+    } else if (2.0..3.0).contains(&hue_prime) {
+        (0.0, chroma, x)
+    } else if (3.0..4.0).contains(&hue_prime) {
+        (0.0, x, chroma)
+    } else if (4.0..5.0).contains(&hue_prime) {
+        (x, 0.0, chroma)
+    } else {
+        (chroma, 0.0, x)
+    };
+    let m = lightness - chroma / 2.0;
+    (
+        ((red1 + m) * 255.0).round() as u8,
+        ((green1 + m) * 255.0).round() as u8,
+        ((blue1 + m) * 255.0).round() as u8,
+    )
 }
 
 fn parse_alpha_channel(value: &str) -> Option<u8> {
     let value = value.trim().trim_start_matches('/');
     if let Some(percent) = value.strip_suffix('%') {
         let percent = percent.trim().parse::<f64>().ok()?;
-        return Some((percent.clamp(0.0, 100.0) * 2.55).round() as u8);
+        return Some(((percent.clamp(0.0, 100.0) / 100.0) * 255.0).round() as u8);
     }
     let alpha = value.parse::<f64>().ok()?;
     Some((alpha.clamp(0.0, 1.0) * 255.0).round() as u8)
@@ -1252,38 +1365,129 @@ fn tailwind_opacity(value: &str) -> Option<f64> {
 }
 
 fn tailwind_color(value: &str) -> Option<StyleColor> {
-    let value = value.split_once('/').map_or(value, |(value, _)| value);
+    let (value, opacity) = split_tailwind_color_opacity(value);
     if let Some(arbitrary) = value
         .strip_prefix('[')
         .and_then(|value| value.strip_suffix(']'))
     {
-        return parse_color(&tailwind_arbitrary_value(arbitrary));
+        let color = parse_color(&tailwind_arbitrary_value(arbitrary))?;
+        return Some(apply_tailwind_color_opacity(color, opacity));
     }
-    match value {
+    let color = match value {
         "black" => parse_color("#000"),
         "white" => parse_color("#fff"),
         "transparent" => Some(StyleColor::Keyword("transparent".to_string())),
         "current" => Some(StyleColor::Keyword("currentColor".to_string())),
         other if is_tailwind_palette_color(other) => Some(StyleColor::Keyword(other.to_string())),
         _ => None,
-    }
+    }?;
+    Some(apply_tailwind_color_opacity(color, opacity))
 }
 
 fn tailwind_color_css(value: &str) -> Option<String> {
-    let value = value.split_once('/').map_or(value, |(value, _)| value);
+    let (value, opacity) = split_tailwind_color_opacity(value);
     if let Some(arbitrary) = value
         .strip_prefix('[')
         .and_then(|value| value.strip_suffix(']'))
     {
-        return Some(tailwind_arbitrary_value(arbitrary));
+        let value = tailwind_arbitrary_value(arbitrary);
+        if let Some(color) = parse_color(&value) {
+            return Some(style_color_css(&apply_tailwind_color_opacity(
+                color, opacity,
+            )));
+        }
+        return Some(apply_tailwind_keyword_opacity(value, opacity));
     }
-    match value {
-        "black" => Some("#000".to_string()),
-        "white" => Some("#fff".to_string()),
+    let color = match value {
+        "black" => parse_color("#000")
+            .map(|color| style_color_css(&apply_tailwind_color_opacity(color, opacity))),
+        "white" => parse_color("#fff")
+            .map(|color| style_color_css(&apply_tailwind_color_opacity(color, opacity))),
         "transparent" => Some("transparent".to_string()),
         "current" => Some("currentColor".to_string()),
         other if is_tailwind_palette_color(other) => Some(other.to_string()),
         _ => None,
+    }?;
+    Some(match value {
+        "black" | "white" => color,
+        _ => apply_tailwind_keyword_opacity(color, opacity),
+    })
+}
+
+fn split_tailwind_color_opacity(value: &str) -> (&str, Option<&str>) {
+    let mut bracket_depth = 0usize;
+    for (index, ch) in value.char_indices() {
+        match ch {
+            '[' => bracket_depth += 1,
+            ']' => bracket_depth = bracket_depth.saturating_sub(1),
+            '/' if bracket_depth == 0 => return (&value[..index], Some(&value[index + 1..])),
+            _ => {}
+        }
+    }
+    (value, None)
+}
+
+fn apply_tailwind_color_opacity(color: StyleColor, opacity: Option<&str>) -> StyleColor {
+    let Some(alpha) = opacity.and_then(tailwind_opacity_alpha) else {
+        return color;
+    };
+    match color {
+        StyleColor::Rgba {
+            red, green, blue, ..
+        } => StyleColor::Rgba {
+            red,
+            green,
+            blue,
+            alpha,
+        },
+        StyleColor::Keyword(value) => {
+            StyleColor::Keyword(apply_tailwind_keyword_opacity(value, opacity))
+        }
+    }
+}
+
+fn apply_tailwind_keyword_opacity(value: String, opacity: Option<&str>) -> String {
+    let Some(opacity) = opacity else {
+        return value;
+    };
+    let Some(percent) = tailwind_opacity_percent(opacity) else {
+        return value;
+    };
+    if value == "transparent" {
+        value
+    } else {
+        format!("{value} / {percent}")
+    }
+}
+
+fn tailwind_opacity_alpha(value: &str) -> Option<u8> {
+    let opacity = tailwind_opacity(value)?;
+    Some((opacity.clamp(0.0, 1.0) * 255.0).round() as u8)
+}
+
+fn tailwind_opacity_percent(value: &str) -> Option<String> {
+    let opacity = tailwind_opacity(value)?;
+    Some(format!("{}%", trim_float(opacity.clamp(0.0, 1.0) * 100.0)))
+}
+
+fn style_color_css(color: &StyleColor) -> String {
+    match color {
+        StyleColor::Rgba {
+            red,
+            green,
+            blue,
+            alpha,
+        } if *alpha < 255 => {
+            let alpha = trim_float((*alpha as f64 / 255.0 * 100.0).round() / 100.0);
+            format!("rgba({red}, {green}, {blue}, {alpha})")
+        }
+        StyleColor::Rgba {
+            red,
+            green,
+            blue,
+            alpha: _,
+        } => format!("rgb({red}, {green}, {blue})"),
+        StyleColor::Keyword(value) => value.clone(),
     }
 }
 
@@ -1736,6 +1940,90 @@ mod tests {
         assert_eq!(
             style.declarations.get("width").map(String::as_str),
             Some("calc(100% - 2rem)")
+        );
+    }
+
+    #[test]
+    fn parses_css_color_functions_and_alpha_syntax() {
+        let web = WebProps::new()
+            .style("color", "hsl(210 50% 40% / 50%)")
+            .style("backgroundColor", "rgb(10 20 30 / 25%)")
+            .style("borderColor", "hsla(120, 100%, 25%, 0.75)");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.color,
+            Some(StyleColor::Rgba {
+                red: 51,
+                green: 102,
+                blue: 153,
+                alpha: 128,
+            })
+        );
+        assert_eq!(
+            style.background_color,
+            Some(StyleColor::Rgba {
+                red: 10,
+                green: 20,
+                blue: 30,
+                alpha: 64,
+            })
+        );
+        assert_eq!(
+            style.border_color,
+            Some(StyleColor::Rgba {
+                red: 0,
+                green: 128,
+                blue: 0,
+                alpha: 191,
+            })
+        );
+    }
+
+    #[test]
+    fn preserves_tailwind_color_opacity_modifiers() {
+        let web = WebProps::new()
+            .class_name("bg-[#663399]/50 text-white/75 border-blue-600/25 hover:bg-black/40");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.background_color,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 128,
+            })
+        );
+        assert_eq!(
+            style.color,
+            Some(StyleColor::Rgba {
+                red: 255,
+                green: 255,
+                blue: 255,
+                alpha: 191,
+            })
+        );
+        assert_eq!(
+            style.border_color,
+            Some(StyleColor::Keyword("blue-600 / 25%".to_string()))
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("background-color")
+                .map(String::as_str),
+            Some("rgba(102, 51, 153, 0.5)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("background-color"))
+                .map(String::as_str),
+            Some("rgba(0, 0, 0, 0.4)")
         );
     }
 }
