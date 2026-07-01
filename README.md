@@ -40,10 +40,10 @@ or text nodes, and the original tag is preserved in metadata under
 The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
 properties separately, and projects supported declarations into native style
-tokens. The current portable token set includes display, position, physical and
-logical inset, z-index, visibility, box sizing, box decoration break,
-isolation, mix blend mode, float, clear, vertical alignment, table layout, border
-collapse/spacing, caption side, flex direction/wrap/item
+tokens. The current portable token set includes the CSS display mode family,
+position, physical and logical inset, z-index, visibility, box sizing, box
+decoration break, isolation, mix blend mode, float, clear, vertical alignment,
+table layout, border collapse/spacing, caption side, flex direction/wrap/item
 sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, physical and logical
 sizing, gap/row-gap/column-gap, CSS containment, generated content, and
@@ -80,13 +80,15 @@ Tailwind utility classes are resolved into the same declaration model. Base
 utilities are projected into supported native style tokens; variant utilities such
 as `hover:`, `focus:`, and responsive prefixes are preserved in
 `variant_declarations`. Tailwind color opacity modifiers such as `/50` are
-preserved in the generated declarations and portable color tokens. Formatting
-and table utilities such as `box-*`, `box-decoration-*`, `isolate`,
-`isolation-auto`, `float-*`, `clear-*`, `align-*`, `table-*`,
-`border-collapse`, `border-separate`, `border-spacing-*`, and `caption-*` are
-projected into portable style tokens. SVG presentation utilities such as
-`fill-*`, `stroke-*`, and `stroke-{width}` are projected into portable style
-tokens. Common
+preserved in the generated declarations and portable color tokens. Display
+utilities such as `inline`, `inline-block`, `flow-root`, `contents`,
+`list-item`, `table-*`, `inline-table`, `flex`, `inline-flex`, `grid`,
+`inline-grid`, and `hidden` are projected into portable display tokens.
+Formatting and table utilities such as `box-*`, `box-decoration-*`, `isolate`,
+`isolation-auto`, `float-*`, `clear-*`, `align-*`, `border-collapse`,
+`border-separate`, `border-spacing-*`, and `caption-*` are projected into
+portable style tokens. SVG presentation utilities such as `fill-*`,
+`stroke-*`, and `stroke-{width}` are projected into portable style tokens. Common
 visual-effect utilities such as `shadow-*`, `ring-*`, `inset-ring-*`,
 `outline-*`, `cursor-*`,
 `pointer-events-*`, `select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`, and

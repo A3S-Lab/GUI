@@ -357,7 +357,8 @@ dispatch logic, while backend-local menu details stay in focused modules.
 CSS declarations and projects the subset that native adapters can apply
 deterministically:
 
-- `display`
+- `display`, including inline, block, flow-root, contents, list-item, flex,
+  grid, and table display modes
 - `boxSizing`, `boxDecorationBreak`, `isolation`, `mixBlendMode`
 - `float`, `clear`, `verticalAlign`
 - `tableLayout`, `borderCollapse`, `borderSpacing`, `captionSide`
@@ -439,8 +440,11 @@ and named container forms project into container declarations. Container query
 variants such as `@md:` are stored in `variant_declarations`.
 Common Tailwind formatting and table utilities such as `box-*`,
 `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`, `clear-*`,
-`align-*`, `table-*`, `border-collapse`, `border-separate`,
-`border-spacing-*`, and `caption-*` project into the same declaration model.
+`align-*`, `border-collapse`, `border-separate`, `border-spacing-*`, and
+`caption-*` project into the same declaration model. Tailwind display
+utilities such as `inline-block`, `flow-root`, `contents`, `list-item`,
+`table-*`, `inline-table`, `inline-flex`, and `inline-grid` project into
+portable display tokens.
 Common Tailwind SVG presentation utilities such as `fill-*`, `stroke-*`, and
 `stroke-{width}` project into the same declaration model.
 Common Tailwind transform utilities such as `translate-*`, `scale-*`,

@@ -1500,11 +1500,26 @@ impl PortableStyle {
             return;
         }
         match class {
-            "flex" | "inline-flex" => self.display = Some(DisplayMode::Flex),
-            "block" | "inline-block" => self.display = Some(DisplayMode::Block),
+            "flex" => self.display = Some(DisplayMode::Flex),
+            "inline-flex" => self.display = Some(DisplayMode::InlineFlex),
+            "block" => self.display = Some(DisplayMode::Block),
+            "inline-block" => self.display = Some(DisplayMode::InlineBlock),
             "inline" => self.display = Some(DisplayMode::Inline),
             "grid" => self.display = Some(DisplayMode::Grid),
             "inline-grid" => self.display = Some(DisplayMode::InlineGrid),
+            "flow-root" => self.display = Some(DisplayMode::FlowRoot),
+            "contents" => self.display = Some(DisplayMode::Contents),
+            "list-item" => self.display = Some(DisplayMode::ListItem),
+            "table" => self.display = Some(DisplayMode::Table),
+            "inline-table" => self.display = Some(DisplayMode::InlineTable),
+            "table-caption" => self.display = Some(DisplayMode::TableCaption),
+            "table-cell" => self.display = Some(DisplayMode::TableCell),
+            "table-column" => self.display = Some(DisplayMode::TableColumn),
+            "table-column-group" => self.display = Some(DisplayMode::TableColumnGroup),
+            "table-footer-group" => self.display = Some(DisplayMode::TableFooterGroup),
+            "table-header-group" => self.display = Some(DisplayMode::TableHeaderGroup),
+            "table-row-group" => self.display = Some(DisplayMode::TableRowGroup),
+            "table-row" => self.display = Some(DisplayMode::TableRow),
             "line-clamp-1" | "line-clamp-2" | "line-clamp-3" | "line-clamp-4" | "line-clamp-5"
             | "line-clamp-6" => self.display = Some(DisplayMode::WebkitBox),
             "line-clamp-none" => self.display = Some(DisplayMode::Block),
@@ -1587,10 +1602,25 @@ impl PortableStyle {
 #[serde(rename_all = "camelCase")]
 pub enum DisplayMode {
     Inline,
+    InlineBlock,
     Flex,
+    InlineFlex,
     Block,
     Grid,
     InlineGrid,
+    FlowRoot,
+    Contents,
+    ListItem,
+    Table,
+    InlineTable,
+    TableCaption,
+    TableCell,
+    TableColumn,
+    TableColumnGroup,
+    TableFooterGroup,
+    TableHeaderGroup,
+    TableRowGroup,
+    TableRow,
     WebkitBox,
     None,
 }
@@ -2487,10 +2517,25 @@ fn normalize_css_value(value: &str) -> String {
 fn parse_display(value: &str) -> Option<DisplayMode> {
     match value.trim() {
         "inline" => Some(DisplayMode::Inline),
-        "flex" | "inline-flex" => Some(DisplayMode::Flex),
-        "block" | "inline-block" => Some(DisplayMode::Block),
+        "inline-block" => Some(DisplayMode::InlineBlock),
+        "flex" => Some(DisplayMode::Flex),
+        "inline-flex" => Some(DisplayMode::InlineFlex),
+        "block" => Some(DisplayMode::Block),
         "grid" => Some(DisplayMode::Grid),
         "inline-grid" => Some(DisplayMode::InlineGrid),
+        "flow-root" => Some(DisplayMode::FlowRoot),
+        "contents" => Some(DisplayMode::Contents),
+        "list-item" => Some(DisplayMode::ListItem),
+        "table" => Some(DisplayMode::Table),
+        "inline-table" => Some(DisplayMode::InlineTable),
+        "table-caption" => Some(DisplayMode::TableCaption),
+        "table-cell" => Some(DisplayMode::TableCell),
+        "table-column" => Some(DisplayMode::TableColumn),
+        "table-column-group" => Some(DisplayMode::TableColumnGroup),
+        "table-footer-group" => Some(DisplayMode::TableFooterGroup),
+        "table-header-group" => Some(DisplayMode::TableHeaderGroup),
+        "table-row-group" => Some(DisplayMode::TableRowGroup),
+        "table-row" => Some(DisplayMode::TableRow),
         "-webkit-box" => Some(DisplayMode::WebkitBox),
         "none" => Some(DisplayMode::None),
         _ => None,
@@ -3776,10 +3821,25 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
     }
     let declaration = match class {
         "inline" => Some(("display", "inline".to_string())),
-        "flex" | "inline-flex" => Some(("display", "flex".to_string())),
-        "block" | "inline-block" => Some(("display", "block".to_string())),
+        "inline-block" => Some(("display", "inline-block".to_string())),
+        "block" => Some(("display", "block".to_string())),
+        "flow-root" => Some(("display", "flow-root".to_string())),
+        "flex" => Some(("display", "flex".to_string())),
+        "inline-flex" => Some(("display", "inline-flex".to_string())),
         "grid" => Some(("display", "grid".to_string())),
         "inline-grid" => Some(("display", "inline-grid".to_string())),
+        "contents" => Some(("display", "contents".to_string())),
+        "list-item" => Some(("display", "list-item".to_string())),
+        "table" => Some(("display", "table".to_string())),
+        "inline-table" => Some(("display", "inline-table".to_string())),
+        "table-caption" => Some(("display", "table-caption".to_string())),
+        "table-cell" => Some(("display", "table-cell".to_string())),
+        "table-column" => Some(("display", "table-column".to_string())),
+        "table-column-group" => Some(("display", "table-column-group".to_string())),
+        "table-footer-group" => Some(("display", "table-footer-group".to_string())),
+        "table-header-group" => Some(("display", "table-header-group".to_string())),
+        "table-row-group" => Some(("display", "table-row-group".to_string())),
+        "table-row" => Some(("display", "table-row".to_string())),
         "hidden" => Some(("display", "none".to_string())),
         "static" => Some(("position", "static".to_string())),
         "fixed" => Some(("position", "fixed".to_string())),
@@ -7510,6 +7570,33 @@ mod tests {
     }
 
     #[test]
+    fn parses_extended_css_display_modes() {
+        let cases = [
+            ("inline-block", DisplayMode::InlineBlock),
+            ("inline-flex", DisplayMode::InlineFlex),
+            ("flow-root", DisplayMode::FlowRoot),
+            ("contents", DisplayMode::Contents),
+            ("list-item", DisplayMode::ListItem),
+            ("table", DisplayMode::Table),
+            ("inline-table", DisplayMode::InlineTable),
+            ("table-caption", DisplayMode::TableCaption),
+            ("table-cell", DisplayMode::TableCell),
+            ("table-column", DisplayMode::TableColumn),
+            ("table-column-group", DisplayMode::TableColumnGroup),
+            ("table-footer-group", DisplayMode::TableFooterGroup),
+            ("table-header-group", DisplayMode::TableHeaderGroup),
+            ("table-row-group", DisplayMode::TableRowGroup),
+            ("table-row", DisplayMode::TableRow),
+        ];
+
+        for (display, expected) in cases {
+            let style = PortableStyle::from_web(&WebProps::new().style("display", display));
+            assert_eq!(style.display, Some(expected));
+            assert!(!style.unsupported.contains_key("display"));
+        }
+    }
+
+    #[test]
     fn parses_tailwind_utilities_before_inline_style_overrides() {
         let web = WebProps::new()
             .class_name(
@@ -7582,6 +7669,136 @@ mod tests {
                 blue: 255,
                 alpha: 255,
             })
+        );
+    }
+
+    #[test]
+    fn parses_tailwind_display_utilities() {
+        let web = WebProps::new().class_name(
+            "inline-block hover:inline-flex focus:flow-root active:contents disabled:list-item \
+             sm:table md:inline-table lg:table-caption xl:table-cell \
+             2xl:table-column dark:table-column-group rtl:table-footer-group \
+             ltr:table-header-group portrait:table-row-group landscape:table-row",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.display, Some(DisplayMode::InlineBlock));
+        assert_eq!(
+            style.declarations.get("display").map(String::as_str),
+            Some("inline-block")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("inline-flex")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("flow-root")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("contents")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("disabled")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("list-item")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("sm")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("table")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("inline-table")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("lg")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("table-caption")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("xl")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("table-cell")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("2xl")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("table-column")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("dark")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("table-column-group")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("rtl")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("table-footer-group")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("ltr")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("table-header-group")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("portrait")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("table-row-group")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("landscape")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("table-row")
         );
     }
 
