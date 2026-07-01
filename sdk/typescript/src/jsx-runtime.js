@@ -181,8 +181,8 @@ function normalizeProps(props, tag) {
 
 function parseStyleText(value) {
   const style = {};
-  for (const declaration of value.split(';')) {
-    const separator = declaration.indexOf(':');
+  for (const declaration of splitCssDeclarations(value)) {
+    const separator = findCssDeclarationSeparator(declaration);
     if (separator <= 0) continue;
     const property = declaration.slice(0, separator).trim();
     const styleValue = declaration.slice(separator + 1).trim();
@@ -191,6 +191,102 @@ function parseStyleText(value) {
     }
   }
   return style;
+}
+
+function splitCssDeclarations(value) {
+  const declarations = [];
+  let current = '';
+  let quote = null;
+  let escaped = false;
+  let parenDepth = 0;
+  let bracketDepth = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    const next = value[index + 1];
+
+    if (quote != null) {
+      current += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (char === '/' && next === '*') {
+      const commentEnd = value.indexOf('*/', index + 2);
+      if (commentEnd === -1) break;
+      index = commentEnd + 1;
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quote = char;
+      current += char;
+    } else if (char === '(') {
+      parenDepth += 1;
+      current += char;
+    } else if (char === ')') {
+      parenDepth = Math.max(0, parenDepth - 1);
+      current += char;
+    } else if (char === '[') {
+      bracketDepth += 1;
+      current += char;
+    } else if (char === ']') {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+      current += char;
+    } else if (char === ';' && parenDepth === 0 && bracketDepth === 0) {
+      declarations.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  if (current.trim().length > 0) declarations.push(current);
+  return declarations;
+}
+
+function findCssDeclarationSeparator(declaration) {
+  let quote = null;
+  let escaped = false;
+  let parenDepth = 0;
+  let bracketDepth = 0;
+
+  for (let index = 0; index < declaration.length; index += 1) {
+    const char = declaration[index];
+
+    if (quote != null) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '(') {
+      parenDepth += 1;
+    } else if (char === ')') {
+      parenDepth = Math.max(0, parenDepth - 1);
+    } else if (char === '[') {
+      bracketDepth += 1;
+    } else if (char === ']') {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+    } else if (char === ':' && parenDepth === 0 && bracketDepth === 0) {
+      return index;
+    }
+  }
+
+  return -1;
 }
 
 function applySemanticAttribute(out, name, value) {

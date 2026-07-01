@@ -389,6 +389,7 @@ mod tests {
                 .blueprint
                 .portable_style
                 .width
+                .as_ref()
                 .and_then(|value| value.points()),
             Some(640.0)
         );
@@ -397,6 +398,7 @@ mod tests {
                 .blueprint
                 .portable_style
                 .height
+                .as_ref()
                 .and_then(|value| value.points()),
             Some(480.0)
         );

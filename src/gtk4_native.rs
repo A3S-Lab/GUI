@@ -580,6 +580,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     config
                         .portable_style
                         .gap
+                        .as_ref()
                         .and_then(StyleLength::points)
                         .map(points_to_i32)
                         .unwrap_or(0),
@@ -980,7 +981,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     if let Some(orientation) = style.flex_direction {
                         box_.set_orientation(gtk_orientation(orientation));
                     }
-                    if let Some(gap) = style.gap.and_then(StyleLength::points) {
+                    if let Some(gap) = style.gap.as_ref().and_then(StyleLength::points) {
                         box_.set_spacing(points_to_i32(gap));
                     }
                 }
@@ -1319,6 +1320,7 @@ fn gtk_orientation(orientation: Orientation) -> gtk::Orientation {
 
 fn config_dimension(value: Option<StyleLength>, default: i32) -> i32 {
     value
+        .as_ref()
         .and_then(StyleLength::points)
         .map(points_to_i32)
         .unwrap_or(default)
@@ -1327,13 +1329,15 @@ fn config_dimension(value: Option<StyleLength>, default: i32) -> i32 {
 fn apply_widget_size(widget: &gtk::Widget, style: &crate::style::PortableStyle) {
     let width = style
         .width
-        .or(style.min_width)
+        .as_ref()
+        .or(style.min_width.as_ref())
         .and_then(StyleLength::points)
         .map(points_to_i32)
         .unwrap_or(-1);
     let height = style
         .height
-        .or(style.min_height)
+        .as_ref()
+        .or(style.min_height.as_ref())
         .and_then(StyleLength::points)
         .map(points_to_i32)
         .unwrap_or(-1);

@@ -375,19 +375,20 @@ pub enum VisibilityMode {
     Collapse,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "camelCase")]
 pub enum StyleLength {
     Points(f64),
     Percent(f64),
     Auto,
+    Css(String),
 }
 
 impl StyleLength {
-    pub fn points(self) -> Option<f64> {
+    pub fn points(&self) -> Option<f64> {
         match self {
-            StyleLength::Points(value) => Some(value),
-            StyleLength::Percent(_) | StyleLength::Auto => None,
+            StyleLength::Points(value) => Some(*value),
+            StyleLength::Percent(_) | StyleLength::Auto | StyleLength::Css(_) => None,
         }
     }
 }
@@ -404,7 +405,7 @@ pub enum StyleColor {
     Keyword(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeInsets {
     pub top: Option<StyleLength>,
@@ -415,9 +416,9 @@ pub struct EdgeInsets {
 
 impl EdgeInsets {
     fn set_all(&mut self, value: Option<StyleLength>) {
-        self.top = value;
-        self.right = value;
-        self.bottom = value;
+        self.top = value.clone();
+        self.right = value.clone();
+        self.bottom = value.clone();
         self.left = value;
     }
 
@@ -425,11 +426,11 @@ impl EdgeInsets {
         match edges {
             EdgeSelection::All => self.set_all(Some(value)),
             EdgeSelection::X => {
-                self.left = Some(value);
+                self.left = Some(value.clone());
                 self.right = Some(value);
             }
             EdgeSelection::Y => {
-                self.top = Some(value);
+                self.top = Some(value.clone());
                 self.bottom = Some(value);
             }
             EdgeSelection::Top => self.top = Some(value),
@@ -618,24 +619,24 @@ fn parse_edge_insets(value: &str) -> EdgeInsets {
     let mut edges = EdgeInsets::default();
     match values.as_slice() {
         [] => {}
-        [all] => edges.set_all(Some(*all)),
+        [all] => edges.set_all(Some(all.clone())),
         [vertical, horizontal] => {
-            edges.top = Some(*vertical);
-            edges.bottom = Some(*vertical);
-            edges.left = Some(*horizontal);
-            edges.right = Some(*horizontal);
+            edges.top = Some(vertical.clone());
+            edges.bottom = Some(vertical.clone());
+            edges.left = Some(horizontal.clone());
+            edges.right = Some(horizontal.clone());
         }
         [top, horizontal, bottom] => {
-            edges.top = Some(*top);
-            edges.left = Some(*horizontal);
-            edges.right = Some(*horizontal);
-            edges.bottom = Some(*bottom);
+            edges.top = Some(top.clone());
+            edges.left = Some(horizontal.clone());
+            edges.right = Some(horizontal.clone());
+            edges.bottom = Some(bottom.clone());
         }
         [top, right, bottom, left, ..] => {
-            edges.top = Some(*top);
-            edges.right = Some(*right);
-            edges.bottom = Some(*bottom);
-            edges.left = Some(*left);
+            edges.top = Some(top.clone());
+            edges.right = Some(right.clone());
+            edges.bottom = Some(bottom.clone());
+            edges.left = Some(left.clone());
         }
     }
     edges
@@ -643,6 +644,9 @@ fn parse_edge_insets(value: &str) -> EdgeInsets {
 
 fn parse_length(value: &str) -> Option<StyleLength> {
     let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
     if value == "auto" {
         return Some(StyleLength::Auto);
     }
@@ -669,7 +673,103 @@ fn parse_length(value: &str) -> Option<StyleLength> {
     if let Some(points) = value.strip_suffix("pt") {
         return points.trim().parse::<f64>().ok().map(StyleLength::Points);
     }
-    value.parse::<f64>().ok().map(StyleLength::Points)
+    if let Ok(points) = value.parse::<f64>() {
+        return Some(StyleLength::Points(points));
+    }
+    if is_css_length_expression(value) {
+        return Some(StyleLength::Css(value.to_string()));
+    }
+    None
+}
+
+fn is_css_length_expression(value: &str) -> bool {
+    if matches!(
+        value,
+        "inherit"
+            | "initial"
+            | "unset"
+            | "revert"
+            | "revert-layer"
+            | "min-content"
+            | "max-content"
+            | "fit-content"
+            | "stretch"
+            | "contain"
+    ) {
+        return true;
+    }
+    if matches!(
+        value.split_once('(').map(|(name, _)| name.trim()),
+        Some("calc" | "min" | "max" | "clamp" | "var" | "env" | "fit-content")
+    ) && value.ends_with(')')
+    {
+        return true;
+    }
+    let Some((number, unit)) = split_number_and_unit(value) else {
+        return false;
+    };
+    number.parse::<f64>().is_ok() && is_css_length_unit(unit)
+}
+
+fn split_number_and_unit(value: &str) -> Option<(&str, &str)> {
+    let mut split = value.len();
+    for (index, ch) in value.char_indices().rev() {
+        if ch.is_ascii_alphabetic() || ch == '%' {
+            split = index;
+        } else {
+            break;
+        }
+    }
+    if split == value.len() || split == 0 {
+        return None;
+    }
+    Some((&value[..split], &value[split..]))
+}
+
+fn is_css_length_unit(unit: &str) -> bool {
+    matches!(
+        unit,
+        "cap"
+            | "ch"
+            | "em"
+            | "ex"
+            | "ic"
+            | "lh"
+            | "rlh"
+            | "rem"
+            | "vw"
+            | "svw"
+            | "lvw"
+            | "dvw"
+            | "vh"
+            | "svh"
+            | "lvh"
+            | "dvh"
+            | "vi"
+            | "svi"
+            | "lvi"
+            | "dvi"
+            | "vb"
+            | "svb"
+            | "lvb"
+            | "dvb"
+            | "vmin"
+            | "svmin"
+            | "lvmin"
+            | "dvmin"
+            | "vmax"
+            | "svmax"
+            | "lvmax"
+            | "dvmax"
+            | "cm"
+            | "mm"
+            | "q"
+            | "Q"
+            | "in"
+            | "pc"
+            | "pt"
+            | "px"
+    )
 }
 
 fn parse_color(value: &str) -> Option<StyleColor> {
@@ -1043,6 +1143,7 @@ fn style_length_css(value: StyleLength) -> String {
         StyleLength::Points(value) => format!("{}px", trim_float(value)),
         StyleLength::Percent(value) => format!("{}%", trim_float(value)),
         StyleLength::Auto => "auto".to_string(),
+        StyleLength::Css(value) => value,
     }
 }
 
@@ -1319,7 +1420,7 @@ fn negate_style_length(value: StyleLength) -> Option<StyleLength> {
     match value {
         StyleLength::Points(value) => Some(StyleLength::Points(-value)),
         StyleLength::Percent(value) => Some(StyleLength::Percent(-value)),
-        StyleLength::Auto => None,
+        StyleLength::Auto | StyleLength::Css(_) => None,
     }
 }
 
@@ -1568,6 +1669,73 @@ mod tests {
         assert_eq!(
             style.declarations.get("line-height").map(String::as_str),
             Some("1.25")
+        );
+    }
+
+    #[test]
+    fn preserves_css_length_expressions_as_portable_tokens() {
+        let web = WebProps::new()
+            .style("width", "calc(100% - 2rem)")
+            .style("height", "50dvh")
+            .style("minWidth", "min-content")
+            .style("maxHeight", "clamp(240px, 50vh, 640px)")
+            .style("gap", "var(--space)")
+            .style("borderWidth", "fit-content");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.width,
+            Some(StyleLength::Css("calc(100% - 2rem)".to_string()))
+        );
+        assert_eq!(style.height, Some(StyleLength::Css("50dvh".to_string())));
+        assert_eq!(
+            style.min_width,
+            Some(StyleLength::Css("min-content".to_string()))
+        );
+        assert_eq!(
+            style.max_height,
+            Some(StyleLength::Css("clamp(240px, 50vh, 640px)".to_string()))
+        );
+        assert_eq!(
+            style.gap,
+            Some(StyleLength::Css("var(--space)".to_string()))
+        );
+        assert_eq!(
+            style.border_width.top,
+            Some(StyleLength::Css("fit-content".to_string()))
+        );
+    }
+
+    #[test]
+    fn preserves_tailwind_arbitrary_css_length_expressions() {
+        let web = WebProps::new().class_name(
+            "w-[calc(100%_-_2rem)] h-[50dvh] min-w-[min-content] \
+             max-h-[clamp(240px,_50vh,_640px)] gap-[var(--space)]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.width,
+            Some(StyleLength::Css("calc(100% - 2rem)".to_string()))
+        );
+        assert_eq!(style.height, Some(StyleLength::Css("50dvh".to_string())));
+        assert_eq!(
+            style.min_width,
+            Some(StyleLength::Css("min-content".to_string()))
+        );
+        assert_eq!(
+            style.max_height,
+            Some(StyleLength::Css("clamp(240px, 50vh, 640px)".to_string()))
+        );
+        assert_eq!(
+            style.gap,
+            Some(StyleLength::Css("var(--space)".to_string()))
+        );
+        assert_eq!(
+            style.declarations.get("width").map(String::as_str),
+            Some("calc(100% - 2rem)")
         );
     }
 }

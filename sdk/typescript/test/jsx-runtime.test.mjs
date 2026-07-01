@@ -99,6 +99,27 @@ test('intrinsic HTML elements preserve CSS text and Tailwind class names', () =>
   assert.equal(root.children[0].props.events.onClick, 'saveArticle');
 });
 
+test('CSS text parser preserves delimiters inside functions and strings', () => {
+  const root = jsxs('div', {
+    style: `
+      color: rgb(10 20 30 / 50%);
+      background-image: url("https://example.com/a:b;c.svg");
+      content: "label: value; still text";
+      --accent: color-mix(in srgb, rebeccapurple 40%, white);
+      /* ignored comment: with delimiter; */
+      padding-inline: 1rem 2rem;
+    `,
+    children: 'Styled',
+  }, 'styled');
+
+  assert.equal(root.props.style.color, 'rgb(10 20 30 / 50%)');
+  assert.equal(root.props.style['background-image'], 'url("https://example.com/a:b;c.svg")');
+  assert.equal(root.props.style.content, '"label: value; still text"');
+  assert.equal(root.props.style['--accent'], 'color-mix(in srgb, rebeccapurple 40%, white)');
+  assert.equal(root.props.style['padding-inline'], '1rem 2rem');
+  assert.equal(root.props.style['ignored comment'], undefined);
+});
+
 test('function event props compile to stable action ids', () => {
   const saveProfile = createAction('saveProfile', 'Save profile');
   const root = jsxs(Button, {

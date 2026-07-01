@@ -367,3 +367,6 @@ stored under `variant_declarations` so a future state or responsive layer can
 apply them without reparsing `className`. Unsupported style declarations are
 preserved so the compiler or design tooling can warn without silently dropping
 source declarations.
+CSS length values that cannot be converted to numeric points or percentages are
+kept as `StyleLength::Css`, including `calc(...)`, `var(...)`, `clamp(...)`,
+viewport/container units, and sizing keywords such as `min-content`.

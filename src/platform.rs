@@ -850,6 +850,7 @@ mod tests {
             config
                 .portable_style
                 .min_width
+                .as_ref()
                 .and_then(|value| value.points()),
             Some(240.0)
         );
@@ -1070,6 +1071,7 @@ mod tests {
             blueprint
                 .portable_style
                 .min_width
+                .as_ref()
                 .and_then(|value| value.points()),
             Some(160.0)
         );

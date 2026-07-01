@@ -998,8 +998,8 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
             NativeWidgetSetter::SetPortableStyle(style) => {
                 if let Some(view) = handle.widget.as_view() {
-                    let width = style.width.and_then(StyleLength::points);
-                    let height = style.height.and_then(StyleLength::points);
+                    let width = style.width.as_ref().and_then(StyleLength::points);
+                    let height = style.height.as_ref().and_then(StyleLength::points);
                     if width.is_some() || height.is_some() {
                         view.setFrameSize(NSSize::new(
                             width.unwrap_or(120.0),
@@ -1008,8 +1008,8 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     }
                 }
                 if let AppKitOsWidget::Popover(state) = &handle.widget {
-                    let width = style.width.and_then(StyleLength::points);
-                    let height = style.height.and_then(StyleLength::points);
+                    let width = style.width.as_ref().and_then(StyleLength::points);
+                    let height = style.height.as_ref().and_then(StyleLength::points);
                     if width.is_some() || height.is_some() {
                         let size = NSSize::new(width.unwrap_or(320.0), height.unwrap_or(220.0));
                         state.popover.setContentSize(size);
@@ -1360,11 +1360,13 @@ fn config_size(config: &NativeWidgetConfig, default_width: f64, default_height: 
     let width = config
         .portable_style
         .width
+        .as_ref()
         .and_then(StyleLength::points)
         .unwrap_or(default_width);
     let height = config
         .portable_style
         .height
+        .as_ref()
         .and_then(StyleLength::points)
         .unwrap_or(default_height);
     NSSize::new(width, height)

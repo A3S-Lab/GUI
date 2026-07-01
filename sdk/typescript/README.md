@@ -9,7 +9,8 @@ React Aria-compatible component names and props are supported. General semantic
 UI component names are also accepted, so the SDK is not limited to React Aria.
 Intrinsic HTML element names are accepted as JSX strings. `style` can be an
 object or CSS text string, and `className` is preserved for the Rust-side
-Tailwind utility resolver, including variant-prefixed utilities.
+Tailwind utility resolver, including variant-prefixed utilities. CSS text
+parsing preserves delimiters inside strings, functions, and URLs.
 
 ## JSX Runtime
 

@@ -49,6 +49,10 @@ gap/row-gap/column-gap, spacing, border width/style/color/radius, text color,
 background color, font size, font weight, line height, text alignment, overflow,
 and opacity.
 
+CSS length values that cannot be converted to points or percentages, such as
+`calc(...)`, `var(...)`, `clamp(...)`, viewport units, and sizing keywords, are
+preserved as CSS length tokens for platform adapters that can consume them.
+
 Tailwind utility classes are resolved into the same declaration model. Base
 utilities are projected into current native style tokens; variant utilities such
 as `hover:`, `focus:`, and responsive prefixes are preserved in
