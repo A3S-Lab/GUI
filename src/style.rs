@@ -146,6 +146,7 @@ pub struct PortableStyle {
     pub object_position: Option<String>,
     pub list_style_type: Option<String>,
     pub list_style_position: Option<ListStylePosition>,
+    pub list_style_image: Option<String>,
     pub columns: Option<String>,
     pub column_count: Option<String>,
     pub column_width: Option<StyleLength>,
@@ -786,6 +787,7 @@ impl PortableStyle {
             "list-style-position" => {
                 self.list_style_position = parse_list_style_position(value_ref);
             }
+            "list-style-image" => self.list_style_image = parse_css_string_token(value_ref),
             "columns" => self.columns = parse_css_string_token(value_ref),
             "column-count" => self.column_count = parse_css_string_token(value_ref),
             "column-width" => self.column_width = parse_length(value_ref),
@@ -5906,6 +5908,15 @@ fn tailwind_media_declaration(class: &str) -> Option<(String, String)> {
             tailwind_arbitrary_value(value),
         ));
     }
+    if class == "list-image-none" {
+        return Some(("list-style-image".to_string(), "none".to_string()));
+    }
+    if let Some(value) = class
+        .strip_prefix("list-image-")
+        .and_then(tailwind_arbitrary_or_custom_var)
+    {
+        return Some(("list-style-image".to_string(), value));
+    }
     if let Some(value) = class
         .strip_prefix("list-[")
         .and_then(|value| value.strip_suffix(']'))
@@ -9520,6 +9531,7 @@ mod tests {
             .style("objectPosition", "left bottom")
             .style("listStyleType", "disc")
             .style("listStylePosition", "inside")
+            .style("listStyleImage", "url('/marker.svg')")
             .style("columns", "3")
             .style("columnCount", "2")
             .style("columnWidth", "12rem")
@@ -9549,6 +9561,10 @@ mod tests {
         assert_eq!(style.object_position.as_deref(), Some("left bottom"));
         assert_eq!(style.list_style_type.as_deref(), Some("disc"));
         assert_eq!(style.list_style_position, Some(ListStylePosition::Inside));
+        assert_eq!(
+            style.list_style_image.as_deref(),
+            Some("url('/marker.svg')")
+        );
         assert_eq!(style.columns.as_deref(), Some("3"));
         assert_eq!(style.column_count.as_deref(), Some("2"));
         assert_eq!(style.column_width, Some(StyleLength::Points(192.0)));
@@ -9571,6 +9587,7 @@ mod tests {
         assert_eq!(style.break_inside.as_deref(), Some("avoid"));
         assert!(!style.unsupported.contains_key("background-image"));
         assert!(!style.unsupported.contains_key("object-fit"));
+        assert!(!style.unsupported.contains_key("list-style-image"));
         assert!(!style.unsupported.contains_key("column-rule"));
         assert!(!style.unsupported.contains_key("page-break-inside"));
     }
@@ -9580,8 +9597,9 @@ mod tests {
         let web = WebProps::new().class_name(
             "bg-[url('/hero.png')] bg-cover bg-center bg-no-repeat bg-fixed \
              bg-origin-content bg-clip-padding object-cover object-left-bottom \
-             list-inside list-disc columns-3 break-before-page break-after-avoid-column \
+             list-inside list-disc list-image-[url('/marker.svg')] columns-3 break-before-page break-after-avoid-column \
              break-inside-avoid md:bg-[length:50%_auto] hover:object-[25%_75%] \
+             md:list-image-(--marker-image) hover:list-image-none \
              focus:break-before-[recto] lg:break-inside-(--break-inside)",
         );
 
@@ -9601,6 +9619,10 @@ mod tests {
         assert_eq!(style.object_position.as_deref(), Some("left bottom"));
         assert_eq!(style.list_style_position, Some(ListStylePosition::Inside));
         assert_eq!(style.list_style_type.as_deref(), Some("disc"));
+        assert_eq!(
+            style.list_style_image.as_deref(),
+            Some("url('/marker.svg')")
+        );
         assert_eq!(style.columns.as_deref(), Some("3"));
         assert_eq!(style.break_before.as_deref(), Some("page"));
         assert_eq!(style.break_after.as_deref(), Some("avoid-column"));
@@ -9611,6 +9633,22 @@ mod tests {
                 .get("background-image")
                 .map(String::as_str),
             Some("url('/hero.png')")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("list-style-image"))
+                .map(String::as_str),
+            Some("var(--marker-image)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("list-style-image"))
+                .map(String::as_str),
+            Some("none")
         );
         assert_eq!(
             style

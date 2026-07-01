@@ -54,7 +54,8 @@ physical-corner, and logical-corner border radius,
 text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip, CSS clip path, CSS mask, CSS mask border, object fit/position,
-list style, columns, column rule/span/fill, fragmentation breaks, font size,
+list style type/position/image, columns, column rule/span/fill,
+fragmentation breaks, font size,
 font weight, font family, font style, font
 stretch, font kerning, font optical sizing, font smoothing hints,
 font feature and variation settings, font variant and
@@ -125,8 +126,8 @@ Arbitrary property utilities for CSS
 writing modes and `ltr:`/`rtl:` variants are preserved in the same declaration
 model.
 Background, object, list, columns, and fragmentation utilities such as `bg-*`,
-`object-*`, `list-*`, `columns-*`, `break-before-*`, `break-after-*`, and
-`break-inside-*` are projected into portable style tokens.
+`object-*`, `list-*`, `list-image-*`, `columns-*`, `break-before-*`,
+`break-after-*`, and `break-inside-*` are projected into portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, `will-change-*`, `appearance-*`,
 `scheme-*`, `forced-color-adjust-*`, `field-sizing-*`, `accent-*`,
