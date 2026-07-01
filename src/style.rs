@@ -59,6 +59,11 @@ pub struct PortableStyle {
     pub margin: EdgeInsets,
     pub scroll_margin: EdgeInsets,
     pub scroll_padding: EdgeInsets,
+    pub logical_inset: LogicalEdgeInsets,
+    pub logical_padding: LogicalEdgeInsets,
+    pub logical_margin: LogicalEdgeInsets,
+    pub logical_scroll_margin: LogicalEdgeInsets,
+    pub logical_scroll_padding: LogicalEdgeInsets,
     pub border_width: EdgeInsets,
     pub border_color: Option<StyleColor>,
     pub border_style: Option<BorderStyle>,
@@ -269,51 +274,146 @@ impl PortableStyle {
             "grid-row-end" => self.grid_row_end = parse_css_string_token(value_ref),
             "grid-area" => self.grid_area = parse_css_string_token(value_ref),
             "inset" => self.inset = parse_edge_insets(value_ref),
+            "inset-block" => {
+                self.inset
+                    .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref));
+                self.logical_inset
+                    .apply_axis_values(LogicalEdgeSelection::Block, value_ref);
+            }
+            "inset-inline" => {
+                self.inset
+                    .apply_edges_opt(EdgeSelection::X, parse_length(value_ref));
+                self.logical_inset
+                    .apply_axis_values(LogicalEdgeSelection::Inline, value_ref);
+            }
+            "inset-block-start" => {
+                self.logical_inset.block_start = parse_length(value_ref);
+            }
+            "inset-block-end" => {
+                self.logical_inset.block_end = parse_length(value_ref);
+            }
+            "inset-inline-start" | "start" => {
+                self.logical_inset.inline_start = parse_length(value_ref);
+            }
+            "inset-inline-end" | "end" => {
+                self.logical_inset.inline_end = parse_length(value_ref);
+            }
             "top" => self.inset.top = parse_length(value_ref),
             "right" => self.inset.right = parse_length(value_ref),
             "bottom" => self.inset.bottom = parse_length(value_ref),
             "left" => self.inset.left = parse_length(value_ref),
             "padding" => self.padding = parse_edge_insets(value_ref),
-            "padding-block" => self
-                .padding
-                .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref)),
+            "padding-block" => {
+                self.padding
+                    .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref));
+                self.logical_padding
+                    .apply_axis_values(LogicalEdgeSelection::Block, value_ref);
+            }
             "padding-inline" => {
                 self.padding
                     .apply_edges_opt(EdgeSelection::X, parse_length(value_ref));
+                self.logical_padding
+                    .apply_axis_values(LogicalEdgeSelection::Inline, value_ref);
+            }
+            "padding-block-start" => {
+                self.logical_padding.block_start = parse_length(value_ref);
+            }
+            "padding-block-end" => {
+                self.logical_padding.block_end = parse_length(value_ref);
+            }
+            "padding-inline-start" => {
+                self.logical_padding.inline_start = parse_length(value_ref);
+            }
+            "padding-inline-end" => {
+                self.logical_padding.inline_end = parse_length(value_ref);
             }
             "padding-top" => self.padding.top = parse_length(value_ref),
             "padding-right" => self.padding.right = parse_length(value_ref),
             "padding-bottom" => self.padding.bottom = parse_length(value_ref),
             "padding-left" => self.padding.left = parse_length(value_ref),
             "margin" => self.margin = parse_edge_insets(value_ref),
-            "margin-block" => self
-                .margin
-                .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref)),
-            "margin-inline" => self
-                .margin
-                .apply_edges_opt(EdgeSelection::X, parse_length(value_ref)),
+            "margin-block" => {
+                self.margin
+                    .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref));
+                self.logical_margin
+                    .apply_axis_values(LogicalEdgeSelection::Block, value_ref);
+            }
+            "margin-inline" => {
+                self.margin
+                    .apply_edges_opt(EdgeSelection::X, parse_length(value_ref));
+                self.logical_margin
+                    .apply_axis_values(LogicalEdgeSelection::Inline, value_ref);
+            }
+            "margin-block-start" => {
+                self.logical_margin.block_start = parse_length(value_ref);
+            }
+            "margin-block-end" => {
+                self.logical_margin.block_end = parse_length(value_ref);
+            }
+            "margin-inline-start" => {
+                self.logical_margin.inline_start = parse_length(value_ref);
+            }
+            "margin-inline-end" => {
+                self.logical_margin.inline_end = parse_length(value_ref);
+            }
             "margin-top" => self.margin.top = parse_length(value_ref),
             "margin-right" => self.margin.right = parse_length(value_ref),
             "margin-bottom" => self.margin.bottom = parse_length(value_ref),
             "margin-left" => self.margin.left = parse_length(value_ref),
             "scroll-margin" => self.scroll_margin = parse_edge_insets(value_ref),
-            "scroll-margin-block" => self
-                .scroll_margin
-                .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref)),
-            "scroll-margin-inline" => self
-                .scroll_margin
-                .apply_edges_opt(EdgeSelection::X, parse_length(value_ref)),
+            "scroll-margin-block" => {
+                self.scroll_margin
+                    .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref));
+                self.logical_scroll_margin
+                    .apply_axis_values(LogicalEdgeSelection::Block, value_ref);
+            }
+            "scroll-margin-inline" => {
+                self.scroll_margin
+                    .apply_edges_opt(EdgeSelection::X, parse_length(value_ref));
+                self.logical_scroll_margin
+                    .apply_axis_values(LogicalEdgeSelection::Inline, value_ref);
+            }
+            "scroll-margin-block-start" => {
+                self.logical_scroll_margin.block_start = parse_length(value_ref);
+            }
+            "scroll-margin-block-end" => {
+                self.logical_scroll_margin.block_end = parse_length(value_ref);
+            }
+            "scroll-margin-inline-start" => {
+                self.logical_scroll_margin.inline_start = parse_length(value_ref);
+            }
+            "scroll-margin-inline-end" => {
+                self.logical_scroll_margin.inline_end = parse_length(value_ref);
+            }
             "scroll-margin-top" => self.scroll_margin.top = parse_length(value_ref),
             "scroll-margin-right" => self.scroll_margin.right = parse_length(value_ref),
             "scroll-margin-bottom" => self.scroll_margin.bottom = parse_length(value_ref),
             "scroll-margin-left" => self.scroll_margin.left = parse_length(value_ref),
             "scroll-padding" => self.scroll_padding = parse_edge_insets(value_ref),
-            "scroll-padding-block" => self
-                .scroll_padding
-                .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref)),
-            "scroll-padding-inline" => self
-                .scroll_padding
-                .apply_edges_opt(EdgeSelection::X, parse_length(value_ref)),
+            "scroll-padding-block" => {
+                self.scroll_padding
+                    .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref));
+                self.logical_scroll_padding
+                    .apply_axis_values(LogicalEdgeSelection::Block, value_ref);
+            }
+            "scroll-padding-inline" => {
+                self.scroll_padding
+                    .apply_edges_opt(EdgeSelection::X, parse_length(value_ref));
+                self.logical_scroll_padding
+                    .apply_axis_values(LogicalEdgeSelection::Inline, value_ref);
+            }
+            "scroll-padding-block-start" => {
+                self.logical_scroll_padding.block_start = parse_length(value_ref);
+            }
+            "scroll-padding-block-end" => {
+                self.logical_scroll_padding.block_end = parse_length(value_ref);
+            }
+            "scroll-padding-inline-start" => {
+                self.logical_scroll_padding.inline_start = parse_length(value_ref);
+            }
+            "scroll-padding-inline-end" => {
+                self.logical_scroll_padding.inline_end = parse_length(value_ref);
+            }
             "scroll-padding-top" => self.scroll_padding.top = parse_length(value_ref),
             "scroll-padding-right" => self.scroll_padding.right = parse_length(value_ref),
             "scroll-padding-bottom" => self.scroll_padding.bottom = parse_length(value_ref),
@@ -1333,6 +1433,75 @@ enum EdgeSelection {
     Right,
     Bottom,
     Left,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogicalEdgeInsets {
+    pub block_start: Option<StyleLength>,
+    pub block_end: Option<StyleLength>,
+    pub inline_start: Option<StyleLength>,
+    pub inline_end: Option<StyleLength>,
+}
+
+impl LogicalEdgeInsets {
+    fn apply_edges(&mut self, edges: LogicalEdgeSelection, value: StyleLength) {
+        match edges {
+            LogicalEdgeSelection::Block => {
+                self.block_start = Some(value.clone());
+                self.block_end = Some(value);
+            }
+            LogicalEdgeSelection::Inline => {
+                self.inline_start = Some(value.clone());
+                self.inline_end = Some(value);
+            }
+            LogicalEdgeSelection::BlockStart => self.block_start = Some(value),
+            LogicalEdgeSelection::BlockEnd => self.block_end = Some(value),
+            LogicalEdgeSelection::InlineStart => self.inline_start = Some(value),
+            LogicalEdgeSelection::InlineEnd => self.inline_end = Some(value),
+        }
+    }
+
+    fn apply_axis_values(&mut self, axis: LogicalEdgeSelection, value: &str) {
+        if let Some(value) = parse_length(value) {
+            self.apply_edges(axis, value);
+            return;
+        }
+        let values = value
+            .split_whitespace()
+            .filter_map(parse_length)
+            .collect::<Vec<_>>();
+        match (axis, values.as_slice()) {
+            (_, []) => {}
+            (LogicalEdgeSelection::Block, [both]) => {
+                self.block_start = Some(both.clone());
+                self.block_end = Some(both.clone());
+            }
+            (LogicalEdgeSelection::Block, [start, end, ..]) => {
+                self.block_start = Some(start.clone());
+                self.block_end = Some(end.clone());
+            }
+            (LogicalEdgeSelection::Inline, [both]) => {
+                self.inline_start = Some(both.clone());
+                self.inline_end = Some(both.clone());
+            }
+            (LogicalEdgeSelection::Inline, [start, end, ..]) => {
+                self.inline_start = Some(start.clone());
+                self.inline_end = Some(end.clone());
+            }
+            (_, [single, ..]) => self.apply_edges(axis, single.clone()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum LogicalEdgeSelection {
+    Block,
+    Inline,
+    BlockStart,
+    BlockEnd,
+    InlineStart,
+    InlineEnd,
 }
 
 pub fn normalize_css_property_name(property: &str) -> String {
@@ -2644,8 +2813,16 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         insert_edge_declarations(&mut declarations, "scroll-margin", edges, value);
         return declarations;
     }
+    if let Some((edges, value)) = tailwind_logical_edge_utility(class, "scroll-m", true) {
+        insert_logical_edge_declaration(&mut declarations, "scroll-margin", edges, value);
+        return declarations;
+    }
     if let Some((edges, value)) = tailwind_edge_utility(class, "scroll-p") {
         insert_edge_declarations(&mut declarations, "scroll-padding", edges, value);
+        return declarations;
+    }
+    if let Some((edges, value)) = tailwind_logical_edge_utility(class, "scroll-p", false) {
+        insert_logical_edge_declaration(&mut declarations, "scroll-padding", edges, value);
         return declarations;
     }
     if let Some(text_size) = tailwind_text_size_declarations(class) {
@@ -2664,6 +2841,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         insert_position_declarations(&mut declarations, properties, value);
         return declarations;
     }
+    if let Some((properties, value)) = tailwind_logical_inset_utility(class) {
+        insert_logical_position_declaration(&mut declarations, properties, value);
+        return declarations;
+    }
     if let Some((edges, value)) = tailwind_border_width_utility(class) {
         insert_border_width_declarations(&mut declarations, edges, value);
         return declarations;
@@ -2672,8 +2853,12 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.insert(property, value);
     } else if let Some((edges, value)) = tailwind_edge_utility(class, "p") {
         insert_edge_declarations(&mut declarations, "padding", edges, value);
+    } else if let Some((edges, value)) = tailwind_logical_edge_utility(class, "p", false) {
+        insert_logical_edge_declaration(&mut declarations, "padding", edges, value);
     } else if let Some((edges, value)) = tailwind_edge_utility(class, "m") {
         insert_edge_declarations(&mut declarations, "margin", edges, value);
+    } else if let Some((edges, value)) = tailwind_logical_edge_utility(class, "m", true) {
+        insert_logical_edge_declaration(&mut declarations, "margin", edges, value);
     }
     declarations
 }
@@ -4176,12 +4361,10 @@ fn insert_edge_declarations(
             declarations.insert(prefix.to_string(), value);
         }
         EdgeSelection::X => {
-            declarations.insert(format!("{prefix}-left"), value.clone());
-            declarations.insert(format!("{prefix}-right"), value);
+            declarations.insert(format!("{prefix}-inline"), value);
         }
         EdgeSelection::Y => {
-            declarations.insert(format!("{prefix}-top"), value.clone());
-            declarations.insert(format!("{prefix}-bottom"), value);
+            declarations.insert(format!("{prefix}-block"), value);
         }
         EdgeSelection::Top => {
             declarations.insert(format!("{prefix}-top"), value);
@@ -4209,12 +4392,10 @@ fn insert_position_declarations(
             declarations.insert("inset".to_string(), value);
         }
         EdgeSelection::X => {
-            declarations.insert("left".to_string(), value.clone());
-            declarations.insert("right".to_string(), value);
+            declarations.insert("inset-inline".to_string(), value);
         }
         EdgeSelection::Y => {
-            declarations.insert("top".to_string(), value.clone());
-            declarations.insert("bottom".to_string(), value);
+            declarations.insert("inset-block".to_string(), value);
         }
         EdgeSelection::Top => {
             declarations.insert("top".to_string(), value);
@@ -4229,6 +4410,41 @@ fn insert_position_declarations(
             declarations.insert("left".to_string(), value);
         }
     }
+}
+
+fn insert_logical_edge_declaration(
+    declarations: &mut BTreeMap<String, String>,
+    prefix: &str,
+    edges: LogicalEdgeSelection,
+    value: StyleLength,
+) {
+    let value = style_length_css(value);
+    let property = match edges {
+        LogicalEdgeSelection::Block => format!("{prefix}-block"),
+        LogicalEdgeSelection::Inline => format!("{prefix}-inline"),
+        LogicalEdgeSelection::BlockStart => format!("{prefix}-block-start"),
+        LogicalEdgeSelection::BlockEnd => format!("{prefix}-block-end"),
+        LogicalEdgeSelection::InlineStart => format!("{prefix}-inline-start"),
+        LogicalEdgeSelection::InlineEnd => format!("{prefix}-inline-end"),
+    };
+    declarations.insert(property, value);
+}
+
+fn insert_logical_position_declaration(
+    declarations: &mut BTreeMap<String, String>,
+    edges: LogicalEdgeSelection,
+    value: StyleLength,
+) {
+    let value = style_length_css(value);
+    let property = match edges {
+        LogicalEdgeSelection::Block => "inset-block",
+        LogicalEdgeSelection::Inline => "inset-inline",
+        LogicalEdgeSelection::BlockStart => "inset-block-start",
+        LogicalEdgeSelection::BlockEnd => "inset-block-end",
+        LogicalEdgeSelection::InlineStart => "inset-inline-start",
+        LogicalEdgeSelection::InlineEnd => "inset-inline-end",
+    };
+    declarations.insert(property.to_string(), value);
 }
 
 fn insert_border_width_declarations(
@@ -4440,6 +4656,9 @@ fn tailwind_length(value: &str) -> Option<StyleLength> {
         .and_then(|value| value.strip_suffix(']'))
     {
         return parse_length(&tailwind_arbitrary_value(arbitrary));
+    }
+    if let Some(variable) = tailwind_custom_var(value) {
+        return Some(StyleLength::Css(variable));
     }
     if value == "full" {
         return Some(StyleLength::Percent(100.0));
@@ -4709,6 +4928,35 @@ fn tailwind_inset_utility(class: &str) -> Option<(EdgeSelection, StyleLength)> {
     Some((edges, length))
 }
 
+fn tailwind_logical_inset_utility(class: &str) -> Option<(LogicalEdgeSelection, StyleLength)> {
+    let negative = class.starts_with('-');
+    let class = class.strip_prefix('-').unwrap_or(class);
+    let (edges, value) = if let Some(value) = class.strip_prefix("start-") {
+        (LogicalEdgeSelection::InlineStart, value)
+    } else if let Some(value) = class.strip_prefix("end-") {
+        (LogicalEdgeSelection::InlineEnd, value)
+    } else if let Some(value) = class.strip_prefix("inset-s-") {
+        (LogicalEdgeSelection::InlineStart, value)
+    } else if let Some(value) = class.strip_prefix("inset-e-") {
+        (LogicalEdgeSelection::InlineEnd, value)
+    } else if let Some(value) = class.strip_prefix("inset-bs-") {
+        (LogicalEdgeSelection::BlockStart, value)
+    } else if let Some(value) = class.strip_prefix("inset-be-") {
+        (LogicalEdgeSelection::BlockEnd, value)
+    } else if let Some(value) = class.strip_prefix("inset-is-") {
+        (LogicalEdgeSelection::InlineStart, value)
+    } else if let Some(value) = class.strip_prefix("inset-ie-") {
+        (LogicalEdgeSelection::InlineEnd, value)
+    } else {
+        return None;
+    };
+    let mut length = tailwind_length(value)?;
+    if negative {
+        length = negate_style_length(length)?;
+    }
+    Some((edges, length))
+}
+
 fn tailwind_border_width_utility(class: &str) -> Option<(EdgeSelection, StyleLength)> {
     let suffix = class.strip_prefix("border")?;
     if suffix.is_empty() {
@@ -4762,7 +5010,8 @@ fn negate_style_length(value: StyleLength) -> Option<StyleLength> {
     match value {
         StyleLength::Points(value) => Some(StyleLength::Points(-value)),
         StyleLength::Percent(value) => Some(StyleLength::Percent(-value)),
-        StyleLength::Auto | StyleLength::Css(_) => None,
+        StyleLength::Css(value) => Some(StyleLength::Css(format!("calc({value} * -1)"))),
+        StyleLength::Auto => None,
     }
 }
 
@@ -4782,9 +5031,34 @@ fn tailwind_edge_utility(class: &str, prefix: &str) -> Option<(EdgeSelection, St
     };
     let mut length = tailwind_length(value)?;
     if negative {
-        if let StyleLength::Points(points) = length {
-            length = StyleLength::Points(-points);
-        }
+        length = negate_style_length(length)?;
+    }
+    Some((edges, length))
+}
+
+fn tailwind_logical_edge_utility(
+    class: &str,
+    prefix: &str,
+    allow_negative: bool,
+) -> Option<(LogicalEdgeSelection, StyleLength)> {
+    let negative = class.starts_with('-');
+    if negative && !allow_negative {
+        return None;
+    }
+    let class = class.strip_prefix('-').unwrap_or(class);
+    let suffix = class.strip_prefix(prefix)?;
+    let (edges, value) = match suffix.as_bytes() {
+        [b's', b'-', ..] => (LogicalEdgeSelection::InlineStart, &suffix[2..]),
+        [b'e', b'-', ..] => (LogicalEdgeSelection::InlineEnd, &suffix[2..]),
+        [b'b', b's', b'-', ..] => (LogicalEdgeSelection::BlockStart, &suffix[3..]),
+        [b'b', b'e', b'-', ..] => (LogicalEdgeSelection::BlockEnd, &suffix[3..]),
+        [b'i', b's', b'-', ..] => (LogicalEdgeSelection::InlineStart, &suffix[3..]),
+        [b'i', b'e', b'-', ..] => (LogicalEdgeSelection::InlineEnd, &suffix[3..]),
+        _ => return None,
+    };
+    let mut length = tailwind_length(value)?;
+    if negative {
+        length = negate_style_length(length)?;
     }
     Some((edges, length))
 }
@@ -5009,6 +5283,196 @@ mod tests {
         assert_eq!(
             style.declarations.get("line-height").map(String::as_str),
             Some("1.25")
+        );
+    }
+
+    #[test]
+    fn parses_css_logical_edge_properties_into_portable_tokens() {
+        let web = WebProps::new()
+            .style("insetBlock", "3px 4px")
+            .style("insetInlineStart", "1rem")
+            .style("insetInlineEnd", "2rem")
+            .style("paddingInline", "10px")
+            .style("paddingBlockEnd", "4px")
+            .style("marginBlock", "1px 2px")
+            .style("marginInlineStart", "auto")
+            .style("scrollMarginBlockStart", "5px")
+            .style("scrollMarginInline", "6px")
+            .style("scrollPaddingBlock", "8px 9px")
+            .style("scrollPaddingInlineEnd", "7px");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.logical_inset.block_start,
+            Some(StyleLength::Points(3.0))
+        );
+        assert_eq!(
+            style.logical_inset.block_end,
+            Some(StyleLength::Points(4.0))
+        );
+        assert_eq!(
+            style.logical_inset.inline_start,
+            Some(StyleLength::Points(16.0))
+        );
+        assert_eq!(
+            style.logical_inset.inline_end,
+            Some(StyleLength::Points(32.0))
+        );
+        assert_eq!(
+            style.logical_padding.inline_start,
+            Some(StyleLength::Points(10.0))
+        );
+        assert_eq!(
+            style.logical_padding.inline_end,
+            Some(StyleLength::Points(10.0))
+        );
+        assert_eq!(
+            style.logical_padding.block_end,
+            Some(StyleLength::Points(4.0))
+        );
+        assert_eq!(
+            style.logical_margin.block_start,
+            Some(StyleLength::Points(1.0))
+        );
+        assert_eq!(
+            style.logical_margin.block_end,
+            Some(StyleLength::Points(2.0))
+        );
+        assert_eq!(style.logical_margin.inline_start, Some(StyleLength::Auto));
+        assert_eq!(
+            style.logical_scroll_margin.block_start,
+            Some(StyleLength::Points(5.0))
+        );
+        assert_eq!(
+            style.logical_scroll_margin.inline_start,
+            Some(StyleLength::Points(6.0))
+        );
+        assert_eq!(
+            style.logical_scroll_margin.inline_end,
+            Some(StyleLength::Points(6.0))
+        );
+        assert_eq!(
+            style.logical_scroll_padding.block_start,
+            Some(StyleLength::Points(8.0))
+        );
+        assert_eq!(
+            style.logical_scroll_padding.block_end,
+            Some(StyleLength::Points(9.0))
+        );
+        assert_eq!(
+            style.logical_scroll_padding.inline_end,
+            Some(StyleLength::Points(7.0))
+        );
+        assert_eq!(style.padding.left, Some(StyleLength::Points(10.0)));
+        assert_eq!(style.padding.right, Some(StyleLength::Points(10.0)));
+        assert_eq!(
+            style
+                .declarations
+                .get("margin-inline-start")
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert!(!style.unsupported.contains_key("inset-inline-start"));
+        assert!(!style.unsupported.contains_key("padding-block-end"));
+    }
+
+    #[test]
+    fn parses_tailwind_logical_spacing_and_inset_utilities() {
+        let web = WebProps::new().class_name(
+            "start-4 end-[2rem] inset-bs-1 inset-be-(--footer) \
+             ms-auto me-2 -mbs-1 pbs-3 pie-4 \
+             scroll-ms-2 scroll-me-[10px] scroll-pbs-1 scroll-pe-(--snap) \
+             md:start-8 hover:ms-[calc(1rem_+_2px)]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.logical_inset.inline_start,
+            Some(StyleLength::Points(16.0))
+        );
+        assert_eq!(
+            style.logical_inset.inline_end,
+            Some(StyleLength::Points(32.0))
+        );
+        assert_eq!(
+            style.logical_inset.block_start,
+            Some(StyleLength::Points(4.0))
+        );
+        assert_eq!(
+            style.logical_inset.block_end,
+            Some(StyleLength::Css("var(--footer)".to_string()))
+        );
+        assert_eq!(style.logical_margin.inline_start, Some(StyleLength::Auto));
+        assert_eq!(
+            style.logical_margin.inline_end,
+            Some(StyleLength::Points(8.0))
+        );
+        assert_eq!(
+            style.logical_margin.block_start,
+            Some(StyleLength::Points(-4.0))
+        );
+        assert_eq!(
+            style.logical_padding.block_start,
+            Some(StyleLength::Points(12.0))
+        );
+        assert_eq!(
+            style.logical_padding.inline_end,
+            Some(StyleLength::Points(16.0))
+        );
+        assert_eq!(
+            style.logical_scroll_margin.inline_start,
+            Some(StyleLength::Points(8.0))
+        );
+        assert_eq!(
+            style.logical_scroll_margin.inline_end,
+            Some(StyleLength::Points(10.0))
+        );
+        assert_eq!(
+            style.logical_scroll_padding.block_start,
+            Some(StyleLength::Points(4.0))
+        );
+        assert_eq!(
+            style.logical_scroll_padding.inline_end,
+            Some(StyleLength::Css("var(--snap)".to_string()))
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("inset-inline-start")
+                .map(String::as_str),
+            Some("16px")
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("margin-block-start")
+                .map(String::as_str),
+            Some("-4px")
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("scroll-padding-inline-end")
+                .map(String::as_str),
+            Some("var(--snap)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("inset-inline-start"))
+                .map(String::as_str),
+            Some("32px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("margin-inline-start"))
+                .map(String::as_str),
+            Some("calc(1rem + 2px)")
         );
     }
 

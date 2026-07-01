@@ -359,7 +359,8 @@ deterministically:
 - `boxSizing`, `boxDecorationBreak`, `isolation`
 - `float`, `clear`, `verticalAlign`
 - `tableLayout`, `borderCollapse`, `borderSpacing`, `captionSide`
-- `position`, `inset`, `top`, `right`, `bottom`, `left`, `zIndex`
+- `position`, `inset`, `insetBlock*`, `insetInline*`, `start`, `end`,
+  `top`, `right`, `bottom`, `left`, `zIndex`
 - `visibility`
 - `flexDirection`, `flexWrap`, `flex`, `flexBasis`, `flexGrow`,
   `flexShrink`, `order`
@@ -368,7 +369,8 @@ deterministically:
 - `grid`, `gridTemplate*`, `gridAutoColumns`, `gridAutoRows`, `gridAutoFlow`,
   `gridColumn*`, `gridRow*`, `gridArea`
 - `width`, `height`, min/max sizes
-- `gap`, `rowGap`, `columnGap`, `padding*`, `margin*`
+- `gap`, `rowGap`, `columnGap`, physical and logical `padding*`,
+  `margin*`
 - `border`, `borderWidth`, `borderStyle`, `borderColor`, `borderRadius`
 - `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
   `backgroundSize`, `backgroundRepeat`, `backgroundAttachment`,
@@ -396,8 +398,8 @@ deterministically:
   contrast, grayscale, hue rotate, invert, opacity, saturate, and sepia
 - `transition*`, `animation*`, `willChange`
 - `appearance`, `accentColor`, `caretColor`, `resize`
-- `scrollBehavior`, `scrollMargin*`, `scrollPadding*`, `scrollSnap*`,
-  `overscrollBehavior*`, `touchAction`
+- `scrollBehavior`, physical and logical `scrollMargin*`,
+  `scrollPadding*`, `scrollSnap*`, `overscrollBehavior*`, `touchAction`
 - `cursor`, `pointerEvents`, `userSelect`
 - `opacity`
 
@@ -448,3 +450,8 @@ Common Tailwind motion, interaction, and scroll utilities such as
 `will-change-*`, `appearance-*`, `accent-*`, `caret-*`, `resize-*`,
 `scroll-*`, `snap-*`, `overscroll-*`, and `touch-*` project into the same
 declaration model.
+Tailwind logical direction utilities such as `start-*`, `end-*`, `ms-*`,
+`me-*`, `mbs-*`, `mbe-*`, `mis-*`, `mie-*`, `ps-*`, `pe-*`, `pbs-*`,
+`pbe-*`, `pis-*`, `pie-*`, `scroll-ms-*`, `scroll-me-*`, `scroll-mbs-*`,
+`scroll-mbe-*`, `scroll-ps-*`, `scroll-pe-*`, `scroll-pbs-*`, and
+`scroll-pbe-*` project into logical portable style tokens.
