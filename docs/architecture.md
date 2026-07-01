@@ -371,8 +371,8 @@ deterministically:
 - `width`, `height`, min/max sizes
 - `gap`, `rowGap`, `columnGap`, physical and logical `padding*`,
   `margin*`
-- `border`, `borderWidth`, `borderStyle`, `borderColor`, uniform,
-  physical-corner, and logical-corner `borderRadius`
+- `border`, physical and logical `borderWidth`, `borderStyle`,
+  `borderColor`, uniform, physical-corner, and logical-corner `borderRadius`
 - `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
   `backgroundSize`, `backgroundRepeat`, `backgroundAttachment`,
   `backgroundOrigin`, `backgroundClip`
@@ -451,6 +451,10 @@ Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,
 `rounded-tr-*`, `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`,
 `rounded-e-*`, `rounded-ss-*`, `rounded-se-*`, `rounded-ee-*`, and
 `rounded-es-*` project into physical or logical corner radius tokens.
+Tailwind border width and color utilities such as `border-*`, `border-x-*`,
+`border-y-*`, `border-t-*`, `border-r-*`, `border-b-*`, `border-l-*`,
+`border-s-*`, `border-e-*`, `border-bs-*`, and `border-be-*` project into
+physical or logical border tokens.
 Common Tailwind motion, interaction, and scroll utilities such as
 `transition-*`, `duration-*`, `delay-*`, `ease-*`, `animate-*`,
 `will-change-*`, `appearance-*`, `accent-*`, `caret-*`, `resize-*`,

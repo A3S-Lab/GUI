@@ -65,8 +65,13 @@ pub struct PortableStyle {
     pub logical_scroll_margin: LogicalEdgeInsets,
     pub logical_scroll_padding: LogicalEdgeInsets,
     pub border_width: EdgeInsets,
+    pub logical_border_width: LogicalEdgeInsets,
     pub border_color: Option<StyleColor>,
+    pub border_colors: EdgeColors,
+    pub logical_border_colors: LogicalEdgeColors,
     pub border_style: Option<BorderStyle>,
+    pub border_styles: EdgeBorderStyles,
+    pub logical_border_styles: LogicalBorderStyles,
     pub box_shadow: Option<String>,
     pub outline_width: Option<StyleLength>,
     pub outline_color: Option<StyleColor>,
@@ -422,12 +427,127 @@ impl PortableStyle {
             "scroll-padding-left" => self.scroll_padding.left = parse_length(value_ref),
             "border" => self.apply_border_shorthand(value_ref),
             "border-width" => self.border_width = parse_edge_insets(value_ref),
+            "border-block-width" => {
+                self.border_width
+                    .apply_edges_opt(EdgeSelection::Y, parse_length(value_ref));
+                self.logical_border_width
+                    .apply_axis_values(LogicalEdgeSelection::Block, value_ref);
+            }
+            "border-inline-width" => {
+                self.border_width
+                    .apply_edges_opt(EdgeSelection::X, parse_length(value_ref));
+                self.logical_border_width
+                    .apply_axis_values(LogicalEdgeSelection::Inline, value_ref);
+            }
+            "border-block-start-width" => {
+                self.logical_border_width.block_start = parse_length(value_ref);
+            }
+            "border-block-end-width" => {
+                self.logical_border_width.block_end = parse_length(value_ref);
+            }
+            "border-inline-start-width" => {
+                self.logical_border_width.inline_start = parse_length(value_ref);
+            }
+            "border-inline-end-width" => {
+                self.logical_border_width.inline_end = parse_length(value_ref);
+            }
             "border-top-width" => self.border_width.top = parse_length(value_ref),
             "border-right-width" => self.border_width.right = parse_length(value_ref),
             "border-bottom-width" => self.border_width.bottom = parse_length(value_ref),
             "border-left-width" => self.border_width.left = parse_length(value_ref),
-            "border-color" => self.border_color = parse_color(value_ref),
-            "border-style" => self.border_style = parse_border_style(value_ref),
+            "border-top" => self.apply_border_side_shorthand(EdgeSelection::Top, value_ref),
+            "border-right" => self.apply_border_side_shorthand(EdgeSelection::Right, value_ref),
+            "border-bottom" => self.apply_border_side_shorthand(EdgeSelection::Bottom, value_ref),
+            "border-left" => self.apply_border_side_shorthand(EdgeSelection::Left, value_ref),
+            "border-block" => {
+                self.apply_border_side_shorthand(EdgeSelection::Y, value_ref);
+                self.apply_logical_border_side_shorthand(LogicalEdgeSelection::Block, value_ref);
+            }
+            "border-inline" => {
+                self.apply_border_side_shorthand(EdgeSelection::X, value_ref);
+                self.apply_logical_border_side_shorthand(LogicalEdgeSelection::Inline, value_ref);
+            }
+            "border-block-start" => self
+                .apply_logical_border_side_shorthand(LogicalEdgeSelection::BlockStart, value_ref),
+            "border-block-end" => {
+                self.apply_logical_border_side_shorthand(LogicalEdgeSelection::BlockEnd, value_ref);
+            }
+            "border-inline-start" => self
+                .apply_logical_border_side_shorthand(LogicalEdgeSelection::InlineStart, value_ref),
+            "border-inline-end" => {
+                self.apply_logical_border_side_shorthand(
+                    LogicalEdgeSelection::InlineEnd,
+                    value_ref,
+                );
+            }
+            "border-color" => {
+                self.border_color = parse_color(value_ref);
+                self.border_colors = parse_edge_colors(value_ref);
+            }
+            "border-block-color" => {
+                if let Some(color) = parse_color(value_ref) {
+                    self.border_colors.apply_edges(EdgeSelection::Y, color);
+                }
+                self.logical_border_colors
+                    .apply_axis_values(LogicalEdgeSelection::Block, value_ref);
+            }
+            "border-inline-color" => {
+                if let Some(color) = parse_color(value_ref) {
+                    self.border_colors.apply_edges(EdgeSelection::X, color);
+                }
+                self.logical_border_colors
+                    .apply_axis_values(LogicalEdgeSelection::Inline, value_ref);
+            }
+            "border-block-start-color" => {
+                self.logical_border_colors.block_start = parse_color(value_ref);
+            }
+            "border-block-end-color" => {
+                self.logical_border_colors.block_end = parse_color(value_ref);
+            }
+            "border-inline-start-color" => {
+                self.logical_border_colors.inline_start = parse_color(value_ref);
+            }
+            "border-inline-end-color" => {
+                self.logical_border_colors.inline_end = parse_color(value_ref);
+            }
+            "border-top-color" => self.border_colors.top = parse_color(value_ref),
+            "border-right-color" => self.border_colors.right = parse_color(value_ref),
+            "border-bottom-color" => self.border_colors.bottom = parse_color(value_ref),
+            "border-left-color" => self.border_colors.left = parse_color(value_ref),
+            "border-style" => {
+                self.border_style = parse_border_style(value_ref);
+                self.border_styles = parse_edge_border_styles(value_ref);
+            }
+            "border-block-style" => {
+                if let Some(style) = parse_border_style(value_ref) {
+                    self.border_styles.apply_edges(EdgeSelection::Y, style);
+                }
+                self.logical_border_styles
+                    .apply_axis_values(LogicalEdgeSelection::Block, value_ref);
+            }
+            "border-inline-style" => {
+                if let Some(style) = parse_border_style(value_ref) {
+                    self.border_styles.apply_edges(EdgeSelection::X, style);
+                }
+                self.logical_border_styles
+                    .apply_axis_values(LogicalEdgeSelection::Inline, value_ref);
+            }
+            "border-block-start-style" => {
+                self.logical_border_styles.block_start = parse_border_style(value_ref);
+            }
+            "border-block-end-style" => {
+                self.logical_border_styles.block_end = parse_border_style(value_ref);
+            }
+            "border-inline-start-style" => {
+                self.logical_border_styles.inline_start = parse_border_style(value_ref);
+            }
+            "border-inline-end-style" => {
+                self.logical_border_styles.inline_end = parse_border_style(value_ref);
+            }
+            "border-top-style" => self.border_styles.top = parse_border_style(value_ref),
+            "border-right-style" => self.border_styles.right = parse_border_style(value_ref),
+            "border-bottom-style" => self.border_styles.bottom = parse_border_style(value_ref),
+            "border-left-style" => self.border_styles.left = parse_border_style(value_ref),
             "box-shadow" => self.box_shadow = parse_css_string_token(value_ref),
             "outline" => self.apply_outline_shorthand(value_ref),
             "outline-width" => self.outline_width = parse_length(value_ref),
@@ -634,8 +754,34 @@ impl PortableStyle {
                 self.border_width.set_all(Some(width));
             } else if let Some(style) = parse_border_style(part) {
                 self.border_style = Some(style);
+                self.border_styles.set_all(Some(style));
             } else if let Some(color) = parse_color(part) {
-                self.border_color = Some(color);
+                self.border_color = Some(color.clone());
+                self.border_colors.set_all(Some(color));
+            }
+        }
+    }
+
+    fn apply_border_side_shorthand(&mut self, edges: EdgeSelection, value: &str) {
+        for part in value.split_whitespace() {
+            if let Some(width) = parse_length(part) {
+                self.border_width.apply_edges(edges, width);
+            } else if let Some(style) = parse_border_style(part) {
+                self.border_styles.apply_edges(edges, style);
+            } else if let Some(color) = parse_color(part) {
+                self.border_colors.apply_edges(edges, color);
+            }
+        }
+    }
+
+    fn apply_logical_border_side_shorthand(&mut self, edges: LogicalEdgeSelection, value: &str) {
+        for part in value.split_whitespace() {
+            if let Some(width) = parse_length(part) {
+                self.logical_border_width.apply_edges(edges, width);
+            } else if let Some(style) = parse_border_style(part) {
+                self.logical_border_styles.apply_edges(edges, style);
+            } else if let Some(color) = parse_color(part) {
+                self.logical_border_colors.apply_edges(edges, color);
             }
         }
     }
@@ -1535,6 +1681,196 @@ enum LogicalEdgeSelection {
     InlineEnd,
 }
 
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EdgeColors {
+    pub top: Option<StyleColor>,
+    pub right: Option<StyleColor>,
+    pub bottom: Option<StyleColor>,
+    pub left: Option<StyleColor>,
+}
+
+impl EdgeColors {
+    fn set_all(&mut self, value: Option<StyleColor>) {
+        self.top = value.clone();
+        self.right = value.clone();
+        self.bottom = value.clone();
+        self.left = value;
+    }
+
+    fn apply_edges(&mut self, edges: EdgeSelection, value: StyleColor) {
+        match edges {
+            EdgeSelection::All => self.set_all(Some(value)),
+            EdgeSelection::X => {
+                self.left = Some(value.clone());
+                self.right = Some(value);
+            }
+            EdgeSelection::Y => {
+                self.top = Some(value.clone());
+                self.bottom = Some(value);
+            }
+            EdgeSelection::Top => self.top = Some(value),
+            EdgeSelection::Right => self.right = Some(value),
+            EdgeSelection::Bottom => self.bottom = Some(value),
+            EdgeSelection::Left => self.left = Some(value),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogicalEdgeColors {
+    pub block_start: Option<StyleColor>,
+    pub block_end: Option<StyleColor>,
+    pub inline_start: Option<StyleColor>,
+    pub inline_end: Option<StyleColor>,
+}
+
+impl LogicalEdgeColors {
+    fn apply_edges(&mut self, edges: LogicalEdgeSelection, value: StyleColor) {
+        match edges {
+            LogicalEdgeSelection::Block => {
+                self.block_start = Some(value.clone());
+                self.block_end = Some(value);
+            }
+            LogicalEdgeSelection::Inline => {
+                self.inline_start = Some(value.clone());
+                self.inline_end = Some(value);
+            }
+            LogicalEdgeSelection::BlockStart => self.block_start = Some(value),
+            LogicalEdgeSelection::BlockEnd => self.block_end = Some(value),
+            LogicalEdgeSelection::InlineStart => self.inline_start = Some(value),
+            LogicalEdgeSelection::InlineEnd => self.inline_end = Some(value),
+        }
+    }
+
+    fn apply_axis_values(&mut self, axis: LogicalEdgeSelection, value: &str) {
+        if let Some(value) = parse_color(value) {
+            self.apply_edges(axis, value);
+            return;
+        }
+        let values = value
+            .split_whitespace()
+            .filter_map(parse_color)
+            .collect::<Vec<_>>();
+        match (axis, values.as_slice()) {
+            (_, []) => {}
+            (LogicalEdgeSelection::Block, [both]) => {
+                self.block_start = Some(both.clone());
+                self.block_end = Some(both.clone());
+            }
+            (LogicalEdgeSelection::Block, [start, end, ..]) => {
+                self.block_start = Some(start.clone());
+                self.block_end = Some(end.clone());
+            }
+            (LogicalEdgeSelection::Inline, [both]) => {
+                self.inline_start = Some(both.clone());
+                self.inline_end = Some(both.clone());
+            }
+            (LogicalEdgeSelection::Inline, [start, end, ..]) => {
+                self.inline_start = Some(start.clone());
+                self.inline_end = Some(end.clone());
+            }
+            (_, [single, ..]) => self.apply_edges(axis, single.clone()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EdgeBorderStyles {
+    pub top: Option<BorderStyle>,
+    pub right: Option<BorderStyle>,
+    pub bottom: Option<BorderStyle>,
+    pub left: Option<BorderStyle>,
+}
+
+impl EdgeBorderStyles {
+    fn set_all(&mut self, value: Option<BorderStyle>) {
+        self.top = value;
+        self.right = value;
+        self.bottom = value;
+        self.left = value;
+    }
+
+    fn apply_edges(&mut self, edges: EdgeSelection, value: BorderStyle) {
+        match edges {
+            EdgeSelection::All => self.set_all(Some(value)),
+            EdgeSelection::X => {
+                self.left = Some(value);
+                self.right = Some(value);
+            }
+            EdgeSelection::Y => {
+                self.top = Some(value);
+                self.bottom = Some(value);
+            }
+            EdgeSelection::Top => self.top = Some(value),
+            EdgeSelection::Right => self.right = Some(value),
+            EdgeSelection::Bottom => self.bottom = Some(value),
+            EdgeSelection::Left => self.left = Some(value),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogicalBorderStyles {
+    pub block_start: Option<BorderStyle>,
+    pub block_end: Option<BorderStyle>,
+    pub inline_start: Option<BorderStyle>,
+    pub inline_end: Option<BorderStyle>,
+}
+
+impl LogicalBorderStyles {
+    fn apply_edges(&mut self, edges: LogicalEdgeSelection, value: BorderStyle) {
+        match edges {
+            LogicalEdgeSelection::Block => {
+                self.block_start = Some(value);
+                self.block_end = Some(value);
+            }
+            LogicalEdgeSelection::Inline => {
+                self.inline_start = Some(value);
+                self.inline_end = Some(value);
+            }
+            LogicalEdgeSelection::BlockStart => self.block_start = Some(value),
+            LogicalEdgeSelection::BlockEnd => self.block_end = Some(value),
+            LogicalEdgeSelection::InlineStart => self.inline_start = Some(value),
+            LogicalEdgeSelection::InlineEnd => self.inline_end = Some(value),
+        }
+    }
+
+    fn apply_axis_values(&mut self, axis: LogicalEdgeSelection, value: &str) {
+        if let Some(value) = parse_border_style(value) {
+            self.apply_edges(axis, value);
+            return;
+        }
+        let values = value
+            .split_whitespace()
+            .filter_map(parse_border_style)
+            .collect::<Vec<_>>();
+        match (axis, values.as_slice()) {
+            (_, []) => {}
+            (LogicalEdgeSelection::Block, [both]) => {
+                self.block_start = Some(*both);
+                self.block_end = Some(*both);
+            }
+            (LogicalEdgeSelection::Block, [start, end, ..]) => {
+                self.block_start = Some(*start);
+                self.block_end = Some(*end);
+            }
+            (LogicalEdgeSelection::Inline, [both]) => {
+                self.inline_start = Some(*both);
+                self.inline_end = Some(*both);
+            }
+            (LogicalEdgeSelection::Inline, [start, end, ..]) => {
+                self.inline_start = Some(*start);
+                self.inline_end = Some(*end);
+            }
+            (_, [single, ..]) => self.apply_edges(axis, *single),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CornerRadius {
@@ -2170,6 +2506,69 @@ fn parse_edge_insets(value: &str) -> EdgeInsets {
         }
     }
     edges
+}
+
+fn parse_edge_colors(value: &str) -> EdgeColors {
+    let values = parse_edge_values(value, parse_color);
+    let mut edges = EdgeColors::default();
+    match values.as_slice() {
+        [] => {}
+        [all] => edges.set_all(Some(all.clone())),
+        [vertical, horizontal] => {
+            edges.top = Some(vertical.clone());
+            edges.bottom = Some(vertical.clone());
+            edges.left = Some(horizontal.clone());
+            edges.right = Some(horizontal.clone());
+        }
+        [top, horizontal, bottom] => {
+            edges.top = Some(top.clone());
+            edges.left = Some(horizontal.clone());
+            edges.right = Some(horizontal.clone());
+            edges.bottom = Some(bottom.clone());
+        }
+        [top, right, bottom, left, ..] => {
+            edges.top = Some(top.clone());
+            edges.right = Some(right.clone());
+            edges.bottom = Some(bottom.clone());
+            edges.left = Some(left.clone());
+        }
+    }
+    edges
+}
+
+fn parse_edge_border_styles(value: &str) -> EdgeBorderStyles {
+    let values = parse_edge_values(value, parse_border_style);
+    let mut edges = EdgeBorderStyles::default();
+    match values.as_slice() {
+        [] => {}
+        [all] => edges.set_all(Some(*all)),
+        [vertical, horizontal] => {
+            edges.top = Some(*vertical);
+            edges.bottom = Some(*vertical);
+            edges.left = Some(*horizontal);
+            edges.right = Some(*horizontal);
+        }
+        [top, horizontal, bottom] => {
+            edges.top = Some(*top);
+            edges.left = Some(*horizontal);
+            edges.right = Some(*horizontal);
+            edges.bottom = Some(*bottom);
+        }
+        [top, right, bottom, left, ..] => {
+            edges.top = Some(*top);
+            edges.right = Some(*right);
+            edges.bottom = Some(*bottom);
+            edges.left = Some(*left);
+        }
+    }
+    edges
+}
+
+fn parse_edge_values<T>(value: &str, parser: impl Fn(&str) -> Option<T>) -> Vec<T> {
+    if let Some(value) = parser(value) {
+        return vec![value];
+    }
+    value.split_whitespace().filter_map(parser).collect()
 }
 
 fn parse_corner_radius(value: &str) -> Option<CornerRadius> {
@@ -3039,6 +3438,14 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
     }
     if let Some((edges, value)) = tailwind_border_width_utility(class) {
         insert_border_width_declarations(&mut declarations, edges, value);
+        return declarations;
+    }
+    if let Some((edges, value)) = tailwind_logical_border_width_utility(class) {
+        insert_logical_border_width_declaration(&mut declarations, edges, value);
+        return declarations;
+    }
+    if let Some(border_color) = tailwind_border_color_declarations(class) {
+        declarations.extend(border_color);
         return declarations;
     }
     if let Some((property, value)) = tailwind_prefixed_declaration(class) {
@@ -4787,6 +5194,69 @@ fn insert_logical_corner_radius_declarations(
     }
 }
 
+fn insert_border_color_declarations(
+    declarations: &mut BTreeMap<String, String>,
+    edges: EdgeSelection,
+    value: String,
+) {
+    match edges {
+        EdgeSelection::All => {
+            declarations.insert("border-color".to_string(), value);
+        }
+        EdgeSelection::X => {
+            declarations.insert("border-inline-color".to_string(), value);
+        }
+        EdgeSelection::Y => {
+            declarations.insert("border-block-color".to_string(), value);
+        }
+        EdgeSelection::Top => {
+            declarations.insert("border-top-color".to_string(), value);
+        }
+        EdgeSelection::Right => {
+            declarations.insert("border-right-color".to_string(), value);
+        }
+        EdgeSelection::Bottom => {
+            declarations.insert("border-bottom-color".to_string(), value);
+        }
+        EdgeSelection::Left => {
+            declarations.insert("border-left-color".to_string(), value);
+        }
+    }
+}
+
+fn insert_logical_border_color_declaration(
+    declarations: &mut BTreeMap<String, String>,
+    edges: LogicalEdgeSelection,
+    value: String,
+) {
+    let property = match edges {
+        LogicalEdgeSelection::Block => "border-block-color",
+        LogicalEdgeSelection::Inline => "border-inline-color",
+        LogicalEdgeSelection::BlockStart => "border-block-start-color",
+        LogicalEdgeSelection::BlockEnd => "border-block-end-color",
+        LogicalEdgeSelection::InlineStart => "border-inline-start-color",
+        LogicalEdgeSelection::InlineEnd => "border-inline-end-color",
+    };
+    declarations.insert(property.to_string(), value);
+}
+
+fn insert_logical_border_width_declaration(
+    declarations: &mut BTreeMap<String, String>,
+    edges: LogicalEdgeSelection,
+    value: StyleLength,
+) {
+    let value = style_length_css(value);
+    let property = match edges {
+        LogicalEdgeSelection::Block => "border-block-width",
+        LogicalEdgeSelection::Inline => "border-inline-width",
+        LogicalEdgeSelection::BlockStart => "border-block-start-width",
+        LogicalEdgeSelection::BlockEnd => "border-block-end-width",
+        LogicalEdgeSelection::InlineStart => "border-inline-start-width",
+        LogicalEdgeSelection::InlineEnd => "border-inline-end-width",
+    };
+    declarations.insert(property.to_string(), value);
+}
+
 fn insert_border_width_declarations(
     declarations: &mut BTreeMap<String, String>,
     edges: EdgeSelection,
@@ -4798,12 +5268,10 @@ fn insert_border_width_declarations(
             declarations.insert("border-width".to_string(), value);
         }
         EdgeSelection::X => {
-            declarations.insert("border-left-width".to_string(), value.clone());
-            declarations.insert("border-right-width".to_string(), value);
+            declarations.insert("border-inline-width".to_string(), value);
         }
         EdgeSelection::Y => {
-            declarations.insert("border-top-width".to_string(), value.clone());
-            declarations.insert("border-bottom-width".to_string(), value);
+            declarations.insert("border-block-width".to_string(), value);
         }
         EdgeSelection::Top => {
             declarations.insert("border-top-width".to_string(), value);
@@ -5349,6 +5817,104 @@ fn tailwind_border_width_utility(class: &str) -> Option<(EdgeSelection, StyleLen
     Some((edges, tailwind_border_width(value)?))
 }
 
+fn tailwind_logical_border_width_utility(
+    class: &str,
+) -> Option<(LogicalEdgeSelection, StyleLength)> {
+    let suffix = class.strip_prefix("border-")?;
+    let (edges, value) = if suffix == "s" {
+        (LogicalEdgeSelection::InlineStart, "1")
+    } else if let Some(value) = suffix.strip_prefix("s-") {
+        (LogicalEdgeSelection::InlineStart, value)
+    } else if suffix == "e" {
+        (LogicalEdgeSelection::InlineEnd, "1")
+    } else if let Some(value) = suffix.strip_prefix("e-") {
+        (LogicalEdgeSelection::InlineEnd, value)
+    } else if suffix == "bs" {
+        (LogicalEdgeSelection::BlockStart, "1")
+    } else if let Some(value) = suffix.strip_prefix("bs-") {
+        (LogicalEdgeSelection::BlockStart, value)
+    } else if suffix == "be" {
+        (LogicalEdgeSelection::BlockEnd, "1")
+    } else if let Some(value) = suffix.strip_prefix("be-") {
+        (LogicalEdgeSelection::BlockEnd, value)
+    } else if suffix == "is" {
+        (LogicalEdgeSelection::InlineStart, "1")
+    } else if let Some(value) = suffix.strip_prefix("is-") {
+        (LogicalEdgeSelection::InlineStart, value)
+    } else if suffix == "ie" {
+        (LogicalEdgeSelection::InlineEnd, "1")
+    } else if let Some(value) = suffix.strip_prefix("ie-") {
+        (LogicalEdgeSelection::InlineEnd, value)
+    } else {
+        return None;
+    };
+    Some((edges, tailwind_border_width(value)?))
+}
+
+fn tailwind_border_color_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let suffix = class.strip_prefix("border-")?;
+    let mut declarations = BTreeMap::new();
+    if let Some((edges, value)) = tailwind_border_color_edge_value(suffix) {
+        let color = tailwind_border_color_value(value)?;
+        insert_border_color_declarations(&mut declarations, edges, color);
+        return Some(declarations);
+    }
+    if let Some((edges, value)) = tailwind_logical_border_color_edge_value(suffix) {
+        let color = tailwind_border_color_value(value)?;
+        insert_logical_border_color_declaration(&mut declarations, edges, color);
+        return Some(declarations);
+    }
+    let color = tailwind_border_color_value(suffix)?;
+    declarations.insert("border-color".to_string(), color);
+    Some(declarations)
+}
+
+fn tailwind_border_color_edge_value(value: &str) -> Option<(EdgeSelection, &str)> {
+    if let Some(value) = value.strip_prefix("x-") {
+        Some((EdgeSelection::X, value))
+    } else if let Some(value) = value.strip_prefix("y-") {
+        Some((EdgeSelection::Y, value))
+    } else if let Some(value) = value.strip_prefix("t-") {
+        Some((EdgeSelection::Top, value))
+    } else if let Some(value) = value.strip_prefix("r-") {
+        Some((EdgeSelection::Right, value))
+    } else if let Some(value) = value.strip_prefix("b-") {
+        Some((EdgeSelection::Bottom, value))
+    } else if let Some(value) = value.strip_prefix("l-") {
+        Some((EdgeSelection::Left, value))
+    } else {
+        None
+    }
+}
+
+fn tailwind_logical_border_color_edge_value(value: &str) -> Option<(LogicalEdgeSelection, &str)> {
+    if let Some(value) = value.strip_prefix("s-") {
+        Some((LogicalEdgeSelection::InlineStart, value))
+    } else if let Some(value) = value.strip_prefix("e-") {
+        Some((LogicalEdgeSelection::InlineEnd, value))
+    } else if let Some(value) = value.strip_prefix("bs-") {
+        Some((LogicalEdgeSelection::BlockStart, value))
+    } else if let Some(value) = value.strip_prefix("be-") {
+        Some((LogicalEdgeSelection::BlockEnd, value))
+    } else if let Some(value) = value.strip_prefix("is-") {
+        Some((LogicalEdgeSelection::InlineStart, value))
+    } else if let Some(value) = value.strip_prefix("ie-") {
+        Some((LogicalEdgeSelection::InlineEnd, value))
+    } else {
+        None
+    }
+}
+
+fn tailwind_border_color_value(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_typed_custom_var(value, "color") {
+        return Some(value);
+    }
+    if let Some(value) = tailwind_custom_var(value) {
+        return Some(value);
+    }
+    tailwind_color_css(value)
+}
+
 fn tailwind_border_width(value: &str) -> Option<StyleLength> {
     if let Some(arbitrary) = value
         .strip_prefix('[')
@@ -5617,7 +6183,7 @@ mod tests {
         assert_eq!(
             style
                 .declarations
-                .get("border-right-width")
+                .get("border-inline-width")
                 .map(String::as_str),
             Some("2px")
         );
@@ -5639,6 +6205,165 @@ mod tests {
         assert_eq!(
             style.declarations.get("line-height").map(String::as_str),
             Some("1.25")
+        );
+    }
+
+    #[test]
+    fn parses_css_border_side_color_style_and_logical_width_tokens() {
+        let web = WebProps::new()
+            .style("borderColor", "#111 #222 #333 #444")
+            .style("borderStyle", "solid dashed dotted double")
+            .style("borderTop", "2px groove #ff0000")
+            .style("borderInlineWidth", "3px")
+            .style("borderBlockWidth", "4px 5px")
+            .style("borderInlineStartColor", "currentColor")
+            .style("borderBlockEndStyle", "hidden");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.border_width.top, Some(StyleLength::Points(2.0)));
+        assert_eq!(style.border_width.left, Some(StyleLength::Points(3.0)));
+        assert_eq!(style.border_width.right, Some(StyleLength::Points(3.0)));
+        assert_eq!(
+            style.logical_border_width.inline_start,
+            Some(StyleLength::Points(3.0))
+        );
+        assert_eq!(
+            style.logical_border_width.inline_end,
+            Some(StyleLength::Points(3.0))
+        );
+        assert_eq!(
+            style.logical_border_width.block_start,
+            Some(StyleLength::Points(4.0))
+        );
+        assert_eq!(
+            style.logical_border_width.block_end,
+            Some(StyleLength::Points(5.0))
+        );
+        assert_eq!(
+            style.border_colors.top,
+            Some(StyleColor::Rgba {
+                red: 255,
+                green: 0,
+                blue: 0,
+                alpha: 255,
+            })
+        );
+        assert_eq!(
+            style.border_colors.right,
+            Some(StyleColor::Rgba {
+                red: 0x22,
+                green: 0x22,
+                blue: 0x22,
+                alpha: 255,
+            })
+        );
+        assert_eq!(
+            style.logical_border_colors.inline_start,
+            Some(StyleColor::Keyword("currentColor".to_string()))
+        );
+        assert_eq!(style.border_styles.top, Some(BorderStyle::Groove));
+        assert_eq!(style.border_styles.right, Some(BorderStyle::Dashed));
+        assert_eq!(style.border_styles.bottom, Some(BorderStyle::Dotted));
+        assert_eq!(style.border_styles.left, Some(BorderStyle::Double));
+        assert_eq!(
+            style.logical_border_styles.block_end,
+            Some(BorderStyle::Hidden)
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("border-inline-start-color")
+                .map(String::as_str),
+            Some("currentColor")
+        );
+        assert!(!style.unsupported.contains_key("border-inline-start-color"));
+        assert!(!style.unsupported.contains_key("border-block-end-style"));
+    }
+
+    #[test]
+    fn parses_tailwind_border_side_color_and_logical_width_utilities() {
+        let web = WebProps::new().class_name(
+            "border-x-2 border-s-4 border-x-blue-600 border-t-red-500 \
+             border-e-[#663399]/50 border-bs-current border-dashed \
+             md:border-s-green-500 hover:border-b-(--accent-border)",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.border_width.left, Some(StyleLength::Points(2.0)));
+        assert_eq!(style.border_width.right, Some(StyleLength::Points(2.0)));
+        assert_eq!(
+            style.logical_border_width.inline_start,
+            Some(StyleLength::Points(4.0))
+        );
+        assert_eq!(
+            style.logical_border_width.inline_end,
+            Some(StyleLength::Points(2.0))
+        );
+        assert_eq!(
+            style.border_colors.top,
+            Some(StyleColor::Keyword("red-500".to_string()))
+        );
+        assert_eq!(
+            style.border_colors.left,
+            Some(StyleColor::Keyword("blue-600".to_string()))
+        );
+        assert_eq!(
+            style.border_colors.right,
+            Some(StyleColor::Keyword("blue-600".to_string()))
+        );
+        assert_eq!(
+            style.logical_border_colors.inline_end,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 128,
+            })
+        );
+        assert_eq!(
+            style.logical_border_colors.block_start,
+            Some(StyleColor::Keyword("currentColor".to_string()))
+        );
+        assert_eq!(style.border_style, Some(BorderStyle::Dashed));
+        assert_eq!(style.border_styles.top, Some(BorderStyle::Dashed));
+        assert_eq!(
+            style
+                .declarations
+                .get("border-inline-width")
+                .map(String::as_str),
+            Some("2px")
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("border-inline-start-width")
+                .map(String::as_str),
+            Some("4px")
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("border-inline-end-color")
+                .map(String::as_str),
+            Some("rgba(102, 51, 153, 0.5)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("border-inline-start-color"))
+                .map(String::as_str),
+            Some("green-500")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("border-bottom-color"))
+                .map(String::as_str),
+            Some("var(--accent-border)")
         );
     }
 

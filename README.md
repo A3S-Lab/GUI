@@ -46,8 +46,9 @@ isolation, float, clear, vertical alignment, table layout, border
 collapse/spacing, caption side, flex direction/wrap/item
 sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, sizing,
-gap/row-gap/column-gap, physical and logical spacing, border width/style/color,
-uniform, physical-corner, and logical-corner border radius, text color, background
+gap/row-gap/column-gap, physical and logical spacing, uniform, physical-edge,
+and logical-edge border width/style/color, uniform, physical-corner, and
+logical-corner border radius, text color, background
 color/image/position/size/repeat/attachment/origin/clip, object fit/position,
 list style, columns, font size, font weight, font family, font style, line
 height, letter spacing, text alignment, text transform, SVG fill/stroke
@@ -103,6 +104,11 @@ Border radius utilities such as `rounded-*`, `rounded-t-*`, `rounded-r-*`,
 `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`, `rounded-e-*`,
 `rounded-ss-*`, `rounded-se-*`, `rounded-ee-*`, and `rounded-es-*` are
 projected into physical or logical corner radius tokens.
+Border width and color utilities such as `border-*`, `border-x-*`,
+`border-y-*`, `border-t-*`, `border-r-*`, `border-b-*`, `border-l-*`,
+`border-s-*`, `border-e-*`, `border-bs-*`, and `border-be-*` are projected
+into physical or logical border tokens according to their generated CSS
+property.
 Logical direction utilities such as `start-*`, `end-*`, `ms-*`, `me-*`,
 `mbs-*`, `mbe-*`, `mis-*`, `mie-*`, `ps-*`, `pe-*`, `pbs-*`, `pbe-*`,
 `pis-*`, `pie-*`, `scroll-ms-*`, `scroll-me-*`, `scroll-mbs-*`,
