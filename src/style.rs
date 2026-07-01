@@ -4048,6 +4048,9 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         "whitespace-pre-wrap" => Some(("white-space", "pre-wrap".to_string())),
         "whitespace-break-spaces" => Some(("white-space", "break-spaces".to_string())),
         "break-words" => Some(("overflow-wrap", "break-word".to_string())),
+        "wrap-break-word" => Some(("overflow-wrap", "break-word".to_string())),
+        "wrap-anywhere" => Some(("overflow-wrap", "anywhere".to_string())),
+        "wrap-normal" => Some(("overflow-wrap", "normal".to_string())),
         "break-all" => Some(("word-break", "break-all".to_string())),
         "break-keep" => Some(("word-break", "keep-all".to_string())),
         "hyphens-none" => Some(("hyphens", "none".to_string())),
@@ -4152,6 +4155,13 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
     }
     if let Some(text_size) = tailwind_text_size_declarations(class) {
         declarations.extend(text_size);
+        return declarations;
+    }
+    if let Some(value) = class
+        .strip_prefix("wrap-")
+        .and_then(tailwind_arbitrary_or_custom_var)
+    {
+        declarations.insert("overflow-wrap".to_string(), value);
         return declarations;
     }
     if let Some((property, value)) = tailwind_visual_effect_declaration(class) {
@@ -9230,7 +9240,7 @@ mod tests {
         let web = WebProps::new().class_name(
             "font-mono italic tracking-wide uppercase underline decoration-wavy \
              decoration-[#663399]/50 decoration-2 underline-offset-4 truncate \
-             whitespace-pre-wrap break-all hyphens-auto -indent-[2px] text-balance \
+             whitespace-pre-wrap break-all wrap-anywhere hyphens-auto -indent-[2px] text-balance \
              ordinal slashed-zero tabular-nums diagonal-fractions \
              font-stretch-condensed font-features-[\"kern\"_1] tab-4 text-shadow-sm \
              [direction:rtl] [unicode-bidi:isolate] [writing-mode:vertical-rl] \
@@ -9241,7 +9251,8 @@ mod tests {
              hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
              hover:font-features-(--font-features) focus:text-shadow-[0_1px_2px_rgb(0_0_0_/_0.3)] \
              lg:normal-nums content-none before:content-['Hello_World'] \
-             after:content-(--suffix-content) hover:content-['Hello\\_World']",
+             after:content-(--suffix-content) hover:content-['Hello\\_World'] \
+             hover:wrap-break-word focus:wrap-[normal] active:wrap-(--overflow-wrap)",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -9297,6 +9308,7 @@ mod tests {
         assert_eq!(style.overflow_y, Some(OverflowMode::Hidden));
         assert_eq!(style.white_space, Some(WhiteSpaceMode::PreWrap));
         assert_eq!(style.word_break, Some(WordBreakMode::BreakAll));
+        assert_eq!(style.overflow_wrap, Some(OverflowWrapMode::Anywhere));
         assert_eq!(style.hyphens, Some(HyphensMode::Auto));
         assert_eq!(style.content.as_deref(), Some("none"));
         assert_eq!(
@@ -9346,6 +9358,30 @@ mod tests {
                 .and_then(|styles| styles.get("text-decoration-thickness"))
                 .map(String::as_str),
             Some("3px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("overflow-wrap"))
+                .map(String::as_str),
+            Some("break-word")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("overflow-wrap"))
+                .map(String::as_str),
+            Some("normal")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("overflow-wrap"))
+                .map(String::as_str),
+            Some("var(--overflow-wrap)")
         );
         assert_eq!(
             style

@@ -116,7 +116,7 @@ Typography utilities such as `font-*`, `italic`, `not-italic`, `tracking-*`,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, `indent-*`, `line-clamp-*`, `text-shadow-*`,
 `text-wrap`, `text-nowrap`, `text-balance`, `text-pretty`, `truncate`,
-`text-ellipsis`, `text-clip`, `whitespace-*`, word-break utilities,
+`text-ellipsis`, `text-clip`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, and generated-content utilities such as `content-[...]`,
 `content-(...)`, and `content-none` are projected into portable style tokens.
 Arbitrary property utilities for CSS
