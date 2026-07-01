@@ -410,7 +410,9 @@ deterministically:
   `clipRule`, `stroke`, `strokeWidth`, `strokeLinecap`, `strokeLinejoin`,
   `strokeMiterlimit`, `strokeDasharray`, `strokeDashoffset`, `strokeOpacity`,
   `vectorEffect`, `paintOrder`, `shapeRendering`, `textRendering`,
-  `colorInterpolation`, and `colorInterpolationFilters`
+  `colorRendering`, `colorInterpolation`, `colorInterpolationFilters`,
+  `marker*`, `stopColor`, `stopOpacity`, `floodColor`, `floodOpacity`, and
+  `lightingColor`
 - `textDecorationLine`, `textDecorationColor`, `textDecorationStyle`,
   `textDecorationThickness`, `textDecorationSkipInk`, `textUnderlineOffset`,
   `textUnderlinePosition`, `textEmphasisStyle`, `textEmphasisColor`,
@@ -472,7 +474,8 @@ portable display tokens. Arbitrary `display: ruby*` properties project into the
 same display token. Tailwind screen-reader utilities such as `sr-only` and
 `not-sr-only` project into their generated declaration groups.
 Common Tailwind SVG presentation utilities such as `fill-*`, `stroke-*`, and
-`stroke-{width}` project into the same declaration model.
+`stroke-{width}`, plus arbitrary SVG marker, rendering, paint server, and
+filter color properties, project into the same declaration model.
 Common Tailwind transform utilities such as `translate-*`, `scale-*`,
 `rotate-*`, `skew-*`, `origin-*`, `perspective-*`, `backface-*`, and
 `transform-*` project into individual transform properties or the transform

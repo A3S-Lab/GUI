@@ -70,7 +70,8 @@ text direction, Unicode bidi, writing
 mode, text orientation, text combine upright, text transform, text indent, text
 wrapping, text spacing, text autospace, text box trim/edge, line clamp,
 line clamp longhands,
-SVG fill/stroke presentation properties, text decoration,
+SVG fill/stroke/marker presentation properties, SVG rendering hints, SVG paint
+server and filter color properties, text decoration,
 text decoration skip ink, underline offset/position, text shadow, text overflow,
 text emphasis, ruby layout, hanging punctuation, line breaking, whitespace,
 whitespace collapse, word breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
@@ -107,8 +108,9 @@ their generated declaration groups. Formatting and table utilities such as
 `clear-*`, `align-*`, `border-collapse`, `border-separate`,
 `border-spacing-*`, `caption-*`, and arbitrary `empty-cells` properties are
 projected into portable style tokens.
-SVG presentation utilities such as `fill-*`, `stroke-*`, and `stroke-{width}`
-are projected into portable style tokens. Common
+SVG presentation utilities such as `fill-*`, `stroke-*`, and `stroke-{width}`,
+plus arbitrary SVG marker, rendering, paint server, and filter color
+properties, are projected into portable style tokens. Common
 visual-effect utilities such as `shadow-*`, `ring-*`, `inset-ring-*`,
 `outline-*`, `cursor-*`,
 `pointer-events-*`, `select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`, and

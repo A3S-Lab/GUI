@@ -267,8 +267,18 @@ pub struct PortableStyle {
     pub paint_order: Option<String>,
     pub shape_rendering: Option<String>,
     pub text_rendering: Option<String>,
+    pub color_rendering: Option<String>,
     pub color_interpolation: Option<String>,
     pub color_interpolation_filters: Option<String>,
+    pub marker: Option<String>,
+    pub marker_start: Option<String>,
+    pub marker_mid: Option<String>,
+    pub marker_end: Option<String>,
+    pub stop_color: Option<StyleColor>,
+    pub stop_opacity: Option<f64>,
+    pub flood_color: Option<StyleColor>,
+    pub flood_opacity: Option<f64>,
+    pub lighting_color: Option<StyleColor>,
     pub text_decoration_line: Option<String>,
     pub text_decoration_color: Option<StyleColor>,
     pub text_decoration_style: Option<TextDecorationStyle>,
@@ -1067,10 +1077,20 @@ impl PortableStyle {
             "paint-order" => self.paint_order = parse_css_string_token(value_ref),
             "shape-rendering" => self.shape_rendering = parse_css_string_token(value_ref),
             "text-rendering" => self.text_rendering = parse_css_string_token(value_ref),
+            "color-rendering" => self.color_rendering = parse_css_string_token(value_ref),
             "color-interpolation" => self.color_interpolation = parse_css_string_token(value_ref),
             "color-interpolation-filters" => {
                 self.color_interpolation_filters = parse_css_string_token(value_ref);
             }
+            "marker" => self.marker = parse_css_string_token(value_ref),
+            "marker-start" => self.marker_start = parse_css_string_token(value_ref),
+            "marker-mid" => self.marker_mid = parse_css_string_token(value_ref),
+            "marker-end" => self.marker_end = parse_css_string_token(value_ref),
+            "stop-color" => self.stop_color = parse_color(value_ref),
+            "stop-opacity" => self.stop_opacity = parse_opacity(value_ref),
+            "flood-color" => self.flood_color = parse_color(value_ref),
+            "flood-opacity" => self.flood_opacity = parse_opacity(value_ref),
+            "lighting-color" => self.lighting_color = parse_color(value_ref),
             "text-decoration" => self.apply_text_decoration_shorthand(value_ref),
             "text-decoration-line" => self.text_decoration_line = parse_css_string_token(value_ref),
             "text-decoration-color" => self.text_decoration_color = parse_color(value_ref),
@@ -2307,6 +2327,15 @@ pub enum CaptionSide {
 pub enum PointerEvents {
     Auto,
     None,
+    VisiblePainted,
+    VisibleFill,
+    VisibleStroke,
+    Visible,
+    Painted,
+    Fill,
+    Stroke,
+    BoundingBox,
+    All,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -3396,6 +3425,15 @@ fn parse_pointer_events(value: &str) -> Option<PointerEvents> {
     match value.trim() {
         "auto" => Some(PointerEvents::Auto),
         "none" => Some(PointerEvents::None),
+        "visiblePainted" | "visible-painted" => Some(PointerEvents::VisiblePainted),
+        "visibleFill" | "visible-fill" => Some(PointerEvents::VisibleFill),
+        "visibleStroke" | "visible-stroke" => Some(PointerEvents::VisibleStroke),
+        "visible" => Some(PointerEvents::Visible),
+        "painted" => Some(PointerEvents::Painted),
+        "fill" => Some(PointerEvents::Fill),
+        "stroke" => Some(PointerEvents::Stroke),
+        "bounding-box" | "boundingBox" => Some(PointerEvents::BoundingBox),
+        "all" => Some(PointerEvents::All),
         _ => None,
     }
 }
@@ -10987,8 +11025,19 @@ mod tests {
             .style("paintOrder", "stroke fill markers")
             .style("shapeRendering", "geometricPrecision")
             .style("textRendering", "optimizeLegibility")
+            .style("colorRendering", "optimizeQuality")
             .style("colorInterpolation", "sRGB")
-            .style("colorInterpolationFilters", "linearRGB");
+            .style("colorInterpolationFilters", "linearRGB")
+            .style("marker", "url(#dot)")
+            .style("markerStart", "url(#start)")
+            .style("markerMid", "url(#mid)")
+            .style("markerEnd", "url(#end)")
+            .style("stopColor", "#ff0000")
+            .style("stopOpacity", "75%")
+            .style("floodColor", "rgb(10 20 30)")
+            .style("floodOpacity", "0.25")
+            .style("lightingColor", "currentColor")
+            .style("pointerEvents", "visiblePainted");
 
         let style = PortableStyle::from_web(&web);
 
@@ -11019,20 +11068,62 @@ mod tests {
         assert_eq!(style.paint_order.as_deref(), Some("stroke fill markers"));
         assert_eq!(style.shape_rendering.as_deref(), Some("geometricPrecision"));
         assert_eq!(style.text_rendering.as_deref(), Some("optimizeLegibility"));
+        assert_eq!(style.color_rendering.as_deref(), Some("optimizeQuality"));
         assert_eq!(style.color_interpolation.as_deref(), Some("sRGB"));
         assert_eq!(
             style.color_interpolation_filters.as_deref(),
             Some("linearRGB")
         );
+        assert_eq!(style.marker.as_deref(), Some("url(#dot)"));
+        assert_eq!(style.marker_start.as_deref(), Some("url(#start)"));
+        assert_eq!(style.marker_mid.as_deref(), Some("url(#mid)"));
+        assert_eq!(style.marker_end.as_deref(), Some("url(#end)"));
+        assert_eq!(
+            style.stop_color,
+            Some(StyleColor::Rgba {
+                red: 255,
+                green: 0,
+                blue: 0,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.stop_opacity, Some(0.75));
+        assert_eq!(
+            style.flood_color,
+            Some(StyleColor::Rgba {
+                red: 10,
+                green: 20,
+                blue: 30,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.flood_opacity, Some(0.25));
+        assert_eq!(
+            style.lighting_color,
+            Some(StyleColor::Keyword("currentColor".to_string()))
+        );
+        assert_eq!(style.pointer_events, Some(PointerEvents::VisiblePainted));
         assert!(!style.unsupported.contains_key("fill-rule"));
         assert!(!style.unsupported.contains_key("stroke-width"));
+        assert!(!style.unsupported.contains_key("color-rendering"));
+        assert!(!style.unsupported.contains_key("marker-start"));
+        assert!(!style.unsupported.contains_key("stop-color"));
+        assert!(!style.unsupported.contains_key("flood-color"));
+        assert!(!style.unsupported.contains_key("lighting-color"));
     }
 
     #[test]
     fn parses_tailwind_svg_presentation_utilities() {
         let web = WebProps::new().class_name(
             "fill-[#663399]/50 stroke-current stroke-2 hover:fill-none \
-             md:stroke-[3px] focus:stroke-[#ff0000] active:fill-(--icon-fill)",
+             [color-rendering:optimizeQuality] [marker:url(#dot)] \
+             [marker-start:url(#start)] [marker-mid:url(#mid)] [marker-end:url(#end)] \
+             [stop-color:#ff0000] [stop-opacity:75%] \
+             [flood-color:rgb(10_20_30)] [flood-opacity:0.25] \
+             [lighting-color:currentColor] [pointer-events:visiblePainted] \
+             md:stroke-[3px] focus:stroke-[#ff0000] active:fill-(--icon-fill) \
+             hover:[marker-end:url(#hover)] focus:[stop-color:#00ff00] \
+             active:[flood-opacity:50%] visited:[pointer-events:bounding-box]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -11059,6 +11150,36 @@ mod tests {
             style.declarations.get("stroke-width").map(String::as_str),
             Some("2")
         );
+        assert_eq!(style.color_rendering.as_deref(), Some("optimizeQuality"));
+        assert_eq!(style.marker.as_deref(), Some("url(#dot)"));
+        assert_eq!(style.marker_start.as_deref(), Some("url(#start)"));
+        assert_eq!(style.marker_mid.as_deref(), Some("url(#mid)"));
+        assert_eq!(style.marker_end.as_deref(), Some("url(#end)"));
+        assert_eq!(
+            style.stop_color,
+            Some(StyleColor::Rgba {
+                red: 255,
+                green: 0,
+                blue: 0,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.stop_opacity, Some(0.75));
+        assert_eq!(
+            style.flood_color,
+            Some(StyleColor::Rgba {
+                red: 10,
+                green: 20,
+                blue: 30,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.flood_opacity, Some(0.25));
+        assert_eq!(
+            style.lighting_color,
+            Some(StyleColor::Keyword("currentColor".to_string()))
+        );
+        assert_eq!(style.pointer_events, Some(PointerEvents::VisiblePainted));
         assert_eq!(
             style
                 .variant_declarations
@@ -11090,6 +11211,38 @@ mod tests {
                 .and_then(|styles| styles.get("fill"))
                 .map(String::as_str),
             Some("var(--icon-fill)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("marker-end"))
+                .map(String::as_str),
+            Some("url(#hover)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("stop-color"))
+                .map(String::as_str),
+            Some("#00ff00")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("flood-opacity"))
+                .map(String::as_str),
+            Some("50%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("visited")
+                .and_then(|styles| styles.get("pointer-events"))
+                .map(String::as_str),
+            Some("bounding-box")
         );
     }
 
