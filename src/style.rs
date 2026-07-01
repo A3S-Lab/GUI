@@ -131,8 +131,28 @@ pub struct PortableStyle {
     pub font_style: Option<FontStyle>,
     pub font_size: Option<StyleLength>,
     pub font_weight: Option<FontWeight>,
+    pub font_stretch: Option<String>,
+    pub font_kerning: Option<String>,
+    pub font_optical_sizing: Option<String>,
+    pub font_feature_settings: Option<String>,
+    pub font_variation_settings: Option<String>,
+    pub font_variant: Option<String>,
+    pub font_variant_alternates: Option<String>,
+    pub font_variant_caps: Option<String>,
+    pub font_variant_east_asian: Option<String>,
+    pub font_variant_emoji: Option<String>,
+    pub font_variant_ligatures: Option<String>,
+    pub font_variant_numeric: Option<String>,
+    pub font_variant_position: Option<String>,
+    pub font_synthesis: Option<String>,
+    pub font_synthesis_weight: Option<String>,
+    pub font_synthesis_style: Option<String>,
+    pub font_synthesis_small_caps: Option<String>,
+    pub font_synthesis_position: Option<String>,
     pub line_height: Option<StyleLength>,
     pub letter_spacing: Option<StyleLength>,
+    pub word_spacing: Option<StyleLength>,
+    pub tab_size: Option<String>,
     pub text_align: Option<TextAlign>,
     pub direction: Option<TextDirection>,
     pub unicode_bidi: Option<UnicodeBidi>,
@@ -166,7 +186,9 @@ pub struct PortableStyle {
     pub text_decoration_style: Option<TextDecorationStyle>,
     pub text_decoration_thickness: Option<StyleLength>,
     pub text_underline_offset: Option<StyleLength>,
+    pub text_shadow: Option<String>,
     pub text_overflow: Option<TextOverflow>,
+    pub line_break: Option<String>,
     pub white_space: Option<WhiteSpaceMode>,
     pub word_break: Option<WordBreakMode>,
     pub overflow_wrap: Option<OverflowWrapMode>,
@@ -716,8 +738,52 @@ impl PortableStyle {
             "font-style" => self.font_style = parse_font_style(value_ref),
             "font-size" => self.font_size = parse_length(value_ref),
             "font-weight" => self.font_weight = parse_font_weight(value_ref),
+            "font-stretch" => self.font_stretch = parse_css_string_token(value_ref),
+            "font-kerning" => self.font_kerning = parse_css_string_token(value_ref),
+            "font-optical-sizing" => {
+                self.font_optical_sizing = parse_css_string_token(value_ref);
+            }
+            "font-feature-settings" => {
+                self.font_feature_settings = parse_css_string_token(value_ref);
+            }
+            "font-variation-settings" => {
+                self.font_variation_settings = parse_css_string_token(value_ref);
+            }
+            "font-variant" => self.font_variant = parse_css_string_token(value_ref),
+            "font-variant-alternates" => {
+                self.font_variant_alternates = parse_css_string_token(value_ref);
+            }
+            "font-variant-caps" => self.font_variant_caps = parse_css_string_token(value_ref),
+            "font-variant-east-asian" => {
+                self.font_variant_east_asian = parse_css_string_token(value_ref);
+            }
+            "font-variant-emoji" => {
+                self.font_variant_emoji = parse_css_string_token(value_ref);
+            }
+            "font-variant-ligatures" => {
+                self.font_variant_ligatures = parse_css_string_token(value_ref);
+            }
+            "font-variant-numeric" => self.apply_font_variant_numeric(value_ref),
+            "font-variant-position" => {
+                self.font_variant_position = parse_css_string_token(value_ref);
+            }
+            "font-synthesis" => self.font_synthesis = parse_css_string_token(value_ref),
+            "font-synthesis-weight" => {
+                self.font_synthesis_weight = parse_css_string_token(value_ref);
+            }
+            "font-synthesis-style" => {
+                self.font_synthesis_style = parse_css_string_token(value_ref);
+            }
+            "font-synthesis-small-caps" => {
+                self.font_synthesis_small_caps = parse_css_string_token(value_ref);
+            }
+            "font-synthesis-position" => {
+                self.font_synthesis_position = parse_css_string_token(value_ref);
+            }
             "line-height" => self.line_height = parse_length(value_ref),
             "letter-spacing" => self.letter_spacing = parse_length(value_ref),
+            "word-spacing" => self.word_spacing = parse_length(value_ref),
+            "tab-size" | "-moz-tab-size" => self.tab_size = parse_css_string_token(value_ref),
             "text-align" => self.text_align = parse_text_align(value_ref),
             "direction" => self.direction = parse_text_direction(value_ref),
             "unicode-bidi" => self.unicode_bidi = parse_unicode_bidi(value_ref),
@@ -762,7 +828,9 @@ impl PortableStyle {
             }
             "text-decoration-thickness" => self.text_decoration_thickness = parse_length(value_ref),
             "text-underline-offset" => self.text_underline_offset = parse_length(value_ref),
+            "text-shadow" => self.text_shadow = parse_css_string_token(value_ref),
             "text-overflow" => self.text_overflow = parse_text_overflow(value_ref),
+            "line-break" => self.line_break = parse_css_string_token(value_ref),
             "white-space" => self.white_space = parse_white_space(value_ref),
             "word-break" => self.word_break = parse_word_break(value_ref),
             "overflow-wrap" => self.overflow_wrap = parse_overflow_wrap(value_ref),
@@ -989,8 +1057,45 @@ impl PortableStyle {
             "--tw-backdrop-sepia" => {
                 self.backdrop_filter_sepia = parse_non_empty_css_string(value);
             }
+            "--tw-ordinal"
+            | "--tw-slashed-zero"
+            | "--tw-numeric-figure"
+            | "--tw-numeric-spacing"
+            | "--tw-numeric-fraction" => {
+                self.font_variant_numeric = self.compose_font_variant_numeric();
+            }
             _ => {}
         }
+    }
+
+    fn apply_font_variant_numeric(&mut self, value: &str) {
+        if is_tailwind_font_variant_numeric_pipeline(value) {
+            self.font_variant_numeric = self
+                .compose_font_variant_numeric()
+                .or_else(|| parse_css_string_token(value));
+            return;
+        }
+        self.font_variant_numeric = parse_css_string_token(value);
+    }
+
+    fn compose_font_variant_numeric(&self) -> Option<String> {
+        join_css_functions([
+            self.custom_properties
+                .get("--tw-ordinal")
+                .map(String::as_str),
+            self.custom_properties
+                .get("--tw-slashed-zero")
+                .map(String::as_str),
+            self.custom_properties
+                .get("--tw-numeric-figure")
+                .map(String::as_str),
+            self.custom_properties
+                .get("--tw-numeric-spacing")
+                .map(String::as_str),
+            self.custom_properties
+                .get("--tw-numeric-fraction")
+                .map(String::as_str),
+        ])
     }
 
     fn apply_transform_property(&mut self, value: &str) {
@@ -2747,6 +2852,14 @@ fn is_tailwind_backdrop_filter_pipeline(value: &str) -> bool {
         || value.contains("var(--tw-backdrop-sepia)")
 }
 
+fn is_tailwind_font_variant_numeric_pipeline(value: &str) -> bool {
+    value.contains("var(--tw-ordinal)")
+        || value.contains("var(--tw-slashed-zero)")
+        || value.contains("var(--tw-numeric-figure)")
+        || value.contains("var(--tw-numeric-spacing)")
+        || value.contains("var(--tw-numeric-fraction)")
+}
+
 fn parse_pointer_events(value: &str) -> Option<PointerEvents> {
     match value.trim() {
         "auto" => Some(PointerEvents::Auto),
@@ -3410,6 +3523,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
     }
     if let Some(line_clamp) = tailwind_line_clamp_declarations(class) {
         declarations.extend(line_clamp);
+        return declarations;
+    }
+    if let Some(font_features) = tailwind_font_feature_declarations(class) {
+        declarations.extend(font_features);
         return declarations;
     }
     if let Some(container) = tailwind_container_declarations(class) {
