@@ -127,6 +127,15 @@ pub struct PortableStyle {
     pub columns: Option<String>,
     pub column_count: Option<String>,
     pub column_width: Option<StyleLength>,
+    pub column_rule: Option<String>,
+    pub column_rule_width: Option<StyleLength>,
+    pub column_rule_style: Option<BorderStyle>,
+    pub column_rule_color: Option<StyleColor>,
+    pub column_span: Option<String>,
+    pub column_fill: Option<String>,
+    pub break_before: Option<String>,
+    pub break_after: Option<String>,
+    pub break_inside: Option<String>,
     pub font_family: Option<String>,
     pub font_style: Option<FontStyle>,
     pub font_size: Option<StyleLength>,
@@ -734,6 +743,21 @@ impl PortableStyle {
             "columns" => self.columns = parse_css_string_token(value_ref),
             "column-count" => self.column_count = parse_css_string_token(value_ref),
             "column-width" => self.column_width = parse_length(value_ref),
+            "column-rule" => self.apply_column_rule_shorthand(value_ref),
+            "column-rule-width" => self.column_rule_width = parse_length(value_ref),
+            "column-rule-style" => self.column_rule_style = parse_border_style(value_ref),
+            "column-rule-color" => self.column_rule_color = parse_color(value_ref),
+            "column-span" => self.column_span = parse_css_string_token(value_ref),
+            "column-fill" => self.column_fill = parse_css_string_token(value_ref),
+            "break-before" | "page-break-before" => {
+                self.break_before = parse_css_string_token(value_ref);
+            }
+            "break-after" | "page-break-after" => {
+                self.break_after = parse_css_string_token(value_ref);
+            }
+            "break-inside" | "page-break-inside" => {
+                self.break_inside = parse_css_string_token(value_ref);
+            }
             "font-family" => self.font_family = parse_css_string_token(value_ref),
             "font-style" => self.font_style = parse_font_style(value_ref),
             "font-size" => self.font_size = parse_length(value_ref),
@@ -1001,6 +1025,19 @@ impl PortableStyle {
                 self.outline_style = Some(style);
             } else if let Some(color) = parse_color(part) {
                 self.outline_color = Some(color);
+            }
+        }
+    }
+
+    fn apply_column_rule_shorthand(&mut self, value: &str) {
+        self.column_rule = parse_css_string_token(value);
+        for part in value.split_whitespace() {
+            if let Some(width) = parse_length(part) {
+                self.column_rule_width = Some(width);
+            } else if let Some(style) = parse_border_style(part) {
+                self.column_rule_style = Some(style);
+            } else if let Some(color) = parse_color(part) {
+                self.column_rule_color = Some(color);
             }
         }
     }
@@ -3565,6 +3602,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.insert(property, value);
         return declarations;
     }
+    if let Some((property, value)) = tailwind_fragmentation_declaration(class) {
+        declarations.insert(property, value);
+        return declarations;
+    }
     if let Some((property, value)) = tailwind_mask_declaration(class) {
         declarations.insert(property, value);
         return declarations;
@@ -4688,6 +4729,47 @@ fn tailwind_blend_mode_value(value: &str, include_plus_modes: bool) -> Option<St
             | "luminosity"
     ) || (include_plus_modes && matches!(value, "plus-darker" | "plus-lighter"));
     known.then(|| value.to_string())
+}
+
+fn tailwind_fragmentation_declaration(class: &str) -> Option<(String, String)> {
+    if let Some(value) = class.strip_prefix("break-before-") {
+        return tailwind_break_value(value).map(|value| ("break-before".to_string(), value));
+    }
+    if let Some(value) = class.strip_prefix("break-after-") {
+        return tailwind_break_value(value).map(|value| ("break-after".to_string(), value));
+    }
+    if let Some(value) = class.strip_prefix("break-inside-") {
+        return tailwind_break_inside_value(value).map(|value| ("break-inside".to_string(), value));
+    }
+    None
+}
+
+fn tailwind_break_value(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    matches!(
+        value,
+        "auto"
+            | "avoid"
+            | "all"
+            | "avoid-page"
+            | "avoid-column"
+            | "page"
+            | "left"
+            | "right"
+            | "recto"
+            | "verso"
+            | "column"
+    )
+    .then(|| value.to_string())
+}
+
+fn tailwind_break_inside_value(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    matches!(value, "auto" | "avoid" | "avoid-page" | "avoid-column").then(|| value.to_string())
 }
 
 fn tailwind_mask_declaration(class: &str) -> Option<(String, String)> {
@@ -8340,7 +8422,16 @@ mod tests {
             .style("listStylePosition", "inside")
             .style("columns", "3")
             .style("columnCount", "2")
-            .style("columnWidth", "12rem");
+            .style("columnWidth", "12rem")
+            .style("columnRule", "2px dashed #663399")
+            .style("columnRuleWidth", "4px")
+            .style("columnRuleStyle", "dotted")
+            .style("columnRuleColor", "rgb(10 20 30)")
+            .style("columnSpan", "all")
+            .style("columnFill", "balance")
+            .style("breakBefore", "page")
+            .style("breakAfter", "avoid-column")
+            .style("pageBreakInside", "avoid");
 
         let style = PortableStyle::from_web(&web);
 
@@ -8361,8 +8452,27 @@ mod tests {
         assert_eq!(style.columns.as_deref(), Some("3"));
         assert_eq!(style.column_count.as_deref(), Some("2"));
         assert_eq!(style.column_width, Some(StyleLength::Points(192.0)));
+        assert_eq!(style.column_rule.as_deref(), Some("2px dashed #663399"));
+        assert_eq!(style.column_rule_width, Some(StyleLength::Points(4.0)));
+        assert_eq!(style.column_rule_style, Some(BorderStyle::Dotted));
+        assert_eq!(
+            style.column_rule_color,
+            Some(StyleColor::Rgba {
+                red: 10,
+                green: 20,
+                blue: 30,
+                alpha: 255,
+            })
+        );
+        assert_eq!(style.column_span.as_deref(), Some("all"));
+        assert_eq!(style.column_fill.as_deref(), Some("balance"));
+        assert_eq!(style.break_before.as_deref(), Some("page"));
+        assert_eq!(style.break_after.as_deref(), Some("avoid-column"));
+        assert_eq!(style.break_inside.as_deref(), Some("avoid"));
         assert!(!style.unsupported.contains_key("background-image"));
         assert!(!style.unsupported.contains_key("object-fit"));
+        assert!(!style.unsupported.contains_key("column-rule"));
+        assert!(!style.unsupported.contains_key("page-break-inside"));
     }
 
     #[test]
@@ -8370,8 +8480,9 @@ mod tests {
         let web = WebProps::new().class_name(
             "bg-[url('/hero.png')] bg-cover bg-center bg-no-repeat bg-fixed \
              bg-origin-content bg-clip-padding object-cover object-left-bottom \
-             list-inside list-disc columns-3 \
-             md:bg-[length:50%_auto] hover:object-[25%_75%]",
+             list-inside list-disc columns-3 break-before-page break-after-avoid-column \
+             break-inside-avoid md:bg-[length:50%_auto] hover:object-[25%_75%] \
+             focus:break-before-[recto] lg:break-inside-(--break-inside)",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -8391,6 +8502,9 @@ mod tests {
         assert_eq!(style.list_style_position, Some(ListStylePosition::Inside));
         assert_eq!(style.list_style_type.as_deref(), Some("disc"));
         assert_eq!(style.columns.as_deref(), Some("3"));
+        assert_eq!(style.break_before.as_deref(), Some("page"));
+        assert_eq!(style.break_after.as_deref(), Some("avoid-column"));
+        assert_eq!(style.break_inside.as_deref(), Some("avoid"));
         assert_eq!(
             style
                 .declarations
@@ -8413,6 +8527,22 @@ mod tests {
                 .and_then(|styles| styles.get("object-position"))
                 .map(String::as_str),
             Some("25% 75%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("break-before"))
+                .map(String::as_str),
+            Some("recto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("lg")
+                .and_then(|styles| styles.get("break-inside"))
+                .map(String::as_str),
+            Some("var(--break-inside)")
         );
     }
 

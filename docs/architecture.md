@@ -3,14 +3,14 @@
 `a3s-gui` accepts structured UI input and emits native platform commands for
 AppKit, WinUI, and GTK4 backends.
 
-The input contract is structured element data: React/TSX-shaped trees, semantic
-element names, `className`, inline style objects, `aria-*`, `data-*`, and
-DOM-style event props. React Aria-compatible component names are supported
+The input contract is structured element data: protocol element records,
+semantic element names, `className`, inline style objects, `aria-*`, `data-*`,
+and DOM-style event props. Supported React Aria component names are treated as
 semantic identifiers. The renderer consumes A3S Native UI IR; host adapters
-create native widgets rather than embedding a browser surface.
+create platform widgets directly.
 
 ```text
-JSX / TSX source
+JSX source
         |
         v
 @a3s-lab/gui JSX runtime
@@ -62,8 +62,8 @@ Action ids
 
 The bridge accepts semantic component names, HTML and SVG intrinsic names,
 common Web props, and event names. The native renderer receives a typed,
-portable protocol rather than React component instances. Input records may come
-from `react-aria-components`, the zero-dependency marker exports used by
+portable protocol rather than component runtime instances. Input records may
+come from `react-aria-components`, the zero-dependency marker exports used by
 compiler fixtures, or another compiler that emits the same protocol shape.
 
 Allowed data:
@@ -77,7 +77,7 @@ Allowed data:
 - `className`, Tailwind utility classes, inline `style` objects, and CSS text
   style strings as portable style input
 - `aria-*`, `data-*`, and HTML attributes as metadata
-- React-style event prop names such as `onClick` and `onChange` with named
+- common JSX event prop names such as `onClick` and `onChange` with named
   callback functions, normalized into native actions
 
 Non-portable runtime assumptions:
@@ -121,13 +121,13 @@ views or text nodes and preserve the original tag as `data-a3s-svg-tag`
 metadata.
 
 `GuiRuntime` is the public orchestration API. It accepts compiled JSX trees,
-React Aria-compatible semantic trees, or native IR trees and renders them into
-any `NativeHost`. `InteractionState` updates platform-independent focus, value,
+supported semantic component trees, or native IR trees and renders them into any
+`NativeHost`. `InteractionState` updates platform-independent focus, value,
 checked, selected, and expanded state from native events before action routing.
 `EventRouter` maps native events such as press, change, focus, and selection
 change back to serialized action identifiers such as `onClick` and `onChange`.
 `ActionRegistry` records and validates those action ids before they are handed
-to the JavaScript/React state bridge.
+to the JavaScript state bridge.
 
 For embedded Rust hosts, native backends can expose callbacks through
 `NativeEventSource`. `GuiRuntime::dispatch_pending_native_events()` drains the
@@ -148,9 +148,10 @@ The JS/Rust bridge uses serializable protocol types:
 - `HostEventResponse`: the validated action invocation for that event.
 
 The protocol decouples input generation from platform backend execution.
-JavaScript does not see native widget handles; native backends do not see JSX.
-The same rule applies to native rendering commands: platform hosts receive
-serializable command records and blueprints, not React component instances.
+JavaScript does not see native widget handles; native backends receive
+serialized protocol records. The same rule applies to native rendering
+commands: platform hosts receive serializable command records and blueprints,
+not component runtime instances.
 
 `NativeProtocolSession` is a serializable host boundary for a native platform
 process. It owns a `GuiRuntime<PlatformPlanningHost<_>>`, accepts `UiFrame`
@@ -380,7 +381,8 @@ deterministically:
   `backgroundOrigin`, `backgroundClip`, `backgroundBlendMode`
 - `clipPath`, `mask*`, and `maskBorder*`
 - `objectFit`, `objectPosition`, `listStyleType`, `listStylePosition`,
-  `columns`, `columnCount`, `columnWidth`
+  `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
+  `columnFill`, `breakBefore`, `breakAfter`, `breakInside`
 - `fontFamily`, `fontStyle`, `fontSize`, `fontWeight`, `fontStretch`,
   `fontKerning`, `fontOpticalSizing`, `fontFeatureSettings`,
   `fontVariationSettings`, `fontVariant*`, `fontSynthesis*`, `lineHeight`,
@@ -456,12 +458,13 @@ Common Tailwind typography and text utilities such as `font-*`, `italic`,
 numeric utilities, `tab-*`, text transform utilities, text decoration
 utilities, `underline-offset-*`, `truncate`, `text-ellipsis`, `text-clip`,
 `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
-`text-balance`, `text-pretty`, `whitespace-*`, `break-*`, and `hyphens-*`
-project into the same declaration model.
+`text-balance`, `text-pretty`, `whitespace-*`, word-break utilities, and
+`hyphens-*` project into the same declaration model.
 CSS writing-mode arbitrary property utilities and `ltr:`/`rtl:` variants are
 stored in the same declaration model.
-Common Tailwind background, object, list, and columns utilities such as `bg-*`,
-`object-*`, `list-*`, and `columns-*` project into the same declaration model.
+Common Tailwind background, object, list, columns, and fragmentation utilities
+such as `bg-*`, `object-*`, `list-*`, `columns-*`, `break-before-*`,
+`break-after-*`, and `break-inside-*` project into the same declaration model.
 Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,
 `rounded-r-*`, `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`,
 `rounded-tr-*`, `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`,

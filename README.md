@@ -1,9 +1,9 @@
 # a3s-gui
 
-`a3s-gui` is a Rust crate that converts structured UI descriptions into a
+`a3s-gui` is a Rust crate that converts structured UI records into a
 serializable native UI intermediate representation and native command stream. It
-accepts `UiFrame` protocol frames, Rust `NativeElement` trees, and compiled JSX
-node records.
+accepts `UiFrame` protocol frames, Rust `NativeElement` trees, and
+JSX-generated element records.
 
 The core renderer is backend-independent. Platform adapters translate the native
 command stream into AppKit, WinUI, or GTK4 widgets.
@@ -12,16 +12,16 @@ command stream into AppKit, WinUI, or GTK4 widgets.
 
 The protocol accepts the following input data:
 
-- JSX/TSX-shaped element records
-- semantic component names, React Aria-compatible component names, HTML
-  intrinsic element names, and SVG intrinsic element names
+- JSX-generated element records
+- semantic component names, supported React Aria component names, HTML intrinsic
+  element names, and SVG intrinsic element names
 - stable keys for reconciliation
 - `className`, Tailwind utility classes, inline style objects, and CSS text
   style strings
 - `aria-*`, `data-*`, and common HTML attributes
 - common HTML state props such as `disabled`, `required`, `checked`, and
   `selected`
-- React-style event props such as `onClick`, `onChange`, `onFocus`, `onBlur`,
+- common JSX event prop names such as `onClick`, `onChange`, `onFocus`, `onBlur`,
   and `onPress`
 
 The renderer normalizes these fields into native roles, control state, metadata,
@@ -52,7 +52,8 @@ width/style/color, uniform, physical-corner, and logical-corner border radius,
 text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip path, CSS mask, CSS mask border, object fit/position,
-list style, columns, font size, font weight, font family, font style, font
+list style, columns, column rule/span/fill, fragmentation breaks, font size,
+font weight, font family, font style, font
 stretch, font kerning, font feature and variation settings, font variant and
 font synthesis properties, line height, letter spacing, word spacing, tab size,
 text alignment, text direction, Unicode bidi, writing mode, text orientation,
@@ -104,12 +105,14 @@ Typography utilities such as `font-*`, `italic`, `not-italic`, `tracking-*`,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, `indent-*`, `line-clamp-*`, `text-shadow-*`,
 `text-wrap`, `text-nowrap`, `text-balance`, `text-pretty`, `truncate`,
-`text-ellipsis`, `text-clip`, `whitespace-*`, `break-*`, and `hyphens-*` are
+`text-ellipsis`, `text-clip`, `whitespace-*`, word-break utilities, and
+`hyphens-*` are
 projected into portable style tokens. Arbitrary property utilities for CSS
 writing modes and `ltr:`/`rtl:` variants are preserved in the same declaration
 model.
-Background, object, list, and columns utilities such as `bg-*`, `object-*`,
-`list-*`, and `columns-*` are projected into portable style tokens.
+Background, object, list, columns, and fragmentation utilities such as `bg-*`,
+`object-*`, `list-*`, `columns-*`, `break-before-*`, `break-after-*`, and
+`break-inside-*` are projected into portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, `will-change-*`, `appearance-*`,
 `accent-*`, `caret-*`, `resize-*`, `scroll-*`, `snap-*`, `overscroll-*`, and
@@ -140,7 +143,7 @@ remain available as raw `className`, style declarations, metadata, or
 
 `a3s-gui` is organized into four layers:
 
-1. **Input layer**: accepts JSX/TSX-shaped element records, direct
+1. **Input layer**: accepts JSX-generated element records, direct
    `NativeElement` trees, and `UiFrame` protocol frames.
 2. **A3S Native UI IR**: stores native roles, state, labels, values,
    accessibility metadata, Web metadata, portable style tokens, event bindings,
@@ -187,8 +190,9 @@ Action ids
 
 The command stream, native widget blueprints, accessibility roles, control
 state, portable style tokens, and host protocol types are serializable. A Swift,
-WinUI, GTK, Rust, or multi-process host can consume the same protocol without
-seeing JSX or a browser DOM.
+WinUI, GTK, Rust, or multi-process host can consume the same protocol as
+serialized records, without source-level JSX or DOM nodes crossing the host
+boundary.
 
 ## Rendering Model
 
@@ -255,7 +259,7 @@ export const frame = createUiFrame('save-frame', root, {
 });
 ```
 
-React Aria-compatible component names and props can be lowered through the same
+Supported React Aria component names and props can be lowered through the same
 JSX runtime:
 
 ```tsx
@@ -438,8 +442,8 @@ The TypeScript SDK lives in `sdk/typescript`. It provides a zero-dependency JSX
 runtime and protocol helpers that produce the same `UiFrame` JSON consumed by
 the Rust runtime. Event props can be named functions or `createAction` markers;
 the protocol boundary serializes those callbacks as stable action ids. The SDK
-exports generic semantic component markers and React Aria-compatible marker
-shapes for tests and compiler fixtures.
+exports generic semantic component markers and React Aria marker shapes for
+tests and compiler fixtures.
 
 ## Validation
 
