@@ -6125,6 +6125,99 @@ fn tailwind_text_size_declarations(class: &str) -> Option<BTreeMap<String, Strin
     Some(declarations)
 }
 
+fn tailwind_font_feature_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    if let Some((property, value)) = tailwind_font_variant_numeric_declaration(class) {
+        declarations.insert(property, value);
+        if class != "normal-nums" {
+            declarations.insert(
+                "font-variant-numeric".to_string(),
+                tailwind_font_variant_numeric_pipeline(),
+            );
+        }
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("font-stretch-")
+        .and_then(tailwind_font_stretch_value)
+    {
+        declarations.insert("font-stretch".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("font-features-")
+        .and_then(tailwind_arbitrary_or_custom_var)
+    {
+        declarations.insert("font-feature-settings".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("tab-").and_then(tailwind_tab_size_value) {
+        declarations.insert("tab-size".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = tailwind_text_shadow_value(class) {
+        declarations.insert("text-shadow".to_string(), value);
+        return Some(declarations);
+    }
+    None
+}
+
+fn tailwind_font_variant_numeric_declaration(class: &str) -> Option<(String, String)> {
+    let declaration = match class {
+        "normal-nums" => ("font-variant-numeric", "normal"),
+        "ordinal" => ("--tw-ordinal", "ordinal"),
+        "slashed-zero" => ("--tw-slashed-zero", "slashed-zero"),
+        "lining-nums" => ("--tw-numeric-figure", "lining-nums"),
+        "oldstyle-nums" => ("--tw-numeric-figure", "oldstyle-nums"),
+        "proportional-nums" => ("--tw-numeric-spacing", "proportional-nums"),
+        "tabular-nums" => ("--tw-numeric-spacing", "tabular-nums"),
+        "diagonal-fractions" => ("--tw-numeric-fraction", "diagonal-fractions"),
+        "stacked-fractions" => ("--tw-numeric-fraction", "stacked-fractions"),
+        _ => return None,
+    };
+    Some((declaration.0.to_string(), declaration.1.to_string()))
+}
+
+fn tailwind_font_variant_numeric_pipeline() -> String {
+    "var(--tw-ordinal) var(--tw-slashed-zero) var(--tw-numeric-figure) var(--tw-numeric-spacing) var(--tw-numeric-fraction)".to_string()
+}
+
+fn tailwind_font_stretch_value(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    match value {
+        "ultra-condensed" | "extra-condensed" | "condensed" | "semi-condensed" | "normal"
+        | "semi-expanded" | "expanded" | "extra-expanded" | "ultra-expanded" => {
+            Some(value.to_string())
+        }
+        _ => value
+            .parse::<f64>()
+            .ok()
+            .map(|value| format!("{}%", trim_float(value))),
+    }
+}
+
+fn tailwind_tab_size_value(value: &str) -> Option<String> {
+    tailwind_arbitrary_or_custom_var(value)
+        .or_else(|| value.parse::<u32>().ok().map(|value| value.to_string()))
+}
+
+fn tailwind_text_shadow_value(class: &str) -> Option<String> {
+    if class == "text-shadow-none" {
+        return Some("none".to_string());
+    }
+    let value = class.strip_prefix("text-shadow-")?;
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    if is_tailwind_identifier(value) {
+        Some(format!("var(--text-shadow-{value})"))
+    } else {
+        None
+    }
+}
+
 fn tailwind_line_clamp_declarations(class: &str) -> Option<BTreeMap<String, String>> {
     let value = class.strip_prefix("line-clamp-")?;
     let mut declarations = BTreeMap::new();
@@ -7925,7 +8018,27 @@ mod tests {
         let web = WebProps::new()
             .style("fontFamily", "ui-monospace, monospace")
             .style("fontStyle", "italic")
+            .style("fontStretch", "semi-condensed")
+            .style("fontKerning", "normal")
+            .style("fontOpticalSizing", "auto")
+            .style("fontFeatureSettings", "\"kern\" 1, \"liga\" 0")
+            .style("fontVariationSettings", "\"wght\" 650")
+            .style("fontVariant", "small-caps tabular-nums")
+            .style("fontVariantAlternates", "historical-forms")
+            .style("fontVariantCaps", "small-caps")
+            .style("fontVariantEastAsian", "jis78")
+            .style("fontVariantEmoji", "emoji")
+            .style("fontVariantLigatures", "common-ligatures")
+            .style("fontVariantNumeric", "tabular-nums slashed-zero")
+            .style("fontVariantPosition", "sub")
+            .style("fontSynthesis", "weight style")
+            .style("fontSynthesisWeight", "none")
+            .style("fontSynthesisStyle", "auto")
+            .style("fontSynthesisSmallCaps", "none")
+            .style("fontSynthesisPosition", "auto")
             .style("letterSpacing", "0.025em")
+            .style("wordSpacing", "0.125em")
+            .style("tabSize", "4")
             .style("direction", "rtl")
             .style("unicodeBidi", "isolate-override")
             .style("-webkitWritingMode", "vertical-lr")
@@ -7941,7 +8054,9 @@ mod tests {
             .style("textDecorationStyle", "wavy")
             .style("textDecorationThickness", "from-font")
             .style("textUnderlineOffset", "4px")
+            .style("textShadow", "0 1px 2px rgb(0 0 0 / 0.3)")
             .style("textOverflow", "ellipsis")
+            .style("lineBreak", "strict")
             .style("whiteSpace", "nowrap")
             .style("wordBreak", "keep-all")
             .style("overflowWrap", "anywhere")
@@ -7954,7 +8069,45 @@ mod tests {
             Some("ui-monospace, monospace")
         );
         assert_eq!(style.font_style, Some(FontStyle::Italic));
+        assert_eq!(style.font_stretch.as_deref(), Some("semi-condensed"));
+        assert_eq!(style.font_kerning.as_deref(), Some("normal"));
+        assert_eq!(style.font_optical_sizing.as_deref(), Some("auto"));
+        assert_eq!(
+            style.font_feature_settings.as_deref(),
+            Some("\"kern\" 1, \"liga\" 0")
+        );
+        assert_eq!(
+            style.font_variation_settings.as_deref(),
+            Some("\"wght\" 650")
+        );
+        assert_eq!(
+            style.font_variant.as_deref(),
+            Some("small-caps tabular-nums")
+        );
+        assert_eq!(
+            style.font_variant_alternates.as_deref(),
+            Some("historical-forms")
+        );
+        assert_eq!(style.font_variant_caps.as_deref(), Some("small-caps"));
+        assert_eq!(style.font_variant_east_asian.as_deref(), Some("jis78"));
+        assert_eq!(style.font_variant_emoji.as_deref(), Some("emoji"));
+        assert_eq!(
+            style.font_variant_ligatures.as_deref(),
+            Some("common-ligatures")
+        );
+        assert_eq!(
+            style.font_variant_numeric.as_deref(),
+            Some("tabular-nums slashed-zero")
+        );
+        assert_eq!(style.font_variant_position.as_deref(), Some("sub"));
+        assert_eq!(style.font_synthesis.as_deref(), Some("weight style"));
+        assert_eq!(style.font_synthesis_weight.as_deref(), Some("none"));
+        assert_eq!(style.font_synthesis_style.as_deref(), Some("auto"));
+        assert_eq!(style.font_synthesis_small_caps.as_deref(), Some("none"));
+        assert_eq!(style.font_synthesis_position.as_deref(), Some("auto"));
         assert_eq!(style.letter_spacing, Some(StyleLength::Points(0.4)));
+        assert_eq!(style.word_spacing, Some(StyleLength::Points(2.0)));
+        assert_eq!(style.tab_size.as_deref(), Some("4"));
         assert_eq!(style.direction, Some(TextDirection::Rtl));
         assert_eq!(style.unicode_bidi, Some(UnicodeBidi::IsolateOverride));
         assert_eq!(style.writing_mode, Some(WritingMode::VerticalLr));
@@ -7981,13 +8134,21 @@ mod tests {
             Some(StyleLength::Css("from-font".to_string()))
         );
         assert_eq!(style.text_underline_offset, Some(StyleLength::Points(4.0)));
+        assert_eq!(
+            style.text_shadow.as_deref(),
+            Some("0 1px 2px rgb(0 0 0 / 0.3)")
+        );
         assert_eq!(style.text_overflow, Some(TextOverflow::Ellipsis));
+        assert_eq!(style.line_break.as_deref(), Some("strict"));
         assert_eq!(style.white_space, Some(WhiteSpaceMode::NoWrap));
         assert_eq!(style.word_break, Some(WordBreakMode::KeepAll));
         assert_eq!(style.overflow_wrap, Some(OverflowWrapMode::Anywhere));
         assert_eq!(style.hyphens, Some(HyphensMode::Auto));
         assert!(!style.unsupported.contains_key("text-decoration-line"));
+        assert!(!style.unsupported.contains_key("font-feature-settings"));
+        assert!(!style.unsupported.contains_key("font-variant-numeric"));
         assert!(!style.unsupported.contains_key("white-space"));
+        assert!(!style.unsupported.contains_key("text-shadow"));
         assert!(!style.unsupported.contains_key("-webkit-writing-mode"));
         assert!(!style.unsupported.contains_key("text-wrap"));
         assert!(!style.unsupported.contains_key("-webkit-line-clamp"));
