@@ -64,8 +64,9 @@ handling, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
 rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
 filter, backdrop filter function components, transition, animation,
-will-change, appearance, accent color, caret color, resize, scroll behavior,
-physical and logical scroll margin/padding, scroll snap, overscroll behavior,
+will-change, color scheme, forced color adjustment, field sizing, appearance,
+accent color, caret color, resize, scroll behavior, physical and logical scroll
+margin/padding, scroll snap, scrollbar gutter/width/color, overscroll behavior,
 touch action, cursor, pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
@@ -119,8 +120,10 @@ Background, object, list, columns, and fragmentation utilities such as `bg-*`,
 `break-inside-*` are projected into portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, `will-change-*`, `appearance-*`,
-`accent-*`, `caret-*`, `resize-*`, `scroll-*`, `snap-*`, `overscroll-*`, and
-`touch-*` are projected into portable style tokens.
+`scheme-*`, `forced-color-adjust-*`, `field-sizing-*`, `accent-*`,
+`caret-*`, `resize-*`, `scroll-*`, `snap-*`, `scrollbar-*`,
+`scrollbar-gutter-*`, `scrollbar-thumb-*`, `scrollbar-track-*`,
+`overscroll-*`, and `touch-*` are projected into portable style tokens.
 Border radius utilities such as `rounded-*`, `rounded-t-*`, `rounded-r-*`,
 `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`, `rounded-tr-*`,
 `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`, `rounded-e-*`,

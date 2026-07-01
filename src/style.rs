@@ -281,12 +281,20 @@ pub struct PortableStyle {
     pub animation_fill_mode: Option<String>,
     pub animation_play_state: Option<String>,
     pub will_change: Option<String>,
+    pub color_scheme: Option<String>,
+    pub forced_color_adjust: Option<String>,
+    pub field_sizing: Option<String>,
     pub appearance: Option<String>,
     pub resize: Option<ResizeMode>,
     pub scroll_behavior: Option<ScrollBehavior>,
     pub scroll_snap_type: Option<String>,
     pub scroll_snap_align: Option<String>,
     pub scroll_snap_stop: Option<String>,
+    pub scrollbar_gutter: Option<String>,
+    pub scrollbar_width: Option<String>,
+    pub scrollbar_color: Option<String>,
+    pub scrollbar_thumb_color: Option<String>,
+    pub scrollbar_track_color: Option<String>,
     pub overscroll_behavior_x: Option<OverscrollBehavior>,
     pub overscroll_behavior_y: Option<OverscrollBehavior>,
     pub touch_action: Option<String>,
@@ -949,12 +957,18 @@ impl PortableStyle {
             "animation-fill-mode" => self.animation_fill_mode = parse_css_string_token(value_ref),
             "animation-play-state" => self.animation_play_state = parse_css_string_token(value_ref),
             "will-change" => self.will_change = parse_css_string_token(value_ref),
+            "color-scheme" => self.color_scheme = parse_css_string_token(value_ref),
+            "forced-color-adjust" => self.forced_color_adjust = parse_css_string_token(value_ref),
+            "field-sizing" => self.field_sizing = parse_css_string_token(value_ref),
             "appearance" => self.appearance = parse_css_string_token(value_ref),
             "resize" => self.resize = parse_resize(value_ref),
             "scroll-behavior" => self.scroll_behavior = parse_scroll_behavior(value_ref),
             "scroll-snap-type" => self.scroll_snap_type = parse_css_string_token(value_ref),
             "scroll-snap-align" => self.scroll_snap_align = parse_css_string_token(value_ref),
             "scroll-snap-stop" => self.scroll_snap_stop = parse_css_string_token(value_ref),
+            "scrollbar-gutter" => self.scrollbar_gutter = parse_css_string_token(value_ref),
+            "scrollbar-width" => self.scrollbar_width = parse_css_string_token(value_ref),
+            "scrollbar-color" => self.apply_scrollbar_color_property(value_ref),
             "overscroll-behavior" => {
                 let overscroll = parse_overscroll_behavior(value_ref);
                 self.overscroll_behavior_x = overscroll;
@@ -1071,6 +1085,16 @@ impl PortableStyle {
         self.box_shadow = parse_css_string_token(value);
     }
 
+    fn apply_scrollbar_color_property(&mut self, value: &str) {
+        if value.trim() == tailwind_scrollbar_color_pipeline() {
+            self.scrollbar_color = self
+                .compose_tailwind_scrollbar_color()
+                .or_else(|| parse_css_string_token(value));
+            return;
+        }
+        self.scrollbar_color = parse_css_string_token(value);
+    }
+
     fn apply_column_rule_shorthand(&mut self, value: &str) {
         self.column_rule = parse_css_string_token(value);
         for part in value.split_whitespace() {
@@ -1166,6 +1190,14 @@ impl PortableStyle {
             }
             "--tw-space-y-reverse" => {
                 self.space_y_reverse = parse_non_empty_css_string(value);
+            }
+            "--tw-scrollbar-thumb" => {
+                self.scrollbar_thumb_color = parse_non_empty_css_string(value);
+                self.scrollbar_color = self.compose_tailwind_scrollbar_color();
+            }
+            "--tw-scrollbar-track" => {
+                self.scrollbar_track_color = parse_non_empty_css_string(value);
+                self.scrollbar_color = self.compose_tailwind_scrollbar_color();
             }
             "--tw-ordinal"
             | "--tw-slashed-zero"
@@ -1420,6 +1452,21 @@ impl PortableStyle {
         } else {
             Some(parts.join(", "))
         }
+    }
+
+    fn compose_tailwind_scrollbar_color(&self) -> Option<String> {
+        if self.scrollbar_thumb_color.is_none() && self.scrollbar_track_color.is_none() {
+            return None;
+        }
+        let thumb = self
+            .scrollbar_thumb_color
+            .as_deref()
+            .unwrap_or("var(--tw-scrollbar-thumb)");
+        let track = self
+            .scrollbar_track_color
+            .as_deref()
+            .unwrap_or("var(--tw-scrollbar-track)");
+        Some(format!("{thumb} {track}"))
     }
 
     fn apply_tailwind_utility(&mut self, class: &str) {
@@ -5457,12 +5504,28 @@ fn tailwind_animation_value(value: &str) -> Option<String> {
 fn tailwind_interaction_declarations(class: &str) -> Option<BTreeMap<String, String>> {
     let mut declarations = BTreeMap::new();
     let declaration = match class {
+        "scheme-normal" => Some(("color-scheme", "normal".to_string())),
+        "scheme-dark" => Some(("color-scheme", "dark".to_string())),
+        "scheme-light" => Some(("color-scheme", "light".to_string())),
+        "scheme-light-dark" => Some(("color-scheme", "light dark".to_string())),
+        "scheme-only-dark" => Some(("color-scheme", "only dark".to_string())),
+        "scheme-only-light" => Some(("color-scheme", "only light".to_string())),
+        "forced-color-adjust-auto" => Some(("forced-color-adjust", "auto".to_string())),
+        "forced-color-adjust-none" => Some(("forced-color-adjust", "none".to_string())),
+        "field-sizing-fixed" => Some(("field-sizing", "fixed".to_string())),
+        "field-sizing-content" => Some(("field-sizing", "content".to_string())),
         "appearance-none" => Some(("appearance", "none".to_string())),
         "appearance-auto" => Some(("appearance", "auto".to_string())),
         "will-change-auto" => Some(("will-change", "auto".to_string())),
         "will-change-scroll" => Some(("will-change", "scroll-position".to_string())),
         "will-change-contents" => Some(("will-change", "contents".to_string())),
         "will-change-transform" => Some(("will-change", "transform".to_string())),
+        "scrollbar-gutter-auto" => Some(("scrollbar-gutter", "auto".to_string())),
+        "scrollbar-gutter-stable" => Some(("scrollbar-gutter", "stable".to_string())),
+        "scrollbar-gutter-both" => Some(("scrollbar-gutter", "stable both-edges".to_string())),
+        "scrollbar-auto" => Some(("scrollbar-width", "auto".to_string())),
+        "scrollbar-thin" => Some(("scrollbar-width", "thin".to_string())),
+        "scrollbar-none" => Some(("scrollbar-width", "none".to_string())),
         "scroll-auto" => Some(("scroll-behavior", "auto".to_string())),
         "scroll-smooth" => Some(("scroll-behavior", "smooth".to_string())),
         "snap-none" => Some(("scroll-snap-type", "none".to_string())),
@@ -5539,7 +5602,116 @@ fn tailwind_interaction_declarations(class: &str) -> Option<BTreeMap<String, Str
         declarations.insert("touch-action".to_string(), tailwind_arbitrary_value(value));
         return Some(declarations);
     }
+    if let Some(value) = class
+        .strip_prefix("scheme-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert("color-scheme".to_string(), tailwind_arbitrary_value(value));
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("scheme-").and_then(tailwind_custom_var) {
+        declarations.insert("color-scheme".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("forced-color-adjust-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert(
+            "forced-color-adjust".to_string(),
+            tailwind_arbitrary_value(value),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("forced-color-adjust-")
+        .and_then(tailwind_custom_var)
+    {
+        declarations.insert("forced-color-adjust".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("field-sizing-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert("field-sizing".to_string(), tailwind_arbitrary_value(value));
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("field-sizing-")
+        .and_then(tailwind_custom_var)
+    {
+        declarations.insert("field-sizing".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("scrollbar-thumb-")
+        .and_then(tailwind_scrollbar_color_value)
+    {
+        declarations.insert("--tw-scrollbar-thumb".to_string(), value);
+        declarations.insert(
+            "scrollbar-color".to_string(),
+            tailwind_scrollbar_color_pipeline().to_string(),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("scrollbar-track-")
+        .and_then(tailwind_scrollbar_color_value)
+    {
+        declarations.insert("--tw-scrollbar-track".to_string(), value);
+        declarations.insert(
+            "scrollbar-color".to_string(),
+            tailwind_scrollbar_color_pipeline().to_string(),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("scrollbar-gutter-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert(
+            "scrollbar-gutter".to_string(),
+            tailwind_arbitrary_value(value),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("scrollbar-gutter-")
+        .and_then(tailwind_custom_var)
+    {
+        declarations.insert("scrollbar-gutter".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("scrollbar-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert(
+            "scrollbar-width".to_string(),
+            tailwind_arbitrary_value(value),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("scrollbar-")
+        .and_then(tailwind_custom_var)
+    {
+        declarations.insert("scrollbar-width".to_string(), value);
+        return Some(declarations);
+    }
     None
+}
+
+fn tailwind_scrollbar_color_value(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_typed_custom_var(value, "color") {
+        return Some(value);
+    }
+    tailwind_color_css(value).or_else(|| tailwind_custom_var(value))
+}
+
+fn tailwind_scrollbar_color_pipeline() -> &'static str {
+    "var(--tw-scrollbar-thumb) var(--tw-scrollbar-track)"
 }
 
 fn tailwind_media_declaration(class: &str) -> Option<(String, String)> {
@@ -9524,6 +9696,9 @@ mod tests {
             .style("animationFillMode", "both")
             .style("animationPlayState", "running")
             .style("willChange", "transform")
+            .style("colorScheme", "light dark")
+            .style("forcedColorAdjust", "none")
+            .style("fieldSizing", "content")
             .style("appearance", "none")
             .style("accentColor", "#663399")
             .style("caretColor", "currentColor")
@@ -9536,6 +9711,9 @@ mod tests {
             .style("scrollSnapType", "x mandatory")
             .style("scrollSnapAlign", "center")
             .style("scrollSnapStop", "always")
+            .style("scrollbarGutter", "stable both-edges")
+            .style("scrollbarWidth", "thin")
+            .style("scrollbarColor", "red blue")
             .style("overscrollBehavior", "contain")
             .style("overscrollBehaviorX", "none")
             .style("touchAction", "pan-x pinch-zoom");
@@ -9567,6 +9745,9 @@ mod tests {
         assert_eq!(style.animation_fill_mode.as_deref(), Some("both"));
         assert_eq!(style.animation_play_state.as_deref(), Some("running"));
         assert_eq!(style.will_change.as_deref(), Some("transform"));
+        assert_eq!(style.color_scheme.as_deref(), Some("light dark"));
+        assert_eq!(style.forced_color_adjust.as_deref(), Some("none"));
+        assert_eq!(style.field_sizing.as_deref(), Some("content"));
         assert_eq!(style.appearance.as_deref(), Some("none"));
         assert_eq!(
             style.accent_color,
@@ -9594,6 +9775,9 @@ mod tests {
         assert_eq!(style.scroll_snap_type.as_deref(), Some("x mandatory"));
         assert_eq!(style.scroll_snap_align.as_deref(), Some("center"));
         assert_eq!(style.scroll_snap_stop.as_deref(), Some("always"));
+        assert_eq!(style.scrollbar_gutter.as_deref(), Some("stable both-edges"));
+        assert_eq!(style.scrollbar_width.as_deref(), Some("thin"));
+        assert_eq!(style.scrollbar_color.as_deref(), Some("red blue"));
         assert_eq!(style.overscroll_behavior_x, Some(OverscrollBehavior::None));
         assert_eq!(
             style.overscroll_behavior_y,
@@ -9602,6 +9786,8 @@ mod tests {
         assert_eq!(style.touch_action.as_deref(), Some("pan-x pinch-zoom"));
         assert!(!style.unsupported.contains_key("transition-duration"));
         assert!(!style.unsupported.contains_key("scroll-snap-type"));
+        assert!(!style.unsupported.contains_key("color-scheme"));
+        assert!(!style.unsupported.contains_key("scrollbar-color"));
     }
 
     #[test]
@@ -9611,8 +9797,12 @@ mod tests {
              animate-spin will-change-transform appearance-none accent-[#663399]/50 \
              caret-white resize-y scroll-smooth scroll-mt-4 scroll-px-2 \
              snap-x snap-mandatory snap-center snap-always overscroll-x-contain \
-             overscroll-y-none touch-pan-x md:duration-[1s] \
-             hover:animate-[wiggle_1s_ease-in-out_infinite] focus:will-change-[opacity]",
+             overscroll-y-none touch-pan-x scheme-only-dark forced-color-adjust-none \
+             field-sizing-content scrollbar-gutter-both scrollbar-thin \
+             scrollbar-thumb-[#663399]/50 scrollbar-track-(--scrollbar-track) \
+             md:duration-[1s] md:scheme-light-dark \
+             hover:animate-[wiggle_1s_ease-in-out_infinite] hover:scrollbar-thumb-blue-500 \
+             focus:will-change-[opacity]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -9630,6 +9820,9 @@ mod tests {
         assert_eq!(style.transition_behavior.as_deref(), Some("allow-discrete"));
         assert_eq!(style.animation.as_deref(), Some("spin 1s linear infinite"));
         assert_eq!(style.will_change.as_deref(), Some("transform"));
+        assert_eq!(style.color_scheme.as_deref(), Some("only dark"));
+        assert_eq!(style.forced_color_adjust.as_deref(), Some("none"));
+        assert_eq!(style.field_sizing.as_deref(), Some("content"));
         assert_eq!(style.appearance.as_deref(), Some("none"));
         assert_eq!(
             style.accent_color,
@@ -9673,6 +9866,20 @@ mod tests {
         );
         assert_eq!(style.overscroll_behavior_y, Some(OverscrollBehavior::None));
         assert_eq!(style.touch_action.as_deref(), Some("pan-x"));
+        assert_eq!(style.scrollbar_gutter.as_deref(), Some("stable both-edges"));
+        assert_eq!(style.scrollbar_width.as_deref(), Some("thin"));
+        assert_eq!(
+            style.scrollbar_thumb_color.as_deref(),
+            Some("rgba(102, 51, 153, 0.5)")
+        );
+        assert_eq!(
+            style.scrollbar_track_color.as_deref(),
+            Some("var(--scrollbar-track)")
+        );
+        assert_eq!(
+            style.scrollbar_color.as_deref(),
+            Some("rgba(102, 51, 153, 0.5) var(--scrollbar-track)")
+        );
         assert_eq!(
             style
                 .variant_declarations
@@ -9684,10 +9891,34 @@ mod tests {
         assert_eq!(
             style
                 .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("color-scheme"))
+                .map(String::as_str),
+            Some("light dark")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
                 .get("hover")
                 .and_then(|styles| styles.get("animation"))
                 .map(String::as_str),
             Some("wiggle 1s ease-in-out infinite")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("--tw-scrollbar-thumb"))
+                .map(String::as_str),
+            Some("blue-500")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("scrollbar-color"))
+                .map(String::as_str),
+            Some(tailwind_scrollbar_color_pipeline())
         );
         assert_eq!(
             style

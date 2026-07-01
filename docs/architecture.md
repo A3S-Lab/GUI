@@ -410,9 +410,11 @@ deterministically:
 - backdrop-filter function components such as backdrop blur, brightness,
   contrast, grayscale, hue rotate, invert, opacity, saturate, and sepia
 - `transition*`, `animation*`, `willChange`
-- `appearance`, `accentColor`, `caretColor`, `resize`
+- `colorScheme`, `forcedColorAdjust`, `fieldSizing`, `appearance`,
+  `accentColor`, `caretColor`, `resize`
 - `scrollBehavior`, physical and logical `scrollMargin*`,
-  `scrollPadding*`, `scrollSnap*`, `overscrollBehavior*`, `touchAction`
+  `scrollPadding*`, `scrollSnap*`, `scrollbarGutter`, `scrollbarWidth`,
+  `scrollbarColor`, `overscrollBehavior*`, `touchAction`
 - `cursor`, `pointerEvents`, `userSelect`
 - `opacity`
 
@@ -483,7 +485,9 @@ project into physical, logical, or native child-divider tokens.
 Common Tailwind motion, interaction, and scroll utilities such as
 `transition-*`, `duration-*`, `delay-*`, `ease-*`, `animate-*`,
 `will-change-*`, `appearance-*`, `accent-*`, `caret-*`, `resize-*`,
-`scroll-*`, `snap-*`, `overscroll-*`, and `touch-*` project into the same
+`scheme-*`, `forced-color-adjust-*`, `field-sizing-*`, `scroll-*`, `snap-*`,
+`scrollbar-*`, `scrollbar-gutter-*`, `scrollbar-thumb-*`,
+`scrollbar-track-*`, `overscroll-*`, and `touch-*` project into the same
 declaration model.
 Tailwind logical direction utilities such as `start-*`, `end-*`, `ms-*`,
 `me-*`, `mbs-*`, `mbe-*`, `mis-*`, `mie-*`, `ps-*`, `pe-*`, `pbs-*`,
