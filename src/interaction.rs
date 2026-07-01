@@ -1,0 +1,190 @@
+use std::collections::BTreeMap;
+
+use crate::event::{NativeEvent, NativeEventKind};
+use crate::host::HostNodeId;
+use crate::native::NativeRole;
+use crate::platform::NativeWidgetBlueprint;
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct InteractionNodeState {
+    pub focused: bool,
+    pub value: Option<String>,
+    pub selected: bool,
+    pub checked: Option<bool>,
+    pub expanded: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct InteractionChange {
+    pub node: HostNodeId,
+    pub before: InteractionNodeState,
+    pub after: InteractionNodeState,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct InteractionState {
+    nodes: BTreeMap<HostNodeId, InteractionNodeState>,
+    changes: Vec<InteractionChange>,
+}
+
+impl InteractionState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn node(&self, id: HostNodeId) -> Option<&InteractionNodeState> {
+        self.nodes.get(&id)
+    }
+
+    pub fn changes(&self) -> &[InteractionChange] {
+        &self.changes
+    }
+
+    pub fn apply_event(
+        &mut self,
+        blueprint: &NativeWidgetBlueprint,
+        event: &NativeEvent,
+    ) -> Option<InteractionChange> {
+        let before = self.nodes.get(&event.node).cloned().unwrap_or_default();
+        let mut after = before.clone();
+
+        match event.kind {
+            NativeEventKind::Focus => after.focused = true,
+            NativeEventKind::Blur => after.focused = false,
+            NativeEventKind::Change => apply_change(blueprint.role, event, &mut after),
+            NativeEventKind::SelectionChange => apply_selection(blueprint.role, event, &mut after),
+            NativeEventKind::Toggle => apply_toggle(event, &mut after),
+            NativeEventKind::Press => {}
+        }
+
+        if before == after {
+            return None;
+        }
+
+        self.nodes.insert(event.node, after.clone());
+        let change = InteractionChange {
+            node: event.node,
+            before,
+            after,
+        };
+        self.changes.push(change.clone());
+        Some(change)
+    }
+}
+
+fn apply_change(role: NativeRole, event: &NativeEvent, state: &mut InteractionNodeState) {
+    match role {
+        NativeRole::TextField | NativeRole::Select | NativeRole::ComboBox | NativeRole::Slider => {
+            state.value = event.value.clone();
+        }
+        NativeRole::Checkbox | NativeRole::Switch | NativeRole::Radio => {
+            state.checked = event.value.as_deref().and_then(parse_bool).or(Some(true));
+        }
+        _ => {
+            state.value = event.value.clone();
+        }
+    }
+}
+
+fn apply_selection(role: NativeRole, event: &NativeEvent, state: &mut InteractionNodeState) {
+    match role {
+        NativeRole::ListBoxItem | NativeRole::Tab | NativeRole::MenuItem | NativeRole::Radio => {
+            state.selected = true;
+        }
+        NativeRole::Select | NativeRole::ListBox | NativeRole::Tabs | NativeRole::RadioGroup => {
+            state.value = event.value.clone();
+        }
+        _ => {
+            state.selected = true;
+            state.value = event.value.clone();
+        }
+    }
+}
+
+fn apply_toggle(event: &NativeEvent, state: &mut InteractionNodeState) {
+    state.checked = match event.value.as_deref().and_then(parse_bool) {
+        Some(value) => Some(value),
+        None => Some(!state.checked.unwrap_or(false)),
+    };
+}
+
+fn parse_bool(value: &str) -> Option<bool> {
+    match value {
+        "true" | "1" | "on" => Some(true),
+        "false" | "0" | "off" => Some(false),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::native::{NativeElement, NativeProps, NativeRole};
+    use crate::platform::{Gtk4Adapter, PlatformAdapter};
+    use crate::web::WebProps;
+
+    #[test]
+    fn text_field_change_updates_value_state() {
+        let element = NativeElement::new("email", NativeRole::TextField)
+            .with_props(NativeProps::new().web(WebProps::new().on_change("setEmail")));
+        let blueprint = Gtk4Adapter.blueprint(&element);
+        let mut state = InteractionState::new();
+
+        let change = state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(1), NativeEventKind::Change).value("a@b.c"),
+            )
+            .unwrap();
+
+        assert_eq!(change.after.value.as_deref(), Some("a@b.c"));
+        assert_eq!(
+            state.node(HostNodeId::new(1)).unwrap().value.as_deref(),
+            Some("a@b.c")
+        );
+    }
+
+    #[test]
+    fn toggle_event_updates_checked_state() {
+        let element = NativeElement::new("enabled", NativeRole::Switch);
+        let blueprint = Gtk4Adapter.blueprint(&element);
+        let mut state = InteractionState::new();
+
+        state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(2), NativeEventKind::Toggle),
+            )
+            .unwrap();
+        let change = state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(2), NativeEventKind::Toggle),
+            )
+            .unwrap();
+
+        assert_eq!(change.after.checked, Some(false));
+    }
+
+    #[test]
+    fn focus_and_blur_update_focus_state() {
+        let element = NativeElement::new("save", NativeRole::Button);
+        let blueprint = Gtk4Adapter.blueprint(&element);
+        let mut state = InteractionState::new();
+
+        state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(3), NativeEventKind::Focus),
+            )
+            .unwrap();
+        let change = state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(3), NativeEventKind::Blur),
+            )
+            .unwrap();
+
+        assert!(!change.after.focused);
+    }
+}

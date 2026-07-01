@@ -1,0 +1,96 @@
+use crate::native::{NativeElement, NativeRole};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AccessibilityRole {
+    Window,
+    Group,
+    StaticText,
+    Button,
+    TextField,
+    Checkbox,
+    Switch,
+    RadioGroup,
+    RadioButton,
+    ComboBox,
+    ListBox,
+    ListBoxOption,
+    Dialog,
+    Popover,
+    TabGroup,
+    TabList,
+    Tab,
+    TabPanel,
+    Menu,
+    MenuItem,
+    Separator,
+    Slider,
+    ProgressIndicator,
+    Toolbar,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessibilityNode {
+    pub role: AccessibilityRole,
+    pub label: Option<String>,
+    pub value: Option<String>,
+    pub disabled: bool,
+    pub required: bool,
+    pub invalid: bool,
+    pub selected: bool,
+    pub checked: Option<bool>,
+    pub expanded: Option<bool>,
+    pub children: Vec<AccessibilityNode>,
+}
+
+impl AccessibilityNode {
+    pub fn from_native(element: &NativeElement) -> Self {
+        Self {
+            role: accessibility_role(element.role),
+            label: element.props.label.clone(),
+            value: element.props.value.clone(),
+            disabled: element.props.disabled,
+            required: element.props.required,
+            invalid: element.props.invalid,
+            selected: element.props.selected,
+            checked: element.props.checked,
+            expanded: element.props.expanded,
+            children: element
+                .children
+                .iter()
+                .map(AccessibilityNode::from_native)
+                .collect(),
+        }
+    }
+}
+
+pub fn accessibility_role(role: NativeRole) -> AccessibilityRole {
+    match role {
+        NativeRole::Window => AccessibilityRole::Window,
+        NativeRole::View => AccessibilityRole::Group,
+        NativeRole::Text => AccessibilityRole::StaticText,
+        NativeRole::Button => AccessibilityRole::Button,
+        NativeRole::TextField => AccessibilityRole::TextField,
+        NativeRole::Checkbox => AccessibilityRole::Checkbox,
+        NativeRole::Switch => AccessibilityRole::Switch,
+        NativeRole::RadioGroup => AccessibilityRole::RadioGroup,
+        NativeRole::Radio => AccessibilityRole::RadioButton,
+        NativeRole::Select | NativeRole::ComboBox => AccessibilityRole::ComboBox,
+        NativeRole::ListBox => AccessibilityRole::ListBox,
+        NativeRole::ListBoxItem => AccessibilityRole::ListBoxOption,
+        NativeRole::Dialog => AccessibilityRole::Dialog,
+        NativeRole::Popover => AccessibilityRole::Popover,
+        NativeRole::Tabs => AccessibilityRole::TabGroup,
+        NativeRole::TabList => AccessibilityRole::TabList,
+        NativeRole::Tab => AccessibilityRole::Tab,
+        NativeRole::TabPanel => AccessibilityRole::TabPanel,
+        NativeRole::Menu => AccessibilityRole::Menu,
+        NativeRole::MenuItem => AccessibilityRole::MenuItem,
+        NativeRole::Separator => AccessibilityRole::Separator,
+        NativeRole::Slider => AccessibilityRole::Slider,
+        NativeRole::ProgressBar => AccessibilityRole::ProgressIndicator,
+        NativeRole::Toolbar => AccessibilityRole::Toolbar,
+    }
+}

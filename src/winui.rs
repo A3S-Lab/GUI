@@ -1,0 +1,596 @@
+use std::cell::{Ref, RefCell};
+use std::collections::BTreeMap;
+use std::rc::Rc;
+
+use crate::backend::{
+    DriverCommandExecutor, HandleWidgetDriver, NativeEventSource, NativeHandleAdapter,
+    NativeWidgetDriver,
+};
+use crate::error::{GuiError, GuiResult};
+use crate::event::NativeEvent;
+use crate::host::HostNodeId;
+use crate::platform::{
+    apply_widget_setters, NativeBackendKind, NativeControlState, NativeWidgetBlueprint,
+    NativeWidgetConfig, NativeWidgetConfigPatch, NativeWidgetSetter,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum WinUiWidgetKind {
+    Window,
+    StackPanel,
+    TextBlock,
+    Button,
+    TextBox,
+    CheckBox,
+    ToggleSwitch,
+    RadioButtons,
+    RadioButton,
+    ComboBox,
+    ListView,
+    ListViewItem,
+    ContentDialog,
+    ToolTip,
+    TabView,
+    TabViewItem,
+    Grid,
+    MenuPanel,
+    MenuItemButton,
+    SelectorItem,
+    Separator,
+    Slider,
+    ProgressBar,
+    CommandBar,
+}
+
+impl WinUiWidgetKind {
+    pub fn from_widget_class(widget_class: &str) -> GuiResult<Self> {
+        match widget_class {
+            "Microsoft.UI.Xaml.Window" => Ok(WinUiWidgetKind::Window),
+            "Microsoft.UI.Xaml.Controls.StackPanel" => Ok(WinUiWidgetKind::StackPanel),
+            "Microsoft.UI.Xaml.Controls.TextBlock" => Ok(WinUiWidgetKind::TextBlock),
+            "Microsoft.UI.Xaml.Controls.Button" => Ok(WinUiWidgetKind::Button),
+            "Microsoft.UI.Xaml.Controls.TextBox" => Ok(WinUiWidgetKind::TextBox),
+            "Microsoft.UI.Xaml.Controls.CheckBox" => Ok(WinUiWidgetKind::CheckBox),
+            "Microsoft.UI.Xaml.Controls.ToggleSwitch" => Ok(WinUiWidgetKind::ToggleSwitch),
+            "Microsoft.UI.Xaml.Controls.RadioButtons" => Ok(WinUiWidgetKind::RadioButtons),
+            "Microsoft.UI.Xaml.Controls.RadioButton" => Ok(WinUiWidgetKind::RadioButton),
+            "Microsoft.UI.Xaml.Controls.ComboBox" => Ok(WinUiWidgetKind::ComboBox),
+            "Microsoft.UI.Xaml.Controls.ListView" => Ok(WinUiWidgetKind::ListView),
+            "Microsoft.UI.Xaml.Controls.ListViewItem" => Ok(WinUiWidgetKind::ListViewItem),
+            "Microsoft.UI.Xaml.Controls.ContentDialog" => Ok(WinUiWidgetKind::ContentDialog),
+            "Microsoft.UI.Xaml.Controls.ToolTip" => Ok(WinUiWidgetKind::ToolTip),
+            "Microsoft.UI.Xaml.Controls.TabView" => Ok(WinUiWidgetKind::TabView),
+            "Microsoft.UI.Xaml.Controls.TabViewItem" => Ok(WinUiWidgetKind::TabViewItem),
+            "Microsoft.UI.Xaml.Controls.Grid" => Ok(WinUiWidgetKind::Grid),
+            "Microsoft.UI.Xaml.Controls.StackPanel(menu)" => Ok(WinUiWidgetKind::MenuPanel),
+            "Microsoft.UI.Xaml.Controls.Button(menu-item)" => Ok(WinUiWidgetKind::MenuItemButton),
+            "Microsoft.UI.Xaml.Controls.Primitives.SelectorItem" => {
+                Ok(WinUiWidgetKind::SelectorItem)
+            }
+            "Microsoft.UI.Xaml.Controls.Border(separator)" => Ok(WinUiWidgetKind::Separator),
+            "Microsoft.UI.Xaml.Controls.Slider" => Ok(WinUiWidgetKind::Slider),
+            "Microsoft.UI.Xaml.Controls.ProgressBar" => Ok(WinUiWidgetKind::ProgressBar),
+            "Microsoft.UI.Xaml.Controls.StackPanel(toolbar)"
+            | "Microsoft.UI.Xaml.Controls.CommandBar" => Ok(WinUiWidgetKind::CommandBar),
+            other => Err(GuiError::host(format!(
+                "unsupported WinUI widget class {other}"
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WinUiNativeObject {
+    pub id: HostNodeId,
+    pub kind: WinUiWidgetKind,
+    pub label: Option<String>,
+    pub value: Option<String>,
+    pub action: Option<String>,
+    pub control_state: NativeControlState,
+    pub children: Vec<HostNodeId>,
+}
+
+#[derive(Debug, Default)]
+pub struct WinUiWidgetDriver {
+    root: Option<HostNodeId>,
+    objects: BTreeMap<HostNodeId, WinUiNativeObject>,
+    events: Vec<NativeEvent>,
+}
+
+pub type WinUiCommandExecutor = DriverCommandExecutor<WinUiWidgetDriver>;
+
+#[derive(Debug, Clone)]
+pub struct WinUiNativeHandle {
+    state: Rc<RefCell<WinUiNativeHandleState>>,
+}
+
+impl WinUiNativeHandle {
+    pub fn state(&self) -> Ref<'_, WinUiNativeHandleState> {
+        self.state.borrow()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WinUiNativeHandleState {
+    pub id: HostNodeId,
+    pub kind: WinUiWidgetKind,
+    pub config: NativeWidgetConfig,
+    pub label: Option<String>,
+    pub value: Option<String>,
+    pub action: Option<String>,
+    pub control_state: NativeControlState,
+    pub applied_setters: Vec<NativeWidgetSetter>,
+    pub children: Vec<HostNodeId>,
+}
+
+#[derive(Debug, Default)]
+pub struct WinUiHandleAdapter;
+
+pub type WinUiHandleDriver = HandleWidgetDriver<WinUiHandleAdapter>;
+pub type WinUiHandleCommandExecutor = DriverCommandExecutor<WinUiHandleDriver>;
+
+impl WinUiWidgetDriver {
+    pub fn root(&self) -> Option<HostNodeId> {
+        self.root
+    }
+
+    pub fn object(&self, id: HostNodeId) -> Option<&WinUiNativeObject> {
+        self.objects.get(&id)
+    }
+
+    pub fn objects(&self) -> &BTreeMap<HostNodeId, WinUiNativeObject> {
+        &self.objects
+    }
+
+    pub fn push_native_event(&mut self, event: NativeEvent) {
+        self.events.push(event);
+    }
+
+    pub fn queued_native_events(&self) -> &[NativeEvent] {
+        &self.events
+    }
+
+    fn ensure_object(&self, id: HostNodeId) -> GuiResult<()> {
+        if self.objects.contains_key(&id) {
+            Ok(())
+        } else {
+            Err(GuiError::host(format!(
+                "WinUI object {} does not exist",
+                id.get()
+            )))
+        }
+    }
+}
+
+impl NativeEventSource for WinUiWidgetDriver {
+    fn take_native_events(&mut self) -> Vec<NativeEvent> {
+        std::mem::take(&mut self.events)
+    }
+}
+
+impl NativeHandleAdapter for WinUiHandleAdapter {
+    type Handle = WinUiNativeHandle;
+
+    fn backend(&self) -> NativeBackendKind {
+        NativeBackendKind::WinUI
+    }
+
+    fn create_handle(
+        &mut self,
+        id: HostNodeId,
+        blueprint: &NativeWidgetBlueprint,
+    ) -> GuiResult<Self::Handle> {
+        let config = blueprint.config();
+        Ok(WinUiNativeHandle {
+            state: Rc::new(RefCell::new(WinUiNativeHandleState {
+                id,
+                kind: WinUiWidgetKind::from_widget_class(blueprint.widget_class.as_str())?,
+                label: config.label.clone(),
+                value: config.value.clone(),
+                action: config.action.clone(),
+                applied_setters: config.create_setters(),
+                config,
+                control_state: blueprint.control_state.clone(),
+                children: Vec::new(),
+            })),
+        })
+    }
+
+    fn update_handle(
+        &mut self,
+        _id: HostNodeId,
+        handle: &Self::Handle,
+        blueprint: &NativeWidgetBlueprint,
+    ) -> GuiResult<()> {
+        let mut state = handle.state.borrow_mut();
+        state.kind = WinUiWidgetKind::from_widget_class(blueprint.widget_class.as_str())?;
+        state.config = blueprint.config();
+        state.label = state.config.label.clone();
+        state.value = state.config.value.clone();
+        state.action = state.config.action.clone();
+        let setters = state.config.create_setters();
+        state.applied_setters.extend(setters);
+        state.control_state = blueprint.control_state.clone();
+        Ok(())
+    }
+
+    fn update_handle_config(
+        &mut self,
+        _id: HostNodeId,
+        handle: &Self::Handle,
+        blueprint: &NativeWidgetBlueprint,
+        patch: &NativeWidgetConfigPatch,
+    ) -> GuiResult<()> {
+        let mut state = handle.state.borrow_mut();
+        state.kind = WinUiWidgetKind::from_widget_class(blueprint.widget_class.as_str())?;
+        let setters = patch.setters();
+        apply_widget_setters(&mut state.config, &setters);
+        state.label = state.config.label.clone();
+        state.value = state.config.value.clone();
+        state.action = state.config.action.clone();
+        state.control_state = blueprint.control_state.clone();
+        state.applied_setters.extend(setters);
+        Ok(())
+    }
+
+    fn insert_child_handle(
+        &mut self,
+        _parent: HostNodeId,
+        parent_handle: &Self::Handle,
+        child: HostNodeId,
+        _child_handle: &Self::Handle,
+        index: usize,
+    ) -> GuiResult<()> {
+        let mut parent = parent_handle.state.borrow_mut();
+        parent.children.retain(|existing| *existing != child);
+        let index = index.min(parent.children.len());
+        parent.children.insert(index, child);
+        Ok(())
+    }
+
+    fn remove_handle(&mut self, _id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
+        handle.state.borrow_mut().children.clear();
+        Ok(())
+    }
+
+    fn set_root_handle(&mut self, _id: HostNodeId, _handle: &Self::Handle) -> GuiResult<()> {
+        Ok(())
+    }
+}
+
+impl NativeWidgetDriver for WinUiWidgetDriver {
+    fn backend(&self) -> NativeBackendKind {
+        NativeBackendKind::WinUI
+    }
+
+    fn create_widget(
+        &mut self,
+        id: HostNodeId,
+        blueprint: &NativeWidgetBlueprint,
+    ) -> GuiResult<()> {
+        self.objects.insert(
+            id,
+            WinUiNativeObject {
+                id,
+                kind: WinUiWidgetKind::from_widget_class(blueprint.widget_class.as_str())?,
+                label: blueprint.label.clone(),
+                value: blueprint.value.clone(),
+                action: blueprint.action.clone(),
+                control_state: blueprint.control_state.clone(),
+                children: Vec::new(),
+            },
+        );
+        Ok(())
+    }
+
+    fn update_widget(
+        &mut self,
+        id: HostNodeId,
+        blueprint: &NativeWidgetBlueprint,
+    ) -> GuiResult<()> {
+        let object = self
+            .objects
+            .get_mut(&id)
+            .ok_or_else(|| GuiError::host(format!("WinUI object {} missing", id.get())))?;
+        object.kind = WinUiWidgetKind::from_widget_class(blueprint.widget_class.as_str())?;
+        object.label = blueprint.label.clone();
+        object.value = blueprint.value.clone();
+        object.action = blueprint.action.clone();
+        object.control_state = blueprint.control_state.clone();
+        Ok(())
+    }
+
+    fn insert_child(
+        &mut self,
+        parent: HostNodeId,
+        child: HostNodeId,
+        index: usize,
+    ) -> GuiResult<()> {
+        self.ensure_object(child)?;
+        let parent_object = self.objects.get_mut(&parent).ok_or_else(|| {
+            GuiError::host(format!("WinUI parent object {} missing", parent.get()))
+        })?;
+        parent_object.children.retain(|existing| *existing != child);
+        let index = index.min(parent_object.children.len());
+        parent_object.children.insert(index, child);
+        Ok(())
+    }
+
+    fn remove_widget(&mut self, id: HostNodeId) -> GuiResult<()> {
+        self.ensure_object(id)?;
+        for object in self.objects.values_mut() {
+            object.children.retain(|child| *child != id);
+        }
+        self.objects.remove(&id);
+        if self.root == Some(id) {
+            self.root = None;
+        }
+        Ok(())
+    }
+
+    fn set_root_widget(&mut self, id: HostNodeId) -> GuiResult<()> {
+        self.ensure_object(id)?;
+        self.root = Some(id);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::CommandExecutingHost;
+    use crate::compiler::CompiledJsxNode;
+    use crate::platform::WinUiAdapter;
+    use crate::runtime::GuiRuntime;
+
+    #[test]
+    fn winui_executor_consumes_compiled_react_aria_commands() {
+        let compiled: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "email",
+              "tag": "TextField",
+              "props": {"isRequired": true, "isInvalid": true},
+              "children": [
+                {"kind": "element", "key": "label", "tag": "Label", "children": [
+                  {"kind": "text", "key": "label-text", "value": "Email"}
+                ]},
+                {"kind": "element", "key": "input", "tag": "Input", "props": {
+                  "placeholder": "you@example.com",
+                  "events": {"onChange": "setEmail"}
+                }}
+              ]
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(WinUiAdapter, WinUiCommandExecutor::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_compiled(&compiled).unwrap();
+        let object = runtime.host().executor().driver().object(root_id).unwrap();
+
+        assert_eq!(object.kind, WinUiWidgetKind::TextBox);
+        assert_eq!(object.label.as_deref(), Some("Email"));
+        assert_eq!(object.action.as_deref(), Some("setEmail"));
+        assert_eq!(
+            object.control_state.placeholder.as_deref(),
+            Some("you@example.com")
+        );
+        assert!(object.control_state.required);
+        assert!(object.control_state.invalid);
+    }
+
+    #[test]
+    fn winui_executor_consumes_compiled_react_aria_toolbar_commands() {
+        let compiled: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "tools",
+              "tag": "Toolbar",
+              "props": {"aria-orientation": "horizontal"},
+              "children": [
+                {
+                  "kind": "element",
+                  "key": "save",
+                  "tag": "Button",
+                  "props": {"events": {"onPress": "saveDocument"}},
+                  "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+                }
+              ]
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(WinUiAdapter, WinUiCommandExecutor::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_compiled(&compiled).unwrap();
+        let object = runtime.host().executor().driver().object(root_id).unwrap();
+        let child = runtime
+            .host()
+            .executor()
+            .driver()
+            .object(object.children[0])
+            .unwrap();
+
+        assert_eq!(object.kind, WinUiWidgetKind::CommandBar);
+        assert_eq!(
+            object.control_state.orientation,
+            Some(crate::geometry::Orientation::Horizontal)
+        );
+        assert_eq!(child.kind, WinUiWidgetKind::Button);
+        assert_eq!(child.action.as_deref(), Some("saveDocument"));
+    }
+
+    #[test]
+    fn winui_executor_consumes_compiled_react_aria_dialog_commands() {
+        let compiled: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "preferences",
+              "tag": "Dialog",
+              "props": {"aria-label": "Preferences"},
+              "children": [
+                {
+                  "kind": "element",
+                  "key": "close",
+                  "tag": "Button",
+                  "props": {"events": {"onPress": "closePreferences"}},
+                  "children": [{"kind": "text", "key": "close-text", "value": "Close"}]
+                }
+              ]
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(WinUiAdapter, WinUiCommandExecutor::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_compiled(&compiled).unwrap();
+        let object = runtime.host().executor().driver().object(root_id).unwrap();
+        let child = runtime
+            .host()
+            .executor()
+            .driver()
+            .object(object.children[0])
+            .unwrap();
+
+        assert_eq!(object.kind, WinUiWidgetKind::ContentDialog);
+        assert_eq!(object.label.as_deref(), Some("Preferences"));
+        assert_eq!(child.kind, WinUiWidgetKind::Button);
+        assert_eq!(child.action.as_deref(), Some("closePreferences"));
+    }
+
+    #[test]
+    fn winui_executor_consumes_compiled_react_aria_popover_commands() {
+        let compiled: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "actions-popover",
+              "tag": "Popover",
+              "props": {"aria-label": "Actions"},
+              "children": [
+                {
+                  "kind": "element",
+                  "key": "archive",
+                  "tag": "Button",
+                  "props": {"events": {"onPress": "archiveItem"}},
+                  "children": [{"kind": "text", "key": "archive-text", "value": "Archive"}]
+                }
+              ]
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(WinUiAdapter, WinUiCommandExecutor::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_compiled(&compiled).unwrap();
+        let object = runtime.host().executor().driver().object(root_id).unwrap();
+        let child = runtime
+            .host()
+            .executor()
+            .driver()
+            .object(object.children[0])
+            .unwrap();
+
+        assert_eq!(object.kind, WinUiWidgetKind::ToolTip);
+        assert_eq!(object.label.as_deref(), Some("Actions"));
+        assert_eq!(child.kind, WinUiWidgetKind::Button);
+        assert_eq!(child.action.as_deref(), Some("archiveItem"));
+    }
+
+    #[test]
+    fn winui_executor_consumes_compiled_react_aria_menu_commands() {
+        let compiled: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "file-menu",
+              "tag": "Menu",
+              "children": [
+                {
+                  "kind": "element",
+                  "key": "open",
+                  "tag": "MenuItem",
+                  "props": {"value": "open", "events": {"onPress": "openFile"}},
+                  "children": [{"kind": "text", "key": "open-text", "value": "Open"}]
+                }
+              ]
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(WinUiAdapter, WinUiCommandExecutor::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_compiled(&compiled).unwrap();
+        let object = runtime.host().executor().driver().object(root_id).unwrap();
+        let item = runtime
+            .host()
+            .executor()
+            .driver()
+            .object(object.children[0])
+            .unwrap();
+
+        assert_eq!(object.kind, WinUiWidgetKind::MenuPanel);
+        assert_eq!(item.kind, WinUiWidgetKind::MenuItemButton);
+        assert_eq!(item.label.as_deref(), Some("Open"));
+        assert_eq!(item.value.as_deref(), Some("open"));
+        assert_eq!(item.action.as_deref(), Some("openFile"));
+    }
+
+    #[test]
+    fn winui_handle_adapter_stores_thread_bound_native_handles() {
+        let compiled: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "email",
+              "tag": "TextField",
+              "props": {"isRequired": true},
+              "children": [
+                {"kind": "element", "key": "label", "tag": "Label", "children": [
+                  {"kind": "text", "key": "label-text", "value": "Email"}
+                ]},
+                {"kind": "element", "key": "input", "tag": "Input", "props": {
+                  "placeholder": "you@example.com",
+                  "events": {"onChange": "setEmail"}
+                }}
+              ]
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(WinUiAdapter, WinUiHandleCommandExecutor::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_compiled(&compiled).unwrap();
+        let handle = runtime.host().executor().driver().handle(root_id).unwrap();
+        let state = handle.state();
+
+        assert_eq!(state.kind, WinUiWidgetKind::TextBox);
+        assert_eq!(state.label.as_deref(), Some("Email"));
+        assert_eq!(state.action.as_deref(), Some("setEmail"));
+        assert_eq!(
+            state.control_state.placeholder.as_deref(),
+            Some("you@example.com")
+        );
+        assert!(state.control_state.required);
+        assert!(state.config.required);
+        assert_eq!(state.config.placeholder.as_deref(), Some("you@example.com"));
+        assert!(state
+            .applied_setters
+            .contains(&NativeWidgetSetter::SetRequired(true)));
+        assert!(state
+            .applied_setters
+            .contains(&NativeWidgetSetter::SetPlaceholder(Some(
+                "you@example.com".to_string()
+            ))));
+    }
+}

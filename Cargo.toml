@@ -1,0 +1,91 @@
+[package]
+name = "a3s-gui"
+version = "0.1.0"
+edition = "2021"
+description = "Rust-native cross-platform GUI renderer for React Aria semantic UI trees"
+license = "MIT"
+repository = "https://github.com/A3S-Lab/GUI"
+homepage = "https://github.com/A3S-Lab/a3s"
+keywords = ["a3s", "gui", "native", "react-aria", "accessibility"]
+categories = ["gui", "rendering", "accessibility"]
+
+[lib]
+name = "a3s_gui"
+path = "src/lib.rs"
+
+[features]
+default = ["headless"]
+headless = []
+appkit = []
+appkit-native = [
+    "appkit",
+    "dep:objc2",
+    "dep:objc2-app-kit",
+    "dep:objc2-foundation",
+]
+winui = []
+winui-native = [
+    "winui",
+    "dep:windows",
+    "dep:windows-core",
+    "dep:winui3",
+]
+gtk4 = []
+gtk4-native = ["gtk4", "dep:gtk4_crate"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6.4", optional = true }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSApplication",
+    "NSBox",
+    "NSButton",
+    "NSCell",
+    "NSComboBox",
+    "NSControl",
+    "NSGraphics",
+    "NSMenu",
+    "NSMenuItem",
+    "NSPanel",
+    "NSPopover",
+    "NSProgressIndicator",
+    "NSResponder",
+    "NSScrollView",
+    "NSSlider",
+    "NSStackView",
+    "NSSwitch",
+    "NSTabView",
+    "NSTabViewItem",
+    "NSTextField",
+    "NSUserInterfaceLayout",
+    "NSView",
+    "NSViewController",
+    "NSWindow",
+], optional = true }
+objc2-foundation = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSGeometry",
+    "NSObject",
+    "NSString",
+], optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk4_crate = { package = "gtk4", version = "0.11.4", optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62.0", optional = true, features = ["Foundation"] }
+windows-core = { version = "0.62.0", optional = true }
+winui3 = { package = "winio-winui3", version = "0.4.2", optional = true, features = [
+    "UI_Composition",
+    "UI_Xaml",
+    "UI_Xaml_Controls",
+    "UI_Xaml_Controls_Primitives",
+    "UI_Xaml_Markup",
+    "native",
+] }
+
+[dev-dependencies]
+serde_json = "1"

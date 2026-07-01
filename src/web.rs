@@ -1,0 +1,128 @@
+use std::collections::BTreeMap;
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct WebProps {
+    pub id: Option<String>,
+    pub class_name: Option<String>,
+    pub style: BTreeMap<String, String>,
+    pub attributes: BTreeMap<String, String>,
+    pub events: BTreeMap<String, String>,
+}
+
+impl WebProps {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
+    }
+
+    pub fn class_name(mut self, class_name: impl Into<String>) -> Self {
+        self.class_name = Some(class_name.into());
+        self
+    }
+
+    pub fn style(mut self, property: impl Into<String>, value: impl Into<String>) -> Self {
+        self.style.insert(property.into(), value.into());
+        self
+    }
+
+    pub fn attribute(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        let name = name.into();
+        let value = value.into();
+        match name.as_str() {
+            "id" => self.id = Some(value),
+            "class" | "className" => self.class_name = Some(value),
+            "style" => {
+                for declaration in value.split(';') {
+                    if let Some((property, value)) = declaration.split_once(':') {
+                        self.style
+                            .insert(property.trim().to_string(), value.trim().to_string());
+                    }
+                }
+            }
+            _ => {
+                self.attributes.insert(name, value);
+            }
+        }
+        self
+    }
+
+    pub fn event(mut self, name: impl Into<String>, action: impl Into<String>) -> Self {
+        self.events.insert(name.into(), action.into());
+        self
+    }
+
+    pub fn on_click(self, action: impl Into<String>) -> Self {
+        self.event("onClick", action)
+    }
+
+    pub fn on_press(self, action: impl Into<String>) -> Self {
+        self.event("onPress", action)
+    }
+
+    pub fn on_change(self, action: impl Into<String>) -> Self {
+        self.event("onChange", action)
+    }
+
+    pub fn on_selection_change(self, action: impl Into<String>) -> Self {
+        self.event("onSelectionChange", action)
+    }
+
+    pub fn primary_action(&self) -> Option<&str> {
+        self.events
+            .get("onPress")
+            .or_else(|| self.events.get("onClick"))
+            .or_else(|| self.events.get("onChange"))
+            .map(String::as_str)
+    }
+
+    pub fn metadata(&self) -> BTreeMap<String, String> {
+        let mut metadata = BTreeMap::new();
+        if let Some(id) = &self.id {
+            metadata.insert("id".to_string(), id.clone());
+        }
+        if let Some(class_name) = &self.class_name {
+            metadata.insert("className".to_string(), class_name.clone());
+        }
+        for (key, value) in &self.attributes {
+            if key.starts_with("aria-") || key.starts_with("data-") || is_portable_html_attr(key) {
+                metadata.insert(key.clone(), value.clone());
+            }
+        }
+        metadata
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn react_aria_on_press_is_primary_action() {
+        let props = WebProps::new()
+            .on_click("fallbackClick")
+            .on_press("primaryPress");
+
+        assert_eq!(props.primary_action(), Some("primaryPress"));
+    }
+}
+
+fn is_portable_html_attr(attribute: &str) -> bool {
+    matches!(
+        attribute,
+        "name"
+            | "title"
+            | "role"
+            | "type"
+            | "alt"
+            | "value"
+            | "placeholder"
+            | "disabled"
+            | "required"
+            | "checked"
+            | "selected"
+    )
+}

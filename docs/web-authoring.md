@@ -1,0 +1,274 @@
+# Web-Compatible Authoring
+
+`a3s-gui` starts from a Web developer experience:
+
+```tsx
+/** @jsxImportSource @a3s-lab/gui */
+import {
+  Button,
+  TextField,
+  Label,
+  Input,
+} from 'react-aria-components';
+import {
+  createAction,
+  createUiFrame,
+  defineAction,
+} from '@a3s-lab/gui';
+
+const setEmail = createAction('setEmail', 'Set email');
+const saveProfile = createAction('saveProfile', 'Save profile');
+
+const root = (
+  <form className="profile-form" data-screen="profile">
+    <TextField name="email" isRequired>
+      <Label>Email</Label>
+      <Input
+        placeholder="you@example.com"
+        style={{minWidth: 280}}
+        onChange={setEmail}
+      />
+    </TextField>
+
+    <Button className="primary" aria-label="Save profile" onPress={saveProfile}>
+      Save
+    </Button>
+  </form>
+);
+
+export const frame = createUiFrame('profile', root, {
+  window: {title: 'Profile', width: 640, height: 480},
+  actions: [defineAction(setEmail), defineAction(saveProfile)],
+});
+```
+
+This is normal React/TSX and normal React Aria authoring syntax. The app author
+should not import native widget names or write Rust UI code.
+
+The zero-dependency SDK also exports component markers with the same names for
+tests and compiler fixtures. Production authoring should stay compatible with
+`react-aria-components`; the bridge cares about component identity and props,
+not about a WebView or DOM node.
+
+## Compiler Bridge Shape
+
+The React Compiler integration lowers TSX into a serializable tree with the same
+information carried by JSX props:
+
+- React Aria component identity
+- stable React key
+- text children
+- `className`
+- inline `style`
+- `aria-*`, `data-*`, and portable HTML attributes
+- `onClick`, `onChange`, `onPress`, and other event prop names with named
+  function callbacks
+- React Aria state props such as `isDisabled`, `isSelected`, `isRequired`, and
+  `isInvalid`
+- HTML and ARIA state aliases such as `disabled`, `required`,
+  `aria-disabled`, `aria-expanded`, `aria-valuemin`, `aria-valuemax`, and
+  `aria-valuenow`
+
+The Rust core maps that tree into `NativeElement` and `NativeProps` through
+`ReactCompilerBridge`, then renders it with `GuiRuntime` and the keyed
+`Renderer`.
+
+## Native Lowering Rules
+
+| Web-authored input | Native IR output |
+| --- | --- |
+| `className` | preserved in `WebProps.class_name` for style resolution |
+| `style={{...}}` | preserved in `WebProps.style` and parsed into `PortableStyle` |
+| `aria-label` | used as the explicit native accessibility label before descendant text fallback |
+| `aria-*` | preserved as accessibility metadata; supported state attributes also feed native control state |
+| `data-*` | preserved as metadata for testing, analytics, and automation |
+| `disabled` / `required` / `checked` / `selected` | normalized to React Aria-style native control state |
+| `min` / `max` / `aria-valuenow` | normalized to native ranged control state |
+| `onClick` / `onPress` | normalized to the primary native action |
+| `onChange` | normalized to the primary action for value controls |
+| `TextField` + `Label` + `Input` | folded into one native text field; `Input` value, placeholder, style, metadata, and events are inherited |
+| `Select` + `ListBoxItem` | folded into a native select with native options |
+
+## Native Adapter Contract
+
+The current platform planning adapters map the same native IR to concrete widget
+families:
+
+| Native role | macOS AppKit | Windows WinUI | Linux GTK4 |
+| --- | --- | --- | --- |
+| `Button` | `NSButton` | `Microsoft.UI.Xaml.Controls.Button` | `gtk::Button` |
+| `TextField` | `NSTextField(input)` | `Microsoft.UI.Xaml.Controls.TextBox` | `gtk::Entry` |
+| `Checkbox` | `NSButton(checkbox)` | `Microsoft.UI.Xaml.Controls.CheckBox` | `gtk::CheckButton` |
+| `Switch` | `NSSwitch` | `Microsoft.UI.Xaml.Controls.CheckBox` fallback | `gtk::Switch` |
+| `RadioGroup` | `NSStackView(radio-group)` | `Microsoft.UI.Xaml.Controls.RadioButtons` | `gtk::Box(radio-group)` |
+| `Radio` | `NSButton(radio)` | `Microsoft.UI.Xaml.Controls.RadioButton` | `gtk::CheckButton(radio)` |
+| `Select` | `NSComboBox` | `Microsoft.UI.Xaml.Controls.ComboBox` | `gtk::DropDown` |
+| `ListBox` | `NSScrollView+NSStackView` | `Microsoft.UI.Xaml.Controls.ListView` | `gtk::ListBox` |
+| `ListBoxItem` | `NSButton(list-row)` | `Microsoft.UI.Xaml.Controls.ListViewItem` | `gtk::ListBoxRow` |
+| `Dialog` | `NSPanel` | `Microsoft.UI.Xaml.Controls.ContentDialog` | `gtk::Dialog` |
+| `Popover` | `NSPopover` | `Microsoft.UI.Xaml.Controls.ToolTip` | `gtk::Popover` |
+| `Tabs` | `NSTabView` | `Microsoft.UI.Xaml.Controls.TabView` | `gtk::Notebook` |
+| `Menu` | `NSMenu` | `Microsoft.UI.Xaml.Controls.StackPanel(menu)` | `gio::Menu` |
+| `MenuItem` | `NSMenuItem` | `Microsoft.UI.Xaml.Controls.Button(menu-item)` | `gio::MenuItem` |
+| `Separator` | `NSBox(separator)` | `Microsoft.UI.Xaml.Controls.Border(separator)` | `gtk::Separator` |
+| `Slider` | `NSSlider` | `Microsoft.UI.Xaml.Controls.Slider` | `gtk::Scale` |
+| `ProgressBar` | `NSProgressIndicator` | `Microsoft.UI.Xaml.Controls.ProgressBar` | `gtk::ProgressBar` |
+| `Toolbar` | `NSStackView(toolbar)` | `Microsoft.UI.Xaml.Controls.StackPanel(toolbar)` | `gtk::Box(toolbar)` |
+
+Top-level Web attributes such as `aria-label` are accepted by the compiler
+bridge and preserved in the native accessibility metadata while also feeding the
+native label. The renderer emits typed native commands for these widgets, including updates
+and keyed reorders, so React state changes do not remount stable native controls.
+Those commands are serializable and can be delivered to an OS-bound AppKit,
+WinUI, or GTK host without WebView involvement.
+
+The backend execution path is independent of authoring syntax:
+
+```text
+React Aria TSX
+        |
+        v
+NativeElement
+        |
+        v
+PlatformCommand::Create { widget_class: "NSButton" }
+        |
+        v
+PlatformCommandExecutor
+        |
+        v
+NativeWidgetDriver
+        |
+        v
+HandleWidgetDriver / NativeHandleAdapter / NativeWidgetSurface
+        |
+        v
+NSButton / WinUI Button / gtk::Button
+```
+
+The macOS `appkit-native` feature already exercises the rightmost side of this
+pipeline in-process: `AppKitNativeSurface` maps create commands and
+`NativeWidgetSetter` values to real AppKit objects for windows, views, buttons,
+labels, text fields, checkboxes, switches, radio groups, radio buttons, combo
+boxes, sliders, and progress indicators. Buttons enqueue native press events
+through target/action callbacks, while editable text fields enqueue native
+focus, change, and blur events through an `NSTextFieldDelegate`; change events
+carry the current AppKit control value. Checkboxes, switches, and radio buttons
+enqueue native toggle events with the current AppKit checked state. Radio groups
+use native `NSStackView` containers with `NSButton(radio)` children. Select
+children are inserted into `NSComboBox` as native object values and emit native
+selection-change events. React Aria `Tabs` trees fold `TabList` and ordered
+`TabPanel` children into native `NSTabViewItem` objects with panel views as
+content, and tab selection changes emit native selection-change events. Sliders
+emit ranged change events with the current double value, and progress
+indicators consume the same min/max/current setter state.
+
+The Linux `gtk4-native` feature exercises the same path with `gtk4-rs`.
+`Gtk4NativeSurface` maps the React Aria command stream to real GTK4 widgets for
+windows, boxes, labels, buttons, entries, check buttons, switches, drop-downs,
+list boxes, rows, notebook tabs, separators, scales, and progress bars. React
+Aria `Tabs` trees become native `gtk::Notebook` pages with `TabPanel` content
+attached as native GTK widgets. GTK signals enqueue native press, change, focus, blur,
+toggle, and selection-change events; programmatic setter updates are suppressed
+so render diffs do not trigger Web-authored actions. The feature is Linux-only
+and requires GTK4 development libraries plus
+`pkg-config`.
+
+The Windows `winui-native` feature follows the same contract with WinUI 3 and
+the Windows App SDK. `WinUiNativeSurface` creates real XAML windows, panels,
+text blocks, buttons, text boxes, checkboxes, radio buttons, combo boxes, list
+boxes, tab views, tab view items, sliders, and progress bars; it does not enable
+WebView2. React Aria `Tabs` trees become native `TabView` / `TabViewItem`
+controls, with `TabPanel` content attached as native XAML content. WinUI events
+are queued as native events and routed back to the Web-authored action ids. The
+React Aria `Switch` semantic remains in the IR, while `winio-winui3` 0.4.2 is
+bridged through a native CheckBox-backed toggle until the generated WinUI
+bindings expose `ToggleSwitch`.
+
+At runtime the compiled tree crosses the host boundary as a `UiFrame`:
+
+```json
+{
+  "frameId": "frame-1",
+  "window": {"title": "Profile", "width": 640, "height": 480},
+  "actions": [{"id": "saveProfile"}],
+  "root": {
+    "kind": "element",
+    "key": "save",
+    "tag": "Button",
+    "props": {"events": {"onPress": "saveProfile"}},
+    "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+  }
+}
+```
+
+Native input comes back as `HostEvent`, and `a3s-gui` resolves it to a validated
+`ActionInvocation`.
+
+If labels are not needed, the TypeScript SDK can infer `UiFrame.actions` from
+the compiled event props. Explicit `defineAction(...)` calls are still useful
+when the host wants labels for menus, logs, or command palettes.
+
+The window wrapper is part of the host protocol, not the authoring component
+tree. Web developers still write normal React Aria components; hosts decide
+which frames become windows, panels, or embedded surfaces.
+
+Native platform hosts can use `NativeProtocolSession` as the frame boundary:
+
+```rust
+use a3s_gui::{Gtk4Adapter, HostEvent, NativeEvent, NativeEventKind, NativeProtocolSession};
+
+let mut session = NativeProtocolSession::new(Gtk4Adapter);
+let rendered = session.render_frame(&frame)?;
+for command in &rendered.commands {
+    // Apply Create/Update/InsertChild/Remove/SetRoot on the native UI thread.
+    // For create/update commands, blueprint.config().create_setters() and
+    // config.diff(&next).setters() return native setter operations.
+}
+
+let response = session.dispatch_host_event(&HostEvent {
+    frame_id: rendered.frame_id,
+    event: NativeEvent::new(rendered.root, NativeEventKind::Press),
+})?;
+```
+
+## Event Flow
+
+React callbacks are compiled to stable action identifiers. Native adapters emit
+typed events; `GuiRuntime` first updates portable focus/value/selection state in
+`InteractionState`, then `EventRouter` maps the event back to the Web-authored
+action id and `ActionRegistry` validates that the action exists.
+
+```text
+onPress={saveProfile}
+        |
+        v
+events: {"onPress": "saveProfile"}
+        |
+        v
+NativeWidgetDriver callback
+        |
+        v
+NativeEventSource queue
+        |
+        v
+NativeEventKind::Press
+        |
+        v
+ActionInvocation { action: "saveProfile" }
+```
+
+React Aria's `onPress` is preferred over `onClick` when both are present, so
+component authors can use idiomatic React Aria APIs without losing native press
+semantics.
+
+For folded controls, event ownership follows React Aria authoring patterns. For
+example, `TextField` receives the visible label, while `Input` can own
+`onChange`, `placeholder`, inline style, and `data-*` metadata; the native
+renderer folds those into a single native text field.
+
+## Compatibility Boundary
+
+The syntax is Web-compatible. The runtime is native. Code that assumes a live
+browser DOM, CSSOM, or `HTMLElement` instance is outside the portable contract
+and should be caught by the compiler bridge before runtime.

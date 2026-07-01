@@ -1,0 +1,350 @@
+# a3s-gui Architecture
+
+`a3s-gui` renders Web-authored UI as native controls.
+
+The authoring contract is Web-compatible syntax. A web developer should be able
+to write React/TSX and React Aria code with familiar DOM-shaped props. The
+runtime contract is native: no WebView, no browser DOM, and no hidden HTML
+surface.
+
+```text
+React / TSX source
+        |
+        v
+@a3s-lab/gui JSX runtime
+        |
+        v
+React Compiler output
+        |
+        v
+UiFrame protocol
+        |
+        v
+ReactCompilerBridge
+        |
+        v
+React Aria semantic tree
+        |
+        v
+A3S Native UI IR
+        |
+        v
+Keyed renderer diff engine
+        |
+        v
+Native command stream
+        |
+        v
+NativeHost adapter
+  - AppKit on macOS
+  - WinUI on Windows
+  - GTK4 on Linux
+        |
+        v
+Native events
+        |
+        v
+HostEvent protocol
+        |
+        v
+InteractionState
+        |
+        v
+EventRouter
+        |
+        v
+Web-authored action ids
+```
+
+## Contract
+
+The bridge accepts React Aria component semantics plus Web-compatible syntax.
+This keeps authoring familiar while giving the native renderer a typed,
+portable contract.
+The source components may come from `react-aria-components` or from the
+zero-dependency marker exports used by compiler fixtures; both lower to the same
+protocol shape.
+
+Allowed data:
+
+- semantic component names
+- labels, values, placeholders, orientation, disabled state, selected state,
+  checked state, expanded state, ranged values
+- list, dialog, popover, tab, menu, and form structure
+- stable keys for reconciliation
+- `className` and inline `style` values as portable style input
+- `aria-*`, `data-*`, and common HTML attributes as metadata
+- React-style event prop names such as `onClick` and `onChange` with named
+  callback functions, normalized into native actions
+
+Non-portable runtime assumptions:
+
+- direct DOM access, for example `document.querySelector`
+- measuring browser layout APIs as the source of truth
+- relying on arbitrary CSS selectors that cannot be expressed as native style
+  tokens
+- treating an `HTMLElement` instance as an application object
+
+## NativeHost Boundary
+
+Every platform adapter implements the same host operations:
+
+- create a native widget for a `NativeElement`
+- update native properties without remounting
+- insert a native child at a stable index
+- remove a native subtree
+- set the root widget for a window or surface
+
+The renderer owns reconciliation. Platform adapters own native object lifetime,
+thread affinity, focus integration, accessibility integration, and event delivery.
+The runtime does not require native hosts, command executors, event sources, or
+widget drivers to be `Send`: real GUI handles are often confined to the main UI
+thread.
+
+The pure Rust `PlatformPlanningHost` implements the same `NativeHost` contract
+without linking platform SDKs. It is an executable specification for native
+adapters: given a `NativeElement`, it records the AppKit, WinUI, or GTK widget
+class, accessibility role, action binding, style tokens, events, and metadata
+that a real backend must apply.
+
+`GuiRuntime` is the public orchestration API. It accepts compiled JSX trees,
+React Aria semantic trees, or native IR trees and renders them into any
+`NativeHost`. `InteractionState` updates platform-independent focus, value,
+checked, selected, and expanded state from native events before action routing.
+`EventRouter` maps native events such as press, change, focus, and selection
+change back to Web-authored action identifiers such as `onClick` and `onChange`.
+`ActionRegistry` records and validates those action ids before they are handed
+to the JavaScript/React state bridge.
+
+For embedded Rust hosts, native backends can expose callbacks through
+`NativeEventSource`. `GuiRuntime::dispatch_pending_native_events()` drains the
+host event queue, applies interaction state updates, and returns the validated
+action invocations. Protocol hosts can still send explicit `HostEvent` records.
+
+## Host Protocol
+
+The JS/Rust bridge uses serializable protocol types:
+
+- `UiFrame`: a compiled React tree plus action ids.
+- `WindowOptions`: optional native window title, dimensions, and resizable flag
+  for a frame.
+- `RenderedFrame`: the native root node produced by rendering a frame.
+- `NativeRenderResponse`: the native root plus the incremental platform
+  commands emitted by a render pass.
+- `HostEvent`: a native event emitted by a platform backend.
+- `HostEventResponse`: the validated Web action invocation for that event.
+
+The protocol keeps React authoring and platform backends decoupled. JavaScript
+does not see native widget handles; native backends do not see JSX.
+The same rule applies to native rendering commands: platform hosts receive
+serializable command records and blueprints, not React component instances.
+
+`NativeProtocolSession` is the intended host boundary for a native platform
+process. It owns a `GuiRuntime<PlatformPlanningHost<_>>`, accepts `UiFrame`
+values, returns only the new `PlatformCommand` records for that render pass,
+and dispatches `HostEvent` values back to registered Web action ids. A native
+host can keep one session per native surface or window and apply the returned
+commands on its UI thread.
+
+When `UiFrame.window` is present, the Rust core wraps the compiled React root in
+a `NativeRole::Window`. The same command stream then creates `NSWindow`,
+`Microsoft.UI.Xaml.Window`, or `gtk::ApplicationWindow` before inserting the
+frame content as its child.
+
+## Native Commands
+
+`PlatformPlanningHost` records the exact commands a real platform backend needs
+to execute:
+
+- `{"type": "create", "id": ..., "blueprint": ...}`
+- `{"type": "update", "id": ..., "blueprint": ...}`
+- `{"type": "insertChild", "parent": ..., "child": ..., "index": ...}`
+- `{"type": "remove", "id": ...}`
+- `{"type": "setRoot", "id": ...}`
+
+This keeps React reconciliation in the Rust core and keeps platform adapters
+focused on native object lifetime and thread-affine UI work.
+`NativeWidgetBlueprint` carries the platform family (`appKit`, `winUI`, `gtk4`),
+native widget class, native role, accessibility role, label/value/action
+bindings, React Aria control state, Web metadata, event bindings, and parsed
+portable style tokens. It is safe to send to a platform process or language
+binding as JSON.
+Native bindings can call `blueprint.config()` to derive a `NativeWidgetConfig`
+with setter-oriented values such as `enabled`, `visible`, `placeholder`,
+range bounds, selected/checked state, event action ids, metadata, and portable
+style. This keeps AppKit, WinUI, and GTK bindings from reinterpreting Web and
+React Aria fields differently.
+`NativeWidgetConfig::diff()` returns a `NativeWidgetConfigPatch` for update
+passes, and `HandleWidgetDriver` stores the last config for each handle so
+`NativeHandleAdapter::update_handle_config()` can apply only changed setters.
+`NativeWidgetConfig::create_setters()` and `NativeWidgetConfigPatch::setters()`
+produce `NativeWidgetSetter` operations such as `SetLabel`, `SetEnabled`,
+`SetVisible`, `SetPlaceholder`, `SetMinimum`, `SetMaximum`, `SetCurrent`,
+`SetEvents`, and `SetMetadata`. Platform bindings can map those operations to
+the corresponding AppKit, WinUI, or GTK property setters.
+The feature-gated handle adapters keep a replayable setter log in their handle
+state, so tests exercise the same create/update flow real native bindings will
+map to OS controls.
+
+`CommandExecutingHost` wraps this command stream around a
+`PlatformCommandExecutor`. `DriverCommandExecutor` is the reusable executor for
+real native backends: it validates that a blueprint targets the driver's backend
+and delegates command effects to `NativeWidgetDriver`.
+
+`NativeWidgetDriver` is the OS-binding contract. A platform layer implements:
+
+- `create_widget(id, blueprint)`
+- `update_widget(id, blueprint)`
+- `insert_child(parent, child, index)`
+- `remove_widget(id)`
+- `set_root_widget(id)`
+
+If the platform layer owns event callbacks, it also implements
+`NativeEventSource::take_native_events()` and queues `NativeEvent` records such
+as press, change, focus, and selection change.
+
+That keeps command decoding, backend validation, and render order in shared Rust
+while letting AppKit, WinUI, and GTK bindings own their thread-affine handles and
+native callback registration.
+
+For platform bindings that already expose clonable native handle wrappers,
+`HandleWidgetDriver` provides the storage and command glue. The platform only
+implements `NativeHandleAdapter`, returning handles from `create_handle` and
+applying updates, child attachment, removal, and root assignment to those
+handles. This is the intended path for real `NSView`, WinUI object, and GTK
+object wrappers. Adapters can implement `update_handle_config` to receive the
+typed config patch for native setter updates, or use the default full-blueprint
+update method while bootstrapping. The feature modules expose `AppKitHandleAdapter`,
+`WinUiHandleAdapter`, and `Gtk4HandleAdapter` surfaces for that path.
+For platform bindings that prefer a setter-first SDK boundary,
+`NativeWidgetSurface` is the lower-level contract. It creates one native widget
+handle from a blueprint, applies each `NativeWidgetSetter`, inserts native
+children, removes native widgets, and sets the root surface. `SurfaceHandleAdapter`
+wraps that lower-level surface in `NativeHandleAdapter`, so real SDK bindings can
+focus on calls such as `setTitle`, `setEnabled`, `setText`, `addSubview`,
+`Append`, or `append` while the shared Rust driver still owns reconciliation,
+config diffing, command order, and event routing.
+The included `RecordingBackend` applies commands to a pure Rust object tree.
+
+Feature-gated platform executor surfaces:
+
+- `appkit`: maps classes such as `NSButton` and `NSTextField(input)` into
+  AppKit object kinds behind `AppKitWidgetDriver` and replays native setter
+  operations through `AppKitHandleAdapter`.
+- `appkit-native`: uses `objc2` AppKit bindings on macOS to create real
+  `NSWindow`, `NSPanel`, `NSView`, `NSButton`, `NSTextField`, `NSSwitch`, `NSStackView`,
+  `NSComboBox`, `NSScrollView`, `NSTabView`, `NSTabViewItem`,
+  `NSBox(separator)`, `NSSlider`, and `NSProgressIndicator` objects through
+  `AppKitNativeSurface`.
+  The shared renderer still owns
+  reconciliation and config diffs; the surface applies typed
+  `NativeWidgetSetter` operations directly to AppKit controls. This is the first
+  in-process OS SDK backend and has no WebView fallback. `NSButton` controls are
+  wired to Objective-C
+  target/action callbacks that enqueue `NativeEventKind::Press` records, and
+  editable `NSTextField` controls use an `NSTextFieldDelegate` to enqueue
+  focus, change, and blur records, with change events carrying the current
+  native string value. `NSButton(checkbox)` and `NSSwitch` controls apply native
+  checked state and enqueue `NativeEventKind::Toggle` records with the current
+  boolean value. `RadioGroup` uses native `NSStackView` containers with
+  `NSButton(radio)` children, and selected radios apply native checked state.
+  `NSComboBox` controls receive `ListBoxItem` children as native
+  AppKit object values and enqueue `NativeEventKind::SelectionChange` records.
+  Independent React Aria `ListBox` trees create native `NSScrollView`
+  containers with AppKit row controls and enqueue selection-change records with
+  the selected item value.
+  React Aria `Toolbar` trees create native `NSStackView` containers for tool
+  controls.
+  React Aria `Dialog` trees create native `NSPanel` windows whose content views
+  are populated with native children.
+  React Aria `Popover` trees create native `NSPopover` overlays whose content
+  view controllers hold native children.
+  React Aria `Tabs` trees fold `TabList` and ordered `TabPanel` children into
+  native `NSTabViewItem` objects whose content views are the panel views;
+  `NSTabViewDelegate` callbacks enqueue tab selection-change records.
+  React Aria `Menu` trees create native `NSMenu` objects with `NSMenuItem`
+  children; root menus are installed as the application main menu, and menu item
+  target/action callbacks enqueue press records.
+  `Separator` creates native `NSBox` separators. `NSSlider` controls enqueue
+  ranged `NativeEventKind::Change` records with the current double value, while
+  `NSProgressIndicator` is updated by setter-driven ranged state.
+  These event paths flow through the existing `NativeEventSource` boundary.
+- `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button` and
+  `TextBox` into WinUI object kinds behind `WinUiWidgetDriver` and replays
+  native setter operations through `WinUiHandleAdapter`.
+- `winui-native`: uses `winio-winui3` and the Windows App SDK on Windows to
+  create real WinUI 3 `Window`, `StackPanel`, `TextBlock`, `Button`, `TextBox`,
+  `CheckBox`, `RadioButton`, `ComboBox`, `ListBox`, `ContentDialog`, `ToolTip`,
+  `Grid`, `TabView`, `TabViewItem`, `Border(separator)`, `Slider`, and
+  `ProgressBar` objects through
+  `WinUiNativeSurface`. It does not enable
+  WebView2 and has no WebView fallback. WinUI callbacks enqueue press, change,
+  focus, blur, toggle, selection-change, and ranged value events through the
+  same `NativeEventSource` and action routing path as AppKit and GTK. React Aria
+  `Tabs` trees fold `TabList` and ordered `TabPanel` children into native
+  `TabViewItem` objects and route WinUI tab selection changes with the
+  Web-authored selection value when one is available. `Separator` uses a native
+  XAML `Border` loaded through WinUI's markup runtime so the surface remains
+  native without WebView/WebView2. React Aria `Toolbar` trees create horizontal
+  native `StackPanel` containers, keeping toolbar children as real XAML
+  controls. React Aria `Dialog` trees create native `ContentDialog` controls
+  whose content is populated with real XAML children. React Aria `Popover`
+  trees create ToolTip-backed native overlay surfaces with real XAML children
+  because `winio-winui3` 0.4.2 does not expose a strong `Flyout` binding yet.
+  React Aria `Menu` trees use native XAML `StackPanel` menu surfaces with native
+  `Button` menu items while `winio-winui3` 0.4.2 lacks strong `MenuFlyout` and
+  `MenuBar` bindings.
+  React Aria `Switch` keeps
+  its native `Switch` semantic in the IR; with `winio-winui3` 0.4.2, the native
+  surface temporarily backs that state with a WinUI `CheckBox` because the
+  generated bindings do not expose `ToggleSwitch` yet.
+- `gtk4`: maps classes such as `gtk::Button` and `gtk::Entry` into GTK object
+  kinds behind `Gtk4WidgetDriver` and replays native setter operations through
+  `Gtk4HandleAdapter`.
+- `gtk4-native`: uses `gtk4-rs` on Linux to create real
+  `gtk::ApplicationWindow`, `gtk::Box`, `gtk::Label`, `gtk::Button`,
+  `gtk::Entry`, `gtk::CheckButton`, `gtk::Switch`, `gtk::DropDown`,
+  `gtk::ListBox`, `gtk::ListBoxRow`, `gtk::Dialog`, `gtk::Popover`,
+  `gtk::PopoverMenuBar`, `gio::Menu`, `gio::MenuItem`, `gtk::Notebook`,
+  `gtk::Separator`, `gtk::Scale`, and `gtk::ProgressBar`
+  objects through `Gtk4NativeSurface`.
+  React Aria `Toolbar` trees use native `gtk::Box(toolbar)` containers.
+  React Aria `Dialog` trees use native `gtk::Dialog` windows and content areas.
+  React Aria `Popover` trees use native `gtk::Popover` overlays with native
+  GTK children.
+  React Aria `Menu` trees use native `gio::Menu` models, `gio::MenuItem`
+  children, `gtk::PopoverMenuBar` surfaces, and `gio::SimpleAction` activation
+  callbacks.
+  React Aria `Tabs`
+  trees become native notebook pages with Web-authored tab labels, native panel
+  widgets, and selection-change events carrying the selected tab value when
+  available. It is a Linux-only feature so macOS and Windows builds can enable
+  all portable features without linking GTK. A Linux host must provide GTK4
+  development libraries and `pkg-config`. GTK callbacks
+  enqueue press, text change, focus, blur, toggle, and selection-change events
+  through the same `NativeEventSource` and action routing path as AppKit.
+
+Menu-specific native backend code lives under `src/native_backends/`:
+`native_backends/appkit/menu.rs` owns AppKit menu parent/child tracking,
+`native_backends/winui/menu.rs` owns the WinUI menu fallback policy, and
+`native_backends/gtk4/menu.rs` owns GTK menu models, menu item actions, and
+model rebuilds. The large surface files keep the platform event loop and widget
+dispatch logic, while backend-local menu details stay in focused modules.
+
+## Style Contract
+
+`WebProps` keeps the original Web style map. `PortableStyle` parses the subset
+that native adapters can apply deterministically:
+
+- `display`
+- `flexDirection`
+- `alignItems`
+- `justifyContent`
+- `width`, `height`, min/max sizes
+- `gap`, `padding*`, `margin*`
+- `color`, `backgroundColor`
+- `borderRadius`
+- `opacity`
+
+Unsupported style declarations are preserved so the compiler or design tooling
+can warn without silently dropping author intent.

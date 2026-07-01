@@ -1,0 +1,418 @@
+use serde::{Deserialize, Serialize};
+
+use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
+use crate::error::GuiResult;
+use crate::event::{ActionInvocation, NativeEvent};
+use crate::host::{HostNodeId, NativeHost};
+use crate::native::{NativeElement, NativeProps, NativeRole};
+use crate::platform::{BlueprintHost, PlatformAdapter, PlatformCommand, PlatformPlanningHost};
+use crate::runtime::GuiRuntime;
+use crate::web::WebProps;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiFrame {
+    pub frame_id: String,
+    pub root: CompiledJsxNode,
+    #[serde(default)]
+    pub actions: Vec<UiAction>,
+    #[serde(default)]
+    pub window: Option<WindowOptions>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiAction {
+    pub id: String,
+    #[serde(default)]
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowOptions {
+    pub title: String,
+    #[serde(default)]
+    pub width: Option<f64>,
+    #[serde(default)]
+    pub height: Option<f64>,
+    #[serde(default = "default_true")]
+    pub resizable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderedFrame {
+    pub frame_id: String,
+    pub root: HostNodeId,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeRenderResponse {
+    pub frame_id: String,
+    pub root: HostNodeId,
+    pub commands: Vec<PlatformCommand>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HostEvent {
+    pub frame_id: String,
+    pub event: NativeEvent,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HostEventResponse {
+    pub frame_id: String,
+    pub invocation: ActionInvocation,
+}
+
+impl UiFrame {
+    pub fn render_into<H: NativeHost>(
+        &self,
+        runtime: &mut GuiRuntime<H>,
+    ) -> GuiResult<RenderedFrame> {
+        for action in &self.actions {
+            match &action.label {
+                Some(label) => runtime
+                    .actions_mut()
+                    .register_labeled(action.id.clone(), label.clone()),
+                None => runtime.actions_mut().register(action.id.clone()),
+            }
+        }
+        let root = match &self.window {
+            Some(window) => {
+                let content = ReactCompilerBridge::new().lower_to_native(&self.root)?;
+                let window = window.wrap_native_root(&self.frame_id, content);
+                runtime.render_native(&window)?
+            }
+            None => runtime.render_compiled(&self.root)?,
+        };
+        Ok(RenderedFrame {
+            frame_id: self.frame_id.clone(),
+            root,
+        })
+    }
+}
+
+impl WindowOptions {
+    pub fn wrap_native_root(&self, frame_id: &str, content: NativeElement) -> NativeElement {
+        let mut web = WebProps::new()
+            .attribute("data-a3s-frame", frame_id)
+            .attribute("data-a3s-window-resizable", self.resizable.to_string());
+        if let Some(width) = self.width {
+            web = web.style("width", width.to_string());
+        }
+        if let Some(height) = self.height {
+            web = web.style("height", height.to_string());
+        }
+
+        NativeElement::new(format!("{frame_id}:window"), NativeRole::Window)
+            .with_props(NativeProps::new().label(self.title.clone()).web(web))
+            .child(content)
+    }
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug)]
+pub struct NativeProtocolSession<A: PlatformAdapter> {
+    runtime: GuiRuntime<PlatformPlanningHost<A>>,
+    active_frame_id: Option<String>,
+    root: Option<HostNodeId>,
+    command_cursor: usize,
+}
+
+impl<A: PlatformAdapter> NativeProtocolSession<A> {
+    pub fn new(adapter: A) -> Self {
+        Self {
+            runtime: GuiRuntime::new(PlatformPlanningHost::new(adapter)),
+            active_frame_id: None,
+            root: None,
+            command_cursor: 0,
+        }
+    }
+
+    pub fn runtime(&self) -> &GuiRuntime<PlatformPlanningHost<A>> {
+        &self.runtime
+    }
+
+    pub fn runtime_mut(&mut self) -> &mut GuiRuntime<PlatformPlanningHost<A>> {
+        &mut self.runtime
+    }
+
+    pub fn active_frame_id(&self) -> Option<&str> {
+        self.active_frame_id.as_deref()
+    }
+
+    pub fn root(&self) -> Option<HostNodeId> {
+        self.root
+    }
+
+    pub fn render_frame(&mut self, frame: &UiFrame) -> GuiResult<NativeRenderResponse> {
+        let rendered = frame.render_into(&mut self.runtime)?;
+        self.active_frame_id = Some(rendered.frame_id.clone());
+        self.root = Some(rendered.root);
+        let commands = self.pending_commands();
+        Ok(NativeRenderResponse {
+            frame_id: rendered.frame_id,
+            root: rendered.root,
+            commands,
+        })
+    }
+
+    pub fn dispatch_host_event(&mut self, event: &HostEvent) -> GuiResult<HostEventResponse> {
+        let active_frame_id = self
+            .active_frame_id
+            .as_deref()
+            .ok_or_else(|| crate::error::GuiError::host("no active native frame"))?;
+        if event.frame_id != active_frame_id {
+            return Err(crate::error::GuiError::host(format!(
+                "native event for frame {} cannot be dispatched into active frame {}",
+                event.frame_id, active_frame_id
+            )));
+        }
+        event.dispatch_into(&mut self.runtime)
+    }
+
+    pub fn pending_commands(&mut self) -> Vec<PlatformCommand> {
+        let commands = self.runtime.host().commands()[self.command_cursor..].to_vec();
+        self.command_cursor = self.runtime.host().commands().len();
+        commands
+    }
+}
+
+impl<A: PlatformAdapter + Default> Default for NativeProtocolSession<A> {
+    fn default() -> Self {
+        Self::new(A::default())
+    }
+}
+
+impl HostEvent {
+    pub fn dispatch_into<H: NativeHost + BlueprintHost>(
+        &self,
+        runtime: &mut GuiRuntime<H>,
+    ) -> GuiResult<HostEventResponse> {
+        let invocation = runtime.dispatch_native_event(self.event.clone())?;
+        Ok(HostEventResponse {
+            frame_id: self.frame_id.clone(),
+            invocation,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::{CommandExecutingHost, RecordingBackend};
+    use crate::event::NativeEventKind;
+    use crate::platform::Gtk4Adapter;
+
+    #[test]
+    fn protocol_renders_frame_and_dispatches_native_event_to_action() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "frame-1",
+              "actions": [{"id": "saveProfile", "label": "Save profile"}],
+              "window": {"title": "Profile", "width": 420, "height": 320},
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"events": {"onPress": "saveProfile"}},
+                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let rendered = frame.render_into(&mut runtime).unwrap();
+        let button = runtime
+            .host()
+            .planning()
+            .node(rendered.root)
+            .unwrap()
+            .children[0];
+        let response = HostEvent {
+            frame_id: rendered.frame_id.clone(),
+            event: NativeEvent::new(button, NativeEventKind::Press),
+        }
+        .dispatch_into(&mut runtime)
+        .unwrap();
+
+        assert_eq!(rendered.frame_id, "frame-1");
+        assert_eq!(response.frame_id, "frame-1");
+        assert_eq!(response.invocation.action, "saveProfile");
+        assert_eq!(runtime.actions().invocations().len(), 1);
+    }
+
+    #[test]
+    fn native_protocol_session_returns_incremental_native_commands() {
+        let first: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "saveProfile"}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"events": {"onPress": "saveProfile"}},
+                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let second: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "saveProfile"}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"events": {"onPress": "saveProfile"}},
+                "children": [{"kind": "text", "key": "save-text", "value": "Saved"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let first_response = session.render_frame(&first).unwrap();
+        let second_response = session.render_frame(&second).unwrap();
+
+        assert_eq!(first_response.frame_id, "profile");
+        assert_eq!(session.active_frame_id(), Some("profile"));
+        assert_eq!(session.root(), Some(first_response.root));
+        assert!(first_response.commands.iter().any(|command| matches!(
+            command,
+            crate::platform::PlatformCommand::Create {
+                blueprint,
+                ..
+            } if blueprint.widget_class == "gtk::Button"
+                && blueprint.label.as_deref() == Some("Save")
+        )));
+        assert!(first_response.commands.iter().any(|command| {
+            matches!(command, crate::platform::PlatformCommand::SetRoot { .. })
+        }));
+        assert_eq!(second_response.root, first_response.root);
+        assert!(second_response.commands.iter().any(|command| matches!(
+            command,
+            crate::platform::PlatformCommand::Update {
+                id,
+                blueprint,
+            } if *id == first_response.root && blueprint.label.as_deref() == Some("Saved")
+        )));
+        assert!(second_response.commands.iter().all(|command| {
+            !matches!(command, crate::platform::PlatformCommand::Create { .. })
+        }));
+        assert!(session.pending_commands().is_empty());
+    }
+
+    #[test]
+    fn native_protocol_session_dispatches_active_frame_events() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "saveProfile"}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"events": {"onPress": "saveProfile"}},
+                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let response = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
+            })
+            .unwrap();
+        let error = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "other".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
+            })
+            .unwrap_err();
+
+        assert_eq!(response.invocation.action, "saveProfile");
+        assert!(error.to_string().contains("active frame profile"));
+    }
+
+    #[test]
+    fn protocol_window_options_wrap_root_in_native_window() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "frame-window",
+              "window": {"title": "A3S Profile", "width": 640, "height": 480},
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "children": [{"kind": "text", "key": "text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let rendered = frame.render_into(&mut runtime).unwrap();
+        let window = runtime.host().planning().node(rendered.root).unwrap();
+
+        assert_eq!(window.blueprint.widget_class, "gtk::ApplicationWindow");
+        assert_eq!(window.blueprint.label.as_deref(), Some("A3S Profile"));
+        assert_eq!(
+            window
+                .blueprint
+                .portable_style
+                .width
+                .and_then(|value| value.points()),
+            Some(640.0)
+        );
+        assert_eq!(
+            window
+                .blueprint
+                .portable_style
+                .height
+                .and_then(|value| value.points()),
+            Some(480.0)
+        );
+        assert_eq!(window.children.len(), 1);
+    }
+
+    #[test]
+    fn protocol_types_round_trip_as_json() {
+        let event = HostEvent {
+            frame_id: "frame-2".to_string(),
+            event: NativeEvent::new(HostNodeId::new(42), NativeEventKind::Change).value("hello"),
+        };
+
+        let json = serde_json::to_string(&event).unwrap();
+        let decoded: HostEvent = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(decoded, event);
+    }
+}
