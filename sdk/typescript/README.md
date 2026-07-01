@@ -2,15 +2,14 @@
 
 JSX protocol bridge for `a3s-gui`.
 
-This package provides the protocol-side JSX runtime used to lower Web-compatible
-TSX into the serializable `UiFrame` format consumed by the Rust runtime. The
-package has no runtime dependencies while the compiler integration stabilizes.
-React Aria-compatible component names and props are supported. General semantic
-UI component names are also accepted, so the SDK is not limited to React Aria.
-Intrinsic HTML element names are accepted as JSX strings. `style` can be an
-object or CSS text string, and `className` is preserved for the Rust-side
-Tailwind utility resolver, including variant-prefixed utilities. CSS text
-parsing preserves delimiters inside strings, functions, and URLs.
+This package provides the protocol-side JSX runtime used to emit the
+serializable `UiFrame` format consumed by the Rust runtime. The package has no
+runtime dependencies while the compiler integration stabilizes.
+React Aria-compatible component names, semantic UI component names, and
+intrinsic HTML element names are accepted as JSX tags. `style` can be an object
+or CSS text string, and `className` is preserved for the Rust-side Tailwind
+utility resolver, including variant-prefixed utilities. CSS text parsing
+preserves delimiters inside strings, functions, and URLs.
 
 ## JSX Runtime
 
@@ -36,8 +35,8 @@ When labels are not needed, `createUiFrame` can infer actions from JSX event
 props. Use `defineAction` when the host needs action metadata beyond the stable
 id.
 
-The runtime accepts React Aria-style state props such as `isDisabled` and
-Web-compatible aliases such as `disabled`, `required`, `aria-expanded`,
+The runtime accepts React Aria-style state props such as `isDisabled` and HTML
+or ARIA aliases such as `disabled`, `required`, `aria-expanded`,
 `aria-selected`, `min`, `max`, and `aria-valuenow`; these normalize to the same
 native control-state fields consumed by the Rust renderer. Marker exports
 include form and selection components such as `RadioGroup`, `Radio`, `Select`,

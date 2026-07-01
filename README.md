@@ -1,23 +1,20 @@
 # a3s-gui
 
-`a3s-gui` is a Rust crate that converts React/JSX-compatible UI trees into a
-native command stream for AppKit, WinUI, and GTK4. Platform backends create
-native widgets directly; the renderer does not embed a WebView.
+`a3s-gui` is a Rust crate for rendering structured UI trees as native platform
+controls. It accepts serializable `UiFrame` protocol frames, direct Rust
+`NativeElement` trees, and JSX-shaped input emitted by SDK or compiler
+integrations. Platform backends target AppKit, WinUI, and GTK4 directly; the
+renderer does not embed or require a WebView.
 
-Inputs can come from the TypeScript JSX runtime, React Compiler output,
-React Aria-compatible components, direct protocol frames, or direct Rust
-`NativeElement` trees. Supported inputs lower into the same A3S Native UI IR
-before platform adapters create native widgets.
-
-React Aria-compatible component names and props are supported as one input
-format. The core renderer accepts any compiler or SDK that emits the A3S Native
-UI IR or the serializable `UiFrame` protocol.
+All supported input paths lower into the same A3S Native UI IR before platform
+adapters create native widgets. React Aria-compatible component names and props
+are supported as one protocol input shape.
 
 ## Supported Inputs
 
-`a3s-gui` accepts the following input data:
+The protocol accepts the following input data:
 
-- JSX/TSX-shaped element trees
+- JSX/TSX-shaped element records
 - semantic component names and HTML intrinsic element names
 - stable keys for reconciliation
 - `className`, Tailwind utility classes, inline style objects, and CSS text
@@ -28,17 +25,16 @@ UI IR or the serializable `UiFrame` protocol.
 - React-style event props such as `onClick`, `onChange`, `onFocus`, `onBlur`,
   and `onPress`
 
-The renderer normalizes those inputs into native roles, control state, metadata,
+The renderer normalizes these fields into native roles, control state, metadata,
 portable style tokens, and action bindings.
 
 ## Compatibility Scope
 
 The compiler bridge recognizes the HTML element surface exposed by the HTML
-Living Standard, plus common historical tags that appear in existing Web UI.
-Known intrinsic elements are mapped to the closest available native semantic
-role. Elements without a dedicated native role are represented as generic native
-views or text nodes, and the original tag is preserved in metadata under
-`data-a3s-html-tag`.
+Living Standard plus common historical tags. Known intrinsic elements are mapped
+to native semantic roles where a matching role exists. Elements without a
+dedicated native role are represented as generic native views or text nodes, and
+the original tag is preserved in metadata under `data-a3s-html-tag`.
 
 The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
@@ -61,7 +57,7 @@ CSS color values support hex, RGB/RGBA, HSL/HSLA, slash alpha syntax, and
 keyword preservation.
 
 Tailwind utility classes are resolved into the same declaration model. Base
-utilities are projected into current native style tokens; variant utilities such
+utilities are projected into supported native style tokens; variant utilities such
 as `hover:`, `focus:`, and responsive prefixes are preserved in
 `variant_declarations`. Tailwind color opacity modifiers such as `/50` are
 preserved in the generated declarations and portable color tokens. Common
@@ -88,11 +84,10 @@ remain available as raw `className`, style declarations, metadata, or
 
 ## Architecture
 
-`a3s-gui` is split into four layers:
+`a3s-gui` is organized into four layers:
 
-1. **Input layer**: accepts JSX/TSX-shaped trees and
-   DOM-shaped props from the TypeScript SDK, React Compiler bridge, React Aria
-   adapters, or another compiler that emits the same protocol.
+1. **Input layer**: accepts JSX/TSX-shaped element records, direct
+   `NativeElement` trees, and `UiFrame` protocol frames.
 2. **A3S Native UI IR**: stores native roles, state, labels, values,
    accessibility metadata, Web metadata, portable style tokens, event bindings,
    and children.
@@ -103,10 +98,10 @@ remain available as raw `className`, style declarations, metadata, or
    WinUI, and GTK widgets.
 
 ```text
-Web-compatible source
+Structured UI source
         |
         v
-JSX runtime / compiler / protocol producer
+SDK / compiler / protocol producer
         |
         v
 UiFrame or NativeElement
@@ -141,20 +136,21 @@ state, portable style tokens, and host protocol types are serializable. A Swift,
 WinUI, GTK, Rust, or multi-process host can consume the same protocol without
 seeing JSX or a browser DOM.
 
-## Native Rendering Model
+## Native Rendering
 
-`a3s-gui` does not implement DOM nodes, browser CSS layout, browser focus APIs,
-or WebView event loops. It maps accepted element names and props to native IR,
-then creates native controls through the selected platform adapter.
+`a3s-gui` is not a browser embedding layer. It does not provide DOM nodes,
+browser CSS layout, browser focus APIs, or WebView event loops. It maps accepted
+element records and props to native IR, then creates native controls through the
+selected platform adapter.
 
-Accepted Web-compatible inputs include `className`, inline `style`, `aria-*`,
+Accepted input fields include `className`, inline `style`, `aria-*`,
 `data-*`, HTML state props such as `disabled` and `required`, ranged attributes
 such as `min`/`max`/`aria-valuenow`, stable keys, and DOM-style event props.
 Those values are normalized into native props and portable style tokens.
 Platform adapters decide how to apply the resulting setters and how to expose
 the matching platform accessibility metadata.
 
-## Authoring Surfaces
+## Input Examples
 
 The Rust API can render native IR directly:
 
@@ -255,7 +251,7 @@ runtime.render_compiled(&compiled)?;
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-Or submit the same tree as a protocol frame:
+The same tree can also be submitted as a protocol frame:
 
 ```rust
 use a3s_gui::{
@@ -376,7 +372,7 @@ registered action ids.
 | `Slider` / `ProgressBar` | native ranged controls |
 | `Toolbar` | native toolbar container |
 
-## Platform Plan
+## Platform Targets
 
 | Platform | Target adapter |
 | --- | --- |
