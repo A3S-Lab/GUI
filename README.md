@@ -46,9 +46,10 @@ isolation, mix blend mode, float, clear, vertical alignment, table layout, borde
 collapse/spacing, caption side, flex direction/wrap/item
 sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, physical and logical
-sizing, gap/row-gap/column-gap, CSS containment and container query metadata,
-physical, logical, and child spacing, uniform, physical-edge, and logical-edge border
-width/style/color, uniform, physical-corner, and logical-corner border radius,
+sizing, gap/row-gap/column-gap, CSS containment, generated content, and
+container query metadata, physical, logical, and child spacing, uniform,
+physical-edge, and logical-edge border width/style/color, uniform,
+physical-corner, and logical-corner border radius,
 text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip path, CSS mask, CSS mask border, object fit/position,
@@ -110,9 +111,10 @@ Typography utilities such as `font-*`, `italic`, `not-italic`, `tracking-*`,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, `indent-*`, `line-clamp-*`, `text-shadow-*`,
 `text-wrap`, `text-nowrap`, `text-balance`, `text-pretty`, `truncate`,
-`text-ellipsis`, `text-clip`, `whitespace-*`, word-break utilities, and
-`hyphens-*` are
-projected into portable style tokens. Arbitrary property utilities for CSS
+`text-ellipsis`, `text-clip`, `whitespace-*`, word-break utilities,
+`hyphens-*`, and generated-content utilities such as `content-[...]`,
+`content-(...)`, and `content-none` are projected into portable style tokens.
+Arbitrary property utilities for CSS
 writing modes and `ltr:`/`rtl:` variants are preserved in the same declaration
 model.
 Background, object, list, columns, and fragmentation utilities such as `bg-*`,

@@ -370,7 +370,8 @@ deterministically:
   `justifyItems`, `justifySelf`, `placeContent`, `placeItems`, `placeSelf`
 - `grid`, `gridTemplate*`, `gridAutoColumns`, `gridAutoRows`, `gridAutoFlow`,
   `gridColumn*`, `gridRow*`, `gridArea`
-- `contain`, `container*`, `contentVisibility`, and `containIntrinsic*`
+- `contain`, `container*`, `content`, `contentVisibility`, and
+  `containIntrinsic*`
 - `width`, `height`, `inlineSize`, `blockSize`, and physical/logical min/max
   sizes
 - `gap`, `rowGap`, `columnGap`, physical and logical `padding*`, `margin*`,
@@ -465,8 +466,9 @@ Common Tailwind typography and text utilities such as `font-*`, `italic`,
 numeric utilities, `tab-*`, text transform utilities, text decoration
 utilities, `underline-offset-*`, `truncate`, `text-ellipsis`, `text-clip`,
 `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
-`text-balance`, `text-pretty`, `whitespace-*`, word-break utilities, and
-`hyphens-*` project into the same declaration model.
+`text-balance`, `text-pretty`, `whitespace-*`, word-break utilities,
+`hyphens-*`, and generated-content utilities such as `content-[...]`,
+`content-(...)`, and `content-none` project into the same declaration model.
 CSS writing-mode arbitrary property utilities and `ltr:`/`rtl:` variants are
 stored in the same declaration model.
 Common Tailwind background, object, list, columns, and fragmentation utilities

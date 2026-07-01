@@ -64,6 +64,7 @@ pub struct PortableStyle {
     pub container: Option<String>,
     pub container_type: Option<ContainerType>,
     pub container_name: Option<String>,
+    pub content: Option<String>,
     pub content_visibility: Option<ContentVisibility>,
     pub contain_intrinsic_size: Option<String>,
     pub contain_intrinsic_width: Option<String>,
@@ -387,6 +388,7 @@ impl PortableStyle {
             "container" => self.apply_container_shorthand(value_ref),
             "container-type" => self.container_type = parse_container_type(value_ref),
             "container-name" => self.container_name = parse_css_string_token(value_ref),
+            "content" => self.content = parse_css_string_token(value_ref),
             "content-visibility" => {
                 self.content_visibility = parse_content_visibility(value_ref);
             }
@@ -3708,6 +3710,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.insert("word-break".to_string(), "normal".to_string());
         return declarations;
     }
+    if let Some((property, value)) = tailwind_content_declaration(class) {
+        declarations.insert(property, value);
+        return declarations;
+    }
     if let Some(line_clamp) = tailwind_line_clamp_declarations(class) {
         declarations.extend(line_clamp);
         return declarations;
@@ -4211,6 +4217,25 @@ fn tailwind_size_declarations(class: &str) -> Option<BTreeMap<String, String>> {
     declarations.insert("width".to_string(), value.clone());
     declarations.insert("height".to_string(), value);
     Some(declarations)
+}
+
+fn tailwind_content_declaration(class: &str) -> Option<(String, String)> {
+    if class == "content-none" {
+        return Some(("content".to_string(), "none".to_string()));
+    }
+    if let Some(value) = class
+        .strip_prefix("content-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some((
+            "content".to_string(),
+            tailwind_arbitrary_content_value(value),
+        ));
+    }
+    class
+        .strip_prefix("content-")
+        .and_then(tailwind_custom_var)
+        .map(|value| ("content".to_string(), value))
 }
 
 fn tailwind_svg_presentation_declarations(class: &str) -> Option<BTreeMap<String, String>> {
@@ -6579,6 +6604,22 @@ fn tailwind_arbitrary_value(value: &str) -> String {
     value.replace('_', " ")
 }
 
+fn tailwind_arbitrary_content_value(value: &str) -> String {
+    let mut output = String::new();
+    let mut chars = value.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' && chars.peek().is_some_and(|next| *next == '_') {
+            output.push('_');
+            chars.next();
+        } else if ch == '_' {
+            output.push(' ');
+        } else {
+            output.push(ch);
+        }
+    }
+    output
+}
+
 fn is_tailwind_identifier(value: &str) -> bool {
     !value.is_empty()
         && value
@@ -8461,6 +8502,7 @@ mod tests {
             .style("container", "sidebar / inline-size")
             .style("containerType", "size")
             .style("containerName", "main")
+            .style("content", "\"*\"")
             .style("contentVisibility", "auto")
             .style("containIntrinsicSize", "auto 320px")
             .style("containIntrinsicWidth", "240px")
@@ -8474,6 +8516,7 @@ mod tests {
         assert_eq!(style.container.as_deref(), Some("sidebar / inline-size"));
         assert_eq!(style.container_type, Some(ContainerType::Size));
         assert_eq!(style.container_name.as_deref(), Some("main"));
+        assert_eq!(style.content.as_deref(), Some("\"*\""));
         assert_eq!(style.content_visibility, Some(ContentVisibility::Auto));
         assert_eq!(style.contain_intrinsic_size.as_deref(), Some("auto 320px"));
         assert_eq!(style.contain_intrinsic_width.as_deref(), Some("240px"));
@@ -8482,6 +8525,7 @@ mod tests {
         assert_eq!(style.contain_intrinsic_block_size.as_deref(), Some("25vh"));
         assert!(!style.unsupported.contains_key("contain"));
         assert!(!style.unsupported.contains_key("container-type"));
+        assert!(!style.unsupported.contains_key("content"));
         assert!(!style.unsupported.contains_key("content-visibility"));
     }
 
@@ -8870,7 +8914,8 @@ mod tests {
              rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
              hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
              hover:font-features-(--font-features) focus:text-shadow-[0_1px_2px_rgb(0_0_0_/_0.3)] \
-             lg:normal-nums",
+             lg:normal-nums content-none before:content-['Hello_World'] \
+             after:content-(--suffix-content) hover:content-['Hello\\_World']",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -8927,6 +8972,7 @@ mod tests {
         assert_eq!(style.white_space, Some(WhiteSpaceMode::PreWrap));
         assert_eq!(style.word_break, Some(WordBreakMode::BreakAll));
         assert_eq!(style.hyphens, Some(HyphensMode::Auto));
+        assert_eq!(style.content.as_deref(), Some("none"));
         assert_eq!(
             style
                 .variant_declarations
@@ -8990,6 +9036,30 @@ mod tests {
                 .and_then(|styles| styles.get("font-feature-settings"))
                 .map(String::as_str),
             Some("var(--font-features)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("content"))
+                .map(String::as_str),
+            Some("'Hello World'")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("after")
+                .and_then(|styles| styles.get("content"))
+                .map(String::as_str),
+            Some("var(--suffix-content)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("content"))
+                .map(String::as_str),
+            Some("'Hello_World'")
         );
         assert_eq!(
             style
