@@ -40,20 +40,21 @@ The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
 properties separately, and projects supported declarations into native style
 tokens. The current portable token set includes display, position, inset,
-z-index, visibility, flex direction/wrap/item sizing/grow/shrink/order,
-alignment, justification, place alignment, CSS Grid shorthand/templates/auto
-tracks/auto flow/placement, sizing, gap/row-gap/column-gap, spacing, border
-width/style/color/radius, text color, background color/image/position/size/
-repeat/attachment/origin/clip, object fit/position, list style, columns, font
-size, font weight, font family, font style, line height, letter spacing, text
-alignment, text transform, text decoration, text overflow, whitespace, word
-breaking, hyphen handling, overflow, opacity, aspect ratio, box shadow, outline,
-transform, translate, rotate, scale, transform origin/style, perspective,
-backface visibility, filter, filter function components, backdrop filter,
-backdrop filter function components, transition, animation, will-change,
-appearance, accent color, caret color, resize, scroll behavior, scroll
-margin/padding, scroll snap, overscroll behavior, touch action, cursor,
-pointer events, and user selection.
+z-index, visibility, box sizing, box decoration break, isolation, float, clear,
+vertical alignment, table layout, border collapse/spacing, caption side, flex
+direction/wrap/item sizing/grow/shrink/order, alignment, justification, place
+alignment, CSS Grid shorthand/templates/auto tracks/auto flow/placement, sizing,
+gap/row-gap/column-gap, spacing, border width/style/color/radius, text color,
+background color/image/position/size/repeat/attachment/origin/clip, object
+fit/position, list style, columns, font size, font weight, font family, font
+style, line height, letter spacing, text alignment, text transform, text
+decoration, text overflow, whitespace, word breaking, hyphen handling, overflow,
+opacity, aspect ratio, box shadow, outline, transform, translate, rotate, scale,
+transform origin/style, perspective, backface visibility, filter, filter
+function components, backdrop filter, backdrop filter function components,
+transition, animation, will-change, appearance, accent color, caret color,
+resize, scroll behavior, scroll margin/padding, scroll snap, overscroll
+behavior, touch action, cursor, pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `var(...)`, `clamp(...)`, viewport units, and sizing keywords, are
@@ -65,7 +66,11 @@ Tailwind utility classes are resolved into the same declaration model. Base
 utilities are projected into supported native style tokens; variant utilities such
 as `hover:`, `focus:`, and responsive prefixes are preserved in
 `variant_declarations`. Tailwind color opacity modifiers such as `/50` are
-preserved in the generated declarations and portable color tokens. Common
+preserved in the generated declarations and portable color tokens. Formatting
+and table utilities such as `box-*`, `box-decoration-*`, `isolate`,
+`isolation-auto`, `float-*`, `clear-*`, `align-*`, `table-*`,
+`border-collapse`, `border-separate`, `border-spacing-*`, and `caption-*` are
+projected into portable style tokens. Common
 visual-effect utilities such as `shadow-*`, `outline-*`, `cursor-*`,
 `pointer-events-*`, `select-*`, `aspect-*`, transform utilities such as
 `translate-*`, `scale-*`, `rotate-*`, `skew-*`, `origin-*`, `perspective-*`,

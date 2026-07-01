@@ -351,6 +351,9 @@ CSS declarations and projects the subset that native adapters can apply
 deterministically:
 
 - `display`
+- `boxSizing`, `boxDecorationBreak`, `isolation`
+- `float`, `clear`, `verticalAlign`
+- `tableLayout`, `borderCollapse`, `borderSpacing`, `captionSide`
 - `position`, `inset`, `top`, `right`, `bottom`, `left`, `zIndex`
 - `visibility`
 - `flexDirection`, `flexWrap`, `flex`, `flexBasis`, `flexGrow`,
@@ -402,6 +405,10 @@ both base and variant utilities.
 Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
 `outline-*`, `cursor-*`, `pointer-events-*`, `select-*`, and `aspect-*` project
 into the same declaration model.
+Common Tailwind formatting and table utilities such as `box-*`,
+`box-decoration-*`, `isolate`, `isolation-auto`, `float-*`, `clear-*`,
+`align-*`, `table-*`, `border-collapse`, `border-separate`,
+`border-spacing-*`, and `caption-*` project into the same declaration model.
 Common Tailwind transform utilities such as `translate-*`, `scale-*`,
 `rotate-*`, `skew-*`, `origin-*`, `perspective-*`, `backface-*`, and
 `transform-*` project into individual transform properties or the transform

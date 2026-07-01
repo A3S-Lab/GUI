@@ -11,6 +11,8 @@ pub struct PortableStyle {
     pub custom_properties: BTreeMap<String, String>,
     pub variant_declarations: BTreeMap<String, BTreeMap<String, String>>,
     pub display: Option<DisplayMode>,
+    pub box_sizing: Option<BoxSizing>,
+    pub box_decoration_break: Option<BoxDecorationBreak>,
     pub position: Option<PositionMode>,
     pub flex_direction: Option<Orientation>,
     pub flex_wrap: Option<FlexWrap>,
@@ -106,6 +108,14 @@ pub struct PortableStyle {
     pub overflow_y: Option<OverflowMode>,
     pub visibility: Option<VisibilityMode>,
     pub z_index: Option<i32>,
+    pub isolation: Option<IsolationMode>,
+    pub float: Option<FloatMode>,
+    pub clear: Option<ClearMode>,
+    pub vertical_align: Option<String>,
+    pub table_layout: Option<TableLayout>,
+    pub border_collapse: Option<BorderCollapse>,
+    pub border_spacing: Option<String>,
+    pub caption_side: Option<CaptionSide>,
     pub aspect_ratio: Option<String>,
     pub transform: Option<String>,
     pub translate: Option<String>,
@@ -193,6 +203,10 @@ impl PortableStyle {
         }
         match property.as_str() {
             "display" => self.display = parse_display(value_ref),
+            "box-sizing" => self.box_sizing = parse_box_sizing(value_ref),
+            "box-decoration-break" => {
+                self.box_decoration_break = parse_box_decoration_break(value_ref);
+            }
             "position" => self.position = parse_position(value_ref),
             "flex-direction" => self.flex_direction = parse_flex_direction(value_ref),
             "flex-wrap" => self.flex_wrap = parse_flex_wrap(value_ref),
@@ -354,6 +368,16 @@ impl PortableStyle {
             "overflow-y" => self.overflow_y = parse_overflow(value_ref),
             "visibility" => self.visibility = parse_visibility(value_ref),
             "z-index" => self.z_index = parse_z_index(value_ref),
+            "isolation" => self.isolation = parse_isolation(value_ref),
+            "float" => self.float = parse_float(value_ref),
+            "clear" => self.clear = parse_clear(value_ref),
+            "vertical-align" => self.vertical_align = parse_css_string_token(value_ref),
+            "table-layout" => self.table_layout = parse_table_layout(value_ref),
+            "border-collapse" => self.border_collapse = parse_border_collapse(value_ref),
+            "border-spacing" => {
+                self.border_spacing = self.resolve_tailwind_border_spacing(value_ref)
+            }
+            "caption-side" => self.caption_side = parse_caption_side(value_ref),
             "aspect-ratio" => self.aspect_ratio = parse_css_string_token(value_ref),
             "transform" => self.apply_transform_property(value_ref),
             "translate" => self.translate = self.resolve_tailwind_translate(value_ref),
@@ -580,6 +604,23 @@ impl PortableStyle {
         })
     }
 
+    fn resolve_tailwind_border_spacing(&self, value: &str) -> Option<String> {
+        if !is_tailwind_border_spacing_pipeline(value) {
+            return parse_css_string_token(value);
+        }
+        let x = self
+            .custom_properties
+            .get("--tw-border-spacing-x")
+            .map(String::as_str)
+            .unwrap_or("0");
+        let y = self
+            .custom_properties
+            .get("--tw-border-spacing-y")
+            .map(String::as_str)
+            .unwrap_or("0");
+        Some(format!("{x} {y}"))
+    }
+
     fn compose_tailwind_transform(&self, gpu: bool) -> Option<String> {
         let mut parts = Vec::new();
         if gpu {
@@ -804,6 +845,20 @@ pub enum DisplayMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum BoxSizing {
+    BorderBox,
+    ContentBox,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BoxDecorationBreak {
+    Slice,
+    Clone,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum PositionMode {
     Static,
     Relative,
@@ -1021,6 +1076,55 @@ pub enum VisibilityMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum IsolationMode {
+    Auto,
+    Isolate,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FloatMode {
+    Left,
+    Right,
+    InlineStart,
+    InlineEnd,
+    None,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ClearMode {
+    Left,
+    Right,
+    Both,
+    InlineStart,
+    InlineEnd,
+    None,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TableLayout {
+    Auto,
+    Fixed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BorderCollapse {
+    Collapse,
+    Separate,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CaptionSide {
+    Top,
+    Bottom,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum PointerEvents {
     Auto,
     None,
@@ -1201,6 +1305,22 @@ fn parse_display(value: &str) -> Option<DisplayMode> {
         "grid" => Some(DisplayMode::Grid),
         "inline-grid" => Some(DisplayMode::InlineGrid),
         "none" => Some(DisplayMode::None),
+        _ => None,
+    }
+}
+
+fn parse_box_sizing(value: &str) -> Option<BoxSizing> {
+    match value.trim() {
+        "border-box" => Some(BoxSizing::BorderBox),
+        "content-box" => Some(BoxSizing::ContentBox),
+        _ => None,
+    }
+}
+
+fn parse_box_decoration_break(value: &str) -> Option<BoxDecorationBreak> {
+    match value.trim() {
+        "slice" => Some(BoxDecorationBreak::Slice),
+        "clone" => Some(BoxDecorationBreak::Clone),
         _ => None,
     }
 }
@@ -1467,6 +1587,61 @@ fn parse_visibility(value: &str) -> Option<VisibilityMode> {
     }
 }
 
+fn parse_isolation(value: &str) -> Option<IsolationMode> {
+    match value.trim() {
+        "auto" => Some(IsolationMode::Auto),
+        "isolate" => Some(IsolationMode::Isolate),
+        _ => None,
+    }
+}
+
+fn parse_float(value: &str) -> Option<FloatMode> {
+    match value.trim() {
+        "left" => Some(FloatMode::Left),
+        "right" => Some(FloatMode::Right),
+        "inline-start" => Some(FloatMode::InlineStart),
+        "inline-end" => Some(FloatMode::InlineEnd),
+        "none" => Some(FloatMode::None),
+        _ => None,
+    }
+}
+
+fn parse_clear(value: &str) -> Option<ClearMode> {
+    match value.trim() {
+        "left" => Some(ClearMode::Left),
+        "right" => Some(ClearMode::Right),
+        "both" => Some(ClearMode::Both),
+        "inline-start" => Some(ClearMode::InlineStart),
+        "inline-end" => Some(ClearMode::InlineEnd),
+        "none" => Some(ClearMode::None),
+        _ => None,
+    }
+}
+
+fn parse_table_layout(value: &str) -> Option<TableLayout> {
+    match value.trim() {
+        "auto" => Some(TableLayout::Auto),
+        "fixed" => Some(TableLayout::Fixed),
+        _ => None,
+    }
+}
+
+fn parse_border_collapse(value: &str) -> Option<BorderCollapse> {
+    match value.trim() {
+        "collapse" => Some(BorderCollapse::Collapse),
+        "separate" => Some(BorderCollapse::Separate),
+        _ => None,
+    }
+}
+
+fn parse_caption_side(value: &str) -> Option<CaptionSide> {
+    match value.trim() {
+        "top" => Some(CaptionSide::Top),
+        "bottom" => Some(CaptionSide::Bottom),
+        _ => None,
+    }
+}
+
 fn parse_z_index(value: &str) -> Option<i32> {
     value.trim().parse::<i32>().ok()
 }
@@ -1509,6 +1684,10 @@ fn is_tailwind_translate_pipeline(value: &str) -> bool {
 
 fn is_tailwind_scale_pipeline(value: &str) -> bool {
     value.contains("var(--tw-scale-x)") || value.contains("var(--tw-scale-y)")
+}
+
+fn is_tailwind_border_spacing_pipeline(value: &str) -> bool {
+    value.contains("var(--tw-border-spacing-x)") || value.contains("var(--tw-border-spacing-y)")
 }
 
 fn is_tailwind_transform_pipeline(value: &str) -> bool {
@@ -2054,6 +2233,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.extend(interaction);
         return declarations;
     }
+    if let Some(formatting) = tailwind_formatting_declarations(class) {
+        declarations.extend(formatting);
+        return declarations;
+    }
     if let Some(transform) = tailwind_transform_declarations(class) {
         declarations.extend(transform);
         return declarations;
@@ -2462,6 +2645,114 @@ fn tailwind_prefixed_declaration(class: &str) -> Option<(String, String)> {
     } else {
         None
     }
+}
+
+fn tailwind_formatting_declarations(class: &str) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    let declaration = match class {
+        "box-border" => Some(("box-sizing", "border-box".to_string())),
+        "box-content" => Some(("box-sizing", "content-box".to_string())),
+        "box-decoration-slice" => Some(("box-decoration-break", "slice".to_string())),
+        "box-decoration-clone" => Some(("box-decoration-break", "clone".to_string())),
+        "isolate" => Some(("isolation", "isolate".to_string())),
+        "isolation-auto" => Some(("isolation", "auto".to_string())),
+        "float-right" => Some(("float", "right".to_string())),
+        "float-left" => Some(("float", "left".to_string())),
+        "float-start" => Some(("float", "inline-start".to_string())),
+        "float-end" => Some(("float", "inline-end".to_string())),
+        "float-none" => Some(("float", "none".to_string())),
+        "clear-right" => Some(("clear", "right".to_string())),
+        "clear-left" => Some(("clear", "left".to_string())),
+        "clear-both" => Some(("clear", "both".to_string())),
+        "clear-start" => Some(("clear", "inline-start".to_string())),
+        "clear-end" => Some(("clear", "inline-end".to_string())),
+        "clear-none" => Some(("clear", "none".to_string())),
+        "align-baseline" => Some(("vertical-align", "baseline".to_string())),
+        "align-top" => Some(("vertical-align", "top".to_string())),
+        "align-middle" => Some(("vertical-align", "middle".to_string())),
+        "align-bottom" => Some(("vertical-align", "bottom".to_string())),
+        "align-text-top" => Some(("vertical-align", "text-top".to_string())),
+        "align-text-bottom" => Some(("vertical-align", "text-bottom".to_string())),
+        "align-sub" => Some(("vertical-align", "sub".to_string())),
+        "align-super" => Some(("vertical-align", "super".to_string())),
+        "table-auto" => Some(("table-layout", "auto".to_string())),
+        "table-fixed" => Some(("table-layout", "fixed".to_string())),
+        "border-collapse" => Some(("border-collapse", "collapse".to_string())),
+        "border-separate" => Some(("border-collapse", "separate".to_string())),
+        "caption-top" => Some(("caption-side", "top".to_string())),
+        "caption-bottom" => Some(("caption-side", "bottom".to_string())),
+        _ => None,
+    };
+    if let Some((property, value)) = declaration {
+        declarations.insert(property.to_string(), value);
+        return Some(declarations);
+    }
+    if let Some(value) = class
+        .strip_prefix("align-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        declarations.insert(
+            "vertical-align".to_string(),
+            tailwind_arbitrary_value(value),
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("align-").and_then(tailwind_custom_var) {
+        declarations.insert("vertical-align".to_string(), value);
+        return Some(declarations);
+    }
+    if let Some((axis, value)) = tailwind_border_spacing_declaration(class) {
+        insert_tailwind_border_spacing_declarations(&mut declarations, axis, value);
+        return Some(declarations);
+    }
+    None
+}
+
+fn tailwind_border_spacing_declaration(class: &str) -> Option<(SpacingAxis, String)> {
+    let (axis, value) = if let Some(value) = class.strip_prefix("border-spacing-x-") {
+        (SpacingAxis::X, value)
+    } else if let Some(value) = class.strip_prefix("border-spacing-y-") {
+        (SpacingAxis::Y, value)
+    } else if let Some(value) = class.strip_prefix("border-spacing-") {
+        (SpacingAxis::Both, value)
+    } else {
+        return None;
+    };
+    Some((axis, tailwind_spacing_value(value)?))
+}
+
+#[derive(Debug, Clone, Copy)]
+enum SpacingAxis {
+    Both,
+    X,
+    Y,
+}
+
+fn insert_tailwind_border_spacing_declarations(
+    declarations: &mut BTreeMap<String, String>,
+    axis: SpacingAxis,
+    value: String,
+) {
+    match axis {
+        SpacingAxis::Both => {
+            declarations.insert("--tw-border-spacing-x".to_string(), value.clone());
+            declarations.insert("--tw-border-spacing-y".to_string(), value);
+        }
+        SpacingAxis::X => {
+            declarations.insert("--tw-border-spacing-x".to_string(), value);
+        }
+        SpacingAxis::Y => {
+            declarations.insert("--tw-border-spacing-y".to_string(), value);
+        }
+    }
+    declarations.insert(
+        "border-spacing".to_string(),
+        "var(--tw-border-spacing-x) var(--tw-border-spacing-y)".to_string(),
+    );
+}
+
+fn tailwind_spacing_value(value: &str) -> Option<String> {
+    tailwind_arbitrary_or_custom_var(value).or_else(|| tailwind_length(value).map(style_length_css))
 }
 
 fn tailwind_transform_declarations(class: &str) -> Option<BTreeMap<String, String>> {
@@ -4549,6 +4840,88 @@ mod tests {
         assert_eq!(
             style.declarations.get("line-height").map(String::as_str),
             Some("1.25")
+        );
+    }
+
+    #[test]
+    fn parses_css_formatting_and_table_layout_properties() {
+        let web = WebProps::new()
+            .style("boxSizing", "border-box")
+            .style("boxDecorationBreak", "clone")
+            .style("isolation", "isolate")
+            .style("float", "inline-start")
+            .style("clear", "both")
+            .style("verticalAlign", "text-top")
+            .style("tableLayout", "fixed")
+            .style("borderCollapse", "separate")
+            .style("borderSpacing", "4px 8px")
+            .style("captionSide", "bottom");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.box_sizing, Some(BoxSizing::BorderBox));
+        assert_eq!(style.box_decoration_break, Some(BoxDecorationBreak::Clone));
+        assert_eq!(style.isolation, Some(IsolationMode::Isolate));
+        assert_eq!(style.float, Some(FloatMode::InlineStart));
+        assert_eq!(style.clear, Some(ClearMode::Both));
+        assert_eq!(style.vertical_align.as_deref(), Some("text-top"));
+        assert_eq!(style.table_layout, Some(TableLayout::Fixed));
+        assert_eq!(style.border_collapse, Some(BorderCollapse::Separate));
+        assert_eq!(style.border_spacing.as_deref(), Some("4px 8px"));
+        assert_eq!(style.caption_side, Some(CaptionSide::Bottom));
+        assert!(!style.unsupported.contains_key("box-sizing"));
+        assert!(!style.unsupported.contains_key("table-layout"));
+    }
+
+    #[test]
+    fn parses_tailwind_formatting_and_table_layout_utilities() {
+        let web = WebProps::new().class_name(
+            "box-border box-decoration-clone isolate float-start clear-both \
+             align-text-bottom table-fixed border-separate border-spacing-x-2 \
+             border-spacing-y-4 caption-bottom hover:align-[4px] md:table-auto",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.box_sizing, Some(BoxSizing::BorderBox));
+        assert_eq!(style.box_decoration_break, Some(BoxDecorationBreak::Clone));
+        assert_eq!(style.isolation, Some(IsolationMode::Isolate));
+        assert_eq!(style.float, Some(FloatMode::InlineStart));
+        assert_eq!(style.clear, Some(ClearMode::Both));
+        assert_eq!(style.vertical_align.as_deref(), Some("text-bottom"));
+        assert_eq!(style.table_layout, Some(TableLayout::Fixed));
+        assert_eq!(style.border_collapse, Some(BorderCollapse::Separate));
+        assert_eq!(style.border_spacing.as_deref(), Some("8px 16px"));
+        assert_eq!(style.caption_side, Some(CaptionSide::Bottom));
+        assert_eq!(
+            style
+                .custom_properties
+                .get("--tw-border-spacing-x")
+                .map(String::as_str),
+            Some("8px")
+        );
+        assert_eq!(
+            style
+                .custom_properties
+                .get("--tw-border-spacing-y")
+                .map(String::as_str),
+            Some("16px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("vertical-align"))
+                .map(String::as_str),
+            Some("4px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("table-layout"))
+                .map(String::as_str),
+            Some("auto")
         );
     }
 
