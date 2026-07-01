@@ -377,6 +377,7 @@ deterministically:
 - `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
   `backgroundSize`, `backgroundRepeat`, `backgroundAttachment`,
   `backgroundOrigin`, `backgroundClip`, `backgroundBlendMode`
+- `clipPath`, `mask*`, and `maskBorder*`
 - `objectFit`, `objectPosition`, `listStyleType`, `listStylePosition`,
   `columns`, `columnCount`, `columnWidth`
 - `fontFamily`, `fontStyle`, `fontSize`, `fontWeight`, `lineHeight`,
@@ -419,7 +420,8 @@ RGBA tokens when possible. Tailwind color opacity modifiers are preserved for
 both base and variant utilities.
 Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
 `outline-*`, `cursor-*`, `pointer-events-*`, `select-*`, `aspect-*`,
-`mix-blend-*`, and `bg-blend-*` project into the same declaration model.
+`mix-blend-*`, `bg-blend-*`, and `mask-*` project into the same declaration
+model.
 Common Tailwind formatting and table utilities such as `box-*`,
 `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`, `clear-*`,
 `align-*`, `table-*`, `border-collapse`, `border-separate`,

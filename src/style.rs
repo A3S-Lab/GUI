@@ -89,6 +89,24 @@ pub struct PortableStyle {
     pub background_origin: Option<BackgroundBox>,
     pub background_clip: Option<BackgroundBox>,
     pub background_blend_mode: Option<String>,
+    pub clip_path: Option<String>,
+    pub mask: Option<String>,
+    pub mask_image: Option<String>,
+    pub mask_mode: Option<String>,
+    pub mask_repeat: Option<String>,
+    pub mask_position: Option<String>,
+    pub mask_size: Option<String>,
+    pub mask_origin: Option<String>,
+    pub mask_clip: Option<String>,
+    pub mask_composite: Option<String>,
+    pub mask_type: Option<String>,
+    pub mask_border: Option<String>,
+    pub mask_border_source: Option<String>,
+    pub mask_border_mode: Option<String>,
+    pub mask_border_slice: Option<String>,
+    pub mask_border_width: Option<String>,
+    pub mask_border_outset: Option<String>,
+    pub mask_border_repeat: Option<String>,
     pub border_radius: Option<StyleLength>,
     pub border_radii: CornerRadii,
     pub logical_border_radii: LogicalCornerRadii,
@@ -575,6 +593,50 @@ impl PortableStyle {
             "background-clip" => self.background_clip = parse_background_box(value_ref),
             "background-blend-mode" => {
                 self.background_blend_mode = parse_css_string_token(value_ref);
+            }
+            "clip-path" => self.clip_path = parse_css_string_token(value_ref),
+            "mask" | "-webkit-mask" => self.mask = parse_css_string_token(value_ref),
+            "mask-image" | "-webkit-mask-image" => {
+                self.mask_image = parse_css_string_token(value_ref);
+            }
+            "mask-mode" | "-webkit-mask-mode" => {
+                self.mask_mode = parse_css_string_token(value_ref);
+            }
+            "mask-repeat" | "-webkit-mask-repeat" => {
+                self.mask_repeat = parse_css_string_token(value_ref);
+            }
+            "mask-position" | "-webkit-mask-position" => {
+                self.mask_position = parse_css_string_token(value_ref);
+            }
+            "mask-size" | "-webkit-mask-size" => {
+                self.mask_size = parse_css_string_token(value_ref);
+            }
+            "mask-origin" | "-webkit-mask-origin" => {
+                self.mask_origin = parse_css_string_token(value_ref);
+            }
+            "mask-clip" | "-webkit-mask-clip" => {
+                self.mask_clip = parse_css_string_token(value_ref);
+            }
+            "mask-composite" | "-webkit-mask-composite" => {
+                self.mask_composite = parse_css_string_token(value_ref);
+            }
+            "mask-type" => self.mask_type = parse_css_string_token(value_ref),
+            "mask-border" => self.mask_border = parse_css_string_token(value_ref),
+            "mask-border-source" => {
+                self.mask_border_source = parse_css_string_token(value_ref);
+            }
+            "mask-border-mode" => self.mask_border_mode = parse_css_string_token(value_ref),
+            "mask-border-slice" => {
+                self.mask_border_slice = parse_css_string_token(value_ref);
+            }
+            "mask-border-width" => {
+                self.mask_border_width = parse_css_string_token(value_ref);
+            }
+            "mask-border-outset" => {
+                self.mask_border_outset = parse_css_string_token(value_ref);
+            }
+            "mask-border-repeat" => {
+                self.mask_border_repeat = parse_css_string_token(value_ref);
             }
             "border-radius" => {
                 self.border_radius = parse_length(value_ref);
@@ -3209,6 +3271,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
         declarations.insert(property, value);
         return declarations;
     }
+    if let Some((property, value)) = tailwind_mask_declaration(class) {
+        declarations.insert(property, value);
+        return declarations;
+    }
     let declaration = match class {
         "inline" => Some(("display", "inline".to_string())),
         "flex" | "inline-flex" => Some(("display", "flex".to_string())),
@@ -4301,6 +4367,127 @@ fn tailwind_blend_mode_value(value: &str, include_plus_modes: bool) -> Option<St
             | "luminosity"
     ) || (include_plus_modes && matches!(value, "plus-darker" | "plus-lighter"));
     known.then(|| value.to_string())
+}
+
+fn tailwind_mask_declaration(class: &str) -> Option<(String, String)> {
+    if let Some(value) = class
+        .strip_prefix("mask-[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        if let Some((property, value)) = tailwind_mask_arbitrary_property(value) {
+            return Some((property, value));
+        }
+        return Some(("mask-image".to_string(), tailwind_arbitrary_value(value)));
+    }
+    if let Some(value) = class.strip_prefix("mask-").and_then(tailwind_custom_var) {
+        return Some(("mask-image".to_string(), value));
+    }
+    if let Some(value) = tailwind_mask_prefixed_value(class, "mask-image-") {
+        return Some(("mask-image".to_string(), value));
+    }
+    if let Some(value) = tailwind_mask_prefixed_value(class, "mask-size-") {
+        return Some(("mask-size".to_string(), value));
+    }
+    if let Some(value) = tailwind_mask_prefixed_value(class, "mask-position-") {
+        return Some(("mask-position".to_string(), value));
+    }
+    if let Some(value) = tailwind_mask_prefixed_value(class, "mask-repeat-") {
+        return Some(("mask-repeat".to_string(), value));
+    }
+    if let Some(value) = tailwind_mask_prefixed_value(class, "mask-origin-") {
+        return Some(("mask-origin".to_string(), value));
+    }
+    if let Some(value) = tailwind_mask_prefixed_value(class, "mask-clip-") {
+        return Some(("mask-clip".to_string(), value));
+    }
+    if let Some(value) = tailwind_mask_prefixed_value(class, "mask-composite-") {
+        return Some(("mask-composite".to_string(), value));
+    }
+    if let Some(value) = tailwind_mask_prefixed_value(class, "mask-mode-") {
+        return Some(("mask-mode".to_string(), value));
+    }
+    if let Some(value) = tailwind_mask_prefixed_value(class, "mask-type-") {
+        return Some(("mask-type".to_string(), value));
+    }
+    if let Some(value) = tailwind_mask_prefixed_value(class, "mask-border-") {
+        return Some(("mask-border".to_string(), value));
+    }
+
+    let declaration = match class {
+        "mask-none" => Some(("mask-image", "none")),
+        "mask-alpha" => Some(("mask-mode", "alpha")),
+        "mask-luminance" => Some(("mask-mode", "luminance")),
+        "mask-match" => Some(("mask-mode", "match-source")),
+        "mask-type-alpha" => Some(("mask-type", "alpha")),
+        "mask-type-luminance" => Some(("mask-type", "luminance")),
+        "mask-auto" => Some(("mask-size", "auto")),
+        "mask-cover" => Some(("mask-size", "cover")),
+        "mask-contain" => Some(("mask-size", "contain")),
+        "mask-repeat" => Some(("mask-repeat", "repeat")),
+        "mask-no-repeat" => Some(("mask-repeat", "no-repeat")),
+        "mask-repeat-x" => Some(("mask-repeat", "repeat-x")),
+        "mask-repeat-y" => Some(("mask-repeat", "repeat-y")),
+        "mask-repeat-space" => Some(("mask-repeat", "space")),
+        "mask-repeat-round" => Some(("mask-repeat", "round")),
+        "mask-center" => Some(("mask-position", "center")),
+        "mask-top" => Some(("mask-position", "top")),
+        "mask-right" => Some(("mask-position", "right")),
+        "mask-bottom" => Some(("mask-position", "bottom")),
+        "mask-left" => Some(("mask-position", "left")),
+        "mask-top-left" | "mask-left-top" => Some(("mask-position", "top left")),
+        "mask-top-right" | "mask-right-top" => Some(("mask-position", "top right")),
+        "mask-bottom-right" | "mask-right-bottom" => Some(("mask-position", "bottom right")),
+        "mask-bottom-left" | "mask-left-bottom" => Some(("mask-position", "bottom left")),
+        "mask-origin-border" => Some(("mask-origin", "border-box")),
+        "mask-origin-padding" => Some(("mask-origin", "padding-box")),
+        "mask-origin-content" => Some(("mask-origin", "content-box")),
+        "mask-origin-fill" => Some(("mask-origin", "fill-box")),
+        "mask-origin-stroke" => Some(("mask-origin", "stroke-box")),
+        "mask-origin-view" => Some(("mask-origin", "view-box")),
+        "mask-clip-border" => Some(("mask-clip", "border-box")),
+        "mask-clip-padding" => Some(("mask-clip", "padding-box")),
+        "mask-clip-content" => Some(("mask-clip", "content-box")),
+        "mask-clip-fill" => Some(("mask-clip", "fill-box")),
+        "mask-clip-stroke" => Some(("mask-clip", "stroke-box")),
+        "mask-clip-view" => Some(("mask-clip", "view-box")),
+        "mask-no-clip" => Some(("mask-clip", "no-clip")),
+        "mask-add" => Some(("mask-composite", "add")),
+        "mask-subtract" => Some(("mask-composite", "subtract")),
+        "mask-intersect" => Some(("mask-composite", "intersect")),
+        "mask-exclude" => Some(("mask-composite", "exclude")),
+        _ => None,
+    }?;
+    Some((declaration.0.to_string(), declaration.1.to_string()))
+}
+
+fn tailwind_mask_arbitrary_property(value: &str) -> Option<(String, String)> {
+    let (name, value) = value.split_once(':')?;
+    let property = match name {
+        "image" => "mask-image",
+        "mode" => "mask-mode",
+        "repeat" => "mask-repeat",
+        "position" => "mask-position",
+        "size" => "mask-size",
+        "origin" => "mask-origin",
+        "clip" => "mask-clip",
+        "composite" => "mask-composite",
+        "type" => "mask-type",
+        "border" => "mask-border",
+        "border-source" => "mask-border-source",
+        "border-mode" => "mask-border-mode",
+        "border-slice" => "mask-border-slice",
+        "border-width" => "mask-border-width",
+        "border-outset" => "mask-border-outset",
+        "border-repeat" => "mask-border-repeat",
+        _ => return None,
+    };
+    Some((property.to_string(), tailwind_arbitrary_value(value)))
+}
+
+fn tailwind_mask_prefixed_value(class: &str, prefix: &str) -> Option<String> {
+    class
+        .strip_prefix(prefix)
+        .and_then(tailwind_arbitrary_or_custom_var)
 }
 
 fn tailwind_filter_component_declaration(class: &str, prefix: &str) -> Option<(String, String)> {
@@ -7039,6 +7226,116 @@ mod tests {
                 .and_then(|styles| styles.get("mix-blend-mode"))
                 .map(String::as_str),
             Some("var(--blend-mode)")
+        );
+    }
+
+    #[test]
+    fn parses_css_masking_properties() {
+        let web = WebProps::new()
+            .style("clipPath", "circle(50% at center)")
+            .style("mask", "url(mask.svg) center / contain no-repeat")
+            .style("-webkitMaskImage", "linear-gradient(black, transparent)")
+            .style("maskMode", "luminance")
+            .style("maskRepeat", "no-repeat")
+            .style("maskPosition", "center")
+            .style("maskSize", "cover")
+            .style("maskOrigin", "border-box")
+            .style("maskClip", "content-box")
+            .style("maskComposite", "exclude")
+            .style("maskType", "alpha")
+            .style("maskBorder", "url(border.svg) 30 fill / 10px")
+            .style("maskBorderSource", "url(border.svg)")
+            .style("maskBorderMode", "luminance")
+            .style("maskBorderSlice", "30 fill")
+            .style("maskBorderWidth", "10px")
+            .style("maskBorderOutset", "2px")
+            .style("maskBorderRepeat", "round");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.clip_path.as_deref(), Some("circle(50% at center)"));
+        assert_eq!(
+            style.mask.as_deref(),
+            Some("url(mask.svg) center / contain no-repeat")
+        );
+        assert_eq!(
+            style.mask_image.as_deref(),
+            Some("linear-gradient(black, transparent)")
+        );
+        assert_eq!(style.mask_mode.as_deref(), Some("luminance"));
+        assert_eq!(style.mask_repeat.as_deref(), Some("no-repeat"));
+        assert_eq!(style.mask_position.as_deref(), Some("center"));
+        assert_eq!(style.mask_size.as_deref(), Some("cover"));
+        assert_eq!(style.mask_origin.as_deref(), Some("border-box"));
+        assert_eq!(style.mask_clip.as_deref(), Some("content-box"));
+        assert_eq!(style.mask_composite.as_deref(), Some("exclude"));
+        assert_eq!(style.mask_type.as_deref(), Some("alpha"));
+        assert_eq!(
+            style.mask_border.as_deref(),
+            Some("url(border.svg) 30 fill / 10px")
+        );
+        assert_eq!(style.mask_border_source.as_deref(), Some("url(border.svg)"));
+        assert_eq!(style.mask_border_mode.as_deref(), Some("luminance"));
+        assert_eq!(style.mask_border_slice.as_deref(), Some("30 fill"));
+        assert_eq!(style.mask_border_width.as_deref(), Some("10px"));
+        assert_eq!(style.mask_border_outset.as_deref(), Some("2px"));
+        assert_eq!(style.mask_border_repeat.as_deref(), Some("round"));
+        assert!(!style.unsupported.contains_key("clip-path"));
+        assert!(!style.unsupported.contains_key("-webkit-mask-image"));
+        assert!(!style.unsupported.contains_key("mask-border"));
+    }
+
+    #[test]
+    fn parses_tailwind_mask_utilities() {
+        let web = WebProps::new().class_name(
+            "mask-[url(/mask.svg)] mask-cover mask-no-repeat mask-center \
+             mask-origin-content mask-clip-padding mask-add mask-alpha \
+             mask-type-luminance hover:mask-size-[50%_50%] \
+             md:mask-[position:30%_50%,70%_50%] focus:mask-(--mask-image)",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.mask_image.as_deref(), Some("url(/mask.svg)"));
+        assert_eq!(style.mask_size.as_deref(), Some("cover"));
+        assert_eq!(style.mask_repeat.as_deref(), Some("no-repeat"));
+        assert_eq!(style.mask_position.as_deref(), Some("center"));
+        assert_eq!(style.mask_origin.as_deref(), Some("content-box"));
+        assert_eq!(style.mask_clip.as_deref(), Some("padding-box"));
+        assert_eq!(style.mask_composite.as_deref(), Some("add"));
+        assert_eq!(style.mask_mode.as_deref(), Some("alpha"));
+        assert_eq!(style.mask_type.as_deref(), Some("luminance"));
+        assert_eq!(
+            style.declarations.get("mask-image").map(String::as_str),
+            Some("url(/mask.svg)")
+        );
+        assert_eq!(
+            style.declarations.get("mask-composite").map(String::as_str),
+            Some("add")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("mask-size"))
+                .map(String::as_str),
+            Some("50% 50%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("mask-position"))
+                .map(String::as_str),
+            Some("30% 50%,70% 50%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("mask-image"))
+                .map(String::as_str),
+            Some("var(--mask-image)")
         );
     }
 
