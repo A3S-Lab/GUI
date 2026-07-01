@@ -42,14 +42,14 @@ It normalizes property names into a declaration map, preserves CSS custom
 properties separately, and projects supported declarations into native style
 tokens. The current portable token set includes display, position, physical and
 logical inset, z-index, visibility, box sizing, box decoration break,
-isolation, float, clear, vertical alignment, table layout, border
+isolation, mix blend mode, float, clear, vertical alignment, table layout, border
 collapse/spacing, caption side, flex direction/wrap/item
 sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, sizing,
 gap/row-gap/column-gap, physical and logical spacing, uniform, physical-edge,
 and logical-edge border width/style/color, uniform, physical-corner, and
 logical-corner border radius, text color, background
-color/image/position/size/repeat/attachment/origin/clip, object fit/position,
+color/image/position/size/repeat/attachment/origin/clip/blend mode, object fit/position,
 list style, columns, font size, font weight, font family, font style, line
 height, letter spacing, text alignment, text transform, text indent, text
 wrapping, line clamp, SVG fill/stroke presentation properties, text decoration,
@@ -80,11 +80,12 @@ projected into portable style tokens. SVG presentation utilities such as
 `fill-*`, `stroke-*`, and `stroke-{width}` are projected into portable style
 tokens. Common
 visual-effect utilities such as `shadow-*`, `outline-*`, `cursor-*`,
-`pointer-events-*`, `select-*`, `aspect-*`, transform utilities such as
-`translate-*`, `scale-*`, `rotate-*`, `skew-*`, `origin-*`, `perspective-*`,
-and composable filter utilities such as `blur-*`, `brightness-*`, `contrast-*`,
-`drop-shadow-*`, `grayscale`, `hue-rotate-*`, `invert-*`, `saturate-*`,
-`sepia-*`, and `backdrop-*` are projected into the same declaration model. Core
+`pointer-events-*`, `select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`,
+transform utilities such as `translate-*`, `scale-*`, `rotate-*`, `skew-*`,
+`origin-*`, `perspective-*`, and composable filter utilities such as `blur-*`,
+`brightness-*`, `contrast-*`, `drop-shadow-*`, `grayscale`, `hue-rotate-*`,
+`invert-*`, `saturate-*`, `sepia-*`, and `backdrop-*` are projected into the
+same declaration model. Core
 CSS Grid utilities such as `grid-cols-*`, `grid-rows-*`, `auto-cols-*`,
 `auto-rows-*`, `grid-flow-*`, `col-*`, and `row-*` are also projected into
 portable style tokens. Flex item and box-alignment utilities such as `flex-*`,

@@ -96,7 +96,7 @@ pub use react_aria::{AriaComponent, AriaElement, AriaProps, ReactAriaMapper};
 pub use renderer::Renderer;
 pub use runtime::GuiRuntime;
 pub use style::{
-    AlignItems, BackfaceVisibility, BackgroundAttachment, BackgroundBox, BorderCollapse,
+    AlignItems, BackfaceVisibility, BackgroundAttachment, BackgroundBox, BlendMode, BorderCollapse,
     BorderStyle, BoxDecorationBreak, BoxSizing, CaptionSide, ClearMode, CornerRadii, CornerRadius,
     DisplayMode, EdgeBorderStyles, EdgeColors, EdgeInsets, FillRule, FlexWrap, FloatMode,
     FontStyle, FontWeight, GridAutoFlow, HyphensMode, IsolationMode, JustifyContent,

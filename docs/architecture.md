@@ -357,7 +357,7 @@ CSS declarations and projects the subset that native adapters can apply
 deterministically:
 
 - `display`
-- `boxSizing`, `boxDecorationBreak`, `isolation`
+- `boxSizing`, `boxDecorationBreak`, `isolation`, `mixBlendMode`
 - `float`, `clear`, `verticalAlign`
 - `tableLayout`, `borderCollapse`, `borderSpacing`, `captionSide`
 - `position`, `inset`, `insetBlock*`, `insetInline*`, `start`, `end`,
@@ -376,7 +376,7 @@ deterministically:
   `borderColor`, uniform, physical-corner, and logical-corner `borderRadius`
 - `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
   `backgroundSize`, `backgroundRepeat`, `backgroundAttachment`,
-  `backgroundOrigin`, `backgroundClip`
+  `backgroundOrigin`, `backgroundClip`, `backgroundBlendMode`
 - `objectFit`, `objectPosition`, `listStyleType`, `listStylePosition`,
   `columns`, `columnCount`, `columnWidth`
 - `fontFamily`, `fontStyle`, `fontSize`, `fontWeight`, `lineHeight`,
@@ -418,8 +418,8 @@ CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
 RGBA tokens when possible. Tailwind color opacity modifiers are preserved for
 both base and variant utilities.
 Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
-`outline-*`, `cursor-*`, `pointer-events-*`, `select-*`, and `aspect-*` project
-into the same declaration model.
+`outline-*`, `cursor-*`, `pointer-events-*`, `select-*`, `aspect-*`,
+`mix-blend-*`, and `bg-blend-*` project into the same declaration model.
 Common Tailwind formatting and table utilities such as `box-*`,
 `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`, `clear-*`,
 `align-*`, `table-*`, `border-collapse`, `border-separate`,

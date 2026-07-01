@@ -88,6 +88,7 @@ pub struct PortableStyle {
     pub background_attachment: Option<BackgroundAttachment>,
     pub background_origin: Option<BackgroundBox>,
     pub background_clip: Option<BackgroundBox>,
+    pub background_blend_mode: Option<String>,
     pub border_radius: Option<StyleLength>,
     pub border_radii: CornerRadii,
     pub logical_border_radii: LogicalCornerRadii,
@@ -143,6 +144,7 @@ pub struct PortableStyle {
     pub visibility: Option<VisibilityMode>,
     pub z_index: Option<i32>,
     pub isolation: Option<IsolationMode>,
+    pub mix_blend_mode: Option<BlendMode>,
     pub float: Option<FloatMode>,
     pub clear: Option<ClearMode>,
     pub vertical_align: Option<String>,
@@ -571,6 +573,9 @@ impl PortableStyle {
             }
             "background-origin" => self.background_origin = parse_background_box(value_ref),
             "background-clip" => self.background_clip = parse_background_box(value_ref),
+            "background-blend-mode" => {
+                self.background_blend_mode = parse_css_string_token(value_ref);
+            }
             "border-radius" => {
                 self.border_radius = parse_length(value_ref);
                 self.border_radii = parse_corner_radii(value_ref);
@@ -668,6 +673,7 @@ impl PortableStyle {
             "visibility" => self.visibility = parse_visibility(value_ref),
             "z-index" => self.z_index = parse_z_index(value_ref),
             "isolation" => self.isolation = parse_isolation(value_ref),
+            "mix-blend-mode" => self.mix_blend_mode = parse_blend_mode(value_ref),
             "float" => self.float = parse_float(value_ref),
             "clear" => self.clear = parse_clear(value_ref),
             "vertical-align" => self.vertical_align = parse_css_string_token(value_ref),
@@ -1445,6 +1451,29 @@ pub enum VisibilityMode {
 pub enum IsolationMode {
     Auto,
     Isolate,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BlendMode {
+    Normal,
+    Multiply,
+    Screen,
+    Overlay,
+    Darken,
+    Lighten,
+    ColorDodge,
+    ColorBurn,
+    HardLight,
+    SoftLight,
+    Difference,
+    Exclusion,
+    Hue,
+    Saturation,
+    Color,
+    Luminosity,
+    PlusDarker,
+    PlusLighter,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2324,6 +2353,30 @@ fn parse_isolation(value: &str) -> Option<IsolationMode> {
     }
 }
 
+fn parse_blend_mode(value: &str) -> Option<BlendMode> {
+    match value.trim() {
+        "normal" => Some(BlendMode::Normal),
+        "multiply" => Some(BlendMode::Multiply),
+        "screen" => Some(BlendMode::Screen),
+        "overlay" => Some(BlendMode::Overlay),
+        "darken" => Some(BlendMode::Darken),
+        "lighten" => Some(BlendMode::Lighten),
+        "color-dodge" => Some(BlendMode::ColorDodge),
+        "color-burn" => Some(BlendMode::ColorBurn),
+        "hard-light" => Some(BlendMode::HardLight),
+        "soft-light" => Some(BlendMode::SoftLight),
+        "difference" => Some(BlendMode::Difference),
+        "exclusion" => Some(BlendMode::Exclusion),
+        "hue" => Some(BlendMode::Hue),
+        "saturation" => Some(BlendMode::Saturation),
+        "color" => Some(BlendMode::Color),
+        "luminosity" => Some(BlendMode::Luminosity),
+        "plus-darker" => Some(BlendMode::PlusDarker),
+        "plus-lighter" => Some(BlendMode::PlusLighter),
+        _ => None,
+    }
+}
+
 fn parse_float(value: &str) -> Option<FloatMode> {
     match value.trim() {
         "left" => Some(FloatMode::Left),
@@ -3150,6 +3203,10 @@ fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
     }
     if let Some(backdrop_filter) = tailwind_backdrop_filter_declarations(class) {
         declarations.extend(backdrop_filter);
+        return declarations;
+    }
+    if let Some((property, value)) = tailwind_blend_declaration(class) {
+        declarations.insert(property, value);
         return declarations;
     }
     let declaration = match class {
@@ -4206,6 +4263,44 @@ fn tailwind_backdrop_filter_declarations(class: &str) -> Option<BTreeMap<String,
         return Some(declarations);
     }
     None
+}
+
+fn tailwind_blend_declaration(class: &str) -> Option<(String, String)> {
+    if let Some(value) = class.strip_prefix("mix-blend-") {
+        return tailwind_blend_mode_value(value, true)
+            .map(|value| ("mix-blend-mode".to_string(), value));
+    }
+    if let Some(value) = class.strip_prefix("bg-blend-") {
+        return tailwind_blend_mode_value(value, false)
+            .map(|value| ("background-blend-mode".to_string(), value));
+    }
+    None
+}
+
+fn tailwind_blend_mode_value(value: &str, include_plus_modes: bool) -> Option<String> {
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    let known = matches!(
+        value,
+        "normal"
+            | "multiply"
+            | "screen"
+            | "overlay"
+            | "darken"
+            | "lighten"
+            | "color-dodge"
+            | "color-burn"
+            | "hard-light"
+            | "soft-light"
+            | "difference"
+            | "exclusion"
+            | "hue"
+            | "saturation"
+            | "color"
+            | "luminosity"
+    ) || (include_plus_modes && matches!(value, "plus-darker" | "plus-lighter"));
+    known.then(|| value.to_string())
 }
 
 fn tailwind_filter_component_declaration(class: &str, prefix: &str) -> Option<(String, String)> {
@@ -6868,6 +6963,82 @@ mod tests {
                 .and_then(|styles| styles.get("table-layout"))
                 .map(String::as_str),
             Some("auto")
+        );
+    }
+
+    #[test]
+    fn parses_css_blend_mode_properties() {
+        let web = WebProps::new()
+            .style("mixBlendMode", "plus-lighter")
+            .style("backgroundBlendMode", "multiply, screen");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.mix_blend_mode, Some(BlendMode::PlusLighter));
+        assert_eq!(
+            style.background_blend_mode.as_deref(),
+            Some("multiply, screen")
+        );
+        assert_eq!(
+            style.declarations.get("mix-blend-mode").map(String::as_str),
+            Some("plus-lighter")
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("background-blend-mode")
+                .map(String::as_str),
+            Some("multiply, screen")
+        );
+        assert!(!style.unsupported.contains_key("mix-blend-mode"));
+        assert!(!style.unsupported.contains_key("background-blend-mode"));
+    }
+
+    #[test]
+    fn parses_tailwind_blend_mode_utilities() {
+        let web = WebProps::new().class_name(
+            "mix-blend-color-dodge bg-blend-overlay hover:mix-blend-plus-lighter \
+             md:bg-blend-[multiply,_screen] focus:mix-blend-(--blend-mode)",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.mix_blend_mode, Some(BlendMode::ColorDodge));
+        assert_eq!(style.background_blend_mode.as_deref(), Some("overlay"));
+        assert_eq!(
+            style.declarations.get("mix-blend-mode").map(String::as_str),
+            Some("color-dodge")
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("background-blend-mode")
+                .map(String::as_str),
+            Some("overlay")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("mix-blend-mode"))
+                .map(String::as_str),
+            Some("plus-lighter")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("background-blend-mode"))
+                .map(String::as_str),
+            Some("multiply, screen")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("mix-blend-mode"))
+                .map(String::as_str),
+            Some("var(--blend-mode)")
         );
     }
 
