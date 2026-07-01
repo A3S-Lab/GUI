@@ -74,6 +74,7 @@ whitespace collapse, word breaking, hyphen handling, overflow, opacity, aspect r
 rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
 perspective, backface visibility, filter, filter function components, backdrop
 filter, backdrop filter function components, transition, animation,
+scroll-driven animation timelines and ranges,
 will-change, color scheme, forced color adjustment, field sizing, appearance,
 accent color, caret color, resize, scroll behavior, physical and logical scroll
 margin/padding, scroll snap, scrollbar gutter/width/color, overscroll behavior,
@@ -147,7 +148,9 @@ Background, object, list, columns, and fragmentation utilities such as `bg-*`,
 properties such as `image-rendering` and `shape-outside`, are projected into
 portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
-`delay-*`, `ease-*`, `animate-*`, `will-change-*`, `appearance-*`,
+`delay-*`, `ease-*`, `animate-*`, arbitrary scroll-driven animation
+properties such as `animation-timeline`, `scroll-timeline`, and
+`view-timeline`, `will-change-*`, `appearance-*`,
 `scheme-*`, `forced-color-adjust-*`, `field-sizing-*`, `accent-*`,
 `caret-*`, `resize-*`, `scroll-*`, `snap-*`, `scrollbar-*`,
 `scrollbar-gutter-*`, `scrollbar-thumb-*`, `scrollbar-track-*`,

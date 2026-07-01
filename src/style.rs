@@ -324,6 +324,10 @@ pub struct PortableStyle {
     pub animation_direction: Option<String>,
     pub animation_fill_mode: Option<String>,
     pub animation_play_state: Option<String>,
+    pub animation_timeline: Option<String>,
+    pub animation_range: Option<String>,
+    pub animation_range_start: Option<String>,
+    pub animation_range_end: Option<String>,
     pub will_change: Option<String>,
     pub color_scheme: Option<String>,
     pub forced_color_adjust: Option<String>,
@@ -331,6 +335,14 @@ pub struct PortableStyle {
     pub appearance: Option<String>,
     pub resize: Option<ResizeMode>,
     pub scroll_behavior: Option<ScrollBehavior>,
+    pub scroll_timeline: Option<String>,
+    pub scroll_timeline_name: Option<String>,
+    pub scroll_timeline_axis: Option<String>,
+    pub view_timeline: Option<String>,
+    pub view_timeline_name: Option<String>,
+    pub view_timeline_axis: Option<String>,
+    pub view_timeline_inset: Option<String>,
+    pub timeline_scope: Option<String>,
     pub scroll_snap_type: Option<String>,
     pub scroll_snap_align: Option<String>,
     pub scroll_snap_stop: Option<String>,
@@ -1093,6 +1105,12 @@ impl PortableStyle {
             "animation-direction" => self.animation_direction = parse_css_string_token(value_ref),
             "animation-fill-mode" => self.animation_fill_mode = parse_css_string_token(value_ref),
             "animation-play-state" => self.animation_play_state = parse_css_string_token(value_ref),
+            "animation-timeline" => self.animation_timeline = parse_css_string_token(value_ref),
+            "animation-range" => self.animation_range = parse_css_string_token(value_ref),
+            "animation-range-start" => {
+                self.animation_range_start = parse_css_string_token(value_ref);
+            }
+            "animation-range-end" => self.animation_range_end = parse_css_string_token(value_ref),
             "will-change" => self.will_change = parse_css_string_token(value_ref),
             "color-scheme" => self.color_scheme = parse_css_string_token(value_ref),
             "forced-color-adjust" => self.forced_color_adjust = parse_css_string_token(value_ref),
@@ -1100,6 +1118,18 @@ impl PortableStyle {
             "appearance" => self.appearance = parse_css_string_token(value_ref),
             "resize" => self.resize = parse_resize(value_ref),
             "scroll-behavior" => self.scroll_behavior = parse_scroll_behavior(value_ref),
+            "scroll-timeline" => self.scroll_timeline = parse_css_string_token(value_ref),
+            "scroll-timeline-name" => {
+                self.scroll_timeline_name = parse_css_string_token(value_ref);
+            }
+            "scroll-timeline-axis" => {
+                self.scroll_timeline_axis = parse_css_string_token(value_ref);
+            }
+            "view-timeline" => self.view_timeline = parse_css_string_token(value_ref),
+            "view-timeline-name" => self.view_timeline_name = parse_css_string_token(value_ref),
+            "view-timeline-axis" => self.view_timeline_axis = parse_css_string_token(value_ref),
+            "view-timeline-inset" => self.view_timeline_inset = parse_css_string_token(value_ref),
+            "timeline-scope" => self.timeline_scope = parse_css_string_token(value_ref),
             "scroll-snap-type" => self.scroll_snap_type = parse_css_string_token(value_ref),
             "scroll-snap-align" => self.scroll_snap_align = parse_css_string_token(value_ref),
             "scroll-snap-stop" => self.scroll_snap_stop = parse_css_string_token(value_ref),
@@ -10942,6 +10972,10 @@ mod tests {
             .style("animationDirection", "alternate")
             .style("animationFillMode", "both")
             .style("animationPlayState", "running")
+            .style("animationTimeline", "--gallery")
+            .style("animationRange", "entry 10% cover 80%")
+            .style("animationRangeStart", "entry 10%")
+            .style("animationRangeEnd", "cover 80%")
             .style("willChange", "transform")
             .style("colorScheme", "light dark")
             .style("forcedColorAdjust", "none")
@@ -10951,6 +10985,14 @@ mod tests {
             .style("caretColor", "currentColor")
             .style("resize", "horizontal")
             .style("scrollBehavior", "smooth")
+            .style("scrollTimeline", "--scroller inline")
+            .style("scrollTimelineName", "--scroller")
+            .style("scrollTimelineAxis", "inline")
+            .style("viewTimeline", "--card block")
+            .style("viewTimelineName", "--card")
+            .style("viewTimelineAxis", "block")
+            .style("viewTimelineInset", "10% 20%")
+            .style("timelineScope", "--gallery")
             .style("scrollMargin", "1px 2px")
             .style("scrollMarginTop", "12px")
             .style("scrollPadding", "4px 8px")
@@ -10991,6 +11033,13 @@ mod tests {
         assert_eq!(style.animation_direction.as_deref(), Some("alternate"));
         assert_eq!(style.animation_fill_mode.as_deref(), Some("both"));
         assert_eq!(style.animation_play_state.as_deref(), Some("running"));
+        assert_eq!(style.animation_timeline.as_deref(), Some("--gallery"));
+        assert_eq!(
+            style.animation_range.as_deref(),
+            Some("entry 10% cover 80%")
+        );
+        assert_eq!(style.animation_range_start.as_deref(), Some("entry 10%"));
+        assert_eq!(style.animation_range_end.as_deref(), Some("cover 80%"));
         assert_eq!(style.will_change.as_deref(), Some("transform"));
         assert_eq!(style.color_scheme.as_deref(), Some("light dark"));
         assert_eq!(style.forced_color_adjust.as_deref(), Some("none"));
@@ -11011,6 +11060,14 @@ mod tests {
         );
         assert_eq!(style.resize, Some(ResizeMode::Horizontal));
         assert_eq!(style.scroll_behavior, Some(ScrollBehavior::Smooth));
+        assert_eq!(style.scroll_timeline.as_deref(), Some("--scroller inline"));
+        assert_eq!(style.scroll_timeline_name.as_deref(), Some("--scroller"));
+        assert_eq!(style.scroll_timeline_axis.as_deref(), Some("inline"));
+        assert_eq!(style.view_timeline.as_deref(), Some("--card block"));
+        assert_eq!(style.view_timeline_name.as_deref(), Some("--card"));
+        assert_eq!(style.view_timeline_axis.as_deref(), Some("block"));
+        assert_eq!(style.view_timeline_inset.as_deref(), Some("10% 20%"));
+        assert_eq!(style.timeline_scope.as_deref(), Some("--gallery"));
         assert_eq!(style.scroll_margin.top, Some(StyleLength::Points(12.0)));
         assert_eq!(style.scroll_margin.right, Some(StyleLength::Points(2.0)));
         assert_eq!(style.scroll_margin.bottom, Some(StyleLength::Points(1.0)));
@@ -11032,6 +11089,18 @@ mod tests {
         );
         assert_eq!(style.touch_action.as_deref(), Some("pan-x pinch-zoom"));
         assert!(!style.unsupported.contains_key("transition-duration"));
+        assert!(!style.unsupported.contains_key("animation-timeline"));
+        assert!(!style.unsupported.contains_key("animation-range"));
+        assert!(!style.unsupported.contains_key("animation-range-start"));
+        assert!(!style.unsupported.contains_key("animation-range-end"));
+        assert!(!style.unsupported.contains_key("scroll-timeline"));
+        assert!(!style.unsupported.contains_key("scroll-timeline-name"));
+        assert!(!style.unsupported.contains_key("scroll-timeline-axis"));
+        assert!(!style.unsupported.contains_key("view-timeline"));
+        assert!(!style.unsupported.contains_key("view-timeline-name"));
+        assert!(!style.unsupported.contains_key("view-timeline-axis"));
+        assert!(!style.unsupported.contains_key("view-timeline-inset"));
+        assert!(!style.unsupported.contains_key("timeline-scope"));
         assert!(!style.unsupported.contains_key("scroll-snap-type"));
         assert!(!style.unsupported.contains_key("color-scheme"));
         assert!(!style.unsupported.contains_key("scrollbar-color"));
@@ -11043,13 +11112,22 @@ mod tests {
             "transition-opacity duration-300 delay-75 ease-in-out transition-discrete \
              animate-spin will-change-transform appearance-none accent-[#663399]/50 \
              caret-white resize-y scroll-smooth scroll-mt-4 scroll-px-2 \
+             [animation-timeline:--gallery] [animation-range:entry_10%_cover_80%] \
+             [animation-range-start:entry_10%] [animation-range-end:cover_80%] \
+             [scroll-timeline:--scroller_inline] [scroll-timeline-name:--scroller] \
+             [scroll-timeline-axis:inline] [view-timeline:--card_block] \
+             [view-timeline-name:--card] [view-timeline-axis:block] \
+             [view-timeline-inset:10%_20%] [timeline-scope:--gallery] \
              snap-x snap-mandatory snap-center snap-always overscroll-x-contain \
              overscroll-y-none touch-pan-x scheme-only-dark forced-color-adjust-none \
              field-sizing-content scrollbar-gutter-both scrollbar-thin \
              scrollbar-thumb-[#663399]/50 scrollbar-track-(--scrollbar-track) \
              md:duration-[1s] md:scheme-light-dark \
              hover:animate-[wiggle_1s_ease-in-out_infinite] hover:scrollbar-thumb-blue-500 \
-             focus:will-change-[opacity]",
+             focus:will-change-[opacity] md:[animation-timeline:view()] \
+             hover:[animation-range:cover_0%_contain_100%] \
+             focus:[scroll-timeline-axis:block] active:[view-timeline-inset:auto] \
+             before:[timeline-scope:none]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -11066,6 +11144,13 @@ mod tests {
         );
         assert_eq!(style.transition_behavior.as_deref(), Some("allow-discrete"));
         assert_eq!(style.animation.as_deref(), Some("spin 1s linear infinite"));
+        assert_eq!(style.animation_timeline.as_deref(), Some("--gallery"));
+        assert_eq!(
+            style.animation_range.as_deref(),
+            Some("entry 10% cover 80%")
+        );
+        assert_eq!(style.animation_range_start.as_deref(), Some("entry 10%"));
+        assert_eq!(style.animation_range_end.as_deref(), Some("cover 80%"));
         assert_eq!(style.will_change.as_deref(), Some("transform"));
         assert_eq!(style.color_scheme.as_deref(), Some("only dark"));
         assert_eq!(style.forced_color_adjust.as_deref(), Some("none"));
@@ -11091,6 +11176,14 @@ mod tests {
         );
         assert_eq!(style.resize, Some(ResizeMode::Vertical));
         assert_eq!(style.scroll_behavior, Some(ScrollBehavior::Smooth));
+        assert_eq!(style.scroll_timeline.as_deref(), Some("--scroller inline"));
+        assert_eq!(style.scroll_timeline_name.as_deref(), Some("--scroller"));
+        assert_eq!(style.scroll_timeline_axis.as_deref(), Some("inline"));
+        assert_eq!(style.view_timeline.as_deref(), Some("--card block"));
+        assert_eq!(style.view_timeline_name.as_deref(), Some("--card"));
+        assert_eq!(style.view_timeline_axis.as_deref(), Some("block"));
+        assert_eq!(style.view_timeline_inset.as_deref(), Some("10% 20%"));
+        assert_eq!(style.timeline_scope.as_deref(), Some("--gallery"));
         assert_eq!(style.scroll_margin.top, Some(StyleLength::Points(16.0)));
         assert_eq!(style.scroll_padding.left, Some(StyleLength::Points(8.0)));
         assert_eq!(style.scroll_padding.right, Some(StyleLength::Points(8.0)));
@@ -11150,6 +11243,46 @@ mod tests {
                 .and_then(|styles| styles.get("animation"))
                 .map(String::as_str),
             Some("wiggle 1s ease-in-out infinite")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("md")
+                .and_then(|styles| styles.get("animation-timeline"))
+                .map(String::as_str),
+            Some("view()")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("animation-range"))
+                .map(String::as_str),
+            Some("cover 0% contain 100%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("scroll-timeline-axis"))
+                .map(String::as_str),
+            Some("block")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("view-timeline-inset"))
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("timeline-scope"))
+                .map(String::as_str),
+            Some("none")
         );
         assert_eq!(
             style

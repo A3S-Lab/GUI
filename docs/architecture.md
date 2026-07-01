@@ -421,10 +421,12 @@ deterministically:
   grayscale, hue rotate, invert, saturate, and sepia
 - backdrop-filter function components such as backdrop blur, brightness,
   contrast, grayscale, hue rotate, invert, opacity, saturate, and sepia
-- `transition*`, `animation*`, `willChange`
+- `transition*`, `animation*`, `animationTimeline`, `animationRange*`,
+  `willChange`
 - `colorScheme`, `forcedColorAdjust`, `fieldSizing`, `appearance`,
   `accentColor`, `caretColor`, `resize`
-- `scrollBehavior`, physical and logical `scrollMargin*`,
+- `scrollBehavior`, `scrollTimeline*`, `viewTimeline*`, `timelineScope`,
+  physical and logical `scrollMargin*`,
   `scrollPadding*`, `scrollSnap*`, `scrollbarGutter`, `scrollbarWidth`,
   `scrollbarColor`, `overscrollBehavior*`, `touchAction`
 - `cursor`, `pointerEvents`, `userSelect`
@@ -513,7 +515,9 @@ Tailwind border width, color, and divide utilities such as `border-*`, `border-x
 project into physical, logical, or native child-divider tokens.
 Common Tailwind motion, interaction, and scroll utilities such as
 `transition-*`, `duration-*`, `delay-*`, `ease-*`, `animate-*`,
-`will-change-*`, `appearance-*`, `accent-*`, `caret-*`, `resize-*`,
+arbitrary scroll-driven animation properties such as `animation-timeline`,
+`scroll-timeline`, and `view-timeline`, `will-change-*`, `appearance-*`,
+`accent-*`, `caret-*`, `resize-*`,
 `scheme-*`, `forced-color-adjust-*`, `field-sizing-*`, `scroll-*`, `snap-*`,
 `scrollbar-*`, `scrollbar-gutter-*`, `scrollbar-thumb-*`,
 `scrollbar-track-*`, `overscroll-*`, and `touch-*` project into the same
