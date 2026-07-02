@@ -149,6 +149,7 @@ export interface WebCompatibleProps {
   isDisabled?: boolean;
   isRequired?: boolean;
   isInvalid?: boolean;
+  isReadOnly?: boolean;
   isSelected?: boolean;
   isChecked?: boolean;
   isExpanded?: boolean;

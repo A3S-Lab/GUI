@@ -51,6 +51,13 @@ pub struct CompiledProps {
     pub is_required: bool,
     #[serde(default, alias = "invalid", alias = "aria-invalid")]
     pub is_invalid: bool,
+    #[serde(
+        default,
+        alias = "readOnly",
+        alias = "readonly",
+        alias = "aria-readonly"
+    )]
+    pub is_read_only: bool,
     #[serde(default, alias = "selected", alias = "aria-selected")]
     pub is_selected: bool,
     #[serde(default, alias = "checked", alias = "aria-checked")]
@@ -91,6 +98,7 @@ impl Default for CompiledProps {
             is_disabled: false,
             is_required: false,
             is_invalid: false,
+            is_read_only: false,
             is_selected: false,
             is_checked: None,
             is_expanded: None,

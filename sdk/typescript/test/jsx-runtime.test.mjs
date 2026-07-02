@@ -654,6 +654,7 @@ test('web and aria state attributes normalize to native control props', () => {
     disabled: true,
     required: true,
     selected: true,
+    isReadOnly: true,
     value: 50,
     min: 0,
     max: 100,
@@ -668,6 +669,7 @@ test('web and aria state attributes normalize to native control props', () => {
   assert.equal(root.props.isRequired, true);
   assert.equal(root.props.isSelected, true);
   assert.equal(root.props.isInvalid, true);
+  assert.equal(root.props.isReadOnly, true);
   assert.equal(root.props.isExpanded, true);
   assert.equal(root.props.valueNumber, 50);
   assert.equal(root.props.minValue, 0);
@@ -747,6 +749,7 @@ test('intrinsic form control attributes preserve Web JSX names', () => {
     size: 32,
   }, 'email');
 
+  assert.equal(root.props.isReadOnly, true);
   assert.equal(root.props.attributes.readOnly, 'true');
   assert.equal(root.props.attributes.name, 'email');
   assert.equal(root.props.attributes.form, 'profile-form');

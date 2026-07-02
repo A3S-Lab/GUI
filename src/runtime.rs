@@ -129,6 +129,13 @@ impl<H: NativeHost> GuiRuntime<H> {
             });
         }
         let event = self.normalize_event_value(blueprint, route_blueprints, event);
+        if is_read_only_value_event(blueprint, event.kind) {
+            return Ok(HandledNativeEvent {
+                event,
+                invocation: None,
+                interaction_changes: Vec::new(),
+            });
+        }
         let interaction_start = self.interaction_state.changes().len();
         self.interaction_state.apply_event(blueprint, &event);
         self.record_interaction_revisions(interaction_start);
@@ -390,6 +397,19 @@ fn is_disabled_user_event(
         && !matches!(
             event,
             crate::event::NativeEventKind::Focus | crate::event::NativeEventKind::Blur
+        )
+}
+
+fn is_read_only_value_event(
+    blueprint: &NativeWidgetBlueprint,
+    event: crate::event::NativeEventKind,
+) -> bool {
+    blueprint.control_state.read_only
+        && matches!(
+            event,
+            crate::event::NativeEventKind::Change
+                | crate::event::NativeEventKind::SelectionChange
+                | crate::event::NativeEventKind::Toggle
         )
 }
 
@@ -1053,6 +1073,64 @@ mod tests {
         assert_eq!(handled.interaction_changes.len(), 1);
         assert!(runtime.interactions().node(root_id).unwrap().focused);
         assert_eq!(runtime.actions().invocations().len(), 1);
+    }
+
+    #[test]
+    fn runtime_suppresses_read_only_change_actions() {
+        let element = NativeElement::new("name", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Name")
+                .value("Ada")
+                .read_only(true)
+                .web(WebProps::new().on_change("setName")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setName");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("Grace"),
+            )
+            .unwrap();
+
+        assert!(handled.invocation.is_none());
+        assert!(handled.interaction_changes.is_empty());
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("Ada")
+        );
+        assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
+    fn runtime_suppresses_read_only_keyboard_toggle_normalization() {
+        let element = NativeElement::new("notifications", NativeRole::Switch).with_props(
+            NativeProps::new()
+                .label("Notifications")
+                .read_only(true)
+                .checked(false)
+                .web(WebProps::new().on_change("setNotifications")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setNotifications");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::KeyDown)
+                    .value(" "),
+            )
+            .unwrap();
+
+        assert!(handled.invocation.is_none());
+        assert_eq!(handled.event.kind, crate::event::NativeEventKind::Toggle);
+        assert!(handled.interaction_changes.is_empty());
+        assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(false));
+        assert!(runtime.actions().invocations().is_empty());
     }
 
     #[test]

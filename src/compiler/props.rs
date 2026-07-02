@@ -119,7 +119,7 @@ impl CompiledProps {
         props.is_disabled = self.is_disabled || semantic.disabled.unwrap_or(false);
         props.is_required = self.is_required || semantic.required.unwrap_or(false);
         props.is_invalid = self.is_invalid || semantic.invalid.unwrap_or(false);
-        props.is_read_only = semantic.read_only.unwrap_or(false);
+        props.is_read_only = self.is_read_only || semantic.read_only.unwrap_or(false);
         props.is_multiple = semantic.multiple.unwrap_or(false);
         props.auto_focus = semantic.auto_focus.unwrap_or(false);
         props.is_selected = self.is_selected || semantic.selected.unwrap_or(false);

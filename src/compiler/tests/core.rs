@@ -101,6 +101,7 @@ fn lowers_web_and_aria_attribute_aliases_to_native_control_state() {
               "aria-disabled": "true",
               "aria-required": "true",
               "aria-invalid": "spelling",
+              "aria-readonly": "true",
               "aria-selected": "true",
               "aria-expanded": "true",
               "aria-placeholder": "Volume",
@@ -154,6 +155,7 @@ fn lowers_web_and_aria_attribute_aliases_to_native_control_state() {
     assert!(native.props.disabled);
     assert!(native.props.required);
     assert!(native.props.invalid);
+    assert!(native.props.read_only);
     assert!(native.props.selected);
     assert_eq!(native.props.expanded, Some(true));
     assert_eq!(native.props.placeholder.as_deref(), Some("Volume"));

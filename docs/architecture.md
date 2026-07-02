@@ -246,6 +246,9 @@ multiple-selection mode, and host node ids are visible to protocol consumers.
 Disabled target widgets suppress user activation, value, selection, toggle, and
 keyboard events before interaction state or action routing, while focus and blur
 events can still update inspection state when a host reports them.
+Read-only target widgets suppress value, selection, and toggle events after
+keyboard activation normalization, while focus, blur, press, and explicit
+keyboard events can still route to actions.
 ListBox selection projection uses that multiple-selection flag to keep existing
 selected children in multi-select lists while single-select lists follow the
 latest selected child. Non-focus interaction state is revision-scoped: after a

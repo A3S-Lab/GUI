@@ -130,6 +130,9 @@ function normalizeProps(props, tag) {
       out.isDisabled = Boolean(value);
     } else if (name === 'required') {
       out.isRequired = Boolean(value);
+    } else if (name === 'readOnly') {
+      out.isReadOnly = Boolean(value);
+      attributes[name] = String(value);
     } else if (name === 'invalid') {
       out.isInvalid = Boolean(value);
     } else if (name === 'selected') {
@@ -146,6 +149,8 @@ function normalizeProps(props, tag) {
       out.isRequired = Boolean(value);
     } else if (name === 'isInvalid') {
       out.isInvalid = Boolean(value);
+    } else if (name === 'isReadOnly') {
+      out.isReadOnly = Boolean(value);
     } else if (name === 'isSelected') {
       out.isSelected = Boolean(value);
     } else if (name === 'isChecked') {
@@ -360,6 +365,8 @@ function applySemanticAttribute(out, name, value) {
     setBoolean(out, 'isRequired', value);
   } else if (name === 'aria-invalid') {
     setInvalid(out, value);
+  } else if (name === 'aria-readonly') {
+    setBoolean(out, 'isReadOnly', value);
   } else if (name === 'aria-selected') {
     setBoolean(out, 'isSelected', value);
   } else if (name === 'aria-checked') {

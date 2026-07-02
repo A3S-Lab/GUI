@@ -90,7 +90,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `data-*` | preserved as metadata for testing, analytics, and automation |
 | `disabled` / `required` / `checked` / `selected` | normalized to React Aria-style native control state |
 | `min` / `max` / `aria-valuenow` | normalized to native ranged control state |
-| `readOnly` / `multiple` / `autoFocus` | normalized to native control state; `multiple` is also exposed in rendered accessibility trees |
+| `readOnly` / `multiple` / `autoFocus` | normalized to native control state; read-only suppresses value-changing events, and `multiple` is exposed in rendered accessibility trees |
 | `autoComplete` / `inputMode` / `enterKeyHint` / `autoCapitalize` / `autoCorrect` / `virtualKeyboardPolicy` / `pattern` | normalized to native text-entry hints and preserved as metadata |
 | `minLength` / `maxLength` / `rows` / `cols` / `size` | normalized to native numeric control hints and preserved as metadata |
 | dialog `open` | normalized to native dialog visibility state when applicable |
@@ -395,6 +395,9 @@ items. Keyboard activation is also normalized into `Toggle` or
 `SelectionChange` events for checkboxes, switches, expanded controls, radios,
 listbox items, and tabs, so interaction state and action payloads stay
 semantic.
+Disabled controls suppress user activation and input events. Read-only controls
+still allow focus, blur, press, and explicit keyboard routing, but suppress
+value, selection, and toggle events before state changes or action dispatch.
 
 For folded controls, event ownership follows the source element structure. For
 example, `TextField` receives the visible label, while `Input` can own

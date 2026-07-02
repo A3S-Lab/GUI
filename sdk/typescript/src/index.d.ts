@@ -18,6 +18,7 @@ export interface CompiledProps {
   isDisabled?: boolean;
   isRequired?: boolean;
   isInvalid?: boolean;
+  isReadOnly?: boolean;
   isSelected?: boolean;
   isChecked?: boolean;
   isExpanded?: boolean;
