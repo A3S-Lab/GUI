@@ -1,15 +1,23 @@
 # a3s-gui
 
-Native GUI runtime for A3S protocol frames.
+Rust-native GUI runtime for A3S UI frames.
 
-`a3s-gui` turns structured Rust, JSON, or JSX UI trees into keyed native command
-streams for AppKit, WinUI, GTK4, and headless hosts. It owns the portable UI IR,
-render reconciliation, event routing, interaction state, and accessibility tree
-projection.
+`a3s-gui` lowers structured Rust or JSX UI trees into a portable native IR,
+reconciles keyed updates, and drives AppKit, WinUI, GTK4, or a headless host.
 
-It is not a browser runtime. There is no DOM, CSSOM, WebView, or browser layout
-contract; Web-shaped input is accepted only when it can lower to native roles,
-state, style tokens, metadata, accessibility hints, or action ids.
+It is not a browser wrapper. There is no DOM, CSSOM, WebView, or browser layout
+contract; Web-like input is supported only when it maps to native roles, state,
+styles, metadata, accessibility hints, or action ids.
+
+## Scope
+
+- Native UI model: `NativeElement`, `NativeProps`, `NativeRole`.
+- Runtime: `GuiRuntime`, keyed reconciliation, event routing, interaction
+  state, and accessibility projection.
+- Web/JSX bridge: React Aria-style components, HTML/SVG intrinsics, Web props,
+  CSS text, Tailwind utilities, and JSX events.
+- Hosts: headless testing, platform planning, and native surfaces.
+- TypeScript JSX runtime: [sdk/typescript](sdk/typescript).
 
 ## Install
 
@@ -18,7 +26,7 @@ state, style tokens, metadata, accessibility hints, or action ids.
 a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ```
 
-## Rust Usage
+## Rust
 
 ```rust
 use a3s_gui::{GuiRuntime, HeadlessHost, NativeElement, NativeProps, NativeRole, WebProps};
@@ -33,7 +41,7 @@ let mut runtime = GuiRuntime::new(HeadlessHost::default());
 let rendered = runtime.render_native(&root)?;
 ```
 
-## JSX Usage
+## JSX
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
@@ -51,18 +59,7 @@ export const frame = createUiFrame(
 );
 ```
 
-## What Is Included
-
-- Portable native IR: `NativeElement`, `NativeProps`, `NativeRole`.
-- Runtime orchestration: `GuiRuntime`, keyed reconciliation, interaction state,
-  event routing, and accessibility projection.
-- Web/JSX lowering through `ReactCompilerBridge`, including React Aria-style
-  components, HTML/SVG intrinsics, Web props, CSS text, Tailwind utilities, and
-  event props.
-- Headless and platform-planning hosts for tests and process-boundary protocols.
-- A dependency-free TypeScript JSX runtime in [sdk/typescript](sdk/typescript).
-
-## Features
+## Feature Flags
 
 `headless` is enabled by default.
 
@@ -95,10 +92,10 @@ cargo check --target x86_64-pc-windows-msvc --features winui-native
 cargo check --features gtk4-native
 ```
 
-## More
+## Docs
 
-- [docs/architecture.md](docs/architecture.md)
-- [docs/web-authoring.md](docs/web-authoring.md)
-- [sdk/typescript/README.md](sdk/typescript/README.md)
+- [Architecture](docs/architecture.md)
+- [Web authoring](docs/web-authoring.md)
+- [TypeScript SDK](sdk/typescript/README.md)
 
 MIT licensed; see [LICENSE](LICENSE).
