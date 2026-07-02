@@ -214,7 +214,7 @@ fn is_keyboard_activatable(blueprint: &NativeWidgetBlueprint) -> bool {
     )
 }
 
-fn is_activation_key(value: Option<&str>) -> bool {
+pub(crate) fn is_activation_key(value: Option<&str>) -> bool {
     let Some(value) = value else {
         return false;
     };

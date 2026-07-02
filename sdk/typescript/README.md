@@ -39,6 +39,8 @@ Focus and toggle aliases such as `onFocusChange`, `onToggle`, and
 change, selection, and keyboard events.
 Rust hosts route explicit `onKeyDown` handlers first; otherwise Enter and Space
 key-down events can activate press actions on buttons, links, and menu items.
+They also normalize keyboard activation for stateful controls into toggle or
+selection events so action payloads carry checked, expanded, or selected values.
 
 The runtime accepts React Aria-style state props such as `isDisabled` and HTML
 or ARIA aliases such as `disabled`, `required`, `aria-expanded`,

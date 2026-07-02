@@ -158,6 +158,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         blueprint: &NativeWidgetBlueprint,
         mut event: NativeEvent,
     ) -> NativeEvent {
+        event = self.normalize_keyboard_activation(blueprint, event);
         if event.value.is_some() {
             return event;
         }
@@ -176,9 +177,69 @@ impl<H: NativeHost> GuiRuntime<H> {
                     .unwrap_or(false);
                 event.value = Some((!expanded).to_string());
             }
+            crate::event::NativeEventKind::Toggle
+                if self.is_checked_toggle(blueprint, event.node) =>
+            {
+                let checked = self
+                    .current_checked_state(event.node, blueprint)
+                    .unwrap_or(false);
+                event.value = Some((!checked).to_string());
+            }
             _ => {}
         }
         event
+    }
+
+    fn normalize_keyboard_activation(
+        &self,
+        blueprint: &NativeWidgetBlueprint,
+        mut event: NativeEvent,
+    ) -> NativeEvent {
+        if event.kind != crate::event::NativeEventKind::KeyDown
+            || blueprint.events.contains_key("onKeyDown")
+        {
+            return event;
+        }
+
+        if self.is_keyboard_toggle(blueprint, event.node, event.value.as_deref()) {
+            event.kind = crate::event::NativeEventKind::Toggle;
+            event.value = None;
+        } else if self.is_keyboard_selection(blueprint, event.value.as_deref()) {
+            event.kind = crate::event::NativeEventKind::SelectionChange;
+            event.value = None;
+        }
+
+        event
+    }
+
+    fn is_keyboard_toggle(
+        &self,
+        blueprint: &NativeWidgetBlueprint,
+        node: HostNodeId,
+        value: Option<&str>,
+    ) -> bool {
+        if self.is_expansion_toggle(blueprint, node) {
+            return crate::event::is_activation_key(value);
+        }
+
+        matches!(
+            blueprint.role,
+            crate::native::NativeRole::Checkbox | crate::native::NativeRole::Switch
+        ) && is_space_key(value)
+    }
+
+    fn is_keyboard_selection(
+        &self,
+        blueprint: &NativeWidgetBlueprint,
+        value: Option<&str>,
+    ) -> bool {
+        match blueprint.role {
+            crate::native::NativeRole::Radio => is_space_key(value),
+            crate::native::NativeRole::ListBoxItem | crate::native::NativeRole::Tab => {
+                crate::event::is_activation_key(value)
+            }
+            _ => false,
+        }
     }
 
     fn is_expansion_toggle(&self, blueprint: &NativeWidgetBlueprint, node: HostNodeId) -> bool {
@@ -205,6 +266,30 @@ impl<H: NativeHost> GuiRuntime<H> {
             }
         }
         blueprint.control_state.expanded
+    }
+
+    fn is_checked_toggle(&self, blueprint: &NativeWidgetBlueprint, node: HostNodeId) -> bool {
+        matches!(
+            blueprint.role,
+            crate::native::NativeRole::Checkbox | crate::native::NativeRole::Switch
+        ) || self.current_checked_state(node, blueprint).is_some()
+    }
+
+    fn current_checked_state(
+        &self,
+        node: HostNodeId,
+        blueprint: &NativeWidgetBlueprint,
+    ) -> Option<bool> {
+        if self.interaction_revisions.get(&node).copied() == Some(self.render_revision) {
+            if let Some(checked) = self
+                .interaction_state
+                .node(node)
+                .and_then(|state| state.checked)
+            {
+                return Some(checked);
+            }
+        }
+        blueprint.control_state.checked
     }
 
     fn refresh_stale_interaction_baseline(
@@ -276,6 +361,16 @@ fn selected_node_value(blueprint: &NativeWidgetBlueprint) -> Option<String> {
         return None;
     }
     blueprint.value.clone().or_else(|| blueprint.label.clone())
+}
+
+fn is_space_key(value: Option<&str>) -> bool {
+    let Some(value) = value else {
+        return false;
+    };
+    let normalized = value.trim();
+    value == " "
+        || normalized.eq_ignore_ascii_case("space")
+        || normalized.eq_ignore_ascii_case("spacebar")
 }
 
 impl<H: NativeHost + AccessibilityTreeHost> GuiRuntime<H> {
@@ -979,6 +1074,165 @@ mod tests {
         );
         assert_eq!(second.interaction_changes[0].after.expanded, Some(false));
         assert_eq!(runtime.accessibility_tree().unwrap().expanded, Some(false));
+    }
+
+    #[test]
+    fn runtime_routes_checked_toggle_with_current_boolean_payload() {
+        let element = NativeElement::new("notifications", NativeRole::Switch).with_props(
+            NativeProps::new()
+                .label("Notifications")
+                .checked(false)
+                .web(WebProps::new().on_change("setNotifications")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setNotifications");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let first = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Toggle,
+            ))
+            .unwrap();
+        let second = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Toggle,
+            ))
+            .unwrap();
+
+        assert_eq!(first.event.value.as_deref(), Some("true"));
+        assert_eq!(
+            first
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("true")
+        );
+        assert_eq!(first.interaction_changes[0].after.checked, Some(true));
+        assert_eq!(second.event.value.as_deref(), Some("false"));
+        assert_eq!(
+            second
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("false")
+        );
+        assert_eq!(second.interaction_changes[0].after.checked, Some(false));
+    }
+
+    #[test]
+    fn runtime_routes_switch_space_key_to_toggle_action() {
+        let element = NativeElement::new("notifications", NativeRole::Switch).with_props(
+            NativeProps::new()
+                .label("Notifications")
+                .checked(false)
+                .web(WebProps::new().on_change("setNotifications")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setNotifications");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::KeyDown)
+                    .value(" "),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.kind, crate::event::NativeEventKind::Toggle);
+        assert_eq!(handled.event.value.as_deref(), Some("true"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .map(|invocation| invocation.event),
+            Some(crate::event::NativeEventKind::Toggle)
+        );
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("true")
+        );
+        assert_eq!(handled.interaction_changes[0].after.checked, Some(true));
+        assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(true));
+    }
+
+    #[test]
+    fn runtime_explicit_key_down_prevents_keyboard_toggle_normalization() {
+        let element = NativeElement::new("notifications", NativeRole::Switch).with_props(
+            NativeProps::new()
+                .label("Notifications")
+                .checked(false)
+                .web(
+                    WebProps::new()
+                        .on_change("setNotifications")
+                        .on_key_down("handleKeyDown"),
+                ),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setNotifications");
+        runtime.actions_mut().register("handleKeyDown");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::KeyDown)
+                    .value(" "),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.kind, crate::event::NativeEventKind::KeyDown);
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .map(|invocation| invocation.action.as_str()),
+            Some("handleKeyDown")
+        );
+        assert!(handled.interaction_changes.is_empty());
+        assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(false));
+    }
+
+    #[test]
+    fn runtime_routes_radio_space_key_to_selection_action() {
+        let element = NativeElement::new("dark", NativeRole::Radio).with_props(
+            NativeProps::new()
+                .label("Dark")
+                .value("dark")
+                .web(WebProps::new().on_change("setTheme")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setTheme");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::KeyDown)
+                    .value("Space"),
+            )
+            .unwrap();
+
+        assert_eq!(
+            handled.event.kind,
+            crate::event::NativeEventKind::SelectionChange
+        );
+        assert_eq!(handled.event.value.as_deref(), Some("dark"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .map(|invocation| invocation.event),
+            Some(crate::event::NativeEventKind::SelectionChange)
+        );
+        assert_eq!(handled.interaction_changes[0].after.checked, Some(true));
+        assert!(handled.interaction_changes[0].after.selected);
     }
 
     #[test]

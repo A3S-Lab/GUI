@@ -532,6 +532,43 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_routes_space_key_to_toggle_actions() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "setNotifications"}],
+              "root": {
+                "kind": "element",
+                "key": "notifications",
+                "tag": "Switch",
+                "props": {
+                  "isChecked": false,
+                  "events": {"onChange": "setNotifications"}
+                },
+                "children": [{"kind": "text", "key": "label", "value": "Notifications"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let response = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::KeyDown).value(" "),
+            })
+            .unwrap();
+
+        assert_eq!(response.invocation.action, "setNotifications");
+        assert_eq!(response.invocation.event, NativeEventKind::Toggle);
+        assert_eq!(response.invocation.value.as_deref(), Some("true"));
+        assert_eq!(response.interaction_changes[0].after.checked, Some(true));
+    }
+
+    #[test]
     fn native_protocol_session_replaces_registered_actions_on_render() {
         let first: UiFrame = serde_json::from_str(
             r#"

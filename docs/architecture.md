@@ -230,6 +230,10 @@ such as `onClick`, `onChange`, `onFocusChange`, `onExpandedChange`,
 When a key-down event has no explicit `onKeyDown` binding, Enter and Space
 fall back to the primary press action for activatable controls such as buttons,
 links, and menu items.
+For stateful controls without explicit `onKeyDown`, keyboard activation is
+normalized before routing: Space toggles checkboxes and switches, Space selects
+radios, and Enter or Space toggles expanded controls and selects listbox items
+or tabs.
 Native event routing tries the target widget first, then mounted ancestors, so
 child widget callbacks can reach container-level handlers. Selection events
 without a value are normalized from the selected child's value or label.
