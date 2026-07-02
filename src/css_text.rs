@@ -1,14 +1,25 @@
-pub(crate) fn parse_style_declarations(value: &str) -> Vec<(String, String)> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CssDeclaration {
+    pub property: String,
+    pub value: String,
+    pub important: bool,
+}
+
+pub(crate) fn parse_style_declarations(value: &str) -> Vec<CssDeclaration> {
     split_css_declarations(value)
         .into_iter()
         .filter_map(|declaration| {
             let separator = find_css_declaration_separator(&declaration)?;
             let property = declaration[..separator].trim();
-            let value = declaration[separator + 1..].trim();
+            let (value, important) = strip_important_priority(declaration[separator + 1..].trim());
             if property.is_empty() || value.is_empty() {
                 None
             } else {
-                Some((property.to_string(), value.to_string()))
+                Some(CssDeclaration {
+                    property: property.to_string(),
+                    value: value.to_string(),
+                    important,
+                })
             }
         })
         .collect()
@@ -120,6 +131,48 @@ fn find_css_declaration_separator(declaration: &str) -> Option<usize> {
     None
 }
 
+fn strip_important_priority(value: &str) -> (&str, bool) {
+    let mut quote = None;
+    let mut escaped = false;
+    let mut paren_depth = 0usize;
+    let mut bracket_depth = 0usize;
+    let mut important_start = None;
+
+    for (index, ch) in value.char_indices() {
+        if let Some(active_quote) = quote {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == active_quote {
+                quote = None;
+            }
+            continue;
+        }
+
+        match ch {
+            '"' | '\'' => quote = Some(ch),
+            '(' => paren_depth += 1,
+            ')' => paren_depth = paren_depth.saturating_sub(1),
+            '[' => bracket_depth += 1,
+            ']' => bracket_depth = bracket_depth.saturating_sub(1),
+            '!' if paren_depth == 0 && bracket_depth == 0 => {
+                important_start = Some(index);
+            }
+            _ => {}
+        }
+    }
+
+    let Some(index) = important_start else {
+        return (value, false);
+    };
+    if value[index + 1..].trim().eq_ignore_ascii_case("important") {
+        (value[..index].trim_end(), true)
+    } else {
+        (value, false)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,21 +193,54 @@ mod tests {
         assert_eq!(
             declarations,
             vec![
-                ("color".to_string(), "rgb(10 20 30 / 50%)".to_string()),
-                (
-                    "background-image".to_string(),
-                    r#"url("https://example.com/a:b;c.svg")"#.to_string()
-                ),
-                (
-                    "content".to_string(),
-                    r#""label: value; still text""#.to_string()
-                ),
-                (
-                    "--accent".to_string(),
-                    "color-mix(in srgb, rebeccapurple 40%, white)".to_string()
-                ),
-                ("padding-inline".to_string(), "1rem 2rem".to_string()),
+                CssDeclaration {
+                    property: "color".to_string(),
+                    value: "rgb(10 20 30 / 50%)".to_string(),
+                    important: false,
+                },
+                CssDeclaration {
+                    property: "background-image".to_string(),
+                    value: r#"url("https://example.com/a:b;c.svg")"#.to_string(),
+                    important: false,
+                },
+                CssDeclaration {
+                    property: "content".to_string(),
+                    value: r#""label: value; still text""#.to_string(),
+                    important: false,
+                },
+                CssDeclaration {
+                    property: "--accent".to_string(),
+                    value: "color-mix(in srgb, rebeccapurple 40%, white)".to_string(),
+                    important: false,
+                },
+                CssDeclaration {
+                    property: "padding-inline".to_string(),
+                    value: "1rem 2rem".to_string(),
+                    important: false,
+                },
             ]
         );
+    }
+
+    #[test]
+    fn marks_top_level_important_priority_without_touching_value_content() {
+        let declarations = parse_style_declarations(
+            r#"
+            color: rgb(10 20 30 / 50%) !important;
+            background-image: url("https://example.com/important!.svg");
+            content: "!important";
+            "#,
+        );
+
+        assert_eq!(declarations[0].property, "color");
+        assert_eq!(declarations[0].value, "rgb(10 20 30 / 50%)");
+        assert!(declarations[0].important);
+        assert_eq!(
+            declarations[1].value,
+            r#"url("https://example.com/important!.svg")"#
+        );
+        assert!(!declarations[1].important);
+        assert_eq!(declarations[2].value, r#""!important""#);
+        assert!(!declarations[2].important);
     }
 }

@@ -141,6 +141,8 @@ test('CSS text parser preserves delimiters inside functions and strings', () => 
   const root = jsxs('div', {
     style: `
       color: rgb(10 20 30 / 50%);
+      border-color: color-mix(in srgb, red 40%, blue) !important;
+      border-color: #fff;
       background-image: url("https://example.com/a:b;c.svg");
       content: "label: value; still text";
       --accent: color-mix(in srgb, rebeccapurple 40%, white);
@@ -151,6 +153,7 @@ test('CSS text parser preserves delimiters inside functions and strings', () => 
   }, 'styled');
 
   assert.equal(root.props.style.color, 'rgb(10 20 30 / 50%)');
+  assert.equal(root.props.style['border-color'], 'color-mix(in srgb, red 40%, blue)');
   assert.equal(root.props.style['background-image'], 'url("https://example.com/a:b;c.svg")');
   assert.equal(root.props.style.content, '"label: value; still text"');
   assert.equal(root.props.style['--accent'], 'color-mix(in srgb, rebeccapurple 40%, white)');

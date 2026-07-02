@@ -38,8 +38,20 @@ impl WebProps {
             "id" => self.id = Some(value),
             "class" | "className" => self.class_name = Some(value),
             "style" => {
-                for (property, value) in parse_style_declarations(&value) {
-                    self.style.insert(property, value);
+                let declarations = parse_style_declarations(&value);
+                for declaration in declarations
+                    .iter()
+                    .filter(|declaration| !declaration.important)
+                {
+                    self.style
+                        .insert(declaration.property.clone(), declaration.value.clone());
+                }
+                for declaration in declarations
+                    .iter()
+                    .filter(|declaration| declaration.important)
+                {
+                    self.style
+                        .insert(declaration.property.clone(), declaration.value.clone());
                 }
             }
             _ => {
@@ -112,6 +124,8 @@ mod tests {
             "style",
             r#"
             color: rgb(10 20 30 / 50%);
+            border-color: color-mix(in srgb, red 40%, blue) !important;
+            border-color: #fff;
             background-image: url("https://example.com/a:b;c.svg");
             content: "label: value; still text";
             --accent: color-mix(in srgb, rebeccapurple 40%, white);
@@ -123,6 +137,10 @@ mod tests {
         assert_eq!(
             props.style.get("color").map(String::as_str),
             Some("rgb(10 20 30 / 50%)")
+        );
+        assert_eq!(
+            props.style.get("border-color").map(String::as_str),
+            Some("color-mix(in srgb, red 40%, blue)")
         );
         assert_eq!(
             props.style.get("background-image").map(String::as_str),

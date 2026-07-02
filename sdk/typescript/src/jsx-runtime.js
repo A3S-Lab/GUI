@@ -182,15 +182,20 @@ function normalizeProps(props, tag) {
 
 function parseStyleText(value) {
   const style = {};
+  const normal = [];
+  const important = [];
   for (const declaration of splitCssDeclarations(value)) {
     const separator = findCssDeclarationSeparator(declaration);
     if (separator <= 0) continue;
     const property = declaration.slice(0, separator).trim();
-    const styleValue = declaration.slice(separator + 1).trim();
+    const parsed = stripImportantPriority(declaration.slice(separator + 1).trim());
+    const styleValue = parsed.value;
     if (property.length > 0 && styleValue.length > 0) {
-      style[property] = styleValue;
+      (parsed.important ? important : normal).push([property, styleValue]);
     }
   }
+  for (const [property, styleValue] of normal) style[property] = styleValue;
+  for (const [property, styleValue] of important) style[property] = styleValue;
   return style;
 }
 
@@ -288,6 +293,51 @@ function findCssDeclarationSeparator(declaration) {
   }
 
   return -1;
+}
+
+function stripImportantPriority(value) {
+  let quote = null;
+  let escaped = false;
+  let parenDepth = 0;
+  let bracketDepth = 0;
+  let importantStart = -1;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+
+    if (quote != null) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quote = char;
+    } else if (char === '(') {
+      parenDepth += 1;
+    } else if (char === ')') {
+      parenDepth = Math.max(0, parenDepth - 1);
+    } else if (char === '[') {
+      bracketDepth += 1;
+    } else if (char === ']') {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+    } else if (char === '!' && parenDepth === 0 && bracketDepth === 0) {
+      importantStart = index;
+    }
+  }
+
+  if (
+    importantStart >= 0 &&
+    value.slice(importantStart + 1).trim().toLowerCase() === 'important'
+  ) {
+    return {value: value.slice(0, importantStart).trimEnd(), important: true};
+  }
+  return {value, important: false};
 }
 
 function applySemanticAttribute(out, name, value) {

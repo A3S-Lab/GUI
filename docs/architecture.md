@@ -138,7 +138,9 @@ to the JavaScript state bridge.
 CSS style attribute text is parsed by `src/css_text.rs` before it enters
 `WebProps`. The parser splits declarations only on top-level CSS separators, so
 URLs, strings, bracketed values, and function arguments can contain `:` or `;`
-without corrupting the declaration map.
+without corrupting the declaration map. It also strips top-level `!important`
+priority markers from values and applies important declarations after normal
+declarations.
 
 For embedded Rust hosts, native backends can expose callbacks through
 `NativeEventSource`. `GuiRuntime::dispatch_pending_native_events()` drains the
