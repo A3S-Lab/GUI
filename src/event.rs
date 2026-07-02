@@ -14,6 +14,8 @@ pub enum NativeEventKind {
     Toggle,
     Focus,
     Blur,
+    KeyDown,
+    KeyUp,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -175,6 +177,8 @@ fn action_for_event(blueprint: &NativeWidgetBlueprint, event: NativeEventKind) -
             .get("onBlur")
             .or_else(|| events.get("onFocusChange"))
             .map(String::as_str),
+        NativeEventKind::KeyDown => events.get("onKeyDown").map(String::as_str),
+        NativeEventKind::KeyUp => events.get("onKeyUp").map(String::as_str),
     }
 }
 
@@ -290,6 +294,38 @@ mod tests {
         assert_eq!(invocation.action, "setProject");
         assert_eq!(invocation.event, NativeEventKind::SelectionChange);
         assert_eq!(invocation.value.as_deref(), Some("A3S"));
+    }
+
+    #[test]
+    fn routes_native_keyboard_events_to_key_actions() {
+        let element = NativeElement::new("search", NativeRole::TextField).with_props(
+            NativeProps::new().web(
+                WebProps::new()
+                    .on_key_down("handleKeyDown")
+                    .on_key_up("handleKeyUp"),
+            ),
+        );
+        let blueprint = AppKitAdapter.blueprint(&element);
+
+        let key_down = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(14), NativeEventKind::KeyDown).value("Enter"),
+            )
+            .unwrap();
+        let key_up = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(14), NativeEventKind::KeyUp).value("Enter"),
+            )
+            .unwrap();
+
+        assert_eq!(key_down.action, "handleKeyDown");
+        assert_eq!(key_down.event, NativeEventKind::KeyDown);
+        assert_eq!(key_down.value.as_deref(), Some("Enter"));
+        assert_eq!(key_up.action, "handleKeyUp");
+        assert_eq!(key_up.event, NativeEventKind::KeyUp);
+        assert_eq!(key_up.value.as_deref(), Some("Enter"));
     }
 
     #[test]

@@ -36,7 +36,7 @@ props. Use `defineAction` when the host needs action metadata beyond the stable
 id. Inferred actions preserve labels from `createAction(id, label)` handlers.
 Focus and toggle aliases such as `onFocusChange`, `onToggle`, and
 `onExpandedChange` are preserved in the emitted protocol alongside press,
-change, and selection events.
+change, selection, and keyboard events.
 
 The runtime accepts React Aria-style state props such as `isDisabled` and HTML
 or ARIA aliases such as `disabled`, `required`, `aria-expanded`,

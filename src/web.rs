@@ -102,6 +102,14 @@ impl WebProps {
         self.event("onExpandedChange", action)
     }
 
+    pub fn on_key_down(self, action: impl Into<String>) -> Self {
+        self.event("onKeyDown", action)
+    }
+
+    pub fn on_key_up(self, action: impl Into<String>) -> Self {
+        self.event("onKeyUp", action)
+    }
+
     pub fn primary_action(&self) -> Option<&str> {
         self.events
             .get("onPress")

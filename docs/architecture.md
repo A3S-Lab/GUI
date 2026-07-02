@@ -80,8 +80,8 @@ Allowed data:
   style strings as portable style input
 - `aria-*`, `data-*`, and HTML attributes as metadata
 - common JSX event prop names such as `onClick`, `onChange`, `onFocusChange`,
-  and `onExpandedChange` with named callback functions, normalized into native
-  actions
+  `onExpandedChange`, `onKeyDown`, and `onKeyUp` with named callback
+  functions, normalized into native actions
 
 Non-portable runtime assumptions:
 
@@ -223,9 +223,10 @@ metadata.
 supported semantic component trees, or native IR trees and renders them into any
 `NativeHost`. `InteractionState` updates platform-independent focus, value,
 checked, selected, and expanded state from native events before action routing.
-`EventRouter` maps native events such as press, change, focus, toggle, and
-selection change back to serialized action identifiers such as `onClick`,
-`onChange`, `onFocusChange`, and `onExpandedChange`.
+`EventRouter` maps native events such as press, change, focus, toggle,
+selection change, key down, and key up back to serialized action identifiers
+such as `onClick`, `onChange`, `onFocusChange`, `onExpandedChange`,
+`onKeyDown`, and `onKeyUp`.
 Native event routing tries the target widget first, then mounted ancestors, so
 child widget callbacks can reach container-level handlers. Selection events
 without a value are normalized from the selected child's value or label.
@@ -258,9 +259,10 @@ the same drain boundary but returns one result per native event, including
 optional action invocations and the interaction state changes caused by that
 event. Those handled event results are serializable for host logging and
 process boundaries. Protocol hosts can still send explicit `HostEvent`
-records. Use the `handle_*` event APIs when an event should update runtime
-state even when no Web action is bound, such as focus and blur events used only
-for accessibility state.
+records. Keyboard event values can carry the platform key or shortcut token.
+Use the `handle_*` event APIs when an event should update runtime state even
+when no Web action is bound, such as focus and blur events used only for
+accessibility state.
 
 ## Host Protocol
 
@@ -358,7 +360,7 @@ and delegates command effects to `NativeWidgetDriver`.
 
 If the platform layer owns event callbacks, it also implements
 `NativeEventSource::take_native_events()` and queues `NativeEvent` records such
-as press, change, focus, and selection change.
+as press, change, focus, key down, key up, and selection change.
 
 That keeps command decoding, backend validation, and render order in shared Rust
 while letting AppKit, WinUI, and GTK bindings own their thread-affine handles and

@@ -465,6 +465,39 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_dispatches_keyboard_events() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "search",
+              "actions": [{"id": "handleSearchKey"}],
+              "root": {
+                "kind": "element",
+                "key": "query",
+                "tag": "Input",
+                "props": {"events": {"onKeyDown": "handleSearchKey"}}
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let response = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "search".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::KeyDown).value("Enter"),
+            })
+            .unwrap();
+
+        assert_eq!(response.invocation.action, "handleSearchKey");
+        assert_eq!(response.invocation.event, NativeEventKind::KeyDown);
+        assert_eq!(response.invocation.value.as_deref(), Some("Enter"));
+        assert!(response.interaction_changes.is_empty());
+    }
+
+    #[test]
     fn native_protocol_session_replaces_registered_actions_on_render() {
         let first: UiFrame = serde_json::from_str(
             r#"
@@ -601,13 +634,14 @@ mod tests {
     fn protocol_types_round_trip_as_json() {
         let event = HostEvent {
             frame_id: "frame-2".to_string(),
-            event: NativeEvent::new(HostNodeId::new(42), NativeEventKind::Change).value("hello"),
+            event: NativeEvent::new(HostNodeId::new(42), NativeEventKind::KeyDown).value("Enter"),
         };
 
         let json = serde_json::to_string(&event).unwrap();
         let decoded: HostEvent = serde_json::from_str(&json).unwrap();
 
         assert_eq!(decoded, event);
+        assert!(json.contains(r#""kind":"keyDown""#));
 
         let legacy_response: NativeRenderResponse =
             serde_json::from_str(r#"{"frameId":"legacy","root":1,"commands":[]}"#).unwrap();

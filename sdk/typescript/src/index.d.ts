@@ -100,7 +100,15 @@ export interface UiFrame {
 
 export interface NativeEvent {
   node: number;
-  kind: 'press' | 'change' | 'selectionChange' | 'toggle' | 'focus' | 'blur';
+  kind:
+    | 'press'
+    | 'change'
+    | 'selectionChange'
+    | 'toggle'
+    | 'focus'
+    | 'blur'
+    | 'keyDown'
+    | 'keyUp';
   value?: string | null;
 }
 

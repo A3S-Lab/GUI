@@ -63,8 +63,8 @@ information carried by JSX props:
 - `className`
 - inline `style`
 - `aria-*`, `data-*`, and portable HTML attributes
-- `onClick`, `onChange`, `onPress`, and other event prop names with named
-  function callbacks
+- `onClick`, `onChange`, `onPress`, `onKeyDown`, `onKeyUp`, and other event
+  prop names with named function callbacks
 - React Aria state props such as `isDisabled`, `isSelected`, `isRequired`, and
   `isInvalid`
 - HTML and ARIA state aliases such as `disabled`, `required`,
@@ -110,6 +110,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `onChange` | normalized to the primary action for value controls |
 | `onFocus` / `onBlur` / `onFocusChange` | routed from native focus and blur events; `onFocusChange` receives boolean string payloads |
 | `onToggle` / `onExpandedChange` | routed from native toggle events; expanded controls receive boolean string payloads |
+| `onKeyDown` / `onKeyUp` | routed from native keyboard events; `NativeEvent.value` carries the key or shortcut token when the host supplies one |
 | `TextField` + `Label` + `Input` | folded into one native text field; `Input` value, placeholder, style, metadata, and events are inherited |
 | `textarea` direct text children | projected as native text-field value when no explicit value is supplied |
 | `Select` + `ListBoxItem` | folded into a native select with native options |
@@ -383,6 +384,11 @@ ActionInvocation { action: "saveProfile" }
 
 React Aria's `onPress` is preferred over `onClick` when both are present, so the
 compiled frame keeps native press semantics.
+
+Keyboard callbacks follow the same action-routing path. `onKeyDown` and
+`onKeyUp` are routed from `NativeEventKind::KeyDown` and
+`NativeEventKind::KeyUp`; hosts can put the key or shortcut token in
+`NativeEvent.value`.
 
 For folded controls, event ownership follows the source element structure. For
 example, `TextField` receives the visible label, while `Input` can own

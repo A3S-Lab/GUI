@@ -63,6 +63,10 @@ test('event helper creates HostEvent protocol shape', () => {
     frameId: 'profile',
     event: {node: 7, kind: 'press'},
   });
+  assert.deepEqual(createHostEvent('profile', 7, 'keyDown', 'Enter'), {
+    frameId: 'profile',
+    event: {node: 7, kind: 'keyDown', value: 'Enter'},
+  });
 });
 
 test('handled native event helper mirrors Rust protocol shape', () => {
@@ -625,6 +629,24 @@ test('focus and expanded event aliases compile to stable action ids', () => {
   assert.equal(root.props.events.onFocusChange, 'setFocus');
   assert.equal(root.props.events.onExpandedChange, 'setOpen');
   assert.deepEqual(frame.actions, [{id: 'setFocus'}, {id: 'setOpen'}]);
+});
+
+test('keyboard event props compile to stable action ids', () => {
+  const handleKeyDown = createAction('handleKeyDown', 'Handle key down');
+  const handleKeyUp = createAction('handleKeyUp');
+  const root = jsxs(Input, {
+    onKeyDown: handleKeyDown,
+    onKeyUp: handleKeyUp,
+  }, 'query');
+  const frame = createUiFrame('search', root);
+
+  assert.equal(root.props.events.onKeyDown, 'handleKeyDown');
+  assert.equal(root.props.events.onKeyUp, 'handleKeyUp');
+  assert.equal(root.props.actionLabels.handleKeyDown, 'Handle key down');
+  assert.deepEqual(frame.actions, [
+    {id: 'handleKeyDown', label: 'Handle key down'},
+    {id: 'handleKeyUp'},
+  ]);
 });
 
 test('web and aria state attributes normalize to native control props', () => {
