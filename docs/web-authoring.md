@@ -276,9 +276,10 @@ labels, text fields, checkboxes, switches, radio groups, radio buttons, combo
 boxes, sliders, and progress indicators. Buttons enqueue native press events
 through target/action callbacks, while editable text fields enqueue native
 focus, change, and blur events through an `NSTextFieldDelegate`; change events
-carry the current AppKit control value. Checkboxes, switches, and radio buttons
-enqueue native toggle events with the current AppKit checked state. Radio groups
-use native `NSStackView` containers with `NSButton(radio)` children. Select
+carry the current AppKit control value after max-length hints are applied.
+Checkboxes, switches, and radio buttons enqueue native toggle events with the
+current AppKit checked state. Radio groups use native `NSStackView` containers
+with `NSButton(radio)` children. Select
 children are inserted into `NSComboBox` as native object values and emit native
 selection-change events. React Aria `Tabs` trees fold `TabList` and ordered
 `TabPanel` children into native `NSTabViewItem` objects with panel views as

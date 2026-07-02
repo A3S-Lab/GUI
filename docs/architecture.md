@@ -447,9 +447,10 @@ Feature-gated platform executor surfaces:
   creates in-process AppKit controls directly. `NSButton` controls are
   wired to Objective-C
   target/action callbacks that enqueue `NativeEventKind::Press` records, and
-  editable `NSTextField` controls use an `NSTextFieldDelegate` to enqueue
-  focus, change, and blur records, with change events carrying the current
-  native string value. `NSButton(checkbox)` and `NSSwitch` controls apply native
+  editable `NSTextField` controls use an `NSTextFieldDelegate` to apply
+  max-length hints and enqueue focus, change, and blur records, with change
+  events carrying the current native string value. `NSButton(checkbox)` and
+  `NSSwitch` controls apply native
   checked state and enqueue `NativeEventKind::Toggle` records with the current
   boolean value. `RadioGroup` uses native `NSStackView` containers with
   `NSButton(radio)` children, and selected radios apply native checked state.

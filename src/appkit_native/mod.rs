@@ -1,6 +1,6 @@
 #![allow(unsafe_code)]
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -253,6 +253,8 @@ struct AppKitActionTargetIvars {
     node: HostNodeId,
     events: Rc<RefCell<Vec<NativeEvent>>>,
     selection_value: Option<String>,
+    max_length: Cell<Option<u32>>,
+    suppress_text_change: Cell<bool>,
 }
 
 define_class!(
@@ -307,10 +309,23 @@ define_class!(
 
         #[unsafe(method(controlTextDidChange:))]
         fn control_text_did_change(&self, notification: &NSNotification) {
+            if self.ivars().suppress_text_change.get() {
+                return;
+            }
+
             let value = notification
                 .object()
                 .and_then(|object| object.downcast::<NSControl>().ok())
-                .map(|control| control.stringValue().to_string())
+                .map(|control| {
+                    let raw_value = control.stringValue().to_string();
+                    let value = truncate_to_max_length(&raw_value, self.max_length());
+                    if value != raw_value {
+                        self.ivars().suppress_text_change.set(true);
+                        control.setStringValue(&ns_string(&value));
+                        self.ivars().suppress_text_change.set(false);
+                    }
+                    value
+                })
                 .unwrap_or_default();
             self.ivars().events.borrow_mut().push(
                 NativeEvent::new(self.ivars().node, NativeEventKind::Change).value(value),
@@ -371,6 +386,8 @@ impl AppKitActionTarget {
             node,
             events,
             selection_value: None,
+            max_length: Cell::new(None),
+            suppress_text_change: Cell::new(false),
         });
         unsafe { msg_send![super(this), init] }
     }
@@ -385,12 +402,22 @@ impl AppKitActionTarget {
             node,
             events,
             selection_value: Some(selection_value),
+            max_length: Cell::new(None),
+            suppress_text_change: Cell::new(false),
         });
         unsafe { msg_send![super(this), init] }
     }
 
     fn as_any_object(&self) -> &AnyObject {
         self.as_super().as_super()
+    }
+
+    fn max_length(&self) -> Option<u32> {
+        self.ivars().max_length.get()
+    }
+
+    fn set_max_length(&self, max_length: Option<u32>) {
+        self.ivars().max_length.set(max_length);
     }
 }
 
@@ -690,6 +717,27 @@ fn apply_slider_step(slider: &NSSlider, range: AppKitRangeState) {
     }
 }
 
+fn truncate_to_max_length(value: &str, max_length: Option<u32>) -> String {
+    let Some(max_length) = max_length else {
+        return value.to_string();
+    };
+    let max_length = max_length as usize;
+    if value.chars().count() <= max_length {
+        value.to_string()
+    } else {
+        value.chars().take(max_length).collect()
+    }
+}
+
+fn set_control_string_value(control: &NSControl, value: &str, max_length: Option<u32>) {
+    control.setStringValue(&ns_string(&truncate_to_max_length(value, max_length)));
+}
+
+fn apply_control_max_length(control: &NSControl, max_length: Option<u32>) {
+    let value = control.stringValue().to_string();
+    set_control_string_value(control, &value, max_length);
+}
+
 fn parse_f64(value: &str) -> Option<f64> {
     value.trim().parse::<f64>().ok()
 }
@@ -700,6 +748,24 @@ fn ns_string(value: &str) -> Retained<NSString> {
 
 fn ns_string_as_any(value: &NSString) -> &AnyObject {
     value.as_super().as_super()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncate_to_max_length_limits_unicode_scalar_values() {
+        let unicode_value = format!("a{}{}b", '\u{e9}', '\u{4e2d}');
+        let unicode_prefix = format!("a{}{}", '\u{e9}', '\u{4e2d}');
+        assert_eq!(truncate_to_max_length("abcdef", Some(3)), "abc");
+        assert_eq!(
+            truncate_to_max_length(&unicode_value, Some(3)),
+            unicode_prefix
+        );
+        assert_eq!(truncate_to_max_length("abc", None), "abc");
+        assert_eq!(truncate_to_max_length("abc", Some(0)), "");
+    }
 }
 
 fn set_combo_box_value(combo_box: &NSComboBox, value: Option<&str>) {

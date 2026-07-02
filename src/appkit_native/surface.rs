@@ -423,9 +423,16 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
             NativeWidgetSetter::SetValue(value) => match &handle.widget {
                 AppKitOsWidget::TextField(text_field) => {
-                    text_field
-                        .as_super()
-                        .setStringValue(&ns_string(value.as_deref().unwrap_or("")));
+                    let max_length = self.action_targets.get(&id).and_then(|target| {
+                        (handle.kind == AppKitWidgetKind::TextField)
+                            .then(|| target.max_length())
+                            .flatten()
+                    });
+                    set_control_string_value(
+                        text_field.as_super(),
+                        value.as_deref().unwrap_or(""),
+                        max_length,
+                    );
                 }
                 AppKitOsWidget::ComboBox(combo_box) => {
                     set_combo_box_value(combo_box, value.as_deref());
@@ -627,6 +634,16 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     self.apply_range(id, &handle.widget);
                 }
             }
+            NativeWidgetSetter::SetMaxLength(value) => {
+                if let AppKitOsWidget::TextField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        if let Some(target) = self.action_targets.get(&id) {
+                            target.set_max_length(*value);
+                        }
+                        apply_control_max_length(text_field.as_super(), *value);
+                    }
+                }
+            }
             NativeWidgetSetter::SetOrientation(value) => {
                 if let (AppKitOsWidget::StackView(stack_view), Some(orientation)) =
                     (&handle.widget, value)
@@ -658,7 +675,6 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             | NativeWidgetSetter::SetInputMode(_)
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
-            | NativeWidgetSetter::SetMaxLength(_)
             | NativeWidgetSetter::SetRows(_)
             | NativeWidgetSetter::SetCols(_)
             | NativeWidgetSetter::SetSize(_)
