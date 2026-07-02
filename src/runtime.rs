@@ -62,6 +62,7 @@ impl<H: NativeHost> GuiRuntime<H> {
     pub fn render_native(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
         let root = self.renderer.render(element, &mut self.host)?;
         self.render_revision = self.render_revision.saturating_add(1);
+        self.prune_unmounted_interactions();
         Ok(root)
     }
 
@@ -130,6 +131,13 @@ impl<H: NativeHost> GuiRuntime<H> {
             self.interaction_revisions
                 .insert(change.node, self.render_revision);
         }
+    }
+
+    fn prune_unmounted_interactions(&mut self) {
+        let mounted_nodes = self.renderer.mounted_node_ids();
+        self.interaction_state.retain_nodes(&mounted_nodes);
+        self.interaction_revisions
+            .retain(|node, _| mounted_nodes.contains(node));
     }
 
     pub fn into_host(self) -> H {
@@ -838,6 +846,40 @@ mod tests {
         assert_eq!(second_id, root_id);
         assert_eq!(accessibility.label.as_deref(), Some("Saved"));
         assert!(accessibility.focused);
+    }
+
+    #[test]
+    fn runtime_prunes_interaction_state_for_unmounted_nodes() {
+        let first = NativeElement::new("tools", NativeRole::Toolbar)
+            .child(
+                NativeElement::new("save", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Save")),
+            )
+            .child(
+                NativeElement::new("cancel", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Cancel")),
+            );
+        let second = NativeElement::new("tools", NativeRole::Toolbar).child(
+            NativeElement::new("cancel", NativeRole::Button)
+                .with_props(NativeProps::new().label("Cancel")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&first).unwrap();
+        let save = runtime.host().node(root_id).unwrap().children[0];
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                save,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+        assert!(runtime.interactions().node(save).unwrap().focused);
+
+        runtime.render_native(&second).unwrap();
+
+        assert!(runtime.interactions().node(save).is_none());
+        assert!(!runtime.accessibility_tree().unwrap().children[0].focused);
     }
 
     #[test]

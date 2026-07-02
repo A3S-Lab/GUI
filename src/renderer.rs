@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::error::GuiResult;
 use crate::host::{HostNodeId, NativeHost};
@@ -36,6 +36,21 @@ impl Renderer {
         let root_id = mounted.id;
         self.root = Some(mounted);
         Ok(root_id)
+    }
+
+    pub fn mounted_node_ids(&self) -> BTreeSet<HostNodeId> {
+        let mut ids = BTreeSet::new();
+        if let Some(root) = &self.root {
+            collect_mounted_node_ids(root, &mut ids);
+        }
+        ids
+    }
+}
+
+fn collect_mounted_node_ids(node: &MountedNode, ids: &mut BTreeSet<HostNodeId>) {
+    ids.insert(node.id);
+    for child in &node.children {
+        collect_mounted_node_ids(child, ids);
     }
 }
 
@@ -180,5 +195,27 @@ mod tests {
             .map(|id| host.node(*id).unwrap().props.label.as_deref().unwrap())
             .collect();
         assert_eq!(labels, vec!["B", "A"]);
+    }
+
+    #[test]
+    fn mounted_node_ids_follow_reconciled_tree() {
+        let first = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("a", NativeRole::Button))
+            .child(NativeElement::new("b", NativeRole::Button));
+        let second = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("b", NativeRole::Button))
+            .child(NativeElement::new("c", NativeRole::Button));
+        let mut renderer = Renderer::new();
+        let mut host = HeadlessHost::default();
+
+        let root_id = renderer.render(&first, &mut host).unwrap();
+        let first_children = host.node(root_id).unwrap().children.clone();
+        let removed = first_children[0];
+        renderer.render(&second, &mut host).unwrap();
+        let mounted = renderer.mounted_node_ids();
+
+        assert!(mounted.contains(&root_id));
+        assert!(!mounted.contains(&removed));
+        assert_eq!(mounted.len(), 3);
     }
 }

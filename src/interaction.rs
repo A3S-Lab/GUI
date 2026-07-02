@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::event::{NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
@@ -46,6 +46,10 @@ impl InteractionState {
         let mut state = initial_state_from_blueprint(blueprint);
         state.focused = focused;
         self.nodes.insert(id, state);
+    }
+
+    pub fn retain_nodes(&mut self, mounted_nodes: &BTreeSet<HostNodeId>) {
+        self.nodes.retain(|node, _| mounted_nodes.contains(node));
     }
 
     pub fn apply_event(
