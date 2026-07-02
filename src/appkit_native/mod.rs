@@ -23,7 +23,9 @@ use objc2_foundation::{
     NSInteger, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
 };
 
-use crate::appkit::AppKitWidgetKind;
+use crate::appkit::{
+    appkit_text_input_hints, AppKitTextInputHints, AppKitTextInputTrait, AppKitWidgetKind,
+};
 use crate::backend::{
     CommandExecutingHost, DriverCommandExecutor, HandleWidgetDriver, NativeWidgetSurface,
     SurfaceHandleAdapter,
@@ -35,7 +37,8 @@ use crate::host::HostNodeId;
 use crate::html::HTML_TAG_METADATA_KEY;
 use crate::native_backends::appkit::menu::AppKitMenuRegistry;
 use crate::platform::{
-    AppKitAdapter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter,
+    apply_widget_setter, AppKitAdapter, NativeBackendKind, NativeWidgetBlueprint,
+    NativeWidgetConfig, NativeWidgetSetter,
 };
 use crate::style::StyleLength;
 
@@ -66,6 +69,7 @@ pub struct AppKitNativeSurface {
     list_item_parents: BTreeMap<HostNodeId, HostNodeId>,
     ranges: BTreeMap<HostNodeId, AppKitRangeState>,
     text_inputs: BTreeMap<HostNodeId, AppKitTextInputSizing>,
+    text_input_configs: BTreeMap<HostNodeId, NativeWidgetConfig>,
     menus: AppKitMenuRegistry,
 }
 
@@ -91,6 +95,7 @@ impl AppKitNativeSurface {
             list_item_parents: BTreeMap::new(),
             ranges: BTreeMap::new(),
             text_inputs: BTreeMap::new(),
+            text_input_configs: BTreeMap::new(),
             menus: AppKitMenuRegistry::default(),
         })
     }
@@ -139,6 +144,23 @@ impl AppKitNativeSurface {
             APPKIT_TEXT_INPUT_DEFAULT_HEIGHT
         };
         view.setFrameSize(NSSize::new(width, height));
+    }
+
+    fn apply_text_input_hints(&self, id: HostNodeId, widget: &AppKitOsWidget) {
+        let Some(config) = self.text_input_configs.get(&id) else {
+            return;
+        };
+        let hints = appkit_text_input_hints(config);
+        match widget {
+            AppKitOsWidget::TextField(text_field) => apply_text_field_hints(text_field, hints),
+            AppKitOsWidget::SearchField(text_field) => {
+                apply_text_field_hints(text_field.as_super(), hints);
+            }
+            AppKitOsWidget::SecureTextField(text_field) => {
+                apply_text_field_hints(text_field.as_super(), hints);
+            }
+            _ => {}
+        }
     }
 
     fn update_option_item_label(
@@ -667,6 +689,71 @@ fn config_text_input_size(config: &NativeWidgetConfig) -> NSSize {
         .or_else(|| sizing.hinted_height())
         .unwrap_or(APPKIT_TEXT_INPUT_DEFAULT_HEIGHT);
     NSSize::new(width, height)
+}
+
+fn apply_text_field_hints(text_field: &NSTextField, hints: AppKitTextInputHints) {
+    if let Some(enabled) = hints.automatic_text_completion_enabled {
+        text_field.setAutomaticTextCompletionEnabled(enabled);
+    }
+    text_field.setAllowsCharacterPickerTouchBarItem(hints.character_picker_enabled);
+    set_spell_checking_trait(text_field, hints.spell_checking);
+    set_autocorrection_trait(text_field, hints.autocorrection);
+    set_text_replacement_trait(text_field, hints.text_replacement);
+    set_text_completion_trait(text_field, hints.text_completion);
+    set_inline_prediction_trait(text_field, hints.inline_prediction);
+}
+
+fn set_spell_checking_trait(text_field: &NSTextField, value: AppKitTextInputTrait) {
+    if text_field.respondsToSelector(sel!(setSpellCheckingType:)) {
+        let value = appkit_text_input_trait_value(value);
+        unsafe {
+            let _: () = msg_send![text_field, setSpellCheckingType: value];
+        }
+    }
+}
+
+fn set_autocorrection_trait(text_field: &NSTextField, value: AppKitTextInputTrait) {
+    if text_field.respondsToSelector(sel!(setAutocorrectionType:)) {
+        let value = appkit_text_input_trait_value(value);
+        unsafe {
+            let _: () = msg_send![text_field, setAutocorrectionType: value];
+        }
+    }
+}
+
+fn set_text_replacement_trait(text_field: &NSTextField, value: AppKitTextInputTrait) {
+    if text_field.respondsToSelector(sel!(setTextReplacementType:)) {
+        let value = appkit_text_input_trait_value(value);
+        unsafe {
+            let _: () = msg_send![text_field, setTextReplacementType: value];
+        }
+    }
+}
+
+fn set_text_completion_trait(text_field: &NSTextField, value: AppKitTextInputTrait) {
+    if text_field.respondsToSelector(sel!(setTextCompletionType:)) {
+        let value = appkit_text_input_trait_value(value);
+        unsafe {
+            let _: () = msg_send![text_field, setTextCompletionType: value];
+        }
+    }
+}
+
+fn set_inline_prediction_trait(text_field: &NSTextField, value: AppKitTextInputTrait) {
+    if text_field.respondsToSelector(sel!(setInlinePredictionType:)) {
+        let value = appkit_text_input_trait_value(value);
+        unsafe {
+            let _: () = msg_send![text_field, setInlinePredictionType: value];
+        }
+    }
+}
+
+fn appkit_text_input_trait_value(value: AppKitTextInputTrait) -> NSInteger {
+    match value {
+        AppKitTextInputTrait::Default => 0,
+        AppKitTextInputTrait::No => 1,
+        AppKitTextInputTrait::Yes => 2,
+    }
 }
 
 fn apply_window_portable_style(window: &NSWindow, style: &crate::style::PortableStyle) {

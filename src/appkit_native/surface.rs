@@ -360,6 +360,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         .setFrameSize(config_text_input_size(&config));
                     self.text_inputs
                         .insert(id, AppKitTextInputSizing::from_config(&config));
+                    self.text_input_configs.insert(id, config.clone());
                     let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
                     let delegate: &ProtocolObject<dyn NSSearchFieldDelegate> =
                         ProtocolObject::from_ref(&*target);
@@ -378,6 +379,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         .setFrameSize(config_text_input_size(&config));
                     self.text_inputs
                         .insert(id, AppKitTextInputSizing::from_config(&config));
+                    self.text_input_configs.insert(id, config.clone());
                     let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
                     let delegate: &ProtocolObject<dyn NSTextFieldDelegate> =
                         ProtocolObject::from_ref(&*target);
@@ -400,6 +402,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         .setFrameSize(config_text_input_size(&config));
                     self.text_inputs
                         .insert(id, AppKitTextInputSizing::from_config(&config));
+                    self.text_input_configs.insert(id, config.clone());
                     let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
                     let delegate: &ProtocolObject<dyn NSTextFieldDelegate> =
                         ProtocolObject::from_ref(&*target);
@@ -417,6 +420,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             selected: config.selected,
             widget,
         };
+        self.apply_text_input_hints(id, &handle.widget);
         set_widget_title(&handle.widget, config.title.as_deref());
         Ok(handle)
     }
@@ -427,6 +431,10 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         handle: &Self::Handle,
         setter: &NativeWidgetSetter,
     ) -> GuiResult<()> {
+        if let Some(config) = self.text_input_configs.get_mut(&id) {
+            apply_widget_setter(config, setter);
+        }
+
         match setter {
             NativeWidgetSetter::SetLabel(value) => {
                 let label = value.as_deref().unwrap_or("");
@@ -885,6 +893,14 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     apply_slider_orientation(slider, *orientation);
                 }
             }
+            NativeWidgetSetter::SetAutocomplete(_)
+            | NativeWidgetSetter::SetInputMode(_)
+            | NativeWidgetSetter::SetAutoCorrect(_)
+            | NativeWidgetSetter::SetVirtualKeyboardPolicy(_)
+            | NativeWidgetSetter::SetInputType(_)
+            | NativeWidgetSetter::SetSpellCheck(_) => {
+                self.apply_text_input_hints(id, &handle.widget);
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetClassName(_)
@@ -893,19 +909,14 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             | NativeWidgetSetter::SetMultiple(_)
             | NativeWidgetSetter::SetAutoFocus(_)
             | NativeWidgetSetter::SetExpanded(_)
-            | NativeWidgetSetter::SetAutocomplete(_)
-            | NativeWidgetSetter::SetInputMode(_)
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
             | NativeWidgetSetter::SetName(_)
             | NativeWidgetSetter::SetForm(_)
-            | NativeWidgetSetter::SetInputType(_)
             | NativeWidgetSetter::SetAccept(_)
             | NativeWidgetSetter::SetCapture(_)
             | NativeWidgetSetter::SetEnterKeyHint(_)
             | NativeWidgetSetter::SetAutoCapitalize(_)
-            | NativeWidgetSetter::SetAutoCorrect(_)
-            | NativeWidgetSetter::SetVirtualKeyboardPolicy(_)
             | NativeWidgetSetter::SetHidden(_)
             | NativeWidgetSetter::SetLang(_)
             | NativeWidgetSetter::SetDir(_)
@@ -914,7 +925,6 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             | NativeWidgetSetter::SetAccessKey(_)
             | NativeWidgetSetter::SetContentEditable(_)
             | NativeWidgetSetter::SetDraggable(_)
-            | NativeWidgetSetter::SetSpellCheck(_)
             | NativeWidgetSetter::SetTranslate(_)
             | NativeWidgetSetter::SetInert(_)
             | NativeWidgetSetter::SetPopover(_)
@@ -1121,6 +1131,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         self.action_targets.remove(&id);
         self.ranges.remove(&id);
         self.text_inputs.remove(&id);
+        self.text_input_configs.remove(&id);
         if let AppKitOsWidget::ComboBox(_) = &handle.widget {
             self.combo_boxes.remove(&id);
             if let Some(children) = self.combo_children.remove(&id) {

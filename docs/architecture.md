@@ -451,7 +451,10 @@ Feature-gated platform executor surfaces:
   editable `NSTextField` controls, including native `NSSearchField` search
   inputs and textarea-shaped fields, use an `NSTextFieldDelegate` to apply
   max-length hints and enqueue focus, change, and blur records, with change
-  events carrying the current native string value. `NSButton(checkbox)` and
+  events carrying the current native string value. AppKit text fields also map
+  portable text-entry hints into native spell-checking, correction, completion,
+  inline prediction, automatic text completion, and character-picker settings
+  when the control responds to the matching selector. `NSButton(checkbox)` and
   `NSSwitch` controls apply native
   checked state and enqueue `NativeEventKind::Toggle` records with the current
   boolean value. `RadioGroup` uses native `NSStackView` containers with

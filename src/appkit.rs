@@ -9,6 +9,8 @@ use crate::backend::{
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
+#[cfg(any(test, feature = "appkit-native"))]
+use crate::platform::NativeTextInputPurpose;
 use crate::platform::{
     apply_widget_setters, NativeBackendKind, NativeControlState, NativeWidgetBlueprint,
     NativeWidgetConfig, NativeWidgetConfigPatch, NativeWidgetSetter,
@@ -169,6 +171,133 @@ impl AppKitWidgetKind {
             ))),
         }
     }
+}
+
+#[cfg(any(test, feature = "appkit-native"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AppKitTextInputTrait {
+    Default,
+    No,
+    Yes,
+}
+
+#[cfg(any(test, feature = "appkit-native"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct AppKitTextInputHints {
+    pub automatic_text_completion_enabled: Option<bool>,
+    pub spell_checking: AppKitTextInputTrait,
+    pub autocorrection: AppKitTextInputTrait,
+    pub text_replacement: AppKitTextInputTrait,
+    pub text_completion: AppKitTextInputTrait,
+    pub inline_prediction: AppKitTextInputTrait,
+    pub character_picker_enabled: bool,
+}
+
+#[cfg(any(test, feature = "appkit-native"))]
+pub(crate) fn appkit_text_input_hints(config: &NativeWidgetConfig) -> AppKitTextInputHints {
+    let hints = config.text_input_hints();
+    let constrained = appkit_constrained_text_input(config);
+    let completion = appkit_completion_trait(config, constrained);
+    let correction = appkit_correction_trait(config, constrained);
+
+    AppKitTextInputHints {
+        automatic_text_completion_enabled: appkit_automatic_text_completion_enabled(
+            config, completion,
+        ),
+        spell_checking: hints
+            .spellcheck
+            .map(appkit_bool_trait)
+            .unwrap_or_else(|| appkit_default_spell_checking(config, constrained)),
+        autocorrection: correction,
+        text_replacement: correction,
+        text_completion: completion,
+        inline_prediction: completion,
+        character_picker_enabled: hints.emoji.unwrap_or(true) && !hints.private,
+    }
+}
+
+#[cfg(any(test, feature = "appkit-native"))]
+fn appkit_constrained_text_input(config: &NativeWidgetConfig) -> bool {
+    normalized_token(config.input_mode.as_deref()).as_deref() == Some("none")
+        || matches!(
+            config.text_input_purpose(),
+            NativeTextInputPurpose::Digits
+                | NativeTextInputPurpose::Number
+                | NativeTextInputPurpose::Phone
+                | NativeTextInputPurpose::Url
+                | NativeTextInputPurpose::Email
+                | NativeTextInputPurpose::Password
+                | NativeTextInputPurpose::Pin
+                | NativeTextInputPurpose::Terminal
+        )
+}
+
+#[cfg(any(test, feature = "appkit-native"))]
+fn appkit_default_spell_checking(
+    config: &NativeWidgetConfig,
+    constrained: bool,
+) -> AppKitTextInputTrait {
+    if constrained || config.text_input_hints().private {
+        AppKitTextInputTrait::No
+    } else {
+        AppKitTextInputTrait::Default
+    }
+}
+
+#[cfg(any(test, feature = "appkit-native"))]
+fn appkit_correction_trait(config: &NativeWidgetConfig, constrained: bool) -> AppKitTextInputTrait {
+    if constrained || config.text_input_hints().private {
+        return AppKitTextInputTrait::No;
+    }
+    match normalized_token(config.auto_correct.as_deref()).as_deref() {
+        Some("on" | "true") => AppKitTextInputTrait::Yes,
+        Some("off" | "false") => AppKitTextInputTrait::No,
+        _ => AppKitTextInputTrait::Default,
+    }
+}
+
+#[cfg(any(test, feature = "appkit-native"))]
+fn appkit_completion_trait(config: &NativeWidgetConfig, constrained: bool) -> AppKitTextInputTrait {
+    if constrained || config.text_input_hints().private {
+        return AppKitTextInputTrait::No;
+    }
+    match normalized_token(config.autocomplete.as_deref()).as_deref() {
+        Some("on") => AppKitTextInputTrait::Yes,
+        Some("off") => AppKitTextInputTrait::No,
+        _ => AppKitTextInputTrait::Default,
+    }
+}
+
+#[cfg(any(test, feature = "appkit-native"))]
+fn appkit_automatic_text_completion_enabled(
+    config: &NativeWidgetConfig,
+    completion: AppKitTextInputTrait,
+) -> Option<bool> {
+    match completion {
+        AppKitTextInputTrait::Yes => Some(true),
+        AppKitTextInputTrait::No => Some(false),
+        AppKitTextInputTrait::Default => None,
+    }
+    .or_else(|| {
+        (normalized_token(config.input_mode.as_deref()).as_deref() == Some("none")).then_some(false)
+    })
+}
+
+#[cfg(any(test, feature = "appkit-native"))]
+fn appkit_bool_trait(value: bool) -> AppKitTextInputTrait {
+    if value {
+        AppKitTextInputTrait::Yes
+    } else {
+        AppKitTextInputTrait::No
+    }
+}
+
+#[cfg(any(test, feature = "appkit-native"))]
+fn normalized_token(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_ascii_lowercase)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -515,9 +644,75 @@ mod tests {
     use super::*;
     use crate::backend::CommandExecutingHost;
     use crate::compiler::CompiledJsxNode;
-    use crate::native::{NativeElement, NativeRole};
+    use crate::native::{NativeElement, NativeProps, NativeRole};
     use crate::platform::{AppKitAdapter, PlatformAdapter};
     use crate::runtime::GuiRuntime;
+
+    #[test]
+    fn appkit_text_input_hints_disable_completion_for_structured_fields() {
+        let config = AppKitAdapter
+            .blueprint(
+                &NativeElement::new("field", NativeRole::TextField).with_props(
+                    NativeProps::new()
+                        .input_type("email")
+                        .autocomplete("on")
+                        .spell_check(Some(true)),
+                ),
+            )
+            .config();
+
+        assert_eq!(
+            appkit_text_input_hints(&config),
+            AppKitTextInputHints {
+                automatic_text_completion_enabled: Some(false),
+                spell_checking: AppKitTextInputTrait::Yes,
+                autocorrection: AppKitTextInputTrait::No,
+                text_replacement: AppKitTextInputTrait::No,
+                text_completion: AppKitTextInputTrait::No,
+                inline_prediction: AppKitTextInputTrait::No,
+                character_picker_enabled: true,
+            }
+        );
+    }
+
+    #[test]
+    fn appkit_text_input_hints_track_web_completion_and_keyboard_hints() {
+        let config = AppKitAdapter
+            .blueprint(
+                &NativeElement::new("field", NativeRole::TextField).with_props(
+                    NativeProps::new()
+                        .autocomplete("on")
+                        .auto_correct("off")
+                        .input_mode("none"),
+                ),
+            )
+            .config();
+
+        assert_eq!(
+            appkit_text_input_hints(&config),
+            AppKitTextInputHints {
+                automatic_text_completion_enabled: Some(false),
+                spell_checking: AppKitTextInputTrait::No,
+                autocorrection: AppKitTextInputTrait::No,
+                text_replacement: AppKitTextInputTrait::No,
+                text_completion: AppKitTextInputTrait::No,
+                inline_prediction: AppKitTextInputTrait::No,
+                character_picker_enabled: false,
+            }
+        );
+
+        let config = AppKitAdapter
+            .blueprint(
+                &NativeElement::new("field", NativeRole::TextField)
+                    .with_props(NativeProps::new().autocomplete("on")),
+            )
+            .config();
+
+        assert_eq!(
+            appkit_text_input_hints(&config).text_completion,
+            AppKitTextInputTrait::Yes
+        );
+    }
 
     #[test]
     fn appkit_widget_driver_reparents_children_and_removes_subtrees() {
