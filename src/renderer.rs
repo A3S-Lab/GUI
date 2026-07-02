@@ -46,6 +46,14 @@ impl Renderer {
         ids
     }
 
+    pub fn mounted_node_props(&self) -> Vec<(HostNodeId, NativeProps)> {
+        let mut props = Vec::new();
+        if let Some(root) = &self.root {
+            collect_mounted_node_props(root, &mut props);
+        }
+        props
+    }
+
     pub fn ancestor_ids(&self, node: HostNodeId) -> Vec<HostNodeId> {
         let mut ancestors = Vec::new();
         if let Some(root) = &self.root {
@@ -59,6 +67,13 @@ fn collect_mounted_node_ids(node: &MountedNode, ids: &mut BTreeSet<HostNodeId>) 
     ids.insert(node.id);
     for child in &node.children {
         collect_mounted_node_ids(child, ids);
+    }
+}
+
+fn collect_mounted_node_props(node: &MountedNode, props: &mut Vec<(HostNodeId, NativeProps)>) {
+    props.push((node.id, node.props.clone()));
+    for child in &node.children {
+        collect_mounted_node_props(child, props);
     }
 }
 
@@ -244,6 +259,38 @@ mod tests {
         assert!(mounted.contains(&root_id));
         assert!(!mounted.contains(&removed));
         assert_eq!(mounted.len(), 3);
+    }
+
+    #[test]
+    fn mounted_node_props_follow_tree_order() {
+        let tree = NativeElement::new("root", NativeRole::View)
+            .with_props(NativeProps::new().label("Root"))
+            .child(
+                NativeElement::new("a", NativeRole::Button)
+                    .with_props(NativeProps::new().label("A")),
+            )
+            .child(
+                NativeElement::new("b", NativeRole::Button)
+                    .with_props(NativeProps::new().label("B")),
+            );
+        let mut renderer = Renderer::new();
+        let mut host = HeadlessHost::default();
+
+        renderer.render(&tree, &mut host).unwrap();
+
+        let labels = renderer
+            .mounted_node_props()
+            .into_iter()
+            .map(|(_, props)| props.label)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            labels,
+            vec![
+                Some("Root".to_string()),
+                Some("A".to_string()),
+                Some("B".to_string())
+            ]
+        );
     }
 
     #[test]

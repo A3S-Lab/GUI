@@ -7,10 +7,11 @@ use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, ActionRegistry, EventRouter, NativeEvent};
 use crate::host::{HostNodeId, NativeHost};
 use crate::interaction::{InteractionChange, InteractionNodeState, InteractionState};
-use crate::native::NativeElement;
+use crate::native::{NativeElement, NativeProps};
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::react_aria::{AriaElement, ReactAriaMapper};
 use crate::renderer::Renderer;
+use crate::style::PortableStyle;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -63,6 +64,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         let root = self.renderer.render(element, &mut self.host)?;
         self.render_revision = self.render_revision.saturating_add(1);
         self.prune_unmounted_interactions();
+        self.initialize_auto_focus();
         Ok(root)
     }
 
@@ -344,6 +346,26 @@ impl<H: NativeHost> GuiRuntime<H> {
             .retain(|node, _| mounted_nodes.contains(node));
     }
 
+    fn initialize_auto_focus(&mut self) {
+        if self.interaction_state.has_focused_node() || self.interaction_state.has_focus_history() {
+            return;
+        }
+
+        let Some((node, props)) = self
+            .renderer
+            .mounted_node_props()
+            .into_iter()
+            .find(|(_, props)| can_auto_focus(props))
+        else {
+            return;
+        };
+
+        self.interaction_state
+            .set_initial_focus_from_props(node, &props);
+        self.interaction_revisions
+            .insert(node, self.render_revision);
+    }
+
     pub fn into_host(self) -> H {
         self.host
     }
@@ -415,6 +437,17 @@ fn is_visible_blueprint(blueprint: &NativeWidgetBlueprint) -> bool {
 
 fn is_inert_blueprint(blueprint: &NativeWidgetBlueprint) -> bool {
     blueprint.control_state.inert || blueprint.portable_style.makes_native_widget_inert()
+}
+
+fn can_auto_focus(props: &NativeProps) -> bool {
+    let style = PortableStyle::from_web(&props.web);
+    props.auto_focus
+        && !props.disabled
+        && !props.hidden
+        && !props.inert
+        && props.html_dialog.open.unwrap_or(true)
+        && style.renders_native_widget()
+        && !style.makes_native_widget_inert()
 }
 
 fn is_disabled_user_event(
@@ -915,6 +948,82 @@ mod tests {
         assert!(invocation.is_none());
         assert!(runtime.interactions().node(root_id).unwrap().focused);
         assert!(runtime.accessibility_tree().unwrap().focused);
+    }
+
+    #[test]
+    fn runtime_initializes_first_renderable_auto_focus_node() {
+        let element = NativeElement::new("tools", NativeRole::Toolbar)
+            .child(
+                NativeElement::new("hidden", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Hidden")
+                        .auto_focus(true)
+                        .hidden(true),
+                ),
+            )
+            .child(
+                NativeElement::new("save", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Save").auto_focus(true)),
+            )
+            .child(
+                NativeElement::new("cancel", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Cancel").auto_focus(true)),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let children = runtime.host().node(root_id).unwrap().children.clone();
+        let accessibility = runtime.accessibility_tree().unwrap();
+
+        assert!(runtime.interactions().changes().is_empty());
+        assert!(runtime.interactions().node(children[1]).unwrap().focused);
+        assert_eq!(accessibility.children.len(), 2);
+        assert_eq!(accessibility.children[0].label.as_deref(), Some("Save"));
+        assert!(accessibility.children[0].focused);
+        assert_eq!(accessibility.children[1].label.as_deref(), Some("Cancel"));
+        assert!(!accessibility.children[1].focused);
+    }
+
+    #[test]
+    fn runtime_auto_focus_yields_to_native_focus_history() {
+        let element = NativeElement::new("tools", NativeRole::Toolbar)
+            .child(
+                NativeElement::new("save", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Save").auto_focus(true)),
+            )
+            .child(
+                NativeElement::new("cancel", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Cancel")),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let children = runtime.host().node(root_id).unwrap().children.clone();
+        assert!(runtime.accessibility_tree().unwrap().children[0].focused);
+
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                children[1],
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+        runtime.render_native(&element).unwrap();
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(!accessibility.children[0].focused);
+        assert!(accessibility.children[1].focused);
+
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                children[1],
+                crate::event::NativeEventKind::Blur,
+            ))
+            .unwrap();
+        runtime.render_native(&element).unwrap();
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(!accessibility.children[0].focused);
+        assert!(!accessibility.children[1].focused);
     }
 
     #[test]

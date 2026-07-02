@@ -430,6 +430,38 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_projects_auto_focus_on_render() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {
+                  "attributes": {
+                    "aria-label": "Save profile",
+                    "autoFocus": "true"
+                  }
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let response = session.render_frame(&frame).unwrap();
+        let accessibility = response.accessibility_tree.as_ref().unwrap();
+
+        assert_eq!(accessibility.node, Some(response.root));
+        assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
+        assert!(accessibility.focused);
+        assert!(session.runtime().interactions().changes().is_empty());
+    }
+
+    #[test]
     fn native_protocol_session_omits_hidden_accessibility_subtrees() {
         let frame: UiFrame = serde_json::from_str(
             r#"

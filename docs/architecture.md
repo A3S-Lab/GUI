@@ -260,8 +260,10 @@ keyboard activation normalization, while focus, blur, press, and explicit
 keyboard events can still route to actions.
 ListBox selection projection uses that multiple-selection flag to keep existing
 selected children in multi-select lists while single-select lists follow the
-latest selected child. Non-focus interaction state is revision-scoped: after a
-successful rerender, controlled values from the new blueprint supersede stale
+latest selected child. On the first render without prior focus history, the
+first renderable `autoFocus` control initializes runtime focus state for
+accessibility projection. Non-focus interaction state is revision-scoped: after
+a successful rerender, controlled values from the new blueprint supersede stale
 local event state while focus remains preserved until a blur or another focus
 event arrives. Later native events on that node also rebase their interaction
 baseline from the latest blueprint before applying local changes.

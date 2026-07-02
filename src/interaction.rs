@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::event::{NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
-use crate::native::NativeRole;
+use crate::native::{NativeProps, NativeRole};
 use crate::platform::NativeWidgetBlueprint;
 use serde::{Deserialize, Serialize};
 
@@ -37,6 +37,16 @@ impl InteractionState {
         self.nodes.get(&id)
     }
 
+    pub fn has_focused_node(&self) -> bool {
+        self.nodes.values().any(|state| state.focused)
+    }
+
+    pub fn has_focus_history(&self) -> bool {
+        self.changes
+            .iter()
+            .any(|change| change.before.focused != change.after.focused)
+    }
+
     pub fn changes(&self) -> &[InteractionChange] {
         &self.changes
     }
@@ -46,6 +56,14 @@ impl InteractionState {
         let mut state = initial_state_from_blueprint(blueprint);
         state.focused = focused;
         self.nodes.insert(id, state);
+    }
+
+    pub fn set_initial_focus_from_props(&mut self, id: HostNodeId, props: &NativeProps) {
+        let state = self
+            .nodes
+            .entry(id)
+            .or_insert_with(|| initial_state_from_props(props));
+        state.focused = true;
     }
 
     pub fn retain_nodes(&mut self, mounted_nodes: &BTreeSet<HostNodeId>) {
@@ -116,6 +134,16 @@ fn initial_state_from_blueprint(blueprint: &NativeWidgetBlueprint) -> Interactio
         selected: blueprint.control_state.selected,
         checked: blueprint.control_state.checked,
         expanded: blueprint.control_state.expanded,
+    }
+}
+
+fn initial_state_from_props(props: &NativeProps) -> InteractionNodeState {
+    InteractionNodeState {
+        focused: false,
+        value: props.value.clone(),
+        selected: props.selected,
+        checked: props.checked,
+        expanded: props.expanded,
     }
 }
 
@@ -311,6 +339,41 @@ mod tests {
         let node = state.node(HostNodeId::new(4)).unwrap();
         assert!(node.focused);
         assert_eq!(node.checked, Some(false));
+    }
+
+    #[test]
+    fn set_initial_focus_from_props_does_not_record_event_change() {
+        let props = NativeProps::new().value("Ada").selected(true);
+        let mut state = InteractionState::new();
+
+        state.set_initial_focus_from_props(HostNodeId::new(9), &props);
+
+        let node = state.node(HostNodeId::new(9)).unwrap();
+        assert!(node.focused);
+        assert_eq!(node.value.as_deref(), Some("Ada"));
+        assert!(node.selected);
+        assert!(!state.has_focus_history());
+        assert!(state.changes().is_empty());
+    }
+
+    #[test]
+    fn set_initial_focus_preserves_existing_node_state() {
+        let element = NativeElement::new("enabled", NativeRole::Switch)
+            .with_props(NativeProps::new().checked(false));
+        let blueprint = Gtk4Adapter.blueprint(&element);
+        let mut state = InteractionState::new();
+
+        state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(10), NativeEventKind::Toggle),
+            )
+            .unwrap();
+        state.set_initial_focus_from_props(HostNodeId::new(10), &NativeProps::new());
+
+        let node = state.node(HostNodeId::new(10)).unwrap();
+        assert!(node.focused);
+        assert_eq!(node.checked, Some(true));
     }
 
     #[test]
