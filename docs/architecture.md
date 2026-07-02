@@ -368,7 +368,7 @@ deterministically:
   `left`, `zIndex`
 - `visibility`
 - `flexDirection`, `flexWrap`, `flex`, `flexBasis`, `flexGrow`,
-  `flexShrink`, `order`
+  `flexShrink`, `order`, `readingFlow`, `readingOrder`
 - `alignItems`, `alignContent`, `alignSelf`, `justifyContent`,
   `justifyItems`, `justifySelf`, `placeContent`, `placeItems`, `placeSelf`
 - `grid`, `gridTemplate*`, `gridAutoColumns`, `gridAutoRows`, `gridAutoFlow`,
@@ -444,7 +444,8 @@ deterministically:
   physical and logical `scrollMargin*`,
   `scrollPadding*`, `scrollSnap*`, `scrollbarGutter`, `scrollbarWidth`,
   `scrollbarColor`, `overscrollBehavior*`, `overscrollBehaviorBlock`,
-  `overscrollBehaviorInline`, `touchAction`, `nav*`, and `spatialNavigation*`
+  `overscrollBehaviorInline`, `touchAction`, `nav*`, `spatialNavigation*`,
+  and `interactivity`
 - `cursor`, `pointerEvents`, `userSelect`
 - `opacity`
 
@@ -494,8 +495,8 @@ Common Tailwind Grid utilities such as `grid-cols-*`, `grid-rows-*`,
 the same declaration model.
 Common Tailwind Flexbox item and box-alignment utilities such as `flex-*`,
 `basis-*`, `grow-*`, `shrink-*`, `order-*`, `content-*`, `self-*`,
-`justify-items-*`, `justify-self-*`, and `place-*` project into the same
-declaration model.
+`justify-items-*`, `justify-self-*`, `place-*`, and arbitrary `reading-*`
+properties project into the same declaration model.
 Common Tailwind sizing and child-spacing utilities such as `size-*`,
 `space-x-*`, `space-y-*`, `space-x-reverse`, and `space-y-reverse` project
 into the same declaration model.
@@ -552,8 +553,8 @@ properties, `will-change-*`, `appearance-*`,
 `scrollbar-*`, `scrollbar-gutter-*`, `scrollbar-thumb-*`,
 `scrollbar-track-*`, `overscroll-*`, arbitrary logical overflow, overflow clip
 margin, scroll anchoring, logical overscroll, CSS UI directional navigation,
-CSS Spatial Navigation, and `touch-*` properties project into the same
-declaration model.
+CSS Spatial Navigation, CSS UI interactivity, and `touch-*` properties project
+into the same declaration model.
 Tailwind logical direction utilities such as `start-*`, `end-*`, `ms-*`,
 `me-*`, `mbs-*`, `mbe-*`, `mis-*`, `mie-*`, `ps-*`, `pe-*`, `pbs-*`,
 `pbe-*`, `pis-*`, `pie-*`, `scroll-ms-*`, `scroll-me-*`, `scroll-mbs-*`,

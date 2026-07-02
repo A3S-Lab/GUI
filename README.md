@@ -47,7 +47,8 @@ position, physical and logical inset, z-index, visibility, box sizing, box
 decoration break, CSS Anchor Positioning metadata, isolation, mix blend mode,
 float, clear, vertical alignment, table layout, border collapse/spacing,
 caption side, empty cells, flex direction/wrap/item
-sizing/grow/shrink/order, alignment, justification, place alignment, CSS Grid
+sizing/grow/shrink/order, reading flow/order metadata, alignment,
+justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, physical and logical
 sizing, gap/row-gap/column-gap, CSS containment, generated content,
 CSS counters, quotes, and container query metadata, physical, logical, and child spacing, uniform,
@@ -87,7 +88,7 @@ resize, scroll behavior, physical and logical scroll
 margin/padding, scroll snap, scrollbar gutter/width/color, scroll anchoring,
 logical overflow, overflow clip margin, overscroll behavior,
 touch action, CSS UI directional navigation, CSS Spatial Navigation metadata,
-cursor, pointer events, and user selection.
+CSS UI interactivity metadata, cursor, pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `var(...)`, `clamp(...)`, `anchor(...)`, `anchor-size(...)`,
@@ -130,7 +131,8 @@ CSS Grid utilities such as `grid-cols-*`, `grid-rows-*`, `auto-cols-*`,
 `auto-rows-*`, `grid-flow-*`, `col-*`, and `row-*` are also projected into
 portable style tokens. Flex item and box-alignment utilities such as `flex-*`,
 `basis-*`, `grow-*`, `shrink-*`, `order-*`, `content-*`, `self-*`,
-`justify-items-*`, `justify-self-*`, and `place-*` are projected as well.
+`justify-items-*`, `justify-self-*`, `place-*`, and arbitrary `reading-*`
+properties are projected as well.
 Sizing and child-spacing utilities such as `size-*`, `space-x-*`,
 `space-y-*`, `space-x-reverse`, and `space-y-reverse` are projected into
 portable layout tokens.
@@ -178,7 +180,8 @@ properties, `resize-*`, `scroll-*`, `snap-*`, `scrollbar-*`,
 `scrollbar-gutter-*`, `scrollbar-thumb-*`, `scrollbar-track-*`,
 `overscroll-*`, arbitrary logical overflow, overflow clip margin, scroll
 anchoring, logical overscroll, CSS UI directional navigation, CSS Spatial
-Navigation, and `touch-*` properties are projected into portable style tokens.
+Navigation, CSS UI interactivity, and `touch-*` properties are projected into
+portable style tokens.
 Border radius utilities such as `rounded-*`, `rounded-t-*`, `rounded-r-*`,
 `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`, `rounded-tr-*`,
 `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`, `rounded-e-*`,

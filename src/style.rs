@@ -30,6 +30,8 @@ pub struct PortableStyle {
     pub flex_grow: Option<String>,
     pub flex_shrink: Option<String>,
     pub order: Option<String>,
+    pub reading_flow: Option<String>,
+    pub reading_order: Option<String>,
     pub align_items: Option<AlignItems>,
     pub align_content: Option<JustifyContent>,
     pub align_self: Option<SelfAlignment>,
@@ -433,6 +435,7 @@ pub struct PortableStyle {
     pub spatial_navigation_action: Option<String>,
     pub spatial_navigation_contain: Option<String>,
     pub spatial_navigation_function: Option<String>,
+    pub interactivity: Option<String>,
     pub cursor: Option<String>,
     pub pointer_events: Option<PointerEvents>,
     pub user_select: Option<UserSelect>,
@@ -488,6 +491,8 @@ impl PortableStyle {
             "flex-grow" => self.flex_grow = parse_css_string_token(value_ref),
             "flex-shrink" => self.flex_shrink = parse_css_string_token(value_ref),
             "order" => self.order = parse_css_string_token(value_ref),
+            "reading-flow" => self.reading_flow = parse_css_string_token(value_ref),
+            "reading-order" => self.reading_order = parse_css_string_token(value_ref),
             "align-items" => self.align_items = parse_align_items(value_ref),
             "align-content" => self.align_content = parse_justify_content(value_ref),
             "align-self" => self.align_self = parse_self_alignment(value_ref),
@@ -1336,6 +1341,7 @@ impl PortableStyle {
             "spatial-navigation-function" => {
                 self.spatial_navigation_function = parse_css_string_token(value_ref);
             }
+            "interactivity" => self.interactivity = parse_css_string_token(value_ref),
             "cursor" => self.cursor = parse_css_string_token(value_ref),
             "caret-shape" => self.caret_shape = parse_css_string_token(value_ref),
             "pointer-events" => self.pointer_events = parse_pointer_events(value_ref),
@@ -9721,6 +9727,8 @@ mod tests {
             .style("flexGrow", "2")
             .style("flexShrink", "0")
             .style("order", "3")
+            .style("readingFlow", "grid-rows")
+            .style("readingOrder", "2")
             .style("alignContent", "space-between")
             .style("alignSelf", "stretch")
             .style("justifyItems", "center")
@@ -9736,6 +9744,8 @@ mod tests {
         assert_eq!(style.flex_grow.as_deref(), Some("2"));
         assert_eq!(style.flex_shrink.as_deref(), Some("0"));
         assert_eq!(style.order.as_deref(), Some("3"));
+        assert_eq!(style.reading_flow.as_deref(), Some("grid-rows"));
+        assert_eq!(style.reading_order.as_deref(), Some("2"));
         assert_eq!(style.align_content, Some(JustifyContent::SpaceBetween));
         assert_eq!(style.align_self, Some(SelfAlignment::Stretch));
         assert_eq!(style.justify_items, Some(AlignItems::Center));
@@ -9744,6 +9754,8 @@ mod tests {
         assert_eq!(style.place_items.as_deref(), Some("start"));
         assert_eq!(style.place_self.as_deref(), Some("end"));
         assert!(!style.unsupported.contains_key("flex-basis"));
+        assert!(!style.unsupported.contains_key("reading-flow"));
+        assert!(!style.unsupported.contains_key("reading-order"));
         assert!(!style.unsupported.contains_key("align-self"));
     }
 
@@ -9753,7 +9765,9 @@ mod tests {
             "flex-1 basis-1/2 grow-2 shrink-0 order-first -order-2 \
              content-between self-end justify-items-center justify-self-stretch \
              place-content-evenly place-items-baseline place-self-start \
-             md:basis-[calc(50%_-_1rem)] hover:order-[7]",
+             [reading-flow:grid-rows] [reading-order:2] \
+             md:basis-[calc(50%_-_1rem)] hover:order-[7] \
+             focus:[reading-flow:flex-visual] active:[reading-order:5]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -9763,6 +9777,8 @@ mod tests {
         assert_eq!(style.flex_grow.as_deref(), Some("2"));
         assert_eq!(style.flex_shrink.as_deref(), Some("0"));
         assert_eq!(style.order.as_deref(), Some("calc(2 * -1)"));
+        assert_eq!(style.reading_flow.as_deref(), Some("grid-rows"));
+        assert_eq!(style.reading_order.as_deref(), Some("2"));
         assert_eq!(style.align_content, Some(JustifyContent::SpaceBetween));
         assert_eq!(style.align_self, Some(SelfAlignment::End));
         assert_eq!(style.justify_items, Some(AlignItems::Center));
@@ -9789,6 +9805,22 @@ mod tests {
                 .and_then(|styles| styles.get("order"))
                 .map(String::as_str),
             Some("7")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("reading-flow"))
+                .map(String::as_str),
+            Some("flex-visual")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("reading-order"))
+                .map(String::as_str),
+            Some("5")
         );
     }
 
@@ -11807,7 +11839,8 @@ mod tests {
             .style("navLeft", "current")
             .style("spatialNavigationAction", "focus")
             .style("spatialNavigationContain", "contain")
-            .style("spatialNavigationFunction", "grid");
+            .style("spatialNavigationFunction", "grid")
+            .style("interactivity", "inert");
 
         let style = PortableStyle::from_web(&web);
 
@@ -11921,6 +11954,7 @@ mod tests {
         assert_eq!(style.spatial_navigation_action.as_deref(), Some("focus"));
         assert_eq!(style.spatial_navigation_contain.as_deref(), Some("contain"));
         assert_eq!(style.spatial_navigation_function.as_deref(), Some("grid"));
+        assert_eq!(style.interactivity.as_deref(), Some("inert"));
         assert!(!style.unsupported.contains_key("transition-duration"));
         assert!(!style.unsupported.contains_key("animation-timeline"));
         assert!(!style.unsupported.contains_key("animation-range"));
@@ -11962,6 +11996,7 @@ mod tests {
         assert!(!style
             .unsupported
             .contains_key("spatial-navigation-function"));
+        assert!(!style.unsupported.contains_key("interactivity"));
     }
 
     #[test]
@@ -11997,10 +12032,11 @@ mod tests {
              [overscroll-behavior-block:contain] [overscroll-behavior-inline:none] \
              [nav-up:#previous] [nav-right:auto] [nav-down:#next] [nav-left:current] \
              [spatial-navigation-action:focus] [spatial-navigation-contain:contain] \
-             [spatial-navigation-function:grid] \
+             [spatial-navigation-function:grid] [interactivity:inert] \
              hover:[overflow-clip-margin:border-box_2px] focus:[overflow-anchor:auto] \
              active:[overscroll-behavior-block:none] hover:[nav-right:#next] \
-             focus:[spatial-navigation-action:scroll] active:[spatial-navigation-function:normal]",
+             focus:[spatial-navigation-action:scroll] active:[spatial-navigation-function:normal] \
+             disabled:[interactivity:auto]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -12124,6 +12160,7 @@ mod tests {
         assert_eq!(style.spatial_navigation_action.as_deref(), Some("focus"));
         assert_eq!(style.spatial_navigation_contain.as_deref(), Some("contain"));
         assert_eq!(style.spatial_navigation_function.as_deref(), Some("grid"));
+        assert_eq!(style.interactivity.as_deref(), Some("inert"));
         assert_eq!(
             style
                 .variant_declarations
@@ -12267,6 +12304,14 @@ mod tests {
                 .and_then(|styles| styles.get("spatial-navigation-function"))
                 .map(String::as_str),
             Some("normal")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("disabled")
+                .and_then(|styles| styles.get("interactivity"))
+                .map(String::as_str),
+            Some("auto")
         );
         assert_eq!(
             style
