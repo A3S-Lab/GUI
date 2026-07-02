@@ -358,7 +358,9 @@ let response = session.dispatch_host_event(&HostEvent {
 React callbacks are compiled to stable action identifiers. Native adapters emit
 typed events; `GuiRuntime` first updates portable focus/value/selection state in
 `InteractionState`, then `EventRouter` maps the event back to the serialized
-action id and `ActionRegistry` validates that the action exists.
+action id and `ActionRegistry` validates that the action exists. Rendering a
+new `UiFrame` replaces the registered action set with that frame's declared
+actions.
 
 ```text
 onPress={saveProfile}

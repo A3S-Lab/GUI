@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
 use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
 use crate::error::GuiResult;
-use crate::event::{ActionInvocation, NativeEvent};
+use crate::event::{ActionInvocation, NativeEvent, RegisteredAction};
 use crate::host::{HostNodeId, NativeHost};
 use crate::interaction::InteractionChange;
 use crate::native::{NativeElement, NativeProps, NativeRole};
@@ -92,14 +92,9 @@ impl UiFrame {
         &self,
         runtime: &mut GuiRuntime<H>,
     ) -> GuiResult<RenderedFrame> {
-        for action in &self.actions {
-            match &action.label {
-                Some(label) => runtime
-                    .actions_mut()
-                    .register_labeled(action.id.clone(), label.clone()),
-                None => runtime.actions_mut().register(action.id.clone()),
-            }
-        }
+        runtime
+            .actions_mut()
+            .replace_registered(self.actions.iter().map(UiAction::registered_action));
         let root = match &self.window {
             Some(window) => {
                 let content = ReactCompilerBridge::new().lower_to_native(&self.root)?;
@@ -112,6 +107,15 @@ impl UiFrame {
             frame_id: self.frame_id.clone(),
             root,
         })
+    }
+}
+
+impl UiAction {
+    fn registered_action(&self) -> RegisteredAction {
+        RegisteredAction {
+            id: self.id.clone(),
+            label: self.label.clone(),
+        }
     }
 }
 
@@ -458,6 +462,57 @@ mod tests {
 
         assert_eq!(response.invocation.action, "saveProfile");
         assert!(error.to_string().contains("active frame profile"));
+    }
+
+    #[test]
+    fn native_protocol_session_replaces_registered_actions_on_render() {
+        let first: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "saveProfile"}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"events": {"onPress": "saveProfile"}},
+                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let second: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"events": {"onPress": "saveProfile"}},
+                "children": [{"kind": "text", "key": "save-text", "value": "Saved"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let first_response = session.render_frame(&first).unwrap();
+        assert!(session.runtime().actions().contains("saveProfile"));
+        session.render_frame(&second).unwrap();
+        assert!(!session.runtime().actions().contains("saveProfile"));
+        let error = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(first_response.root, NativeEventKind::Press),
+            })
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("unregistered action saveProfile"));
     }
 
     #[test]

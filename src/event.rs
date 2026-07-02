@@ -107,6 +107,16 @@ impl ActionRegistry {
         );
     }
 
+    pub fn replace_registered<I>(&mut self, actions: I)
+    where
+        I: IntoIterator<Item = RegisteredAction>,
+    {
+        self.actions.clear();
+        for action in actions {
+            self.actions.insert(action.id.clone(), action);
+        }
+    }
+
     pub fn contains(&self, id: &str) -> bool {
         self.actions.contains_key(id)
     }
@@ -305,5 +315,28 @@ mod tests {
                 value: None,
             })
             .is_err());
+    }
+
+    #[test]
+    fn action_registry_replaces_registered_action_scope() {
+        let mut registry = ActionRegistry::new();
+        registry.register("saveDocument");
+        registry
+            .invoke(ActionInvocation {
+                node: HostNodeId::new(1),
+                action: "saveDocument".to_string(),
+                event: NativeEventKind::Press,
+                value: None,
+            })
+            .unwrap();
+
+        registry.replace_registered([RegisteredAction {
+            id: "deleteDocument".to_string(),
+            label: Some("Delete document".to_string()),
+        }]);
+
+        assert!(!registry.contains("saveDocument"));
+        assert!(registry.contains("deleteDocument"));
+        assert_eq!(registry.invocations().len(), 1);
     }
 }
