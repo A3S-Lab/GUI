@@ -25,6 +25,36 @@ pub enum NativeBackendKind {
     Headless,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NativeTextInputPurpose {
+    FreeForm,
+    Alpha,
+    Digits,
+    Number,
+    Phone,
+    Url,
+    Email,
+    Name,
+    Password,
+    Pin,
+    Terminal,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeTextInputHints {
+    pub spellcheck: Option<bool>,
+    pub word_completion: bool,
+    pub lowercase: bool,
+    pub uppercase_chars: bool,
+    pub uppercase_words: bool,
+    pub uppercase_sentences: bool,
+    pub inhibit_osk: bool,
+    pub emoji: Option<bool>,
+    pub private: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeWidgetBlueprint {

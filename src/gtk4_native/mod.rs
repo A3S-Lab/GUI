@@ -16,7 +16,8 @@ use crate::gtk4::Gtk4WidgetKind;
 use crate::host::HostNodeId;
 use crate::native_backends::gtk4::menu::{Gtk4Menu, Gtk4MenuItem, Gtk4MenuRegistry};
 use crate::platform::{
-    Gtk4Adapter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter,
+    apply_widget_setter, Gtk4Adapter, NativeBackendKind, NativeTextInputHints,
+    NativeTextInputPurpose, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter,
 };
 use crate::style::StyleLength;
 
@@ -49,6 +50,7 @@ pub struct Gtk4NativeSurface {
     menus: Gtk4MenuRegistry,
     ranges: BTreeMap<HostNodeId, Gtk4RangeState>,
     text_inputs: BTreeMap<HostNodeId, Gtk4TextInputSizing>,
+    text_input_configs: BTreeMap<HostNodeId, NativeWidgetConfig>,
     text_input_max_lengths: Rc<RefCell<BTreeMap<HostNodeId, Option<u32>>>>,
 }
 
@@ -90,6 +92,7 @@ impl Gtk4NativeSurface {
             menus: Gtk4MenuRegistry::default(),
             ranges: BTreeMap::new(),
             text_inputs: BTreeMap::new(),
+            text_input_configs: BTreeMap::new(),
             text_input_max_lengths: Rc::new(RefCell::new(BTreeMap::new())),
         }
     }
@@ -166,6 +169,25 @@ impl Gtk4NativeSurface {
         };
         if width >= 0 || height >= 0 {
             text_view.set_size_request(width, height);
+        }
+    }
+
+    fn apply_text_input_hints(&self, id: HostNodeId, widget: &Gtk4OsWidget) {
+        let Some(config) = self.text_input_configs.get(&id) else {
+            return;
+        };
+        let purpose = gtk_input_purpose(config.text_input_purpose());
+        let hints = gtk_input_hints(config.text_input_hints());
+        match widget {
+            Gtk4OsWidget::Entry(entry) => {
+                entry.set_input_purpose(purpose);
+                entry.set_input_hints(hints);
+            }
+            Gtk4OsWidget::TextView(text_view) => {
+                text_view.set_input_purpose(purpose);
+                text_view.set_input_hints(hints);
+            }
+            _ => {}
         }
     }
 
@@ -686,6 +708,58 @@ fn gtk_orientation(orientation: Orientation) -> gtk::Orientation {
         Orientation::Horizontal => gtk::Orientation::Horizontal,
         Orientation::Vertical => gtk::Orientation::Vertical,
     }
+}
+
+fn gtk_input_purpose(purpose: NativeTextInputPurpose) -> gtk::InputPurpose {
+    match purpose {
+        NativeTextInputPurpose::FreeForm => gtk::InputPurpose::FreeForm,
+        NativeTextInputPurpose::Alpha => gtk::InputPurpose::Alpha,
+        NativeTextInputPurpose::Digits => gtk::InputPurpose::Digits,
+        NativeTextInputPurpose::Number => gtk::InputPurpose::Number,
+        NativeTextInputPurpose::Phone => gtk::InputPurpose::Phone,
+        NativeTextInputPurpose::Url => gtk::InputPurpose::Url,
+        NativeTextInputPurpose::Email => gtk::InputPurpose::Email,
+        NativeTextInputPurpose::Name => gtk::InputPurpose::Name,
+        NativeTextInputPurpose::Password => gtk::InputPurpose::Password,
+        NativeTextInputPurpose::Pin => gtk::InputPurpose::Pin,
+        NativeTextInputPurpose::Terminal => gtk::InputPurpose::Terminal,
+    }
+}
+
+fn gtk_input_hints(hints: NativeTextInputHints) -> gtk::InputHints {
+    let mut gtk_hints = gtk::InputHints::NONE;
+    match hints.spellcheck {
+        Some(true) => gtk_hints.insert(gtk::InputHints::SPELLCHECK),
+        Some(false) => gtk_hints.insert(gtk::InputHints::NO_SPELLCHECK),
+        None => {}
+    }
+    if hints.word_completion {
+        gtk_hints.insert(gtk::InputHints::WORD_COMPLETION);
+    }
+    if hints.lowercase {
+        gtk_hints.insert(gtk::InputHints::LOWERCASE);
+    }
+    if hints.uppercase_chars {
+        gtk_hints.insert(gtk::InputHints::UPPERCASE_CHARS);
+    }
+    if hints.uppercase_words {
+        gtk_hints.insert(gtk::InputHints::UPPERCASE_WORDS);
+    }
+    if hints.uppercase_sentences {
+        gtk_hints.insert(gtk::InputHints::UPPERCASE_SENTENCES);
+    }
+    if hints.inhibit_osk {
+        gtk_hints.insert(gtk::InputHints::INHIBIT_OSK);
+    }
+    match hints.emoji {
+        Some(true) => gtk_hints.insert(gtk::InputHints::EMOJI),
+        Some(false) => gtk_hints.insert(gtk::InputHints::NO_EMOJI),
+        None => {}
+    }
+    if hints.private {
+        gtk_hints.insert(gtk::InputHints::PRIVATE);
+    }
+    gtk_hints
 }
 
 fn config_dimension(value: Option<StyleLength>, default: i32) -> i32 {

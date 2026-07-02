@@ -12,5 +12,8 @@ pub use config::{
     NativeWidgetConfigPatch, NativeWidgetSetter,
 };
 pub use planning::{PlatformCommand, PlatformPlannedNode, PlatformPlanningHost};
-pub use types::{NativeBackendKind, NativeControlState, NativeWidgetBlueprint};
+pub use types::{
+    NativeBackendKind, NativeControlState, NativeTextInputHints, NativeTextInputPurpose,
+    NativeWidgetBlueprint,
+};
 pub use widget_names::{native_widget_name, widget_blueprint};

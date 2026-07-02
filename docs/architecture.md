@@ -534,10 +534,13 @@ Feature-gated platform executor surfaces:
   trees become native notebook pages with source tab labels, native panel
   widgets, and selection-change events carrying the selected tab value when
   available. GTK text entries, search entries, and textarea-shaped `TextView`
-  controls apply placeholder, read-only, max-length, and sizing setters. It is
-  a Linux-only feature so macOS and Windows builds can enable all portable
-  features without linking GTK. Linux builds require GTK4 development libraries
-  and `pkg-config`.
+  controls apply placeholder, read-only, max-length, and sizing setters. GTK
+  `Entry` and `TextView` controls also map portable text-entry hints such as
+  `inputMode`, `input type`, `autoCapitalize`, `autoCorrect`,
+  `virtualKeyboardPolicy`, and `spellCheck` into GTK input purpose and input
+  hint flags. It is a Linux-only feature so macOS and Windows builds can enable
+  all portable features without linking GTK. Linux builds require GTK4
+  development libraries and `pkg-config`.
   GTK callbacks enqueue press, text change, focus, blur, toggle, and
   selection-change events through the same `NativeEventSource` and action
   routing path as AppKit.

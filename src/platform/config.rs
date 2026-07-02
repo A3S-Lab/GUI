@@ -14,7 +14,9 @@ use crate::html::{
 use crate::native::NativeRole;
 use crate::style::PortableStyle;
 
-use super::types::{NativeBackendKind, NativeWidgetBlueprint};
+use super::types::{
+    NativeBackendKind, NativeTextInputHints, NativeTextInputPurpose, NativeWidgetBlueprint,
+};
 
 mod patch;
 mod setter;
@@ -361,6 +363,72 @@ impl NativeWidgetConfig {
             NativeWidgetSetter::SetMetadata(self.metadata.clone()),
         ]
     }
+
+    pub fn text_input_purpose(&self) -> NativeTextInputPurpose {
+        let input_type = normalized_token(self.input_type.as_deref());
+        let input_mode = normalized_token(self.input_mode.as_deref());
+
+        if input_type.as_deref() == Some("password") {
+            return match input_mode.as_deref() {
+                Some("numeric" | "decimal") => NativeTextInputPurpose::Pin,
+                _ => NativeTextInputPurpose::Password,
+            };
+        }
+
+        match input_mode.as_deref() {
+            Some("numeric") => return NativeTextInputPurpose::Digits,
+            Some("decimal") => return NativeTextInputPurpose::Number,
+            Some("tel") => return NativeTextInputPurpose::Phone,
+            Some("url") => return NativeTextInputPurpose::Url,
+            Some("email") => return NativeTextInputPurpose::Email,
+            Some("latin") => return NativeTextInputPurpose::Alpha,
+            Some("none" | "text" | "search") => return NativeTextInputPurpose::FreeForm,
+            Some(_) | None => {}
+        }
+
+        match input_type.as_deref() {
+            Some("number") => NativeTextInputPurpose::Number,
+            Some("tel") => NativeTextInputPurpose::Phone,
+            Some("url") => NativeTextInputPurpose::Url,
+            Some("email") => NativeTextInputPurpose::Email,
+            Some("date" | "datetime-local" | "month" | "time" | "week") => {
+                NativeTextInputPurpose::Digits
+            }
+            _ if is_name_autocomplete(self.autocomplete.as_deref()) => NativeTextInputPurpose::Name,
+            _ => NativeTextInputPurpose::FreeForm,
+        }
+    }
+
+    pub fn text_input_hints(&self) -> NativeTextInputHints {
+        let mut hints = NativeTextInputHints {
+            spellcheck: self
+                .spell_check
+                .or_else(|| auto_correct_spellcheck(self.auto_correct.as_deref())),
+            word_completion: normalized_token(self.autocomplete.as_deref()).as_deref()
+                == Some("on"),
+            inhibit_osk: normalized_token(self.virtual_keyboard_policy.as_deref()).as_deref()
+                == Some("manual")
+                || normalized_token(self.input_mode.as_deref()).as_deref() == Some("none"),
+            private: normalized_token(self.input_type.as_deref()).as_deref() == Some("password"),
+            ..NativeTextInputHints::default()
+        };
+
+        match normalized_token(self.auto_capitalize.as_deref()).as_deref() {
+            Some("characters") => hints.uppercase_chars = true,
+            Some("words") => hints.uppercase_words = true,
+            Some("sentences" | "on") => hints.uppercase_sentences = true,
+            Some("lowercase") => hints.lowercase = true,
+            _ => {}
+        }
+
+        match normalized_token(self.input_mode.as_deref()).as_deref() {
+            Some("emoji") => hints.emoji = Some(true),
+            Some("none") => hints.emoji = Some(false),
+            _ => {}
+        }
+
+        hints
+    }
 }
 
 fn window_resizable_from_blueprint(blueprint: &NativeWidgetBlueprint) -> Option<bool> {
@@ -374,5 +442,35 @@ fn window_resizable_from_blueprint(blueprint: &NativeWidgetBlueprint) -> Option<
             .get("data-a3s-window-resizable")
             .and_then(|value| value.parse::<bool>().ok())
             .unwrap_or(true),
+    )
+}
+
+fn normalized_token(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_ascii_lowercase)
+}
+
+fn auto_correct_spellcheck(value: Option<&str>) -> Option<bool> {
+    match normalized_token(value).as_deref() {
+        Some("on" | "true") => Some(true),
+        Some("off" | "false") => Some(false),
+        _ => None,
+    }
+}
+
+fn is_name_autocomplete(value: Option<&str>) -> bool {
+    matches!(
+        normalized_token(value).as_deref(),
+        Some(
+            "name"
+                | "given-name"
+                | "additional-name"
+                | "family-name"
+                | "nickname"
+                | "honorific-prefix"
+                | "honorific-suffix"
+        )
     )
 }

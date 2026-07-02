@@ -74,6 +74,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     entry.set_editable(!config.read_only);
                     self.text_inputs
                         .insert(id, Gtk4TextInputSizing::from_config(&config));
+                    self.text_input_configs.insert(id, config.clone());
                     self.text_input_max_lengths
                         .borrow_mut()
                         .insert(id, config.max_length);
@@ -128,6 +129,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     entry.set_editable(!config.read_only);
                     self.text_inputs
                         .insert(id, Gtk4TextInputSizing::from_config(&config));
+                    self.text_input_configs.insert(id, config.clone());
                     self.text_input_max_lengths
                         .borrow_mut()
                         .insert(id, config.max_length);
@@ -177,6 +179,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     }
                     self.text_inputs
                         .insert(id, Gtk4TextInputSizing::from_config(&config));
+                    self.text_input_configs.insert(id, config.clone());
                     self.apply_entry_width_hint(id, &entry);
 
                     let events = self.events.clone();
@@ -222,6 +225,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 });
                 self.text_inputs
                     .insert(id, Gtk4TextInputSizing::from_config(&config));
+                self.text_input_configs.insert(id, config.clone());
                 self.text_input_max_lengths
                     .borrow_mut()
                     .insert(id, config.max_length);
@@ -440,6 +444,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         if let Some(widget) = handle.widget.as_widget() {
             self.widgets.insert(id, widget);
         }
+        self.apply_text_input_hints(id, &handle.widget);
         Ok(handle)
     }
 
@@ -449,6 +454,10 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         handle: &Self::Handle,
         setter: &NativeWidgetSetter,
     ) -> GuiResult<()> {
+        if let Some(config) = self.text_input_configs.get_mut(&id) {
+            apply_widget_setter(config, setter);
+        }
+
         match setter {
             NativeWidgetSetter::SetLabel(value) => {
                 let label = value.as_deref().unwrap_or("");
@@ -873,6 +882,15 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     self.apply_text_view_size_hint(id, text_view);
                 }
             }
+            NativeWidgetSetter::SetAutocomplete(_)
+            | NativeWidgetSetter::SetInputMode(_)
+            | NativeWidgetSetter::SetAutoCapitalize(_)
+            | NativeWidgetSetter::SetAutoCorrect(_)
+            | NativeWidgetSetter::SetVirtualKeyboardPolicy(_)
+            | NativeWidgetSetter::SetInputType(_)
+            | NativeWidgetSetter::SetSpellCheck(_) => {
+                self.apply_text_input_hints(id, &handle.widget);
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetRequired(_)
@@ -880,19 +898,13 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             | NativeWidgetSetter::SetMultiple(_)
             | NativeWidgetSetter::SetAutoFocus(_)
             | NativeWidgetSetter::SetExpanded(_)
-            | NativeWidgetSetter::SetAutocomplete(_)
-            | NativeWidgetSetter::SetInputMode(_)
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
             | NativeWidgetSetter::SetName(_)
             | NativeWidgetSetter::SetForm(_)
-            | NativeWidgetSetter::SetInputType(_)
             | NativeWidgetSetter::SetAccept(_)
             | NativeWidgetSetter::SetCapture(_)
             | NativeWidgetSetter::SetEnterKeyHint(_)
-            | NativeWidgetSetter::SetAutoCapitalize(_)
-            | NativeWidgetSetter::SetAutoCorrect(_)
-            | NativeWidgetSetter::SetVirtualKeyboardPolicy(_)
             | NativeWidgetSetter::SetHidden(_)
             | NativeWidgetSetter::SetLang(_)
             | NativeWidgetSetter::SetDir(_)
@@ -901,7 +913,6 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             | NativeWidgetSetter::SetAccessKey(_)
             | NativeWidgetSetter::SetContentEditable(_)
             | NativeWidgetSetter::SetDraggable(_)
-            | NativeWidgetSetter::SetSpellCheck(_)
             | NativeWidgetSetter::SetTranslate(_)
             | NativeWidgetSetter::SetInert(_)
             | NativeWidgetSetter::SetPopover(_)
@@ -1138,6 +1149,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         }
         self.ranges.remove(&id);
         self.text_inputs.remove(&id);
+        self.text_input_configs.remove(&id);
         self.text_input_max_lengths.borrow_mut().remove(&id);
         match &handle.widget {
             Gtk4OsWidget::ApplicationWindow(window) => window.close(),

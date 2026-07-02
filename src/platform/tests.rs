@@ -570,6 +570,98 @@ fn widget_config_preserves_html_form_control_hints() {
 }
 
 #[test]
+fn widget_config_derives_text_input_purpose_from_web_hints() {
+    let purpose_for = |props: NativeProps| {
+        Gtk4Adapter
+            .blueprint(&NativeElement::new("field", NativeRole::TextField).with_props(props))
+            .config()
+            .text_input_purpose()
+    };
+
+    assert_eq!(
+        purpose_for(NativeProps::new().input_type("email")),
+        NativeTextInputPurpose::Email
+    );
+    assert_eq!(
+        purpose_for(NativeProps::new().input_type("url")),
+        NativeTextInputPurpose::Url
+    );
+    assert_eq!(
+        purpose_for(NativeProps::new().input_type("tel")),
+        NativeTextInputPurpose::Phone
+    );
+    assert_eq!(
+        purpose_for(NativeProps::new().input_type("number")),
+        NativeTextInputPurpose::Number
+    );
+    assert_eq!(
+        purpose_for(NativeProps::new().input_mode("numeric")),
+        NativeTextInputPurpose::Digits
+    );
+    assert_eq!(
+        purpose_for(
+            NativeProps::new()
+                .input_type("password")
+                .input_mode("numeric")
+        ),
+        NativeTextInputPurpose::Pin
+    );
+    assert_eq!(
+        purpose_for(NativeProps::new().input_type("password")),
+        NativeTextInputPurpose::Password
+    );
+    assert_eq!(
+        purpose_for(NativeProps::new().autocomplete("given-name")),
+        NativeTextInputPurpose::Name
+    );
+    assert_eq!(
+        purpose_for(NativeProps::new().input_type("search")),
+        NativeTextInputPurpose::FreeForm
+    );
+}
+
+#[test]
+fn widget_config_derives_text_input_hints_from_web_hints() {
+    let config = Gtk4Adapter
+        .blueprint(
+            &NativeElement::new("field", NativeRole::TextField).with_props(
+                NativeProps::new()
+                    .autocomplete("on")
+                    .auto_capitalize("sentences")
+                    .auto_correct("off")
+                    .virtual_keyboard_policy("manual")
+                    .input_type("password"),
+            ),
+        )
+        .config();
+    let hints = config.text_input_hints();
+
+    assert_eq!(hints.spellcheck, Some(false));
+    assert!(hints.word_completion);
+    assert!(hints.uppercase_sentences);
+    assert!(hints.inhibit_osk);
+    assert!(hints.private);
+
+    let config = Gtk4Adapter
+        .blueprint(
+            &NativeElement::new("field", NativeRole::TextField).with_props(
+                NativeProps::new()
+                    .spell_check(Some(true))
+                    .auto_correct("off")
+                    .auto_capitalize("characters")
+                    .input_mode("none"),
+            ),
+        )
+        .config();
+    let hints = config.text_input_hints();
+
+    assert_eq!(hints.spellcheck, Some(true));
+    assert!(hints.uppercase_chars);
+    assert!(hints.inhibit_osk);
+    assert_eq!(hints.emoji, Some(false));
+}
+
+#[test]
 fn widget_config_preserves_html_global_hints() {
     let element = NativeElement::new("panel", NativeRole::Section).with_props(
         NativeProps::new()
