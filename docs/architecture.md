@@ -387,6 +387,8 @@ real native backends: it validates that a blueprint targets the driver's backend
 and delegates command effects to `NativeWidgetDriver`. If a backend command
 fails, the host restores the planning snapshot for that command so failed
 creates or updates do not leave the planned tree ahead of the native backend.
+Create commands must introduce a new host id; duplicate create ids are rejected
+before native handles or recorded backend objects are replaced.
 
 `NativeWidgetDriver` is the OS-binding contract. A platform layer implements:
 

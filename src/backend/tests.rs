@@ -407,6 +407,45 @@ fn handle_widget_driver_accepts_thread_bound_native_handles() {
 }
 
 #[test]
+fn handle_widget_driver_rejects_duplicate_creates_without_replacing_handle() {
+    let adapter = ThreadBoundHandleAdapter::default();
+    let calls = adapter.calls.clone();
+    let driver = HandleWidgetDriver::new(adapter);
+    let mut executor = DriverCommandExecutor::new(driver);
+    let id = HostNodeId::new(1);
+    let first = Gtk4Adapter.blueprint(
+        &NativeElement::new("save", NativeRole::Button)
+            .with_props(NativeProps::new().label("Save")),
+    );
+    let second = Gtk4Adapter.blueprint(
+        &NativeElement::new("email", NativeRole::TextField)
+            .with_props(NativeProps::new().label("Email")),
+    );
+
+    executor
+        .execute(&PlatformCommand::Create {
+            id,
+            blueprint: first,
+        })
+        .unwrap();
+    let error = executor
+        .execute(&PlatformCommand::Create {
+            id,
+            blueprint: second,
+        })
+        .unwrap_err();
+
+    assert!(error.to_string().contains("native handle 1 already exists"));
+    assert_eq!(executor.commands().len(), 1);
+    assert_eq!(executor.driver().handles().len(), 1);
+    assert_eq!(
+        executor.driver().config(id).unwrap().label.as_deref(),
+        Some("Save")
+    );
+    assert_eq!(calls.borrow().as_slice(), ["create:1:gtk::Button"]);
+}
+
+#[test]
 fn handle_widget_driver_passes_config_patch_to_native_adapter() {
     let adapter = ThreadBoundHandleAdapter::default();
     let calls = adapter.calls.clone();
@@ -621,6 +660,41 @@ fn recording_backend_reparents_children_and_rejects_cycles() {
     assert_eq!(backend.commands().len(), command_count);
     assert_eq!(backend.object(second).unwrap().children, vec![child]);
     assert!(backend.object(child).unwrap().children.is_empty());
+}
+
+#[test]
+fn recording_backend_rejects_duplicate_creates_without_overwriting_object() {
+    let mut backend = RecordingBackend::default();
+    let id = HostNodeId::new(1);
+    let first = Gtk4Adapter.blueprint(
+        &NativeElement::new("save", NativeRole::Button)
+            .with_props(NativeProps::new().label("Save")),
+    );
+    let second = Gtk4Adapter.blueprint(
+        &NativeElement::new("email", NativeRole::TextField)
+            .with_props(NativeProps::new().label("Email")),
+    );
+
+    backend
+        .execute(&PlatformCommand::Create {
+            id,
+            blueprint: first,
+        })
+        .unwrap();
+    let error = backend
+        .execute(&PlatformCommand::Create {
+            id,
+            blueprint: second,
+        })
+        .unwrap_err();
+
+    assert!(error
+        .to_string()
+        .contains("backend object 1 already exists"));
+    assert_eq!(backend.commands().len(), 1);
+    assert_eq!(backend.objects().len(), 1);
+    assert_eq!(backend.object(id).unwrap().label.as_deref(), Some("Save"));
+    assert_eq!(backend.object(id).unwrap().widget_class, "gtk::Button");
 }
 
 #[test]

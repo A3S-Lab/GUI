@@ -368,6 +368,12 @@ impl NativeWidgetDriver for WinUiWidgetDriver {
         id: HostNodeId,
         blueprint: &NativeWidgetBlueprint,
     ) -> GuiResult<()> {
+        if self.objects.contains_key(&id) {
+            return Err(GuiError::host(format!(
+                "WinUI object {} already exists",
+                id.get()
+            )));
+        }
         self.objects.insert(
             id,
             WinUiNativeObject {

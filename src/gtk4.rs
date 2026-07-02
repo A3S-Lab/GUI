@@ -352,6 +352,12 @@ impl NativeWidgetDriver for Gtk4WidgetDriver {
         id: HostNodeId,
         blueprint: &NativeWidgetBlueprint,
     ) -> GuiResult<()> {
+        if self.objects.contains_key(&id) {
+            return Err(GuiError::host(format!(
+                "GTK4 object {} already exists",
+                id.get()
+            )));
+        }
         self.objects.insert(
             id,
             Gtk4NativeObject {

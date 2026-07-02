@@ -357,6 +357,12 @@ impl NativeWidgetDriver for AppKitWidgetDriver {
         id: HostNodeId,
         blueprint: &NativeWidgetBlueprint,
     ) -> GuiResult<()> {
+        if self.objects.contains_key(&id) {
+            return Err(GuiError::host(format!(
+                "AppKit object {} already exists",
+                id.get()
+            )));
+        }
         self.objects.insert(
             id,
             AppKitNativeObject {

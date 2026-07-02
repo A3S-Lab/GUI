@@ -95,6 +95,12 @@ impl PlatformCommandExecutor for RecordingBackend {
     fn execute(&mut self, command: &PlatformCommand) -> GuiResult<()> {
         match command {
             PlatformCommand::Create { id, blueprint } => {
+                if self.objects.contains_key(id) {
+                    return Err(GuiError::host(format!(
+                        "backend object {} already exists",
+                        id.get()
+                    )));
+                }
                 self.objects.insert(
                     *id,
                     RecordedNativeObject {

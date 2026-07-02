@@ -69,6 +69,17 @@ impl<A: NativeHandleAdapter> HandleWidgetDriver<A> {
             .cloned()
             .ok_or_else(|| GuiError::host(format!("native handle {} does not exist", id.get())))
     }
+
+    fn ensure_handle_absent(&self, id: HostNodeId) -> GuiResult<()> {
+        if self.handles.contains_key(&id) {
+            Err(GuiError::host(format!(
+                "native handle {} already exists",
+                id.get()
+            )))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl<A: NativeHandleAdapter + Default> Default for HandleWidgetDriver<A> {
@@ -95,6 +106,7 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
         id: HostNodeId,
         blueprint: &NativeWidgetBlueprint,
     ) -> GuiResult<()> {
+        self.ensure_handle_absent(id)?;
         let handle = self.adapter.create_handle(id, blueprint)?;
         self.handles.insert(id, handle);
         self.configs.insert(id, blueprint.config());
