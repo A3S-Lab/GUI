@@ -330,7 +330,7 @@ Host events use the active non-empty `frameId`, a non-zero rendered host node
 id, a supported native event kind, and an optional string `value`.
 
 `frameId` must be a non-empty string, `root` must be a single compiled element,
-and explicit action ids must be non-empty strings. Text nodes and fragment
+and explicit action ids must be non-empty and unique. Text nodes and fragment
 arrays are valid children, but not valid frame roots.
 
 If labels are not needed, the TypeScript SDK can infer `UiFrame.actions` from

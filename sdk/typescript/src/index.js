@@ -130,10 +130,15 @@ function normalizeFrameActions(actions) {
   if (!Array.isArray(actions)) {
     throw new Error('a3s-gui frame actions need an array');
   }
+  const seen = new Set();
   return actions.map((action) => {
     if (action == null || typeof action.id !== 'string' || action.id.length === 0) {
       throw new Error('a3s-gui frame actions need non-empty string ids');
     }
+    if (seen.has(action.id)) {
+      throw new Error(`a3s-gui frame actions need unique ids; duplicate action ${action.id}`);
+    }
+    seen.add(action.id);
     return action.label == null
       ? {id: action.id}
       : {id: action.id, label: String(action.label)};

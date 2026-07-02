@@ -34,8 +34,8 @@ export const frame = createUiFrame('profile', root, {
 When labels are not needed, `createUiFrame` can infer actions from JSX event
 props. Frame ids must be non-empty strings, and frame roots must be a single
 compiled element; wrap fragment children in `Group` or another container.
-Explicit frame actions must also use non-empty string ids. Use `defineAction`
-when the host needs action metadata beyond the stable id.
+Explicit frame actions must also use non-empty, unique string ids. Use
+`defineAction` when the host needs action metadata beyond the stable id.
 Inferred actions preserve labels from `createAction(id, label)` handlers.
 Window dimensions must be positive finite numbers, and explicit width/height
 values must stay within any declared min/max constraints.

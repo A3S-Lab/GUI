@@ -960,6 +960,12 @@ test('frame actions must have stable ids', () => {
     /non-empty string ids/,
   );
   assert.throws(
+    () => createUiFrame('profile', root, {
+      actions: [{id: 'saveProfile'}, {id: 'saveProfile', label: 'Save'}],
+    }),
+    /unique ids/,
+  );
+  assert.throws(
     () => createUiFrame('profile', root, {actions: 'saveProfile'}),
     /actions need an array/,
   );

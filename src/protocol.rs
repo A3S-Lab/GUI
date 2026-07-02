@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -142,6 +142,17 @@ impl UiFrame {
             return Err(GuiError::invalid_tree(
                 "a3s-gui frame actions need non-empty string ids",
             ));
+        }
+        let mut seen_action_ids = BTreeSet::new();
+        if let Some(duplicate) = self
+            .actions
+            .iter()
+            .map(|action| action.id.as_str())
+            .find(|id| !seen_action_ids.insert(*id))
+        {
+            return Err(GuiError::invalid_tree(format!(
+                "a3s-gui frame actions need unique ids; duplicate action {duplicate:?}"
+            )));
         }
         if let Some(window) = &self.window {
             window.validate()?;
@@ -639,6 +650,20 @@ mod tests {
             "#,
         )
         .unwrap();
+        let duplicate_action: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "duplicate-action",
+              "actions": [{"id": "saveProfile"}, {"id": "saveProfile", "label": "Save"}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button"
+              }
+            }
+            "#,
+        )
+        .unwrap();
         let negative_width: UiFrame = serde_json::from_str(
             r#"
             {
@@ -713,6 +738,12 @@ mod tests {
         assert!(error
             .to_string()
             .contains("frame actions need non-empty string ids"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&duplicate_action).unwrap_err();
+        assert!(error.to_string().contains("frame actions need unique ids"));
         assert_eq!(session.active_frame_id(), Some("valid"));
         assert_eq!(session.root(), Some(rendered.root));
         assert!(session.pending_commands().is_empty());
