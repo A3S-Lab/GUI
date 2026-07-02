@@ -151,6 +151,12 @@ impl<A: NativeHandleAdapter> HandleWidgetDriver<A> {
             self.root = None;
         }
     }
+
+    fn forget_parent_link(&mut self, child: HostNodeId) {
+        for children in self.children.values_mut() {
+            children.retain(|existing| *existing != child);
+        }
+    }
 }
 
 impl<A: NativeHandleAdapter + Default> Default for HandleWidgetDriver<A> {
@@ -230,20 +236,29 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
             .children
             .iter()
             .find_map(|(candidate, children)| children.contains(&child).then_some(*candidate));
-        self.adapter
-            .insert_child_handle(parent, &parent_handle, child, &child_handle, index)?;
-        if let Some(previous_parent) = previous_parent.filter(|previous| *previous != parent) {
-            let previous_parent_handle = self.cloned_handle(previous_parent)?;
-            self.adapter.remove_child_handle(
-                previous_parent,
-                &previous_parent_handle,
-                child,
-                &child_handle,
-            )?;
+        let detached_parent =
+            if let Some(previous_parent) = previous_parent.filter(|previous| *previous != parent) {
+                let previous_parent_handle = self.cloned_handle(previous_parent)?;
+                self.adapter.remove_child_handle(
+                    previous_parent,
+                    &previous_parent_handle,
+                    child,
+                    &child_handle,
+                )?;
+                Some(previous_parent)
+            } else {
+                None
+            };
+        if let Err(error) =
+            self.adapter
+                .insert_child_handle(parent, &parent_handle, child, &child_handle, index)
+        {
+            if detached_parent.is_some() {
+                self.forget_parent_link(child);
+            }
+            return Err(error);
         }
-        for children in self.children.values_mut() {
-            children.retain(|existing| *existing != child);
-        }
+        self.forget_parent_link(child);
         let children = self.children.get_mut(&parent).ok_or_else(|| {
             GuiError::host(format!("native handle {} does not exist", parent.get()))
         })?;

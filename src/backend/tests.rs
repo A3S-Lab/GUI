@@ -34,6 +34,8 @@ struct SurfaceHandle {
 #[derive(Debug, Default)]
 struct ThreadBoundHandleAdapter {
     calls: Rc<RefCell<Vec<String>>>,
+    fail_inserts: bool,
+    fail_detaches: bool,
     fail_removes: bool,
     fail_remove_id: Option<HostNodeId>,
 }
@@ -228,6 +230,16 @@ impl NativeHandleAdapter for ThreadBoundHandleAdapter {
         child_handle: &Self::Handle,
         index: usize,
     ) -> GuiResult<()> {
+        if self.fail_inserts {
+            self.calls.borrow_mut().push(format!(
+                "insert:{}:{}:{}:{}:{index}:failed",
+                parent.get(),
+                parent_handle.widget_class,
+                child.get(),
+                child_handle.widget_class
+            ));
+            return Err(GuiError::host("forced handle insert failure"));
+        }
         self.calls.borrow_mut().push(format!(
             "insert:{}:{}:{}:{}:{index}",
             parent.get(),
@@ -245,6 +257,16 @@ impl NativeHandleAdapter for ThreadBoundHandleAdapter {
         child: HostNodeId,
         child_handle: &Self::Handle,
     ) -> GuiResult<()> {
+        if self.fail_detaches {
+            self.calls.borrow_mut().push(format!(
+                "detach:{}:{}:{}:{}:failed",
+                parent.get(),
+                parent_handle.widget_class,
+                child.get(),
+                child_handle.widget_class
+            ));
+            return Err(GuiError::host("forced handle detach failure"));
+        }
         self.calls.borrow_mut().push(format!(
             "detach:{}:{}:{}:{}",
             parent.get(),
@@ -517,8 +539,8 @@ fn handle_widget_driver_reparents_children_and_rejects_cycles() {
             "create:2:gtk::Box",
             "create:3:gtk::Button",
             "insert:1:gtk::Box:3:gtk::Button:0",
-            "insert:2:gtk::Box:3:gtk::Button:0",
             "detach:1:gtk::Box:3:gtk::Button",
+            "insert:2:gtk::Box:3:gtk::Button:0",
         ]
     );
     let command_count = executor.commands().len();
@@ -533,6 +555,142 @@ fn handle_widget_driver_reparents_children_and_rejects_cycles() {
     assert!(error.to_string().contains("would create a cycle"));
     assert_eq!(executor.commands().len(), command_count);
     assert_eq!(executor.driver().children(second), Some([child].as_slice()));
+}
+
+#[test]
+fn handle_widget_driver_does_not_insert_new_parent_when_detach_fails() {
+    let adapter = ThreadBoundHandleAdapter {
+        fail_detaches: true,
+        ..Default::default()
+    };
+    let calls = adapter.calls.clone();
+    let driver = HandleWidgetDriver::new(adapter);
+    let mut executor = DriverCommandExecutor::new(driver);
+    let first = HostNodeId::new(1);
+    let second = HostNodeId::new(2);
+    let child = HostNodeId::new(3);
+    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+
+    executor
+        .execute(&PlatformCommand::Create {
+            id: first,
+            blueprint: container.clone(),
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: second,
+            blueprint: container,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: child,
+            blueprint: button,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: first,
+            child,
+            index: 0,
+        })
+        .unwrap();
+    let command_count = executor.commands().len();
+
+    let error = executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: second,
+            child,
+            index: 0,
+        })
+        .unwrap_err();
+
+    assert!(error.to_string().contains("forced handle detach failure"));
+    assert_eq!(executor.commands().len(), command_count);
+    assert_eq!(executor.driver().children(first), Some([child].as_slice()));
+    assert_eq!(executor.driver().children(second), Some([].as_slice()));
+    assert_eq!(
+        calls.borrow().as_slice(),
+        [
+            "create:1:gtk::Box",
+            "create:2:gtk::Box",
+            "create:3:gtk::Button",
+            "insert:1:gtk::Box:3:gtk::Button:0",
+            "detach:1:gtk::Box:3:gtk::Button:failed",
+        ]
+    );
+}
+
+#[test]
+fn handle_widget_driver_forgets_old_parent_when_reparent_insert_fails_after_detach() {
+    let adapter = ThreadBoundHandleAdapter {
+        fail_inserts: true,
+        ..Default::default()
+    };
+    let calls = adapter.calls.clone();
+    let driver = HandleWidgetDriver::new(adapter);
+    let mut executor = DriverCommandExecutor::new(driver);
+    let first = HostNodeId::new(1);
+    let second = HostNodeId::new(2);
+    let child = HostNodeId::new(3);
+    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+
+    executor
+        .execute(&PlatformCommand::Create {
+            id: first,
+            blueprint: container.clone(),
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: second,
+            blueprint: container,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: child,
+            blueprint: button,
+        })
+        .unwrap();
+    executor.driver_mut().adapter_mut().fail_inserts = false;
+    executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: first,
+            child,
+            index: 0,
+        })
+        .unwrap();
+    executor.driver_mut().adapter_mut().fail_inserts = true;
+    let command_count = executor.commands().len();
+
+    let error = executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: second,
+            child,
+            index: 0,
+        })
+        .unwrap_err();
+
+    assert!(error.to_string().contains("forced handle insert failure"));
+    assert_eq!(executor.commands().len(), command_count);
+    assert_eq!(executor.driver().children(first), Some([].as_slice()));
+    assert_eq!(executor.driver().children(second), Some([].as_slice()));
+    assert!(executor.driver().handle(child).is_some());
+    assert_eq!(
+        calls.borrow().as_slice(),
+        [
+            "create:1:gtk::Box",
+            "create:2:gtk::Box",
+            "create:3:gtk::Button",
+            "insert:1:gtk::Box:3:gtk::Button:0",
+            "detach:1:gtk::Box:3:gtk::Button",
+            "insert:2:gtk::Box:3:gtk::Button:0:failed",
+        ]
+    );
 }
 
 #[test]
