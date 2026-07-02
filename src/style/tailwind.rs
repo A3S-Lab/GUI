@@ -56,6 +56,51 @@ pub(crate) fn ordered_class_tokens(class_name: &str) -> Vec<&str> {
     normal
 }
 
+pub(crate) fn variant_key(variants: &[String]) -> String {
+    variants
+        .iter()
+        .map(|variant| decode_variant_token(variant))
+        .collect::<Vec<_>>()
+        .join(":")
+}
+
+fn decode_variant_token(variant: &str) -> String {
+    let mut output = String::with_capacity(variant.len());
+    let mut chars = variant.char_indices().peekable();
+
+    while let Some((_, ch)) = chars.next() {
+        if ch != '[' {
+            output.push(ch);
+            continue;
+        }
+
+        let mut content = String::new();
+        let mut bracket_depth = 1usize;
+        while let Some((_, inner)) = chars.next() {
+            match inner {
+                '[' => {
+                    bracket_depth += 1;
+                    content.push(inner);
+                }
+                ']' => {
+                    bracket_depth = bracket_depth.saturating_sub(1);
+                    if bracket_depth == 0 {
+                        break;
+                    }
+                    content.push(inner);
+                }
+                _ => content.push(inner),
+            }
+        }
+
+        output.push('[');
+        output.push_str(&decode_arbitrary_value(&content));
+        output.push(']');
+    }
+
+    output
+}
+
 pub(crate) fn arbitrary_or_custom_var(value: &str) -> Option<String> {
     if let Some(arbitrary) = value
         .strip_prefix('[')
@@ -144,7 +189,7 @@ fn function_name_before(value: &str, open_paren_index: usize) -> &str {
 mod tests {
     use super::{
         arbitrary_or_custom_var, custom_var, decode_arbitrary_content_value,
-        decode_arbitrary_value, ordered_class_tokens, parse_class, typed_custom_var,
+        decode_arbitrary_value, ordered_class_tokens, parse_class, typed_custom_var, variant_key,
     };
 
     #[test]
@@ -167,6 +212,26 @@ mod tests {
                 "hover:!bg-black",
                 "![color:red]"
             ]
+        );
+    }
+
+    #[test]
+    fn decodes_arbitrary_variant_key_segments() {
+        assert_eq!(
+            variant_key(&["[&_p]".to_string(), "hover".to_string()]),
+            "[& p]:hover"
+        );
+        assert_eq!(
+            variant_key(&["group-[.is-open_&]".to_string()]),
+            "group-[.is-open &]"
+        );
+        assert_eq!(
+            variant_key(&["[@media(width_>=_48rem)]".to_string()]),
+            "[@media(width >= 48rem)]"
+        );
+        assert_eq!(
+            variant_key(&["[&_.nav\\_item]".to_string()]),
+            "[& .nav_item]"
         );
     }
 

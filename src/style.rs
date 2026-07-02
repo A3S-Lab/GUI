@@ -2034,9 +2034,9 @@ impl PortableStyle {
         }
         let declarations = tailwind_utility_declarations(class);
         if !variants.is_empty() {
-            let variant_key = variants.join(":");
+            let variant_key = tailwind::variant_key(&variants);
             for (property, value) in declarations {
-                self.record_variant_declaration(&variant_key, property, value);
+                self.record_variant_declaration(variant_key.as_str(), property, value);
             }
             return;
         }
@@ -8116,6 +8116,49 @@ mod tests {
                 .and_then(|styles| styles.get("background-color"))
                 .map(String::as_str),
             Some("red")
+        );
+    }
+
+    #[test]
+    fn decodes_tailwind_arbitrary_variant_keys() {
+        let web = WebProps::new().class_name(
+            "[&_p]:mt-4 group-[.is-open_&]:block \
+             [@media(width_>=_48rem)]:grid [&_.nav\\_item]:text-white",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("[& p]")
+                .and_then(|styles| styles.get("margin-top"))
+                .map(String::as_str),
+            Some("16px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("group-[.is-open &]")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("block")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("[@media(width >= 48rem)]")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("grid")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("[& .nav_item]")
+                .and_then(|styles| styles.get("color"))
+                .map(String::as_str),
+            Some("rgb(255, 255, 255)")
         );
     }
 
