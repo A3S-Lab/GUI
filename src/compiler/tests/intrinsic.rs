@@ -124,6 +124,27 @@ fn lowers_html_link_and_image_map_tags_to_native_roles() {
         Some("/docs")
     );
 
+    let protocol_link = CompiledJsxNode::Element {
+        key: "protocol-docs-link".to_string(),
+        tag: "a".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            href: Some("/protocol-docs".to_string()),
+            ..CompiledProps::default()
+        },
+        children: vec![CompiledJsxNode::Text {
+            key: "protocol-docs-link-text".to_string(),
+            value: "Protocol docs".to_string(),
+        }],
+    };
+
+    let native_protocol_link = bridge.lower_to_native(&protocol_link).unwrap();
+    assert_eq!(native_protocol_link.role, NativeRole::Link);
+    assert_eq!(
+        native_protocol_link.props.href.as_deref(),
+        Some("/protocol-docs")
+    );
+
     let clickable_anchor = CompiledJsxNode::Element {
         key: "archive-anchor".to_string(),
         tag: "a".to_string(),

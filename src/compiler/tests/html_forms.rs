@@ -180,6 +180,78 @@ fn lowers_common_html_form_control_attributes_to_native_state() {
 }
 
 #[test]
+fn lowers_top_level_protocol_form_hints_to_native_state() {
+    let bridge = ReactCompilerBridge::new();
+    let file_input: CompiledJsxNode = serde_json::from_str(
+        r#"
+        {
+          "kind": "element",
+          "key": "avatar",
+          "tag": "input",
+          "props": {
+            "inputType": "image",
+            "name": "avatar",
+            "form": "profile-form",
+            "accept": "image/*",
+            "capture": "environment",
+            "alt": "Upload profile",
+            "src": "/submit.png",
+            "list": "avatar-presets",
+            "dirname": "avatar.dir",
+            "formAction": "/profiles/avatar",
+            "formEncType": "multipart/form-data",
+            "formMethod": "post",
+            "formTarget": "_blank",
+            "formNoValidate": true
+          }
+        }
+        "#,
+    )
+    .unwrap();
+    let override_input: CompiledJsxNode = serde_json::from_str(
+        r#"
+        {
+          "kind": "element",
+          "key": "search",
+          "tag": "input",
+          "props": {
+            "inputType": "email",
+            "attributes": {"type": "search"}
+          }
+        }
+        "#,
+    )
+    .unwrap();
+
+    let native_file = bridge.lower_to_native(&file_input).unwrap();
+    let native_override = bridge.lower_to_native(&override_input).unwrap();
+
+    assert_eq!(native_file.role, NativeRole::Button);
+    assert_eq!(native_file.props.input_type.as_deref(), Some("image"));
+    assert_eq!(native_file.props.name.as_deref(), Some("avatar"));
+    assert_eq!(native_file.props.form.as_deref(), Some("profile-form"));
+    assert_eq!(native_file.props.accept.as_deref(), Some("image/*"));
+    assert_eq!(native_file.props.capture.as_deref(), Some("environment"));
+    assert_eq!(native_file.props.alt.as_deref(), Some("Upload profile"));
+    assert_eq!(native_file.props.src.as_deref(), Some("/submit.png"));
+    assert_eq!(native_file.props.list.as_deref(), Some("avatar-presets"));
+    assert_eq!(native_file.props.dirname.as_deref(), Some("avatar.dir"));
+    assert_eq!(
+        native_file.props.form_action.as_deref(),
+        Some("/profiles/avatar")
+    );
+    assert_eq!(
+        native_file.props.form_enctype.as_deref(),
+        Some("multipart/form-data")
+    );
+    assert_eq!(native_file.props.form_method.as_deref(), Some("post"));
+    assert_eq!(native_file.props.form_target.as_deref(), Some("_blank"));
+    assert!(native_file.props.form_no_validate);
+    assert_eq!(native_override.role, NativeRole::TextField);
+    assert_eq!(native_override.props.input_type.as_deref(), Some("search"));
+}
+
+#[test]
 fn lowers_html_form_submission_attributes_to_native_state() {
     let bridge = ReactCompilerBridge::new();
     let form = CompiledJsxNode::Element {

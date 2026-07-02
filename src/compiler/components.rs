@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::error::{GuiError, GuiResult};
 use crate::html::component_for_intrinsic_tag;
 use crate::react_aria::AriaComponent;
@@ -78,11 +80,10 @@ pub(super) fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiRes
         "RubyTextContainer" | "rtc" => Ok(AriaComponent::RubyTextContainer),
         "TextField" => Ok(AriaComponent::TextField),
         "Input" | "textarea" => Ok(AriaComponent::Input),
-        "input" => component_for_intrinsic_tag(tag, &props.attributes).ok_or_else(|| {
-            GuiError::UnsupportedAriaComponent {
+        "input" => component_for_intrinsic_tag(tag, &component_attributes_for_tag(tag, props))
+            .ok_or_else(|| GuiError::UnsupportedAriaComponent {
                 component: tag.to_string(),
-            }
-        }),
+            }),
         "Checkbox" => Ok(AriaComponent::Checkbox),
         "Switch" => Ok(AriaComponent::Switch),
         "RadioGroup" => Ok(AriaComponent::RadioGroup),
@@ -127,7 +128,7 @@ pub(super) fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiRes
         "Slider" => Ok(AriaComponent::Slider),
         "ProgressBar" | "progress" => Ok(AriaComponent::ProgressBar),
         "Toolbar" => Ok(AriaComponent::Toolbar),
-        other => component_for_intrinsic_tag(other, &props.attributes)
+        other => component_for_intrinsic_tag(other, &component_attributes_for_tag(other, props))
             .or_else(|| component_for_svg_tag(other))
             .ok_or_else(|| GuiError::UnsupportedAriaComponent {
                 component: other.to_string(),
@@ -136,11 +137,35 @@ pub(super) fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiRes
 }
 
 fn component_for_anchor_element(props: &CompiledProps) -> AriaComponent {
-    if component_for_intrinsic_tag("a", &props.attributes) == Some(AriaComponent::Link) {
+    if component_for_intrinsic_tag("a", &component_attributes_for_tag("a", props))
+        == Some(AriaComponent::Link)
+    {
         AriaComponent::Link
     } else if props.events.contains_key("onClick") || props.events.contains_key("onPress") {
         AriaComponent::Button
     } else {
         AriaComponent::Group
     }
+}
+
+fn component_attributes_for_tag(tag: &str, props: &CompiledProps) -> BTreeMap<String, String> {
+    let mut attributes = props.attributes.clone();
+    match tag {
+        "a" => {
+            if !attributes.contains_key("href") {
+                if let Some(href) = &props.href {
+                    attributes.insert("href".to_string(), href.clone());
+                }
+            }
+        }
+        "input" => {
+            if !attributes.contains_key("type") {
+                if let Some(input_type) = &props.input_type {
+                    attributes.insert("type".to_string(), input_type.clone());
+                }
+            }
+        }
+        _ => {}
+    }
+    attributes
 }

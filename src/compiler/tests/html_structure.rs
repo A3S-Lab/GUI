@@ -379,6 +379,145 @@ fn lowers_html_media_and_resource_attributes_to_native_state() {
 }
 
 #[test]
+fn lowers_top_level_protocol_resource_hints_to_native_state() {
+    let bridge = ReactCompilerBridge::new();
+    let image: CompiledJsxNode = serde_json::from_str(
+        r#"
+        {
+          "kind": "element",
+          "key": "hero",
+          "tag": "img",
+          "props": {
+            "alt": "Hero",
+            "src": "/hero.png",
+            "srcSet": "/hero.png 1x, /hero@2x.png 2x",
+            "sizes": "100vw",
+            "intrinsicWidth": 640,
+            "intrinsicHeight": 360,
+            "loading": "lazy",
+            "decoding": "async",
+            "fetchPriority": "high",
+            "crossOrigin": "anonymous",
+            "referrerPolicy": "no-referrer"
+          }
+        }
+        "#,
+    )
+    .unwrap();
+    let video: CompiledJsxNode = serde_json::from_str(
+        r#"
+        {
+          "kind": "element",
+          "key": "demo-video",
+          "tag": "video",
+          "props": {
+            "src": "/demo.mp4",
+            "poster": "/poster.png",
+            "intrinsicWidth": 1280,
+            "intrinsicHeight": 720,
+            "controls": true,
+            "autoPlay": true,
+            "loopPlayback": true,
+            "muted": true,
+            "playsInline": true,
+            "preload": "metadata",
+            "crossOrigin": "use-credentials"
+          },
+          "children": [
+            {
+              "kind": "element",
+              "key": "captions",
+              "tag": "track",
+              "props": {
+                "src": "/captions.vtt",
+                "trackKind": "captions",
+                "srcLang": "en",
+                "trackLabel": "English",
+                "defaultTrack": true
+              }
+            }
+          ]
+        }
+        "#,
+    )
+    .unwrap();
+    let link: CompiledJsxNode = serde_json::from_str(
+        r#"
+        {
+          "kind": "element",
+          "key": "stylesheet",
+          "tag": "link",
+          "props": {
+            "href": "/app.css",
+            "media": "screen",
+            "resourceType": "text/css",
+            "fetchPriority": "low",
+            "crossOrigin": "",
+            "referrerPolicy": "origin"
+          }
+        }
+        "#,
+    )
+    .unwrap();
+
+    let native_image = bridge.lower_to_native(&image).unwrap();
+    let native_video = bridge.lower_to_native(&video).unwrap();
+    let native_link = bridge.lower_to_native(&link).unwrap();
+
+    assert_eq!(native_image.role, NativeRole::Image);
+    assert_eq!(native_image.props.alt.as_deref(), Some("Hero"));
+    assert_eq!(native_image.props.src.as_deref(), Some("/hero.png"));
+    assert_eq!(
+        native_image.props.srcset.as_deref(),
+        Some("/hero.png 1x, /hero@2x.png 2x")
+    );
+    assert_eq!(native_image.props.sizes.as_deref(), Some("100vw"));
+    assert_eq!(native_image.props.intrinsic_width, Some(640));
+    assert_eq!(native_image.props.intrinsic_height, Some(360));
+    assert_eq!(native_image.props.loading.as_deref(), Some("lazy"));
+    assert_eq!(native_image.props.decoding.as_deref(), Some("async"));
+    assert_eq!(native_image.props.fetch_priority.as_deref(), Some("high"));
+    assert_eq!(
+        native_image.props.cross_origin.as_deref(),
+        Some("anonymous")
+    );
+    assert_eq!(
+        native_image.props.referrer_policy.as_deref(),
+        Some("no-referrer")
+    );
+
+    assert_eq!(native_video.role, NativeRole::Media);
+    assert_eq!(native_video.props.src.as_deref(), Some("/demo.mp4"));
+    assert_eq!(native_video.props.poster.as_deref(), Some("/poster.png"));
+    assert_eq!(native_video.props.intrinsic_width, Some(1280));
+    assert_eq!(native_video.props.intrinsic_height, Some(720));
+    assert!(native_video.props.controls);
+    assert!(native_video.props.autoplay);
+    assert!(native_video.props.loop_playback);
+    assert!(native_video.props.muted);
+    assert!(native_video.props.plays_inline);
+    assert_eq!(native_video.props.preload.as_deref(), Some("metadata"));
+    assert_eq!(
+        native_video.props.cross_origin.as_deref(),
+        Some("use-credentials")
+    );
+    let track = &native_video.children[0];
+    assert_eq!(track.props.src.as_deref(), Some("/captions.vtt"));
+    assert_eq!(track.props.track_kind.as_deref(), Some("captions"));
+    assert_eq!(track.props.srclang.as_deref(), Some("en"));
+    assert_eq!(track.props.track_label.as_deref(), Some("English"));
+    assert!(track.props.default_track);
+
+    assert_eq!(native_link.role, NativeRole::ResourceLink);
+    assert_eq!(native_link.props.href.as_deref(), Some("/app.css"));
+    assert_eq!(native_link.props.media.as_deref(), Some("screen"));
+    assert_eq!(native_link.props.resource_type.as_deref(), Some("text/css"));
+    assert_eq!(native_link.props.fetch_priority.as_deref(), Some("low"));
+    assert_eq!(native_link.props.cross_origin.as_deref(), Some(""));
+    assert_eq!(native_link.props.referrer_policy.as_deref(), Some("origin"));
+}
+
+#[test]
 fn lowers_html_sectioning_landmark_and_heading_tags_to_native_roles() {
     let bridge = ReactCompilerBridge::new();
     let tree = CompiledJsxNode::Element {

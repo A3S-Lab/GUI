@@ -75,6 +75,80 @@ pub struct CompiledProps {
     #[serde(default, alias = "step")]
     pub step_value: Option<f64>,
     #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub form: Option<String>,
+    #[serde(default)]
+    pub input_type: Option<String>,
+    #[serde(default)]
+    pub accept: Option<String>,
+    #[serde(default)]
+    pub capture: Option<String>,
+    #[serde(default)]
+    pub alt: Option<String>,
+    #[serde(default)]
+    pub href: Option<String>,
+    #[serde(default)]
+    pub src: Option<String>,
+    #[serde(default, alias = "srcSet")]
+    pub srcset: Option<String>,
+    #[serde(default)]
+    pub sizes: Option<String>,
+    #[serde(default)]
+    pub media: Option<String>,
+    #[serde(default)]
+    pub resource_type: Option<String>,
+    #[serde(default)]
+    pub intrinsic_width: Option<u32>,
+    #[serde(default)]
+    pub intrinsic_height: Option<u32>,
+    #[serde(default)]
+    pub loading: Option<String>,
+    #[serde(default)]
+    pub decoding: Option<String>,
+    #[serde(default)]
+    pub fetch_priority: Option<String>,
+    #[serde(default)]
+    pub cross_origin: Option<String>,
+    #[serde(default)]
+    pub referrer_policy: Option<String>,
+    #[serde(default)]
+    pub poster: Option<String>,
+    #[serde(default)]
+    pub controls: Option<bool>,
+    #[serde(default, alias = "autoPlay")]
+    pub autoplay: Option<bool>,
+    #[serde(default)]
+    pub loop_playback: Option<bool>,
+    #[serde(default)]
+    pub muted: Option<bool>,
+    #[serde(default)]
+    pub plays_inline: Option<bool>,
+    #[serde(default)]
+    pub preload: Option<String>,
+    #[serde(default)]
+    pub track_kind: Option<String>,
+    #[serde(default, alias = "srcLang")]
+    pub srclang: Option<String>,
+    #[serde(default)]
+    pub track_label: Option<String>,
+    #[serde(default)]
+    pub default_track: Option<bool>,
+    #[serde(default)]
+    pub list: Option<String>,
+    #[serde(default)]
+    pub dirname: Option<String>,
+    #[serde(default)]
+    pub form_action: Option<String>,
+    #[serde(default, alias = "formEncType")]
+    pub form_enctype: Option<String>,
+    #[serde(default)]
+    pub form_method: Option<String>,
+    #[serde(default)]
+    pub form_target: Option<String>,
+    #[serde(default)]
+    pub form_no_validate: Option<bool>,
+    #[serde(default)]
     pub id: Option<String>,
     #[serde(default)]
     pub class_name: Option<String>,
@@ -107,6 +181,43 @@ impl Default for CompiledProps {
             max_value: None,
             value_number: None,
             step_value: None,
+            name: None,
+            form: None,
+            input_type: None,
+            accept: None,
+            capture: None,
+            alt: None,
+            href: None,
+            src: None,
+            srcset: None,
+            sizes: None,
+            media: None,
+            resource_type: None,
+            intrinsic_width: None,
+            intrinsic_height: None,
+            loading: None,
+            decoding: None,
+            fetch_priority: None,
+            cross_origin: None,
+            referrer_policy: None,
+            poster: None,
+            controls: None,
+            autoplay: None,
+            loop_playback: None,
+            muted: None,
+            plays_inline: None,
+            preload: None,
+            track_kind: None,
+            srclang: None,
+            track_label: None,
+            default_track: None,
+            list: None,
+            dirname: None,
+            form_action: None,
+            form_enctype: None,
+            form_method: None,
+            form_target: None,
+            form_no_validate: None,
             id: None,
             class_name: None,
             style: BTreeMap::new(),

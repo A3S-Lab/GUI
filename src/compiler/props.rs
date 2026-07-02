@@ -61,13 +61,14 @@ impl CompiledProps {
         if let Some(svg_tag) = canonical_svg_tag(tag) {
             web = web.attribute(SVG_TAG_METADATA_KEY, svg_tag);
         }
+        web = self.apply_top_level_web_attributes(web);
         if let Some(id) = self.id {
             web = web.id(id);
         }
         if let Some(class_name) = self.class_name {
             web = web.class_name(class_name);
         }
-        if let Some(label) = self.aria_label {
+        if let Some(label) = self.aria_label.as_deref() {
             web = web.attribute("aria-label", label);
         }
         for (property, value) in self.style {
@@ -211,5 +212,68 @@ impl CompiledProps {
         props.accessibility_structure = accessibility_structure;
         props.accessibility_state = accessibility_state;
         props
+    }
+
+    fn apply_top_level_web_attributes(&self, web: WebProps) -> WebProps {
+        let mut web = web;
+        web = apply_optional_attribute(web, "name", self.name.as_deref());
+        web = apply_optional_attribute(web, "form", self.form.as_deref());
+        web = apply_optional_attribute(web, "type", self.resource_type.as_deref());
+        web = apply_optional_attribute(web, "type", self.input_type.as_deref());
+        web = apply_optional_attribute(web, "accept", self.accept.as_deref());
+        web = apply_optional_attribute(web, "capture", self.capture.as_deref());
+        web = apply_optional_attribute(web, "alt", self.alt.as_deref());
+        web = apply_optional_attribute(web, "href", self.href.as_deref());
+        web = apply_optional_attribute(web, "src", self.src.as_deref());
+        web = apply_optional_attribute(web, "srcset", self.srcset.as_deref());
+        web = apply_optional_attribute(web, "sizes", self.sizes.as_deref());
+        web = apply_optional_attribute(web, "media", self.media.as_deref());
+        web = apply_optional_attribute(web, "width", self.intrinsic_width_string().as_deref());
+        web = apply_optional_attribute(web, "height", self.intrinsic_height_string().as_deref());
+        web = apply_optional_attribute(web, "loading", self.loading.as_deref());
+        web = apply_optional_attribute(web, "decoding", self.decoding.as_deref());
+        web = apply_optional_attribute(web, "fetchPriority", self.fetch_priority.as_deref());
+        web = apply_optional_attribute(web, "crossOrigin", self.cross_origin.as_deref());
+        web = apply_optional_attribute(web, "referrerPolicy", self.referrer_policy.as_deref());
+        web = apply_optional_attribute(web, "poster", self.poster.as_deref());
+        web = apply_optional_bool_attribute(web, "controls", self.controls);
+        web = apply_optional_bool_attribute(web, "autoplay", self.autoplay);
+        web = apply_optional_bool_attribute(web, "loop", self.loop_playback);
+        web = apply_optional_bool_attribute(web, "muted", self.muted);
+        web = apply_optional_bool_attribute(web, "playsInline", self.plays_inline);
+        web = apply_optional_attribute(web, "preload", self.preload.as_deref());
+        web = apply_optional_attribute(web, "kind", self.track_kind.as_deref());
+        web = apply_optional_attribute(web, "srclang", self.srclang.as_deref());
+        web = apply_optional_attribute(web, "label", self.track_label.as_deref());
+        web = apply_optional_bool_attribute(web, "default", self.default_track);
+        web = apply_optional_attribute(web, "list", self.list.as_deref());
+        web = apply_optional_attribute(web, "dirname", self.dirname.as_deref());
+        web = apply_optional_attribute(web, "formAction", self.form_action.as_deref());
+        web = apply_optional_attribute(web, "formEncType", self.form_enctype.as_deref());
+        web = apply_optional_attribute(web, "formMethod", self.form_method.as_deref());
+        web = apply_optional_attribute(web, "formTarget", self.form_target.as_deref());
+        apply_optional_bool_attribute(web, "formNoValidate", self.form_no_validate)
+    }
+
+    fn intrinsic_width_string(&self) -> Option<String> {
+        self.intrinsic_width.map(|width| width.to_string())
+    }
+
+    fn intrinsic_height_string(&self) -> Option<String> {
+        self.intrinsic_height.map(|height| height.to_string())
+    }
+}
+
+fn apply_optional_attribute(web: WebProps, name: &str, value: Option<&str>) -> WebProps {
+    match value {
+        Some(value) => web.attribute(name, value),
+        None => web,
+    }
+}
+
+fn apply_optional_bool_attribute(web: WebProps, name: &str, value: Option<bool>) -> WebProps {
+    match value {
+        Some(value) => web.attribute(name, value.to_string()),
+        None => web,
     }
 }
