@@ -58,7 +58,7 @@ caption side, empty cells, flex direction/wrap/item
 sizing/grow/shrink/order, reading flow/order metadata, alignment,
 justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, physical and logical
-sizing, gap/row-gap/column-gap, CSS containment, generated content,
+sizing, intrinsic size interpolation metadata, gap/row-gap/column-gap, CSS containment, generated content,
 CSS counters, quotes, string sets, and container query metadata, physical, logical, and child spacing, uniform,
 physical-edge, and logical-edge border width/style/color, uniform,
 physical-corner, and logical-corner border radius, CSS border image metadata,
@@ -102,9 +102,9 @@ touch action, CSS UI directional navigation, CSS Spatial Navigation metadata,
 CSS UI interactivity metadata, cursor, pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
-`calc(...)`, `var(...)`, `clamp(...)`, `anchor(...)`, `anchor-size(...)`,
-viewport units, and sizing keywords, are preserved as CSS length tokens for
-platform adapters that can consume them.
+`calc(...)`, `calc-size(...)`, `var(...)`, `clamp(...)`, `anchor(...)`,
+`anchor-size(...)`, viewport units, and sizing keywords, are preserved as CSS
+length tokens for platform adapters that can consume them.
 CSS color values support hex, RGB/RGBA, HSL/HSLA, slash alpha syntax, keyword
 preservation, and CSS color function preservation for `hwb(...)`, `lab(...)`,
 `lch(...)`, `oklab(...)`, `oklch(...)`, `color(...)`, `color-mix(...)`,

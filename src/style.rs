@@ -54,6 +54,7 @@ pub struct PortableStyle {
     pub min_block_size: Option<StyleLength>,
     pub max_inline_size: Option<StyleLength>,
     pub max_block_size: Option<StyleLength>,
+    pub interpolate_size: Option<String>,
     pub gap: Option<StyleLength>,
     pub row_gap: Option<StyleLength>,
     pub column_gap: Option<StyleLength>,
@@ -534,6 +535,7 @@ impl PortableStyle {
             "min-block-size" => self.min_block_size = parse_length(value_ref),
             "max-inline-size" => self.max_inline_size = parse_length(value_ref),
             "max-block-size" => self.max_block_size = parse_length(value_ref),
+            "interpolate-size" => self.interpolate_size = parse_css_string_token(value_ref),
             "gap" => self.gap = parse_length(value_ref),
             "row-gap" => self.row_gap = parse_length(value_ref),
             "column-gap" => self.column_gap = parse_length(value_ref),
@@ -3976,6 +3978,7 @@ fn is_css_length_expression(value: &str) -> bool {
             "anchor"
                 | "anchor-size"
                 | "calc"
+                | "calc-size"
                 | "min"
                 | "max"
                 | "clamp"
@@ -11651,9 +11654,10 @@ mod tests {
     fn preserves_css_length_expressions_as_portable_tokens() {
         let web = WebProps::new()
             .style("width", "calc(100% - 2rem)")
-            .style("height", "50dvh")
+            .style("height", "calc-size(auto, size + 2rem)")
             .style("minWidth", "min-content")
             .style("maxHeight", "clamp(240px, 50vh, 640px)")
+            .style("interpolateSize", "allow-keywords")
             .style("gap", "var(--space)")
             .style("borderWidth", "fit-content");
 
@@ -11663,7 +11667,10 @@ mod tests {
             style.width,
             Some(StyleLength::Css("calc(100% - 2rem)".to_string()))
         );
-        assert_eq!(style.height, Some(StyleLength::Css("50dvh".to_string())));
+        assert_eq!(
+            style.height,
+            Some(StyleLength::Css("calc-size(auto, size + 2rem)".to_string()))
+        );
         assert_eq!(
             style.min_width,
             Some(StyleLength::Css("min-content".to_string()))
@@ -11680,13 +11687,16 @@ mod tests {
             style.border_width.top,
             Some(StyleLength::Css("fit-content".to_string()))
         );
+        assert_eq!(style.interpolate_size.as_deref(), Some("allow-keywords"));
+        assert!(!style.unsupported.contains_key("interpolate-size"));
     }
 
     #[test]
     fn preserves_tailwind_arbitrary_css_length_expressions() {
         let web = WebProps::new().class_name(
-            "w-[calc(100%_-_2rem)] h-[50dvh] min-w-[min-content] \
-             max-h-[clamp(240px,_50vh,_640px)] gap-[var(--space)]",
+            "w-[calc(100%_-_2rem)] h-[calc-size(auto,size_+_2rem)] min-w-[min-content] \
+             max-h-[clamp(240px,_50vh,_640px)] gap-[var(--space)] \
+             [interpolate-size:allow-keywords] hover:[interpolate-size:numeric-only]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -11695,7 +11705,10 @@ mod tests {
             style.width,
             Some(StyleLength::Css("calc(100% - 2rem)".to_string()))
         );
-        assert_eq!(style.height, Some(StyleLength::Css("50dvh".to_string())));
+        assert_eq!(
+            style.height,
+            Some(StyleLength::Css("calc-size(auto,size + 2rem)".to_string()))
+        );
         assert_eq!(
             style.min_width,
             Some(StyleLength::Css("min-content".to_string()))
@@ -11711,6 +11724,15 @@ mod tests {
         assert_eq!(
             style.declarations.get("width").map(String::as_str),
             Some("calc(100% - 2rem)")
+        );
+        assert_eq!(style.interpolate_size.as_deref(), Some("allow-keywords"));
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("interpolate-size"))
+                .map(String::as_str),
+            Some("numeric-only")
         );
     }
 

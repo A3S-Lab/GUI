@@ -383,8 +383,8 @@ deterministically:
 - `contain`, `container*`, `content`, `counterReset`, `counterIncrement`,
   `counterSet`, `quotes`, `stringSet`, `contentVisibility`, and
   `containIntrinsic*`
-- `width`, `height`, `inlineSize`, `blockSize`, and physical/logical min/max
-  sizes
+- `width`, `height`, `inlineSize`, `blockSize`, `interpolateSize`, and
+  physical/logical min/max sizes
 - `gap`, `rowGap`, `columnGap`, physical and logical `padding*`, `margin*`,
   and Tailwind `space*` child-spacing metadata
 - `border`, physical and logical `borderWidth`, `borderStyle`,
@@ -466,9 +466,9 @@ them without reparsing `className`. Unsupported style declarations are
 preserved so callers can report unmapped declarations without dropping source
 data.
 CSS length values that cannot be converted to numeric points or percentages are
-kept as `StyleLength::Css`, including `calc(...)`, `var(...)`, `clamp(...)`,
-`anchor(...)`, `anchor-size(...)`, viewport/container units, and sizing
-keywords such as `min-content`.
+kept as `StyleLength::Css`, including `calc(...)`, `calc-size(...)`,
+`var(...)`, `clamp(...)`, `anchor(...)`, `anchor-size(...)`,
+viewport/container units, and sizing keywords such as `min-content`.
 CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
 RGBA tokens when possible. Native CSS color functions such as `hwb(...)`,
 `lab(...)`, `lch(...)`, `oklab(...)`, `oklch(...)`, `color(...)`,
