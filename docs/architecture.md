@@ -373,8 +373,16 @@ Menu-specific native backend code lives under `src/native_backends/`:
 `native_backends/appkit/menu.rs` owns AppKit menu parent/child tracking,
 `native_backends/winui/menu.rs` owns the WinUI menu fallback policy, and
 `native_backends/gtk4/menu.rs` owns GTK menu models, menu item actions, and
-model rebuilds. The large surface files keep the platform event loop and widget
-dispatch logic, while backend-local menu details stay in focused modules.
+model rebuilds.
+
+Source files are grouped by layer. `src/backend/` owns the command executor,
+handle driver, surface adapter, recording backend, and backend traits.
+`src/platform/` owns native blueprint types, config diffs, platform adapters,
+planning, and widget-name mapping. Platform-specific native surfaces live in
+`src/appkit_native/`, `src/gtk4_native/`, and `src/winui_native/`; each surface
+directory keeps its module entry point separate from the `NativeWidgetSurface`
+implementation, and WinUI keeps setter and event helpers in a dedicated helper
+module.
 
 Style normalization lives under `src/style/`. `src/style/mod.rs` is the module
 entry point. `portable.rs`, `apply.rs`, `shorthands.rs`, `composition.rs`,

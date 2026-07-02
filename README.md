@@ -28,6 +28,15 @@ The protocol accepts the following input data:
 The renderer normalizes these fields into native roles, control state, metadata,
 portable style tokens, and action bindings.
 
+## Source Layout
+
+Runtime command execution lives under `src/backend/`. Platform blueprint
+planning and widget-name mapping live under `src/platform/`. Compiler lowering,
+React Aria mapping, and style normalization are split under `src/compiler/`,
+`src/react_aria/`, and `src/style/`. Native surface implementations are grouped
+by platform under `src/appkit_native/`, `src/gtk4_native/`, and
+`src/winui_native/`.
+
 ## Compatibility Scope
 
 The compiler bridge recognizes the HTML element surface exposed by the HTML
