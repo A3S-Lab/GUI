@@ -213,11 +213,13 @@ test('intrinsic range input normalizes numeric value props', () => {
     value: 42,
     min: 0,
     max: 100,
+    step: 5,
     onChange: 'setVolume',
   }, 'volume');
 
   assert.equal(root.tag, 'input');
   assert.equal(root.props.valueNumber, 42);
+  assert.equal(root.props.stepValue, 5);
   assert.equal(root.props.value, undefined);
   assert.equal(root.props.minValue, 0);
   assert.equal(root.props.maxValue, 100);

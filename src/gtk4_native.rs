@@ -410,6 +410,7 @@ struct Gtk4RangeState {
     min: Option<f64>,
     max: Option<f64>,
     current: Option<f64>,
+    step: Option<f64>,
 }
 
 impl Gtk4RangeState {
@@ -418,6 +419,7 @@ impl Gtk4RangeState {
             min: config.min,
             max: config.max,
             current: config.current,
+            step: config.step,
         }
     }
 
@@ -431,6 +433,10 @@ impl Gtk4RangeState {
 
     fn current(self) -> f64 {
         self.current.unwrap_or_else(|| self.lower())
+    }
+
+    fn step(self) -> f64 {
+        self.step.filter(|value| *value > 0.0).unwrap_or(1.0)
     }
 }
 
@@ -788,8 +794,9 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     config_orientation(&config).unwrap_or(gtk::Orientation::Horizontal),
                     min,
                     max,
-                    1.0,
+                    range.step(),
                 );
+                scale.set_increments(range.step(), range.step() * 10.0);
                 scale.set_value(range.current());
                 self.ranges.insert(id, range);
                 Gtk4OsWidget::Scale(scale)
@@ -1072,6 +1079,13 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Notebook(_)
                 | Gtk4OsWidget::Separator(_) => {}
             },
+            NativeWidgetSetter::SetStep(value) => {
+                let range = self.ranges.entry(id).or_default();
+                range.step = *value;
+                if let Gtk4OsWidget::Scale(scale) = &handle.widget {
+                    scale.set_increments(range.step(), range.step() * 10.0);
+                }
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetRequired(_)

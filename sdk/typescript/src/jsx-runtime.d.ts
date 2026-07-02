@@ -37,9 +37,11 @@ export interface WebCompatibleProps {
   orientation?: 'horizontal' | 'vertical';
   min?: number | string;
   max?: number | string;
+  step?: number | string;
   minValue?: number;
   maxValue?: number;
   valueNumber?: number;
+  stepValue?: number;
   [attribute: `aria-${string}`]: StyleValue;
   [attribute: `data-${string}`]: StyleValue;
   [attribute: string]: unknown;

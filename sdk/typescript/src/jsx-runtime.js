@@ -159,6 +159,8 @@ function normalizeProps(props, tag) {
       setNumber(out, 'minValue', value);
     } else if (name === 'max') {
       setNumber(out, 'maxValue', value);
+    } else if (name === 'step') {
+      setNumber(out, 'stepValue', value);
     } else if (name === 'placeholder') {
       out.placeholder = String(value);
     } else if (name === 'orientation') {
@@ -169,6 +171,8 @@ function normalizeProps(props, tag) {
       setNumber(out, 'maxValue', value);
     } else if (name === 'valueNumber') {
       setNumber(out, 'valueNumber', value);
+    } else if (name === 'stepValue') {
+      setNumber(out, 'stepValue', value);
     } else {
       attributes[name] = String(value);
     }

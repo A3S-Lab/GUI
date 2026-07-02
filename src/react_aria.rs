@@ -275,6 +275,7 @@ pub struct AriaProps {
     pub min_value: Option<f64>,
     pub max_value: Option<f64>,
     pub value_number: Option<f64>,
+    pub step_value: Option<f64>,
     pub web: WebProps,
 }
 
@@ -296,6 +297,7 @@ impl Default for AriaProps {
             min_value: None,
             max_value: None,
             value_number: None,
+            step_value: None,
             web: WebProps::default(),
         }
     }
@@ -370,6 +372,11 @@ impl AriaProps {
         self.min_value = min;
         self.max_value = max;
         self.value_number = current;
+        self
+    }
+
+    pub fn step(mut self, step: Option<f64>) -> Self {
+        self.step_value = step;
         self
     }
 
@@ -1069,6 +1076,7 @@ fn native_props_from_aria(props: &AriaProps, label: Option<String>) -> NativePro
     native.min = props.min_value;
     native.max = props.max_value;
     native.current = props.value_number;
+    native.step = props.step_value;
     native.metadata = props.web.metadata();
     native.web = props.web.clone();
     native

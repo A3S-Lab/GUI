@@ -55,6 +55,7 @@ pub struct NativeControlState {
     pub min: Option<f64>,
     pub max: Option<f64>,
     pub current: Option<f64>,
+    pub step: Option<f64>,
 }
 
 impl NativeControlState {
@@ -71,6 +72,7 @@ impl NativeControlState {
             min: props.min,
             max: props.max,
             current: props.current,
+            step: props.step,
         }
     }
 }
@@ -98,6 +100,7 @@ pub struct NativeWidgetConfig {
     pub min: Option<f64>,
     pub max: Option<f64>,
     pub current: Option<f64>,
+    pub step: Option<f64>,
     pub web_style: BTreeMap<String, String>,
     pub portable_style: PortableStyle,
     pub events: BTreeMap<String, String>,
@@ -128,6 +131,7 @@ impl NativeWidgetConfig {
             min: state.min,
             max: state.max,
             current: state.current,
+            step: state.step,
             web_style: blueprint.style.clone(),
             portable_style: blueprint.portable_style.clone(),
             events: blueprint.events.clone(),
@@ -158,6 +162,7 @@ impl NativeWidgetConfig {
             NativeWidgetSetter::SetMinimum(self.min),
             NativeWidgetSetter::SetMaximum(self.max),
             NativeWidgetSetter::SetCurrent(self.current),
+            NativeWidgetSetter::SetStep(self.step),
             NativeWidgetSetter::SetWebStyle(self.web_style.clone()),
             NativeWidgetSetter::SetPortableStyle(self.portable_style.clone()),
             NativeWidgetSetter::SetEvents(self.events.clone()),
@@ -196,6 +201,7 @@ pub struct NativeWidgetConfigPatch {
     pub min: Option<NativeConfigValueChange<Option<f64>>>,
     pub max: Option<NativeConfigValueChange<Option<f64>>>,
     pub current: Option<NativeConfigValueChange<Option<f64>>>,
+    pub step: Option<NativeConfigValueChange<Option<f64>>>,
     pub web_style: Option<NativeConfigValueChange<BTreeMap<String, String>>>,
     pub portable_style: Option<NativeConfigValueChange<PortableStyle>>,
     pub events: Option<NativeConfigValueChange<BTreeMap<String, String>>>,
@@ -225,6 +231,7 @@ impl NativeWidgetConfigPatch {
             min: diff_value(&before.min, &after.min),
             max: diff_value(&before.max, &after.max),
             current: diff_value(&before.current, &after.current),
+            step: diff_value(&before.step, &after.step),
             web_style: diff_value(&before.web_style, &after.web_style),
             portable_style: diff_value(&before.portable_style, &after.portable_style),
             events: diff_value(&before.events, &after.events),
@@ -283,6 +290,7 @@ impl NativeWidgetConfigPatch {
         push_setter(&mut setters, &self.min, NativeWidgetSetter::SetMinimum);
         push_setter(&mut setters, &self.max, NativeWidgetSetter::SetMaximum);
         push_setter(&mut setters, &self.current, NativeWidgetSetter::SetCurrent);
+        push_setter(&mut setters, &self.step, NativeWidgetSetter::SetStep);
         push_setter(
             &mut setters,
             &self.web_style,
@@ -340,6 +348,7 @@ pub enum NativeWidgetSetter {
     SetMinimum(Option<f64>),
     SetMaximum(Option<f64>),
     SetCurrent(Option<f64>),
+    SetStep(Option<f64>),
     SetWebStyle(BTreeMap<String, String>),
     SetPortableStyle(PortableStyle),
     SetEvents(BTreeMap<String, String>),
@@ -365,6 +374,7 @@ pub fn apply_widget_setter(config: &mut NativeWidgetConfig, setter: &NativeWidge
         NativeWidgetSetter::SetMinimum(value) => config.min = *value,
         NativeWidgetSetter::SetMaximum(value) => config.max = *value,
         NativeWidgetSetter::SetCurrent(value) => config.current = *value,
+        NativeWidgetSetter::SetStep(value) => config.step = *value,
         NativeWidgetSetter::SetWebStyle(value) => config.web_style = value.clone(),
         NativeWidgetSetter::SetPortableStyle(value) => config.portable_style = value.clone(),
         NativeWidgetSetter::SetEvents(value) => config.events = value.clone(),
@@ -879,7 +889,8 @@ mod tests {
                 .checked(false)
                 .expanded(true)
                 .orientation(Orientation::Horizontal)
-                .range(Some(0.0), Some(100.0), Some(50.0)),
+                .range(Some(0.0), Some(100.0), Some(50.0))
+                .step(Some(5.0)),
         );
 
         let blueprint = Gtk4Adapter.blueprint(&element);
@@ -901,6 +912,7 @@ mod tests {
         assert_eq!(blueprint.control_state.min, Some(0.0));
         assert_eq!(blueprint.control_state.max, Some(100.0));
         assert_eq!(blueprint.control_state.current, Some(50.0));
+        assert_eq!(blueprint.control_state.step, Some(5.0));
     }
 
     #[test]
@@ -915,6 +927,7 @@ mod tests {
                 .invalid(true)
                 .orientation(Orientation::Horizontal)
                 .range(Some(0.0), Some(100.0), Some(50.0))
+                .step(Some(5.0))
                 .metadata("data-testid", "volume-slider")
                 .web(
                     WebProps::new()
@@ -941,6 +954,7 @@ mod tests {
         assert_eq!(config.min, Some(0.0));
         assert_eq!(config.max, Some(100.0));
         assert_eq!(config.current, Some(50.0));
+        assert_eq!(config.step, Some(5.0));
         assert_eq!(config.class_name.as_deref(), Some("range"));
         assert_eq!(
             config
@@ -972,6 +986,7 @@ mod tests {
         assert!(setters.contains(&NativeWidgetSetter::SetMinimum(Some(0.0))));
         assert!(setters.contains(&NativeWidgetSetter::SetMaximum(Some(100.0))));
         assert!(setters.contains(&NativeWidgetSetter::SetCurrent(Some(50.0))));
+        assert!(setters.contains(&NativeWidgetSetter::SetStep(Some(5.0))));
     }
 
     #[test]
@@ -981,6 +996,7 @@ mod tests {
                 .label("Volume")
                 .value("50")
                 .range(Some(0.0), Some(100.0), Some(50.0))
+                .step(Some(5.0))
                 .web(
                     WebProps::new()
                         .style("display", "flex")
@@ -993,6 +1009,7 @@ mod tests {
                 .value("0")
                 .disabled(true)
                 .range(Some(0.0), Some(100.0), Some(0.0))
+                .step(Some(10.0))
                 .web(
                     WebProps::new()
                         .style("display", "none")
@@ -1026,6 +1043,10 @@ mod tests {
             patch.current.as_ref().map(|change| change.after),
             Some(Some(0.0))
         );
+        assert_eq!(
+            patch.step.as_ref().map(|change| change.after),
+            Some(Some(10.0))
+        );
         assert!(patch.min.is_none());
         assert!(patch.max.is_none());
         assert!(patch.events.is_none());
@@ -1036,6 +1057,7 @@ mod tests {
         assert!(setters.contains(&NativeWidgetSetter::SetEnabled(false)));
         assert!(setters.contains(&NativeWidgetSetter::SetVisible(false)));
         assert!(setters.contains(&NativeWidgetSetter::SetCurrent(Some(0.0))));
+        assert!(setters.contains(&NativeWidgetSetter::SetStep(Some(10.0))));
         assert!(!setters.contains(&NativeWidgetSetter::SetMinimum(Some(0.0))));
         assert!(!setters.contains(&NativeWidgetSetter::SetMaximum(Some(100.0))));
         assert!(!setters
@@ -1049,6 +1071,7 @@ mod tests {
             NativeWidgetSetter::SetLabel(Some("Save".to_string())),
             NativeWidgetSetter::SetEnabled(false),
             NativeWidgetSetter::SetCurrent(Some(50.0)),
+            NativeWidgetSetter::SetStep(Some(5.0)),
             NativeWidgetSetter::SetEvents(BTreeMap::from([(
                 "onPress".to_string(),
                 "saveProfile".to_string(),
@@ -1062,6 +1085,7 @@ mod tests {
         assert!(json.contains(r#""type":"setLabel""#));
         assert!(json.contains(r#""type":"setEnabled""#));
         assert!(json.contains(r#""type":"setCurrent""#));
+        assert!(json.contains(r#""type":"setStep""#));
         assert!(json.contains(r#""onPress":"saveProfile""#));
     }
 
@@ -1072,18 +1096,19 @@ mod tests {
                 &NativeElement::new("volume", NativeRole::Slider).with_props(
                     NativeProps::new()
                         .label("Volume")
-                        .range(Some(0.0), Some(100.0), Some(50.0)),
+                        .range(Some(0.0), Some(100.0), Some(50.0))
+                        .step(Some(5.0)),
                 ),
             )
             .config();
         let after = Gtk4Adapter
             .blueprint(
                 &NativeElement::new("volume", NativeRole::Slider).with_props(
-                    NativeProps::new().label("Muted").disabled(true).range(
-                        Some(0.0),
-                        Some(100.0),
-                        Some(0.0),
-                    ),
+                    NativeProps::new()
+                        .label("Muted")
+                        .disabled(true)
+                        .range(Some(0.0), Some(100.0), Some(0.0))
+                        .step(Some(10.0)),
                 ),
             )
             .config();
@@ -1094,6 +1119,7 @@ mod tests {
         assert_eq!(replayed.label.as_deref(), Some("Muted"));
         assert!(!replayed.enabled);
         assert_eq!(replayed.current, Some(0.0));
+        assert_eq!(replayed.step, Some(10.0));
         assert_eq!(replayed, after);
     }
 
@@ -1227,6 +1253,7 @@ mod tests {
                 .required(true)
                 .invalid(true)
                 .range(Some(0.0), Some(100.0), Some(50.0))
+                .step(Some(5.0))
                 .web(
                     WebProps::new()
                         .style("minWidth", "280")
@@ -1265,6 +1292,7 @@ mod tests {
         assert_eq!(blueprint.control_state.min, Some(0.0));
         assert_eq!(blueprint.control_state.max, Some(100.0));
         assert_eq!(blueprint.control_state.current, Some(50.0));
+        assert_eq!(blueprint.control_state.step, Some(5.0));
     }
 }
 

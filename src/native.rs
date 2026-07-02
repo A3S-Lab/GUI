@@ -171,6 +171,7 @@ pub struct NativeProps {
     pub min: Option<f64>,
     pub max: Option<f64>,
     pub current: Option<f64>,
+    pub step: Option<f64>,
     pub web: WebProps,
     pub metadata: BTreeMap<String, String>,
 }
@@ -192,6 +193,7 @@ impl Default for NativeProps {
             min: None,
             max: None,
             current: None,
+            step: None,
             web: WebProps::default(),
             metadata: BTreeMap::new(),
         }
@@ -262,6 +264,11 @@ impl NativeProps {
         self.min = min;
         self.max = max;
         self.current = current;
+        self
+    }
+
+    pub fn step(mut self, step: Option<f64>) -> Self {
+        self.step = step;
         self
     }
 

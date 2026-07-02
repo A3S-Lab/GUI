@@ -119,8 +119,9 @@ heading-group, ruby annotation, landmark, sectioning, disclosure, figure,
 description-list, form, form-grouping, option-group, output, meter, list,
 dialog, menu, media, embedded-content, link, image-map, and table-structure
 tags lower to dedicated native roles. `input[type=range]` lowers to a native
-slider role and numeric `value` or `defaultValue` props are projected as the
-ranged current value. Generic HTML containers lower to `NativeRole::View`;
+slider role, numeric `value` or `defaultValue` props are projected as the
+ranged current value, and numeric `step` is projected as native ranged-control
+step state. Generic HTML containers lower to `NativeRole::View`;
 unsupported
 custom elements with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering
@@ -206,17 +207,18 @@ Unmapped CSS declarations are retained in `PortableStyle::unsupported` and in
 the raw blueprint style map.
 Native bindings can call `blueprint.config()` to derive a `NativeWidgetConfig`
 with setter-oriented values such as `enabled`, `visible`, `placeholder`,
-range bounds, selected/checked state, event action ids, metadata, and portable
-style. This keeps AppKit, WinUI, and GTK bindings from reinterpreting protocol
-fields differently.
+range bounds, range step state, selected/checked state, event action ids,
+metadata, and portable style. This keeps AppKit, WinUI, and GTK bindings from
+reinterpreting protocol fields differently.
 `NativeWidgetConfig::diff()` returns a `NativeWidgetConfigPatch` for update
 passes, and `HandleWidgetDriver` stores the last config for each handle so
 `NativeHandleAdapter::update_handle_config()` can apply only changed setters.
 `NativeWidgetConfig::create_setters()` and `NativeWidgetConfigPatch::setters()`
 produce `NativeWidgetSetter` operations such as `SetLabel`, `SetEnabled`,
 `SetVisible`, `SetPlaceholder`, `SetMinimum`, `SetMaximum`, `SetCurrent`,
-`SetEvents`, `SetPortableStyle`, and `SetMetadata`. Platform bindings can map
-those operations to the corresponding AppKit, WinUI, or GTK property setters.
+`SetStep`, `SetEvents`, `SetPortableStyle`, and `SetMetadata`. Platform
+bindings can map those operations to the corresponding AppKit, WinUI, or GTK
+property setters.
 The feature-gated handle adapters keep a replayable setter log in their handle
 state, so tests exercise the same create/update flow real native bindings will
 map to OS controls.
@@ -366,10 +368,13 @@ Menu-specific native backend code lives under `src/native_backends/`:
 model rebuilds. The large surface files keep the platform event loop and widget
 dispatch logic, while backend-local menu details stay in focused modules.
 
-Style normalization remains centered in `src/style.rs`, with lower-level value
-parsing split into focused submodules. `src/style/value_parsing.rs` owns length
-and time token recognition, including CSS custom properties, CSS math functions,
-and units that must be preserved instead of converted eagerly.
+Style normalization lives under `src/style/`. `src/style/mod.rs` owns the
+`PortableStyle` data model and CSS property projection entry points,
+`src/style/tailwind_utilities.rs` owns Tailwind utility-to-declaration mapping,
+and lower-level value parsing is split into focused submodules.
+`src/style/value_parsing.rs` owns length and time token recognition, including
+CSS custom properties, CSS math functions, and units that must be preserved
+instead of converted eagerly.
 `src/style/color_parsing.rs` owns hex, RGB/HSL, modern CSS color function, and
 background-shorthand color recognition.
 

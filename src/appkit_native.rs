@@ -1089,6 +1089,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 }
                 _ => {}
             },
+            NativeWidgetSetter::SetStep(_) => {}
             NativeWidgetSetter::SetOrientation(value) => {
                 if let (AppKitOsWidget::StackView(stack_view), Some(orientation)) =
                     (&handle.widget, value)

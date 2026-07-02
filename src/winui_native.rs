@@ -499,6 +499,10 @@ impl WinUiNativeSurface {
                     "failed to set WinUI slider maximum",
                     slider.SetMaximum(state.upper()),
                 )?;
+                map_winui(
+                    "failed to set WinUI slider step frequency",
+                    slider.SetStepFrequency(state.step()),
+                )?;
                 self.suppress_events(|| {
                     map_winui(
                         "failed to set WinUI slider value",
@@ -752,6 +756,7 @@ struct WinUiRangeState {
     min: Option<f64>,
     max: Option<f64>,
     current: Option<f64>,
+    step: Option<f64>,
 }
 
 impl WinUiRangeState {
@@ -760,6 +765,7 @@ impl WinUiRangeState {
             min: config.min,
             max: config.max,
             current: config.current,
+            step: config.step,
         }
     }
 
@@ -773,6 +779,10 @@ impl WinUiRangeState {
 
     fn current(self) -> f64 {
         self.current.unwrap_or_else(|| self.lower())
+    }
+
+    fn step(self) -> f64 {
+        self.step.filter(|value| *value > 0.0).unwrap_or(1.0)
     }
 }
 
@@ -1089,6 +1099,10 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             }
             NativeWidgetSetter::SetCurrent(current) => {
                 self.ranges.entry(id).or_default().current = *current;
+                self.apply_range(id, &handle.widget)?;
+            }
+            NativeWidgetSetter::SetStep(step) => {
+                self.ranges.entry(id).or_default().step = *step;
                 self.apply_range(id, &handle.widget)?;
             }
             NativeWidgetSetter::SetPortableStyle(style) => {

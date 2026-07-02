@@ -64,6 +64,8 @@ pub struct CompiledProps {
     pub max_value: Option<f64>,
     #[serde(default, alias = "current", alias = "aria-valuenow")]
     pub value_number: Option<f64>,
+    #[serde(default, alias = "step")]
+    pub step_value: Option<f64>,
     #[serde(default)]
     pub id: Option<String>,
     #[serde(default)]
@@ -95,6 +97,7 @@ impl Default for CompiledProps {
             min_value: None,
             max_value: None,
             value_number: None,
+            step_value: None,
             id: None,
             class_name: None,
             style: BTreeMap::new(),
@@ -349,6 +352,7 @@ impl CompiledProps {
         let html_fallback_label = html_fallback_label(tag, &web);
         let html_details_open = html_details_open_state(tag, &web);
         let html_range_value = html_range_value_state(tag, &web, self.value.as_deref());
+        let html_range_step = html_range_step_state(tag, &web);
         let semantic = WebSemanticAliases::from_web(&web);
 
         let orientation = self.orientation.map(|orientation| match orientation {
@@ -375,6 +379,7 @@ impl CompiledProps {
             .value_number
             .or(semantic.value_number)
             .or(html_range_value);
+        props.step_value = self.step_value.or(semantic.step_value).or(html_range_step);
         props
     }
 }
@@ -394,6 +399,13 @@ fn html_range_value_state(tag: &str, web: &WebProps, value: Option<&str>) -> Opt
         "input" if html_input_type_is(web, "range") => value
             .and_then(parse_number_attribute)
             .or_else(|| number_attribute(&web.attributes, &["value"])),
+        _ => None,
+    }
+}
+
+fn html_range_step_state(tag: &str, web: &WebProps) -> Option<f64> {
+    match canonical_html_tag(tag)? {
+        "input" if html_input_type_is(web, "range") => number_attribute(&web.attributes, &["step"]),
         _ => None,
     }
 }
@@ -437,6 +449,7 @@ struct WebSemanticAliases {
     min_value: Option<f64>,
     max_value: Option<f64>,
     value_number: Option<f64>,
+    step_value: Option<f64>,
 }
 
 impl WebSemanticAliases {
@@ -454,6 +467,7 @@ impl WebSemanticAliases {
             min_value: number_attribute(attributes, &["min", "aria-valuemin"]),
             max_value: number_attribute(attributes, &["max", "aria-valuemax"]),
             value_number: number_attribute(attributes, &["aria-valuenow"]),
+            step_value: number_attribute(attributes, &["step"]),
         }
     }
 }
@@ -2349,6 +2363,7 @@ mod tests {
                 value: Some("42".to_string()),
                 min_value: Some(0.0),
                 max_value: Some(100.0),
+                step_value: Some(5.0),
                 attributes: BTreeMap::from([("type".to_string(), "range".to_string())]),
                 ..CompiledProps::default()
             },
@@ -2360,6 +2375,7 @@ mod tests {
         assert_eq!(native_range.props.current, Some(42.0));
         assert_eq!(native_range.props.min, Some(0.0));
         assert_eq!(native_range.props.max, Some(100.0));
+        assert_eq!(native_range.props.step, Some(5.0));
         assert_eq!(
             native_range.props.metadata.get("type").map(String::as_str),
             Some("range")

@@ -25,6 +25,7 @@ export interface CompiledProps {
   minValue?: number;
   maxValue?: number;
   valueNumber?: number;
+  stepValue?: number;
   id?: string;
   className?: string;
   style?: Record<string, string | number | boolean>;
