@@ -386,7 +386,7 @@ deterministically:
 - `width`, `height`, `inlineSize`, `blockSize`, `interpolateSize`, and
   physical/logical min/max sizes
 - `gap`, `rowGap`, `columnGap`, physical and logical `padding*`, `margin*`,
-  and Tailwind `space*` child-spacing metadata
+  `marginTrim`, and Tailwind `space*` child-spacing metadata
 - `border`, physical and logical `borderWidth`, `borderStyle`,
   `borderColor`, uniform, physical-corner, and logical-corner `borderRadius`
 - `borderImage`, `borderImageSource`, `borderImageSlice`,

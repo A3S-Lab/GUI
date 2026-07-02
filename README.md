@@ -59,7 +59,8 @@ sizing/grow/shrink/order, reading flow/order metadata, alignment,
 justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, physical and logical
 sizing, intrinsic size interpolation metadata, gap/row-gap/column-gap, CSS containment, generated content,
-CSS counters, quotes, string sets, and container query metadata, physical, logical, and child spacing, uniform,
+CSS counters, quotes, string sets, and container query metadata, physical,
+logical, margin-trim, and child spacing, uniform,
 physical-edge, and logical-edge border width/style/color, uniform,
 physical-corner, and logical-corner border radius, CSS border image metadata,
 text color, background

@@ -92,6 +92,7 @@ pub struct PortableStyle {
     pub inset: EdgeInsets,
     pub padding: EdgeInsets,
     pub margin: EdgeInsets,
+    pub margin_trim: Option<String>,
     pub scroll_margin: EdgeInsets,
     pub scroll_padding: EdgeInsets,
     pub space_x: Option<StyleLength>,
@@ -671,6 +672,7 @@ impl PortableStyle {
             "margin-right" => self.margin.right = parse_length(value_ref),
             "margin-bottom" => self.margin.bottom = parse_length(value_ref),
             "margin-left" => self.margin.left = parse_length(value_ref),
+            "margin-trim" => self.margin_trim = parse_css_string_token(value_ref),
             "space-x" => self.space_x = parse_length(value_ref),
             "space-y" => self.space_y = parse_length(value_ref),
             "scroll-margin" => self.scroll_margin = parse_edge_insets(value_ref),
@@ -9100,6 +9102,7 @@ mod tests {
             .style("paddingBlockEnd", "4px")
             .style("marginBlock", "1px 2px")
             .style("marginInlineStart", "auto")
+            .style("marginTrim", "block")
             .style("scrollMarginBlockStart", "5px")
             .style("scrollMarginInline", "6px")
             .style("scrollPaddingBlock", "8px 9px")
@@ -9163,6 +9166,7 @@ mod tests {
             Some(StyleLength::Points(2.0))
         );
         assert_eq!(style.logical_margin.inline_start, Some(StyleLength::Auto));
+        assert_eq!(style.margin_trim.as_deref(), Some("block"));
         assert_eq!(
             style.logical_scroll_margin.block_start,
             Some(StyleLength::Points(5.0))
@@ -9211,6 +9215,7 @@ mod tests {
         assert!(!style.unsupported.contains_key("position-visibility"));
         assert!(!style.unsupported.contains_key("inset-inline-start"));
         assert!(!style.unsupported.contains_key("padding-block-end"));
+        assert!(!style.unsupported.contains_key("margin-trim"));
     }
 
     #[test]
@@ -9258,10 +9263,11 @@ mod tests {
              top-[anchor(bottom)] w-[anchor-size(width)] \
              start-4 end-[2rem] inset-bs-1 inset-be-(--footer) \
              ms-auto me-2 -mbs-1 pbs-3 pie-4 \
+             [margin-trim:block] \
              scroll-ms-2 scroll-me-[10px] scroll-pbs-1 scroll-pe-(--snap) \
              md:start-8 hover:ms-[calc(1rem_+_2px)] \
              hover:[position-area:top_center] focus:[position-try:flip-inline] \
-             active:[position-visibility:no-overflow]",
+             active:[position-visibility:no-overflow] focus:[margin-trim:inline]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -9314,6 +9320,7 @@ mod tests {
             style.logical_margin.block_start,
             Some(StyleLength::Points(-4.0))
         );
+        assert_eq!(style.margin_trim.as_deref(), Some("block"));
         assert_eq!(
             style.logical_padding.block_start,
             Some(StyleLength::Points(12.0))
@@ -9398,6 +9405,14 @@ mod tests {
                 .and_then(|styles| styles.get("position-visibility"))
                 .map(String::as_str),
             Some("no-overflow")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("margin-trim"))
+                .map(String::as_str),
+            Some("inline")
         );
     }
 
