@@ -293,8 +293,8 @@ accessibility state.
 The JS/Rust bridge uses serializable protocol types:
 
 - `UiFrame`: a compiled React tree plus action ids.
-- `WindowOptions`: optional native window title, dimensions, and resizable flag
-  for a frame.
+- `WindowOptions`: optional native window title, initial dimensions, min/max
+  dimensions, and resizable flag for a frame.
 - `RenderedFrame`: the native root node produced by rendering a frame.
 - `NativeRenderResponse`: the native root plus the incremental platform
   commands and rendered accessibility tree emitted by a render pass.
@@ -326,9 +326,10 @@ Explicit `actions`, including an empty list, remain authoritative.
 When `UiFrame.window` is present, the Rust core wraps the compiled React root in
 a `NativeRole::Window`. The same command stream then creates `NSWindow`,
 `Microsoft.UI.Xaml.Window`, or `gtk::ApplicationWindow` before inserting the
-frame content as its child. Window title, initial dimensions, and the resizable
-flag are projected into the native blueprint/config path; the resizable value is
-also retained as Web metadata for hosts that still read protocol attributes.
+frame content as its child. Window title, initial dimensions, min/max
+dimensions, and the resizable flag are projected into the native blueprint/config
+path; the resizable value is also retained as Web metadata for hosts that still
+read protocol attributes.
 
 ## Native Commands
 

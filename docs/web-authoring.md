@@ -39,7 +39,7 @@ const root = (
 );
 
 export const frame = createUiFrame('profile', root, {
-  window: {title: 'Profile', width: 640, height: 480},
+  window: {title: 'Profile', width: 640, height: 480, minWidth: 480},
   actions: [defineAction(setEmail), defineAction(saveProfile)],
 });
 ```
@@ -312,7 +312,7 @@ At runtime the compiled tree crosses the host boundary as a `UiFrame`:
 ```json
 {
   "frameId": "frame-1",
-  "window": {"title": "Profile", "width": 640, "height": 480},
+  "window": {"title": "Profile", "width": 640, "height": 480, "minWidth": 480},
   "actions": [{"id": "saveProfile"}],
   "root": {
     "kind": "element",
@@ -333,9 +333,11 @@ when the host wants labels for menus, logs, or command palettes.
 
 The window wrapper is part of the host protocol, not the source component
 tree. The source tree stays independent of host surface selection; hosts decide
-which frames become windows, panels, or embedded surfaces. `window.resizable`
-defaults to `true` and is projected into typed native config/setter state while
-remaining available as protocol metadata for compatibility.
+which frames become windows, panels, or embedded surfaces. `window.width`,
+`window.height`, and optional min/max dimensions are projected into portable
+native style, while `window.resizable` defaults to `true` and is projected into
+typed native config/setter state while remaining available as protocol metadata
+for compatibility.
 
 Native platform hosts can use `NativeProtocolSession` as the frame boundary:
 

@@ -44,12 +44,24 @@ test('jsx runtime lowers React Aria-like tree to UiFrame protocol', () => {
   }, 'email-field');
 
   const frame = createUiFrame('profile', root, {
-    window: {title: 'Profile', width: 640, height: 480},
+    window: {
+      title: 'Profile',
+      width: 640,
+      height: 480,
+      minWidth: 480,
+      minHeight: 320,
+      maxWidth: 1280,
+      maxHeight: 960,
+      resizable: false,
+    },
     actions: [defineAction('setEmail', 'Set email')],
   });
 
   assert.equal(frame.frameId, 'profile');
   assert.equal(frame.window.title, 'Profile');
+  assert.equal(frame.window.minWidth, 480);
+  assert.equal(frame.window.maxHeight, 960);
+  assert.equal(frame.window.resizable, false);
   assert.equal(frame.root.tag, 'TextField');
   assert.equal(frame.root.props.isRequired, true);
   assert.equal(frame.root.children[1].tag, 'Input');

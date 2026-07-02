@@ -571,6 +571,28 @@ fn config_size(config: &NativeWidgetConfig, default_width: f64, default_height: 
     NSSize::new(width, height)
 }
 
+fn apply_window_size_constraints(window: &NSWindow, style: &crate::style::PortableStyle) {
+    let min_width = style.min_width.as_ref().and_then(StyleLength::points);
+    let min_height = style.min_height.as_ref().and_then(StyleLength::points);
+    if min_width.is_some() || min_height.is_some() {
+        let current = window.minSize();
+        window.setMinSize(NSSize::new(
+            min_width.unwrap_or(current.width),
+            min_height.unwrap_or(current.height),
+        ));
+    }
+
+    let max_width = style.max_width.as_ref().and_then(StyleLength::points);
+    let max_height = style.max_height.as_ref().and_then(StyleLength::points);
+    if max_width.is_some() || max_height.is_some() {
+        let current = window.maxSize();
+        window.setMaxSize(NSSize::new(
+            max_width.unwrap_or(current.width),
+            max_height.unwrap_or(current.height),
+        ));
+    }
+}
+
 fn appkit_stack_orientation(orientation: Orientation) -> NSUserInterfaceLayoutOrientation {
     match orientation {
         Orientation::Horizontal => NSUserInterfaceLayoutOrientation::Horizontal,

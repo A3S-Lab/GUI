@@ -491,6 +491,15 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 }
             }
             NativeWidgetSetter::SetPortableStyle(style) => {
+                match &handle.widget {
+                    AppKitOsWidget::Window(window) => {
+                        apply_window_size_constraints(window, style);
+                    }
+                    AppKitOsWidget::Panel(panel) => {
+                        apply_window_size_constraints(panel.as_super(), style);
+                    }
+                    _ => {}
+                }
                 if let Some(view) = handle.widget.as_view() {
                     let width = style.width.as_ref().and_then(StyleLength::points);
                     let height = style.height.as_ref().and_then(StyleLength::points);

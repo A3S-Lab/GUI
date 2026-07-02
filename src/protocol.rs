@@ -69,6 +69,14 @@ pub struct WindowOptions {
     pub width: Option<f64>,
     #[serde(default)]
     pub height: Option<f64>,
+    #[serde(default)]
+    pub min_width: Option<f64>,
+    #[serde(default)]
+    pub min_height: Option<f64>,
+    #[serde(default)]
+    pub max_width: Option<f64>,
+    #[serde(default)]
+    pub max_height: Option<f64>,
     #[serde(default = "default_true")]
     pub resizable: bool,
 }
@@ -161,6 +169,18 @@ impl WindowOptions {
         }
         if let Some(height) = self.height {
             web = web.style("height", height.to_string());
+        }
+        if let Some(min_width) = self.min_width {
+            web = web.style("minWidth", min_width.to_string());
+        }
+        if let Some(min_height) = self.min_height {
+            web = web.style("minHeight", min_height.to_string());
+        }
+        if let Some(max_width) = self.max_width {
+            web = web.style("maxWidth", max_width.to_string());
+        }
+        if let Some(max_height) = self.max_height {
+            web = web.style("maxHeight", max_height.to_string());
         }
 
         NativeElement::new(format!("{frame_id}:window"), NativeRole::Window)
@@ -1214,7 +1234,15 @@ mod tests {
             r#"
             {
               "frameId": "frame-window",
-              "window": {"title": "A3S Profile", "width": 640, "height": 480},
+              "window": {
+                "title": "A3S Profile",
+                "width": 640,
+                "height": 480,
+                "minWidth": 480,
+                "minHeight": 320,
+                "maxWidth": 1280,
+                "maxHeight": 960
+              },
               "root": {
                 "kind": "element",
                 "key": "save",
@@ -1259,6 +1287,42 @@ mod tests {
                 .as_ref()
                 .and_then(|value| value.points()),
             Some(480.0)
+        );
+        assert_eq!(
+            window
+                .blueprint
+                .portable_style
+                .min_width
+                .as_ref()
+                .and_then(|value| value.points()),
+            Some(480.0)
+        );
+        assert_eq!(
+            window
+                .blueprint
+                .portable_style
+                .min_height
+                .as_ref()
+                .and_then(|value| value.points()),
+            Some(320.0)
+        );
+        assert_eq!(
+            window
+                .blueprint
+                .portable_style
+                .max_width
+                .as_ref()
+                .and_then(|value| value.points()),
+            Some(1280.0)
+        );
+        assert_eq!(
+            window
+                .blueprint
+                .portable_style
+                .max_height
+                .as_ref()
+                .and_then(|value| value.points()),
+            Some(960.0)
         );
         assert_eq!(window.children.len(), 1);
 

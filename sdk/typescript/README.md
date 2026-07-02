@@ -26,7 +26,7 @@ const root = (
 );
 
 export const frame = createUiFrame('profile', root, {
-  window: {title: 'Profile', width: 640, height: 480},
+  window: {title: 'Profile', width: 640, height: 480, minWidth: 480},
   actions: [defineAction(saveProfile)],
 });
 ```
@@ -96,7 +96,7 @@ The emitted frame is plain JSON:
 ```json
 {
   "frameId": "profile",
-  "window": {"title": "Profile", "width": 640, "height": 480},
+  "window": {"title": "Profile", "width": 640, "height": 480, "minWidth": 480},
   "actions": [{"id": "saveProfile", "label": "Save profile"}],
   "root": {
     "kind": "element",
