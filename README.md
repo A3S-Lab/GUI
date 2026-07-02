@@ -1,39 +1,39 @@
 # a3s-gui
 
-Native GUI runtime for A3S UI frames.
+Native GUI runtime for A3S protocol frames.
 
-`a3s-gui` accepts Rust `NativeElement` trees, serialized `UiFrame` JSON, and JSX
-frames from `@a3s-lab/gui`. It lowers them into native UI IR, reconciles keyed
-updates, drives a `NativeHost`, routes native events, and projects accessibility
-trees.
+`a3s-gui` turns structured Rust, JSON, or JSX UI trees into keyed native command
+streams for AppKit, WinUI, GTK4, and headless hosts. It owns the portable UI IR,
+render reconciliation, event routing, interaction state, and accessibility tree
+projection.
 
-This is not a browser shell: there is no DOM, CSSOM, WebView, or browser layout
-contract. Web-shaped tags and props are accepted only when they map to native
-roles, state, style tokens, metadata, accessibility hints, or action ids.
+It is not a browser runtime. There is no DOM, CSSOM, WebView, or browser layout
+contract; Web-shaped input is accepted only when it can lower to native roles,
+state, style tokens, metadata, accessibility hints, or action ids.
 
-## Quick Start
+## Install
 
 ```toml
 [dependencies]
 a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ```
 
-Render Rust IR:
+## Rust Usage
 
 ```rust
 use a3s_gui::{GuiRuntime, HeadlessHost, NativeElement, NativeProps, NativeRole, WebProps};
 
-let root = NativeElement::new("save-button", NativeRole::Button).with_props(
+let root = NativeElement::new("save", NativeRole::Button).with_props(
     NativeProps::new()
         .label("Save")
         .web(WebProps::new().on_press("saveDocument")),
 );
 
 let mut runtime = GuiRuntime::new(HeadlessHost::default());
-runtime.render_native(&root)?;
+let rendered = runtime.render_native(&root)?;
 ```
 
-Or emit the same protocol from JSX:
+## JSX Usage
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
@@ -51,17 +51,16 @@ export const frame = createUiFrame(
 );
 ```
 
-## Core Surface
+## What Is Included
 
-- `NativeElement`, `NativeProps`, and `NativeRole` define the portable UI IR.
-- `GuiRuntime` handles rendering, reconciliation, interaction state, events, and
-  accessibility projection.
-- `ReactCompilerBridge` lowers protocol frames, React Aria-style components,
-  semantic tags, HTML/SVG intrinsics, Web props, CSS text, Tailwind utilities,
-  and event props.
-- `HeadlessHost` and planning hosts support tests without native SDKs.
-- [sdk/typescript](sdk/typescript) provides the dependency-free JSX runtime and
-  protocol helpers.
+- Portable native IR: `NativeElement`, `NativeProps`, `NativeRole`.
+- Runtime orchestration: `GuiRuntime`, keyed reconciliation, interaction state,
+  event routing, and accessibility projection.
+- Web/JSX lowering through `ReactCompilerBridge`, including React Aria-style
+  components, HTML/SVG intrinsics, Web props, CSS text, Tailwind utilities, and
+  event props.
+- Headless and platform-planning hosts for tests and process-boundary protocols.
+- A dependency-free TypeScript JSX runtime in [sdk/typescript](sdk/typescript).
 
 ## Features
 
@@ -73,7 +72,7 @@ export const frame = createUiFrame(
 | `appkit`, `winui`, `gtk4` | Platform planning and handle adapter types. |
 | `appkit-native`, `winui-native`, `gtk4-native` | Real native surfaces for the matching OS. |
 
-Native surface flags are platform-specific. `gtk4-native` also requires GTK4
+Native surface flags are platform-specific. `gtk4-native` requires GTK4
 development libraries and `pkg-config`.
 
 ## Validate
@@ -88,18 +87,18 @@ npm test --prefix sdk/typescript
 git diff --check
 ```
 
-Run native-surface checks only on matching systems:
+Native-surface checks depend on the target platform:
 
 ```bash
 cargo check --features appkit-native
+cargo check --target x86_64-pc-windows-msvc --features winui-native
+cargo check --features gtk4-native
 ```
 
-## Docs
+## More
 
-- [docs/architecture.md](docs/architecture.md): runtime and host boundaries.
-- [docs/web-authoring.md](docs/web-authoring.md): JSX, Web props, lowering,
-  events, and accessibility behavior.
-- [sdk/typescript/README.md](sdk/typescript/README.md): JSX runtime and protocol
-  helper API.
+- [docs/architecture.md](docs/architecture.md)
+- [docs/web-authoring.md](docs/web-authoring.md)
+- [sdk/typescript/README.md](sdk/typescript/README.md)
 
 MIT licensed; see [LICENSE](LICENSE).

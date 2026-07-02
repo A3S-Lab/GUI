@@ -17,6 +17,7 @@ use crate::error::{GuiError, GuiResult};
 use crate::event::{NativeEvent, NativeEventKind};
 use crate::geometry::Orientation as A3sOrientation;
 use crate::host::HostNodeId;
+use crate::html::HTML_TAG_METADATA_KEY;
 use crate::native_backends::winui::menu as winui_menu;
 use crate::platform::{
     NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter, WinUiAdapter,
@@ -29,7 +30,9 @@ mod helpers;
 mod surface;
 
 const WINUI_TEXT_INPUT_DEFAULT_WIDTH: f64 = f64::NAN;
+const WINUI_TEXT_INPUT_DEFAULT_HEIGHT: f64 = f64::NAN;
 const WINUI_TEXT_INPUT_MIN_WIDTH: f64 = 80.0;
+const WINUI_TEXT_INPUT_MIN_HEIGHT: f64 = 64.0;
 
 type WinUiEventQueue = Arc<Mutex<Vec<NativeEvent>>>;
 
@@ -117,7 +120,7 @@ impl WinUiNativeSurface {
         CommandExecutingHost::new(WinUiAdapter, self.into_executor())
     }
 
-    fn apply_text_box_width_hint(
+    fn apply_text_box_size_hint(
         &self,
         id: HostNodeId,
         text_box: &Controls::TextBox,
@@ -125,20 +128,31 @@ impl WinUiNativeSurface {
         let Some(sizing) = self.text_inputs.get(&id).copied() else {
             return Ok(());
         };
-        if sizing.explicit_width.is_some() {
+        if sizing.explicit_width.is_some() && sizing.explicit_height.is_some() {
             return Ok(());
         }
         let element: xaml::FrameworkElement = map_winui(
             "failed to read WinUI text box framework element",
             text_box.cast(),
         )?;
-        let width = sizing
-            .hinted_width()
-            .unwrap_or(WINUI_TEXT_INPUT_DEFAULT_WIDTH);
-        map_winui(
-            "failed to set WinUI text box hinted width",
-            element.SetWidth(width),
-        )?;
+        if sizing.explicit_width.is_none() {
+            let width = sizing
+                .hinted_width()
+                .unwrap_or(WINUI_TEXT_INPUT_DEFAULT_WIDTH);
+            map_winui(
+                "failed to set WinUI text box hinted width",
+                element.SetWidth(width),
+            )?;
+        }
+        if sizing.explicit_height.is_none() {
+            let height = sizing
+                .hinted_height()
+                .unwrap_or(WINUI_TEXT_INPUT_DEFAULT_HEIGHT);
+            map_winui(
+                "failed to set WinUI text box hinted height",
+                element.SetHeight(height),
+            )?;
+        }
         Ok(())
     }
 
@@ -822,19 +836,27 @@ impl WinUiRangeState {
 
 #[derive(Debug, Clone, Copy, Default)]
 struct WinUiTextInputSizing {
+    rows: Option<u32>,
     cols: Option<u32>,
     size: Option<u32>,
     explicit_width: Option<f64>,
+    explicit_height: Option<f64>,
 }
 
 impl WinUiTextInputSizing {
     fn from_config(config: &NativeWidgetConfig) -> Self {
         Self {
+            rows: config.rows,
             cols: config.cols,
             size: config.size,
             explicit_width: config
                 .portable_style
                 .width
+                .as_ref()
+                .and_then(StyleLength::points),
+            explicit_height: config
+                .portable_style
+                .height
                 .as_ref()
                 .and_then(StyleLength::points),
         }
@@ -849,4 +871,20 @@ impl WinUiTextInputSizing {
             .filter(|value| *value > 0)
             .map(|columns| WINUI_TEXT_INPUT_MIN_WIDTH.max(columns as f64 * 8.0 + 28.0))
     }
+
+    fn hinted_height(self) -> Option<f64> {
+        if self.explicit_height.is_some() {
+            return None;
+        }
+        self.rows
+            .filter(|value| *value > 0)
+            .map(|rows| WINUI_TEXT_INPUT_MIN_HEIGHT.max(rows as f64 * 20.0 + 18.0))
+    }
+}
+
+fn config_is_textarea(config: &NativeWidgetConfig) -> bool {
+    config
+        .metadata
+        .get(HTML_TAG_METADATA_KEY)
+        .is_some_and(|tag| tag == "textarea")
 }

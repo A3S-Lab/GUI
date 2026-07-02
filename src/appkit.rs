@@ -141,7 +141,7 @@ impl AppKitWidgetKind {
             | "NSButton(link)"
             | "NSButton(image-map-area)"
             | "NSButton(disclosure-summary)" => Ok(AppKitWidgetKind::Button),
-            "NSTextField(input)" => Ok(AppKitWidgetKind::TextField),
+            "NSTextField(input)" | "NSTextField(textarea)" => Ok(AppKitWidgetKind::TextField),
             "NSButton(checkbox)" => Ok(AppKitWidgetKind::Checkbox),
             "NSSwitch" => Ok(AppKitWidgetKind::Switch),
             "NSStackView(radio-group)" => Ok(AppKitWidgetKind::RadioGroup),

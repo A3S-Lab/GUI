@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::error::{GuiError, GuiResult};
 use crate::host::{HostNodeId, NativeHost};
+use crate::html::HTML_TAG_METADATA_KEY;
 use crate::native::{ElementKey, NativeElement, NativeProps, NativeRole};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -175,7 +176,28 @@ fn validate_native_tree(element: &NativeElement) -> GuiResult<()> {
 }
 
 fn needs_replacement(old: &MountedNode, new: &NativeElement) -> bool {
-    old.key != new.key || old.role != new.role
+    old.key != new.key
+        || old.role != new.role
+        || native_widget_shape(old.role, &old.props) != native_widget_shape(new.role, &new.props)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NativeWidgetShape {
+    Default,
+    TextArea,
+}
+
+fn native_widget_shape(role: NativeRole, props: &NativeProps) -> NativeWidgetShape {
+    if role == NativeRole::TextField
+        && props
+            .metadata
+            .get(HTML_TAG_METADATA_KEY)
+            .is_some_and(|tag| tag == "textarea")
+    {
+        NativeWidgetShape::TextArea
+    } else {
+        NativeWidgetShape::Default
+    }
 }
 
 fn collect_mounted_node_ids(node: &MountedNode, ids: &mut BTreeSet<HostNodeId>) {
@@ -357,6 +379,7 @@ fn best_effort_unmount_node<H: NativeHost>(node: MountedNode, host: &mut H) {
 mod tests {
     use super::*;
     use crate::host::{HeadlessHost, HostOperation};
+    use crate::html::HTML_TAG_METADATA_KEY;
     use crate::native::{NativeElement, NativeProps, NativeRole};
 
     #[derive(Default)]
@@ -476,6 +499,30 @@ mod tests {
             .map(|id| host.node(*id).unwrap().props.label.as_deref().unwrap())
             .collect();
         assert_eq!(labels, vec!["B", "A"]);
+    }
+
+    #[test]
+    fn text_field_textarea_shape_changes_remount_same_key_role() {
+        let single_line =
+            NativeElement::new("message", NativeRole::TextField).with_props(NativeProps::new());
+        let textarea = NativeElement::new("message", NativeRole::TextField)
+            .with_props(NativeProps::new().metadata(HTML_TAG_METADATA_KEY, "textarea"));
+        let mut renderer = Renderer::new();
+        let mut host = HeadlessHost::default();
+
+        let first_id = renderer.render(&single_line, &mut host).unwrap();
+        host.clear_operations();
+        let second_id = renderer.render(&textarea, &mut host).unwrap();
+
+        assert_ne!(first_id, second_id);
+        assert!(host.operations().iter().any(|operation| matches!(
+            operation,
+            HostOperation::Create { id, .. } if *id == second_id
+        )));
+        assert!(host.operations().iter().any(|operation| matches!(
+            operation,
+            HostOperation::Remove { id } if *id == first_id
+        )));
     }
 
     #[test]

@@ -32,6 +32,7 @@ use crate::error::{GuiError, GuiResult};
 use crate::event::{NativeEvent, NativeEventKind};
 use crate::geometry::Orientation;
 use crate::host::HostNodeId;
+use crate::html::HTML_TAG_METADATA_KEY;
 use crate::native_backends::appkit::menu::AppKitMenuRegistry;
 use crate::platform::{
     AppKitAdapter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter,
@@ -116,15 +117,23 @@ impl AppKitNativeSurface {
         let Some(sizing) = self.text_inputs.get(&id).copied() else {
             return;
         };
-        if sizing.explicit_width.is_some() {
+        if sizing.explicit_width.is_some() && sizing.explicit_height.is_some() {
             return;
         }
-        let width = sizing
-            .hinted_width()
-            .unwrap_or(APPKIT_TEXT_INPUT_DEFAULT_WIDTH);
         let view = text_field.as_super().as_super();
         let current = view.frame().size;
-        let height = if current.height > 0.0 {
+        let width = if sizing.explicit_width.is_some() {
+            current.width
+        } else {
+            sizing
+                .hinted_width()
+                .unwrap_or(APPKIT_TEXT_INPUT_DEFAULT_WIDTH)
+        };
+        let height = if sizing.explicit_height.is_some() {
+            current.height
+        } else if let Some(height) = sizing.hinted_height() {
+            height
+        } else if current.height > 0.0 {
             current.height
         } else {
             APPKIT_TEXT_INPUT_DEFAULT_HEIGHT
@@ -641,11 +650,9 @@ fn config_text_input_size(config: &NativeWidgetConfig) -> NSSize {
         .explicit_width
         .or_else(|| sizing.hinted_width())
         .unwrap_or(APPKIT_TEXT_INPUT_DEFAULT_WIDTH);
-    let height = config
-        .portable_style
-        .height
-        .as_ref()
-        .and_then(StyleLength::points)
+    let height = sizing
+        .explicit_height
+        .or_else(|| sizing.hinted_height())
         .unwrap_or(APPKIT_TEXT_INPUT_DEFAULT_HEIGHT);
     NSSize::new(width, height)
 }
@@ -729,19 +736,27 @@ impl AppKitRangeState {
 
 #[derive(Debug, Clone, Copy, Default)]
 struct AppKitTextInputSizing {
+    rows: Option<u32>,
     cols: Option<u32>,
     size: Option<u32>,
     explicit_width: Option<f64>,
+    explicit_height: Option<f64>,
 }
 
 impl AppKitTextInputSizing {
     fn from_config(config: &NativeWidgetConfig) -> Self {
         Self {
+            rows: config.rows,
             cols: config.cols,
             size: config.size,
             explicit_width: config
                 .portable_style
                 .width
+                .as_ref()
+                .and_then(StyleLength::points),
+            explicit_height: config
+                .portable_style
+                .height
                 .as_ref()
                 .and_then(StyleLength::points),
         }
@@ -756,6 +771,22 @@ impl AppKitTextInputSizing {
             .filter(|value| *value > 0)
             .map(|columns| APPKIT_TEXT_INPUT_MIN_WIDTH.max(columns as f64 * 8.0 + 28.0))
     }
+
+    fn hinted_height(self) -> Option<f64> {
+        if self.explicit_height.is_some() {
+            return None;
+        }
+        self.rows
+            .filter(|value| *value > 0)
+            .map(|rows| (rows as f64 * 20.0 + 18.0).max(64.0))
+    }
+}
+
+fn config_is_textarea(config: &NativeWidgetConfig) -> bool {
+    config
+        .metadata
+        .get(HTML_TAG_METADATA_KEY)
+        .is_some_and(|tag| tag == "textarea")
 }
 
 fn apply_progress_range(progress: &NSProgressIndicator, range: AppKitRangeState) {

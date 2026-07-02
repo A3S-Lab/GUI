@@ -124,6 +124,25 @@ impl Gtk4NativeSurface {
         entry.set_width_chars(width_chars);
     }
 
+    fn apply_text_view_size_hint(&self, id: HostNodeId, text_view: &gtk::TextView) {
+        let Some(sizing) = self.text_inputs.get(&id).copied() else {
+            return;
+        };
+        let width = if sizing.has_explicit_width {
+            -1
+        } else {
+            sizing.hinted_width_points().unwrap_or(-1)
+        };
+        let height = if sizing.has_explicit_height {
+            -1
+        } else {
+            sizing.hinted_height_points().unwrap_or(-1)
+        };
+        if width >= 0 || height >= 0 {
+            text_view.set_size_request(width, height);
+        }
+    }
+
     fn suppress_events<T>(&self, apply: impl FnOnce() -> T) -> T {
         let previous = self.events_suppressed.replace(true);
         let result = apply();
@@ -458,17 +477,21 @@ impl Gtk4RangeState {
 
 #[derive(Debug, Clone, Copy, Default)]
 struct Gtk4TextInputSizing {
+    rows: Option<u32>,
     cols: Option<u32>,
     size: Option<u32>,
     has_explicit_width: bool,
+    has_explicit_height: bool,
 }
 
 impl Gtk4TextInputSizing {
     fn from_config(config: &NativeWidgetConfig) -> Self {
         Self {
+            rows: config.rows,
             cols: config.cols,
             size: config.size,
             has_explicit_width: style_sets_gtk_width(&config.portable_style),
+            has_explicit_height: style_sets_gtk_height(&config.portable_style),
         }
     }
 
@@ -477,6 +500,20 @@ impl Gtk4TextInputSizing {
             .or(self.cols)
             .filter(|value| *value > 0)
             .map(u32_to_i32)
+    }
+
+    fn hinted_width_points(self) -> Option<i32> {
+        self.cols
+            .filter(|value| *value > 0)
+            .map(|columns| (columns as f64 * 8.0 + 28.0).max(80.0))
+            .map(points_to_i32)
+    }
+
+    fn hinted_height_points(self) -> Option<i32> {
+        self.rows
+            .filter(|value| *value > 0)
+            .map(|rows| (rows as f64 * 20.0 + 18.0).max(64.0))
+            .map(points_to_i32)
     }
 }
 
@@ -552,6 +589,7 @@ pub enum Gtk4OsWidget {
     Label(gtk::Label),
     Button(gtk::Button),
     Entry(gtk::Entry),
+    TextView(gtk::TextView),
     CheckButton(gtk::CheckButton),
     Switch(gtk::Switch),
     DropDown(gtk::DropDown),
@@ -579,6 +617,7 @@ impl Gtk4OsWidget {
             Gtk4OsWidget::Label(label) => Some(label.clone().upcast()),
             Gtk4OsWidget::Button(button) => Some(button.clone().upcast()),
             Gtk4OsWidget::Entry(entry) => Some(entry.clone().upcast()),
+            Gtk4OsWidget::TextView(text_view) => Some(text_view.clone().upcast()),
             Gtk4OsWidget::CheckButton(check_button) => Some(check_button.clone().upcast()),
             Gtk4OsWidget::Switch(switch) => Some(switch.clone().upcast()),
             Gtk4OsWidget::DropDown(drop_down) => Some(drop_down.clone().upcast()),
@@ -656,8 +695,22 @@ fn style_sets_gtk_width(style: &crate::style::PortableStyle) -> bool {
         .is_some()
 }
 
+fn style_sets_gtk_height(style: &crate::style::PortableStyle) -> bool {
+    style
+        .height
+        .as_ref()
+        .or(style.min_height.as_ref())
+        .and_then(StyleLength::points)
+        .is_some()
+}
+
 fn u32_to_i32(value: u32) -> i32 {
     i32::try_from(value).unwrap_or(i32::MAX)
+}
+
+fn text_buffer_text(buffer: &gtk::TextBuffer) -> String {
+    let (start, end) = buffer.bounds();
+    buffer.text(&start, &end, true).to_string()
 }
 
 fn set_progress_bar_fraction(progress_bar: &gtk::ProgressBar, range: Gtk4RangeState) {

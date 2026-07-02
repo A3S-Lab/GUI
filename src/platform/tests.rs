@@ -10,6 +10,7 @@ use crate::host::{HostNodeId, NativeHost};
 use crate::html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
+    HTML_TAG_METADATA_KEY,
 };
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::renderer::Renderer;
@@ -156,6 +157,30 @@ fn same_ir_targets_winui_and_gtk_native_controls() {
         "Microsoft.UI.Xaml.Controls.TextBox"
     );
     assert_eq!(Gtk4Adapter.blueprint(&element).widget_class, "gtk::Entry");
+}
+
+#[test]
+fn textarea_text_fields_target_multiline_native_controls() {
+    let element = NativeElement::new("message", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Message")
+            .metadata(HTML_TAG_METADATA_KEY, "textarea")
+            .rows(Some(4))
+            .cols(Some(48)),
+    );
+
+    assert_eq!(
+        AppKitAdapter.blueprint(&element).widget_class,
+        "NSTextField(textarea)"
+    );
+    assert_eq!(
+        WinUiAdapter.blueprint(&element).widget_class,
+        "Microsoft.UI.Xaml.Controls.TextBox(textarea)"
+    );
+    assert_eq!(
+        Gtk4Adapter.blueprint(&element).widget_class,
+        "gtk::TextView"
+    );
 }
 
 #[test]

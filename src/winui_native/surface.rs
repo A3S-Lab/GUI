@@ -67,9 +67,19 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             WinUiWidgetKind::TextBox => {
                 let text_box =
                     map_winui("failed to create WinUI text box", Controls::TextBox::new())?;
+                if config_is_textarea(&config) {
+                    map_winui(
+                        "failed to enable WinUI text box return input",
+                        text_box.SetAcceptsReturn(true),
+                    )?;
+                    map_winui(
+                        "failed to enable WinUI text box wrapping",
+                        text_box.SetTextWrapping(xaml::TextWrapping::Wrap),
+                    )?;
+                }
                 self.text_inputs
                     .insert(id, WinUiTextInputSizing::from_config(&config));
-                self.apply_text_box_width_hint(id, &text_box)?;
+                self.apply_text_box_size_hint(id, &text_box)?;
                 register_text_change(
                     id,
                     &text_box,
@@ -342,7 +352,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                 if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
                     self.text_inputs.entry(id).or_default().explicit_width =
                         style.width.as_ref().and_then(StyleLength::points);
-                    self.apply_text_box_width_hint(id, text_box)?;
+                    self.text_inputs.entry(id).or_default().explicit_height =
+                        style.height.as_ref().and_then(StyleLength::points);
+                    self.apply_text_box_size_hint(id, text_box)?;
                 }
             }
             NativeWidgetSetter::SetMaxLength(max_length) => {
@@ -358,13 +370,19 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             NativeWidgetSetter::SetCols(value) => {
                 if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
                     self.text_inputs.entry(id).or_default().cols = *value;
-                    self.apply_text_box_width_hint(id, text_box)?;
+                    self.apply_text_box_size_hint(id, text_box)?;
                 }
             }
             NativeWidgetSetter::SetSize(value) => {
                 if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
                     self.text_inputs.entry(id).or_default().size = *value;
-                    self.apply_text_box_width_hint(id, text_box)?;
+                    self.apply_text_box_size_hint(id, text_box)?;
+                }
+            }
+            NativeWidgetSetter::SetRows(value) => {
+                if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().rows = *value;
+                    self.apply_text_box_size_hint(id, text_box)?;
                 }
             }
             NativeWidgetSetter::SetAccessibilityRole(_)
@@ -379,7 +397,6 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             | NativeWidgetSetter::SetInputMode(_)
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
-            | NativeWidgetSetter::SetRows(_)
             | NativeWidgetSetter::SetName(_)
             | NativeWidgetSetter::SetForm(_)
             | NativeWidgetSetter::SetInputType(_)

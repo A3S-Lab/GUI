@@ -431,9 +431,10 @@ The included `RecordingBackend` applies commands to a pure Rust object tree.
 
 Feature-gated platform executor surfaces:
 
-- `appkit`: maps classes such as `NSButton` and `NSTextField(input)` into
-  AppKit object kinds behind `AppKitWidgetDriver` and replays native setter
-  operations through `AppKitHandleAdapter`.
+- `appkit`: maps classes such as `NSButton`, `NSTextField(input)`, and
+  `NSTextField(textarea)` into AppKit object kinds behind
+  `AppKitWidgetDriver` and replays native setter operations through
+  `AppKitHandleAdapter`.
 - `appkit-native`: uses `objc2` AppKit bindings on macOS to create real
   `NSWindow`, `NSPanel`, `NSView`, `NSButton`, `NSTextField`, `NSSwitch`, `NSStackView`,
   `NSComboBox`, `NSScrollView`, `NSTabView`, `NSTabViewItem`,
@@ -447,9 +448,10 @@ Feature-gated platform executor surfaces:
   creates in-process AppKit controls directly. `NSButton` controls are
   wired to Objective-C
   target/action callbacks that enqueue `NativeEventKind::Press` records, and
-  editable `NSTextField` controls use an `NSTextFieldDelegate` to apply
-  max-length hints and enqueue focus, change, and blur records, with change
-  events carrying the current native string value. `NSButton(checkbox)` and
+  editable `NSTextField` controls, including textarea-shaped fields, use an
+  `NSTextFieldDelegate` to apply max-length hints and enqueue focus, change,
+  and blur records, with change events carrying the current native string
+  value. `NSButton(checkbox)` and
   `NSSwitch` controls apply native
   checked state and enqueue `NativeEventKind::Toggle` records with the current
   boolean value. `RadioGroup` uses native `NSStackView` containers with
@@ -476,16 +478,19 @@ Feature-gated platform executor surfaces:
   records with the current double value, while `NSProgressIndicator` is updated
   by setter-driven ranged state.
   These event paths flow through the existing `NativeEventSource` boundary.
-- `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button` and
-  `TextBox` into WinUI object kinds behind `WinUiWidgetDriver` and replays
-  native setter operations through `WinUiHandleAdapter`.
+- `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button`,
+  `Microsoft.UI.Xaml.Controls.TextBox`, and
+  `Microsoft.UI.Xaml.Controls.TextBox(textarea)` into WinUI object kinds behind
+  `WinUiWidgetDriver` and replays native setter operations through
+  `WinUiHandleAdapter`.
 - `winui-native`: uses `winio-winui3` and the Windows App SDK on Windows to
   create real WinUI 3 `Window`, `StackPanel`, `TextBlock`, `Button`, `TextBox`,
   `CheckBox`, `RadioButton`, `ComboBox`, `ListBox`, `ContentDialog`, `ToolTip`,
   `Grid`, `TabView`, `TabViewItem`, `Border(separator)`, `Slider`, and
   `ProgressBar` objects through
   `WinUiNativeSurface`. The backend creates WinUI controls directly. WinUI
-  callbacks enqueue press, change,
+  textarea-shaped text boxes enable return input and wrapping. WinUI callbacks
+  enqueue press, change,
   focus, blur, toggle, selection-change, and ranged value events through the
   same `NativeEventSource` and action routing path as AppKit and GTK. Semantic
   `Tabs` trees fold `TabList` and ordered `TabPanel` children into native
@@ -505,12 +510,12 @@ Feature-gated platform executor surfaces:
   its native `Switch` semantic in the IR; with `winio-winui3` 0.4.2, the native
   surface temporarily backs that state with a WinUI `CheckBox` because the
   generated bindings do not expose `ToggleSwitch` yet.
-- `gtk4`: maps classes such as `gtk::Button` and `gtk::Entry` into GTK object
-  kinds behind `Gtk4WidgetDriver` and replays native setter operations through
-  `Gtk4HandleAdapter`.
+- `gtk4`: maps classes such as `gtk::Button`, `gtk::Entry`, and
+  `gtk::TextView` into GTK object kinds behind `Gtk4WidgetDriver` and replays
+  native setter operations through `Gtk4HandleAdapter`.
 - `gtk4-native`: uses `gtk4-rs` on Linux to create real
   `gtk::ApplicationWindow`, `gtk::Box`, `gtk::Label`, `gtk::Button`,
-  `gtk::Entry`, `gtk::CheckButton`, `gtk::Switch`, `gtk::DropDown`,
+  `gtk::Entry`, `gtk::TextView`, `gtk::CheckButton`, `gtk::Switch`, `gtk::DropDown`,
   `gtk::ListBox`, `gtk::ListBoxRow`, `gtk::Dialog`, `gtk::Popover`,
   `gtk::PopoverMenuBar`, `gio::Menu`, `gio::MenuItem`, `gtk::Notebook`,
   `gtk::Separator`, `gtk::Scale`, and `gtk::ProgressBar`

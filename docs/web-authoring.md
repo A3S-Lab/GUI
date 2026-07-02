@@ -200,7 +200,8 @@ families:
 | `DescriptionList` | `NSView(description-list)` | `Microsoft.UI.Xaml.Controls.StackPanel(description-list)` | `gtk::Box(description-list)` |
 | `DescriptionTerm` | `NSTextField(description-term)` | `Microsoft.UI.Xaml.Controls.TextBlock(description-term)` | `gtk::Label(description-term)` |
 | `DescriptionDetails` | `NSView(description-details)` | `Microsoft.UI.Xaml.Controls.StackPanel(description-details)` | `gtk::Box(description-details)` |
-| `TextField` | `NSTextField(input)` | `Microsoft.UI.Xaml.Controls.TextBox` | `gtk::Entry` |
+| `TextField` / `input` | `NSTextField(input)` | `Microsoft.UI.Xaml.Controls.TextBox` | `gtk::Entry` |
+| `TextField` from `textarea` | `NSTextField(textarea)` | `Microsoft.UI.Xaml.Controls.TextBox(textarea)` | `gtk::TextView` |
 | `Image` | `NSImageView` | `Microsoft.UI.Xaml.Controls.Image` | `gtk::Picture` |
 | `Media` | `AVPlayerView` | `Microsoft.UI.Xaml.Controls.MediaPlayerElement` | `gtk::Video` |
 | `Canvas` | `NSView(canvas)` | `Microsoft.UI.Xaml.Controls.Canvas` | `gtk::DrawingArea` |

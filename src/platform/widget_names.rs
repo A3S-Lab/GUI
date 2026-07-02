@@ -1,4 +1,5 @@
 use crate::accessibility::accessibility_role;
+use crate::html::HTML_TAG_METADATA_KEY;
 use crate::native::{NativeElement, NativeRole};
 use crate::style::PortableStyle;
 
@@ -19,7 +20,7 @@ pub fn widget_blueprint(
 ) -> NativeWidgetBlueprint {
     NativeWidgetBlueprint {
         backend,
-        widget_class: native_widget_name(backend, element.role).to_string(),
+        widget_class: native_widget_name_for_element(backend, element).to_string(),
         role: element.role,
         accessibility_role: accessibility_role(element.role),
         label: element.props.label.clone(),
@@ -36,6 +37,28 @@ pub fn widget_blueprint(
         events: element.props.web.events.clone(),
         metadata: element.props.metadata.clone(),
     }
+}
+
+fn native_widget_name_for_element(
+    backend: NativeBackendKind,
+    element: &NativeElement,
+) -> &'static str {
+    if element.role == NativeRole::TextField
+        && element
+            .props
+            .metadata
+            .get(HTML_TAG_METADATA_KEY)
+            .is_some_and(|tag| tag == "textarea")
+    {
+        return match backend {
+            NativeBackendKind::AppKit => "NSTextField(textarea)",
+            NativeBackendKind::WinUI => "Microsoft.UI.Xaml.Controls.TextBox(textarea)",
+            NativeBackendKind::Gtk4 => "gtk::TextView",
+            NativeBackendKind::Headless => "a3s_gui::HeadlessNode",
+        };
+    }
+
+    native_widget_name(backend, element.role)
 }
 
 fn appkit_widget_name(role: NativeRole) -> &'static str {

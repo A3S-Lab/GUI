@@ -349,6 +349,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             AppKitWidgetKind::TextField => {
                 let value = ns_string(config.value.as_deref().unwrap_or(""));
                 let text_field = NSTextField::textFieldWithString(&value, self.mtm);
+                if config_is_textarea(&config) {
+                    text_field.as_super().setUsesSingleLineMode(false);
+                    if let Some(cell) = text_field.as_super().cell() {
+                        cell.setUsesSingleLineMode(false);
+                    }
+                }
                 text_field
                     .as_super()
                     .as_super()
@@ -578,6 +584,8 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     if handle.kind == AppKitWidgetKind::TextField {
                         let sizing = self.text_inputs.entry(id).or_default();
                         sizing.explicit_width = style.width.as_ref().and_then(StyleLength::points);
+                        sizing.explicit_height =
+                            style.height.as_ref().and_then(StyleLength::points);
                         self.apply_text_input_size(id, text_field);
                     }
                 }
@@ -684,6 +692,14 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     }
                 }
             }
+            NativeWidgetSetter::SetRows(value) => {
+                if let AppKitOsWidget::TextField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        self.text_inputs.entry(id).or_default().rows = *value;
+                        self.apply_text_input_size(id, text_field);
+                    }
+                }
+            }
             NativeWidgetSetter::SetOrientation(value) => {
                 if let (AppKitOsWidget::StackView(stack_view), Some(orientation)) =
                     (&handle.widget, value)
@@ -715,7 +731,6 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             | NativeWidgetSetter::SetInputMode(_)
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
-            | NativeWidgetSetter::SetRows(_)
             | NativeWidgetSetter::SetName(_)
             | NativeWidgetSetter::SetForm(_)
             | NativeWidgetSetter::SetInputType(_)

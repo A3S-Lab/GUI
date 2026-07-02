@@ -94,6 +94,42 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
 
                 Gtk4OsWidget::Entry(entry)
             }
+            Gtk4WidgetKind::TextView => {
+                let text_view = gtk::TextView::new();
+                text_view.set_wrap_mode(gtk::WrapMode::WordChar);
+                text_view.set_editable(!config.read_only);
+                let buffer = text_view.buffer();
+                self.suppress_events(|| {
+                    buffer.set_text(config.value.as_deref().unwrap_or(""));
+                });
+                self.text_inputs
+                    .insert(id, Gtk4TextInputSizing::from_config(&config));
+                self.apply_text_view_size_hint(id, &text_view);
+
+                let events = self.events.clone();
+                let events_suppressed = self.events_suppressed.clone();
+                buffer.connect_changed(move |buffer| {
+                    push_event(
+                        &events,
+                        &events_suppressed,
+                        NativeEvent::new(id, NativeEventKind::Change)
+                            .value(text_buffer_text(buffer)),
+                    );
+                });
+
+                let events = self.events.clone();
+                let events_suppressed = self.events_suppressed.clone();
+                text_view.connect_has_focus_notify(move |text_view| {
+                    let kind = if text_view.has_focus() {
+                        NativeEventKind::Focus
+                    } else {
+                        NativeEventKind::Blur
+                    };
+                    push_event(&events, &events_suppressed, NativeEvent::new(id, kind));
+                });
+
+                Gtk4OsWidget::TextView(text_view)
+            }
             Gtk4WidgetKind::CheckButton => {
                 let check_button =
                     gtk::CheckButton::with_label(config.label.as_deref().unwrap_or(""));
@@ -312,6 +348,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                         self.menus.update_item_label(id, item, label.to_string());
                     }
                     Gtk4OsWidget::Entry(_)
+                    | Gtk4OsWidget::TextView(_)
                     | Gtk4OsWidget::Dialog(_)
                     | Gtk4OsWidget::Popover(_)
                     | Gtk4OsWidget::Menu(_)
@@ -333,6 +370,10 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             NativeWidgetSetter::SetValue(value) => match &handle.widget {
                 Gtk4OsWidget::Entry(entry) => {
                     self.suppress_events(|| entry.set_text(value.as_deref().unwrap_or("")));
+                }
+                Gtk4OsWidget::TextView(text_view) => {
+                    let buffer = text_view.buffer();
+                    self.suppress_events(|| buffer.set_text(value.as_deref().unwrap_or("")));
                 }
                 Gtk4OsWidget::Label(label) => {
                     if let Some(tab) = self.notebook_tabs.get(&id).cloned() {
@@ -369,6 +410,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Menu(_)
                 | Gtk4OsWidget::Box(_)
                 | Gtk4OsWidget::Button(_)
+                | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::CheckButton(_)
                 | Gtk4OsWidget::Switch(_)
                 | Gtk4OsWidget::ListBox(_)
@@ -390,11 +432,15 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     widget.set_sensitive(*value);
                 }
             }
-            NativeWidgetSetter::SetReadOnly(value) => {
-                if let Gtk4OsWidget::Entry(entry) = &handle.widget {
+            NativeWidgetSetter::SetReadOnly(value) => match &handle.widget {
+                Gtk4OsWidget::Entry(entry) => {
                     entry.set_editable(!*value);
                 }
-            }
+                Gtk4OsWidget::TextView(text_view) => {
+                    text_view.set_editable(!*value);
+                }
+                _ => {}
+            },
             NativeWidgetSetter::SetVisible(value) => {
                 if let Some(widget) = handle.widget.as_widget() {
                     widget.set_visible(*value);
@@ -416,6 +462,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Label(_)
                 | Gtk4OsWidget::Button(_)
                 | Gtk4OsWidget::Entry(_)
+                | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::DropDown(_)
                 | Gtk4OsWidget::ListBox(_)
                 | Gtk4OsWidget::ListBoxRow { .. }
@@ -451,6 +498,12 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                         style_sets_gtk_width(style);
                     self.apply_entry_width_hint(id, entry);
                 }
+                if let Gtk4OsWidget::TextView(text_view) = &handle.widget {
+                    let sizing = self.text_inputs.entry(id).or_default();
+                    sizing.has_explicit_width = style_sets_gtk_width(style);
+                    sizing.has_explicit_height = style_sets_gtk_height(style);
+                    self.apply_text_view_size_hint(id, text_view);
+                }
                 if let Gtk4OsWidget::Box(box_) = &handle.widget {
                     if let Some(orientation) = style.flex_direction {
                         box_.set_orientation(gtk_orientation(orientation));
@@ -484,6 +537,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Label(_)
                 | Gtk4OsWidget::Button(_)
                 | Gtk4OsWidget::Entry(_)
+                | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::CheckButton(_)
                 | Gtk4OsWidget::Switch(_)
                 | Gtk4OsWidget::DropDown(_)
@@ -538,6 +592,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Label(_)
                 | Gtk4OsWidget::Button(_)
                 | Gtk4OsWidget::Entry(_)
+                | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::CheckButton(_)
                 | Gtk4OsWidget::Switch(_)
                 | Gtk4OsWidget::DropDown(_)
@@ -563,11 +618,21 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     self.text_inputs.entry(id).or_default().cols = *value;
                     self.apply_entry_width_hint(id, entry);
                 }
+                if let Gtk4OsWidget::TextView(text_view) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().cols = *value;
+                    self.apply_text_view_size_hint(id, text_view);
+                }
             }
             NativeWidgetSetter::SetSize(value) => {
                 if let Gtk4OsWidget::Entry(entry) = &handle.widget {
                     self.text_inputs.entry(id).or_default().size = *value;
                     self.apply_entry_width_hint(id, entry);
+                }
+            }
+            NativeWidgetSetter::SetRows(value) => {
+                if let Gtk4OsWidget::TextView(text_view) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().rows = *value;
+                    self.apply_text_view_size_hint(id, text_view);
                 }
             }
             NativeWidgetSetter::SetAccessibilityRole(_)
@@ -581,7 +646,6 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             | NativeWidgetSetter::SetInputMode(_)
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
-            | NativeWidgetSetter::SetRows(_)
             | NativeWidgetSetter::SetName(_)
             | NativeWidgetSetter::SetForm(_)
             | NativeWidgetSetter::SetInputType(_)
@@ -757,6 +821,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             | Gtk4OsWidget::MenuItem(_)
             | Gtk4OsWidget::Label(_)
             | Gtk4OsWidget::Entry(_)
+            | Gtk4OsWidget::TextView(_)
             | Gtk4OsWidget::CheckButton(_)
             | Gtk4OsWidget::Switch(_)
             | Gtk4OsWidget::Separator(_)

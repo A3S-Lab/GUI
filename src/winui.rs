@@ -140,7 +140,8 @@ impl WinUiWidgetKind {
             | "Microsoft.UI.Xaml.Controls.Button(disclosure-summary)" => {
                 Ok(WinUiWidgetKind::Button)
             }
-            "Microsoft.UI.Xaml.Controls.TextBox" => Ok(WinUiWidgetKind::TextBox),
+            "Microsoft.UI.Xaml.Controls.TextBox"
+            | "Microsoft.UI.Xaml.Controls.TextBox(textarea)" => Ok(WinUiWidgetKind::TextBox),
             "Microsoft.UI.Xaml.Controls.CheckBox" => Ok(WinUiWidgetKind::CheckBox),
             "Microsoft.UI.Xaml.Controls.ToggleSwitch" => Ok(WinUiWidgetKind::ToggleSwitch),
             "Microsoft.UI.Xaml.Controls.RadioButtons" => Ok(WinUiWidgetKind::RadioButtons),
