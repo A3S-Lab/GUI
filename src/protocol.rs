@@ -463,6 +463,23 @@ mod tests {
                       "label": "Preview",
                       "attributes": {"aria-hidden": "true"}
                     }
+                  },
+                  {
+                    "kind": "element",
+                    "key": "details",
+                    "tag": "Button",
+                    "props": {
+                      "label": "Details",
+                      "style": {"display": "none"}
+                    }
+                  },
+                  {
+                    "kind": "element",
+                    "key": "dialog",
+                    "tag": "dialog",
+                    "children": [
+                      {"kind": "text", "key": "dialog-text", "value": "Dialog"}
+                    ]
                   }
                 ]
               }

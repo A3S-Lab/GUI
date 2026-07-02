@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use crate::accessibility::{accessibility_role, AccessibilityNode, AccessibilityTreeHost};
 use crate::error::{GuiError, GuiResult};
 use crate::native::{NativeElement, NativeProps, NativeRole};
+use crate::style::{DisplayMode, PortableStyle};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -109,7 +110,7 @@ impl HeadlessHost {
 
     fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
         let node = self.nodes.get(&id)?;
-        if node.props.hidden
+        if !is_accessibility_visible(&node.props)
             || node.props.inert
             || node.props.accessibility_state.hidden == Some(true)
         {
@@ -142,6 +143,12 @@ impl HeadlessHost {
             children,
         })
     }
+}
+
+fn is_accessibility_visible(props: &NativeProps) -> bool {
+    !props.hidden
+        && PortableStyle::from_web(&props.web).display != Some(DisplayMode::None)
+        && props.html_dialog.open.unwrap_or(true)
 }
 
 impl AccessibilityTreeHost for HeadlessHost {

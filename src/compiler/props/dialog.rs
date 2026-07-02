@@ -1,10 +1,10 @@
-use crate::html::{canonical_html_tag, HtmlDialogProps};
+use crate::html::HtmlDialogProps;
 use crate::web::WebProps;
 
 use super::attributes::{bool_attribute, string_attribute};
 
 pub(super) fn html_dialog_props_from_tag(tag: &str, web: &WebProps) -> HtmlDialogProps {
-    if canonical_html_tag(tag) != Some("dialog") {
+    if tag != "dialog" {
         return HtmlDialogProps::default();
     }
 

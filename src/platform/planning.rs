@@ -98,7 +98,10 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
     fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
         let node = self.nodes.get(&id)?;
         let state = &node.blueprint.control_state;
-        if state.hidden || state.inert || state.accessibility_state.hidden == Some(true) {
+        if !node.blueprint.config().visible
+            || state.inert
+            || state.accessibility_state.hidden == Some(true)
+        {
             return None;
         }
         let children = node

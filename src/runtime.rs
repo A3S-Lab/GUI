@@ -11,6 +11,7 @@ use crate::native::NativeElement;
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::react_aria::{AriaElement, ReactAriaMapper};
 use crate::renderer::Renderer;
+use crate::style::DisplayMode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -121,7 +122,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         event: NativeEvent,
     ) -> GuiResult<HandledNativeEvent> {
         self.refresh_stale_interaction_baseline(event.node, blueprint);
-        if is_hidden_or_inert_event(blueprint, route_blueprints) {
+        if is_invisible_or_inert_event(blueprint, route_blueprints) {
             return Ok(HandledNativeEvent {
                 event,
                 invocation: None,
@@ -396,15 +397,21 @@ fn has_explicit_key_down_handler(
             .any(|route_blueprint| route_blueprint.events.contains_key("onKeyDown"))
 }
 
-fn is_hidden_or_inert_event(
+fn is_invisible_or_inert_event(
     blueprint: &NativeWidgetBlueprint,
     route_blueprints: &[NativeWidgetBlueprint],
 ) -> bool {
-    is_hidden_or_inert(blueprint) || route_blueprints.iter().any(is_hidden_or_inert)
+    is_invisible_or_inert(blueprint) || route_blueprints.iter().any(is_invisible_or_inert)
 }
 
-fn is_hidden_or_inert(blueprint: &NativeWidgetBlueprint) -> bool {
-    blueprint.control_state.hidden || blueprint.control_state.inert
+fn is_invisible_or_inert(blueprint: &NativeWidgetBlueprint) -> bool {
+    !is_visible_blueprint(blueprint) || blueprint.control_state.inert
+}
+
+fn is_visible_blueprint(blueprint: &NativeWidgetBlueprint) -> bool {
+    !blueprint.control_state.hidden
+        && blueprint.portable_style.display != Some(DisplayMode::None)
+        && blueprint.control_state.html_dialog.open.unwrap_or(true)
 }
 
 fn is_disabled_user_event(
@@ -677,6 +684,7 @@ mod tests {
     use super::*;
     use crate::accessibility::AccessibilityRole;
     use crate::host::HeadlessHost;
+    use crate::html::HtmlDialogProps;
     use crate::native::{NativeElement, NativeProps, NativeRole};
     use crate::platform::{Gtk4Adapter, PlatformCommand, PlatformPlanningHost, WinUiAdapter};
     use crate::web::WebProps;
@@ -1094,7 +1102,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_suppresses_hidden_focus_and_actions() {
+    fn runtime_suppresses_invisible_focus_and_actions() {
         let element = NativeElement::new("save", NativeRole::Button).with_props(
             NativeProps::new().label("Save").hidden(true).web(
                 WebProps::new()
@@ -1130,7 +1138,64 @@ mod tests {
     }
 
     #[test]
-    fn runtime_accessibility_tree_prunes_hidden_inert_and_aria_hidden_subtrees() {
+    fn runtime_suppresses_display_none_actions() {
+        let element = NativeElement::new("save", NativeRole::Button).with_props(
+            NativeProps::new().label("Save").web(
+                WebProps::new()
+                    .style("display", "none")
+                    .on_press("saveDocument"),
+            ),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("saveDocument");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Press,
+            ))
+            .unwrap();
+
+        assert!(handled.invocation.is_none());
+        assert!(handled.interaction_changes.is_empty());
+        assert!(runtime.accessibility_tree().is_none());
+        assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
+    fn runtime_suppresses_closed_dialog_subtree_actions() {
+        let element = NativeElement::new("dialog", NativeRole::Dialog)
+            .with_props(NativeProps::new().html_dialog(HtmlDialogProps::default().open(false)))
+            .child(
+                NativeElement::new("save", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Save")
+                        .web(WebProps::new().on_press("saveDocument")),
+                ),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("saveDocument");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let child = runtime.host().node(root_id).unwrap().children[0];
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                child,
+                crate::event::NativeEventKind::Press,
+            ))
+            .unwrap();
+
+        assert!(handled.invocation.is_none());
+        assert!(handled.interaction_changes.is_empty());
+        assert!(runtime.accessibility_tree().is_none());
+        assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
+    fn runtime_accessibility_tree_prunes_invisible_inert_and_aria_hidden_subtrees() {
         let element = NativeElement::new("tools", NativeRole::Toolbar)
             .child(
                 NativeElement::new("save", NativeRole::Button)
@@ -1150,6 +1215,23 @@ mod tests {
                         .label("Preview")
                         .accessibility_hidden(Some(true)),
                 ),
+            )
+            .child(
+                NativeElement::new("details", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Details")
+                        .web(WebProps::new().style("display", "none")),
+                ),
+            )
+            .child(
+                NativeElement::new("dialog", NativeRole::Dialog)
+                    .with_props(
+                        NativeProps::new().html_dialog(HtmlDialogProps::default().open(false)),
+                    )
+                    .child(
+                        NativeElement::new("close", NativeRole::Button)
+                            .with_props(NativeProps::new().label("Close")),
+                    ),
             );
         let host = PlatformPlanningHost::new(Gtk4Adapter);
         let mut runtime = GuiRuntime::new(host);

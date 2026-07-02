@@ -245,9 +245,11 @@ tests, protocol inspection, and native accessibility integration. Runtime export
 overlays interaction state, so changed values, checked state, selection, focus,
 read-only state, multiple-selection mode, and host node ids are visible to
 protocol consumers.
-Hidden or inert target widgets, and descendants of hidden or inert widgets,
-suppress native events before interaction state or action routing and are
-omitted from rendered accessibility tree projection.
+Invisible target widgets, and descendants of invisible widgets, suppress native
+events before interaction state or action routing and are omitted from rendered
+accessibility tree projection. Invisibility currently includes HTML `hidden`,
+CSS `display: none`, and closed intrinsic dialogs. Inert widgets use the same
+subtree event and accessibility suppression.
 Disabled target widgets suppress user activation, value, selection, toggle, and
 keyboard events before interaction state or action routing, while focus and blur
 events can still update inspection state when a host reports them.

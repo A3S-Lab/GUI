@@ -80,7 +80,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | Input field | Native IR output |
 | --- | --- |
 | `className` | preserved in `WebProps.class_name` for style resolution |
-| `style={{...}}` | preserved in `WebProps.style` and parsed into `PortableStyle` |
+| `style={{...}}` | preserved in `WebProps.style` and parsed into `PortableStyle`; `display: none` makes the native widget config invisible |
 | `aria-label` | used as the explicit native accessibility label before descendant text fallback |
 | `aria-*` | preserved as accessibility metadata; supported state attributes also feed native control state |
 | `aria-labelledby` / `aria-describedby` / `aria-details` / `aria-controls` / `aria-owns` / `aria-flowto` / `aria-errormessage` / `aria-activedescendant` | normalized to native accessibility relationship hints and preserved as metadata |
@@ -93,7 +93,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `readOnly` / `multiple` / `autoFocus` | normalized to native control state; `readOnly` suppresses value-changing events, and `readOnly` plus `multiple` are exposed in rendered accessibility trees |
 | `autoComplete` / `inputMode` / `enterKeyHint` / `autoCapitalize` / `autoCorrect` / `virtualKeyboardPolicy` / `pattern` | normalized to native text-entry hints and preserved as metadata |
 | `minLength` / `maxLength` / `rows` / `cols` / `size` | normalized to native numeric control hints and preserved as metadata |
-| dialog `open` | normalized to native dialog visibility state when applicable |
+| dialog `open` | normalized to native dialog visibility state when applicable; intrinsic dialogs without `open` are invisible |
 | `title` / `hidden` / `lang` / `dir` / `tabIndex` / `role` / `accessKey` / `contentEditable` / `draggable` / `spellCheck` / `translate` / `inert` / `popover` / `anchor` / `is` / global `nonce` | normalized to native global HTML hints and preserved as metadata; `hidden` also makes the native widget config invisible, and `hidden` or `inert` suppress native events and accessibility projection for the subtree |
 | `slot` / `part` / `exportParts` | normalized to native shadow distribution and style-part hints when applicable |
 | `itemScope` / `itemProp` / `itemType` / `itemID` / `itemRef` | normalized to native microdata metadata hints when applicable |
@@ -395,11 +395,12 @@ items. Keyboard activation is also normalized into `Toggle` or
 `SelectionChange` events for checkboxes, switches, expanded controls, radios,
 listbox items, and tabs, so interaction state and action payloads stay
 semantic.
-Hidden and inert controls suppress native events and rendered accessibility
-projection for their subtree. Disabled controls suppress user activation and
-input events. Read-only controls still allow focus, blur, press, and explicit
-keyboard routing, but suppress value, selection, and toggle events before state
-changes or action dispatch.
+Invisible and inert controls suppress native events and rendered accessibility
+projection for their subtree. Invisibility includes HTML `hidden`, CSS
+`display: none`, and closed intrinsic dialogs. Disabled controls suppress user
+activation and input events. Read-only controls still allow focus, blur, press,
+and explicit keyboard routing, but suppress value, selection, and toggle events
+before state changes or action dispatch.
 
 For folded controls, event ownership follows the source element structure. For
 example, `TextField` receives the visible label, while `Input` can own

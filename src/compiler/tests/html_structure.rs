@@ -650,9 +650,20 @@ fn lowers_html_dialog_open_attribute_to_native_state() {
             value: "Help".to_string(),
         }],
     };
+    let semantic_dialog = CompiledJsxNode::Element {
+        key: "semantic-dialog".to_string(),
+        tag: "Dialog".to_string(),
+        import_source: None,
+        props: CompiledProps::default(),
+        children: vec![CompiledJsxNode::Text {
+            key: "semantic-dialog-text".to_string(),
+            value: "Semantic".to_string(),
+        }],
+    };
 
     let native_open = bridge.lower_to_native(&open_dialog).unwrap();
     let native_closed = bridge.lower_to_native(&closed_dialog).unwrap();
+    let native_semantic = bridge.lower_to_native(&semantic_dialog).unwrap();
 
     assert_eq!(native_open.role, NativeRole::Dialog);
     assert_eq!(native_open.props.html_dialog.open, Some(true));
@@ -666,4 +677,6 @@ fn lowers_html_dialog_open_attribute_to_native_state() {
     );
     assert_eq!(native_closed.role, NativeRole::Dialog);
     assert_eq!(native_closed.props.html_dialog.open, Some(false));
+    assert_eq!(native_semantic.role, NativeRole::Dialog);
+    assert_eq!(native_semantic.props.html_dialog.open, None);
 }
