@@ -54,7 +54,8 @@ selection events so action payloads carry checked, expanded, or selected values.
 The runtime accepts React Aria-style state props such as `isDisabled` and HTML
 or ARIA aliases such as `disabled`, `required`, `aria-expanded`,
 `aria-selected`, `min`, `max`, `step`, and `aria-valuenow`; these normalize to
-the same native control-state fields consumed by the Rust renderer. ARIA
+the same native control-state fields consumed by the Rust renderer. HTML state
+aliases are also retained under their original Web JSX attribute names. ARIA
 relationship props such as `aria-labelledby`, `aria-describedby`, and
 `aria-controls` are preserved and projected into native accessibility
 relationship hints. ARIA description and value props such as `aria-description`,

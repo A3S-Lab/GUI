@@ -222,21 +222,28 @@ function normalizeProps(props, tag) {
       attributes[name] = String(value);
     } else if (name === 'disabled') {
       out.isDisabled = Boolean(value);
+      attributes[name] = String(value);
     } else if (name === 'required') {
       out.isRequired = Boolean(value);
+      attributes[name] = String(value);
     } else if (name === 'readOnly') {
       out.isReadOnly = Boolean(value);
       attributes[name] = String(value);
     } else if (name === 'invalid') {
       out.isInvalid = Boolean(value);
+      attributes[name] = String(value);
     } else if (name === 'selected') {
       out.isSelected = Boolean(value);
+      attributes[name] = String(value);
     } else if (name === 'checked') {
       out.isChecked = Boolean(value);
+      attributes[name] = String(value);
     } else if (name === 'defaultChecked') {
       out.isChecked = Boolean(value);
+      attributes[name] = String(value);
     } else if (name === 'expanded') {
       out.isExpanded = Boolean(value);
+      attributes[name] = String(value);
     } else if (name === 'isDisabled') {
       out.isDisabled = Boolean(value);
     } else if (name === 'isRequired') {

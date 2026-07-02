@@ -949,7 +949,11 @@ test('web and aria state attributes normalize to native control props', () => {
   const root = jsxs(Slider, {
     disabled: true,
     required: true,
+    invalid: true,
     selected: true,
+    checked: true,
+    defaultChecked: true,
+    expanded: true,
     isReadOnly: true,
     value: 50,
     min: 0,
@@ -964,6 +968,7 @@ test('web and aria state attributes normalize to native control props', () => {
   assert.equal(root.props.isDisabled, true);
   assert.equal(root.props.isRequired, true);
   assert.equal(root.props.isSelected, true);
+  assert.equal(root.props.isChecked, true);
   assert.equal(root.props.isInvalid, true);
   assert.equal(root.props.isReadOnly, true);
   assert.equal(root.props.isExpanded, true);
@@ -971,6 +976,13 @@ test('web and aria state attributes normalize to native control props', () => {
   assert.equal(root.props.minValue, 0);
   assert.equal(root.props.maxValue, 100);
   assert.equal(root.props.orientation, 'horizontal');
+  assert.equal(root.props.attributes.disabled, 'true');
+  assert.equal(root.props.attributes.required, 'true');
+  assert.equal(root.props.attributes.invalid, 'true');
+  assert.equal(root.props.attributes.selected, 'true');
+  assert.equal(root.props.attributes.checked, 'true');
+  assert.equal(root.props.attributes.defaultChecked, 'true');
+  assert.equal(root.props.attributes.expanded, 'true');
   assert.equal(root.props.attributes['aria-label'], 'Volume');
   assert.equal(root.props.events.onChange, 'setVolume');
 });
@@ -1021,6 +1033,7 @@ test('intrinsic form control attributes preserve Web JSX names', () => {
     name: 'email',
     form: 'profile-form',
     readOnly: true,
+    multiple: true,
     autoFocus: true,
     autoComplete: 'email',
     inputMode: 'email',
@@ -1047,6 +1060,7 @@ test('intrinsic form control attributes preserve Web JSX names', () => {
 
   assert.equal(root.props.isReadOnly, true);
   assert.equal(root.props.attributes.readOnly, 'true');
+  assert.equal(root.props.attributes.multiple, 'true');
   assert.equal(root.props.attributes.name, 'email');
   assert.equal(root.props.attributes.form, 'profile-form');
   assert.equal(root.props.attributes.autoFocus, 'true');
