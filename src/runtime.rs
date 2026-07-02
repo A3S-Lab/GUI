@@ -701,6 +701,29 @@ mod tests {
     }
 
     #[test]
+    fn runtime_routes_button_activation_key_to_primary_action() {
+        let element = NativeElement::new("save", NativeRole::Button)
+            .with_props(NativeProps::new().web(WebProps::new().on_press("saveDocument")));
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("saveDocument");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let invocation = runtime
+            .dispatch_native_event(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::KeyDown)
+                    .value("Enter"),
+            )
+            .unwrap();
+
+        assert_eq!(invocation.action, "saveDocument");
+        assert_eq!(invocation.event, crate::event::NativeEventKind::KeyDown);
+        assert_eq!(invocation.value.as_deref(), Some("Enter"));
+        assert_eq!(runtime.actions().invocations().len(), 1);
+        assert!(runtime.interactions().changes().is_empty());
+    }
+
+    #[test]
     fn runtime_handles_state_event_without_registered_action() {
         let element = NativeElement::new("save", NativeRole::Button)
             .with_props(NativeProps::new().label("Save"));

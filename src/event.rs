@@ -63,7 +63,7 @@ impl EventRouter {
         blueprint: &NativeWidgetBlueprint,
         event: &NativeEvent,
     ) -> Option<ActionInvocation> {
-        let action = action_for_event(blueprint, event.kind)?;
+        let action = action_for_event(blueprint, event)?;
         Some(ActionInvocation {
             node: event.node,
             action: action.to_string(),
@@ -140,14 +140,13 @@ impl ActionRegistry {
     }
 }
 
-fn action_for_event(blueprint: &NativeWidgetBlueprint, event: NativeEventKind) -> Option<&str> {
+fn action_for_event<'a>(
+    blueprint: &'a NativeWidgetBlueprint,
+    event: &NativeEvent,
+) -> Option<&'a str> {
     let events = &blueprint.events;
-    match event {
-        NativeEventKind::Press => events
-            .get("onPress")
-            .or_else(|| events.get("onClick"))
-            .or(blueprint.action.as_ref())
-            .map(String::as_str),
+    match event.kind {
+        NativeEventKind::Press => press_action(blueprint),
         NativeEventKind::Change => events
             .get("onChange")
             .or(blueprint.action.as_ref())
@@ -177,9 +176,53 @@ fn action_for_event(blueprint: &NativeWidgetBlueprint, event: NativeEventKind) -
             .get("onBlur")
             .or_else(|| events.get("onFocusChange"))
             .map(String::as_str),
-        NativeEventKind::KeyDown => events.get("onKeyDown").map(String::as_str),
+        NativeEventKind::KeyDown => events
+            .get("onKeyDown")
+            .map(String::as_str)
+            .or_else(|| activation_key_action(blueprint, event)),
         NativeEventKind::KeyUp => events.get("onKeyUp").map(String::as_str),
     }
+}
+
+fn press_action(blueprint: &NativeWidgetBlueprint) -> Option<&str> {
+    blueprint
+        .events
+        .get("onPress")
+        .or_else(|| blueprint.events.get("onClick"))
+        .or(blueprint.action.as_ref())
+        .map(String::as_str)
+}
+
+fn activation_key_action<'a>(
+    blueprint: &'a NativeWidgetBlueprint,
+    event: &NativeEvent,
+) -> Option<&'a str> {
+    if !is_keyboard_activatable(blueprint) || !is_activation_key(event.value.as_deref()) {
+        return None;
+    }
+
+    press_action(blueprint)
+}
+
+fn is_keyboard_activatable(blueprint: &NativeWidgetBlueprint) -> bool {
+    matches!(
+        blueprint.role,
+        crate::native::NativeRole::Button
+            | crate::native::NativeRole::Link
+            | crate::native::NativeRole::ImageMapArea
+            | crate::native::NativeRole::MenuItem
+    )
+}
+
+fn is_activation_key(value: Option<&str>) -> bool {
+    let Some(value) = value else {
+        return false;
+    };
+    let normalized = value.trim();
+    normalized.eq_ignore_ascii_case("enter")
+        || value == " "
+        || normalized.eq_ignore_ascii_case("space")
+        || normalized.eq_ignore_ascii_case("spacebar")
 }
 
 fn is_expansion_toggle(blueprint: &NativeWidgetBlueprint) -> bool {
@@ -326,6 +369,77 @@ mod tests {
         assert_eq!(key_up.action, "handleKeyUp");
         assert_eq!(key_up.event, NativeEventKind::KeyUp);
         assert_eq!(key_up.value.as_deref(), Some("Enter"));
+    }
+
+    #[test]
+    fn routes_button_activation_keys_to_primary_action() {
+        let element = NativeElement::new("save", NativeRole::Button)
+            .with_props(NativeProps::new().web(WebProps::new().on_press("saveDocument")));
+        let blueprint = AppKitAdapter.blueprint(&element);
+
+        let enter = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(15), NativeEventKind::KeyDown).value("Enter"),
+            )
+            .unwrap();
+        let space = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(15), NativeEventKind::KeyDown).value(" "),
+            )
+            .unwrap();
+
+        assert_eq!(enter.action, "saveDocument");
+        assert_eq!(enter.event, NativeEventKind::KeyDown);
+        assert_eq!(enter.value.as_deref(), Some("Enter"));
+        assert_eq!(space.action, "saveDocument");
+        assert_eq!(space.value.as_deref(), Some(" "));
+    }
+
+    #[test]
+    fn explicit_key_down_action_wins_over_activation_fallback() {
+        let element = NativeElement::new("save", NativeRole::Button).with_props(
+            NativeProps::new().web(
+                WebProps::new()
+                    .on_press("saveDocument")
+                    .on_key_down("handleShortcut"),
+            ),
+        );
+        let blueprint = AppKitAdapter.blueprint(&element);
+
+        let invocation = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(16), NativeEventKind::KeyDown).value("Enter"),
+            )
+            .unwrap();
+
+        assert_eq!(invocation.action, "handleShortcut");
+        assert_eq!(invocation.event, NativeEventKind::KeyDown);
+    }
+
+    #[test]
+    fn ignores_non_activation_keys_and_stateful_toggle_keydowns() {
+        let button = NativeElement::new("save", NativeRole::Button)
+            .with_props(NativeProps::new().web(WebProps::new().on_press("saveDocument")));
+        let switch = NativeElement::new("enabled", NativeRole::Switch)
+            .with_props(NativeProps::new().web(WebProps::new().on_change("setEnabled")));
+        let button_blueprint = AppKitAdapter.blueprint(&button);
+        let switch_blueprint = AppKitAdapter.blueprint(&switch);
+
+        assert!(EventRouter::new()
+            .route(
+                &button_blueprint,
+                &NativeEvent::new(HostNodeId::new(17), NativeEventKind::KeyDown).value("A"),
+            )
+            .is_none());
+        assert!(EventRouter::new()
+            .route(
+                &switch_blueprint,
+                &NativeEvent::new(HostNodeId::new(18), NativeEventKind::KeyDown).value(" "),
+            )
+            .is_none());
     }
 
     #[test]

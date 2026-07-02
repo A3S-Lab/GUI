@@ -37,6 +37,8 @@ id. Inferred actions preserve labels from `createAction(id, label)` handlers.
 Focus and toggle aliases such as `onFocusChange`, `onToggle`, and
 `onExpandedChange` are preserved in the emitted protocol alongside press,
 change, selection, and keyboard events.
+Rust hosts route explicit `onKeyDown` handlers first; otherwise Enter and Space
+key-down events can activate press actions on buttons, links, and menu items.
 
 The runtime accepts React Aria-style state props such as `isDisabled` and HTML
 or ARIA aliases such as `disabled`, `required`, `aria-expanded`,

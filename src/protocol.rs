@@ -498,6 +498,40 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_routes_activation_keys_to_press_actions() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "saveProfile"}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"events": {"onPress": "saveProfile"}},
+                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let response = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::KeyDown).value("Enter"),
+            })
+            .unwrap();
+
+        assert_eq!(response.invocation.action, "saveProfile");
+        assert_eq!(response.invocation.event, NativeEventKind::KeyDown);
+        assert_eq!(response.invocation.value.as_deref(), Some("Enter"));
+        assert!(response.interaction_changes.is_empty());
+    }
+
+    #[test]
     fn native_protocol_session_replaces_registered_actions_on_render() {
         let first: UiFrame = serde_json::from_str(
             r#"

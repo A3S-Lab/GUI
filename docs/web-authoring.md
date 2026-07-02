@@ -388,7 +388,9 @@ compiled frame keeps native press semantics.
 Keyboard callbacks follow the same action-routing path. `onKeyDown` and
 `onKeyUp` are routed from `NativeEventKind::KeyDown` and
 `NativeEventKind::KeyUp`; hosts can put the key or shortcut token in
-`NativeEvent.value`.
+`NativeEvent.value`. If no explicit `onKeyDown` handler is present, Enter and
+Space key-down events fall back to the primary press action for activatable
+controls such as buttons, links, and menu items.
 
 For folded controls, event ownership follows the source element structure. For
 example, `TextField` receives the visible label, while `Input` can own

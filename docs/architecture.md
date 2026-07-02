@@ -227,6 +227,9 @@ checked, selected, and expanded state from native events before action routing.
 selection change, key down, and key up back to serialized action identifiers
 such as `onClick`, `onChange`, `onFocusChange`, `onExpandedChange`,
 `onKeyDown`, and `onKeyUp`.
+When a key-down event has no explicit `onKeyDown` binding, Enter and Space
+fall back to the primary press action for activatable controls such as buttons,
+links, and menu items.
 Native event routing tries the target widget first, then mounted ancestors, so
 child widget callbacks can reach container-level handlers. Selection events
 without a value are normalized from the selected child's value or label.
