@@ -390,11 +390,13 @@ impl<A: PlatformAdapter> NativeProtocolSession<A> {
     }
 
     pub fn dispatch_host_event(&mut self, event: &HostEvent) -> GuiResult<HostEventResponse> {
+        event.validate()?;
         self.ensure_active_frame(event)?;
         event.dispatch_into(&mut self.runtime)
     }
 
     pub fn handle_host_event(&mut self, event: &HostEvent) -> GuiResult<NativeHostEventResponse> {
+        event.validate()?;
         self.ensure_active_frame(event)?;
         event.handle_into(&mut self.runtime)
     }
@@ -427,10 +429,20 @@ impl<A: PlatformAdapter + Default> Default for NativeProtocolSession<A> {
 }
 
 impl HostEvent {
+    pub fn validate(&self) -> GuiResult<()> {
+        if self.frame_id.is_empty() {
+            return Err(GuiError::host(
+                "a3s-gui host events need a non-empty frame id",
+            ));
+        }
+        self.event.validate()
+    }
+
     pub fn dispatch_into<H: NativeHost + BlueprintHost>(
         &self,
         runtime: &mut GuiRuntime<H>,
     ) -> GuiResult<HostEventResponse> {
+        self.validate()?;
         let handled = runtime.handle_native_event_with_changes(self.event.clone())?;
         let invocation = handled.invocation.ok_or_else(|| {
             crate::error::GuiError::host("native event has no registered Web action")
@@ -446,6 +458,7 @@ impl HostEvent {
         &self,
         runtime: &mut GuiRuntime<H>,
     ) -> GuiResult<NativeHostEventResponse> {
+        self.validate()?;
         let handled = runtime.handle_native_event_with_changes(self.event.clone())?;
         let accessibility_tree = runtime.accessibility_tree();
         Ok(NativeHostEventResponse {
@@ -1017,9 +1030,24 @@ mod tests {
                 event: NativeEvent::new(rendered.root, NativeEventKind::Press),
             })
             .unwrap_err();
+        let empty_frame_error = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: String::new(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
+            })
+            .unwrap_err();
+        let zero_node_error = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(HostNodeId::new(0), NativeEventKind::Press),
+            })
+            .unwrap_err();
 
         assert_eq!(response.invocation.action, "saveProfile");
         assert!(error.to_string().contains("active frame profile"));
+        assert!(empty_frame_error.to_string().contains("non-empty frame id"));
+        assert!(zero_node_error.to_string().contains("non-zero node id"));
+        assert_eq!(session.runtime().actions().invocations().len(), 1);
     }
 
     #[test]

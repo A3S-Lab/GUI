@@ -388,6 +388,7 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         &mut self,
         event: NativeEvent,
     ) -> GuiResult<HandledNativeEvent> {
+        event.validate()?;
         let blueprint = self.host.blueprint(event.node).cloned().ok_or_else(|| {
             GuiError::host(format!("native node {} has no blueprint", event.node.get()))
         })?;

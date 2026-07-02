@@ -51,6 +51,16 @@ export const action = createAction;
 
 const FRAME_ROOT_ERROR =
   'a3s-gui frames need one root element; wrap fragment children in a Group or form';
+const HOST_EVENT_KINDS = new Set([
+  'press',
+  'change',
+  'selectionChange',
+  'toggle',
+  'focus',
+  'blur',
+  'keyDown',
+  'keyUp',
+]);
 
 export function defineAction(actionOrId, label) {
   const id = actionId(actionOrId);
@@ -140,6 +150,18 @@ function isCompiledElement(node) {
 }
 
 export function createHostEvent(frameId, node, kind, value) {
+  if (typeof frameId !== 'string' || frameId.length === 0) {
+    throw new Error('a3s-gui host events need a non-empty frame id');
+  }
+  if (!Number.isSafeInteger(node) || node <= 0) {
+    throw new Error('a3s-gui host events need a positive integer node id');
+  }
+  if (!HOST_EVENT_KINDS.has(kind)) {
+    throw new Error('a3s-gui host events need a supported native event kind');
+  }
+  if (value != null && typeof value !== 'string') {
+    throw new Error('a3s-gui host event values need to be strings');
+  }
   return {
     frameId,
     event: {

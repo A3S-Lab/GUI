@@ -35,6 +35,15 @@ impl NativeEvent {
         }
     }
 
+    pub fn validate(&self) -> GuiResult<()> {
+        if self.node.get() == 0 {
+            return Err(GuiError::host(
+                "a3s-gui native events need a non-zero node id",
+            ));
+        }
+        Ok(())
+    }
+
     pub fn value(mut self, value: impl Into<String>) -> Self {
         self.value = Some(value.into());
         self

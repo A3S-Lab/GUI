@@ -79,6 +79,33 @@ test('event helper creates HostEvent protocol shape', () => {
     frameId: 'profile',
     event: {node: 7, kind: 'keyDown', value: 'Enter'},
   });
+  assert.deepEqual(createHostEvent('profile', 7, 'change', null), {
+    frameId: 'profile',
+    event: {node: 7, kind: 'change'},
+  });
+});
+
+test('event helper rejects invalid HostEvent contracts', () => {
+  assert.throws(
+    () => createHostEvent('', 7, 'press'),
+    /non-empty frame id/,
+  );
+  assert.throws(
+    () => createHostEvent('profile', 0, 'press'),
+    /positive integer node id/,
+  );
+  assert.throws(
+    () => createHostEvent('profile', 1.5, 'press'),
+    /positive integer node id/,
+  );
+  assert.throws(
+    () => createHostEvent('profile', 7, 'submit'),
+    /supported native event kind/,
+  );
+  assert.throws(
+    () => createHostEvent('profile', 7, 'change', 42),
+    /values need to be strings/,
+  );
 });
 
 test('handled native event helper mirrors Rust protocol shape', () => {
