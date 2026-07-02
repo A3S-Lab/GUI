@@ -58,7 +58,8 @@ text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip, CSS clip path, CSS mask, CSS mask border,
 CSS image rendering/orientation/resolution, object fit/position,
-CSS Shapes shape-outside/margin/threshold, list style type/position/image,
+CSS Shapes shape-outside/margin/threshold, list style type/position/image and
+marker side metadata,
 columns, column rule/span/fill,
 CSS page selection, orphans/widows, fragmentation breaks, font shorthand, font size and font size adjustment,
 font weight, font family, font style, font stretch, font palette,
@@ -166,8 +167,8 @@ Background, object, list, columns, and fragmentation utilities such as `bg-*`,
 `object-*`, `list-*`, `list-image-*`, `columns-*`, `break-before-*`,
 `break-after-*`, and `break-inside-*`, plus arbitrary CSS image and shape
 properties such as `image-rendering` and `shape-outside`, and arbitrary paged
-media properties such as `page`, `orphans`, and `widows`, are projected into
-portable style tokens.
+media and list properties such as `page`, `orphans`, `widows`, and
+`marker-side`, are projected into portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, arbitrary scroll-driven animation
 properties such as `animation-timeline`, `scroll-timeline`, and

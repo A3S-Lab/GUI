@@ -168,6 +168,7 @@ pub struct PortableStyle {
     pub list_style_type: Option<String>,
     pub list_style_position: Option<ListStylePosition>,
     pub list_style_image: Option<String>,
+    pub marker_side: Option<String>,
     pub columns: Option<String>,
     pub column_count: Option<String>,
     pub column_width: Option<StyleLength>,
@@ -944,6 +945,7 @@ impl PortableStyle {
                 self.list_style_position = parse_list_style_position(value_ref);
             }
             "list-style-image" => self.list_style_image = parse_css_string_token(value_ref),
+            "marker-side" => self.marker_side = parse_css_string_token(value_ref),
             "columns" => self.columns = parse_css_string_token(value_ref),
             "column-count" => self.column_count = parse_css_string_token(value_ref),
             "column-width" => self.column_width = parse_length(value_ref),
@@ -10791,6 +10793,7 @@ mod tests {
             .style("listStyleType", "disc")
             .style("listStylePosition", "inside")
             .style("listStyleImage", "url('/marker.svg')")
+            .style("markerSide", "match-parent")
             .style("columns", "3")
             .style("columnCount", "2")
             .style("columnWidth", "12rem")
@@ -10836,6 +10839,7 @@ mod tests {
             style.list_style_image.as_deref(),
             Some("url('/marker.svg')")
         );
+        assert_eq!(style.marker_side.as_deref(), Some("match-parent"));
         assert_eq!(style.columns.as_deref(), Some("3"));
         assert_eq!(style.column_count.as_deref(), Some("2"));
         assert_eq!(style.column_width, Some(StyleLength::Points(192.0)));
@@ -10868,6 +10872,7 @@ mod tests {
         assert!(!style.unsupported.contains_key("shape-margin"));
         assert!(!style.unsupported.contains_key("shape-image-threshold"));
         assert!(!style.unsupported.contains_key("list-style-image"));
+        assert!(!style.unsupported.contains_key("marker-side"));
         assert!(!style.unsupported.contains_key("column-rule"));
         assert!(!style.unsupported.contains_key("page"));
         assert!(!style.unsupported.contains_key("orphans"));
@@ -10883,7 +10888,8 @@ mod tests {
              [image-rendering:pixelated] [image-orientation:from-image] \
              [image-resolution:300dpi] [shape-outside:circle(50%_at_50%_50%)] \
              [shape-margin:2rem] [shape-image-threshold:65%] \
-             list-inside list-disc list-image-[url('/marker.svg')] columns-3 \
+             list-inside list-disc list-image-[url('/marker.svg')] [marker-side:match-parent] \
+             columns-3 \
              [page:chapter] [orphans:3] [widows:4] \
              break-before-page break-after-avoid-column \
              break-inside-avoid md:bg-[length:50%_auto] hover:object-[25%_75%] \
@@ -10892,7 +10898,7 @@ mod tests {
              hover:[image-rendering:crisp-edges] md:[image-resolution:from-image] \
              focus:[shape-outside:inset(10px)] active:[shape-margin:calc(1rem_+_2px)] \
              before:[shape-image-threshold:0.25] hover:[page:appendix] \
-             focus:[orphans:2] active:[widows:5]",
+             focus:[orphans:2] active:[widows:5] marker:[marker-side:list-item]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -10924,6 +10930,7 @@ mod tests {
             style.list_style_image.as_deref(),
             Some("url('/marker.svg')")
         );
+        assert_eq!(style.marker_side.as_deref(), Some("match-parent"));
         assert_eq!(style.columns.as_deref(), Some("3"));
         assert_eq!(style.page.as_deref(), Some("chapter"));
         assert_eq!(style.orphans.as_deref(), Some("3"));
@@ -10953,6 +10960,14 @@ mod tests {
                 .and_then(|styles| styles.get("list-style-image"))
                 .map(String::as_str),
             Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("marker")
+                .and_then(|styles| styles.get("marker-side"))
+                .map(String::as_str),
+            Some("list-item")
         );
         assert_eq!(
             style

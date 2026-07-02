@@ -387,7 +387,7 @@ deterministically:
 - `clip`, `clipPath`, `mask*`, and `maskBorder*`
 - `imageRendering`, `imageOrientation`, `imageResolution`, `objectFit`,
   `objectPosition`, `shapeOutside`, `shapeMargin`, `shapeImageThreshold`,
-  `listStyleType`, `listStylePosition`, `listStyleImage`,
+  `listStyleType`, `listStylePosition`, `listStyleImage`, `markerSide`,
   `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
   `columnFill`, `page`, `orphans`, `widows`, `breakBefore`, `breakAfter`,
   `breakInside`
@@ -529,8 +529,8 @@ Common Tailwind background, object, list, columns, and fragmentation utilities
 such as `bg-*`, `object-*`, `list-*`, `list-image-*`, `columns-*`,
 `break-before-*`, `break-after-*`, and `break-inside-*`, plus arbitrary CSS
 image and shape properties such as `image-rendering` and `shape-outside`, and
-arbitrary paged media properties such as `page`, `orphans`, and `widows`,
-project into the same declaration model.
+arbitrary paged media and list properties such as `page`, `orphans`, `widows`,
+and `marker-side`, project into the same declaration model.
 Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,
 `rounded-r-*`, `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`,
 `rounded-tr-*`, `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`,
