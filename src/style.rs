@@ -174,7 +174,9 @@ pub struct PortableStyle {
     pub object_fit: Option<ObjectFit>,
     pub object_position: Option<String>,
     pub shape_outside: Option<String>,
+    pub shape_inside: Option<String>,
     pub shape_margin: Option<StyleLength>,
+    pub shape_padding: Option<StyleLength>,
     pub shape_image_threshold: Option<f64>,
     pub list_style_type: Option<String>,
     pub list_style_position: Option<ListStylePosition>,
@@ -1021,7 +1023,9 @@ impl PortableStyle {
             "object-fit" => self.object_fit = parse_object_fit(value_ref),
             "object-position" => self.object_position = parse_css_string_token(value_ref),
             "shape-outside" => self.shape_outside = parse_css_string_token(value_ref),
+            "shape-inside" => self.shape_inside = parse_css_string_token(value_ref),
             "shape-margin" => self.shape_margin = parse_length(value_ref),
+            "shape-padding" => self.shape_padding = parse_length(value_ref),
             "shape-image-threshold" => self.shape_image_threshold = parse_opacity(value_ref),
             "list-style" => self.list_style_type = parse_css_string_token(value_ref),
             "list-style-type" => self.list_style_type = parse_css_string_token(value_ref),
@@ -11651,7 +11655,9 @@ mod tests {
             .style("objectFit", "cover")
             .style("objectPosition", "left bottom")
             .style("shapeOutside", "circle(50% at 50% 50%)")
+            .style("shapeInside", "polygon(0 0, 100% 0, 100% 100%)")
             .style("shapeMargin", "2rem")
+            .style("shapePadding", "1.5rem")
             .style("shapeImageThreshold", "65%")
             .style("listStyleType", "disc")
             .style("listStylePosition", "inside")
@@ -11704,7 +11710,12 @@ mod tests {
             style.shape_outside.as_deref(),
             Some("circle(50% at 50% 50%)")
         );
+        assert_eq!(
+            style.shape_inside.as_deref(),
+            Some("polygon(0 0, 100% 0, 100% 100%)")
+        );
         assert_eq!(style.shape_margin, Some(StyleLength::Points(32.0)));
+        assert_eq!(style.shape_padding, Some(StyleLength::Points(24.0)));
         assert_eq!(style.shape_image_threshold, Some(0.65));
         assert_eq!(style.list_style_type.as_deref(), Some("disc"));
         assert_eq!(style.list_style_position, Some(ListStylePosition::Inside));
@@ -11752,7 +11763,9 @@ mod tests {
         assert!(!style.unsupported.contains_key("image-resolution"));
         assert!(!style.unsupported.contains_key("object-fit"));
         assert!(!style.unsupported.contains_key("shape-outside"));
+        assert!(!style.unsupported.contains_key("shape-inside"));
         assert!(!style.unsupported.contains_key("shape-margin"));
+        assert!(!style.unsupported.contains_key("shape-padding"));
         assert!(!style.unsupported.contains_key("shape-image-threshold"));
         assert!(!style.unsupported.contains_key("list-style-image"));
         assert!(!style.unsupported.contains_key("marker-side"));
@@ -11779,7 +11792,8 @@ mod tests {
              bg-origin-content bg-clip-padding object-cover object-left-bottom \
              [image-rendering:pixelated] [image-orientation:from-image] \
              [image-resolution:300dpi] [shape-outside:circle(50%_at_50%_50%)] \
-             [shape-margin:2rem] [shape-image-threshold:65%] \
+             [shape-inside:polygon(0_0,100%_0,100%_100%)] \
+             [shape-margin:2rem] [shape-padding:1.5rem] [shape-image-threshold:65%] \
              list-inside list-disc list-image-[url('/marker.svg')] [marker-side:match-parent] \
              columns-3 \
              [size:A4_landscape] [page:chapter] [page-orientation:rotate-left] \
@@ -11792,6 +11806,7 @@ mod tests {
              focus:break-before-[recto] lg:break-inside-(--break-inside) \
              hover:[image-rendering:crisp-edges] md:[image-resolution:from-image] \
              focus:[shape-outside:inset(10px)] active:[shape-margin:calc(1rem_+_2px)] \
+             focus:[shape-inside:circle(40%)] active:[shape-padding:calc(1rem_+_2px)] \
              before:[shape-image-threshold:0.25] hover:[page:appendix] \
              focus:[size:letter] active:[page-orientation:upright] marker:[bleed:3mm] \
              print:[marks:none] focus:[orphans:2] active:[widows:5] marker:[marker-side:list-item] \
@@ -11820,7 +11835,12 @@ mod tests {
             style.shape_outside.as_deref(),
             Some("circle(50% at 50% 50%)")
         );
+        assert_eq!(
+            style.shape_inside.as_deref(),
+            Some("polygon(0 0,100% 0,100% 100%)")
+        );
         assert_eq!(style.shape_margin, Some(StyleLength::Points(32.0)));
+        assert_eq!(style.shape_padding, Some(StyleLength::Points(24.0)));
         assert_eq!(style.shape_image_threshold, Some(0.65));
         assert_eq!(style.list_style_position, Some(ListStylePosition::Inside));
         assert_eq!(style.list_style_type.as_deref(), Some("disc"));
@@ -11960,6 +11980,22 @@ mod tests {
         assert_eq!(
             style
                 .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("shape-inside"))
+                .map(String::as_str),
+            Some("circle(40%)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("shape-padding"))
+                .map(String::as_str),
+            Some("calc(1rem + 2px)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
                 .get("before")
                 .and_then(|styles| styles.get("shape-image-threshold"))
                 .map(String::as_str),
@@ -11969,7 +12005,9 @@ mod tests {
         assert!(!style.unsupported.contains_key("image-orientation"));
         assert!(!style.unsupported.contains_key("image-resolution"));
         assert!(!style.unsupported.contains_key("shape-outside"));
+        assert!(!style.unsupported.contains_key("shape-inside"));
         assert!(!style.unsupported.contains_key("shape-margin"));
+        assert!(!style.unsupported.contains_key("shape-padding"));
         assert!(!style.unsupported.contains_key("shape-image-threshold"));
         assert!(!style.unsupported.contains_key("size"));
         assert!(!style.unsupported.contains_key("page-orientation"));

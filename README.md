@@ -67,7 +67,7 @@ text color, background
 shorthand/color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip, CSS clip path, CSS mask, CSS mask border,
 CSS image rendering/orientation/resolution, object fit/position,
-CSS Shapes shape-outside/margin/threshold, list style type/position/image and
+CSS Shapes shape-inside/outside/margin/padding/threshold, list style type/position/image and
 marker side metadata,
 columns, column rule/span/fill,
 CSS page size/orientation/selection, bleed/marks, orphans/widows, bookmark and footnote metadata,
@@ -190,8 +190,9 @@ Arbitrary `all` properties are projected as CSS cascade reset metadata.
 Background, object, list, columns, and fragmentation utilities such as `bg-*`,
 `object-*`, `list-*`, `list-image-*`, `columns-*`, `break-before-*`,
 `break-after-*`, and `break-inside-*`, plus arbitrary CSS image and shape
-properties such as `image-rendering` and `shape-outside`, and arbitrary paged
-media, background shorthand, and list properties such as `size`, `page`,
+properties such as `image-rendering`, `shape-outside`, `shape-inside`, and
+`shape-padding`, and arbitrary paged
+media, background shorthand, shape, and list properties such as `size`, `page`,
 `page-orientation`, `bleed`, `marks`, `orphans`, `widows`, and `marker-side`,
 plus bookmark and footnote properties, are
 projected into portable style tokens.

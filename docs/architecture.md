@@ -396,7 +396,8 @@ deterministically:
   `backgroundOrigin`, `backgroundClip`, `backgroundBlendMode`
 - `clip`, `clipPath`, `mask*`, and `maskBorder*`
 - `imageRendering`, `imageOrientation`, `imageResolution`, `objectFit`,
-  `objectPosition`, `shapeOutside`, `shapeMargin`, `shapeImageThreshold`,
+  `objectPosition`, `shapeOutside`, `shapeInside`, `shapeMargin`,
+  `shapePadding`, `shapeImageThreshold`,
   `listStyleType`, `listStylePosition`, `listStyleImage`, `markerSide`,
   `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
   `columnFill`, `size`, `page`, `pageOrientation`, `bleed`, `marks`,
@@ -555,7 +556,8 @@ Common Tailwind background, object, list, columns, and fragmentation utilities
 such as `bg-*`, `object-*`, `list-*`, `list-image-*`, `columns-*`,
 `break-before-*`, `break-after-*`, and `break-inside-*`, plus arbitrary CSS
 background shorthand, image, and shape properties such as `background`,
-`image-rendering`, and `shape-outside`, and arbitrary paged media and list
+`image-rendering`, `shape-outside`, `shape-inside`, and `shape-padding`,
+and arbitrary paged media and list
 properties such as `page`, `orphans`, `widows`, and `marker-side`, plus bookmark
 and footnote properties, plus paged media `size`, `page-orientation`, `bleed`,
 and `marks`, project into the same declaration model.
