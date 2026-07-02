@@ -358,9 +358,11 @@ model rebuilds. The large surface files keep the platform event loop and widget
 dispatch logic, while backend-local menu details stay in focused modules.
 
 Style normalization remains centered in `src/style.rs`, with lower-level value
-parsing split into `src/style/value_parsing.rs`. The value parsing module owns
-length and time token recognition, including CSS custom properties, CSS math
-functions, and units that must be preserved instead of converted eagerly.
+parsing split into focused submodules. `src/style/value_parsing.rs` owns length
+and time token recognition, including CSS custom properties, CSS math functions,
+and units that must be preserved instead of converted eagerly.
+`src/style/color_parsing.rs` owns hex, RGB/HSL, modern CSS color function, and
+background-shorthand color recognition.
 
 ## Style Contract
 
@@ -486,9 +488,9 @@ CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
 RGBA tokens when possible. Native CSS color functions such as `hwb(...)`,
 `lab(...)`, `lch(...)`, `oklab(...)`, `oklch(...)`, `color(...)`,
 `color-mix(...)`, `light-dark(...)`, `contrast-color(...)`, and
-`device-cmyk(...)` are preserved as function color tokens. Tailwind color
-opacity modifiers are preserved for both base and variant utilities, including
-arbitrary color functions.
+`alpha(...)`, and `device-cmyk(...)` are preserved as function color tokens.
+Tailwind color opacity modifiers are preserved for both base and variant
+utilities, including arbitrary color functions.
 Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
 `ring-*`, `inset-ring-*`, `outline-*`, `cursor-*`, `pointer-events-*`,
 `select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`, and `mask-*` project into

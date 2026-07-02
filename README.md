@@ -112,7 +112,8 @@ tokens for platform adapters that can consume them.
 CSS color values support hex, RGB/RGBA, HSL/HSLA, slash alpha syntax, keyword
 preservation, and CSS color function preservation for `hwb(...)`, `lab(...)`,
 `lch(...)`, `oklab(...)`, `oklch(...)`, `color(...)`, `color-mix(...)`,
-`light-dark(...)`, `contrast-color(...)`, and `device-cmyk(...)`.
+`light-dark(...)`, `contrast-color(...)`, `alpha(...)`, and
+`device-cmyk(...)`.
 
 Tailwind utility classes are resolved into the same declaration model. Base
 utilities are projected into supported native style tokens; variant utilities such
