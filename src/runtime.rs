@@ -413,10 +413,10 @@ fn has_explicit_key_down_handler(
     blueprint: &NativeWidgetBlueprint,
     route_blueprints: &[NativeWidgetBlueprint],
 ) -> bool {
-    blueprint.events.contains_key("onKeyDown")
-        || route_blueprints
-            .iter()
-            .any(|route_blueprint| route_blueprint.events.contains_key("onKeyDown"))
+    crate::event::non_empty_action(blueprint.events.get("onKeyDown")).is_some()
+        || route_blueprints.iter().any(|route_blueprint| {
+            crate::event::non_empty_action(route_blueprint.events.get("onKeyDown")).is_some()
+        })
 }
 
 fn is_invisible_or_inert_event(
@@ -1116,6 +1116,28 @@ mod tests {
     }
 
     #[test]
+    fn runtime_treats_empty_action_ids_as_unbound_events() {
+        let element = NativeElement::new("save", NativeRole::Button).with_props(
+            NativeProps::new()
+                .label("Save")
+                .web(WebProps::new().on_press("")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let error = runtime
+            .dispatch_native_event(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Press,
+            ))
+            .unwrap_err();
+
+        assert!(error.to_string().contains("no registered Web action"));
+        assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
     fn runtime_suppresses_disabled_press_actions() {
         let element = NativeElement::new("save", NativeRole::Button).with_props(
             NativeProps::new()
@@ -1796,6 +1818,42 @@ mod tests {
         );
         assert!(handled.interaction_changes.is_empty());
         assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(false));
+    }
+
+    #[test]
+    fn runtime_empty_key_down_handler_does_not_block_keyboard_toggle_normalization() {
+        let element = NativeElement::new("notifications", NativeRole::Switch).with_props(
+            NativeProps::new()
+                .label("Notifications")
+                .checked(false)
+                .web(
+                    WebProps::new()
+                        .on_change("setNotifications")
+                        .on_key_down(""),
+                ),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setNotifications");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::KeyDown)
+                    .value(" "),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.kind, crate::event::NativeEventKind::Toggle);
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .map(|invocation| invocation.action.as_str()),
+            Some("setNotifications")
+        );
+        assert_eq!(handled.interaction_changes[0].after.checked, Some(true));
+        assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(true));
     }
 
     #[test]

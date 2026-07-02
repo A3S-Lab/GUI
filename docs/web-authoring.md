@@ -372,11 +372,12 @@ let response = session.dispatch_host_event(&HostEvent {
 React callbacks are compiled to stable action identifiers. Native adapters emit
 typed events; `GuiRuntime` first updates portable focus/value/selection state in
 `InteractionState`, then `EventRouter` maps the event back to the serialized
-action id and `ActionRegistry` validates that the action exists. Rendering a
-new `UiFrame` replaces the registered action set with that frame's declared
-actions. Raw protocol frames may omit `actions`; in that case Rust infers the
-set from compiled event props and `actionLabels`. Explicit `actions`, including
-an empty list, override inference.
+action id and `ActionRegistry` validates that the action exists. Empty event
+action ids are ignored rather than dispatched. Rendering a new `UiFrame`
+replaces the registered action set with that frame's declared actions. Raw
+protocol frames may omit `actions`; in that case Rust infers the set from
+compiled event props and `actionLabels`. Explicit `actions`, including an empty
+list, override inference.
 
 ```text
 onPress={saveProfile}

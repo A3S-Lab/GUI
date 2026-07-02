@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::css_text::parse_style_declarations;
+use crate::event::non_empty_action;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct WebProps {
@@ -111,11 +112,9 @@ impl WebProps {
     }
 
     pub fn primary_action(&self) -> Option<&str> {
-        self.events
-            .get("onPress")
-            .or_else(|| self.events.get("onClick"))
-            .or_else(|| self.events.get("onChange"))
-            .map(String::as_str)
+        non_empty_action(self.events.get("onPress"))
+            .or_else(|| non_empty_action(self.events.get("onClick")))
+            .or_else(|| non_empty_action(self.events.get("onChange")))
     }
 
     pub fn metadata(&self) -> BTreeMap<String, String> {
@@ -144,6 +143,13 @@ mod tests {
             .on_press("primaryPress");
 
         assert_eq!(props.primary_action(), Some("primaryPress"));
+    }
+
+    #[test]
+    fn primary_action_ignores_empty_action_ids() {
+        let props = WebProps::new().on_press("").on_click("fallbackClick");
+
+        assert_eq!(props.primary_action(), Some("fallbackClick"));
     }
 
     #[test]

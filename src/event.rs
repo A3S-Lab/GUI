@@ -160,50 +160,41 @@ fn action_for_event<'a>(
     let events = &blueprint.events;
     match event.kind {
         NativeEventKind::Press => press_action(blueprint),
-        NativeEventKind::Change => events
-            .get("onChange")
-            .or(blueprint.action.as_ref())
-            .map(String::as_str),
-        NativeEventKind::SelectionChange => events
-            .get("onSelectionChange")
-            .or_else(|| events.get("onChange"))
-            .or(blueprint.action.as_ref())
-            .map(String::as_str),
-        NativeEventKind::Toggle if is_expansion_toggle(blueprint) => events
-            .get("onExpandedChange")
-            .or_else(|| events.get("onToggle"))
-            .or_else(|| events.get("onChange"))
-            .or(blueprint.action.as_ref())
-            .map(String::as_str),
-        NativeEventKind::Toggle => events
-            .get("onChange")
-            .or_else(|| events.get("onToggle"))
-            .or_else(|| events.get("onClick"))
-            .or(blueprint.action.as_ref())
-            .map(String::as_str),
-        NativeEventKind::Focus => events
-            .get("onFocus")
-            .or_else(|| events.get("onFocusChange"))
-            .map(String::as_str),
-        NativeEventKind::Blur => events
-            .get("onBlur")
-            .or_else(|| events.get("onFocusChange"))
-            .map(String::as_str),
-        NativeEventKind::KeyDown => events
-            .get("onKeyDown")
-            .map(String::as_str)
+        NativeEventKind::Change => non_empty_action(events.get("onChange"))
+            .or_else(|| non_empty_action(blueprint.action.as_ref())),
+        NativeEventKind::SelectionChange => non_empty_action(events.get("onSelectionChange"))
+            .or_else(|| non_empty_action(events.get("onChange")))
+            .or_else(|| non_empty_action(blueprint.action.as_ref())),
+        NativeEventKind::Toggle if is_expansion_toggle(blueprint) => {
+            non_empty_action(events.get("onExpandedChange"))
+                .or_else(|| non_empty_action(events.get("onToggle")))
+                .or_else(|| non_empty_action(events.get("onChange")))
+                .or_else(|| non_empty_action(blueprint.action.as_ref()))
+        }
+        NativeEventKind::Toggle => non_empty_action(events.get("onChange"))
+            .or_else(|| non_empty_action(events.get("onToggle")))
+            .or_else(|| non_empty_action(events.get("onClick")))
+            .or_else(|| non_empty_action(blueprint.action.as_ref())),
+        NativeEventKind::Focus => non_empty_action(events.get("onFocus"))
+            .or_else(|| non_empty_action(events.get("onFocusChange"))),
+        NativeEventKind::Blur => non_empty_action(events.get("onBlur"))
+            .or_else(|| non_empty_action(events.get("onFocusChange"))),
+        NativeEventKind::KeyDown => non_empty_action(events.get("onKeyDown"))
             .or_else(|| activation_key_action(blueprint, event)),
-        NativeEventKind::KeyUp => events.get("onKeyUp").map(String::as_str),
+        NativeEventKind::KeyUp => non_empty_action(events.get("onKeyUp")),
     }
 }
 
 fn press_action(blueprint: &NativeWidgetBlueprint) -> Option<&str> {
-    blueprint
-        .events
-        .get("onPress")
-        .or_else(|| blueprint.events.get("onClick"))
-        .or(blueprint.action.as_ref())
+    non_empty_action(blueprint.events.get("onPress"))
+        .or_else(|| non_empty_action(blueprint.events.get("onClick")))
+        .or_else(|| non_empty_action(blueprint.action.as_ref()))
+}
+
+pub(crate) fn non_empty_action(action: Option<&String>) -> Option<&str> {
+    action
         .map(String::as_str)
+        .filter(|action| !action.is_empty())
 }
 
 fn activation_key_action<'a>(
@@ -266,6 +257,25 @@ mod tests {
         assert_eq!(invocation.node, HostNodeId::new(7));
         assert_eq!(invocation.action, "saveDocument");
         assert_eq!(invocation.event, NativeEventKind::Press);
+    }
+
+    #[test]
+    fn ignores_empty_action_ids_and_uses_non_empty_fallbacks() {
+        let empty = NativeElement::new("empty", NativeRole::Button)
+            .with_props(NativeProps::new().web(WebProps::new().on_press("")));
+        let fallback = NativeElement::new("fallback", NativeRole::Button).with_props(
+            NativeProps::new().web(WebProps::new().on_press("").on_click("saveDocument")),
+        );
+        let empty_blueprint = AppKitAdapter.blueprint(&empty);
+        let fallback_blueprint = AppKitAdapter.blueprint(&fallback);
+        let event = NativeEvent::new(HostNodeId::new(8), NativeEventKind::Press);
+
+        assert!(EventRouter::new().route(&empty_blueprint, &event).is_none());
+        let invocation = EventRouter::new()
+            .route(&fallback_blueprint, &event)
+            .unwrap();
+
+        assert_eq!(invocation.action, "saveDocument");
     }
 
     #[test]

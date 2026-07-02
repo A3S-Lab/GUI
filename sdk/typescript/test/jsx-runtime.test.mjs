@@ -655,6 +655,18 @@ test('inferred frame actions merge labels by stable action id', () => {
   assert.deepEqual(frame.actions, [{id: 'saveProfile', label: 'Save profile'}]);
 });
 
+test('inferred frame actions ignore empty event action ids', () => {
+  const root = jsxs(Button, {
+    onPress: '',
+    onClick: 'saveProfile',
+    children: 'Save',
+  }, 'save');
+  const frame = createUiFrame('profile', root);
+
+  assert.equal(root.props.events.onPress, '');
+  assert.deepEqual(frame.actions, [{id: 'saveProfile'}]);
+});
+
 test('focus and expanded event aliases compile to stable action ids', () => {
   const setFocus = createAction('setFocus');
   const setOpen = createAction('setOpen');

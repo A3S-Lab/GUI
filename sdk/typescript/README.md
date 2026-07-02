@@ -38,7 +38,8 @@ Compiled node keys and element tags must be non-empty, and sibling node keys
 must be unique.
 Explicit frame actions must also use non-empty, unique string ids. Use
 `defineAction` when the host needs action metadata beyond the stable id.
-Inferred actions preserve labels from `createAction(id, label)` handlers.
+Inferred actions preserve labels from `createAction(id, label)` handlers. Empty
+event action ids are ignored by Rust routing instead of being dispatched.
 Window dimensions must be positive finite numbers, and explicit width/height
 values must stay within any declared min/max constraints.
 Focus and toggle aliases such as `onFocusChange`, `onToggle`, and

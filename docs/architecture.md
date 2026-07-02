@@ -238,13 +238,14 @@ listbox items or tabs.
 Native event routing tries the target widget first, then mounted ancestors, so
 child widget callbacks can reach container-level handlers. Selection events
 without a value are normalized from the selected child's value or label.
-`ActionRegistry` records and validates those action ids before they are handed
-to the JavaScript state bridge. Hosts that implement `AccessibilityTreeHost`
-can expose the rendered tree through `GuiRuntime::accessibility_tree()` for
-tests, protocol inspection, and native accessibility integration. Runtime export
-overlays interaction state, so changed values, checked state, selection, focus,
-read-only state, multiple-selection mode, and host node ids are visible to
-protocol consumers.
+Empty event action ids are ignored rather than dispatched.
+`ActionRegistry` records and validates non-empty action ids before they are
+handed to the JavaScript state bridge. Hosts that implement
+`AccessibilityTreeHost` can expose the rendered tree through
+`GuiRuntime::accessibility_tree()` for tests, protocol inspection, and native
+accessibility integration. Runtime export overlays interaction state, so changed
+values, checked state, selection, focus, read-only state, multiple-selection
+mode, and host node ids are visible to protocol consumers.
 Invisible target widgets, and descendants of invisible widgets, suppress native
 events before interaction state or action routing and are omitted from rendered
 accessibility tree projection. Invisibility currently includes HTML `hidden`,
