@@ -42,7 +42,8 @@ The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
 properties separately, and projects supported declarations into native style
 tokens. The current portable token set includes the CSS display mode family,
-including internal table and ruby display modes,
+including legacy, representable multi-keyword, internal table, and ruby display
+modes,
 CSS cascade reset metadata, position, physical and logical inset, z-index,
 visibility, box sizing, box decoration break, CSS Anchor Positioning metadata,
 isolation, mix blend mode,
@@ -109,7 +110,8 @@ preserved in the generated declarations and portable color tokens. Display
 utilities such as `inline`, `inline-block`, `flow-root`, `contents`,
 `list-item`, `table-*`, `inline-table`, `flex`, `inline-flex`, `grid`,
 `inline-grid`, and `hidden` are projected into portable display tokens.
-Arbitrary `display: ruby*` properties are projected into the same token.
+Arbitrary `display` properties are projected into the same token when the
+display value has an equivalent portable mode.
 Screen-reader utilities such as `sr-only` and `not-sr-only` are projected into
 their generated declaration groups. Formatting and table utilities such as
 `box-*`, `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`,

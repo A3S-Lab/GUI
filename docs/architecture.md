@@ -359,7 +359,7 @@ deterministically:
 
 - `all`
 - `display`, including inline, block, flow-root, contents, list-item, flex,
-  grid, table, and ruby display modes
+  grid, table, ruby, and representable multi-keyword display modes
 - `boxSizing`, `boxDecorationBreak`, `isolation`, `mixBlendMode`
 - `float`, `clear`, `verticalAlign`
 - `tableLayout`, `borderCollapse`, `borderSpacing`, `captionSide`
@@ -478,9 +478,10 @@ Common Tailwind formatting and table utilities such as `box-*`,
 declaration model. Tailwind display
 utilities such as `inline-block`, `flow-root`, `contents`, `list-item`,
 `table-*`, `inline-table`, `inline-flex`, and `inline-grid` project into
-portable display tokens. Arbitrary `display: ruby*` properties project into the
-same display token. Tailwind screen-reader utilities such as `sr-only` and
-`not-sr-only` project into their generated declaration groups.
+portable display tokens. Arbitrary `display` properties project into the same
+display token when the display value has an equivalent portable mode. Tailwind
+screen-reader utilities such as `sr-only` and `not-sr-only` project into their
+generated declaration groups.
 Common Tailwind SVG presentation utilities such as `fill-*`, `stroke-*`, and
 `stroke-{width}`, plus arbitrary SVG marker, rendering, paint server, and
 filter color properties, project into the same declaration model.

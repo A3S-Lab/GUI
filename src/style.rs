@@ -2928,9 +2928,11 @@ fn normalize_css_value(value: &str) -> String {
 }
 
 fn parse_display(value: &str) -> Option<DisplayMode> {
-    match value.trim() {
+    let value = value.trim().to_ascii_lowercase();
+    match value.as_str() {
         "inline" => Some(DisplayMode::Inline),
         "inline-block" => Some(DisplayMode::InlineBlock),
+        "flow" => Some(DisplayMode::Block),
         "flex" => Some(DisplayMode::Flex),
         "inline-flex" => Some(DisplayMode::InlineFlex),
         "block" => Some(DisplayMode::Block),
@@ -2956,6 +2958,67 @@ fn parse_display(value: &str) -> Option<DisplayMode> {
         "ruby-text-container" => Some(DisplayMode::RubyTextContainer),
         "-webkit-box" => Some(DisplayMode::WebkitBox),
         "none" => Some(DisplayMode::None),
+        _ => parse_multi_keyword_display(&value),
+    }
+}
+
+fn parse_multi_keyword_display(value: &str) -> Option<DisplayMode> {
+    let tokens = value.split_ascii_whitespace();
+    let mut outside = None;
+    let mut inside = None;
+    let mut list_item = false;
+    let mut count = 0usize;
+
+    for token in tokens {
+        count += 1;
+        match token {
+            "block" | "inline" => {
+                if outside.is_some() {
+                    return None;
+                }
+                outside = Some(token);
+            }
+            "flow" | "flow-root" | "table" | "flex" | "grid" | "ruby" => {
+                if inside.is_some() {
+                    return None;
+                }
+                inside = Some(token);
+            }
+            "list-item" => {
+                if list_item {
+                    return None;
+                }
+                list_item = true;
+            }
+            _ => return None,
+        }
+    }
+
+    if !(2..=3).contains(&count) {
+        return None;
+    }
+
+    if list_item {
+        return match (outside.unwrap_or("block"), inside.unwrap_or("flow")) {
+            ("block", "flow") => Some(DisplayMode::ListItem),
+            _ => None,
+        };
+    }
+
+    let outside = outside?;
+    let inside = inside.unwrap_or("flow");
+    match (outside, inside) {
+        ("block", "flow") => Some(DisplayMode::Block),
+        ("inline", "flow") => Some(DisplayMode::Inline),
+        ("block", "flow-root") => Some(DisplayMode::FlowRoot),
+        ("inline", "flow-root") => Some(DisplayMode::InlineBlock),
+        ("block", "table") => Some(DisplayMode::Table),
+        ("inline", "table") => Some(DisplayMode::InlineTable),
+        ("block", "flex") => Some(DisplayMode::Flex),
+        ("inline", "flex") => Some(DisplayMode::InlineFlex),
+        ("block", "grid") => Some(DisplayMode::Grid),
+        ("inline", "grid") => Some(DisplayMode::InlineGrid),
+        ("inline", "ruby") => Some(DisplayMode::Ruby),
         _ => None,
     }
 }
@@ -8090,6 +8153,7 @@ mod tests {
     #[test]
     fn parses_extended_css_display_modes() {
         let cases = [
+            ("FLOW", DisplayMode::Block),
             ("inline-block", DisplayMode::InlineBlock),
             ("inline-flex", DisplayMode::InlineFlex),
             ("flow-root", DisplayMode::FlowRoot),
@@ -8117,6 +8181,44 @@ mod tests {
             assert_eq!(style.display, Some(expected));
             assert!(!style.unsupported.contains_key("display"));
         }
+    }
+
+    #[test]
+    fn parses_css_display_multi_keyword_modes() {
+        let cases = [
+            ("block flow", DisplayMode::Block),
+            ("inline flow", DisplayMode::Inline),
+            ("block flow-root", DisplayMode::FlowRoot),
+            ("flow-root inline", DisplayMode::InlineBlock),
+            ("block flex", DisplayMode::Flex),
+            ("inline flex", DisplayMode::InlineFlex),
+            ("flex inline", DisplayMode::InlineFlex),
+            ("block grid", DisplayMode::Grid),
+            ("inline grid", DisplayMode::InlineGrid),
+            ("block table", DisplayMode::Table),
+            ("inline table", DisplayMode::InlineTable),
+            ("inline ruby", DisplayMode::Ruby),
+            ("block list-item", DisplayMode::ListItem),
+            ("flow list-item", DisplayMode::ListItem),
+        ];
+
+        for (display, expected) in cases {
+            let style = PortableStyle::from_web(&WebProps::new().style("display", display));
+            assert_eq!(style.display, Some(expected), "{display}");
+            assert_eq!(
+                style.declarations.get("display").map(String::as_str),
+                Some(display)
+            );
+            assert!(!style.unsupported.contains_key("display"));
+        }
+
+        let unsupported = PortableStyle::from_web(&WebProps::new().style("display", "block ruby"));
+        assert_eq!(unsupported.display, None);
+        assert_eq!(
+            unsupported.declarations.get("display").map(String::as_str),
+            Some("block ruby")
+        );
+        assert!(!unsupported.unsupported.contains_key("display"));
     }
 
     #[test]
@@ -8404,6 +8506,47 @@ mod tests {
                 .map(String::as_str),
             Some("table-row")
         );
+    }
+
+    #[test]
+    fn parses_tailwind_arbitrary_multi_keyword_display_properties() {
+        let web = WebProps::new().class_name(
+            "[display:inline_flex] hover:[display:block_grid] \
+             focus:[display:inline_flow-root] active:[display:block_list-item]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.display, Some(DisplayMode::InlineFlex));
+        assert_eq!(
+            style.declarations.get("display").map(String::as_str),
+            Some("inline flex")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("block grid")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("inline flow-root")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("display"))
+                .map(String::as_str),
+            Some("block list-item")
+        );
+        assert!(!style.unsupported.contains_key("display"));
     }
 
     #[test]
