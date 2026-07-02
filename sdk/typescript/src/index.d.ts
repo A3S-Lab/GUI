@@ -198,10 +198,58 @@ export interface AccessibilityNode {
   children: AccessibilityNode[];
 }
 
-export interface NativePlatformCommand {
-  type: string;
+export interface NativeWidgetBlueprint {
+  backend: string;
+  widgetClass: string;
+  role: string;
+  accessibilityRole: string;
+  label?: string | null;
+  value?: string | null;
+  action?: string | null;
+  className?: string | null;
+  controlState: Record<string, unknown>;
+  style: Record<string, string>;
+  portableStyle: Record<string, unknown>;
+  events: Record<string, string>;
+  metadata: Record<string, string>;
   [key: string]: unknown;
 }
+
+export interface NativeCreateCommand {
+  type: 'create';
+  id: number;
+  blueprint: NativeWidgetBlueprint;
+}
+
+export interface NativeUpdateCommand {
+  type: 'update';
+  id: number;
+  blueprint: NativeWidgetBlueprint;
+}
+
+export interface NativeInsertChildCommand {
+  type: 'insertChild';
+  parent: number;
+  child: number;
+  index: number;
+}
+
+export interface NativeRemoveCommand {
+  type: 'remove';
+  id: number;
+}
+
+export interface NativeSetRootCommand {
+  type: 'setRoot';
+  id: number;
+}
+
+export type NativePlatformCommand =
+  | NativeCreateCommand
+  | NativeUpdateCommand
+  | NativeInsertChildCommand
+  | NativeRemoveCommand
+  | NativeSetRootCommand;
 
 export interface NativeRenderResponse {
   frameId: string;

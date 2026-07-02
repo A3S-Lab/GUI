@@ -124,7 +124,9 @@ render responses, host event responses, handled native event results, and
 rendered accessibility trees with host node ids. These helpers mirror the Rust
 serde envelopes for mock hosts and process-boundary tests. Response helpers
 validate accessibility tree shape, action invocations, interaction changes, and
-native command envelopes before returning serializable objects.
+native command envelopes, including command-specific fields for create, update,
+insert-child, remove, and set-root commands, before returning serializable
+objects.
 
 ## Test
 

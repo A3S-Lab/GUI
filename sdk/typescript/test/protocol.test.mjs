@@ -236,6 +236,24 @@ test('native response helpers mirror Rust protocol envelopes', () => {
     event: 'press',
     value: 'Save',
   };
+  const blueprint = {
+    backend: 'gtk4',
+    widgetClass: 'gtk::Button',
+    role: 'Button',
+    accessibilityRole: 'Button',
+    controlState: {},
+    style: {},
+    portableStyle: {},
+    events: {},
+    metadata: {},
+  };
+  const commands = [
+    {type: 'create', id: 1, blueprint},
+    {type: 'update', id: 1, blueprint},
+    {type: 'insertChild', parent: 1, child: 2, index: 0},
+    {type: 'remove', id: 2},
+    {type: 'setRoot', id: 1},
+  ];
   const interactionChanges = [{
     node: 1,
     before: {
@@ -256,13 +274,13 @@ test('native response helpers mirror Rust protocol envelopes', () => {
     createNativeRenderResponse(
       'profile',
       1,
-      [{type: 'setRoot', id: 1}],
+      commands,
       {accessibilityTree},
     ),
     {
       frameId: 'profile',
       root: 1,
-      commands: [{type: 'setRoot', id: 1}],
+      commands,
       accessibilityTree,
     },
   );
@@ -335,6 +353,31 @@ test('native response helpers reject invalid protocol envelopes', () => {
   assert.throws(
     () => createNativeRenderResponse('profile', 1, [{id: 1}]),
     /commands need object commands with non-empty string types/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [{type: 'openWindow', id: 1}]),
+    /commands need supported native command types/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [{type: 'setRoot'}]),
+    /commands\.setRoot\.id need positive integer node ids/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [{
+      type: 'insertChild',
+      parent: 1,
+      child: 2,
+      index: -1,
+    }]),
+    /commands\.insertChild\.index values need non-negative integer numbers/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [{
+      type: 'create',
+      id: 1,
+      blueprint: {backend: 'gtk4', role: 'Button'},
+    }]),
+    /commands\.create\.blueprint\.widgetClass values need non-empty strings/,
   );
   assert.throws(
     () => createNativeRenderResponse('profile', 1, [], null),

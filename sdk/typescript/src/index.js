@@ -284,6 +284,13 @@ const ACCESSIBILITY_STATE_STRING_FIELDS = [
   'live',
   'relevant',
 ];
+const PLATFORM_COMMAND_TYPES = new Set([
+  'create',
+  'update',
+  'insertChild',
+  'remove',
+  'setRoot',
+]);
 
 export function defineAction(actionOrId, label) {
   const id = actionId(actionOrId);
@@ -673,6 +680,70 @@ function validatePlatformCommands(commands) {
         'a3s-gui native render response commands need object commands with non-empty string types',
       );
     }
+    if (!PLATFORM_COMMAND_TYPES.has(command.type)) {
+      throw new Error(
+        'a3s-gui native render response commands need supported native command types',
+      );
+    }
+    validatePlatformCommand(command);
+  }
+}
+
+function validatePlatformCommand(command) {
+  switch (command.type) {
+    case 'create':
+    case 'update':
+      validateCommandNodeId(command.id, `commands.${command.type}.id`);
+      validateNativeWidgetBlueprint(command.blueprint, `commands.${command.type}.blueprint`);
+      return;
+    case 'insertChild':
+      validateCommandNodeId(command.parent, 'commands.insertChild.parent');
+      validateCommandNodeId(command.child, 'commands.insertChild.child');
+      validateCommandIndex(command.index, 'commands.insertChild.index');
+      return;
+    case 'remove':
+    case 'setRoot':
+      validateCommandNodeId(command.id, `commands.${command.type}.id`);
+      return;
+    default:
+      return;
+  }
+}
+
+function validateCommandNodeId(value, context) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(
+      `a3s-gui native render response ${context} need positive integer node ids`,
+    );
+  }
+}
+
+function validateCommandIndex(value, context) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(
+      `a3s-gui native render response ${context} values need non-negative integer numbers`,
+    );
+  }
+}
+
+function validateNativeWidgetBlueprint(blueprint, context) {
+  validatePlainObject(blueprint, context);
+  for (const field of ['backend', 'widgetClass', 'role', 'accessibilityRole']) {
+    validateNonEmptyString(blueprint[field], `${context}.${field}`);
+  }
+  validatePlainObject(blueprint.controlState, `${context}.controlState`);
+  validateStringMap(blueprint.style, `${context}.style`);
+  validatePlainObject(blueprint.portableStyle, `${context}.portableStyle`);
+  validateStringMap(blueprint.events, `${context}.events`);
+  validateStringMap(blueprint.metadata, `${context}.metadata`);
+}
+
+function validateStringMap(value, context) {
+  validatePlainObject(value, context);
+  for (const item of Object.values(value)) {
+    if (typeof item !== 'string') {
+      throw new Error(`a3s-gui native render response ${context} values need strings`);
+    }
   }
 }
 
@@ -773,6 +844,12 @@ function validatePlainObject(value, context) {
 function validateRequiredBoolean(value, context) {
   if (typeof value !== 'boolean') {
     throw new Error(`a3s-gui ${context} values need booleans`);
+  }
+}
+
+function validateNonEmptyString(value, context) {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`a3s-gui native render response ${context} values need non-empty strings`);
   }
 }
 
