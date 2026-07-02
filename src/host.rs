@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::accessibility::{accessibility_role, AccessibilityNode, AccessibilityTreeHost};
 use crate::error::{GuiError, GuiResult};
@@ -108,6 +108,28 @@ impl HeadlessHost {
         }
     }
 
+    fn subtree_contains(&self, root: HostNodeId, target: HostNodeId) -> bool {
+        let Some(root) = self.nodes.get(&root) else {
+            return false;
+        };
+        let mut stack = root.children.clone();
+        let mut visited = BTreeSet::new();
+
+        while let Some(id) = stack.pop() {
+            if id == target {
+                return true;
+            }
+            if !visited.insert(id) {
+                continue;
+            }
+            if let Some(node) = self.nodes.get(&id) {
+                stack.extend(node.children.iter().copied());
+            }
+        }
+
+        false
+    }
+
     fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
         let node = self.nodes.get(&id)?;
         if !is_accessibility_visible(&node.props)
@@ -201,12 +223,29 @@ impl NativeHost for HeadlessHost {
         child: HostNodeId,
         index: usize,
     ) -> GuiResult<()> {
+        self.ensure_node(parent)?;
         self.ensure_node(child)?;
+        if parent == child {
+            return Err(GuiError::host(format!(
+                "cannot insert host node {} into itself",
+                child.get()
+            )));
+        }
+        if self.subtree_contains(child, parent) {
+            return Err(GuiError::host(format!(
+                "inserting host node {} under {} would create a cycle",
+                child.get(),
+                parent.get()
+            )));
+        }
+
+        for node in self.nodes.values_mut() {
+            node.children.retain(|existing| *existing != child);
+        }
         let parent_node = self
             .nodes
             .get_mut(&parent)
             .ok_or_else(|| GuiError::host(format!("unknown host node id {}", parent.get())))?;
-        parent_node.children.retain(|existing| *existing != child);
         let index = index.min(parent_node.children.len());
         parent_node.children.insert(index, child);
         self.operations.push(HostOperation::InsertChild {
@@ -235,5 +274,57 @@ impl NativeHost for HeadlessHost {
         self.root = Some(id);
         self.operations.push(HostOperation::SetRoot { id });
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn headless_host_reparents_child_without_duplicate_parent_links() {
+        let mut host = HeadlessHost::default();
+        let first = host
+            .create(&NativeElement::new("first", NativeRole::View))
+            .unwrap();
+        let second = host
+            .create(&NativeElement::new("second", NativeRole::View))
+            .unwrap();
+        let child = host
+            .create(&NativeElement::new("child", NativeRole::Button))
+            .unwrap();
+
+        host.insert_child(first, child, 0).unwrap();
+        host.insert_child(second, child, 0).unwrap();
+
+        assert!(host.node(first).unwrap().children.is_empty());
+        assert_eq!(host.node(second).unwrap().children, vec![child]);
+    }
+
+    #[test]
+    fn headless_host_rejects_cyclic_child_insertions() {
+        let mut host = HeadlessHost::default();
+        let parent = host
+            .create(&NativeElement::new("parent", NativeRole::View))
+            .unwrap();
+        let child = host
+            .create(&NativeElement::new("child", NativeRole::Button))
+            .unwrap();
+
+        let operation_count = host.operations().len();
+        let error = host.insert_child(parent, parent, 0).unwrap_err();
+
+        assert!(error.to_string().contains("cannot insert host node"));
+        assert_eq!(host.operations().len(), operation_count);
+        assert!(host.node(parent).unwrap().children.is_empty());
+
+        host.insert_child(parent, child, 0).unwrap();
+        let operation_count = host.operations().len();
+        let error = host.insert_child(child, parent, 0).unwrap_err();
+
+        assert!(error.to_string().contains("would create a cycle"));
+        assert_eq!(host.operations().len(), operation_count);
+        assert_eq!(host.node(parent).unwrap().children, vec![child]);
+        assert!(host.node(child).unwrap().children.is_empty());
     }
 }

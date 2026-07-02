@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::error::{GuiError, GuiResult};
 use crate::host::HostNodeId;
@@ -51,6 +51,28 @@ impl RecordingBackend {
             )))
         }
     }
+
+    fn subtree_contains(&self, root: HostNodeId, target: HostNodeId) -> bool {
+        let Some(root) = self.objects.get(&root) else {
+            return false;
+        };
+        let mut stack = root.children.clone();
+        let mut visited = BTreeSet::new();
+
+        while let Some(id) = stack.pop() {
+            if id == target {
+                return true;
+            }
+            if !visited.insert(id) {
+                continue;
+            }
+            if let Some(object) = self.objects.get(&id) {
+                stack.extend(object.children.iter().copied());
+            }
+        }
+
+        false
+    }
 }
 
 impl PlatformCommandExecutor for RecordingBackend {
@@ -85,13 +107,28 @@ impl PlatformCommandExecutor for RecordingBackend {
                 child,
                 index,
             } => {
+                self.ensure_object(*parent)?;
                 self.ensure_object(*child)?;
+                if parent == child {
+                    return Err(GuiError::host(format!(
+                        "cannot insert backend object {} into itself",
+                        child.get()
+                    )));
+                }
+                if self.subtree_contains(*child, *parent) {
+                    return Err(GuiError::host(format!(
+                        "inserting backend object {} under {} would create a cycle",
+                        child.get(),
+                        parent.get()
+                    )));
+                }
+
+                for object in self.objects.values_mut() {
+                    object.children.retain(|existing| *existing != *child);
+                }
                 let parent_object = self.objects.get_mut(parent).ok_or_else(|| {
                     GuiError::host(format!("backend parent object {} missing", parent.get()))
                 })?;
-                parent_object
-                    .children
-                    .retain(|existing| *existing != *child);
                 let index = (*index).min(parent_object.children.len());
                 parent_object.children.insert(index, *child);
             }

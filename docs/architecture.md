@@ -106,6 +106,9 @@ thread affinity, focus integration, accessibility integration, and event deliver
 The runtime does not require native hosts, command executors, event sources, or
 widget drivers to be `Send`: real GUI handles are often confined to the main UI
 thread.
+Hosts model a tree, not a graph. Inserting an existing child reparents it from
+any previous parent, and shared host implementations reject self-parenting or
+ancestor cycles before recording a command.
 
 The pure Rust `PlatformPlanningHost` implements the same `NativeHost` contract
 without linking platform SDKs. It is an executable specification for native

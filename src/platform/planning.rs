@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -119,6 +119,28 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         }
     }
 
+    fn subtree_contains(&self, root: HostNodeId, target: HostNodeId) -> bool {
+        let Some(root) = self.nodes.get(&root) else {
+            return false;
+        };
+        let mut stack = root.children.clone();
+        let mut visited = BTreeSet::new();
+
+        while let Some(id) = stack.pop() {
+            if id == target {
+                return true;
+            }
+            if !visited.insert(id) {
+                continue;
+            }
+            if let Some(node) = self.nodes.get(&id) {
+                stack.extend(node.children.iter().copied());
+            }
+        }
+
+        false
+    }
+
     fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
         let node = self.nodes.get(&id)?;
         let state = &node.blueprint.control_state;
@@ -207,12 +229,29 @@ impl<A: PlatformAdapter> NativeHost for PlatformPlanningHost<A> {
         child: HostNodeId,
         index: usize,
     ) -> GuiResult<()> {
+        self.ensure_node(parent)?;
         self.ensure_node(child)?;
+        if parent == child {
+            return Err(GuiError::host(format!(
+                "cannot insert host node {} into itself",
+                child.get()
+            )));
+        }
+        if self.subtree_contains(child, parent) {
+            return Err(GuiError::host(format!(
+                "inserting host node {} under {} would create a cycle",
+                child.get(),
+                parent.get()
+            )));
+        }
+
+        for node in self.nodes.values_mut() {
+            node.children.retain(|existing| *existing != child);
+        }
         let parent_node = self
             .nodes
             .get_mut(&parent)
             .ok_or_else(|| GuiError::host(format!("unknown host node id {}", parent.get())))?;
-        parent_node.children.retain(|existing| *existing != child);
         let index = index.min(parent_node.children.len());
         parent_node.children.insert(index, child);
         self.commands.push(PlatformCommand::InsertChild {

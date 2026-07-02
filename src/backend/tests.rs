@@ -553,6 +553,77 @@ fn surface_handle_adapter_drains_native_surface_events() {
 }
 
 #[test]
+fn recording_backend_reparents_children_and_rejects_cycles() {
+    let mut backend = RecordingBackend::default();
+    let first = HostNodeId::new(1);
+    let second = HostNodeId::new(2);
+    let child = HostNodeId::new(3);
+    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+
+    backend
+        .execute(&PlatformCommand::Create {
+            id: first,
+            blueprint: container.clone(),
+        })
+        .unwrap();
+    backend
+        .execute(&PlatformCommand::Create {
+            id: second,
+            blueprint: container,
+        })
+        .unwrap();
+    backend
+        .execute(&PlatformCommand::Create {
+            id: child,
+            blueprint: button,
+        })
+        .unwrap();
+    backend
+        .execute(&PlatformCommand::InsertChild {
+            parent: first,
+            child,
+            index: 0,
+        })
+        .unwrap();
+    backend
+        .execute(&PlatformCommand::InsertChild {
+            parent: second,
+            child,
+            index: 0,
+        })
+        .unwrap();
+
+    assert!(backend.object(first).unwrap().children.is_empty());
+    assert_eq!(backend.object(second).unwrap().children, vec![child]);
+
+    let command_count = backend.commands().len();
+    let error = backend
+        .execute(&PlatformCommand::InsertChild {
+            parent: child,
+            child,
+            index: 0,
+        })
+        .unwrap_err();
+
+    assert!(error.to_string().contains("cannot insert backend object"));
+    assert_eq!(backend.commands().len(), command_count);
+
+    let error = backend
+        .execute(&PlatformCommand::InsertChild {
+            parent: child,
+            child: second,
+            index: 0,
+        })
+        .unwrap_err();
+
+    assert!(error.to_string().contains("would create a cycle"));
+    assert_eq!(backend.commands().len(), command_count);
+    assert_eq!(backend.object(second).unwrap().children, vec![child]);
+    assert!(backend.object(child).unwrap().children.is_empty());
+}
+
+#[test]
 fn command_executing_host_dispatches_driver_native_events_to_actions() {
     let compiled: CompiledJsxNode = serde_json::from_str(
         r#"

@@ -6,7 +6,7 @@ use crate::accessibility::{
     AccessibilityStateProps, AccessibilityStructureProps,
 };
 use crate::geometry::Orientation;
-use crate::host::HostNodeId;
+use crate::host::{HostNodeId, NativeHost};
 use crate::html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
@@ -1459,6 +1459,39 @@ fn platform_planning_host_updates_blueprint_on_rerender() {
             blueprint,
         } if *id == second_id && blueprint.label.as_deref() == Some("Saved")
     )));
+}
+
+#[test]
+fn platform_planning_host_reparents_children_and_rejects_cycles() {
+    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let first = host
+        .create(&NativeElement::new("first", NativeRole::View))
+        .unwrap();
+    let second = host
+        .create(&NativeElement::new("second", NativeRole::View))
+        .unwrap();
+    let child = host
+        .create(&NativeElement::new("child", NativeRole::Button))
+        .unwrap();
+
+    host.insert_child(first, child, 0).unwrap();
+    host.insert_child(second, child, 0).unwrap();
+
+    assert!(host.node(first).unwrap().children.is_empty());
+    assert_eq!(host.node(second).unwrap().children, vec![child]);
+
+    let command_count = host.commands().len();
+    let error = host.insert_child(child, child, 0).unwrap_err();
+
+    assert!(error.to_string().contains("cannot insert host node"));
+    assert_eq!(host.commands().len(), command_count);
+
+    let error = host.insert_child(child, second, 0).unwrap_err();
+
+    assert!(error.to_string().contains("would create a cycle"));
+    assert_eq!(host.commands().len(), command_count);
+    assert_eq!(host.node(second).unwrap().children, vec![child]);
+    assert!(host.node(child).unwrap().children.is_empty());
 }
 
 #[test]
