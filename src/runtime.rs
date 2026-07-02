@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::accessibility::{AccessibilityNode, AccessibilityRole, AccessibilityTreeHost};
 use crate::backend::NativeEventHost;
 use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
@@ -28,6 +30,8 @@ pub struct GuiRuntime<H: NativeHost> {
     event_router: EventRouter,
     action_registry: ActionRegistry,
     interaction_state: InteractionState,
+    interaction_revisions: BTreeMap<HostNodeId, u64>,
+    render_revision: u64,
 }
 
 impl<H: NativeHost> GuiRuntime<H> {
@@ -40,6 +44,8 @@ impl<H: NativeHost> GuiRuntime<H> {
             event_router: EventRouter::new(),
             action_registry: ActionRegistry::new(),
             interaction_state: InteractionState::new(),
+            interaction_revisions: BTreeMap::new(),
+            render_revision: 0,
         }
     }
 
@@ -54,7 +60,9 @@ impl<H: NativeHost> GuiRuntime<H> {
     }
 
     pub fn render_native(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
-        self.renderer.render(element, &mut self.host)
+        let root = self.renderer.render(element, &mut self.host)?;
+        self.render_revision = self.render_revision.saturating_add(1);
+        Ok(root)
     }
 
     pub fn host(&self) -> &H {
@@ -91,12 +99,21 @@ impl<H: NativeHost> GuiRuntime<H> {
         blueprint: &NativeWidgetBlueprint,
         event: NativeEvent,
     ) -> GuiResult<Option<ActionInvocation>> {
+        let interaction_start = self.interaction_state.changes().len();
         self.interaction_state.apply_event(blueprint, &event);
+        self.record_interaction_revisions(interaction_start);
         let Some(invocation) = self.event_router.route(blueprint, &event) else {
             return Ok(None);
         };
         self.action_registry.invoke(invocation.clone())?;
         Ok(Some(invocation))
+    }
+
+    fn record_interaction_revisions(&mut self, interaction_start: usize) {
+        for change in &self.interaction_state.changes()[interaction_start..] {
+            self.interaction_revisions
+                .insert(change.node, self.render_revision);
+        }
     }
 
     pub fn into_host(self) -> H {
@@ -138,7 +155,12 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
 impl<H: NativeHost + AccessibilityTreeHost> GuiRuntime<H> {
     pub fn accessibility_tree(&self) -> Option<AccessibilityNode> {
         let mut tree = self.host.accessibility_tree()?;
-        apply_interactions_to_accessibility_tree(&mut tree, &self.interaction_state);
+        apply_interactions_to_accessibility_tree(
+            &mut tree,
+            &self.interaction_state,
+            &self.interaction_revisions,
+            self.render_revision,
+        );
         Some(tree)
     }
 }
@@ -146,23 +168,44 @@ impl<H: NativeHost + AccessibilityTreeHost> GuiRuntime<H> {
 fn apply_interactions_to_accessibility_tree(
     node: &mut AccessibilityNode,
     interactions: &InteractionState,
+    interaction_revisions: &BTreeMap<HostNodeId, u64>,
+    render_revision: u64,
 ) {
     if let Some(id) = node.node {
         if let Some(state) = interactions.node(id) {
-            apply_interaction_state(node, state);
+            let current_interaction =
+                interaction_revisions.get(&id).copied() == Some(render_revision);
+            apply_interaction_state(node, state, current_interaction);
         }
     }
 
     for child in &mut node.children {
-        apply_interactions_to_accessibility_tree(child, interactions);
+        apply_interactions_to_accessibility_tree(
+            child,
+            interactions,
+            interaction_revisions,
+            render_revision,
+        );
     }
 
     apply_selection_value_to_children(node);
-    apply_latest_child_selection_to_children(node, interactions);
+    apply_latest_child_selection_to_children(
+        node,
+        interactions,
+        interaction_revisions,
+        render_revision,
+    );
 }
 
-fn apply_interaction_state(node: &mut AccessibilityNode, state: &InteractionNodeState) {
+fn apply_interaction_state(
+    node: &mut AccessibilityNode,
+    state: &InteractionNodeState,
+    current_interaction: bool,
+) {
     node.focused = state.focused;
+    if !current_interaction {
+        return;
+    }
     if let Some(value) = &state.value {
         node.value = Some(value.clone());
     }
@@ -199,11 +242,14 @@ fn apply_selection_value_to_children(node: &mut AccessibilityNode) {
 fn apply_latest_child_selection_to_children(
     node: &mut AccessibilityNode,
     interactions: &InteractionState,
+    interaction_revisions: &BTreeMap<HostNodeId, u64>,
+    render_revision: u64,
 ) {
     if !is_exclusive_child_selection_container(node.role) {
         return;
     }
-    let Some(SelectionSource::Child(selected_node)) = latest_selection_source(node, interactions)
+    let Some(SelectionSource::Child(selected_node)) =
+        latest_selection_source(node, interactions, interaction_revisions, render_revision)
     else {
         return;
     };
@@ -228,8 +274,13 @@ enum SelectionSource {
 fn latest_selection_source(
     node: &AccessibilityNode,
     interactions: &InteractionState,
+    interaction_revisions: &BTreeMap<HostNodeId, u64>,
+    render_revision: u64,
 ) -> Option<SelectionSource> {
     for change in interactions.changes().iter().rev() {
+        if interaction_revisions.get(&change.node).copied() != Some(render_revision) {
+            continue;
+        }
         if Some(change.node) == node.node
             && change.before.value != change.after.value
             && change.after.value.is_some()
@@ -673,6 +724,69 @@ mod tests {
         );
         assert_eq!(accessibility.children[1].node, Some(notifications));
         assert_eq!(accessibility.children[1].checked, Some(true));
+    }
+
+    #[test]
+    fn runtime_accessibility_tree_uses_rerendered_control_state_after_interaction() {
+        let first = NativeElement::new("email", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Email")
+                .value("old@example.com")
+                .web(WebProps::new().on_change("setEmail")),
+        );
+        let second = NativeElement::new("email", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Email")
+                .value("controlled@example.com")
+                .web(WebProps::new().on_change("setEmail")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setEmail");
+
+        let root_id = runtime.render_native(&first).unwrap();
+        runtime
+            .dispatch_native_event(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("local@example.com"),
+            )
+            .unwrap();
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("local@example.com")
+        );
+
+        let second_id = runtime.render_native(&second).unwrap();
+
+        assert_eq!(second_id, root_id);
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("controlled@example.com")
+        );
+    }
+
+    #[test]
+    fn runtime_accessibility_tree_preserves_focus_across_rerender() {
+        let first = NativeElement::new("save", NativeRole::Button)
+            .with_props(NativeProps::new().label("Save"));
+        let second = NativeElement::new("save", NativeRole::Button)
+            .with_props(NativeProps::new().label("Saved"));
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&first).unwrap();
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+        let second_id = runtime.render_native(&second).unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert_eq!(second_id, root_id);
+        assert_eq!(accessibility.label.as_deref(), Some("Saved"));
+        assert!(accessibility.focused);
     }
 
     #[test]
