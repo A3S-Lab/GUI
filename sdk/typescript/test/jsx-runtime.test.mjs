@@ -920,3 +920,20 @@ test('frame roots must be a single compiled element', () => {
     /one root element/,
   );
 });
+
+test('frame actions must have stable ids', () => {
+  const root = jsx(Group, {children: 'Profile'}, 'profile');
+
+  assert.deepEqual(
+    createUiFrame('profile', root, {actions: [{id: 'saveProfile', label: 42}]}).actions,
+    [{id: 'saveProfile', label: '42'}],
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {actions: [{id: ''}]}),
+    /non-empty string ids/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {actions: 'saveProfile'}),
+    /actions need an array/,
+  );
+});

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
 use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
-use crate::error::GuiResult;
+use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, NativeEvent, RegisteredAction};
 use crate::host::{HostNodeId, NativeHost};
 use crate::interaction::InteractionChange;
@@ -127,10 +127,30 @@ pub struct NativeHostEventResponse {
 }
 
 impl UiFrame {
+    pub fn validate(&self) -> GuiResult<()> {
+        if self.frame_id.is_empty() {
+            return Err(GuiError::invalid_tree(
+                "a3s-gui frames need a non-empty string frame id",
+            ));
+        }
+        if !matches!(&self.root, CompiledJsxNode::Element { .. }) {
+            return Err(GuiError::invalid_tree(
+                "a3s-gui frames need one root element",
+            ));
+        }
+        if self.actions.iter().any(|action| action.id.is_empty()) {
+            return Err(GuiError::invalid_tree(
+                "a3s-gui frame actions need non-empty string ids",
+            ));
+        }
+        Ok(())
+    }
+
     pub fn render_into<H: NativeHost>(
         &self,
         runtime: &mut GuiRuntime<H>,
     ) -> GuiResult<RenderedFrame> {
+        self.validate()?;
         runtime
             .actions_mut()
             .replace_registered(self.actions.iter().map(UiAction::registered_action));
@@ -477,6 +497,83 @@ mod tests {
         assert!(second_response.commands.iter().all(|command| {
             !matches!(command, crate::platform::PlatformCommand::Create { .. })
         }));
+        assert!(session.pending_commands().is_empty());
+    }
+
+    #[test]
+    fn native_protocol_session_rejects_invalid_frame_contracts() {
+        let valid: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "valid",
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let empty_frame_id: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "",
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button"
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let text_root: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "text-root",
+              "root": {"kind": "text", "key": "text-0", "value": "Loose text"}
+            }
+            "#,
+        )
+        .unwrap();
+        let empty_action: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "empty-action",
+              "actions": [{"id": ""}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button"
+              }
+            }
+            "#,
+        )
+        .unwrap();
+
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&valid).unwrap();
+
+        let error = session.render_frame(&empty_frame_id).unwrap_err();
+        assert!(error.to_string().contains("non-empty string frame id"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&text_root).unwrap_err();
+        assert!(error.to_string().contains("one root element"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&empty_action).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("frame actions need non-empty string ids"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
         assert!(session.pending_commands().is_empty());
     }
 

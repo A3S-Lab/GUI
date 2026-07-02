@@ -327,6 +327,10 @@ At runtime the compiled tree crosses the host boundary as a `UiFrame`:
 Native input comes back as `HostEvent`, and `a3s-gui` resolves it to a validated
 `ActionInvocation`.
 
+`frameId` must be a non-empty string, `root` must be a single compiled element,
+and explicit action ids must be non-empty strings. Text nodes and fragment
+arrays are valid children, but not valid frame roots.
+
 If labels are not needed, the TypeScript SDK can infer `UiFrame.actions` from
 the compiled event props. Explicit `defineAction(...)` calls are still useful
 when the host wants labels for menus, logs, or command palettes.

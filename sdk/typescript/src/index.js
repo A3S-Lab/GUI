@@ -65,13 +65,27 @@ export function createUiFrame(frameId, root, options = {}) {
   if (!isCompiledElement(root)) {
     throw new Error(FRAME_ROOT_ERROR);
   }
-  const actions = options.actions ?? collectActions(root);
+  const actions = normalizeFrameActions(options.actions ?? collectActions(root));
   return {
     frameId,
     root,
     actions,
     ...(options.window ? {window: options.window} : {}),
   };
+}
+
+function normalizeFrameActions(actions) {
+  if (!Array.isArray(actions)) {
+    throw new Error('a3s-gui frame actions need an array');
+  }
+  return actions.map((action) => {
+    if (action == null || typeof action.id !== 'string' || action.id.length === 0) {
+      throw new Error('a3s-gui frame actions need non-empty string ids');
+    }
+    return action.label == null
+      ? {id: action.id}
+      : {id: action.id, label: String(action.label)};
+  });
 }
 
 function isCompiledElement(node) {
