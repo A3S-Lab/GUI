@@ -89,7 +89,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `aria-hidden` / `aria-autocomplete` / `aria-multiline` / `aria-current` / `aria-haspopup` / `aria-pressed` / `aria-live` / `aria-atomic` / `aria-busy` / `aria-relevant` / `aria-modal` | normalized to native accessibility state hints and preserved as metadata; `aria-hidden` does not change visual widget visibility, and `aria-hidden="true"` omits the subtree from rendered accessibility trees |
 | `data-*` | preserved as metadata for testing, analytics, and automation |
 | `disabled` / `required` / `checked` / `selected` | normalized to React Aria-style native control state |
-| `min` / `max` / `aria-valuenow` | normalized to native ranged control state |
+| `min` / `max` / `step` / `aria-valuenow` | normalized to native ranged control state |
 | `readOnly` / `multiple` / `autoFocus` | normalized to native control state; `autoFocus` seeds initial runtime focus for rendered accessibility trees, `readOnly` suppresses value-changing events, and `readOnly` plus `multiple` are exposed in rendered accessibility trees |
 | `autoComplete` / `inputMode` / `enterKeyHint` / `autoCapitalize` / `autoCorrect` / `virtualKeyboardPolicy` / `pattern` | normalized to native text-entry hints and preserved as metadata |
 | `minLength` / `maxLength` / `rows` / `cols` / `size` | normalized to native numeric control hints and preserved as metadata |

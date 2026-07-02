@@ -20,7 +20,7 @@ use objc2_app_kit::{
     NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{
-    NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
+    NSInteger, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
 };
 
 use crate::appkit::AppKitWidgetKind;
@@ -44,6 +44,8 @@ pub type AppKitNativeSurfaceAdapter = SurfaceHandleAdapter<AppKitNativeSurface>;
 pub type AppKitNativeSurfaceDriver = HandleWidgetDriver<AppKitNativeSurfaceAdapter>;
 pub type AppKitNativeSurfaceCommandExecutor = DriverCommandExecutor<AppKitNativeSurfaceDriver>;
 
+const MAX_APPKIT_SLIDER_TICK_MARKS: NSInteger = 101;
+
 #[derive(Debug)]
 pub struct AppKitNativeSurface {
     mtm: MainThreadMarker,
@@ -58,6 +60,7 @@ pub struct AppKitNativeSurface {
     list_views: BTreeMap<HostNodeId, AppKitListViewState>,
     list_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     list_item_parents: BTreeMap<HostNodeId, HostNodeId>,
+    ranges: BTreeMap<HostNodeId, AppKitRangeState>,
     menus: AppKitMenuRegistry,
 }
 
@@ -81,6 +84,7 @@ impl AppKitNativeSurface {
             list_views: BTreeMap::new(),
             list_children: BTreeMap::new(),
             list_item_parents: BTreeMap::new(),
+            ranges: BTreeMap::new(),
             menus: AppKitMenuRegistry::default(),
         })
     }
@@ -618,6 +622,7 @@ struct AppKitRangeState {
     min: Option<f64>,
     max: Option<f64>,
     current: Option<f64>,
+    step: Option<f64>,
 }
 
 impl AppKitRangeState {
@@ -626,6 +631,7 @@ impl AppKitRangeState {
             min: config.min,
             max: config.max,
             current: config.current,
+            step: config.step,
         }
     }
 
@@ -640,12 +646,40 @@ impl AppKitRangeState {
     fn current(self) -> f64 {
         self.current.unwrap_or_else(|| self.lower())
     }
+
+    fn step(self) -> Option<f64> {
+        self.step.filter(|value| value.is_finite() && *value > 0.0)
+    }
 }
 
 fn apply_progress_range(progress: &NSProgressIndicator, range: AppKitRangeState) {
     progress.setMinValue(range.lower());
     progress.setMaxValue(range.upper());
     progress.setDoubleValue(range.current());
+}
+
+fn apply_slider_step(slider: &NSSlider, range: AppKitRangeState) {
+    let Some(step) = range.step() else {
+        slider.setAllowsTickMarkValuesOnly(false);
+        slider.setNumberOfTickMarks(0);
+        slider.setAltIncrementValue(0.0);
+        return;
+    };
+
+    slider.setAltIncrementValue(step);
+    let span = range.upper() - range.lower();
+    let ticks = (span / step).round() + 1.0;
+    if span.is_finite()
+        && span > 0.0
+        && ticks >= 2.0
+        && ticks <= MAX_APPKIT_SLIDER_TICK_MARKS as f64
+    {
+        slider.setNumberOfTickMarks(ticks as NSInteger);
+        slider.setAllowsTickMarkValuesOnly(true);
+    } else {
+        slider.setNumberOfTickMarks(0);
+        slider.setAllowsTickMarkValuesOnly(false);
+    }
 }
 
 fn parse_f64(value: &str) -> Option<f64> {

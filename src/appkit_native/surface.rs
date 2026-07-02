@@ -1,5 +1,23 @@
 use super::*;
 
+impl AppKitNativeSurface {
+    fn apply_range(&mut self, id: HostNodeId, widget: &AppKitOsWidget) {
+        let range = self.ranges.get(&id).copied().unwrap_or_default();
+        match widget {
+            AppKitOsWidget::Slider(slider) => {
+                slider.setMinValue(range.lower());
+                slider.setMaxValue(range.upper());
+                apply_slider_step(slider, range);
+                slider.as_super().setDoubleValue(range.current());
+            }
+            AppKitOsWidget::ProgressIndicator(progress) => {
+                apply_progress_range(progress, range);
+            }
+            _ => {}
+        }
+    }
+}
+
 impl NativeWidgetSurface for AppKitNativeSurface {
     type Handle = AppKitOsHandle;
 
@@ -289,17 +307,21 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     .as_super()
                     .as_super()
                     .setFrameSize(config_size(&config, 180.0, 24.0));
+                apply_slider_step(&slider, range);
+                self.ranges.insert(id, range);
                 self.action_targets.insert(id, target);
                 AppKitOsWidget::Slider(slider)
             }
             AppKitWidgetKind::ProgressIndicator => {
+                let range = AppKitRangeState::from_config(&config);
                 let progress = NSProgressIndicator::initWithFrame(
                     NSProgressIndicator::alloc(self.mtm),
                     config_rect(&config, 180.0, 16.0),
                 );
                 progress.setStyle(NSProgressIndicatorStyle::Bar);
                 progress.setIndeterminate(false);
-                apply_progress_range(&progress, AppKitRangeState::from_config(&config));
+                apply_progress_range(&progress, range);
+                self.ranges.insert(id, range);
                 AppKitOsWidget::ProgressIndicator(progress)
             }
             AppKitWidgetKind::Separator => {
@@ -347,7 +369,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
 
     fn apply_native_setter(
         &mut self,
-        _id: HostNodeId,
+        id: HostNodeId,
         handle: &Self::Handle,
         setter: &NativeWidgetSetter,
     ) -> GuiResult<()> {
@@ -413,14 +435,16 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         value.clone().unwrap_or_else(|| item.label.clone()),
                     )?;
                 }
-                AppKitOsWidget::Slider(slider) => {
+                AppKitOsWidget::Slider(_) => {
                     if let Some(value) = value.as_deref().and_then(parse_f64) {
-                        slider.as_super().setDoubleValue(value);
+                        self.ranges.entry(id).or_default().current = Some(value);
+                        self.apply_range(id, &handle.widget);
                     }
                 }
-                AppKitOsWidget::ProgressIndicator(progress) => {
+                AppKitOsWidget::ProgressIndicator(_) => {
                     if let Some(value) = value.as_deref().and_then(parse_f64) {
-                        progress.setDoubleValue(value);
+                        self.ranges.entry(id).or_default().current = Some(value);
+                        self.apply_range(id, &handle.widget);
                     }
                 }
                 AppKitOsWidget::Box(_) => {}
@@ -568,36 +592,39 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 }
                 _ => {}
             },
-            NativeWidgetSetter::SetMinimum(value) => match &handle.widget {
-                AppKitOsWidget::Slider(slider) => {
-                    slider.setMinValue(value.unwrap_or(0.0));
+            NativeWidgetSetter::SetMinimum(value) => {
+                if matches!(
+                    &handle.widget,
+                    AppKitOsWidget::Slider(_) | AppKitOsWidget::ProgressIndicator(_)
+                ) {
+                    self.ranges.entry(id).or_default().min = *value;
+                    self.apply_range(id, &handle.widget);
                 }
-                AppKitOsWidget::ProgressIndicator(progress) => {
-                    progress.setMinValue(value.unwrap_or(0.0));
+            }
+            NativeWidgetSetter::SetMaximum(value) => {
+                if matches!(
+                    &handle.widget,
+                    AppKitOsWidget::Slider(_) | AppKitOsWidget::ProgressIndicator(_)
+                ) {
+                    self.ranges.entry(id).or_default().max = *value;
+                    self.apply_range(id, &handle.widget);
                 }
-                _ => {}
-            },
-            NativeWidgetSetter::SetMaximum(value) => match &handle.widget {
-                AppKitOsWidget::Slider(slider) => {
-                    slider.setMaxValue(value.unwrap_or(100.0));
+            }
+            NativeWidgetSetter::SetCurrent(value) => {
+                if matches!(
+                    &handle.widget,
+                    AppKitOsWidget::Slider(_) | AppKitOsWidget::ProgressIndicator(_)
+                ) {
+                    self.ranges.entry(id).or_default().current = *value;
+                    self.apply_range(id, &handle.widget);
                 }
-                AppKitOsWidget::ProgressIndicator(progress) => {
-                    progress.setMaxValue(value.unwrap_or(100.0));
+            }
+            NativeWidgetSetter::SetStep(value) => {
+                if matches!(&handle.widget, AppKitOsWidget::Slider(_)) {
+                    self.ranges.entry(id).or_default().step = *value;
+                    self.apply_range(id, &handle.widget);
                 }
-                _ => {}
-            },
-            NativeWidgetSetter::SetCurrent(value) => match &handle.widget {
-                AppKitOsWidget::Slider(slider) => {
-                    slider
-                        .as_super()
-                        .setDoubleValue(value.unwrap_or_else(|| slider.minValue()));
-                }
-                AppKitOsWidget::ProgressIndicator(progress) => {
-                    progress.setDoubleValue(value.unwrap_or_else(|| progress.minValue()));
-                }
-                _ => {}
-            },
-            NativeWidgetSetter::SetStep(_) => {}
+            }
             NativeWidgetSetter::SetOrientation(value) => {
                 if let (AppKitOsWidget::StackView(stack_view), Some(orientation)) =
                     (&handle.widget, value)
@@ -841,6 +868,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             self.root = None;
         }
         self.action_targets.remove(&id);
+        self.ranges.remove(&id);
         if let AppKitOsWidget::ComboBox(_) = &handle.widget {
             self.combo_boxes.remove(&id);
             if let Some(children) = self.combo_children.remove(&id) {
