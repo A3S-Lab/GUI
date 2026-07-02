@@ -191,15 +191,31 @@ export interface ActionInvocation {
   value?: string | null;
 }
 
+export interface InteractionNodeState {
+  focused: boolean;
+  value?: string | null;
+  selected: boolean;
+  checked?: boolean | null;
+  expanded?: boolean | null;
+}
+
+export interface InteractionChange {
+  node: number;
+  before: InteractionNodeState;
+  after: InteractionNodeState;
+}
+
 export interface HostEventResponse {
   frameId: string;
   invocation: ActionInvocation;
+  interactionChanges?: InteractionChange[];
 }
 
 export interface NativeHostEventResponse {
   frameId: string;
   invocation?: ActionInvocation | null;
   accessibilityTree?: AccessibilityNode | null;
+  interactionChanges?: InteractionChange[];
 }
 
 export function createAction(id: string, label?: string): ActionHandler;

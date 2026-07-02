@@ -4,8 +4,9 @@ use crate::event::{NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
 use crate::native::NativeRole;
 use crate::platform::NativeWidgetBlueprint;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct InteractionNodeState {
     pub focused: bool,
     pub value: Option<String>,
@@ -14,7 +15,7 @@ pub struct InteractionNodeState {
     pub expanded: Option<bool>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InteractionChange {
     pub node: HostNodeId,
     pub before: InteractionNodeState,

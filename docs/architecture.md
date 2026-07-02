@@ -257,7 +257,11 @@ The JS/Rust bridge uses serializable protocol types:
 - `NativeRenderResponse`: the native root plus the incremental platform
   commands and rendered accessibility tree emitted by a render pass.
 - `HostEvent`: a native event emitted by a platform backend.
-- `HostEventResponse`: the validated action invocation for that event.
+- `HostEventResponse`: the validated action invocation for that event plus
+  any interaction state changes produced while handling it.
+- `NativeHostEventResponse`: the optional action invocation, rendered
+  accessibility tree, and interaction changes for host events that may only
+  update runtime state.
 
 The protocol decouples input generation from platform backend execution.
 JavaScript does not see native widget handles; native backends receive

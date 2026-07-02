@@ -5,6 +5,7 @@ use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
 use crate::error::GuiResult;
 use crate::event::{ActionInvocation, NativeEvent};
 use crate::host::{HostNodeId, NativeHost};
+use crate::interaction::InteractionChange;
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::platform::{BlueprintHost, PlatformAdapter, PlatformCommand, PlatformPlanningHost};
 use crate::runtime::GuiRuntime;
@@ -70,6 +71,8 @@ pub struct HostEvent {
 pub struct HostEventResponse {
     pub frame_id: String,
     pub invocation: ActionInvocation,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub interaction_changes: Vec<InteractionChange>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -80,6 +83,8 @@ pub struct NativeHostEventResponse {
     pub invocation: Option<ActionInvocation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accessibility_tree: Option<AccessibilityNode>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub interaction_changes: Vec<InteractionChange>,
 }
 
 impl UiFrame {
@@ -226,10 +231,13 @@ impl HostEvent {
         &self,
         runtime: &mut GuiRuntime<H>,
     ) -> GuiResult<HostEventResponse> {
+        let interaction_start = runtime.interactions().changes().len();
         let invocation = runtime.dispatch_native_event(self.event.clone())?;
+        let interaction_changes = runtime.interactions().changes()[interaction_start..].to_vec();
         Ok(HostEventResponse {
             frame_id: self.frame_id.clone(),
             invocation,
+            interaction_changes,
         })
     }
 
@@ -237,12 +245,15 @@ impl HostEvent {
         &self,
         runtime: &mut GuiRuntime<H>,
     ) -> GuiResult<NativeHostEventResponse> {
+        let interaction_start = runtime.interactions().changes().len();
         let invocation = runtime.handle_native_event(self.event.clone())?;
+        let interaction_changes = runtime.interactions().changes()[interaction_start..].to_vec();
         let accessibility_tree = runtime.accessibility_tree();
         Ok(NativeHostEventResponse {
             frame_id: self.frame_id.clone(),
             invocation,
             accessibility_tree,
+            interaction_changes,
         })
     }
 }
@@ -481,6 +492,9 @@ mod tests {
         assert_eq!(accessibility.node, Some(rendered.root));
         assert!(accessibility.focused);
         assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
+        assert_eq!(response.interaction_changes.len(), 1);
+        assert_eq!(response.interaction_changes[0].node, rendered.root);
+        assert!(response.interaction_changes[0].after.focused);
     }
 
     #[test]
@@ -544,5 +558,11 @@ mod tests {
         let legacy_response: NativeRenderResponse =
             serde_json::from_str(r#"{"frameId":"legacy","root":1,"commands":[]}"#).unwrap();
         assert!(legacy_response.accessibility_tree.is_none());
+
+        let legacy_event_response: NativeHostEventResponse =
+            serde_json::from_str(r#"{"frameId":"legacy"}"#).unwrap();
+        assert!(legacy_event_response.invocation.is_none());
+        assert!(legacy_event_response.accessibility_tree.is_none());
+        assert!(legacy_event_response.interaction_changes.is_empty());
     }
 }
