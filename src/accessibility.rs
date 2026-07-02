@@ -396,6 +396,8 @@ pub struct AccessibilityNode {
     pub required: bool,
     pub invalid: bool,
     #[serde(default)]
+    pub read_only: bool,
+    #[serde(default)]
     pub multiple: bool,
     pub focused: bool,
     pub selected: bool,
@@ -422,6 +424,7 @@ impl AccessibilityNode {
             disabled: element.props.disabled,
             required: element.props.required,
             invalid: element.props.invalid,
+            read_only: element.props.read_only,
             multiple: element.props.multiple,
             focused: false,
             selected: element.props.selected,
@@ -567,7 +570,7 @@ mod tests {
     use crate::native::{NativeElement, NativeProps, NativeRole};
 
     #[test]
-    fn accessibility_node_defaults_missing_multiple_to_false() {
+    fn accessibility_node_defaults_missing_state_flags_to_false() {
         let node: AccessibilityNode = serde_json::from_str(
             r#"
             {
@@ -591,16 +594,18 @@ mod tests {
         )
         .unwrap();
 
+        assert!(!node.read_only);
         assert!(!node.multiple);
     }
 
     #[test]
-    fn accessibility_node_projects_multiple_from_native_props() {
+    fn accessibility_node_projects_control_state_from_native_props() {
         let element = NativeElement::new("projects", NativeRole::ListBox)
-            .with_props(NativeProps::new().multiple(true));
+            .with_props(NativeProps::new().read_only(true).multiple(true));
 
         let node = AccessibilityNode::from_native(&element);
 
+        assert!(node.read_only);
         assert!(node.multiple);
     }
 }

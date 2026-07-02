@@ -389,6 +389,7 @@ mod tests {
                 "key": "save",
                 "tag": "Button",
                 "props": {
+                  "isReadOnly": true,
                   "attributes": {
                     "aria-label": "Save profile",
                     "aria-describedby": "save-help",
@@ -409,6 +410,7 @@ mod tests {
         assert_eq!(accessibility.node, Some(response.root));
         assert_eq!(accessibility.role, AccessibilityRole::Button);
         assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
+        assert!(accessibility.read_only);
         assert!(!accessibility.focused);
         assert_eq!(
             accessibility.relationships.described_by.as_deref(),
@@ -424,6 +426,7 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains(r#""accessibilityTree""#));
         assert!(json.contains(r#""role":"button""#));
+        assert!(json.contains(r#""readOnly":true"#));
     }
 
     #[test]

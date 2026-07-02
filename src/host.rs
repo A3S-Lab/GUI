@@ -127,6 +127,7 @@ impl HeadlessHost {
             disabled: node.props.disabled,
             required: node.props.required,
             invalid: node.props.invalid,
+            read_only: node.props.read_only,
             multiple: node.props.multiple,
             focused: false,
             selected: node.props.selected,

@@ -177,6 +177,7 @@ export interface AccessibilityNode {
   disabled: boolean;
   required: boolean;
   invalid: boolean;
+  readOnly: boolean;
   multiple: boolean;
   focused: boolean;
   selected: boolean;

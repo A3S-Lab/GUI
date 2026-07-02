@@ -242,7 +242,8 @@ to the JavaScript state bridge. Hosts that implement `AccessibilityTreeHost`
 can expose the rendered tree through `GuiRuntime::accessibility_tree()` for
 tests, protocol inspection, and native accessibility integration. Runtime export
 overlays interaction state, so changed values, checked state, selection, focus,
-multiple-selection mode, and host node ids are visible to protocol consumers.
+read-only state, multiple-selection mode, and host node ids are visible to
+protocol consumers.
 Disabled target widgets suppress user activation, value, selection, toggle, and
 keyboard events before interaction state or action routing, while focus and blur
 events can still update inspection state when a host reports them.
