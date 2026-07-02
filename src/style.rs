@@ -10,6 +10,7 @@ pub struct PortableStyle {
     pub declarations: BTreeMap<String, String>,
     pub custom_properties: BTreeMap<String, String>,
     pub variant_declarations: BTreeMap<String, BTreeMap<String, String>>,
+    pub all: Option<String>,
     pub display: Option<DisplayMode>,
     pub box_sizing: Option<BoxSizing>,
     pub box_decoration_break: Option<BoxDecorationBreak>,
@@ -477,6 +478,7 @@ impl PortableStyle {
             return;
         }
         match property.as_str() {
+            "all" => self.all = parse_css_string_token(value_ref),
             "display" => self.display = parse_display(value_ref),
             "box-sizing" => self.box_sizing = parse_box_sizing(value_ref),
             "box-decoration-break" => {
@@ -9211,6 +9213,41 @@ mod tests {
                 .and_then(|styles| styles.get("space-x"))
                 .map(String::as_str),
             Some("var(--cluster-gap)")
+        );
+    }
+
+    #[test]
+    fn parses_css_cascade_global_reset_property() {
+        let web = WebProps::new().style("all", "revert-layer");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.all.as_deref(), Some("revert-layer"));
+        assert_eq!(
+            style.declarations.get("all").map(String::as_str),
+            Some("revert-layer")
+        );
+        assert!(!style.unsupported.contains_key("all"));
+    }
+
+    #[test]
+    fn parses_tailwind_cascade_global_reset_property() {
+        let web = WebProps::new().class_name("[all:unset] hover:[all:revert-layer]");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.all.as_deref(), Some("unset"));
+        assert_eq!(
+            style.declarations.get("all").map(String::as_str),
+            Some("unset")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("all"))
+                .map(String::as_str),
+            Some("revert-layer")
         );
     }
 

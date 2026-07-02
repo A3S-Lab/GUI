@@ -43,8 +43,9 @@ It normalizes property names into a declaration map, preserves CSS custom
 properties separately, and projects supported declarations into native style
 tokens. The current portable token set includes the CSS display mode family,
 including internal table and ruby display modes,
-position, physical and logical inset, z-index, visibility, box sizing, box
-decoration break, CSS Anchor Positioning metadata, isolation, mix blend mode,
+CSS cascade reset metadata, position, physical and logical inset, z-index,
+visibility, box sizing, box decoration break, CSS Anchor Positioning metadata,
+isolation, mix blend mode,
 float, clear, vertical alignment, table layout, border collapse/spacing,
 caption side, empty cells, flex direction/wrap/item
 sizing/grow/shrink/order, reading flow/order metadata, alignment,
@@ -165,6 +166,7 @@ properties, `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowr
 Arbitrary property utilities for CSS writing modes, CSS Anchor Positioning
 properties such as `anchor-name` and `position-area`, and `ltr:`/`rtl:`
 variants are preserved in the same declaration model.
+Arbitrary `all` properties are projected as CSS cascade reset metadata.
 Background, object, list, columns, and fragmentation utilities such as `bg-*`,
 `object-*`, `list-*`, `list-image-*`, `columns-*`, `break-before-*`,
 `break-after-*`, and `break-inside-*`, plus arbitrary CSS image and shape

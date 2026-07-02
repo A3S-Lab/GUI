@@ -357,6 +357,7 @@ dispatch logic, while backend-local menu details stay in focused modules.
 CSS declarations and projects the subset that native adapters can apply
 deterministically:
 
+- `all`
 - `display`, including inline, block, flow-root, contents, list-item, flex,
   grid, table, and ruby display modes
 - `boxSizing`, `boxDecorationBreak`, `isolation`, `mixBlendMode`
@@ -527,6 +528,7 @@ properties, `truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`
 CSS writing-mode arbitrary property utilities, CSS Anchor Positioning arbitrary
 properties such as `anchor-name` and `position-area`, and `ltr:`/`rtl:`
 variants are stored in the same declaration model.
+Arbitrary `all` properties project into cascade reset metadata.
 Common Tailwind background, object, list, columns, and fragmentation utilities
 such as `bg-*`, `object-*`, `list-*`, `list-image-*`, `columns-*`,
 `break-before-*`, `break-after-*`, and `break-inside-*`, plus arbitrary CSS
