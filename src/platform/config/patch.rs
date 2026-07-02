@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::accessibility::AccessibilityRole;
 use crate::geometry::Orientation;
-use crate::html::{HtmlCollectionProps, HtmlResourcePolicyProps};
+use crate::html::{HtmlCollectionProps, HtmlFormAssociationProps, HtmlResourcePolicyProps};
 use crate::native::NativeRole;
 use crate::platform::types::NativeBackendKind;
 use crate::style::PortableStyle;
@@ -104,6 +104,7 @@ pub struct NativeWidgetConfigPatch {
     pub form_target: Option<NativeConfigValueChange<Option<String>>>,
     pub form_no_validate: Option<NativeConfigValueChange<bool>>,
     pub html_resource_policy: Option<NativeConfigValueChange<HtmlResourcePolicyProps>>,
+    pub html_form_association: Option<NativeConfigValueChange<HtmlFormAssociationProps>>,
     pub html_collection: Option<NativeConfigValueChange<HtmlCollectionProps>>,
     pub web_style: Option<NativeConfigValueChange<BTreeMap<String, String>>>,
     pub portable_style: Option<NativeConfigValueChange<PortableStyle>>,
@@ -199,6 +200,10 @@ impl NativeWidgetConfigPatch {
             html_resource_policy: diff_value(
                 &before.html_resource_policy,
                 &after.html_resource_policy,
+            ),
+            html_form_association: diff_value(
+                &before.html_form_association,
+                &after.html_form_association,
             ),
             html_collection: diff_value(&before.html_collection, &after.html_collection),
             web_style: diff_value(&before.web_style, &after.web_style),
@@ -461,6 +466,11 @@ impl NativeWidgetConfigPatch {
             &mut setters,
             &self.html_resource_policy,
             NativeWidgetSetter::SetHtmlResourcePolicy,
+        );
+        push_setter(
+            &mut setters,
+            &self.html_form_association,
+            NativeWidgetSetter::SetHtmlFormAssociation,
         );
         push_setter(
             &mut setters,

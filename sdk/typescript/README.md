@@ -51,8 +51,9 @@ global and form-control props such as `title`, `hidden`, `lang`, `dir`,
 `reversed`, list `type`, `li value`, `download`, `ping`, `rel`, `hrefLang`,
 link `as`, `integrity`, `blocking`, `nonce`, `imageSrcSet`, `imageSizes`,
 script `async`, `defer`, `noModule`, iframe `allow`, `allowFullScreen`,
-`sandbox`, and `srcDoc` are preserved with their Web JSX names and projected by
-the Rust bridge into native control and resource policy hints.
+`sandbox`, `srcDoc`, label `htmlFor`, output `for`, and meter `low`, `high`,
+and `optimum` are preserved with their Web JSX names and projected by the Rust
+bridge into native control, form association, and resource policy hints.
 Marker
 exports include form and selection components such as `RadioGroup`, `Radio`,
 `Select`, `ListBoxItem`, `Dialog`, `Popover`, `Tabs`, `TabList`, `Tab`,

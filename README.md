@@ -38,8 +38,9 @@ by platform under `src/appkit_native/`, `src/gtk4_native/`, and
 `src/winui_native/`. HTML prop lowering is split under `src/compiler/props/`
 by shared attribute parsing, control/form aliases, global attributes,
 resource/media aliases, resource policy aliases, semantic state aliases,
-table/list structure aliases, and tag-specific native state rules. Shared
-resource policy and table/list hints live in `HtmlResourcePolicyProps` and
+form association aliases, table/list structure aliases, and tag-specific native
+state rules. Shared resource policy, form association, and table/list hints
+live in `HtmlResourcePolicyProps`, `HtmlFormAssociationProps`, and
 `HtmlCollectionProps` under `src/html/`; native and React Aria builder methods
 for those grouped hints are split into dedicated submodules.
 
@@ -83,6 +84,10 @@ Form submission and media hints such as `name`, `form`, `type`, `accept`,
 `formenctype`/`formEncType`, `formmethod`/`formMethod`, `formtarget`/
 `formTarget`, and `formnovalidate`/`formNoValidate` are projected into native
 control-state fields when they apply to the associated HTML form or control tag.
+Form association and range metadata such as label `for`/`htmlFor`, output
+`for`/`htmlFor`, and meter `low`, `high`, and `optimum` are projected into a
+structured `HtmlFormAssociationProps` value for native accessibility and range
+adapters.
 Media and resource attributes such as `href`, `srcset`/`srcSet`, `sizes`,
 `media`, resource `type`, intrinsic `width`/`height`, `loading`, `decoding`,
 `fetchpriority`/`fetchPriority`, `crossorigin`/`crossOrigin`,

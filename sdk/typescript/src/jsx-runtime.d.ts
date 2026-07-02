@@ -25,6 +25,8 @@ export interface WebCompatibleProps {
   inert?: boolean | string;
   popover?: boolean | 'auto' | 'manual' | string;
   name?: string;
+  htmlFor?: string;
+  'for'?: string;
   href?: string;
   src?: string;
   srcSet?: string;
@@ -148,6 +150,9 @@ export interface WebCompatibleProps {
   min?: number | string;
   max?: number | string;
   step?: number | string;
+  low?: number | string;
+  high?: number | string;
+  optimum?: number | string;
   minValue?: number;
   maxValue?: number;
   valueNumber?: number;

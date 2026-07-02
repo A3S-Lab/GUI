@@ -156,7 +156,10 @@ related resource tags. Resource policy attributes including anchor and area
 `nomodule`/`noModule`, iframe `name`, `allow`,
 `allowfullscreen`/`allowFullScreen`, `sandbox`, and `srcdoc`/`srcDoc` project
 into a structured `HtmlResourcePolicyProps` value for native resource loading,
-navigation, and embedding adapters. HTML `option` and `data` `value`
+navigation, and embedding adapters. Form association and range metadata such as
+label `for`/`htmlFor`, output `for`/`htmlFor`, and meter `low`, `high`, and
+`optimum` project into a structured `HtmlFormAssociationProps` value for native
+accessibility and range adapters. HTML `option` and `data` `value`
 attributes project into native value state. Table and list structure attributes including
 `colspan`/`colSpan`, `rowspan`/`rowSpan`, `headers`, `scope`, `abbr`, `span`,
 `start`, `reversed`, list `type`, and list item `value` project into native
@@ -164,10 +167,11 @@ fields for table cells, columns, column groups, ordered lists, and list items.
 The HTML prop lowering implementation is split under `src/compiler/props/` into
 shared attribute parsing, control/form aliases, global attributes,
 resource/media aliases, resource policy aliases, semantic state aliases,
-table/list structure aliases, and tag-specific native state rules. Shared
-resource policy and table/list hints are represented by `HtmlResourcePolicyProps`
-and `HtmlCollectionProps` under `src/html/`; native and React Aria builder
-methods for those grouped hints are split into dedicated submodules.
+form association aliases, table/list structure aliases, and tag-specific native
+state rules. Shared resource policy, form association, and table/list hints are
+represented by `HtmlResourcePolicyProps`, `HtmlFormAssociationProps`, and
+`HtmlCollectionProps` under `src/html/`; native and React Aria builder methods
+for those grouped hints are split into dedicated submodules.
 Generic HTML containers lower to `NativeRole::View`; unsupported custom elements
 with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering

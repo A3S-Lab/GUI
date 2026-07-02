@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::accessibility::AccessibilityRole;
 use crate::geometry::Orientation;
-use crate::html::{HtmlCollectionProps, HtmlResourcePolicyProps};
+use crate::html::{HtmlCollectionProps, HtmlFormAssociationProps, HtmlResourcePolicyProps};
 use crate::native::NativeRole;
 use crate::style::{DisplayMode, PortableStyle};
 
@@ -102,6 +102,7 @@ pub struct NativeWidgetConfig {
     pub form_target: Option<String>,
     pub form_no_validate: bool,
     pub html_resource_policy: HtmlResourcePolicyProps,
+    pub html_form_association: HtmlFormAssociationProps,
     pub html_collection: HtmlCollectionProps,
     pub web_style: BTreeMap<String, String>,
     pub portable_style: PortableStyle,
@@ -196,6 +197,7 @@ impl NativeWidgetConfig {
             form_target: state.form_target.clone(),
             form_no_validate: state.form_no_validate,
             html_resource_policy: state.html_resource_policy.clone(),
+            html_form_association: state.html_form_association.clone(),
             html_collection: state.html_collection.clone(),
             web_style: blueprint.style.clone(),
             portable_style: blueprint.portable_style.clone(),
@@ -290,6 +292,7 @@ impl NativeWidgetConfig {
             NativeWidgetSetter::SetFormTarget(self.form_target.clone()),
             NativeWidgetSetter::SetFormNoValidate(self.form_no_validate),
             NativeWidgetSetter::SetHtmlResourcePolicy(self.html_resource_policy.clone()),
+            NativeWidgetSetter::SetHtmlFormAssociation(self.html_form_association.clone()),
             NativeWidgetSetter::SetHtmlCollection(self.html_collection.clone()),
             NativeWidgetSetter::SetWebStyle(self.web_style.clone()),
             NativeWidgetSetter::SetPortableStyle(self.portable_style.clone()),

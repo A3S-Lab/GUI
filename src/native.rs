@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
 use crate::geometry::Orientation;
-use crate::html::{HtmlCollectionProps, HtmlResourcePolicyProps};
+use crate::html::{HtmlCollectionProps, HtmlFormAssociationProps, HtmlResourcePolicyProps};
 use crate::web::WebProps;
 use serde::{Deserialize, Serialize};
 
 mod html_collection;
+mod html_form_association;
 mod html_resource_policy;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -238,6 +239,7 @@ pub struct NativeProps {
     pub form_target: Option<String>,
     pub form_no_validate: bool,
     pub html_resource_policy: HtmlResourcePolicyProps,
+    pub html_form_association: HtmlFormAssociationProps,
     pub html_collection: HtmlCollectionProps,
     pub web: WebProps,
     pub metadata: BTreeMap<String, String>,
@@ -323,6 +325,7 @@ impl Default for NativeProps {
             form_target: None,
             form_no_validate: false,
             html_resource_policy: HtmlResourcePolicyProps::default(),
+            html_form_association: HtmlFormAssociationProps::default(),
             html_collection: HtmlCollectionProps::default(),
             web: WebProps::default(),
             metadata: BTreeMap::new(),

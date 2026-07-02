@@ -605,6 +605,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             | NativeWidgetSetter::SetFormTarget(_)
             | NativeWidgetSetter::SetFormNoValidate(_)
             | NativeWidgetSetter::SetHtmlResourcePolicy(_)
+            | NativeWidgetSetter::SetHtmlFormAssociation(_)
             | NativeWidgetSetter::SetHtmlCollection(_)
             | NativeWidgetSetter::SetWebStyle(_)
             | NativeWidgetSetter::SetEvents(_)

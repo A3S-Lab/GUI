@@ -343,6 +343,34 @@ test('intrinsic table and list attributes preserve Web JSX names', () => {
   assert.equal(list.children[0].props.attributes.type, 'i');
 });
 
+test('intrinsic form association and meter attributes preserve Web JSX names', () => {
+  const label = jsx('label', {
+    htmlFor: 'email',
+    children: 'Email',
+  }, 'email-label');
+  const output = jsx('output', {
+    for: 'price quantity',
+    children: '$24',
+  }, 'price-output');
+  const meter = jsx('meter', {
+    value: 73,
+    min: 0,
+    max: 100,
+    low: 25,
+    high: 90,
+    optimum: 75,
+  }, 'quota');
+
+  assert.equal(label.props.attributes.htmlFor, 'email');
+  assert.equal(output.props.attributes.for, 'price quantity');
+  assert.equal(meter.props.valueNumber, 73);
+  assert.equal(meter.props.minValue, 0);
+  assert.equal(meter.props.maxValue, 100);
+  assert.equal(meter.props.attributes.low, '25');
+  assert.equal(meter.props.attributes.high, '90');
+  assert.equal(meter.props.attributes.optimum, '75');
+});
+
 test('CSS text parser preserves delimiters inside functions and strings', () => {
   const root = jsxs('div', {
     style: `

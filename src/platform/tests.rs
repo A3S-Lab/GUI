@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use crate::accessibility::AccessibilityRole;
 use crate::geometry::Orientation;
 use crate::host::HostNodeId;
-use crate::html::{HtmlCollectionProps, HtmlResourcePolicyProps};
+use crate::html::{HtmlCollectionProps, HtmlFormAssociationProps, HtmlResourcePolicyProps};
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::renderer::Renderer;
 use crate::web::WebProps;
@@ -535,6 +535,28 @@ fn widget_config_preserves_html_collection_hints() {
 }
 
 #[test]
+fn widget_config_preserves_html_form_association_hints() {
+    let form_association = HtmlFormAssociationProps::default()
+        .label_for("email")
+        .output_for("price quantity")
+        .meter_low(Some(25.0))
+        .meter_high(Some(90.0))
+        .meter_optimum(Some(75.0));
+    let element = NativeElement::new("quota", NativeRole::Meter)
+        .with_props(NativeProps::new().html_form_association(form_association.clone()));
+
+    let config = Gtk4Adapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert_eq!(config.html_form_association, form_association);
+    assert!(
+        setters.contains(&NativeWidgetSetter::SetHtmlFormAssociation(
+            form_association
+        ))
+    );
+}
+
+#[test]
 fn widget_config_preserves_html_resource_policy_hints() {
     let resource_policy = HtmlResourcePolicyProps::default()
         .target("_blank")
@@ -713,7 +735,12 @@ fn widget_setters_replay_into_native_config() {
                     .label("Muted")
                     .disabled(true)
                     .range(Some(0.0), Some(100.0), Some(0.0))
-                    .step(Some(10.0)),
+                    .step(Some(10.0))
+                    .html_form_association(
+                        HtmlFormAssociationProps::default()
+                            .meter_low(Some(25.0))
+                            .meter_high(Some(90.0)),
+                    ),
             ),
         )
         .config();
@@ -725,6 +752,8 @@ fn widget_setters_replay_into_native_config() {
     assert!(!replayed.enabled);
     assert_eq!(replayed.current, Some(0.0));
     assert_eq!(replayed.step, Some(10.0));
+    assert_eq!(replayed.html_form_association.meter_low, Some(25.0));
+    assert_eq!(replayed.html_form_association.meter_high, Some(90.0));
     assert_eq!(replayed, after);
 }
 

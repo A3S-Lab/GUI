@@ -3,10 +3,12 @@ use std::collections::BTreeMap;
 use crate::react_aria::AriaComponent;
 
 mod collections;
+mod form_association;
 mod registry;
 mod resource_policy;
 
 pub use collections::HtmlCollectionProps;
+pub use form_association::HtmlFormAssociationProps;
 pub use registry::{HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS};
 pub use resource_policy::HtmlResourcePolicyProps;
 

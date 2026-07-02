@@ -1,5 +1,6 @@
 mod core;
 mod html_collections;
+mod html_form_association;
 mod html_forms;
 mod html_global;
 mod html_resource_policy;

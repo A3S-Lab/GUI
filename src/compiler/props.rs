@@ -8,6 +8,7 @@ use super::{CompiledJsxNode, CompiledOrientation, CompiledProps};
 
 mod attributes;
 mod controls;
+mod form_association;
 mod global;
 mod resource_policy;
 mod resources;
@@ -16,6 +17,7 @@ mod states;
 mod structure;
 
 use controls::HtmlControlAliases;
+use form_association::html_form_association_props_from_tag;
 use global::HtmlGlobalAliases;
 use resource_policy::html_resource_policy_props_from_tag;
 use resources::HtmlResourceAliases;
@@ -72,6 +74,7 @@ impl CompiledProps {
         let html_global = HtmlGlobalAliases::from_web(&web);
         let html_resource = HtmlResourceAliases::from_tag(tag, &web);
         let html_resource_policy = html_resource_policy_props_from_tag(tag, &web);
+        let html_form_association = html_form_association_props_from_tag(tag, &web);
         let html_collection = html_collection_props_from_tag(tag, &web, self.value.as_deref());
         let semantic = WebSemanticAliases::from_web(&web);
 
@@ -165,6 +168,7 @@ impl CompiledProps {
         props.form_target = html_control.form_target;
         props.form_no_validate = html_control.form_no_validate;
         props.html_resource_policy = html_resource_policy;
+        props.html_form_association = html_form_association;
         props.html_collection = html_collection;
         props
     }

@@ -687,6 +687,7 @@ fn native_props_from_aria(props: &AriaProps, label: Option<String>) -> NativePro
     native.form_target = props.form_target.clone();
     native.form_no_validate = props.form_no_validate;
     native.html_resource_policy = props.html_resource_policy.clone();
+    native.html_form_association = props.html_form_association.clone();
     native.html_collection = props.html_collection.clone();
     native.metadata = props.web.metadata();
     native.web = props.web.clone();
