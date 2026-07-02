@@ -35,6 +35,7 @@ struct SurfaceHandle {
 struct ThreadBoundHandleAdapter {
     calls: Rc<RefCell<Vec<String>>>,
     fail_removes: bool,
+    fail_remove_id: Option<HostNodeId>,
 }
 
 #[derive(Debug, Default)]
@@ -255,7 +256,7 @@ impl NativeHandleAdapter for ThreadBoundHandleAdapter {
     }
 
     fn remove_handle(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
-        if self.fail_removes {
+        if self.fail_removes || self.fail_remove_id == Some(id) {
             self.calls.borrow_mut().push(format!(
                 "remove:{}:{}:failed",
                 id.get(),
@@ -674,7 +675,68 @@ fn handle_widget_driver_remove_deletes_entire_subtree() {
             "insert:1:gtk::Box:2:gtk::Box:0",
             "insert:2:gtk::Box:3:gtk::Button:0",
             "root:1:gtk::Box",
+            "remove:3:gtk::Button",
+            "remove:2:gtk::Box",
             "remove:1:gtk::Box",
+        ]
+    );
+}
+
+#[test]
+fn handle_widget_driver_preserves_state_when_descendant_remove_fails() {
+    let child = HostNodeId::new(2);
+    let adapter = ThreadBoundHandleAdapter {
+        fail_remove_id: Some(child),
+        ..Default::default()
+    };
+    let calls = adapter.calls.clone();
+    let driver = HandleWidgetDriver::new(adapter);
+    let mut executor = DriverCommandExecutor::new(driver);
+    let root = HostNodeId::new(1);
+    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
+
+    executor
+        .execute(&PlatformCommand::Create {
+            id: root,
+            blueprint: container.clone(),
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: child,
+            blueprint: container,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: root,
+            child,
+            index: 0,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::SetRoot { id: root })
+        .unwrap();
+    let command_count = executor.commands().len();
+
+    let error = executor
+        .execute(&PlatformCommand::Remove { id: root })
+        .unwrap_err();
+
+    assert!(error.to_string().contains("forced handle remove failure"));
+    assert_eq!(executor.commands().len(), command_count);
+    assert_eq!(executor.driver().root(), Some(root));
+    assert!(executor.driver().handle(root).is_some());
+    assert!(executor.driver().handle(child).is_some());
+    assert_eq!(executor.driver().children(root), Some([child].as_slice()));
+    assert_eq!(
+        calls.borrow().as_slice(),
+        [
+            "create:1:gtk::Box",
+            "create:2:gtk::Box",
+            "insert:1:gtk::Box:2:gtk::Box:0",
+            "root:1:gtk::Box",
+            "remove:2:gtk::Box:failed",
         ]
     );
 }

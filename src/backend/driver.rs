@@ -107,20 +107,28 @@ impl<A: NativeHandleAdapter> HandleWidgetDriver<A> {
         false
     }
 
-    fn subtree_ids(&self, root: HostNodeId) -> BTreeSet<HostNodeId> {
-        let mut ids = BTreeSet::new();
-        let mut stack = vec![root];
-
-        while let Some(id) = stack.pop() {
-            if !ids.insert(id) {
-                continue;
+    fn subtree_postorder(&self, root: HostNodeId) -> Vec<HostNodeId> {
+        fn visit(
+            driver_children: &BTreeMap<HostNodeId, Vec<HostNodeId>>,
+            id: HostNodeId,
+            visited: &mut BTreeSet<HostNodeId>,
+            ordered: &mut Vec<HostNodeId>,
+        ) {
+            if !visited.insert(id) {
+                return;
             }
-            if let Some(children) = self.children.get(&id) {
-                stack.extend(children.iter().copied());
+            if let Some(children) = driver_children.get(&id) {
+                for child in children {
+                    visit(driver_children, *child, visited, ordered);
+                }
             }
+            ordered.push(id);
         }
 
-        ids
+        let mut visited = BTreeSet::new();
+        let mut ordered = Vec::new();
+        visit(&self.children, root, &mut visited, &mut ordered);
+        ordered
     }
 }
 
@@ -224,9 +232,12 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
     }
 
     fn remove_widget(&mut self, id: HostNodeId) -> GuiResult<()> {
-        let handle = self.cloned_handle(id)?;
-        let removed_ids = self.subtree_ids(id);
-        self.adapter.remove_handle(id, handle)?;
+        let removed = self.subtree_postorder(id);
+        for removed_id in &removed {
+            let handle = self.cloned_handle(*removed_id)?;
+            self.adapter.remove_handle(*removed_id, handle)?;
+        }
+        let removed_ids = removed.into_iter().collect::<BTreeSet<_>>();
         for children in self.children.values_mut() {
             children.retain(|child| !removed_ids.contains(child));
         }
