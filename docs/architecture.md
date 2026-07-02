@@ -432,9 +432,9 @@ The included `RecordingBackend` applies commands to a pure Rust object tree.
 Feature-gated platform executor surfaces:
 
 - `appkit`: maps classes such as `NSButton`, `NSTextField(input)`,
-  `NSSecureTextField`, and `NSTextField(textarea)` into AppKit object kinds behind
-  `AppKitWidgetDriver` and replays native setter operations through
-  `AppKitHandleAdapter`.
+  `NSSearchField`, `NSSecureTextField`, and `NSTextField(textarea)` into
+  AppKit object kinds behind `AppKitWidgetDriver` and replays native setter
+  operations through `AppKitHandleAdapter`.
 - `appkit-native`: uses `objc2` AppKit bindings on macOS to create real
   `NSWindow`, `NSPanel`, `NSView`, `NSButton`, `NSTextField`, `NSSwitch`, `NSStackView`,
   `NSComboBox`, `NSScrollView`, `NSTabView`, `NSTabViewItem`,
@@ -448,10 +448,10 @@ Feature-gated platform executor surfaces:
   creates in-process AppKit controls directly. `NSButton` controls are
   wired to Objective-C
   target/action callbacks that enqueue `NativeEventKind::Press` records, and
-  editable `NSTextField` controls, including textarea-shaped fields, use an
-  `NSTextFieldDelegate` to apply max-length hints and enqueue focus, change,
-  and blur records, with change events carrying the current native string
-  value. `NSButton(checkbox)` and
+  editable `NSTextField` controls, including native `NSSearchField` search
+  inputs and textarea-shaped fields, use an `NSTextFieldDelegate` to apply
+  max-length hints and enqueue focus, change, and blur records, with change
+  events carrying the current native string value. `NSButton(checkbox)` and
   `NSSwitch` controls apply native
   checked state and enqueue `NativeEventKind::Toggle` records with the current
   boolean value. `RadioGroup` uses native `NSStackView` containers with
@@ -480,6 +480,7 @@ Feature-gated platform executor surfaces:
   These event paths flow through the existing `NativeEventSource` boundary.
 - `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button`,
   `Microsoft.UI.Xaml.Controls.TextBox`,
+  `Microsoft.UI.Xaml.Controls.TextBox(search)`,
   `Microsoft.UI.Xaml.Controls.PasswordBox`, and
   `Microsoft.UI.Xaml.Controls.TextBox(textarea)` into WinUI object kinds behind
   `WinUiWidgetDriver` and replays native setter operations through
@@ -512,16 +513,16 @@ Feature-gated platform executor surfaces:
   surface temporarily backs that state with a WinUI `CheckBox` because the
   generated bindings do not expose `ToggleSwitch` yet.
 - `gtk4`: maps classes such as `gtk::Button`, `gtk::Entry`,
-  `gtk::PasswordEntry`, and `gtk::TextView` into GTK object kinds behind
-  `Gtk4WidgetDriver` and replays native setter operations through
+  `gtk::SearchEntry`, `gtk::PasswordEntry`, and `gtk::TextView` into GTK object
+  kinds behind `Gtk4WidgetDriver` and replays native setter operations through
   `Gtk4HandleAdapter`.
 - `gtk4-native`: uses `gtk4-rs` on Linux to create real
   `gtk::ApplicationWindow`, `gtk::Box`, `gtk::Label`, `gtk::Button`,
-  `gtk::Entry`, `gtk::TextView`, `gtk::CheckButton`, `gtk::Switch`, `gtk::DropDown`,
-  `gtk::ListBox`, `gtk::ListBoxRow`, `gtk::Dialog`, `gtk::Popover`,
-  `gtk::PopoverMenuBar`, `gio::Menu`, `gio::MenuItem`, `gtk::Notebook`,
-  `gtk::Separator`, `gtk::Scale`, and `gtk::ProgressBar`
-  objects through `Gtk4NativeSurface`.
+  `gtk::Entry`, `gtk::SearchEntry`, `gtk::TextView`, `gtk::CheckButton`,
+  `gtk::Switch`, `gtk::DropDown`, `gtk::ListBox`, `gtk::ListBoxRow`,
+  `gtk::Dialog`, `gtk::Popover`, `gtk::PopoverMenuBar`, `gio::Menu`,
+  `gio::MenuItem`, `gtk::Notebook`, `gtk::Separator`, `gtk::Scale`, and
+  `gtk::ProgressBar` objects through `Gtk4NativeSurface`.
   Semantic `Toolbar` trees use native `gtk::Box(toolbar)` containers.
   Semantic `Dialog` trees use native `gtk::Dialog` windows and content areas.
   Semantic `Popover` trees use native `gtk::Popover` overlays with native
@@ -532,10 +533,11 @@ Feature-gated platform executor surfaces:
   Semantic `Tabs`
   trees become native notebook pages with source tab labels, native panel
   widgets, and selection-change events carrying the selected tab value when
-  available. GTK text entries and textarea-shaped `TextView` controls apply
-  placeholder, read-only, max-length, and sizing setters. It is a Linux-only
-  feature so macOS and Windows builds can enable all portable features without
-  linking GTK. Linux builds require GTK4 development libraries and `pkg-config`.
+  available. GTK text entries, search entries, and textarea-shaped `TextView`
+  controls apply placeholder, read-only, max-length, and sizing setters. It is
+  a Linux-only feature so macOS and Windows builds can enable all portable
+  features without linking GTK. Linux builds require GTK4 development libraries
+  and `pkg-config`.
   GTK callbacks enqueue press, text change, focus, blur, toggle, and
   selection-change events through the same `NativeEventSource` and action
   routing path as AppKit.

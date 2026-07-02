@@ -348,7 +348,27 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
             AppKitWidgetKind::TextField => {
                 let value = ns_string(config.value.as_deref().unwrap_or(""));
-                if config_is_password(&config) {
+                if config_is_search(&config) {
+                    let text_field = NSSearchField::new(self.mtm);
+                    text_field.as_super().as_super().setStringValue(&value);
+                    text_field.setSendsSearchStringImmediately(true);
+                    text_field.setSendsWholeSearchString(false);
+                    text_field
+                        .as_super()
+                        .as_super()
+                        .as_super()
+                        .setFrameSize(config_text_input_size(&config));
+                    self.text_inputs
+                        .insert(id, AppKitTextInputSizing::from_config(&config));
+                    let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                    let delegate: &ProtocolObject<dyn NSSearchFieldDelegate> =
+                        ProtocolObject::from_ref(&*target);
+                    unsafe {
+                        text_field.setDelegate(Some(delegate));
+                    }
+                    self.action_targets.insert(id, target);
+                    AppKitOsWidget::SearchField(text_field)
+                } else if config_is_password(&config) {
                     let text_field = NSSecureTextField::new(self.mtm);
                     text_field.as_super().as_super().setStringValue(&value);
                     text_field
@@ -425,6 +445,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     {
                         text_field.as_super().setStringValue(&native_label)
                     }
+                    AppKitOsWidget::SearchField(_) => {}
                     AppKitOsWidget::SecureTextField(_) => {}
                     AppKitOsWidget::TextField(_) => {}
                     AppKitOsWidget::ComboBoxItem(item) => {
@@ -471,6 +492,19 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         );
                     } else if let Some(value) = value.as_deref() {
                         text_field.as_super().setStringValue(&ns_string(value));
+                    }
+                }
+                AppKitOsWidget::SearchField(text_field) => {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        let max_length = self
+                            .action_targets
+                            .get(&id)
+                            .and_then(|target| target.max_length());
+                        set_control_string_value(
+                            text_field.as_super().as_super(),
+                            value.as_deref().unwrap_or(""),
+                            max_length,
+                        );
                     }
                 }
                 AppKitOsWidget::SecureTextField(text_field) => {
@@ -537,7 +571,15 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                             .as_super()
                             .setPlaceholderString(placeholder.as_deref());
                     }
+                    AppKitOsWidget::SearchField(text_field)
+                        if handle.kind == AppKitWidgetKind::TextField =>
+                    {
+                        text_field
+                            .as_super()
+                            .setPlaceholderString(placeholder.as_deref());
+                    }
                     AppKitOsWidget::TextField(_) => {}
+                    AppKitOsWidget::SearchField(_) => {}
                     AppKitOsWidget::SecureTextField(_) => {}
                     AppKitOsWidget::ComboBox(combo_box) => {
                         combo_box
@@ -580,6 +622,11 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     }
                 }
                 if let AppKitOsWidget::SecureTextField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        text_field.as_super().setEditable(!*value);
+                    }
+                }
+                if let AppKitOsWidget::SearchField(text_field) = &handle.widget {
                     if handle.kind == AppKitWidgetKind::TextField {
                         text_field.as_super().setEditable(!*value);
                     }
@@ -645,6 +692,15 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         self.apply_text_input_size(id, text_field.as_super());
                     }
                 }
+                if let AppKitOsWidget::SearchField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        let sizing = self.text_inputs.entry(id).or_default();
+                        sizing.explicit_width = style.width.as_ref().and_then(StyleLength::points);
+                        sizing.explicit_height =
+                            style.height.as_ref().and_then(StyleLength::points);
+                        self.apply_text_input_size(id, text_field.as_super());
+                    }
+                }
             }
             NativeWidgetSetter::SetChecked(value) => match &handle.widget {
                 AppKitOsWidget::Button(button) => {
@@ -671,6 +727,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 | AppKitOsWidget::TabViewItem(_)
                 | AppKitOsWidget::Box(_)
                 | AppKitOsWidget::TextField(_)
+                | AppKitOsWidget::SearchField(_)
                 | AppKitOsWidget::SecureTextField(_) => {}
             },
             NativeWidgetSetter::SetSelected(value) => match &handle.widget {
@@ -740,6 +797,14 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         apply_control_max_length(text_field.as_super().as_super(), *value);
                     }
                 }
+                if let AppKitOsWidget::SearchField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        if let Some(target) = self.action_targets.get(&id) {
+                            target.set_max_length(*value);
+                        }
+                        apply_control_max_length(text_field.as_super().as_super(), *value);
+                    }
+                }
             }
             NativeWidgetSetter::SetCols(value) => {
                 if let AppKitOsWidget::TextField(text_field) = &handle.widget {
@@ -749,6 +814,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     }
                 }
                 if let AppKitOsWidget::SecureTextField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        self.text_inputs.entry(id).or_default().cols = *value;
+                        self.apply_text_input_size(id, text_field.as_super());
+                    }
+                }
+                if let AppKitOsWidget::SearchField(text_field) = &handle.widget {
                     if handle.kind == AppKitWidgetKind::TextField {
                         self.text_inputs.entry(id).or_default().cols = *value;
                         self.apply_text_input_size(id, text_field.as_super());
@@ -768,6 +839,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         self.apply_text_input_size(id, text_field.as_super());
                     }
                 }
+                if let AppKitOsWidget::SearchField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        self.text_inputs.entry(id).or_default().size = *value;
+                        self.apply_text_input_size(id, text_field.as_super());
+                    }
+                }
             }
             NativeWidgetSetter::SetRows(value) => {
                 if let AppKitOsWidget::TextField(text_field) = &handle.widget {
@@ -777,6 +854,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     }
                 }
                 if let AppKitOsWidget::SecureTextField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        self.text_inputs.entry(id).or_default().rows = *value;
+                        self.apply_text_input_size(id, text_field.as_super());
+                    }
+                }
+                if let AppKitOsWidget::SearchField(text_field) = &handle.widget {
                     if handle.kind == AppKitWidgetKind::TextField {
                         self.text_inputs.entry(id).or_default().rows = *value;
                         self.apply_text_input_size(id, text_field.as_super());
@@ -1016,6 +1099,11 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             AppKitOsWidget::TextField(text_field) => {
                 text_field.as_super().as_super().addSubview(child)
             }
+            AppKitOsWidget::SearchField(text_field) => text_field
+                .as_super()
+                .as_super()
+                .as_super()
+                .addSubview(child),
             AppKitOsWidget::SecureTextField(text_field) => text_field
                 .as_super()
                 .as_super()

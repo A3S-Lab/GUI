@@ -63,6 +63,21 @@ fn native_widget_name_for_element(
             .props
             .input_type
             .as_deref()
+            .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("search"))
+    {
+        return match backend {
+            NativeBackendKind::AppKit => "NSSearchField",
+            NativeBackendKind::WinUI => "Microsoft.UI.Xaml.Controls.TextBox(search)",
+            NativeBackendKind::Gtk4 => "gtk::SearchEntry",
+            NativeBackendKind::Headless => "a3s_gui::HeadlessNode",
+        };
+    }
+
+    if element.role == NativeRole::TextField
+        && element
+            .props
+            .input_type
+            .as_deref()
             .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
     {
         return match backend {

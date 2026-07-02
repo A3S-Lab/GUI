@@ -201,6 +201,7 @@ families:
 | `DescriptionTerm` | `NSTextField(description-term)` | `Microsoft.UI.Xaml.Controls.TextBlock(description-term)` | `gtk::Label(description-term)` |
 | `DescriptionDetails` | `NSView(description-details)` | `Microsoft.UI.Xaml.Controls.StackPanel(description-details)` | `gtk::Box(description-details)` |
 | `TextField` / `input` | `NSTextField(input)` | `Microsoft.UI.Xaml.Controls.TextBox` | `gtk::Entry` |
+| `TextField` from `input type="search"` | `NSSearchField` | `Microsoft.UI.Xaml.Controls.TextBox(search)` | `gtk::SearchEntry` |
 | `TextField` from `input type="password"` | `NSSecureTextField` | `Microsoft.UI.Xaml.Controls.PasswordBox` | `gtk::PasswordEntry` |
 | `TextField` from `textarea` | `NSTextField(textarea)` | `Microsoft.UI.Xaml.Controls.TextBox(textarea)` | `gtk::TextView` |
 | `Image` | `NSImageView` | `Microsoft.UI.Xaml.Controls.Image` | `gtk::Picture` |

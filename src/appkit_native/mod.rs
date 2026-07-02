@@ -14,9 +14,9 @@ use objc2_app_kit::{
     NSApplication, NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSButton, NSComboBox,
     NSComboBoxDelegate, NSControl, NSControlStateValue, NSControlStateValueOff,
     NSControlStateValueOn, NSControlTextEditingDelegate, NSMenu, NSMenuItem, NSPanel, NSPopover,
-    NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView,
-    NSSecureTextField, NSSlider, NSStackView, NSStackViewDistribution, NSSwitch, NSTabView,
-    NSTabViewDelegate, NSTabViewItem, NSTextField, NSTextFieldDelegate,
+    NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView, NSSearchField,
+    NSSearchFieldDelegate, NSSecureTextField, NSSlider, NSStackView, NSStackViewDistribution,
+    NSSwitch, NSTabView, NSTabViewDelegate, NSTabViewItem, NSTextField, NSTextFieldDelegate,
     NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{
@@ -377,6 +377,8 @@ define_class!(
 
     unsafe impl NSTextFieldDelegate for AppKitActionTarget {}
 
+    unsafe impl NSSearchFieldDelegate for AppKitActionTarget {}
+
     unsafe impl NSComboBoxDelegate for AppKitActionTarget {
         #[unsafe(method(comboBoxSelectionDidChange:))]
         fn combo_box_selection_did_change(&self, notification: &NSNotification) {
@@ -542,6 +544,7 @@ pub enum AppKitOsWidget {
     TabViewItem(Retained<NSTabViewItem>),
     Box(Retained<NSBox>),
     TextField(Retained<NSTextField>),
+    SearchField(Retained<NSSearchField>),
     SecureTextField(Retained<NSSecureTextField>),
 }
 
@@ -564,6 +567,9 @@ impl AppKitOsWidget {
             AppKitOsWidget::TabView(tab_view) => Some(tab_view.as_super()),
             AppKitOsWidget::Box(box_) => Some(box_.as_super()),
             AppKitOsWidget::TextField(text_field) => Some(text_field.as_super().as_super()),
+            AppKitOsWidget::SearchField(text_field) => {
+                Some(text_field.as_super().as_super().as_super())
+            }
             AppKitOsWidget::SecureTextField(text_field) => {
                 Some(text_field.as_super().as_super().as_super())
             }
@@ -578,6 +584,7 @@ impl AppKitOsWidget {
             AppKitOsWidget::ComboBox(combo_box) => Some(combo_box.as_super().as_super()),
             AppKitOsWidget::Slider(slider) => Some(slider.as_super()),
             AppKitOsWidget::TextField(text_field) => Some(text_field.as_super()),
+            AppKitOsWidget::SearchField(text_field) => Some(text_field.as_super().as_super()),
             AppKitOsWidget::SecureTextField(text_field) => Some(text_field.as_super().as_super()),
             AppKitOsWidget::Window(_)
             | AppKitOsWidget::Panel(_)
@@ -799,6 +806,13 @@ fn config_is_password(config: &NativeWidgetConfig) -> bool {
         .input_type
         .as_deref()
         .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
+}
+
+fn config_is_search(config: &NativeWidgetConfig) -> bool {
+    config
+        .input_type
+        .as_deref()
+        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("search"))
 }
 
 fn apply_progress_range(progress: &NSProgressIndicator, range: AppKitRangeState) {

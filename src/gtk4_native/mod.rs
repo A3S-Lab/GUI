@@ -126,6 +126,18 @@ impl Gtk4NativeSurface {
         entry.set_width_chars(width_chars);
     }
 
+    fn apply_search_entry_width_hint(&self, id: HostNodeId, entry: &gtk::SearchEntry) {
+        let Some(sizing) = self.text_inputs.get(&id).copied() else {
+            return;
+        };
+        let width_chars = if sizing.has_explicit_width {
+            -1
+        } else {
+            sizing.hinted_width_chars().unwrap_or(-1)
+        };
+        entry.set_width_chars(width_chars);
+    }
+
     fn apply_password_entry_width_hint(&self, id: HostNodeId, entry: &gtk::PasswordEntry) {
         let Some(sizing) = self.text_inputs.get(&id).copied() else {
             return;
@@ -603,6 +615,7 @@ pub enum Gtk4OsWidget {
     Label(gtk::Label),
     Button(gtk::Button),
     Entry(gtk::Entry),
+    SearchEntry(gtk::SearchEntry),
     PasswordEntry(gtk::PasswordEntry),
     TextView(gtk::TextView),
     CheckButton(gtk::CheckButton),
@@ -632,6 +645,7 @@ impl Gtk4OsWidget {
             Gtk4OsWidget::Label(label) => Some(label.clone().upcast()),
             Gtk4OsWidget::Button(button) => Some(button.clone().upcast()),
             Gtk4OsWidget::Entry(entry) => Some(entry.clone().upcast()),
+            Gtk4OsWidget::SearchEntry(entry) => Some(entry.clone().upcast()),
             Gtk4OsWidget::PasswordEntry(entry) => Some(entry.clone().upcast()),
             Gtk4OsWidget::TextView(text_view) => Some(text_view.clone().upcast()),
             Gtk4OsWidget::CheckButton(check_button) => Some(check_button.clone().upcast()),
@@ -725,6 +739,13 @@ fn config_is_password(config: &NativeWidgetConfig) -> bool {
         .input_type
         .as_deref()
         .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
+}
+
+fn config_is_search(config: &NativeWidgetConfig) -> bool {
+    config
+        .input_type
+        .as_deref()
+        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("search"))
 }
 
 fn u32_to_i32(value: u32) -> i32 {

@@ -203,6 +203,25 @@ fn password_text_fields_target_secure_native_controls() {
 }
 
 #[test]
+fn search_text_fields_target_native_search_controls() {
+    let element = NativeElement::new("query", NativeRole::TextField)
+        .with_props(NativeProps::new().input_type("search"));
+
+    assert_eq!(
+        AppKitAdapter.blueprint(&element).widget_class,
+        "NSSearchField"
+    );
+    assert_eq!(
+        WinUiAdapter.blueprint(&element).widget_class,
+        "Microsoft.UI.Xaml.Controls.TextBox(search)"
+    );
+    assert_eq!(
+        Gtk4Adapter.blueprint(&element).widget_class,
+        "gtk::SearchEntry"
+    );
+}
+
+#[test]
 fn blueprint_preserves_react_aria_control_state_for_native_adapters() {
     let element = NativeElement::new("volume", NativeRole::Slider).with_props(
         NativeProps::new()

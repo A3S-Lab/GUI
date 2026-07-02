@@ -141,6 +141,7 @@ impl WinUiWidgetKind {
                 Ok(WinUiWidgetKind::Button)
             }
             "Microsoft.UI.Xaml.Controls.TextBox"
+            | "Microsoft.UI.Xaml.Controls.TextBox(search)"
             | "Microsoft.UI.Xaml.Controls.TextBox(textarea)"
             | "Microsoft.UI.Xaml.Controls.PasswordBox" => Ok(WinUiWidgetKind::TextBox),
             "Microsoft.UI.Xaml.Controls.CheckBox" => Ok(WinUiWidgetKind::CheckBox),
