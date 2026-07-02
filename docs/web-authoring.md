@@ -361,7 +361,9 @@ typed events; `GuiRuntime` first updates portable focus/value/selection state in
 `InteractionState`, then `EventRouter` maps the event back to the serialized
 action id and `ActionRegistry` validates that the action exists. Rendering a
 new `UiFrame` replaces the registered action set with that frame's declared
-actions.
+actions. Raw protocol frames may omit `actions`; in that case Rust infers the
+set from compiled event props and `actionLabels`. Explicit `actions`, including
+an empty list, override inference.
 
 ```text
 onPress={saveProfile}

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
@@ -11,7 +13,7 @@ use crate::platform::{BlueprintHost, PlatformAdapter, PlatformCommand, PlatformP
 use crate::runtime::GuiRuntime;
 use crate::web::WebProps;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UiFrame {
     pub frame_id: String,
@@ -20,6 +22,35 @@ pub struct UiFrame {
     pub actions: Vec<UiAction>,
     #[serde(default)]
     pub window: Option<WindowOptions>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UiFrameWire {
+    frame_id: String,
+    root: CompiledJsxNode,
+    #[serde(default)]
+    actions: Option<Vec<UiAction>>,
+    #[serde(default)]
+    window: Option<WindowOptions>,
+}
+
+impl<'de> Deserialize<'de> for UiFrame {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = UiFrameWire::deserialize(deserializer)?;
+        let actions = wire
+            .actions
+            .unwrap_or_else(|| collect_actions_from_node(&wire.root));
+        Ok(Self {
+            frame_id: wire.frame_id,
+            root: wire.root,
+            actions,
+            window: wire.window,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -139,6 +170,51 @@ impl WindowOptions {
 
 fn default_true() -> bool {
     true
+}
+
+fn collect_actions_from_node(root: &CompiledJsxNode) -> Vec<UiAction> {
+    let mut actions = Vec::new();
+    let mut indexes = BTreeMap::new();
+    collect_actions_into(root, &mut actions, &mut indexes);
+    actions
+}
+
+fn collect_actions_into(
+    node: &CompiledJsxNode,
+    actions: &mut Vec<UiAction>,
+    indexes: &mut BTreeMap<String, usize>,
+) {
+    let CompiledJsxNode::Element {
+        props, children, ..
+    } = node
+    else {
+        return;
+    };
+
+    for id in props.events.values().filter(|id| !id.is_empty()) {
+        let label = props
+            .action_labels
+            .get(id)
+            .filter(|label| !label.is_empty())
+            .cloned();
+        match indexes.get(id).copied() {
+            Some(index) if actions[index].label.is_none() && label.is_some() => {
+                actions[index].label = label;
+            }
+            Some(_) => {}
+            None => {
+                indexes.insert(id.clone(), actions.len());
+                actions.push(UiAction {
+                    id: id.clone(),
+                    label,
+                });
+            }
+        }
+    }
+
+    for child in children {
+        collect_actions_into(child, actions, indexes);
+    }
 }
 
 #[derive(Debug)]
@@ -594,6 +670,116 @@ mod tests {
     }
 
     #[test]
+    fn ui_frame_infers_actions_from_compiled_event_props_when_actions_are_omitted() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "toolbar",
+                "tag": "Toolbar",
+                "children": [
+                  {
+                    "kind": "element",
+                    "key": "save",
+                    "tag": "Button",
+                    "props": {"events": {"onPress": "saveProfile"}},
+                    "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+                  },
+                  {
+                    "kind": "element",
+                    "key": "save-labeled",
+                    "tag": "Button",
+                    "props": {
+                      "events": {"onClick": "saveProfile"},
+                      "actionLabels": {"saveProfile": "Save profile"}
+                    },
+                    "children": [{"kind": "text", "key": "save-labeled-text", "value": "Save labeled"}]
+                  },
+                  {
+                    "kind": "element",
+                    "key": "query",
+                    "tag": "Input",
+                    "props": {
+                      "events": {"onKeyDown": "handleSearchKey"},
+                      "actionLabels": {"handleSearchKey": "Handle search key"}
+                    }
+                  }
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let rendered = session.render_frame(&frame).unwrap();
+        let toolbar = session.runtime().host().node(rendered.root).unwrap();
+        let save = toolbar.children[0];
+        let response = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(save, NativeEventKind::Press),
+            })
+            .unwrap();
+
+        assert_eq!(
+            frame.actions,
+            vec![
+                UiAction {
+                    id: "saveProfile".to_string(),
+                    label: Some("Save profile".to_string()),
+                },
+                UiAction {
+                    id: "handleSearchKey".to_string(),
+                    label: Some("Handle search key".to_string()),
+                },
+            ]
+        );
+        assert_eq!(response.invocation.action, "saveProfile");
+        assert_eq!(
+            session
+                .runtime()
+                .actions()
+                .registered("saveProfile")
+                .and_then(|action| action.label.as_deref()),
+            Some("Save profile")
+        );
+    }
+
+    #[test]
+    fn explicit_ui_frame_actions_override_compiled_event_inference() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "explicitAction", "label": "Explicit action"}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {
+                  "events": {"onPress": "saveProfile"},
+                  "actionLabels": {"saveProfile": "Save profile"}
+                },
+                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            frame.actions,
+            vec![UiAction {
+                id: "explicitAction".to_string(),
+                label: Some("Explicit action".to_string()),
+            }]
+        );
+    }
+
+    #[test]
     fn native_protocol_session_dispatches_keyboard_events() {
         let frame: UiFrame = serde_json::from_str(
             r#"
@@ -769,6 +955,7 @@ mod tests {
             r#"
             {
               "frameId": "profile",
+              "actions": [],
               "root": {
                 "kind": "element",
                 "key": "save",

@@ -95,7 +95,7 @@ export interface WindowOptions {
 export interface UiFrame {
   frameId: string;
   root: CompiledJsxNode;
-  actions: UiAction[];
+  actions?: UiAction[];
   window?: WindowOptions;
 }
 

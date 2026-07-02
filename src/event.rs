@@ -123,6 +123,10 @@ impl ActionRegistry {
         self.actions.contains_key(id)
     }
 
+    pub fn registered(&self, id: &str) -> Option<&RegisteredAction> {
+        self.actions.get(id)
+    }
+
     pub fn invocations(&self) -> &[ActionInvocation] {
         &self.invocations
     }

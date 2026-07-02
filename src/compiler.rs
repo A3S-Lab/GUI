@@ -158,6 +158,8 @@ pub struct CompiledProps {
     pub attributes: BTreeMap<String, String>,
     #[serde(default)]
     pub events: BTreeMap<String, String>,
+    #[serde(default)]
+    pub action_labels: BTreeMap<String, String>,
 }
 
 impl Default for CompiledProps {
@@ -223,6 +225,7 @@ impl Default for CompiledProps {
             style: BTreeMap::new(),
             attributes: BTreeMap::new(),
             events: BTreeMap::new(),
+            action_labels: BTreeMap::new(),
         }
     }
 }

@@ -318,7 +318,10 @@ and dispatches `HostEvent` values back to registered action ids. A native
 host can keep one session per native surface or window and apply the returned
 commands on its UI thread. Rendering a new `UiFrame` replaces the session's
 registered action scope with that frame's `actions` list, so stale action ids
-from earlier frames cannot be invoked by later host events.
+from earlier frames cannot be invoked by later host events. If raw protocol JSON
+omits `actions`, Rust infers action ids from compiled event props and optional
+`actionLabels`, matching the default TypeScript `createUiFrame` behavior.
+Explicit `actions`, including an empty list, remain authoritative.
 
 When `UiFrame.window` is present, the Rust core wraps the compiled React root in
 a `NativeRole::Window`. The same command stream then creates `NSWindow`,
