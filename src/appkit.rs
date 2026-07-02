@@ -45,6 +45,14 @@ impl AppKitWidgetKind {
         match widget_class {
             "NSWindow" => Ok(AppKitWidgetKind::Window),
             "NSView"
+            | "NSView(main)"
+            | "NSView(navigation)"
+            | "NSView(header)"
+            | "NSView(footer)"
+            | "NSView(article)"
+            | "NSView(section)"
+            | "NSView(aside)"
+            | "NSView(search)"
             | "NSImageView"
             | "AVPlayerView"
             | "NSView(canvas)"
@@ -53,7 +61,9 @@ impl AppKitWidgetKind {
             | "NSTableRowView"
             | "NSTableCellView"
             | "NSTableColumn" => Ok(AppKitWidgetKind::View),
-            "NSTextField(label)" | "NSTextField(table-caption)" => Ok(AppKitWidgetKind::Label),
+            "NSTextField(label)" | "NSTextField(heading)" | "NSTextField(table-caption)" => {
+                Ok(AppKitWidgetKind::Label)
+            }
             "NSButton" => Ok(AppKitWidgetKind::Button),
             "NSTextField(input)" => Ok(AppKitWidgetKind::TextField),
             "NSButton(checkbox)" => Ok(AppKitWidgetKind::Checkbox),

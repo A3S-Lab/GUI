@@ -8,6 +8,15 @@ pub enum AriaComponent {
     Button,
     Label,
     Text,
+    Heading,
+    Main,
+    Navigation,
+    Header,
+    Footer,
+    Article,
+    Section,
+    Aside,
+    Search,
     Image,
     Media,
     Canvas,
@@ -50,6 +59,15 @@ impl AriaComponent {
             AriaComponent::Button => "Button",
             AriaComponent::Label => "Label",
             AriaComponent::Text => "Text",
+            AriaComponent::Heading => "Heading",
+            AriaComponent::Main => "Main",
+            AriaComponent::Navigation => "Navigation",
+            AriaComponent::Header => "Header",
+            AriaComponent::Footer => "Footer",
+            AriaComponent::Article => "Article",
+            AriaComponent::Section => "Section",
+            AriaComponent::Aside => "Aside",
+            AriaComponent::Search => "Search",
             AriaComponent::Image => "Image",
             AriaComponent::Media => "Media",
             AriaComponent::Canvas => "Canvas",
@@ -320,6 +338,19 @@ impl ReactAriaMapper {
             AriaComponent::Label | AriaComponent::Text | AriaComponent::SelectValue => Ok(
                 simple_leaf(element, NativeRole::Text, self.best_label(element)?),
             ),
+            AriaComponent::Heading => Ok(simple_leaf(
+                element,
+                NativeRole::Heading,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Main => self.map_container(element, NativeRole::Main),
+            AriaComponent::Navigation => self.map_container(element, NativeRole::Navigation),
+            AriaComponent::Header => self.map_container(element, NativeRole::Header),
+            AriaComponent::Footer => self.map_container(element, NativeRole::Footer),
+            AriaComponent::Article => self.map_container_with_label(element, NativeRole::Article),
+            AriaComponent::Section => self.map_container_with_label(element, NativeRole::Section),
+            AriaComponent::Aside => self.map_container_with_label(element, NativeRole::Aside),
+            AriaComponent::Search => self.map_container_with_label(element, NativeRole::Search),
             AriaComponent::Image => self.map_container_with_label(element, NativeRole::Image),
             AriaComponent::Media => self.map_container_with_label(element, NativeRole::Media),
             AriaComponent::Canvas => self.map_container(element, NativeRole::Canvas),
@@ -1016,6 +1047,18 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::Separator),
             "gtk::Separator"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::Heading),
+            "NSTextField(heading)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::Navigation),
+            "Microsoft.UI.Xaml.Controls.StackPanel(navigation)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::Main),
+            "gtk::Box(main)"
         );
         assert_eq!(
             native_widget_name(NativeBackendKind::AppKit, NativeRole::Image),

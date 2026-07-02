@@ -178,6 +178,15 @@ pub fn component_for_html_tag(
         "option" => AriaComponent::ListBoxItem,
         "ul" | "ol" | "datalist" => AriaComponent::ListBox,
         "li" => AriaComponent::ListBoxItem,
+        "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => AriaComponent::Heading,
+        "main" => AriaComponent::Main,
+        "nav" => AriaComponent::Navigation,
+        "header" => AriaComponent::Header,
+        "footer" => AriaComponent::Footer,
+        "article" => AriaComponent::Article,
+        "section" => AriaComponent::Section,
+        "aside" => AriaComponent::Aside,
+        "search" => AriaComponent::Search,
         "img" | "picture" => AriaComponent::Image,
         "audio" | "video" => AriaComponent::Media,
         "canvas" => AriaComponent::Canvas,
@@ -369,6 +378,48 @@ mod tests {
         assert_eq!(
             component_for_html_tag("caption", &attributes),
             Some(AriaComponent::TableCaption)
+        );
+    }
+
+    #[test]
+    fn maps_sectioning_landmark_and_heading_tags_to_native_semantics() {
+        let attributes = BTreeMap::new();
+
+        assert_eq!(
+            component_for_html_tag("h1", &attributes),
+            Some(AriaComponent::Heading)
+        );
+        assert_eq!(
+            component_for_html_tag("main", &attributes),
+            Some(AriaComponent::Main)
+        );
+        assert_eq!(
+            component_for_html_tag("nav", &attributes),
+            Some(AriaComponent::Navigation)
+        );
+        assert_eq!(
+            component_for_html_tag("header", &attributes),
+            Some(AriaComponent::Header)
+        );
+        assert_eq!(
+            component_for_html_tag("footer", &attributes),
+            Some(AriaComponent::Footer)
+        );
+        assert_eq!(
+            component_for_html_tag("article", &attributes),
+            Some(AriaComponent::Article)
+        );
+        assert_eq!(
+            component_for_html_tag("section", &attributes),
+            Some(AriaComponent::Section)
+        );
+        assert_eq!(
+            component_for_html_tag("aside", &attributes),
+            Some(AriaComponent::Aside)
+        );
+        assert_eq!(
+            component_for_html_tag("search", &attributes),
+            Some(AriaComponent::Search)
         );
     }
 }

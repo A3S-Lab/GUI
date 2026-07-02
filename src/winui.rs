@@ -47,10 +47,19 @@ impl WinUiWidgetKind {
         match widget_class {
             "Microsoft.UI.Xaml.Window" => Ok(WinUiWidgetKind::Window),
             "Microsoft.UI.Xaml.Controls.StackPanel"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(main)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(navigation)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(header)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(footer)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(article)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(section)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(aside)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(search)"
             | "Microsoft.UI.Xaml.Controls.StackPanel(table-section)" => {
                 Ok(WinUiWidgetKind::StackPanel)
             }
             "Microsoft.UI.Xaml.Controls.TextBlock"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(heading)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(table-caption)"
             | "Microsoft.UI.Xaml.Controls.Image" => Ok(WinUiWidgetKind::TextBlock),
             "Microsoft.UI.Xaml.Controls.Button" => Ok(WinUiWidgetKind::Button),

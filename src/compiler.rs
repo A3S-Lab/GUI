@@ -183,7 +183,8 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
     match tag {
         "Button" | "button" => Ok(AriaComponent::Button),
         "Label" | "label" => Ok(AriaComponent::Label),
-        "Text" | "span" | "p" | "strong" | "em" | "h1" | "h2" | "h3" => Ok(AriaComponent::Text),
+        "Text" | "span" | "p" | "strong" | "em" => Ok(AriaComponent::Text),
+        "Heading" => Ok(AriaComponent::Heading),
         "TextField" => Ok(AriaComponent::TextField),
         "Input" | "textarea" => Ok(AriaComponent::Input),
         "input" => component_for_intrinsic_tag(tag, &props.attributes).ok_or_else(|| {
@@ -205,9 +206,15 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "TabList" => Ok(AriaComponent::TabList),
         "Tab" => Ok(AriaComponent::Tab),
         "TabPanel" => Ok(AriaComponent::TabPanel),
-        "Group" | "Form" | "form" | "div" | "section" | "main" | "article" => {
-            Ok(AriaComponent::Group)
-        }
+        "Main" => Ok(AriaComponent::Main),
+        "Navigation" => Ok(AriaComponent::Navigation),
+        "Header" => Ok(AriaComponent::Header),
+        "Footer" => Ok(AriaComponent::Footer),
+        "Article" => Ok(AriaComponent::Article),
+        "Section" => Ok(AriaComponent::Section),
+        "Aside" => Ok(AriaComponent::Aside),
+        "Search" => Ok(AriaComponent::Search),
+        "Group" | "Form" | "form" | "div" => Ok(AriaComponent::Group),
         "Menu" => Ok(AriaComponent::Menu),
         "MenuItem" => Ok(AriaComponent::MenuItem),
         "Separator" | "hr" => Ok(AriaComponent::Separator),
@@ -854,6 +861,106 @@ mod tests {
                 .as_deref(),
             Some("42")
         );
+    }
+
+    #[test]
+    fn lowers_html_sectioning_landmark_and_heading_tags_to_native_roles() {
+        let bridge = ReactCompilerBridge::new();
+        let tree = CompiledJsxNode::Element {
+            key: "main".to_string(),
+            tag: "main".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![
+                CompiledJsxNode::Element {
+                    key: "top-nav".to_string(),
+                    tag: "nav".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([(
+                            "aria-label".to_string(),
+                            "Primary navigation".to_string(),
+                        )]),
+                        ..CompiledProps::default()
+                    },
+                    children: Vec::new(),
+                },
+                CompiledJsxNode::Element {
+                    key: "article".to_string(),
+                    tag: "article".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![
+                        CompiledJsxNode::Element {
+                            key: "headline".to_string(),
+                            tag: "h1".to_string(),
+                            import_source: None,
+                            props: CompiledProps::default(),
+                            children: vec![CompiledJsxNode::Text {
+                                key: "headline-text".to_string(),
+                                value: "Release notes".to_string(),
+                            }],
+                        },
+                        CompiledJsxNode::Element {
+                            key: "summary".to_string(),
+                            tag: "section".to_string(),
+                            import_source: None,
+                            props: CompiledProps {
+                                attributes: BTreeMap::from([(
+                                    "aria-label".to_string(),
+                                    "Summary".to_string(),
+                                )]),
+                                ..CompiledProps::default()
+                            },
+                            children: Vec::new(),
+                        },
+                    ],
+                },
+                CompiledJsxNode::Element {
+                    key: "related".to_string(),
+                    tag: "aside".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: Vec::new(),
+                },
+                CompiledJsxNode::Element {
+                    key: "search".to_string(),
+                    tag: "search".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: Vec::new(),
+                },
+            ],
+        };
+
+        let native = bridge.lower_to_native(&tree).unwrap();
+        assert_eq!(native.role, NativeRole::Main);
+        assert_eq!(
+            native
+                .props
+                .metadata
+                .get(HTML_TAG_METADATA_KEY)
+                .map(String::as_str),
+            Some("main")
+        );
+        assert_eq!(native.children[0].role, NativeRole::Navigation);
+        assert_eq!(
+            native.children[0].props.label.as_deref(),
+            Some("Primary navigation")
+        );
+        assert_eq!(native.children[1].role, NativeRole::Article);
+        assert_eq!(native.children[1].children[0].role, NativeRole::Heading);
+        assert_eq!(
+            native.children[1].children[0].props.label.as_deref(),
+            Some("Release notes")
+        );
+        assert_eq!(native.children[1].children[1].role, NativeRole::Section);
+        assert_eq!(
+            native.children[1].children[1].props.label.as_deref(),
+            Some("Summary")
+        );
+        assert_eq!(native.children[2].role, NativeRole::Aside);
+        assert_eq!(native.children[3].role, NativeRole::Search);
     }
 
     #[test]

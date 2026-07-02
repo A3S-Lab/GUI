@@ -99,6 +99,15 @@ families:
 | Native role | macOS AppKit | Windows WinUI | Linux GTK4 |
 | --- | --- | --- | --- |
 | `Button` | `NSButton` | `Microsoft.UI.Xaml.Controls.Button` | `gtk::Button` |
+| `Heading` | `NSTextField(heading)` | `Microsoft.UI.Xaml.Controls.TextBlock(heading)` | `gtk::Label(heading)` |
+| `Main` | `NSView(main)` | `Microsoft.UI.Xaml.Controls.StackPanel(main)` | `gtk::Box(main)` |
+| `Navigation` | `NSView(navigation)` | `Microsoft.UI.Xaml.Controls.StackPanel(navigation)` | `gtk::Box(navigation)` |
+| `Header` | `NSView(header)` | `Microsoft.UI.Xaml.Controls.StackPanel(header)` | `gtk::Box(header)` |
+| `Footer` | `NSView(footer)` | `Microsoft.UI.Xaml.Controls.StackPanel(footer)` | `gtk::Box(footer)` |
+| `Article` | `NSView(article)` | `Microsoft.UI.Xaml.Controls.StackPanel(article)` | `gtk::Box(article)` |
+| `Section` | `NSView(section)` | `Microsoft.UI.Xaml.Controls.StackPanel(section)` | `gtk::Box(section)` |
+| `Aside` | `NSView(aside)` | `Microsoft.UI.Xaml.Controls.StackPanel(aside)` | `gtk::Box(aside)` |
+| `Search` | `NSView(search)` | `Microsoft.UI.Xaml.Controls.StackPanel(search)` | `gtk::Box(search)` |
 | `TextField` | `NSTextField(input)` | `Microsoft.UI.Xaml.Controls.TextBox` | `gtk::Entry` |
 | `Image` | `NSImageView` | `Microsoft.UI.Xaml.Controls.Image` | `gtk::Picture` |
 | `Media` | `AVPlayerView` | `Microsoft.UI.Xaml.Controls.MediaPlayerElement` | `gtk::Video` |

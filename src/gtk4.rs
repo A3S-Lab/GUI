@@ -42,6 +42,14 @@ impl Gtk4WidgetKind {
         match widget_class {
             "gtk::ApplicationWindow" => Ok(Gtk4WidgetKind::ApplicationWindow),
             "gtk::Box"
+            | "gtk::Box(main)"
+            | "gtk::Box(navigation)"
+            | "gtk::Box(header)"
+            | "gtk::Box(footer)"
+            | "gtk::Box(article)"
+            | "gtk::Box(section)"
+            | "gtk::Box(aside)"
+            | "gtk::Box(search)"
             | "gtk::Box(radio-group)"
             | "gtk::Box(embedded-content)"
             | "gtk::Grid(table)"
@@ -52,9 +60,10 @@ impl Gtk4WidgetKind {
             | "gtk::Picture"
             | "gtk::Video"
             | "gtk::DrawingArea" => Ok(Gtk4WidgetKind::Box),
-            "gtk::Label" | "gtk::Label(tab)" | "gtk::Label(table-caption)" => {
-                Ok(Gtk4WidgetKind::Label)
-            }
+            "gtk::Label"
+            | "gtk::Label(heading)"
+            | "gtk::Label(tab)"
+            | "gtk::Label(table-caption)" => Ok(Gtk4WidgetKind::Label),
             "gtk::Button" => Ok(Gtk4WidgetKind::Button),
             "gtk::Entry" => Ok(Gtk4WidgetKind::Entry),
             "gtk::CheckButton" | "gtk::CheckButton(radio)" => Ok(Gtk4WidgetKind::CheckButton),
