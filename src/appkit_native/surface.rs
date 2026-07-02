@@ -293,6 +293,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             AppKitWidgetKind::Slider => {
                 let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
                 let range = AppKitRangeState::from_config(&config);
+                let orientation = config.orientation.unwrap_or(Orientation::Horizontal);
                 let slider = unsafe {
                     NSSlider::sliderWithValue_minValue_maxValue_target_action(
                         range.current(),
@@ -303,10 +304,11 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         self.mtm,
                     )
                 };
+                apply_slider_orientation(&slider, orientation);
                 slider
                     .as_super()
                     .as_super()
-                    .setFrameSize(config_size(&config, 180.0, 24.0));
+                    .setFrameSize(slider_size_for_orientation(&config, orientation));
                 apply_slider_step(&slider, range);
                 self.ranges.insert(id, range);
                 self.action_targets.insert(id, target);
@@ -638,6 +640,10 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                             .as_super()
                             .setFrameSize(separator_size(*orientation));
                     }
+                }
+                if let (AppKitOsWidget::Slider(slider), Some(orientation)) = (&handle.widget, value)
+                {
+                    apply_slider_orientation(slider, *orientation);
                 }
             }
             NativeWidgetSetter::SetAccessibilityRole(_)

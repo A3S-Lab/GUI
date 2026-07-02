@@ -283,8 +283,9 @@ children are inserted into `NSComboBox` as native object values and emit native
 selection-change events. React Aria `Tabs` trees fold `TabList` and ordered
 `TabPanel` children into native `NSTabViewItem` objects with panel views as
 content, and tab selection changes emit native selection-change events. Sliders
-emit ranged change events with the current double value, and progress
-indicators consume the same min/max/current setter state.
+apply native orientation and step hints, emit ranged change events with the
+current double value, and progress indicators consume the same min/max/current
+setter state.
 
 The Linux `gtk4-native` feature exercises the same path with `gtk4-rs`.
 `Gtk4NativeSurface` maps the native command stream to real GTK4 widgets for

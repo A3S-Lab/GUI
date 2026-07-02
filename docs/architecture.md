@@ -470,9 +470,10 @@ Feature-gated platform executor surfaces:
   Semantic `Menu` trees create native `NSMenu` objects with `NSMenuItem`
   children; root menus are installed as the application main menu, and menu item
   target/action callbacks enqueue press records.
-  `Separator` creates native `NSBox` separators. `NSSlider` controls enqueue
-  ranged `NativeEventKind::Change` records with the current double value, while
-  `NSProgressIndicator` is updated by setter-driven ranged state.
+  `Separator` creates native `NSBox` separators. `NSSlider` controls apply
+  native orientation and step hints and enqueue ranged `NativeEventKind::Change`
+  records with the current double value, while `NSProgressIndicator` is updated
+  by setter-driven ranged state.
   These event paths flow through the existing `NativeEventSource` boundary.
 - `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button` and
   `TextBox` into WinUI object kinds behind `WinUiWidgetDriver` and replays

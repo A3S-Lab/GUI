@@ -559,6 +559,14 @@ fn separator_size(orientation: Orientation) -> NSSize {
     }
 }
 
+fn slider_size_for_orientation(config: &NativeWidgetConfig, orientation: Orientation) -> NSSize {
+    config_rect_for_orientation(config, orientation, 180.0, 24.0, 24.0, 180.0).size
+}
+
+fn apply_slider_orientation(slider: &NSSlider, orientation: Orientation) {
+    slider.setVertical(matches!(orientation, Orientation::Vertical));
+}
+
 fn config_size(config: &NativeWidgetConfig, default_width: f64, default_height: f64) -> NSSize {
     let width = config
         .portable_style
