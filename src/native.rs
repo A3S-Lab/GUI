@@ -183,6 +183,19 @@ pub struct NativeProps {
     pub rows: Option<u32>,
     pub cols: Option<u32>,
     pub size: Option<u32>,
+    pub title: Option<String>,
+    pub hidden: bool,
+    pub lang: Option<String>,
+    pub dir: Option<String>,
+    pub tab_index: Option<i32>,
+    pub explicit_role: Option<String>,
+    pub access_key: Option<String>,
+    pub content_editable: Option<String>,
+    pub draggable: Option<String>,
+    pub spell_check: Option<bool>,
+    pub translate: Option<bool>,
+    pub inert: bool,
+    pub popover: Option<String>,
     pub name: Option<String>,
     pub form: Option<String>,
     pub input_type: Option<String>,
@@ -253,6 +266,19 @@ impl Default for NativeProps {
             rows: None,
             cols: None,
             size: None,
+            title: None,
+            hidden: false,
+            lang: None,
+            dir: None,
+            tab_index: None,
+            explicit_role: None,
+            access_key: None,
+            content_editable: None,
+            draggable: None,
+            spell_check: None,
+            translate: None,
+            inert: false,
+            popover: None,
             name: None,
             form: None,
             input_type: None,
@@ -420,6 +446,71 @@ impl NativeProps {
 
     pub fn size(mut self, size: Option<u32>) -> Self {
         self.size = size;
+        self
+    }
+
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    pub fn hidden(mut self, hidden: bool) -> Self {
+        self.hidden = hidden;
+        self
+    }
+
+    pub fn lang(mut self, lang: impl Into<String>) -> Self {
+        self.lang = Some(lang.into());
+        self
+    }
+
+    pub fn dir(mut self, dir: impl Into<String>) -> Self {
+        self.dir = Some(dir.into());
+        self
+    }
+
+    pub fn tab_index(mut self, tab_index: Option<i32>) -> Self {
+        self.tab_index = tab_index;
+        self
+    }
+
+    pub fn explicit_role(mut self, explicit_role: impl Into<String>) -> Self {
+        self.explicit_role = Some(explicit_role.into());
+        self
+    }
+
+    pub fn access_key(mut self, access_key: impl Into<String>) -> Self {
+        self.access_key = Some(access_key.into());
+        self
+    }
+
+    pub fn content_editable(mut self, content_editable: impl Into<String>) -> Self {
+        self.content_editable = Some(content_editable.into());
+        self
+    }
+
+    pub fn draggable(mut self, draggable: impl Into<String>) -> Self {
+        self.draggable = Some(draggable.into());
+        self
+    }
+
+    pub fn spell_check(mut self, spell_check: Option<bool>) -> Self {
+        self.spell_check = spell_check;
+        self
+    }
+
+    pub fn translate(mut self, translate: Option<bool>) -> Self {
+        self.translate = translate;
+        self
+    }
+
+    pub fn inert(mut self, inert: bool) -> Self {
+        self.inert = inert;
+        self
+    }
+
+    pub fn popover(mut self, popover: impl Into<String>) -> Self {
+        self.popover = Some(popover.into());
         self
     }
 

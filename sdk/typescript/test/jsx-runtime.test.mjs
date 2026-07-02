@@ -138,6 +138,38 @@ test('intrinsic SVG elements preserve presentation props and Tailwind class name
   assert.equal(root.children[0].props.attributes.strokeLinejoin, 'round');
 });
 
+test('intrinsic global HTML attributes preserve Web JSX names', () => {
+  const root = jsx('section', {
+    title: 'Profile summary',
+    hidden: true,
+    lang: 'en-US',
+    dir: 'rtl',
+    tabIndex: -1,
+    role: 'region',
+    accessKey: 'p',
+    contentEditable: 'plaintext-only',
+    draggable: true,
+    spellCheck: false,
+    translate: 'no',
+    inert: true,
+    popover: true,
+  }, 'profile');
+
+  assert.equal(root.props.attributes.title, 'Profile summary');
+  assert.equal(root.props.attributes.hidden, 'true');
+  assert.equal(root.props.attributes.lang, 'en-US');
+  assert.equal(root.props.attributes.dir, 'rtl');
+  assert.equal(root.props.attributes.tabIndex, '-1');
+  assert.equal(root.props.attributes.role, 'region');
+  assert.equal(root.props.attributes.accessKey, 'p');
+  assert.equal(root.props.attributes.contentEditable, 'plaintext-only');
+  assert.equal(root.props.attributes.draggable, 'true');
+  assert.equal(root.props.attributes.spellCheck, 'false');
+  assert.equal(root.props.attributes.translate, 'no');
+  assert.equal(root.props.attributes.inert, 'true');
+  assert.equal(root.props.attributes.popover, 'true');
+});
+
 test('intrinsic media and resource attributes preserve Web JSX names', () => {
   const image = jsx('img', {
     alt: 'Hero',

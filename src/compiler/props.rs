@@ -8,11 +8,13 @@ use super::{CompiledJsxNode, CompiledOrientation, CompiledProps};
 
 mod attributes;
 mod controls;
+mod global;
 mod resources;
 mod semantic;
 mod states;
 
 use controls::HtmlControlAliases;
+use global::HtmlGlobalAliases;
 use resources::HtmlResourceAliases;
 use semantic::WebSemanticAliases;
 use states::{
@@ -63,6 +65,7 @@ impl CompiledProps {
         let html_numeric_value = html_numeric_value_state(tag, &web, self.value.as_deref());
         let html_range_step = html_range_step_state(tag, &web);
         let html_control = HtmlControlAliases::from_tag(tag, &web);
+        let html_global = HtmlGlobalAliases::from_web(&web);
         let html_resource = HtmlResourceAliases::from_tag(tag, &web);
         let semantic = WebSemanticAliases::from_web(&web);
 
@@ -105,6 +108,19 @@ impl CompiledProps {
         props.rows = semantic.rows;
         props.cols = semantic.cols;
         props.size = semantic.size;
+        props.title = html_global.title;
+        props.hidden = html_global.hidden;
+        props.lang = html_global.lang;
+        props.dir = html_global.dir;
+        props.tab_index = html_global.tab_index;
+        props.explicit_role = html_global.explicit_role;
+        props.access_key = html_global.access_key;
+        props.content_editable = html_global.content_editable;
+        props.draggable = html_global.draggable;
+        props.spell_check = html_global.spell_check;
+        props.translate = html_global.translate;
+        props.inert = html_global.inert;
+        props.popover = html_global.popover;
         props.name = html_control.name;
         props.form = html_control.form;
         props.input_type = html_control.input_type;

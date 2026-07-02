@@ -1,5 +1,6 @@
 mod core;
 mod html_forms;
+mod html_global;
 mod html_structure;
 mod html_text;
 mod intrinsic;

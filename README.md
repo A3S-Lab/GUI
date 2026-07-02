@@ -36,8 +36,9 @@ React Aria mapping, and style normalization are split under `src/compiler/`,
 `src/react_aria/`, and `src/style/`. Native surface implementations are grouped
 by platform under `src/appkit_native/`, `src/gtk4_native/`, and
 `src/winui_native/`. HTML prop lowering is split under `src/compiler/props/`
-by shared attribute parsing, control/form aliases, resource/media aliases,
-semantic state aliases, and tag-specific native state rules.
+by shared attribute parsing, control/form aliases, global attributes,
+resource/media aliases, semantic state aliases, and tag-specific native state
+rules.
 
 ## Compatibility Scope
 
@@ -67,6 +68,12 @@ Common form-control attributes such as `readonly`/`readOnly`, `multiple`,
 `pattern`, `minlength`/`minLength`, `maxlength`/`maxLength`, `rows`, `cols`,
 and `size` are projected into native control-state fields and remain available
 as metadata for platform adapters.
+HTML global attributes such as `title`, `hidden`, `lang`, `dir`, `tabindex`/
+`tabIndex`, `role`, `accesskey`/`accessKey`, `contenteditable`/
+`contentEditable`, `draggable`, `spellcheck`/`spellCheck`, `translate`,
+`inert`, and `popover` are projected into native control-state fields and
+remain available as metadata. `hidden` also makes the native widget config
+invisible.
 Form submission and media hints such as `name`, `form`, `type`, `accept`,
 `capture`, `alt`, `src`, `list`, `dirname`, `action`, `method`, `enctype`/
 `encType`, `target`, `novalidate`/`noValidate`, `formaction`/`formAction`,

@@ -89,6 +89,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `readOnly` / `multiple` / `autoFocus` | normalized to native control state |
 | `autoComplete` / `inputMode` / `pattern` | normalized to native text-entry hints and preserved as metadata |
 | `minLength` / `maxLength` / `rows` / `cols` / `size` | normalized to native numeric control hints and preserved as metadata |
+| `title` / `hidden` / `lang` / `dir` / `tabIndex` / `role` / `accessKey` / `contentEditable` / `draggable` / `spellCheck` / `translate` / `inert` / `popover` | normalized to native global HTML hints and preserved as metadata; `hidden` also makes the native widget config invisible |
 | `name` / `form` / `type` / `accept` / `capture` / `alt` / `src` / `list` / `dirname` | normalized to native HTML form and media control hints when applicable |
 | `action` / `method` / `encType` / `target` / `noValidate` / `formAction` / `formEncType` / `formMethod` / `formTarget` / `formNoValidate` | normalized to native form submission hints when applicable |
 | `href` / `srcSet` / `sizes` / `media` / `width` / `height` / `loading` / `decoding` / `fetchPriority` / `crossOrigin` / `referrerPolicy` | normalized to native media and resource loading hints when applicable |

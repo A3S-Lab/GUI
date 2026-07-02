@@ -61,12 +61,20 @@ pub(super) fn u32_attribute(attributes: &BTreeMap<String, String>, names: &[&str
     string_attribute(attributes, names).and_then(parse_u32_attribute)
 }
 
+pub(super) fn i32_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<i32> {
+    string_attribute(attributes, names).and_then(parse_i32_attribute)
+}
+
 pub(super) fn parse_number_attribute(value: &str) -> Option<f64> {
     value.trim().parse::<f64>().ok()
 }
 
 fn parse_u32_attribute(value: &str) -> Option<u32> {
     value.trim().parse::<u32>().ok()
+}
+
+fn parse_i32_attribute(value: &str) -> Option<i32> {
+    value.trim().parse::<i32>().ok()
 }
 
 fn parse_bool_attribute(value: &str) -> Option<bool> {

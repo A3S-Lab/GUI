@@ -52,6 +52,19 @@ pub struct NativeWidgetConfigPatch {
     pub rows: Option<NativeConfigValueChange<Option<u32>>>,
     pub cols: Option<NativeConfigValueChange<Option<u32>>>,
     pub size: Option<NativeConfigValueChange<Option<u32>>>,
+    pub title: Option<NativeConfigValueChange<Option<String>>>,
+    pub hidden: Option<NativeConfigValueChange<bool>>,
+    pub lang: Option<NativeConfigValueChange<Option<String>>>,
+    pub dir: Option<NativeConfigValueChange<Option<String>>>,
+    pub tab_index: Option<NativeConfigValueChange<Option<i32>>>,
+    pub explicit_role: Option<NativeConfigValueChange<Option<String>>>,
+    pub access_key: Option<NativeConfigValueChange<Option<String>>>,
+    pub content_editable: Option<NativeConfigValueChange<Option<String>>>,
+    pub draggable: Option<NativeConfigValueChange<Option<String>>>,
+    pub spell_check: Option<NativeConfigValueChange<Option<bool>>>,
+    pub translate: Option<NativeConfigValueChange<Option<bool>>>,
+    pub inert: Option<NativeConfigValueChange<bool>>,
+    pub popover: Option<NativeConfigValueChange<Option<String>>>,
     pub name: Option<NativeConfigValueChange<Option<String>>>,
     pub form: Option<NativeConfigValueChange<Option<String>>>,
     pub input_type: Option<NativeConfigValueChange<Option<String>>>,
@@ -130,6 +143,19 @@ impl NativeWidgetConfigPatch {
             rows: diff_value(&before.rows, &after.rows),
             cols: diff_value(&before.cols, &after.cols),
             size: diff_value(&before.size, &after.size),
+            title: diff_value(&before.title, &after.title),
+            hidden: diff_value(&before.hidden, &after.hidden),
+            lang: diff_value(&before.lang, &after.lang),
+            dir: diff_value(&before.dir, &after.dir),
+            tab_index: diff_value(&before.tab_index, &after.tab_index),
+            explicit_role: diff_value(&before.explicit_role, &after.explicit_role),
+            access_key: diff_value(&before.access_key, &after.access_key),
+            content_editable: diff_value(&before.content_editable, &after.content_editable),
+            draggable: diff_value(&before.draggable, &after.draggable),
+            spell_check: diff_value(&before.spell_check, &after.spell_check),
+            translate: diff_value(&before.translate, &after.translate),
+            inert: diff_value(&before.inert, &after.inert),
+            popover: diff_value(&before.popover, &after.popover),
             name: diff_value(&before.name, &after.name),
             form: diff_value(&before.form, &after.form),
             input_type: diff_value(&before.input_type, &after.input_type),
@@ -265,6 +291,47 @@ impl NativeWidgetConfigPatch {
         push_setter(&mut setters, &self.rows, NativeWidgetSetter::SetRows);
         push_setter(&mut setters, &self.cols, NativeWidgetSetter::SetCols);
         push_setter(&mut setters, &self.size, NativeWidgetSetter::SetSize);
+        push_setter(&mut setters, &self.title, NativeWidgetSetter::SetTitle);
+        push_setter(&mut setters, &self.hidden, NativeWidgetSetter::SetHidden);
+        push_setter(&mut setters, &self.lang, NativeWidgetSetter::SetLang);
+        push_setter(&mut setters, &self.dir, NativeWidgetSetter::SetDir);
+        push_setter(
+            &mut setters,
+            &self.tab_index,
+            NativeWidgetSetter::SetTabIndex,
+        );
+        push_setter(
+            &mut setters,
+            &self.explicit_role,
+            NativeWidgetSetter::SetExplicitRole,
+        );
+        push_setter(
+            &mut setters,
+            &self.access_key,
+            NativeWidgetSetter::SetAccessKey,
+        );
+        push_setter(
+            &mut setters,
+            &self.content_editable,
+            NativeWidgetSetter::SetContentEditable,
+        );
+        push_setter(
+            &mut setters,
+            &self.draggable,
+            NativeWidgetSetter::SetDraggable,
+        );
+        push_setter(
+            &mut setters,
+            &self.spell_check,
+            NativeWidgetSetter::SetSpellCheck,
+        );
+        push_setter(
+            &mut setters,
+            &self.translate,
+            NativeWidgetSetter::SetTranslate,
+        );
+        push_setter(&mut setters, &self.inert, NativeWidgetSetter::SetInert);
+        push_setter(&mut setters, &self.popover, NativeWidgetSetter::SetPopover);
         push_setter(&mut setters, &self.name, NativeWidgetSetter::SetName);
         push_setter(&mut setters, &self.form, NativeWidgetSetter::SetForm);
         push_setter(

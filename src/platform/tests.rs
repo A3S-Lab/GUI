@@ -346,6 +346,66 @@ fn widget_config_preserves_html_form_control_hints() {
 }
 
 #[test]
+fn widget_config_preserves_html_global_hints() {
+    let element = NativeElement::new("panel", NativeRole::Section).with_props(
+        NativeProps::new()
+            .label("Panel")
+            .title("Profile summary")
+            .hidden(true)
+            .lang("en-US")
+            .dir("rtl")
+            .tab_index(Some(-1))
+            .explicit_role("region")
+            .access_key("p")
+            .content_editable("plaintext-only")
+            .draggable("true")
+            .spell_check(Some(false))
+            .translate(Some(false))
+            .inert(true)
+            .popover("auto"),
+    );
+
+    let config = AppKitAdapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert_eq!(config.title.as_deref(), Some("Profile summary"));
+    assert!(config.hidden);
+    assert!(!config.visible);
+    assert_eq!(config.lang.as_deref(), Some("en-US"));
+    assert_eq!(config.dir.as_deref(), Some("rtl"));
+    assert_eq!(config.tab_index, Some(-1));
+    assert_eq!(config.explicit_role.as_deref(), Some("region"));
+    assert_eq!(config.access_key.as_deref(), Some("p"));
+    assert_eq!(config.content_editable.as_deref(), Some("plaintext-only"));
+    assert_eq!(config.draggable.as_deref(), Some("true"));
+    assert_eq!(config.spell_check, Some(false));
+    assert_eq!(config.translate, Some(false));
+    assert!(config.inert);
+    assert_eq!(config.popover.as_deref(), Some("auto"));
+    assert!(setters.contains(&NativeWidgetSetter::SetTitle(Some(
+        "Profile summary".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetHidden(true)));
+    assert!(setters.contains(&NativeWidgetSetter::SetLang(Some("en-US".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetDir(Some("rtl".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetTabIndex(Some(-1))));
+    assert!(setters.contains(&NativeWidgetSetter::SetExplicitRole(Some(
+        "region".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetAccessKey(Some("p".to_string()))));
+    assert!(
+        setters.contains(&NativeWidgetSetter::SetContentEditable(Some(
+            "plaintext-only".to_string()
+        )))
+    );
+    assert!(setters.contains(&NativeWidgetSetter::SetDraggable(Some("true".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetSpellCheck(Some(false))));
+    assert!(setters.contains(&NativeWidgetSetter::SetTranslate(Some(false))));
+    assert!(setters.contains(&NativeWidgetSetter::SetInert(true)));
+    assert!(setters.contains(&NativeWidgetSetter::SetPopover(Some("auto".to_string()))));
+}
+
+#[test]
 fn widget_config_preserves_html_media_and_resource_hints() {
     let element = NativeElement::new("hero", NativeRole::Image).with_props(
         NativeProps::new()

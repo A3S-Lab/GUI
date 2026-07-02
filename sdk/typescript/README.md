@@ -39,13 +39,15 @@ The runtime accepts React Aria-style state props such as `isDisabled` and HTML
 or ARIA aliases such as `disabled`, `required`, `aria-expanded`,
 `aria-selected`, `min`, `max`, `step`, and `aria-valuenow`; these normalize to
 the same native control-state fields consumed by the Rust renderer. Intrinsic
-form-control props such as `readOnly`, `multiple`, `autoFocus`, `autoComplete`,
-`inputMode`, `pattern`, `minLength`, `maxLength`, `rows`, `cols`, `size`,
-`formAction`, `formEncType`, `formMethod`, `formTarget`, `formNoValidate`,
-`accept`, `capture`, `alt`, `href`, `src`, `srcSet`, `sizes`, `loading`,
-`decoding`, `fetchPriority`, `crossOrigin`, `referrerPolicy`, `poster`,
-`controls`, `autoPlay`, `playsInline`, `preload`, `srcLang`, `list`, and
-`dirname` are preserved with their Web JSX names and projected by the Rust
+global and form-control props such as `title`, `hidden`, `lang`, `dir`,
+`tabIndex`, `role`, `accessKey`, `contentEditable`, `draggable`, `spellCheck`,
+`translate`, `inert`, `popover`, `readOnly`, `multiple`, `autoFocus`,
+`autoComplete`, `inputMode`, `pattern`, `minLength`, `maxLength`, `rows`,
+`cols`, `size`, `formAction`, `formEncType`, `formMethod`, `formTarget`,
+`formNoValidate`, `accept`, `capture`, `alt`, `href`, `src`, `srcSet`, `sizes`,
+`loading`, `decoding`, `fetchPriority`, `crossOrigin`, `referrerPolicy`,
+`poster`, `controls`, `autoPlay`, `playsInline`, `preload`, `srcLang`, `list`,
+and `dirname` are preserved with their Web JSX names and projected by the Rust
 bridge into native control hints.
 Marker
 exports include form and selection components such as `RadioGroup`, `Radio`,

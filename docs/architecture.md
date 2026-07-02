@@ -135,9 +135,14 @@ form-control attributes including `readonly`/`readOnly`, `multiple`,
 `autofocus`/`autoFocus`, `autocomplete`/`autoComplete`,
 `inputmode`/`inputMode`, `pattern`, `minlength`/`minLength`,
 `maxlength`/`maxLength`, `rows`, `cols`, and `size` project into native
-control-state fields and stay available in metadata. Form submission attributes
-and overrides project into native fields for matching form and submit-control
-tags. Media and resource attributes including `href`, `src`, `srcset`/`srcSet`,
+control-state fields and stay available in metadata. HTML global attributes
+including `title`, `hidden`, `lang`, `dir`, `tabindex`/`tabIndex`, `role`,
+`accesskey`/`accessKey`, `contenteditable`/`contentEditable`, `draggable`,
+`spellcheck`/`spellCheck`, `translate`, `inert`, and `popover` project into
+native fields and stay available in metadata. `hidden` also makes the native
+widget config invisible. Form submission attributes and overrides project into
+native fields for matching form and submit-control tags. Media and resource
+attributes including `href`, `src`, `srcset`/`srcSet`,
 `sizes`, `media`, resource `type`, intrinsic `width`/`height`, `loading`,
 `decoding`, `fetchpriority`/`fetchPriority`, `crossorigin`/`crossOrigin`,
 `referrerpolicy`/`referrerPolicy`, `poster`, `controls`, `autoplay`/
@@ -147,8 +152,9 @@ matching image, media, source, track, link, script, embed, iframe, object, and
 related resource tags. HTML `option` and `data` `value` attributes project
 into native value state.
 The HTML prop lowering implementation is split under `src/compiler/props/` into
-shared attribute parsing, control/form aliases, resource/media aliases, semantic
-state aliases, and tag-specific native state rules.
+shared attribute parsing, control/form aliases, global attributes,
+resource/media aliases, semantic state aliases, and tag-specific native state
+rules.
 Generic HTML containers lower to `NativeRole::View`; unsupported custom elements
 with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering
