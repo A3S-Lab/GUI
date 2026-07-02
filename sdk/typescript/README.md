@@ -37,8 +37,9 @@ id. Inferred actions preserve labels from `createAction(id, label)` handlers.
 Focus and toggle aliases such as `onFocusChange`, `onToggle`, and
 `onExpandedChange` are preserved in the emitted protocol alongside press,
 change, selection, and keyboard events.
-Rust hosts route explicit `onKeyDown` handlers first; otherwise Enter and Space
-key-down events can activate press actions on buttons, links, and menu items.
+Rust hosts route explicit `onKeyDown` handlers on the target or its ancestors
+first; otherwise Enter and Space key-down events can activate press actions on
+buttons, links, and menu items.
 They also normalize keyboard activation for stateful controls into toggle or
 selection events so action payloads carry checked, expanded, or selected values.
 

@@ -121,7 +121,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         event: NativeEvent,
     ) -> GuiResult<HandledNativeEvent> {
         self.refresh_stale_interaction_baseline(event.node, blueprint);
-        let event = self.normalize_event_value(blueprint, event);
+        let event = self.normalize_event_value(blueprint, route_blueprints, event);
         let interaction_start = self.interaction_state.changes().len();
         self.interaction_state.apply_event(blueprint, &event);
         self.record_interaction_revisions(interaction_start);
@@ -156,9 +156,10 @@ impl<H: NativeHost> GuiRuntime<H> {
     fn normalize_event_value(
         &self,
         blueprint: &NativeWidgetBlueprint,
+        route_blueprints: &[NativeWidgetBlueprint],
         mut event: NativeEvent,
     ) -> NativeEvent {
-        event = self.normalize_keyboard_activation(blueprint, event);
+        event = self.normalize_keyboard_activation(blueprint, route_blueprints, event);
         if event.value.is_some() {
             return event;
         }
@@ -193,10 +194,11 @@ impl<H: NativeHost> GuiRuntime<H> {
     fn normalize_keyboard_activation(
         &self,
         blueprint: &NativeWidgetBlueprint,
+        route_blueprints: &[NativeWidgetBlueprint],
         mut event: NativeEvent,
     ) -> NativeEvent {
         if event.kind != crate::event::NativeEventKind::KeyDown
-            || blueprint.events.contains_key("onKeyDown")
+            || has_explicit_key_down_handler(blueprint, route_blueprints)
         {
             return event;
         }
@@ -361,6 +363,16 @@ fn selected_node_value(blueprint: &NativeWidgetBlueprint) -> Option<String> {
         return None;
     }
     blueprint.value.clone().or_else(|| blueprint.label.clone())
+}
+
+fn has_explicit_key_down_handler(
+    blueprint: &NativeWidgetBlueprint,
+    route_blueprints: &[NativeWidgetBlueprint],
+) -> bool {
+    blueprint.events.contains_key("onKeyDown")
+        || route_blueprints
+            .iter()
+            .any(|route_blueprint| route_blueprint.events.contains_key("onKeyDown"))
 }
 
 fn is_space_key(value: Option<&str>) -> bool {
@@ -1197,6 +1209,47 @@ mod tests {
         );
         assert!(handled.interaction_changes.is_empty());
         assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(false));
+    }
+
+    #[test]
+    fn runtime_ancestor_key_down_prevents_keyboard_toggle_normalization() {
+        let element = NativeElement::new("row", NativeRole::View)
+            .with_props(NativeProps::new().web(WebProps::new().on_key_down("handleRowKey")))
+            .child(
+                NativeElement::new("notifications", NativeRole::Switch).with_props(
+                    NativeProps::new()
+                        .label("Notifications")
+                        .checked(false)
+                        .web(WebProps::new().on_change("setNotifications")),
+                ),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("handleRowKey");
+        runtime.actions_mut().register("setNotifications");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let switch = runtime.host().node(root_id).unwrap().children[0];
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(switch, crate::event::NativeEventKind::KeyDown)
+                    .value(" "),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.kind, crate::event::NativeEventKind::KeyDown);
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .map(|invocation| invocation.action.as_str()),
+            Some("handleRowKey")
+        );
+        assert!(handled.interaction_changes.is_empty());
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().children[0].checked,
+            Some(false)
+        );
     }
 
     #[test]

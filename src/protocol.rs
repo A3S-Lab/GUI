@@ -569,6 +569,56 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_preserves_ancestor_key_down_handlers() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "handleRowKey"}, {"id": "setNotifications"}],
+              "root": {
+                "kind": "element",
+                "key": "row",
+                "tag": "Group",
+                "props": {"events": {"onKeyDown": "handleRowKey"}},
+                "children": [
+                  {
+                    "kind": "element",
+                    "key": "notifications",
+                    "tag": "Switch",
+                    "props": {
+                      "isChecked": false,
+                      "events": {"onChange": "setNotifications"}
+                    },
+                    "children": [{"kind": "text", "key": "label", "value": "Notifications"}]
+                  }
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+        let switch = session
+            .runtime()
+            .host()
+            .node(rendered.root)
+            .unwrap()
+            .children[0];
+
+        let response = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(switch, NativeEventKind::KeyDown).value(" "),
+            })
+            .unwrap();
+
+        assert_eq!(response.invocation.action, "handleRowKey");
+        assert_eq!(response.invocation.event, NativeEventKind::KeyDown);
+        assert!(response.interaction_changes.is_empty());
+    }
+
+    #[test]
     fn native_protocol_session_replaces_registered_actions_on_render() {
         let first: UiFrame = serde_json::from_str(
             r#"
