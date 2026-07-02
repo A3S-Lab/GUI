@@ -134,6 +134,17 @@ families:
 | `UnderlinedText` | `NSTextField(underlined-text)` | `Microsoft.UI.Xaml.Controls.TextBlock(underlined-text)` | `gtk::Label(underlined-text)` |
 | `BidirectionalIsolate` | `NSTextField(bidi-isolate)` | `Microsoft.UI.Xaml.Controls.TextBlock(bidi-isolate)` | `gtk::Label(bidi-isolate)` |
 | `BidirectionalOverride` | `NSTextField(bidi-override)` | `Microsoft.UI.Xaml.Controls.TextBlock(bidi-override)` | `gtk::Label(bidi-override)` |
+| `Paragraph` | `NSView(paragraph)` | `Microsoft.UI.Xaml.Controls.StackPanel(paragraph)` | `gtk::Box(paragraph)` |
+| `PreformattedText` | `NSView(preformatted-text)` | `Microsoft.UI.Xaml.Controls.StackPanel(preformatted-text)` | `gtk::Box(preformatted-text)` |
+| `BlockQuote` | `NSView(block-quote)` | `Microsoft.UI.Xaml.Controls.StackPanel(block-quote)` | `gtk::Box(block-quote)` |
+| `ContactAddress` | `NSView(contact-address)` | `Microsoft.UI.Xaml.Controls.StackPanel(contact-address)` | `gtk::Box(contact-address)` |
+| `LineBreak` | `NSTextField(line-break)` | `Microsoft.UI.Xaml.Controls.TextBlock(line-break)` | `gtk::Label(line-break)` |
+| `WordBreakOpportunity` | `NSTextField(word-break-opportunity)` | `Microsoft.UI.Xaml.Controls.TextBlock(word-break-opportunity)` | `gtk::Label(word-break-opportunity)` |
+| `NoBreakText` | `NSView(no-break-text)` | `Microsoft.UI.Xaml.Controls.StackPanel(no-break-text)` | `gtk::Box(no-break-text)` |
+| `CenteredText` | `NSView(centered-text)` | `Microsoft.UI.Xaml.Controls.StackPanel(centered-text)` | `gtk::Box(centered-text)` |
+| `FontText` | `NSView(font-text)` | `Microsoft.UI.Xaml.Controls.StackPanel(font-text)` | `gtk::Box(font-text)` |
+| `BigText` | `NSView(big-text)` | `Microsoft.UI.Xaml.Controls.StackPanel(big-text)` | `gtk::Box(big-text)` |
+| `TeletypeText` | `NSView(teletype-text)` | `Microsoft.UI.Xaml.Controls.StackPanel(teletype-text)` | `gtk::Box(teletype-text)` |
 | `HeadingGroup` | `NSView(heading-group)` | `Microsoft.UI.Xaml.Controls.StackPanel(heading-group)` | `gtk::Box(heading-group)` |
 | `Ruby` | `NSView(ruby)` | `Microsoft.UI.Xaml.Controls.StackPanel(ruby)` | `gtk::Box(ruby)` |
 | `RubyBase` | `NSTextField(ruby-base)` | `Microsoft.UI.Xaml.Controls.TextBlock(ruby-base)` | `gtk::Label(ruby-base)` |

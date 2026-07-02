@@ -42,6 +42,17 @@ pub enum AriaComponent {
     UnderlinedText,
     BidirectionalIsolate,
     BidirectionalOverride,
+    Paragraph,
+    PreformattedText,
+    BlockQuote,
+    ContactAddress,
+    LineBreak,
+    WordBreakOpportunity,
+    NoBreakText,
+    CenteredText,
+    FontText,
+    BigText,
+    TeletypeText,
     Heading,
     HeadingGroup,
     Ruby,
@@ -148,6 +159,17 @@ impl AriaComponent {
             AriaComponent::UnderlinedText => "UnderlinedText",
             AriaComponent::BidirectionalIsolate => "BidirectionalIsolate",
             AriaComponent::BidirectionalOverride => "BidirectionalOverride",
+            AriaComponent::Paragraph => "Paragraph",
+            AriaComponent::PreformattedText => "PreformattedText",
+            AriaComponent::BlockQuote => "BlockQuote",
+            AriaComponent::ContactAddress => "ContactAddress",
+            AriaComponent::LineBreak => "LineBreak",
+            AriaComponent::WordBreakOpportunity => "WordBreakOpportunity",
+            AriaComponent::NoBreakText => "NoBreakText",
+            AriaComponent::CenteredText => "CenteredText",
+            AriaComponent::FontText => "FontText",
+            AriaComponent::BigText => "BigText",
+            AriaComponent::TeletypeText => "TeletypeText",
             AriaComponent::Heading => "Heading",
             AriaComponent::HeadingGroup => "HeadingGroup",
             AriaComponent::Ruby => "Ruby",
@@ -571,6 +593,39 @@ impl ReactAriaMapper {
                 NativeRole::BidirectionalOverride,
                 self.best_label(element)?,
             )),
+            AriaComponent::Paragraph => {
+                self.map_container_with_label(element, NativeRole::Paragraph)
+            }
+            AriaComponent::PreformattedText => {
+                self.map_container_with_label(element, NativeRole::PreformattedText)
+            }
+            AriaComponent::BlockQuote => {
+                self.map_container_with_label(element, NativeRole::BlockQuote)
+            }
+            AriaComponent::ContactAddress => {
+                self.map_container_with_label(element, NativeRole::ContactAddress)
+            }
+            AriaComponent::LineBreak => Ok(simple_leaf(
+                element,
+                NativeRole::LineBreak,
+                self.best_label(element)?,
+            )),
+            AriaComponent::WordBreakOpportunity => Ok(simple_leaf(
+                element,
+                NativeRole::WordBreakOpportunity,
+                self.best_label(element)?,
+            )),
+            AriaComponent::NoBreakText => {
+                self.map_container_with_label(element, NativeRole::NoBreakText)
+            }
+            AriaComponent::CenteredText => {
+                self.map_container_with_label(element, NativeRole::CenteredText)
+            }
+            AriaComponent::FontText => self.map_container_with_label(element, NativeRole::FontText),
+            AriaComponent::BigText => self.map_container_with_label(element, NativeRole::BigText),
+            AriaComponent::TeletypeText => {
+                self.map_container_with_label(element, NativeRole::TeletypeText)
+            }
             AriaComponent::Document => self.map_container_with_label(element, NativeRole::Document),
             AriaComponent::DocumentHead => self.map_container(element, NativeRole::DocumentHead),
             AriaComponent::DocumentBody => {
@@ -1528,6 +1583,18 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::BidirectionalOverride),
             "gtk::Label(bidi-override)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::Paragraph),
+            "NSView(paragraph)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::PreformattedText),
+            "Microsoft.UI.Xaml.Controls.StackPanel(preformatted-text)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::WordBreakOpportunity),
+            "gtk::Label(word-break-opportunity)"
         );
     }
 }

@@ -178,7 +178,7 @@ pub fn component_for_html_tag(
         "select" => AriaComponent::Select,
         "optgroup" => AriaComponent::OptionGroup,
         "option" => AriaComponent::ListBoxItem,
-        "ul" | "ol" | "datalist" => AriaComponent::ListBox,
+        "ul" | "ol" | "datalist" | "dir" => AriaComponent::ListBox,
         "li" => AriaComponent::ListBoxItem,
         "html" => AriaComponent::Document,
         "head" => AriaComponent::DocumentHead,
@@ -214,6 +214,17 @@ pub fn component_for_html_tag(
         "u" => AriaComponent::UnderlinedText,
         "bdi" => AriaComponent::BidirectionalIsolate,
         "bdo" => AriaComponent::BidirectionalOverride,
+        "p" => AriaComponent::Paragraph,
+        "pre" | "listing" | "plaintext" | "xmp" => AriaComponent::PreformattedText,
+        "blockquote" => AriaComponent::BlockQuote,
+        "address" => AriaComponent::ContactAddress,
+        "br" => AriaComponent::LineBreak,
+        "wbr" => AriaComponent::WordBreakOpportunity,
+        "nobr" => AriaComponent::NoBreakText,
+        "center" => AriaComponent::CenteredText,
+        "font" | "basefont" => AriaComponent::FontText,
+        "big" => AriaComponent::BigText,
+        "tt" => AriaComponent::TeletypeText,
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => AriaComponent::Heading,
         "hgroup" => AriaComponent::HeadingGroup,
         "ruby" => AriaComponent::Ruby,
@@ -305,28 +316,7 @@ fn component_for_anchor(attributes: &BTreeMap<String, String>) -> AriaComponent 
 }
 
 fn is_text_html_tag(tag: &str) -> bool {
-    matches!(
-        tag,
-        "address"
-            | "big"
-            | "blockquote"
-            | "br"
-            | "caption"
-            | "center"
-            | "font"
-            | "h1"
-            | "h2"
-            | "h3"
-            | "h4"
-            | "h5"
-            | "h6"
-            | "nobr"
-            | "p"
-            | "pre"
-            | "span"
-            | "tt"
-            | "wbr"
-    )
+    matches!(tag, "span")
 }
 
 #[cfg(test)]
@@ -610,6 +600,76 @@ mod tests {
         assert_eq!(
             component_for_html_tag("bdo", &attributes),
             Some(AriaComponent::BidirectionalOverride)
+        );
+    }
+
+    #[test]
+    fn maps_flow_and_legacy_text_tags_to_native_semantics() {
+        let attributes = BTreeMap::new();
+
+        assert_eq!(
+            component_for_html_tag("p", &attributes),
+            Some(AriaComponent::Paragraph)
+        );
+        assert_eq!(
+            component_for_html_tag("pre", &attributes),
+            Some(AriaComponent::PreformattedText)
+        );
+        assert_eq!(
+            component_for_html_tag("listing", &attributes),
+            Some(AriaComponent::PreformattedText)
+        );
+        assert_eq!(
+            component_for_html_tag("plaintext", &attributes),
+            Some(AriaComponent::PreformattedText)
+        );
+        assert_eq!(
+            component_for_html_tag("xmp", &attributes),
+            Some(AriaComponent::PreformattedText)
+        );
+        assert_eq!(
+            component_for_html_tag("blockquote", &attributes),
+            Some(AriaComponent::BlockQuote)
+        );
+        assert_eq!(
+            component_for_html_tag("address", &attributes),
+            Some(AriaComponent::ContactAddress)
+        );
+        assert_eq!(
+            component_for_html_tag("br", &attributes),
+            Some(AriaComponent::LineBreak)
+        );
+        assert_eq!(
+            component_for_html_tag("wbr", &attributes),
+            Some(AriaComponent::WordBreakOpportunity)
+        );
+        assert_eq!(
+            component_for_html_tag("nobr", &attributes),
+            Some(AriaComponent::NoBreakText)
+        );
+        assert_eq!(
+            component_for_html_tag("center", &attributes),
+            Some(AriaComponent::CenteredText)
+        );
+        assert_eq!(
+            component_for_html_tag("font", &attributes),
+            Some(AriaComponent::FontText)
+        );
+        assert_eq!(
+            component_for_html_tag("basefont", &attributes),
+            Some(AriaComponent::FontText)
+        );
+        assert_eq!(
+            component_for_html_tag("big", &attributes),
+            Some(AriaComponent::BigText)
+        );
+        assert_eq!(
+            component_for_html_tag("tt", &attributes),
+            Some(AriaComponent::TeletypeText)
+        );
+        assert_eq!(
+            component_for_html_tag("dir", &attributes),
+            Some(AriaComponent::ListBox)
         );
     }
 

@@ -219,7 +219,20 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "UnderlinedText" | "u" => Ok(AriaComponent::UnderlinedText),
         "BidirectionalIsolate" | "bdi" => Ok(AriaComponent::BidirectionalIsolate),
         "BidirectionalOverride" | "bdo" => Ok(AriaComponent::BidirectionalOverride),
-        "Text" | "span" | "p" => Ok(AriaComponent::Text),
+        "Paragraph" | "p" => Ok(AriaComponent::Paragraph),
+        "PreformattedText" | "pre" | "listing" | "plaintext" | "xmp" => {
+            Ok(AriaComponent::PreformattedText)
+        }
+        "BlockQuote" | "blockquote" => Ok(AriaComponent::BlockQuote),
+        "ContactAddress" | "address" => Ok(AriaComponent::ContactAddress),
+        "LineBreak" | "br" => Ok(AriaComponent::LineBreak),
+        "WordBreakOpportunity" | "wbr" => Ok(AriaComponent::WordBreakOpportunity),
+        "NoBreakText" | "nobr" => Ok(AriaComponent::NoBreakText),
+        "CenteredText" | "center" => Ok(AriaComponent::CenteredText),
+        "FontText" | "font" | "basefont" => Ok(AriaComponent::FontText),
+        "BigText" | "big" => Ok(AriaComponent::BigText),
+        "TeletypeText" | "tt" => Ok(AriaComponent::TeletypeText),
+        "Text" | "span" => Ok(AriaComponent::Text),
         "Heading" => Ok(AriaComponent::Heading),
         "HeadingGroup" | "hgroup" => Ok(AriaComponent::HeadingGroup),
         "Ruby" | "ruby" => Ok(AriaComponent::Ruby),
@@ -248,7 +261,7 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "ImageMapArea" | "area" => Ok(AriaComponent::ImageMapArea),
         "Select" | "select" => Ok(AriaComponent::Select),
         "SelectValue" => Ok(AriaComponent::SelectValue),
-        "ListBox" | "ul" | "ol" => Ok(AriaComponent::ListBox),
+        "ListBox" | "ul" | "ol" | "datalist" | "dir" => Ok(AriaComponent::ListBox),
         "ListBoxItem" | "option" | "li" => Ok(AriaComponent::ListBoxItem),
         "Dialog" | "dialog" => Ok(AriaComponent::Dialog),
         "Popover" => Ok(AriaComponent::Popover),
@@ -1433,7 +1446,7 @@ mod tests {
         };
 
         let native = bridge.lower_to_native(&root).unwrap();
-        assert_eq!(native.role, NativeRole::Text);
+        assert_eq!(native.role, NativeRole::Paragraph);
         let expected = [
             (NativeRole::Emphasis, "emphasized"),
             (NativeRole::StrongText, "important"),
@@ -1473,6 +1486,160 @@ mod tests {
                 .get("dir")
                 .map(String::as_str),
             Some("rtl")
+        );
+    }
+
+    #[test]
+    fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
+        fn flow(key: &str, tag: &str, text: &str) -> CompiledJsxNode {
+            CompiledJsxNode::Element {
+                key: key.to_string(),
+                tag: tag.to_string(),
+                import_source: None,
+                props: CompiledProps::default(),
+                children: vec![CompiledJsxNode::Text {
+                    key: format!("{key}-text"),
+                    value: text.to_string(),
+                }],
+            }
+        }
+
+        let bridge = ReactCompilerBridge::new();
+        let root = CompiledJsxNode::Element {
+            key: "flow".to_string(),
+            tag: "div".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![
+                flow("paragraph", "p", "Paragraph"),
+                flow("pre", "pre", "line 1\nline 2"),
+                CompiledJsxNode::Element {
+                    key: "blockquote".to_string(),
+                    tag: "blockquote".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([(
+                            "cite".to_string(),
+                            "https://example.test/quote".to_string(),
+                        )]),
+                        ..CompiledProps::default()
+                    },
+                    children: vec![CompiledJsxNode::Element {
+                        key: "quote-p".to_string(),
+                        tag: "p".to_string(),
+                        import_source: None,
+                        props: CompiledProps::default(),
+                        children: vec![CompiledJsxNode::Text {
+                            key: "quote-p-text".to_string(),
+                            value: "Quoted paragraph".to_string(),
+                        }],
+                    }],
+                },
+                flow("address", "address", "help@example.test"),
+                CompiledJsxNode::Element {
+                    key: "break".to_string(),
+                    tag: "br".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: Vec::new(),
+                },
+                CompiledJsxNode::Element {
+                    key: "word-break".to_string(),
+                    tag: "wbr".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: Vec::new(),
+                },
+                flow("nobr", "nobr", "No break"),
+                flow("center", "center", "Centered"),
+                CompiledJsxNode::Element {
+                    key: "font".to_string(),
+                    tag: "font".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([("color".to_string(), "red".to_string())]),
+                        ..CompiledProps::default()
+                    },
+                    children: vec![CompiledJsxNode::Text {
+                        key: "font-text".to_string(),
+                        value: "Font text".to_string(),
+                    }],
+                },
+                flow("big", "big", "Big"),
+                flow("tt", "tt", "Teletype"),
+                flow("listing", "listing", "Legacy listing"),
+                flow("plaintext", "plaintext", "Plain text"),
+                flow("xmp", "xmp", "Example"),
+                flow("basefont", "basefont", "Base font"),
+                CompiledJsxNode::Element {
+                    key: "directory".to_string(),
+                    tag: "dir".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Element {
+                        key: "directory-item".to_string(),
+                        tag: "li".to_string(),
+                        import_source: None,
+                        props: CompiledProps::default(),
+                        children: vec![CompiledJsxNode::Text {
+                            key: "directory-item-text".to_string(),
+                            value: "Item".to_string(),
+                        }],
+                    }],
+                },
+            ],
+        };
+
+        let native = bridge.lower_to_native(&root).unwrap();
+        assert_eq!(native.role, NativeRole::View);
+        let expected = [
+            (NativeRole::Paragraph, "Paragraph"),
+            (NativeRole::PreformattedText, "line 1\nline 2"),
+            (NativeRole::BlockQuote, "Quoted paragraph"),
+            (NativeRole::ContactAddress, "help@example.test"),
+            (NativeRole::LineBreak, ""),
+            (NativeRole::WordBreakOpportunity, ""),
+            (NativeRole::NoBreakText, "No break"),
+            (NativeRole::CenteredText, "Centered"),
+            (NativeRole::FontText, "Font text"),
+            (NativeRole::BigText, "Big"),
+            (NativeRole::TeletypeText, "Teletype"),
+            (NativeRole::PreformattedText, "Legacy listing"),
+            (NativeRole::PreformattedText, "Plain text"),
+            (NativeRole::PreformattedText, "Example"),
+            (NativeRole::FontText, "Base font"),
+            (NativeRole::ListBox, "Item"),
+        ];
+        for (index, (role, label)) in expected.iter().enumerate() {
+            assert_eq!(native.children[index].role, *role);
+            if label.is_empty() {
+                assert_eq!(native.children[index].props.label, None);
+            } else {
+                assert_eq!(native.children[index].props.label.as_deref(), Some(*label));
+            }
+        }
+        assert_eq!(
+            native.children[2]
+                .props
+                .web
+                .attributes
+                .get("cite")
+                .map(String::as_str),
+            Some("https://example.test/quote")
+        );
+        assert_eq!(native.children[2].children[0].role, NativeRole::Paragraph);
+        assert_eq!(
+            native.children[8]
+                .props
+                .web
+                .attributes
+                .get("color")
+                .map(String::as_str),
+            Some("red")
+        );
+        assert_eq!(
+            native.children[15].children[0].role,
+            NativeRole::ListBoxItem
         );
     }
 
