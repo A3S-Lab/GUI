@@ -41,6 +41,9 @@ impl Renderer {
             None => mount_node(None, 0, element, host)?,
         };
         if let Err(error) = host.set_root(mounted.id) {
+            if previous_root.is_none() {
+                best_effort_unmount_node(mounted, host);
+            }
             self.root = previous_root;
             return Err(error);
         }
@@ -136,10 +139,37 @@ fn mount_node<H: NativeHost>(
     let id = host.create(element)?;
     let mut children = Vec::with_capacity(element.children.len());
     for (child_index, child) in element.children.iter().enumerate() {
-        children.push(mount_node(Some(id), child_index, child, host)?);
+        match mount_node(Some(id), child_index, child, host) {
+            Ok(child) => children.push(child),
+            Err(error) => {
+                best_effort_unmount_node(
+                    MountedNode {
+                        id,
+                        key: element.key.clone(),
+                        role: element.role,
+                        props: element.props.clone(),
+                        children,
+                    },
+                    host,
+                );
+                return Err(error);
+            }
+        }
     }
     if let Some(parent) = parent {
-        host.insert_child(parent, id, index)?;
+        if let Err(error) = host.insert_child(parent, id, index) {
+            best_effort_unmount_node(
+                MountedNode {
+                    id,
+                    key: element.key.clone(),
+                    role: element.role,
+                    props: element.props.clone(),
+                    children,
+                },
+                host,
+            );
+            return Err(error);
+        }
     }
     Ok(MountedNode {
         id,
@@ -217,6 +247,13 @@ fn unmount_node<H: NativeHost>(node: MountedNode, host: &mut H) -> GuiResult<()>
     host.remove(node.id)
 }
 
+fn best_effort_unmount_node<H: NativeHost>(node: MountedNode, host: &mut H) {
+    for child in node.children {
+        best_effort_unmount_node(child, host);
+    }
+    let _ = host.remove(node.id);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,6 +263,10 @@ mod tests {
     #[derive(Default)]
     struct FailingUpdateHost {
         inner: HeadlessHost,
+        create_calls: usize,
+        fail_create_call: Option<usize>,
+        fail_inserts: bool,
+        fail_set_root: bool,
         fail_updates: bool,
     }
 
@@ -242,6 +283,10 @@ mod tests {
             self.inner.operations()
         }
 
+        fn nodes(&self) -> &BTreeMap<HostNodeId, crate::host::HeadlessNode> {
+            self.inner.nodes()
+        }
+
         fn clear_operations(&mut self) {
             self.inner.clear_operations();
         }
@@ -249,6 +294,10 @@ mod tests {
 
     impl NativeHost for FailingUpdateHost {
         fn create(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
+            self.create_calls += 1;
+            if self.fail_create_call == Some(self.create_calls) {
+                return Err(GuiError::host("forced host create failure"));
+            }
             self.inner.create(element)
         }
 
@@ -265,6 +314,9 @@ mod tests {
             child: HostNodeId,
             index: usize,
         ) -> GuiResult<()> {
+            if self.fail_inserts {
+                return Err(GuiError::host("forced host insert failure"));
+            }
             self.inner.insert_child(parent, child, index)
         }
 
@@ -273,6 +325,9 @@ mod tests {
         }
 
         fn set_root(&mut self, id: HostNodeId) -> GuiResult<()> {
+            if self.fail_set_root {
+                return Err(GuiError::host("forced host set_root failure"));
+            }
             self.inner.set_root(id)
         }
     }
@@ -386,6 +441,59 @@ mod tests {
             host.node(root_id).unwrap().props.label.as_deref(),
             Some("Recovered")
         );
+    }
+
+    #[test]
+    fn renderer_cleans_up_partial_first_mount_after_child_create_failure() {
+        let tree = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("child", NativeRole::Button));
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost {
+            fail_create_call: Some(2),
+            ..FailingUpdateHost::default()
+        };
+
+        let error = renderer.render(&tree, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host create failure"));
+        assert!(renderer.mounted_node_ids().is_empty());
+        assert!(host.nodes().is_empty());
+        assert!(host.root().is_none());
+    }
+
+    #[test]
+    fn renderer_cleans_up_partial_first_mount_after_child_insert_failure() {
+        let tree = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("child", NativeRole::Button));
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost {
+            fail_inserts: true,
+            ..FailingUpdateHost::default()
+        };
+
+        let error = renderer.render(&tree, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host insert failure"));
+        assert!(renderer.mounted_node_ids().is_empty());
+        assert!(host.nodes().is_empty());
+        assert!(host.root().is_none());
+    }
+
+    #[test]
+    fn renderer_cleans_up_first_mount_after_set_root_failure() {
+        let tree = NativeElement::new("root", NativeRole::View);
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost {
+            fail_set_root: true,
+            ..FailingUpdateHost::default()
+        };
+
+        let error = renderer.render(&tree, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host set_root failure"));
+        assert!(renderer.mounted_node_ids().is_empty());
+        assert!(host.nodes().is_empty());
+        assert!(host.root().is_none());
     }
 
     #[test]
