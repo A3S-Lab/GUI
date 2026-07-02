@@ -493,10 +493,10 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             NativeWidgetSetter::SetPortableStyle(style) => {
                 match &handle.widget {
                     AppKitOsWidget::Window(window) => {
-                        apply_window_size_constraints(window, style);
+                        apply_window_portable_style(window, style);
                     }
                     AppKitOsWidget::Panel(panel) => {
-                        apply_window_size_constraints(panel.as_super(), style);
+                        apply_window_portable_style(panel.as_super(), style);
                     }
                     _ => {}
                 }

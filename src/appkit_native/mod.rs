@@ -571,7 +571,20 @@ fn config_size(config: &NativeWidgetConfig, default_width: f64, default_height: 
     NSSize::new(width, height)
 }
 
-fn apply_window_size_constraints(window: &NSWindow, style: &crate::style::PortableStyle) {
+fn apply_window_portable_style(window: &NSWindow, style: &crate::style::PortableStyle) {
+    let width = style.width.as_ref().and_then(StyleLength::points);
+    let height = style.height.as_ref().and_then(StyleLength::points);
+    if width.is_some() || height.is_some() {
+        let current = window
+            .contentView()
+            .map(|view| view.frame().size)
+            .unwrap_or_else(|| window.contentLayoutRect().size);
+        window.setContentSize(NSSize::new(
+            width.unwrap_or(current.width),
+            height.unwrap_or(current.height),
+        ));
+    }
+
     let min_width = style.min_width.as_ref().and_then(StyleLength::points);
     let min_height = style.min_height.as_ref().and_then(StyleLength::points);
     if min_width.is_some() || min_height.is_some() {

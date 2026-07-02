@@ -481,6 +481,80 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_updates_window_style_options() {
+        let first: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "window": {"title": "Profile", "width": 640, "height": 480},
+              "root": {
+                "kind": "element",
+                "key": "content",
+                "tag": "Group",
+                "children": [{"kind": "text", "key": "text", "value": "Profile"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let second: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "window": {
+                "title": "Profile",
+                "width": 800,
+                "height": 560,
+                "minWidth": 520,
+                "minHeight": 360
+              },
+              "root": {
+                "kind": "element",
+                "key": "content",
+                "tag": "Group",
+                "children": [{"kind": "text", "key": "text", "value": "Profile"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let first_response = session.render_frame(&first).unwrap();
+        let second_response = session.render_frame(&second).unwrap();
+
+        assert_eq!(second_response.root, first_response.root);
+        assert!(second_response.commands.iter().any(|command| matches!(
+            command,
+            crate::platform::PlatformCommand::Update { id, blueprint }
+                if *id == first_response.root
+                    && blueprint
+                        .portable_style
+                        .width
+                        .as_ref()
+                        .and_then(|value| value.points()) == Some(800.0)
+                    && blueprint
+                        .portable_style
+                        .height
+                        .as_ref()
+                        .and_then(|value| value.points()) == Some(560.0)
+                    && blueprint
+                        .portable_style
+                        .min_width
+                        .as_ref()
+                        .and_then(|value| value.points()) == Some(520.0)
+                    && blueprint
+                        .portable_style
+                        .min_height
+                        .as_ref()
+                        .and_then(|value| value.points()) == Some(360.0)
+        )));
+        assert!(second_response.commands.iter().all(|command| {
+            !matches!(command, crate::platform::PlatformCommand::Create { .. })
+        }));
+    }
+
+    #[test]
     fn native_protocol_session_returns_rendered_accessibility_tree() {
         let frame: UiFrame = serde_json::from_str(
             r#"

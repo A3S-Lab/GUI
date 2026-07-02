@@ -425,6 +425,8 @@ Feature-gated platform executor surfaces:
   `NSComboBox`, `NSScrollView`, `NSTabView`, `NSTabViewItem`,
   `NSBox(separator)`, `NSSlider`, and `NSProgressIndicator` objects through
   `AppKitNativeSurface`.
+  Window and panel setters apply content size plus min/max size constraints
+  from `UiFrame.window` and portable style tokens.
   The shared renderer still owns
   reconciliation and config diffs; the surface applies typed
   `NativeWidgetSetter` operations directly to AppKit controls. The backend
