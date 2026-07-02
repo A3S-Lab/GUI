@@ -662,6 +662,35 @@ mod tests {
     }
 
     #[test]
+    fn runtime_accessibility_tree_reflects_direct_radio_selection_as_checked() {
+        let tree = NativeElement::new("theme", NativeRole::RadioGroup)
+            .with_props(NativeProps::new().label("Theme"))
+            .child(
+                NativeElement::new("light", NativeRole::Radio)
+                    .with_props(NativeProps::new().label("Light").value("light")),
+            )
+            .child(
+                NativeElement::new("dark", NativeRole::Radio)
+                    .with_props(NativeProps::new().label("Dark").value("dark")),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&tree).unwrap();
+        let radio_id = runtime.host().node(root_id).unwrap().children[1];
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                radio_id,
+                crate::event::NativeEventKind::SelectionChange,
+            ))
+            .unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(accessibility.children[1].selected);
+        assert_eq!(accessibility.children[1].checked, Some(true));
+    }
+
+    #[test]
     fn runtime_renders_compiled_jsx_to_native_command_stream() {
         let compiled: CompiledJsxNode = serde_json::from_str(
             r#"

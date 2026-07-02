@@ -122,8 +122,12 @@ fn apply_change(role: NativeRole, event: &NativeEvent, state: &mut InteractionNo
 
 fn apply_selection(role: NativeRole, event: &NativeEvent, state: &mut InteractionNodeState) {
     match role {
-        NativeRole::ListBoxItem | NativeRole::Tab | NativeRole::MenuItem | NativeRole::Radio => {
+        NativeRole::ListBoxItem | NativeRole::Tab | NativeRole::MenuItem => {
             state.selected = true;
+        }
+        NativeRole::Radio => {
+            state.selected = true;
+            state.checked = Some(true);
         }
         NativeRole::Select | NativeRole::ListBox | NativeRole::Tabs | NativeRole::RadioGroup => {
             state.value = event.value.clone();
@@ -216,6 +220,23 @@ mod tests {
 
         assert_eq!(change.before.checked, Some(true));
         assert_eq!(change.after.checked, Some(false));
+    }
+
+    #[test]
+    fn radio_selection_marks_checked_state() {
+        let element = NativeElement::new("dark", NativeRole::Radio);
+        let blueprint = Gtk4Adapter.blueprint(&element);
+        let mut state = InteractionState::new();
+
+        let change = state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(3), NativeEventKind::SelectionChange),
+            )
+            .unwrap();
+
+        assert!(change.after.selected);
+        assert_eq!(change.after.checked, Some(true));
     }
 
     #[test]
