@@ -185,7 +185,7 @@ impl NativeWidgetConfig {
             draggable: state.draggable.clone(),
             spell_check: state.spell_check,
             translate: state.translate,
-            inert: state.inert,
+            inert: state.inert || blueprint.portable_style.makes_native_widget_inert(),
             popover: state.popover.clone(),
             anchor: state.anchor.clone(),
             custom_element_is: state.custom_element_is.clone(),

@@ -404,13 +404,17 @@ fn is_invisible_or_inert_event(
 }
 
 fn is_invisible_or_inert(blueprint: &NativeWidgetBlueprint) -> bool {
-    !is_visible_blueprint(blueprint) || blueprint.control_state.inert
+    !is_visible_blueprint(blueprint) || is_inert_blueprint(blueprint)
 }
 
 fn is_visible_blueprint(blueprint: &NativeWidgetBlueprint) -> bool {
     !blueprint.control_state.hidden
         && blueprint.portable_style.renders_native_widget()
         && blueprint.control_state.html_dialog.open.unwrap_or(true)
+}
+
+fn is_inert_blueprint(blueprint: &NativeWidgetBlueprint) -> bool {
+    blueprint.control_state.inert || blueprint.portable_style.makes_native_widget_inert()
 }
 
 fn is_disabled_user_event(
@@ -1259,6 +1263,13 @@ mod tests {
                 ),
             )
             .child(
+                NativeElement::new("activity", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Activity")
+                        .web(WebProps::new().style("interactivity", "inert")),
+                ),
+            )
+            .child(
                 NativeElement::new("dialog", NativeRole::Dialog)
                     .with_props(
                         NativeProps::new().html_dialog(HtmlDialogProps::default().open(false)),
@@ -1311,31 +1322,47 @@ mod tests {
 
     #[test]
     fn runtime_suppresses_inert_subtree_actions() {
-        let element = NativeElement::new("tools", NativeRole::Toolbar)
-            .with_props(NativeProps::new().inert(true))
-            .child(
-                NativeElement::new("save", NativeRole::Button).with_props(
-                    NativeProps::new()
-                        .label("Save")
-                        .web(WebProps::new().on_press("saveDocument")),
-                ),
-            );
-        let host = PlatformPlanningHost::new(Gtk4Adapter);
-        let mut runtime = GuiRuntime::new(host);
-        runtime.actions_mut().register("saveDocument");
+        let cases = [
+            (
+                "html inert",
+                "tools-html-inert",
+                NativeProps::new().inert(true),
+            ),
+            (
+                "css interactivity inert",
+                "tools-css-interactivity-inert",
+                NativeProps::new().web(WebProps::new().style("interactivity", "inert")),
+            ),
+        ];
 
-        let root_id = runtime.render_native(&element).unwrap();
-        let child = runtime.host().node(root_id).unwrap().children[0];
-        let handled = runtime
-            .handle_native_event_with_changes(crate::event::NativeEvent::new(
-                child,
-                crate::event::NativeEventKind::Press,
-            ))
-            .unwrap();
+        for (name, key, props) in cases {
+            let element = NativeElement::new(key, NativeRole::Toolbar)
+                .with_props(props)
+                .child(
+                    NativeElement::new("save", NativeRole::Button).with_props(
+                        NativeProps::new()
+                            .label("Save")
+                            .web(WebProps::new().on_press("saveDocument")),
+                    ),
+                );
+            let host = PlatformPlanningHost::new(Gtk4Adapter);
+            let mut runtime = GuiRuntime::new(host);
+            runtime.actions_mut().register("saveDocument");
 
-        assert!(handled.invocation.is_none());
-        assert!(handled.interaction_changes.is_empty());
-        assert!(runtime.actions().invocations().is_empty());
+            let root_id = runtime.render_native(&element).unwrap();
+            let child = runtime.host().node(root_id).unwrap().children[0];
+            let handled = runtime
+                .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                    child,
+                    crate::event::NativeEventKind::Press,
+                ))
+                .unwrap();
+
+            assert!(handled.invocation.is_none(), "{name}");
+            assert!(handled.interaction_changes.is_empty(), "{name}");
+            assert!(runtime.accessibility_tree().is_none(), "{name}");
+            assert!(runtime.actions().invocations().is_empty(), "{name}");
+        }
     }
 
     #[test]

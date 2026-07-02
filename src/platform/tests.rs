@@ -310,6 +310,39 @@ fn widget_config_marks_non_rendered_styles_invisible() {
 }
 
 #[test]
+fn widget_config_marks_interactivity_inert_as_native_inert() {
+    let css_inert = NativeElement::new("css-inert", NativeRole::Button).with_props(
+        NativeProps::new()
+            .label("Save")
+            .web(WebProps::new().style("interactivity", "inert")),
+    );
+    let css_auto = NativeElement::new("css-auto", NativeRole::Button).with_props(
+        NativeProps::new()
+            .label("Save")
+            .web(WebProps::new().style("interactivity", "auto")),
+    );
+    let html_inert_with_css_auto = NativeElement::new("html-inert", NativeRole::Button).with_props(
+        NativeProps::new()
+            .label("Save")
+            .inert(true)
+            .web(WebProps::new().style("interactivity", "auto")),
+    );
+
+    let css_inert_config = Gtk4Adapter.blueprint(&css_inert).config();
+    let css_auto_config = Gtk4Adapter.blueprint(&css_auto).config();
+    let html_inert_config = Gtk4Adapter.blueprint(&html_inert_with_css_auto).config();
+
+    assert!(css_inert_config.visible);
+    assert!(css_inert_config.inert);
+    assert!(css_inert_config
+        .create_setters()
+        .contains(&NativeWidgetSetter::SetInert(true)));
+    assert!(css_auto_config.visible);
+    assert!(!css_auto_config.inert);
+    assert!(html_inert_config.inert);
+}
+
+#[test]
 fn widget_config_preserves_html_form_control_hints() {
     let element = NativeElement::new("email", NativeRole::TextField).with_props(
         NativeProps::new()

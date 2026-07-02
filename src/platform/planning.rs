@@ -100,6 +100,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         let state = &node.blueprint.control_state;
         if !node.blueprint.config().visible
             || state.inert
+            || node.blueprint.portable_style.makes_native_widget_inert()
             || state.accessibility_state.hidden == Some(true)
         {
             return None;

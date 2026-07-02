@@ -111,7 +111,7 @@ impl HeadlessHost {
     fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
         let node = self.nodes.get(&id)?;
         if !is_accessibility_visible(&node.props)
-            || node.props.inert
+            || is_accessibility_inert(&node.props)
             || node.props.accessibility_state.hidden == Some(true)
         {
             return None;
@@ -149,6 +149,10 @@ fn is_accessibility_visible(props: &NativeProps) -> bool {
     !props.hidden
         && PortableStyle::from_web(&props.web).renders_native_widget()
         && props.html_dialog.open.unwrap_or(true)
+}
+
+fn is_accessibility_inert(props: &NativeProps) -> bool {
+    props.inert || PortableStyle::from_web(&props.web).makes_native_widget_inert()
 }
 
 impl AccessibilityTreeHost for HeadlessHost {

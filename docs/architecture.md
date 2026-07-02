@@ -250,7 +250,8 @@ events before interaction state or action routing and are omitted from rendered
 accessibility tree projection. Invisibility currently includes HTML `hidden`,
 CSS `display: none`, `visibility: hidden` / `collapse`,
 `content-visibility: hidden`, and closed intrinsic dialogs. Inert widgets use
-the same subtree event and accessibility suppression.
+the same subtree event and accessibility suppression; both the HTML `inert`
+attribute and CSS `interactivity: inert` feed that native inert state.
 Disabled target widgets suppress user activation, value, selection, toggle, and
 keyboard events before interaction state or action routing, while focus and blur
 events can still update inspection state when a host reports them.

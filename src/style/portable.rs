@@ -538,4 +538,10 @@ impl PortableStyle {
                 Some(VisibilityMode::Hidden | VisibilityMode::Collapse)
             )
     }
+
+    pub fn makes_native_widget_inert(&self) -> bool {
+        self.interactivity
+            .as_deref()
+            .is_some_and(|value| value.trim().eq_ignore_ascii_case("inert"))
+    }
 }

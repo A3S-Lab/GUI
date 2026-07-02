@@ -80,7 +80,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | Input field | Native IR output |
 | --- | --- |
 | `className` | preserved in `WebProps.class_name` for style resolution |
-| `style={{...}}` | preserved in `WebProps.style` and parsed into `PortableStyle`; non-rendered styles such as `display: none`, `visibility: hidden` / `collapse`, and `content-visibility: hidden` make the native widget config invisible |
+| `style={{...}}` | preserved in `WebProps.style` and parsed into `PortableStyle`; non-rendered styles such as `display: none`, `visibility: hidden` / `collapse`, and `content-visibility: hidden` make the native widget config invisible, while `interactivity: inert` makes the native widget config inert |
 | `aria-label` | used as the explicit native accessibility label before descendant text fallback |
 | `aria-*` | preserved as accessibility metadata; supported state attributes also feed native control state |
 | `aria-labelledby` / `aria-describedby` / `aria-details` / `aria-controls` / `aria-owns` / `aria-flowto` / `aria-errormessage` / `aria-activedescendant` | normalized to native accessibility relationship hints and preserved as metadata |
@@ -398,9 +398,10 @@ semantic.
 Invisible and inert controls suppress native events and rendered accessibility
 projection for their subtree. Invisibility includes HTML `hidden`, CSS
 `display: none`, `visibility: hidden` / `collapse`,
-`content-visibility: hidden`, and closed intrinsic dialogs. Disabled controls
-suppress user activation and input events. Read-only controls still allow
-focus, blur, press, and explicit keyboard routing, but suppress value,
+`content-visibility: hidden`, and closed intrinsic dialogs. Inert controls
+include the HTML `inert` attribute and CSS `interactivity: inert`. Disabled
+controls suppress user activation and input events. Read-only controls still
+allow focus, blur, press, and explicit keyboard routing, but suppress value,
 selection, and toggle events before state changes or action dispatch.
 
 For folded controls, event ownership follows the source element structure. For
