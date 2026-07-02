@@ -156,6 +156,42 @@ impl WinUiNativeSurface {
         Ok(())
     }
 
+    fn apply_password_box_size_hint(
+        &self,
+        id: HostNodeId,
+        password_box: &Controls::PasswordBox,
+    ) -> GuiResult<()> {
+        let Some(sizing) = self.text_inputs.get(&id).copied() else {
+            return Ok(());
+        };
+        if sizing.explicit_width.is_some() && sizing.explicit_height.is_some() {
+            return Ok(());
+        }
+        let element: xaml::FrameworkElement = map_winui(
+            "failed to read WinUI password box framework element",
+            password_box.cast(),
+        )?;
+        if sizing.explicit_width.is_none() {
+            let width = sizing
+                .hinted_width()
+                .unwrap_or(WINUI_TEXT_INPUT_DEFAULT_WIDTH);
+            map_winui(
+                "failed to set WinUI password box hinted width",
+                element.SetWidth(width),
+            )?;
+        }
+        if sizing.explicit_height.is_none() {
+            let height = sizing
+                .hinted_height()
+                .unwrap_or(WINUI_TEXT_INPUT_DEFAULT_HEIGHT);
+            map_winui(
+                "failed to set WinUI password box hinted height",
+                element.SetHeight(height),
+            )?;
+        }
+        Ok(())
+    }
+
     fn suppress_events<T>(&self, apply: impl FnOnce() -> T) -> T {
         let previous = self.events_suppressed.swap(true, Ordering::SeqCst);
         let result = apply();
@@ -593,6 +629,7 @@ pub enum WinUiOsWidget {
     Separator(xaml::FrameworkElement),
     Button(Controls::Button),
     TextBox(Controls::TextBox),
+    PasswordBox(Controls::PasswordBox),
     CheckBox(Controls::CheckBox),
     ToggleSwitch(Controls::CheckBox),
     RadioButton(Controls::RadioButton),
@@ -618,6 +655,7 @@ impl WinUiOsWidget {
             WinUiOsWidget::Separator(widget) => widget.cast().ok(),
             WinUiOsWidget::Button(widget) => widget.cast().ok(),
             WinUiOsWidget::TextBox(widget) => widget.cast().ok(),
+            WinUiOsWidget::PasswordBox(widget) => widget.cast().ok(),
             WinUiOsWidget::CheckBox(widget) | WinUiOsWidget::ToggleSwitch(widget) => {
                 widget.cast().ok()
             }
@@ -644,6 +682,7 @@ impl WinUiOsWidget {
             WinUiOsWidget::Separator(widget) => widget.cast().ok(),
             WinUiOsWidget::Button(widget) => widget.cast().ok(),
             WinUiOsWidget::TextBox(widget) => widget.cast().ok(),
+            WinUiOsWidget::PasswordBox(widget) => widget.cast().ok(),
             WinUiOsWidget::CheckBox(widget) | WinUiOsWidget::ToggleSwitch(widget) => {
                 widget.cast().ok()
             }
@@ -670,6 +709,7 @@ impl WinUiOsWidget {
             WinUiOsWidget::Separator(widget) => Some(widget.clone()),
             WinUiOsWidget::Button(widget) => widget.cast().ok(),
             WinUiOsWidget::TextBox(widget) => widget.cast().ok(),
+            WinUiOsWidget::PasswordBox(widget) => widget.cast().ok(),
             WinUiOsWidget::CheckBox(widget) | WinUiOsWidget::ToggleSwitch(widget) => {
                 widget.cast().ok()
             }
@@ -697,6 +737,7 @@ impl WinUiOsWidget {
             | WinUiOsWidget::Grid(_) => None,
             WinUiOsWidget::Button(widget) => widget.cast().ok(),
             WinUiOsWidget::TextBox(widget) => widget.cast().ok(),
+            WinUiOsWidget::PasswordBox(widget) => widget.cast().ok(),
             WinUiOsWidget::CheckBox(widget) | WinUiOsWidget::ToggleSwitch(widget) => {
                 widget.cast().ok()
             }
@@ -887,4 +928,11 @@ fn config_is_textarea(config: &NativeWidgetConfig) -> bool {
         .metadata
         .get(HTML_TAG_METADATA_KEY)
         .is_some_and(|tag| tag == "textarea")
+}
+
+fn config_is_password(config: &NativeWidgetConfig) -> bool {
+    config
+        .input_type
+        .as_deref()
+        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
 }

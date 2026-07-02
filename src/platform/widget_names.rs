@@ -58,6 +58,21 @@ fn native_widget_name_for_element(
         };
     }
 
+    if element.role == NativeRole::TextField
+        && element
+            .props
+            .input_type
+            .as_deref()
+            .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
+    {
+        return match backend {
+            NativeBackendKind::AppKit => "NSSecureTextField",
+            NativeBackendKind::WinUI => "Microsoft.UI.Xaml.Controls.PasswordBox",
+            NativeBackendKind::Gtk4 => "gtk::PasswordEntry",
+            NativeBackendKind::Headless => "a3s_gui::HeadlessNode",
+        };
+    }
+
     native_widget_name(backend, element.role)
 }
 

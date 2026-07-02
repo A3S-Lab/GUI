@@ -55,6 +55,13 @@ pub(super) fn set_label(widget: &WinUiOsWidget, value: Option<&str>) -> GuiResul
                 text_box.SetHeader(&content),
             )?;
         }
+        WinUiOsWidget::PasswordBox(password_box) => {
+            let content = text_content(value)?;
+            map_winui(
+                "failed to set WinUI password box header",
+                password_box.SetHeader(&content),
+            )?;
+        }
         WinUiOsWidget::ComboBox(combo_box) => {
             let content = text_content(value)?;
             map_winui(
@@ -123,6 +130,14 @@ pub(super) fn set_value(
                 )
             })?;
         }
+        WinUiOsWidget::PasswordBox(password_box) => {
+            surface.suppress_events(|| {
+                map_winui(
+                    "failed to set WinUI password box value",
+                    password_box.SetPassword(&hstr(value_text)),
+                )
+            })?;
+        }
         WinUiOsWidget::ComboBox(combo_box) => {
             surface.set_combo_value(id, combo_box, Some(value_text))?;
         }
@@ -141,6 +156,12 @@ pub(super) fn set_placeholder(widget: &WinUiOsWidget, value: Option<&str>) -> Gu
             map_winui(
                 "failed to set WinUI text box placeholder",
                 text_box.SetPlaceholderText(&hstr(value)),
+            )?;
+        }
+        WinUiOsWidget::PasswordBox(password_box) => {
+            map_winui(
+                "failed to set WinUI password box placeholder",
+                password_box.SetPlaceholderText(&hstr(value)),
             )?;
         }
         WinUiOsWidget::ComboBox(combo_box) => {
@@ -376,6 +397,31 @@ pub(super) fn register_text_change(
     map_winui(
         "failed to register WinUI text change handler",
         text_box.TextChanged(&handler),
+    )?;
+    Ok(())
+}
+
+pub(super) fn register_password_change(
+    id: HostNodeId,
+    password_box: &Controls::PasswordBox,
+    events: &WinUiEventQueue,
+    suppressed: Arc<AtomicBool>,
+) -> GuiResult<()> {
+    let events = Arc::clone(events);
+    let event_password_box = password_box.clone();
+    let handler = RoutedEventHandler::new(move |_, _| {
+        if !suppressed.load(Ordering::SeqCst) {
+            let value = event_password_box.Password()?.to_string();
+            push_event(
+                &events,
+                NativeEvent::new(id, NativeEventKind::Change).value(value),
+            );
+        }
+        Ok(())
+    });
+    map_winui(
+        "failed to register WinUI password change handler",
+        password_box.PasswordChanged(&handler),
     )?;
     Ok(())
 }

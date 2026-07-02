@@ -431,8 +431,8 @@ The included `RecordingBackend` applies commands to a pure Rust object tree.
 
 Feature-gated platform executor surfaces:
 
-- `appkit`: maps classes such as `NSButton`, `NSTextField(input)`, and
-  `NSTextField(textarea)` into AppKit object kinds behind
+- `appkit`: maps classes such as `NSButton`, `NSTextField(input)`,
+  `NSSecureTextField`, and `NSTextField(textarea)` into AppKit object kinds behind
   `AppKitWidgetDriver` and replays native setter operations through
   `AppKitHandleAdapter`.
 - `appkit-native`: uses `objc2` AppKit bindings on macOS to create real
@@ -479,7 +479,8 @@ Feature-gated platform executor surfaces:
   by setter-driven ranged state.
   These event paths flow through the existing `NativeEventSource` boundary.
 - `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button`,
-  `Microsoft.UI.Xaml.Controls.TextBox`, and
+  `Microsoft.UI.Xaml.Controls.TextBox`,
+  `Microsoft.UI.Xaml.Controls.PasswordBox`, and
   `Microsoft.UI.Xaml.Controls.TextBox(textarea)` into WinUI object kinds behind
   `WinUiWidgetDriver` and replays native setter operations through
   `WinUiHandleAdapter`.
@@ -510,9 +511,10 @@ Feature-gated platform executor surfaces:
   its native `Switch` semantic in the IR; with `winio-winui3` 0.4.2, the native
   surface temporarily backs that state with a WinUI `CheckBox` because the
   generated bindings do not expose `ToggleSwitch` yet.
-- `gtk4`: maps classes such as `gtk::Button`, `gtk::Entry`, and
-  `gtk::TextView` into GTK object kinds behind `Gtk4WidgetDriver` and replays
-  native setter operations through `Gtk4HandleAdapter`.
+- `gtk4`: maps classes such as `gtk::Button`, `gtk::Entry`,
+  `gtk::PasswordEntry`, and `gtk::TextView` into GTK object kinds behind
+  `Gtk4WidgetDriver` and replays native setter operations through
+  `Gtk4HandleAdapter`.
 - `gtk4-native`: uses `gtk4-rs` on Linux to create real
   `gtk::ApplicationWindow`, `gtk::Box`, `gtk::Label`, `gtk::Button`,
   `gtk::Entry`, `gtk::TextView`, `gtk::CheckButton`, `gtk::Switch`, `gtk::DropDown`,

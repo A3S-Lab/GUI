@@ -14,10 +14,10 @@ use objc2_app_kit::{
     NSApplication, NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSButton, NSComboBox,
     NSComboBoxDelegate, NSControl, NSControlStateValue, NSControlStateValueOff,
     NSControlStateValueOn, NSControlTextEditingDelegate, NSMenu, NSMenuItem, NSPanel, NSPopover,
-    NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView, NSSlider,
-    NSStackView, NSStackViewDistribution, NSSwitch, NSTabView, NSTabViewDelegate, NSTabViewItem,
-    NSTextField, NSTextFieldDelegate, NSUserInterfaceLayoutOrientation, NSView, NSViewController,
-    NSWindow, NSWindowStyleMask,
+    NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView,
+    NSSecureTextField, NSSlider, NSStackView, NSStackViewDistribution, NSSwitch, NSTabView,
+    NSTabViewDelegate, NSTabViewItem, NSTextField, NSTextFieldDelegate,
+    NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow, NSWindowStyleMask,
 };
 use objc2_foundation::{
     NSInteger, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
@@ -542,6 +542,7 @@ pub enum AppKitOsWidget {
     TabViewItem(Retained<NSTabViewItem>),
     Box(Retained<NSBox>),
     TextField(Retained<NSTextField>),
+    SecureTextField(Retained<NSSecureTextField>),
 }
 
 impl AppKitOsWidget {
@@ -563,6 +564,9 @@ impl AppKitOsWidget {
             AppKitOsWidget::TabView(tab_view) => Some(tab_view.as_super()),
             AppKitOsWidget::Box(box_) => Some(box_.as_super()),
             AppKitOsWidget::TextField(text_field) => Some(text_field.as_super().as_super()),
+            AppKitOsWidget::SecureTextField(text_field) => {
+                Some(text_field.as_super().as_super().as_super())
+            }
             AppKitOsWidget::ComboBoxItem(_) | AppKitOsWidget::TabViewItem(_) => None,
         }
     }
@@ -574,6 +578,7 @@ impl AppKitOsWidget {
             AppKitOsWidget::ComboBox(combo_box) => Some(combo_box.as_super().as_super()),
             AppKitOsWidget::Slider(slider) => Some(slider.as_super()),
             AppKitOsWidget::TextField(text_field) => Some(text_field.as_super()),
+            AppKitOsWidget::SecureTextField(text_field) => Some(text_field.as_super().as_super()),
             AppKitOsWidget::Window(_)
             | AppKitOsWidget::Panel(_)
             | AppKitOsWidget::Popover(_)
@@ -787,6 +792,13 @@ fn config_is_textarea(config: &NativeWidgetConfig) -> bool {
         .metadata
         .get(HTML_TAG_METADATA_KEY)
         .is_some_and(|tag| tag == "textarea")
+}
+
+fn config_is_password(config: &NativeWidgetConfig) -> bool {
+    config
+        .input_type
+        .as_deref()
+        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
 }
 
 fn apply_progress_range(progress: &NSProgressIndicator, range: AppKitRangeState) {

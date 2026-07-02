@@ -59,40 +59,96 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 Gtk4OsWidget::Button(button)
             }
             Gtk4WidgetKind::Entry => {
-                let entry = gtk::Entry::new();
-                self.suppress_events(|| {
-                    entry.set_text(config.value.as_deref().unwrap_or(""));
-                });
-                if let Some(placeholder) = config.placeholder.as_deref() {
-                    entry.set_placeholder_text(Some(placeholder));
+                if config_is_password(&config) {
+                    let entry = gtk::PasswordEntry::new();
+                    let max_length = config.max_length;
+                    self.suppress_events(|| {
+                        entry.set_text(&truncate_to_max_length(
+                            config.value.as_deref().unwrap_or(""),
+                            max_length,
+                        ));
+                    });
+                    if let Some(placeholder) = config.placeholder.as_deref() {
+                        entry.set_placeholder_text(Some(placeholder));
+                    }
+                    entry.set_editable(!config.read_only);
+                    self.text_inputs
+                        .insert(id, Gtk4TextInputSizing::from_config(&config));
+                    self.text_input_max_lengths
+                        .borrow_mut()
+                        .insert(id, config.max_length);
+                    self.apply_password_entry_width_hint(id, &entry);
+
+                    let events = self.events.clone();
+                    let events_suppressed = self.events_suppressed.clone();
+                    let text_input_max_lengths = self.text_input_max_lengths.clone();
+                    entry.connect_changed(move |entry| {
+                        if *events_suppressed.borrow() {
+                            return;
+                        }
+
+                        let raw_value = entry.text().to_string();
+                        let max_length =
+                            text_input_max_lengths.borrow().get(&id).copied().flatten();
+                        let value = truncate_to_max_length(&raw_value, max_length);
+                        if value != raw_value {
+                            let previous = events_suppressed.replace(true);
+                            entry.set_text(&value);
+                            events_suppressed.replace(previous);
+                        }
+                        events
+                            .borrow_mut()
+                            .push(NativeEvent::new(id, NativeEventKind::Change).value(value));
+                    });
+
+                    let events = self.events.clone();
+                    let events_suppressed = self.events_suppressed.clone();
+                    entry.connect_has_focus_notify(move |entry| {
+                        let kind = if entry.has_focus() {
+                            NativeEventKind::Focus
+                        } else {
+                            NativeEventKind::Blur
+                        };
+                        push_event(&events, &events_suppressed, NativeEvent::new(id, kind));
+                    });
+
+                    Gtk4OsWidget::PasswordEntry(entry)
+                } else {
+                    let entry = gtk::Entry::new();
+                    self.suppress_events(|| {
+                        entry.set_text(config.value.as_deref().unwrap_or(""));
+                    });
+                    if let Some(placeholder) = config.placeholder.as_deref() {
+                        entry.set_placeholder_text(Some(placeholder));
+                    }
+                    self.text_inputs
+                        .insert(id, Gtk4TextInputSizing::from_config(&config));
+                    self.apply_entry_width_hint(id, &entry);
+
+                    let events = self.events.clone();
+                    let events_suppressed = self.events_suppressed.clone();
+                    entry.connect_changed(move |entry| {
+                        push_event(
+                            &events,
+                            &events_suppressed,
+                            NativeEvent::new(id, NativeEventKind::Change)
+                                .value(entry.text().to_string()),
+                        );
+                    });
+
+                    let events = self.events.clone();
+                    let events_suppressed = self.events_suppressed.clone();
+                    entry.connect_has_focus_notify(move |entry| {
+                        let kind = if entry.has_focus() {
+                            NativeEventKind::Focus
+                        } else {
+                            NativeEventKind::Blur
+                        };
+                        push_event(&events, &events_suppressed, NativeEvent::new(id, kind));
+                    });
+
+                    Gtk4OsWidget::Entry(entry)
                 }
-                self.text_inputs
-                    .insert(id, Gtk4TextInputSizing::from_config(&config));
-                self.apply_entry_width_hint(id, &entry);
-
-                let events = self.events.clone();
-                let events_suppressed = self.events_suppressed.clone();
-                entry.connect_changed(move |entry| {
-                    push_event(
-                        &events,
-                        &events_suppressed,
-                        NativeEvent::new(id, NativeEventKind::Change)
-                            .value(entry.text().to_string()),
-                    );
-                });
-
-                let events = self.events.clone();
-                let events_suppressed = self.events_suppressed.clone();
-                entry.connect_has_focus_notify(move |entry| {
-                    let kind = if entry.has_focus() {
-                        NativeEventKind::Focus
-                    } else {
-                        NativeEventKind::Blur
-                    };
-                    push_event(&events, &events_suppressed, NativeEvent::new(id, kind));
-                });
-
-                Gtk4OsWidget::Entry(entry)
             }
             Gtk4WidgetKind::TextView => {
                 let text_view = gtk::TextView::new();
@@ -369,6 +425,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                         self.menus.update_item_label(id, item, label.to_string());
                     }
                     Gtk4OsWidget::Entry(_)
+                    | Gtk4OsWidget::PasswordEntry(_)
                     | Gtk4OsWidget::TextView(_)
                     | Gtk4OsWidget::Dialog(_)
                     | Gtk4OsWidget::Popover(_)
@@ -391,6 +448,20 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             NativeWidgetSetter::SetValue(value) => match &handle.widget {
                 Gtk4OsWidget::Entry(entry) => {
                     self.suppress_events(|| entry.set_text(value.as_deref().unwrap_or("")));
+                }
+                Gtk4OsWidget::PasswordEntry(entry) => {
+                    let max_length = self
+                        .text_input_max_lengths
+                        .borrow()
+                        .get(&id)
+                        .copied()
+                        .flatten();
+                    self.suppress_events(|| {
+                        entry.set_text(&truncate_to_max_length(
+                            value.as_deref().unwrap_or(""),
+                            max_length,
+                        ));
+                    });
                 }
                 Gtk4OsWidget::TextView(text_view) => {
                     let buffer = text_view.buffer();
@@ -439,17 +510,18 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Menu(_)
                 | Gtk4OsWidget::Box(_)
                 | Gtk4OsWidget::Button(_)
-                | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::CheckButton(_)
                 | Gtk4OsWidget::Switch(_)
                 | Gtk4OsWidget::ListBox(_)
-                | Gtk4OsWidget::Notebook(_)
                 | Gtk4OsWidget::Separator(_)
                 | Gtk4OsWidget::Scale(_)
                 | Gtk4OsWidget::ProgressBar(_) => {}
             },
             NativeWidgetSetter::SetPlaceholder(value) => match &handle.widget {
                 Gtk4OsWidget::Entry(entry) => {
+                    entry.set_placeholder_text(value.as_deref());
+                }
+                Gtk4OsWidget::PasswordEntry(entry) => {
                     entry.set_placeholder_text(value.as_deref());
                 }
                 Gtk4OsWidget::TextView(text_view) => {
@@ -467,6 +539,9 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             }
             NativeWidgetSetter::SetReadOnly(value) => match &handle.widget {
                 Gtk4OsWidget::Entry(entry) => {
+                    entry.set_editable(!*value);
+                }
+                Gtk4OsWidget::PasswordEntry(entry) => {
                     entry.set_editable(!*value);
                 }
                 Gtk4OsWidget::TextView(text_view) => {
@@ -495,6 +570,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Label(_)
                 | Gtk4OsWidget::Button(_)
                 | Gtk4OsWidget::Entry(_)
+                | Gtk4OsWidget::PasswordEntry(_)
                 | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::DropDown(_)
                 | Gtk4OsWidget::ListBox(_)
@@ -530,6 +606,11 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     self.text_inputs.entry(id).or_default().has_explicit_width =
                         style_sets_gtk_width(style);
                     self.apply_entry_width_hint(id, entry);
+                }
+                if let Gtk4OsWidget::PasswordEntry(entry) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().has_explicit_width =
+                        style_sets_gtk_width(style);
+                    self.apply_password_entry_width_hint(id, entry);
                 }
                 if let Gtk4OsWidget::TextView(text_view) = &handle.widget {
                     let sizing = self.text_inputs.entry(id).or_default();
@@ -570,6 +651,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Label(_)
                 | Gtk4OsWidget::Button(_)
                 | Gtk4OsWidget::Entry(_)
+                | Gtk4OsWidget::PasswordEntry(_)
                 | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::CheckButton(_)
                 | Gtk4OsWidget::Switch(_)
@@ -625,6 +707,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Label(_)
                 | Gtk4OsWidget::Button(_)
                 | Gtk4OsWidget::Entry(_)
+                | Gtk4OsWidget::PasswordEntry(_)
                 | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::CheckButton(_)
                 | Gtk4OsWidget::Switch(_)
@@ -645,6 +728,13 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 Gtk4OsWidget::Entry(entry) => {
                     entry.set_max_length(value.map(u32_to_i32).unwrap_or(0));
                 }
+                Gtk4OsWidget::PasswordEntry(entry) => {
+                    self.text_input_max_lengths.borrow_mut().insert(id, *value);
+                    let current = entry.text().to_string();
+                    self.suppress_events(|| {
+                        entry.set_text(&truncate_to_max_length(&current, *value));
+                    });
+                }
                 Gtk4OsWidget::TextView(text_view) => {
                     self.text_input_max_lengths.borrow_mut().insert(id, *value);
                     let buffer = text_view.buffer();
@@ -660,6 +750,10 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     self.text_inputs.entry(id).or_default().cols = *value;
                     self.apply_entry_width_hint(id, entry);
                 }
+                if let Gtk4OsWidget::PasswordEntry(entry) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().cols = *value;
+                    self.apply_password_entry_width_hint(id, entry);
+                }
                 if let Gtk4OsWidget::TextView(text_view) = &handle.widget {
                     self.text_inputs.entry(id).or_default().cols = *value;
                     self.apply_text_view_size_hint(id, text_view);
@@ -669,6 +763,10 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 if let Gtk4OsWidget::Entry(entry) = &handle.widget {
                     self.text_inputs.entry(id).or_default().size = *value;
                     self.apply_entry_width_hint(id, entry);
+                }
+                if let Gtk4OsWidget::PasswordEntry(entry) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().size = *value;
+                    self.apply_password_entry_width_hint(id, entry);
                 }
             }
             NativeWidgetSetter::SetRows(value) => {

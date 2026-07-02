@@ -65,28 +65,45 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                 WinUiOsWidget::Button(button)
             }
             WinUiWidgetKind::TextBox => {
-                let text_box =
-                    map_winui("failed to create WinUI text box", Controls::TextBox::new())?;
-                if config_is_textarea(&config) {
-                    map_winui(
-                        "failed to enable WinUI text box return input",
-                        text_box.SetAcceptsReturn(true),
+                if config_is_password(&config) {
+                    let password_box = map_winui(
+                        "failed to create WinUI password box",
+                        Controls::PasswordBox::new(),
                     )?;
-                    map_winui(
-                        "failed to enable WinUI text box wrapping",
-                        text_box.SetTextWrapping(xaml::TextWrapping::Wrap),
+                    self.text_inputs
+                        .insert(id, WinUiTextInputSizing::from_config(&config));
+                    self.apply_password_box_size_hint(id, &password_box)?;
+                    register_password_change(
+                        id,
+                        &password_box,
+                        &self.events,
+                        Arc::clone(&self.events_suppressed),
                     )?;
+                    WinUiOsWidget::PasswordBox(password_box)
+                } else {
+                    let text_box =
+                        map_winui("failed to create WinUI text box", Controls::TextBox::new())?;
+                    if config_is_textarea(&config) {
+                        map_winui(
+                            "failed to enable WinUI text box return input",
+                            text_box.SetAcceptsReturn(true),
+                        )?;
+                        map_winui(
+                            "failed to enable WinUI text box wrapping",
+                            text_box.SetTextWrapping(xaml::TextWrapping::Wrap),
+                        )?;
+                    }
+                    self.text_inputs
+                        .insert(id, WinUiTextInputSizing::from_config(&config));
+                    self.apply_text_box_size_hint(id, &text_box)?;
+                    register_text_change(
+                        id,
+                        &text_box,
+                        &self.events,
+                        Arc::clone(&self.events_suppressed),
+                    )?;
+                    WinUiOsWidget::TextBox(text_box)
                 }
-                self.text_inputs
-                    .insert(id, WinUiTextInputSizing::from_config(&config));
-                self.apply_text_box_size_hint(id, &text_box)?;
-                register_text_change(
-                    id,
-                    &text_box,
-                    &self.events,
-                    Arc::clone(&self.events_suppressed),
-                )?;
-                WinUiOsWidget::TextBox(text_box)
             }
             WinUiWidgetKind::CheckBox => {
                 let check_box =
@@ -356,6 +373,13 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                         style.height.as_ref().and_then(StyleLength::points);
                     self.apply_text_box_size_hint(id, text_box)?;
                 }
+                if let WinUiOsWidget::PasswordBox(password_box) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().explicit_width =
+                        style.width.as_ref().and_then(StyleLength::points);
+                    self.text_inputs.entry(id).or_default().explicit_height =
+                        style.height.as_ref().and_then(StyleLength::points);
+                    self.apply_password_box_size_hint(id, password_box)?;
+                }
             }
             NativeWidgetSetter::SetMaxLength(max_length) => {
                 if let (WinUiOsWidget::TextBox(text_box), Some(max_length)) =
@@ -366,11 +390,23 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                         text_box.SetMaxLength(*max_length as i32),
                     )?;
                 }
+                if let (WinUiOsWidget::PasswordBox(password_box), Some(max_length)) =
+                    (&handle.widget, max_length)
+                {
+                    map_winui(
+                        "failed to set WinUI password box max length",
+                        password_box.SetMaxLength(*max_length as i32),
+                    )?;
+                }
             }
             NativeWidgetSetter::SetCols(value) => {
                 if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
                     self.text_inputs.entry(id).or_default().cols = *value;
                     self.apply_text_box_size_hint(id, text_box)?;
+                }
+                if let WinUiOsWidget::PasswordBox(password_box) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().cols = *value;
+                    self.apply_password_box_size_hint(id, password_box)?;
                 }
             }
             NativeWidgetSetter::SetSize(value) => {
@@ -378,11 +414,19 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     self.text_inputs.entry(id).or_default().size = *value;
                     self.apply_text_box_size_hint(id, text_box)?;
                 }
+                if let WinUiOsWidget::PasswordBox(password_box) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().size = *value;
+                    self.apply_password_box_size_hint(id, password_box)?;
+                }
             }
             NativeWidgetSetter::SetRows(value) => {
                 if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
                     self.text_inputs.entry(id).or_default().rows = *value;
                     self.apply_text_box_size_hint(id, text_box)?;
+                }
+                if let WinUiOsWidget::PasswordBox(password_box) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().rows = *value;
+                    self.apply_password_box_size_hint(id, password_box)?;
                 }
             }
             NativeWidgetSetter::SetAccessibilityRole(_)
@@ -646,6 +690,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             WinUiOsWidget::TextBlock(_)
             | WinUiOsWidget::Separator(_)
             | WinUiOsWidget::TextBox(_)
+            | WinUiOsWidget::PasswordBox(_)
             | WinUiOsWidget::Slider(_)
             | WinUiOsWidget::ProgressBar(_) => {}
         }

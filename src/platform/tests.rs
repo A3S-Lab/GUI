@@ -184,6 +184,25 @@ fn textarea_text_fields_target_multiline_native_controls() {
 }
 
 #[test]
+fn password_text_fields_target_secure_native_controls() {
+    let element = NativeElement::new("password", NativeRole::TextField)
+        .with_props(NativeProps::new().input_type("password"));
+
+    assert_eq!(
+        AppKitAdapter.blueprint(&element).widget_class,
+        "NSSecureTextField"
+    );
+    assert_eq!(
+        WinUiAdapter.blueprint(&element).widget_class,
+        "Microsoft.UI.Xaml.Controls.PasswordBox"
+    );
+    assert_eq!(
+        Gtk4Adapter.blueprint(&element).widget_class,
+        "gtk::PasswordEntry"
+    );
+}
+
+#[test]
 fn blueprint_preserves_react_aria_control_state_for_native_adapters() {
     let element = NativeElement::new("volume", NativeRole::Slider).with_props(
         NativeProps::new()

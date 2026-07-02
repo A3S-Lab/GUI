@@ -184,6 +184,7 @@ fn needs_replacement(old: &MountedNode, new: &NativeElement) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NativeWidgetShape {
     Default,
+    Password,
     TextArea,
 }
 
@@ -195,6 +196,13 @@ fn native_widget_shape(role: NativeRole, props: &NativeProps) -> NativeWidgetSha
             .is_some_and(|tag| tag == "textarea")
     {
         NativeWidgetShape::TextArea
+    } else if role == NativeRole::TextField
+        && props
+            .input_type
+            .as_deref()
+            .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
+    {
+        NativeWidgetShape::Password
     } else {
         NativeWidgetShape::Default
     }
@@ -513,6 +521,30 @@ mod tests {
         let first_id = renderer.render(&single_line, &mut host).unwrap();
         host.clear_operations();
         let second_id = renderer.render(&textarea, &mut host).unwrap();
+
+        assert_ne!(first_id, second_id);
+        assert!(host.operations().iter().any(|operation| matches!(
+            operation,
+            HostOperation::Create { id, .. } if *id == second_id
+        )));
+        assert!(host.operations().iter().any(|operation| matches!(
+            operation,
+            HostOperation::Remove { id } if *id == first_id
+        )));
+    }
+
+    #[test]
+    fn text_field_password_shape_changes_remount_same_key_role() {
+        let text =
+            NativeElement::new("password", NativeRole::TextField).with_props(NativeProps::new());
+        let password = NativeElement::new("password", NativeRole::TextField)
+            .with_props(NativeProps::new().input_type("password"));
+        let mut renderer = Renderer::new();
+        let mut host = HeadlessHost::default();
+
+        let first_id = renderer.render(&text, &mut host).unwrap();
+        host.clear_operations();
+        let second_id = renderer.render(&password, &mut host).unwrap();
 
         assert_ne!(first_id, second_id);
         assert!(host.operations().iter().any(|operation| matches!(

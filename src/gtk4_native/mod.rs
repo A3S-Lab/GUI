@@ -126,6 +126,18 @@ impl Gtk4NativeSurface {
         entry.set_width_chars(width_chars);
     }
 
+    fn apply_password_entry_width_hint(&self, id: HostNodeId, entry: &gtk::PasswordEntry) {
+        let Some(sizing) = self.text_inputs.get(&id).copied() else {
+            return;
+        };
+        let width_chars = if sizing.has_explicit_width {
+            -1
+        } else {
+            sizing.hinted_width_chars().unwrap_or(-1)
+        };
+        entry.set_width_chars(width_chars);
+    }
+
     fn apply_text_view_size_hint(&self, id: HostNodeId, text_view: &gtk::TextView) {
         let Some(sizing) = self.text_inputs.get(&id).copied() else {
             return;
@@ -591,6 +603,7 @@ pub enum Gtk4OsWidget {
     Label(gtk::Label),
     Button(gtk::Button),
     Entry(gtk::Entry),
+    PasswordEntry(gtk::PasswordEntry),
     TextView(gtk::TextView),
     CheckButton(gtk::CheckButton),
     Switch(gtk::Switch),
@@ -619,6 +632,7 @@ impl Gtk4OsWidget {
             Gtk4OsWidget::Label(label) => Some(label.clone().upcast()),
             Gtk4OsWidget::Button(button) => Some(button.clone().upcast()),
             Gtk4OsWidget::Entry(entry) => Some(entry.clone().upcast()),
+            Gtk4OsWidget::PasswordEntry(entry) => Some(entry.clone().upcast()),
             Gtk4OsWidget::TextView(text_view) => Some(text_view.clone().upcast()),
             Gtk4OsWidget::CheckButton(check_button) => Some(check_button.clone().upcast()),
             Gtk4OsWidget::Switch(switch) => Some(switch.clone().upcast()),
@@ -704,6 +718,13 @@ fn style_sets_gtk_height(style: &crate::style::PortableStyle) -> bool {
         .or(style.min_height.as_ref())
         .and_then(StyleLength::points)
         .is_some()
+}
+
+fn config_is_password(config: &NativeWidgetConfig) -> bool {
+    config
+        .input_type
+        .as_deref()
+        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
 }
 
 fn u32_to_i32(value: u32) -> i32 {
