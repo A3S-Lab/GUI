@@ -62,9 +62,9 @@ Action ids
 
 The bridge accepts semantic component names, HTML and SVG intrinsic names,
 common Web props, and event names. The native renderer receives a typed,
-portable protocol rather than component runtime instances. Input records may
-come from `react-aria-components`, the zero-dependency marker exports used by
-compiler fixtures, or another compiler that emits the same protocol shape.
+portable protocol. Input records may come from `react-aria-components`, the
+zero-dependency marker exports used by compiler fixtures, or any compiler that
+emits the same protocol shape.
 
 Allowed data:
 

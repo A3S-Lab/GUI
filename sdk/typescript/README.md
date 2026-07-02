@@ -42,8 +42,8 @@ native control-state fields consumed by the Rust renderer. Marker exports
 include form and selection components such as `RadioGroup`, `Radio`, `Select`,
 `ListBoxItem`, `Dialog`, `Popover`, `Tabs`, `TabList`, `Tab`, `TabPanel`,
 `Menu`, `MenuItem`, `Slider`, and `ProgressBar`, plus structural markers such as
-`Separator` and `Toolbar`; the emitted frame uses semantic JSX element names
-rather than platform widget class names.
+`Separator` and `Toolbar`. The emitted frame contains semantic JSX element
+names.
 
 The emitted frame is plain JSON:
 
