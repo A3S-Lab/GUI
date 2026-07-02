@@ -370,6 +370,21 @@ impl NativeHandleAdapter for Gtk4HandleAdapter {
         Ok(())
     }
 
+    fn remove_child_handle(
+        &mut self,
+        _parent: HostNodeId,
+        parent_handle: &Self::Handle,
+        child: HostNodeId,
+        _child_handle: &Self::Handle,
+    ) -> GuiResult<()> {
+        parent_handle
+            .state
+            .borrow_mut()
+            .children
+            .retain(|existing| *existing != child);
+        Ok(())
+    }
+
     fn remove_handle(&mut self, _id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
         handle.state.borrow_mut().children.clear();
         Ok(())
@@ -528,6 +543,27 @@ mod tests {
         assert!(driver.object(child).is_none());
         assert!(driver.object(grandchild).is_none());
         assert_eq!(driver.objects().len(), 1);
+    }
+
+    #[test]
+    fn gtk4_handle_adapter_clears_previous_parent_on_reparent() {
+        let mut driver = Gtk4HandleDriver::default();
+        let first = HostNodeId::new(1);
+        let second = HostNodeId::new(2);
+        let child = HostNodeId::new(3);
+        let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
+        let button = Gtk4Adapter.blueprint(&NativeElement::new("button", NativeRole::Button));
+
+        driver.create_widget(first, &container).unwrap();
+        driver.create_widget(second, &container).unwrap();
+        driver.create_widget(child, &button).unwrap();
+        driver.insert_child(first, child, 0).unwrap();
+        driver.insert_child(second, child, 0).unwrap();
+
+        assert_eq!(driver.children(first), Some([].as_slice()));
+        assert_eq!(driver.children(second), Some([child].as_slice()));
+        assert!(driver.handle(first).unwrap().state().children.is_empty());
+        assert_eq!(driver.handle(second).unwrap().state().children, vec![child]);
     }
 
     #[test]

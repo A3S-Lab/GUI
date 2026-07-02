@@ -66,6 +66,15 @@ pub trait NativeHandleAdapter {
         child_handle: &Self::Handle,
         index: usize,
     ) -> GuiResult<()>;
+    fn remove_child_handle(
+        &mut self,
+        _parent: HostNodeId,
+        _parent_handle: &Self::Handle,
+        _child: HostNodeId,
+        _child_handle: &Self::Handle,
+    ) -> GuiResult<()> {
+        Ok(())
+    }
     fn remove_handle(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()>;
     fn set_root_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()>;
     fn take_native_events(&mut self) -> Vec<NativeEvent> {

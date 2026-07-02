@@ -197,8 +197,21 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
 
         let parent_handle = self.cloned_handle(parent)?;
         let child_handle = self.cloned_handle(child)?;
+        let previous_parent = self
+            .children
+            .iter()
+            .find_map(|(candidate, children)| children.contains(&child).then_some(*candidate));
         self.adapter
             .insert_child_handle(parent, &parent_handle, child, &child_handle, index)?;
+        if let Some(previous_parent) = previous_parent.filter(|previous| *previous != parent) {
+            let previous_parent_handle = self.cloned_handle(previous_parent)?;
+            self.adapter.remove_child_handle(
+                previous_parent,
+                &previous_parent_handle,
+                child,
+                &child_handle,
+            )?;
+        }
         for children in self.children.values_mut() {
             children.retain(|existing| *existing != child);
         }

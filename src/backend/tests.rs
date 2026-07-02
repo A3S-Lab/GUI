@@ -237,6 +237,23 @@ impl NativeHandleAdapter for ThreadBoundHandleAdapter {
         Ok(())
     }
 
+    fn remove_child_handle(
+        &mut self,
+        parent: HostNodeId,
+        parent_handle: &Self::Handle,
+        child: HostNodeId,
+        child_handle: &Self::Handle,
+    ) -> GuiResult<()> {
+        self.calls.borrow_mut().push(format!(
+            "detach:{}:{}:{}:{}",
+            parent.get(),
+            parent_handle.widget_class,
+            child.get(),
+            child_handle.widget_class
+        ));
+        Ok(())
+    }
+
     fn remove_handle(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
         if self.fail_removes {
             self.calls.borrow_mut().push(format!(
@@ -448,6 +465,7 @@ fn handle_widget_driver_rejects_duplicate_creates_without_replacing_handle() {
 #[test]
 fn handle_widget_driver_reparents_children_and_rejects_cycles() {
     let adapter = ThreadBoundHandleAdapter::default();
+    let calls = adapter.calls.clone();
     let driver = HandleWidgetDriver::new(adapter);
     let mut executor = DriverCommandExecutor::new(driver);
     let first = HostNodeId::new(1);
@@ -491,6 +509,17 @@ fn handle_widget_driver_reparents_children_and_rejects_cycles() {
 
     assert_eq!(executor.driver().children(first), Some([].as_slice()));
     assert_eq!(executor.driver().children(second), Some([child].as_slice()));
+    assert_eq!(
+        calls.borrow().as_slice(),
+        [
+            "create:1:gtk::Box",
+            "create:2:gtk::Box",
+            "create:3:gtk::Button",
+            "insert:1:gtk::Box:3:gtk::Button:0",
+            "insert:2:gtk::Box:3:gtk::Button:0",
+            "detach:1:gtk::Box:3:gtk::Button",
+        ]
+    );
     let command_count = executor.commands().len();
     let error = executor
         .execute(&PlatformCommand::InsertChild {
