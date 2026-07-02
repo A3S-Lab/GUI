@@ -135,6 +135,7 @@ fn apply_interactions_to_accessibility_tree(
     }
 
     apply_selection_value_to_children(node);
+    apply_latest_child_selection_to_children(node, interactions);
 }
 
 fn apply_interaction_state(node: &mut AccessibilityNode, state: &InteractionNodeState) {
@@ -172,12 +173,75 @@ fn apply_selection_value_to_children(node: &mut AccessibilityNode) {
     }
 }
 
+fn apply_latest_child_selection_to_children(
+    node: &mut AccessibilityNode,
+    interactions: &InteractionState,
+) {
+    if !is_exclusive_child_selection_container(node.role) {
+        return;
+    }
+    let Some(SelectionSource::Child(selected_node)) = latest_selection_source(node, interactions)
+    else {
+        return;
+    };
+
+    for child in &mut node.children {
+        if is_selectable_child(child.role) {
+            let selected = child.node == Some(selected_node);
+            child.selected = selected;
+            if child.role == AccessibilityRole::RadioButton {
+                child.checked = Some(selected);
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SelectionSource {
+    ParentValue,
+    Child(HostNodeId),
+}
+
+fn latest_selection_source(
+    node: &AccessibilityNode,
+    interactions: &InteractionState,
+) -> Option<SelectionSource> {
+    for change in interactions.changes().iter().rev() {
+        if Some(change.node) == node.node
+            && change.before.value != change.after.value
+            && change.after.value.is_some()
+        {
+            return Some(SelectionSource::ParentValue);
+        }
+        if change.before.selected != change.after.selected
+            && change.after.selected
+            && node
+                .children
+                .iter()
+                .any(|child| child.node == Some(change.node) && is_selectable_child(child.role))
+        {
+            return Some(SelectionSource::Child(change.node));
+        }
+    }
+    None
+}
+
 fn is_selection_container(role: AccessibilityRole) -> bool {
     matches!(
         role,
         AccessibilityRole::ComboBox
             | AccessibilityRole::ListBox
             | AccessibilityRole::Menu
+            | AccessibilityRole::RadioGroup
+            | AccessibilityRole::TabGroup
+            | AccessibilityRole::TabList
+    )
+}
+
+fn is_exclusive_child_selection_container(role: AccessibilityRole) -> bool {
+    matches!(
+        role,
+        AccessibilityRole::ComboBox
             | AccessibilityRole::RadioGroup
             | AccessibilityRole::TabGroup
             | AccessibilityRole::TabList
@@ -659,6 +723,22 @@ mod tests {
         assert_eq!(accessibility.children[0].checked, Some(false));
         assert!(accessibility.children[1].selected);
         assert_eq!(accessibility.children[1].checked, Some(true));
+
+        runtime
+            .handle_native_event(
+                crate::event::NativeEvent::new(
+                    root_id,
+                    crate::event::NativeEventKind::SelectionChange,
+                )
+                .value("light"),
+            )
+            .unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(accessibility.children[0].selected);
+        assert_eq!(accessibility.children[0].checked, Some(true));
+        assert!(!accessibility.children[1].selected);
+        assert_eq!(accessibility.children[1].checked, Some(false));
     }
 
     #[test]
@@ -666,8 +746,13 @@ mod tests {
         let tree = NativeElement::new("theme", NativeRole::RadioGroup)
             .with_props(NativeProps::new().label("Theme"))
             .child(
-                NativeElement::new("light", NativeRole::Radio)
-                    .with_props(NativeProps::new().label("Light").value("light")),
+                NativeElement::new("light", NativeRole::Radio).with_props(
+                    NativeProps::new()
+                        .label("Light")
+                        .value("light")
+                        .selected(true)
+                        .checked(true),
+                ),
             )
             .child(
                 NativeElement::new("dark", NativeRole::Radio)
@@ -686,8 +771,39 @@ mod tests {
             .unwrap();
 
         let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(!accessibility.children[0].selected);
+        assert_eq!(accessibility.children[0].checked, Some(false));
         assert!(accessibility.children[1].selected);
         assert_eq!(accessibility.children[1].checked, Some(true));
+    }
+
+    #[test]
+    fn runtime_accessibility_tree_projects_direct_tab_selection_to_siblings() {
+        let tree = NativeElement::new("settings", NativeRole::Tabs)
+            .with_props(NativeProps::new().label("Settings"))
+            .child(
+                NativeElement::new("profile", NativeRole::Tab)
+                    .with_props(NativeProps::new().label("Profile").selected(true)),
+            )
+            .child(
+                NativeElement::new("billing", NativeRole::Tab)
+                    .with_props(NativeProps::new().label("Billing")),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&tree).unwrap();
+        let tab_id = runtime.host().node(root_id).unwrap().children[1];
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                tab_id,
+                crate::event::NativeEventKind::SelectionChange,
+            ))
+            .unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(!accessibility.children[0].selected);
+        assert!(accessibility.children[1].selected);
     }
 
     #[test]
