@@ -111,6 +111,11 @@ families:
 | `Slot` | `NSView(slot)` | `Microsoft.UI.Xaml.Controls.StackPanel(slot)` | `gtk::Box(slot)` |
 | `Heading` | `NSTextField(heading)` | `Microsoft.UI.Xaml.Controls.TextBlock(heading)` | `gtk::Label(heading)` |
 | `HeadingGroup` | `NSView(heading-group)` | `Microsoft.UI.Xaml.Controls.StackPanel(heading-group)` | `gtk::Box(heading-group)` |
+| `Ruby` | `NSView(ruby)` | `Microsoft.UI.Xaml.Controls.StackPanel(ruby)` | `gtk::Box(ruby)` |
+| `RubyBase` | `NSTextField(ruby-base)` | `Microsoft.UI.Xaml.Controls.TextBlock(ruby-base)` | `gtk::Label(ruby-base)` |
+| `RubyText` | `NSTextField(ruby-text)` | `Microsoft.UI.Xaml.Controls.TextBlock(ruby-text)` | `gtk::Label(ruby-text)` |
+| `RubyParenthesis` | `NSTextField(ruby-parenthesis)` | `Microsoft.UI.Xaml.Controls.TextBlock(ruby-parenthesis)` | `gtk::Label(ruby-parenthesis)` |
+| `RubyTextContainer` | `NSView(ruby-text-container)` | `Microsoft.UI.Xaml.Controls.StackPanel(ruby-text-container)` | `gtk::Box(ruby-text-container)` |
 | `Main` | `NSView(main)` | `Microsoft.UI.Xaml.Controls.StackPanel(main)` | `gtk::Box(main)` |
 | `Navigation` | `NSView(navigation)` | `Microsoft.UI.Xaml.Controls.StackPanel(navigation)` | `gtk::Box(navigation)` |
 | `Header` | `NSView(header)` | `Microsoft.UI.Xaml.Controls.StackPanel(header)` | `gtk::Box(header)` |

@@ -198,6 +198,11 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "Text" | "span" | "p" | "strong" | "em" => Ok(AriaComponent::Text),
         "Heading" => Ok(AriaComponent::Heading),
         "HeadingGroup" | "hgroup" => Ok(AriaComponent::HeadingGroup),
+        "Ruby" | "ruby" => Ok(AriaComponent::Ruby),
+        "RubyBase" | "rb" => Ok(AriaComponent::RubyBase),
+        "RubyText" | "rt" => Ok(AriaComponent::RubyText),
+        "RubyParenthesis" | "rp" => Ok(AriaComponent::RubyParenthesis),
+        "RubyTextContainer" | "rtc" => Ok(AriaComponent::RubyTextContainer),
         "TextField" => Ok(AriaComponent::TextField),
         "Input" | "textarea" => Ok(AriaComponent::Input),
         "input" => component_for_intrinsic_tag(tag, &props.attributes).ok_or_else(|| {
@@ -1129,6 +1134,90 @@ mod tests {
                 .map(String::as_str),
             Some("actions")
         );
+    }
+
+    #[test]
+    fn lowers_html_ruby_annotation_tags_to_native_roles() {
+        let bridge = ReactCompilerBridge::new();
+        let ruby = CompiledJsxNode::Element {
+            key: "ruby".to_string(),
+            tag: "ruby".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![
+                CompiledJsxNode::Element {
+                    key: "base".to_string(),
+                    tag: "rb".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "base-text".to_string(),
+                        value: "漢".to_string(),
+                    }],
+                },
+                CompiledJsxNode::Element {
+                    key: "open-parenthesis".to_string(),
+                    tag: "rp".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "open-parenthesis-text".to_string(),
+                        value: "(".to_string(),
+                    }],
+                },
+                CompiledJsxNode::Element {
+                    key: "text".to_string(),
+                    tag: "rt".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "text-value".to_string(),
+                        value: "kan".to_string(),
+                    }],
+                },
+                CompiledJsxNode::Element {
+                    key: "close-parenthesis".to_string(),
+                    tag: "rp".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "close-parenthesis-text".to_string(),
+                        value: ")".to_string(),
+                    }],
+                },
+                CompiledJsxNode::Element {
+                    key: "container".to_string(),
+                    tag: "rtc".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Element {
+                        key: "alternate-text".to_string(),
+                        tag: "rt".to_string(),
+                        import_source: None,
+                        props: CompiledProps::default(),
+                        children: vec![CompiledJsxNode::Text {
+                            key: "alternate-text-value".to_string(),
+                            value: "Han".to_string(),
+                        }],
+                    }],
+                },
+            ],
+        };
+
+        let native = bridge.lower_to_native(&ruby).unwrap();
+        assert_eq!(native.role, NativeRole::Ruby);
+        assert_eq!(native.props.label.as_deref(), Some("漢"));
+        assert_eq!(native.children[0].role, NativeRole::RubyBase);
+        assert_eq!(native.children[0].props.label.as_deref(), Some("漢"));
+        assert_eq!(native.children[1].role, NativeRole::RubyParenthesis);
+        assert_eq!(native.children[1].props.label.as_deref(), Some("("));
+        assert_eq!(native.children[2].role, NativeRole::RubyText);
+        assert_eq!(native.children[2].props.label.as_deref(), Some("kan"));
+        assert_eq!(native.children[3].role, NativeRole::RubyParenthesis);
+        assert_eq!(native.children[3].props.label.as_deref(), Some(")"));
+        assert_eq!(native.children[4].role, NativeRole::RubyTextContainer);
+        assert_eq!(native.children[4].props.label.as_deref(), Some("Han"));
+        assert_eq!(native.children[4].children[0].role, NativeRole::RubyText);
     }
 
     #[test]

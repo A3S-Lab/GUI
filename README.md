@@ -34,7 +34,7 @@ The compiler bridge recognizes the HTML element surface exposed by the HTML
 Living Standard plus common historical tags. It also recognizes common SVG
 intrinsic element names used by JSX icon and vector trees. Known intrinsic
 elements are mapped to native semantic roles where a matching role exists.
-Document, metadata, template, slot, text, heading, heading-group, landmark,
+Document, metadata, template, slot, text, heading, heading-group, ruby annotation, landmark,
 sectioning, disclosure, figure, description-list, form, form-grouping,
 option-group, output, meter, list, dialog, menu, media, embedded-content, link,
 image-map, and table-structure tags lower to dedicated native roles.
@@ -504,6 +504,7 @@ registered action ids.
 | `template` / `slot` | native template and slot roles |
 | `h1` / `h2` / `h3` / `h4` / `h5` / `h6` | native heading role |
 | `hgroup` | native heading-group role |
+| `ruby` / `rb` / `rt` / `rp` / `rtc` | native ruby annotation roles |
 | `main` / `nav` / `header` / `footer` / `article` / `section` / `aside` / `search` | native landmark or sectioning role |
 | `details` / `summary` | native disclosure roles |
 | `figure` / `figcaption` | native figure roles |

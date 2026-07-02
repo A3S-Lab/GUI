@@ -20,6 +20,11 @@ pub enum AriaComponent {
     Text,
     Heading,
     HeadingGroup,
+    Ruby,
+    RubyBase,
+    RubyText,
+    RubyParenthesis,
+    RubyTextContainer,
     Main,
     Navigation,
     Header,
@@ -97,6 +102,11 @@ impl AriaComponent {
             AriaComponent::Text => "Text",
             AriaComponent::Heading => "Heading",
             AriaComponent::HeadingGroup => "HeadingGroup",
+            AriaComponent::Ruby => "Ruby",
+            AriaComponent::RubyBase => "RubyBase",
+            AriaComponent::RubyText => "RubyText",
+            AriaComponent::RubyParenthesis => "RubyParenthesis",
+            AriaComponent::RubyTextContainer => "RubyTextContainer",
             AriaComponent::Main => "Main",
             AriaComponent::Navigation => "Navigation",
             AriaComponent::Header => "Header",
@@ -411,6 +421,25 @@ impl ReactAriaMapper {
             )),
             AriaComponent::HeadingGroup => {
                 self.map_container_with_label(element, NativeRole::HeadingGroup)
+            }
+            AriaComponent::Ruby => self.map_container_with_label(element, NativeRole::Ruby),
+            AriaComponent::RubyBase => Ok(simple_leaf(
+                element,
+                NativeRole::RubyBase,
+                self.best_label(element)?,
+            )),
+            AriaComponent::RubyText => Ok(simple_leaf(
+                element,
+                NativeRole::RubyText,
+                self.best_label(element)?,
+            )),
+            AriaComponent::RubyParenthesis => Ok(simple_leaf(
+                element,
+                NativeRole::RubyParenthesis,
+                self.best_label(element)?,
+            )),
+            AriaComponent::RubyTextContainer => {
+                self.map_container_with_label(element, NativeRole::RubyTextContainer)
             }
             AriaComponent::Main => self.map_container(element, NativeRole::Main),
             AriaComponent::Navigation => self.map_container(element, NativeRole::Navigation),
@@ -1280,6 +1309,18 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::Slot),
             "gtk::Box(slot)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::RubyBase),
+            "NSTextField(ruby-base)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::RubyTextContainer),
+            "Microsoft.UI.Xaml.Controls.StackPanel(ruby-text-container)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::RubyText),
+            "gtk::Label(ruby-text)"
         );
     }
 }

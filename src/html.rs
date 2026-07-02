@@ -192,6 +192,11 @@ pub fn component_for_html_tag(
         "slot" => AriaComponent::Slot,
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => AriaComponent::Heading,
         "hgroup" => AriaComponent::HeadingGroup,
+        "ruby" => AriaComponent::Ruby,
+        "rb" => AriaComponent::RubyBase,
+        "rt" => AriaComponent::RubyText,
+        "rp" => AriaComponent::RubyParenthesis,
+        "rtc" => AriaComponent::RubyTextContainer,
         "main" => AriaComponent::Main,
         "nav" => AriaComponent::Navigation,
         "header" => AriaComponent::Header,
@@ -310,11 +315,6 @@ fn is_text_html_tag(tag: &str) -> bool {
             | "p"
             | "pre"
             | "q"
-            | "rb"
-            | "rp"
-            | "rt"
-            | "rtc"
-            | "ruby"
             | "s"
             | "samp"
             | "small"
@@ -470,6 +470,32 @@ mod tests {
         assert_eq!(
             component_for_html_tag("hgroup", &attributes),
             Some(AriaComponent::HeadingGroup)
+        );
+    }
+
+    #[test]
+    fn maps_ruby_annotation_tags_to_native_semantics() {
+        let attributes = BTreeMap::new();
+
+        assert_eq!(
+            component_for_html_tag("ruby", &attributes),
+            Some(AriaComponent::Ruby)
+        );
+        assert_eq!(
+            component_for_html_tag("rb", &attributes),
+            Some(AriaComponent::RubyBase)
+        );
+        assert_eq!(
+            component_for_html_tag("rt", &attributes),
+            Some(AriaComponent::RubyText)
+        );
+        assert_eq!(
+            component_for_html_tag("rp", &attributes),
+            Some(AriaComponent::RubyParenthesis)
+        );
+        assert_eq!(
+            component_for_html_tag("rtc", &attributes),
+            Some(AriaComponent::RubyTextContainer)
         );
     }
 
