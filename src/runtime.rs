@@ -145,16 +145,28 @@ impl<H: NativeHost> GuiRuntime<H> {
                 interaction_changes: Vec::new(),
             });
         }
+        let invocation = self.route_event(blueprint, route_blueprints, &event);
+        let interaction_snapshot = invocation.as_ref().map(|_| {
+            (
+                self.interaction_state.clone(),
+                self.interaction_revisions.clone(),
+            )
+        });
         let interaction_start = self.interaction_state.changes().len();
         self.interaction_state.apply_event(blueprint, &event);
         self.record_interaction_revisions(interaction_start);
-        let invocation =
-            if let Some(invocation) = self.route_event(blueprint, route_blueprints, &event) {
-                self.action_registry.invoke(invocation.clone())?;
-                Some(invocation)
-            } else {
-                None
-            };
+        let invocation = if let Some(invocation) = invocation {
+            if let Err(error) = self.action_registry.invoke(invocation.clone()) {
+                if let Some((interaction_state, interaction_revisions)) = interaction_snapshot {
+                    self.interaction_state = interaction_state;
+                    self.interaction_revisions = interaction_revisions;
+                }
+                return Err(error);
+            }
+            Some(invocation)
+        } else {
+            None
+        };
         let interaction_changes = self.interaction_state.changes()[interaction_start..].to_vec();
         Ok(HandledNativeEvent {
             event,
@@ -1191,6 +1203,44 @@ mod tests {
 
         assert!(error.to_string().contains("no registered Web action"));
         assert!(runtime.interactions().node(root_id).unwrap().focused);
+    }
+
+    #[test]
+    fn runtime_rolls_back_interactions_after_unregistered_action() {
+        let element = NativeElement::new("name", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Name")
+                .value("Ada")
+                .web(WebProps::new().on_change("setName")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+        assert!(runtime.interactions().node(root_id).unwrap().focused);
+        let error = runtime
+            .dispatch_native_event(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("Grace"),
+            )
+            .unwrap_err();
+
+        assert!(error.to_string().contains("unregistered action setName"));
+        let state = runtime.interactions().node(root_id).unwrap();
+        assert!(state.focused);
+        assert_eq!(state.value.as_deref(), Some("Ada"));
+        assert_eq!(runtime.interactions().changes().len(), 1);
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("Ada")
+        );
+        assert!(runtime.actions().invocations().is_empty());
     }
 
     #[test]
