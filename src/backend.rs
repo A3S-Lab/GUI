@@ -1188,7 +1188,10 @@ mod tests {
         let root = backend.object(root_id).unwrap();
         let child = backend.object(root.children[0]).unwrap();
 
-        assert_eq!(root.widget_class, "Microsoft.UI.Xaml.Controls.StackPanel");
+        assert_eq!(
+            root.widget_class,
+            "Microsoft.UI.Xaml.Controls.StackPanel(form)"
+        );
         assert_eq!(child.widget_class, "Microsoft.UI.Xaml.Controls.Button");
         assert_eq!(child.label.as_deref(), Some("Save"));
         assert_eq!(child.action.as_deref(), Some("saveProfile"));

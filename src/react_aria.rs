@@ -34,6 +34,11 @@ pub enum AriaComponent {
     Switch,
     RadioGroup,
     Radio,
+    FieldSet,
+    Legend,
+    OptionGroup,
+    Output,
+    Meter,
     Select,
     SelectValue,
     ListBox,
@@ -92,6 +97,11 @@ impl AriaComponent {
             AriaComponent::Switch => "Switch",
             AriaComponent::RadioGroup => "RadioGroup",
             AriaComponent::Radio => "Radio",
+            AriaComponent::FieldSet => "FieldSet",
+            AriaComponent::Legend => "Legend",
+            AriaComponent::OptionGroup => "OptionGroup",
+            AriaComponent::Output => "Output",
+            AriaComponent::Meter => "Meter",
             AriaComponent::Select => "Select",
             AriaComponent::SelectValue => "SelectValue",
             AriaComponent::ListBox => "ListBox",
@@ -412,6 +422,26 @@ impl ReactAriaMapper {
                 self.map_container_with_label(element, NativeRole::RadioGroup)
             }
             AriaComponent::Radio => Ok(radio_leaf(element, self.best_label(element)?)),
+            AriaComponent::Form => self.map_container_with_label(element, NativeRole::Form),
+            AriaComponent::FieldSet => self.map_field_set(element),
+            AriaComponent::Legend => Ok(simple_leaf(
+                element,
+                NativeRole::Legend,
+                self.best_label(element)?,
+            )),
+            AriaComponent::OptionGroup => {
+                self.map_container_with_label(element, NativeRole::OptionGroup)
+            }
+            AriaComponent::Output => Ok(simple_leaf(
+                element,
+                NativeRole::Output,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Meter => Ok(simple_leaf(
+                element,
+                NativeRole::Meter,
+                self.best_label(element)?,
+            )),
             AriaComponent::Select => self.map_select(element),
             AriaComponent::ListBox => self.map_container(element, NativeRole::ListBox),
             AriaComponent::ListBoxItem => Ok(simple_leaf(
@@ -429,9 +459,7 @@ impl ReactAriaMapper {
                 self.best_label(element)?,
             )),
             AriaComponent::TabPanel => self.map_container(element, NativeRole::TabPanel),
-            AriaComponent::Group | AriaComponent::Form => {
-                self.map_container(element, NativeRole::View)
-            }
+            AriaComponent::Group => self.map_container(element, NativeRole::View),
             AriaComponent::Menu => self.map_container(element, NativeRole::Menu),
             AriaComponent::MenuItem => Ok(simple_leaf(
                 element,
@@ -556,8 +584,38 @@ impl ReactAriaMapper {
                 .iter()
                 .map(|child| self.map_element(child))
                 .collect::<GuiResult<Vec<_>>>()?;
+        } else {
+            native.children = element
+                .children
+                .iter()
+                .filter(|child| {
+                    !matches!(
+                        child.component,
+                        AriaComponent::Label | AriaComponent::SelectValue
+                    )
+                })
+                .map(|child| self.map_element(child))
+                .collect::<GuiResult<Vec<_>>>()?;
         }
 
+        Ok(native)
+    }
+
+    fn map_field_set(&self, element: &AriaElement) -> GuiResult<NativeElement> {
+        let label = element
+            .props
+            .label
+            .clone()
+            .or_else(|| aria_label(&element.props))
+            .or_else(|| first_child_label(element, AriaComponent::Legend))
+            .or_else(|| first_text_child(element));
+        let mut native = NativeElement::new(element.key.clone(), NativeRole::FieldSet)
+            .with_props(native_props_from_aria(&element.props, label));
+        native.children = element
+            .children
+            .iter()
+            .map(|child| self.map_element(child))
+            .collect::<GuiResult<Vec<_>>>()?;
         Ok(native)
     }
 
@@ -1130,6 +1188,18 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::DescriptionDetails),
             "gtk::Box(description-details)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::FieldSet),
+            "NSView(fieldset)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::Meter),
+            "Microsoft.UI.Xaml.Controls.ProgressBar(meter)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::OptionGroup),
+            "gtk::Box(option-group)"
         );
     }
 }

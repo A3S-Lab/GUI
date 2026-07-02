@@ -54,6 +54,9 @@ impl Gtk4WidgetKind {
             | "gtk::Box(figure)"
             | "gtk::Box(description-list)"
             | "gtk::Box(description-details)"
+            | "gtk::Box(form)"
+            | "gtk::Box(fieldset)"
+            | "gtk::Box(option-group)"
             | "gtk::Box(radio-group)"
             | "gtk::Box(embedded-content)"
             | "gtk::Grid(table)"
@@ -69,6 +72,8 @@ impl Gtk4WidgetKind {
             | "gtk::Label(tab)"
             | "gtk::Label(figure-caption)"
             | "gtk::Label(description-term)"
+            | "gtk::Label(legend)"
+            | "gtk::Label(output)"
             | "gtk::Label(table-caption)" => Ok(Gtk4WidgetKind::Label),
             "gtk::Button" | "gtk::Button(disclosure-summary)" => Ok(Gtk4WidgetKind::Button),
             "gtk::Entry" => Ok(Gtk4WidgetKind::Entry),
@@ -84,7 +89,7 @@ impl Gtk4WidgetKind {
             "gio::MenuItem" => Ok(Gtk4WidgetKind::MenuItem),
             "gtk::Separator" => Ok(Gtk4WidgetKind::Separator),
             "gtk::Scale" => Ok(Gtk4WidgetKind::Scale),
-            "gtk::ProgressBar" => Ok(Gtk4WidgetKind::ProgressBar),
+            "gtk::ProgressBar" | "gtk::ProgressBar(meter)" => Ok(Gtk4WidgetKind::ProgressBar),
             "gtk::Box(toolbar)" => Ok(Gtk4WidgetKind::ToolbarBox),
             other => Err(GuiError::host(format!(
                 "unsupported GTK4 widget class {other}"

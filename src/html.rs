@@ -171,10 +171,12 @@ pub fn component_for_html_tag(
     let tag = canonical_html_tag(tag)?;
     Some(match tag {
         "button" => AriaComponent::Button,
-        "label" | "legend" => AriaComponent::Label,
+        "label" => AriaComponent::Label,
+        "legend" => AriaComponent::Legend,
         "input" => component_for_input_type(attributes.get("type").map(String::as_str)),
         "textarea" => AriaComponent::Input,
         "select" => AriaComponent::Select,
+        "optgroup" => AriaComponent::OptionGroup,
         "option" => AriaComponent::ListBoxItem,
         "ul" | "ol" | "datalist" => AriaComponent::ListBox,
         "li" => AriaComponent::ListBoxItem,
@@ -209,7 +211,10 @@ pub fn component_for_html_tag(
         "dialog" => AriaComponent::Dialog,
         "menu" => AriaComponent::Menu,
         "hr" => AriaComponent::Separator,
-        "meter" | "progress" => AriaComponent::ProgressBar,
+        "meter" => AriaComponent::Meter,
+        "progress" => AriaComponent::ProgressBar,
+        "fieldset" => AriaComponent::FieldSet,
+        "output" => AriaComponent::Output,
         "form" => AriaComponent::Form,
         "a" | "area" => AriaComponent::Button,
         tag if is_text_html_tag(tag) => AriaComponent::Text,
@@ -277,7 +282,6 @@ fn is_text_html_tag(tag: &str) -> bool {
             | "kbd"
             | "mark"
             | "nobr"
-            | "output"
             | "p"
             | "pre"
             | "q"
@@ -327,6 +331,40 @@ mod tests {
         assert_eq!(
             component_for_html_tag("input", &BTreeMap::from([("type".into(), "range".into())])),
             Some(AriaComponent::Slider)
+        );
+    }
+
+    #[test]
+    fn maps_form_grouping_and_value_tags_to_native_semantics() {
+        let attributes = BTreeMap::new();
+
+        assert_eq!(
+            component_for_html_tag("form", &attributes),
+            Some(AriaComponent::Form)
+        );
+        assert_eq!(
+            component_for_html_tag("fieldset", &attributes),
+            Some(AriaComponent::FieldSet)
+        );
+        assert_eq!(
+            component_for_html_tag("legend", &attributes),
+            Some(AriaComponent::Legend)
+        );
+        assert_eq!(
+            component_for_html_tag("optgroup", &attributes),
+            Some(AriaComponent::OptionGroup)
+        );
+        assert_eq!(
+            component_for_html_tag("output", &attributes),
+            Some(AriaComponent::Output)
+        );
+        assert_eq!(
+            component_for_html_tag("meter", &attributes),
+            Some(AriaComponent::Meter)
+        );
+        assert_eq!(
+            component_for_html_tag("progress", &attributes),
+            Some(AriaComponent::ProgressBar)
         );
     }
 

@@ -124,6 +124,12 @@ families:
 | `Switch` | `NSSwitch` | `Microsoft.UI.Xaml.Controls.ToggleSwitch` | `gtk::Switch` |
 | `RadioGroup` | `NSStackView(radio-group)` | `Microsoft.UI.Xaml.Controls.RadioButtons` | `gtk::Box(radio-group)` |
 | `Radio` | `NSButton(radio)` | `Microsoft.UI.Xaml.Controls.RadioButton` | `gtk::CheckButton(radio)` |
+| `Form` | `NSView(form)` | `Microsoft.UI.Xaml.Controls.StackPanel(form)` | `gtk::Box(form)` |
+| `FieldSet` | `NSView(fieldset)` | `Microsoft.UI.Xaml.Controls.StackPanel(fieldset)` | `gtk::Box(fieldset)` |
+| `Legend` | `NSTextField(legend)` | `Microsoft.UI.Xaml.Controls.TextBlock(legend)` | `gtk::Label(legend)` |
+| `OptionGroup` | `NSView(option-group)` | `Microsoft.UI.Xaml.Controls.StackPanel(option-group)` | `gtk::Box(option-group)` |
+| `Output` | `NSTextField(output)` | `Microsoft.UI.Xaml.Controls.TextBlock(output)` | `gtk::Label(output)` |
+| `Meter` | `NSProgressIndicator(meter)` | `Microsoft.UI.Xaml.Controls.ProgressBar(meter)` | `gtk::ProgressBar(meter)` |
 | `Select` | `NSComboBox` | `Microsoft.UI.Xaml.Controls.ComboBox` | `gtk::DropDown` |
 | `ListBox` | `NSScrollView+NSStackView` | `Microsoft.UI.Xaml.Controls.ListView` | `gtk::ListBox` |
 | `ListBoxItem` | `NSButton(list-row)` | `Microsoft.UI.Xaml.Controls.ListViewItem` | `gtk::ListBoxRow` |

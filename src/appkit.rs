@@ -57,6 +57,9 @@ impl AppKitWidgetKind {
             | "NSView(figure)"
             | "NSView(description-list)"
             | "NSView(description-details)"
+            | "NSView(form)"
+            | "NSView(fieldset)"
+            | "NSView(option-group)"
             | "NSImageView"
             | "AVPlayerView"
             | "NSView(canvas)"
@@ -69,6 +72,8 @@ impl AppKitWidgetKind {
             | "NSTextField(heading)"
             | "NSTextField(figure-caption)"
             | "NSTextField(description-term)"
+            | "NSTextField(legend)"
+            | "NSTextField(output)"
             | "NSTextField(table-caption)" => Ok(AppKitWidgetKind::Label),
             "NSButton" | "NSButton(disclosure-summary)" => Ok(AppKitWidgetKind::Button),
             "NSTextField(input)" => Ok(AppKitWidgetKind::TextField),
@@ -87,7 +92,9 @@ impl AppKitWidgetKind {
             "NSMenuItem" => Ok(AppKitWidgetKind::MenuItem),
             "NSBox(separator)" => Ok(AppKitWidgetKind::Separator),
             "NSSlider" => Ok(AppKitWidgetKind::Slider),
-            "NSProgressIndicator" => Ok(AppKitWidgetKind::ProgressIndicator),
+            "NSProgressIndicator" | "NSProgressIndicator(meter)" => {
+                Ok(AppKitWidgetKind::ProgressIndicator)
+            }
             "NSStackView(toolbar)" | "NSToolbar" => Ok(AppKitWidgetKind::Toolbar),
             other => Err(GuiError::host(format!(
                 "unsupported AppKit widget class {other}"

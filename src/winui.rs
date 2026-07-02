@@ -59,6 +59,9 @@ impl WinUiWidgetKind {
             | "Microsoft.UI.Xaml.Controls.StackPanel(figure)"
             | "Microsoft.UI.Xaml.Controls.StackPanel(description-list)"
             | "Microsoft.UI.Xaml.Controls.StackPanel(description-details)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(form)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(fieldset)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(option-group)"
             | "Microsoft.UI.Xaml.Controls.StackPanel(table-section)" => {
                 Ok(WinUiWidgetKind::StackPanel)
             }
@@ -66,6 +69,8 @@ impl WinUiWidgetKind {
             | "Microsoft.UI.Xaml.Controls.TextBlock(heading)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(figure-caption)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(description-term)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(legend)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(output)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(table-caption)"
             | "Microsoft.UI.Xaml.Controls.Image" => Ok(WinUiWidgetKind::TextBlock),
             "Microsoft.UI.Xaml.Controls.Button"
@@ -99,7 +104,8 @@ impl WinUiWidgetKind {
             }
             "Microsoft.UI.Xaml.Controls.Border(separator)" => Ok(WinUiWidgetKind::Separator),
             "Microsoft.UI.Xaml.Controls.Slider" => Ok(WinUiWidgetKind::Slider),
-            "Microsoft.UI.Xaml.Controls.ProgressBar" => Ok(WinUiWidgetKind::ProgressBar),
+            "Microsoft.UI.Xaml.Controls.ProgressBar"
+            | "Microsoft.UI.Xaml.Controls.ProgressBar(meter)" => Ok(WinUiWidgetKind::ProgressBar),
             "Microsoft.UI.Xaml.Controls.StackPanel(toolbar)"
             | "Microsoft.UI.Xaml.Controls.CommandBar" => Ok(WinUiWidgetKind::CommandBar),
             other => Err(GuiError::host(format!(

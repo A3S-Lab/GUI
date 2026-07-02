@@ -196,6 +196,12 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "Switch" => Ok(AriaComponent::Switch),
         "RadioGroup" => Ok(AriaComponent::RadioGroup),
         "Radio" => Ok(AriaComponent::Radio),
+        "Form" | "form" => Ok(AriaComponent::Form),
+        "FieldSet" | "fieldset" => Ok(AriaComponent::FieldSet),
+        "Legend" | "legend" => Ok(AriaComponent::Legend),
+        "OptionGroup" | "optgroup" => Ok(AriaComponent::OptionGroup),
+        "Output" | "output" => Ok(AriaComponent::Output),
+        "Meter" | "meter" => Ok(AriaComponent::Meter),
         "Select" | "select" => Ok(AriaComponent::Select),
         "SelectValue" => Ok(AriaComponent::SelectValue),
         "ListBox" | "ul" | "ol" => Ok(AriaComponent::ListBox),
@@ -221,7 +227,7 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "DescriptionList" | "dl" => Ok(AriaComponent::DescriptionList),
         "DescriptionTerm" | "dt" => Ok(AriaComponent::DescriptionTerm),
         "DescriptionDetails" | "dd" => Ok(AriaComponent::DescriptionDetails),
-        "Group" | "Form" | "form" | "div" => Ok(AriaComponent::Group),
+        "Group" | "div" => Ok(AriaComponent::Group),
         "Menu" => Ok(AriaComponent::Menu),
         "MenuItem" => Ok(AriaComponent::MenuItem),
         "Separator" | "hr" => Ok(AriaComponent::Separator),
@@ -265,6 +271,7 @@ impl CompiledProps {
         }
         let html_fallback_label = html_fallback_label(tag, &web);
         let html_details_open = html_details_open_state(tag, &web);
+        let html_range_value = html_range_value_state(tag, &web);
         let semantic = WebSemanticAliases::from_web(&web);
 
         let orientation = self.orientation.map(|orientation| match orientation {
@@ -287,7 +294,10 @@ impl CompiledProps {
         props.orientation = orientation.or(semantic.orientation);
         props.min_value = self.min_value.or(semantic.min_value);
         props.max_value = self.max_value.or(semantic.max_value);
-        props.value_number = self.value_number.or(semantic.value_number);
+        props.value_number = self
+            .value_number
+            .or(semantic.value_number)
+            .or(html_range_value);
         props
     }
 }
@@ -295,6 +305,13 @@ impl CompiledProps {
 fn html_details_open_state(tag: &str, web: &WebProps) -> Option<bool> {
     match canonical_html_tag(tag)? {
         "details" => bool_attribute(&web.attributes, &["open"]),
+        _ => None,
+    }
+}
+
+fn html_range_value_state(tag: &str, web: &WebProps) -> Option<f64> {
+    match canonical_html_tag(tag)? {
+        "meter" | "progress" => number_attribute(&web.attributes, &["value"]),
         _ => None,
     }
 }
@@ -307,6 +324,12 @@ fn html_fallback_label(tag: &str, web: &WebProps) -> Option<String> {
         "area" | "img" => web
             .attributes
             .get("alt")
+            .map(String::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_string),
+        "optgroup" | "option" => web
+            .attributes
+            .get("label")
             .map(String::as_str)
             .filter(|value| !value.trim().is_empty())
             .map(str::to_string),
@@ -1125,6 +1148,138 @@ mod tests {
             native_description_list.children[1].props.label.as_deref(),
             Some("Intermediate representation")
         );
+    }
+
+    #[test]
+    fn lowers_html_form_grouping_and_value_tags_to_native_roles() {
+        let bridge = ReactCompilerBridge::new();
+        let form = CompiledJsxNode::Element {
+            key: "settings".to_string(),
+            tag: "form".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([("aria-label".to_string(), "Settings".to_string())]),
+                ..CompiledProps::default()
+            },
+            children: vec![
+                CompiledJsxNode::Element {
+                    key: "notifications".to_string(),
+                    tag: "fieldset".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![
+                        CompiledJsxNode::Element {
+                            key: "notifications-legend".to_string(),
+                            tag: "legend".to_string(),
+                            import_source: None,
+                            props: CompiledProps::default(),
+                            children: vec![CompiledJsxNode::Text {
+                                key: "notifications-legend-text".to_string(),
+                                value: "Notifications".to_string(),
+                            }],
+                        },
+                        CompiledJsxNode::Element {
+                            key: "notification-level".to_string(),
+                            tag: "select".to_string(),
+                            import_source: None,
+                            props: CompiledProps::default(),
+                            children: vec![CompiledJsxNode::Element {
+                                key: "standard-options".to_string(),
+                                tag: "optgroup".to_string(),
+                                import_source: None,
+                                props: CompiledProps {
+                                    attributes: BTreeMap::from([(
+                                        "label".to_string(),
+                                        "Standard".to_string(),
+                                    )]),
+                                    ..CompiledProps::default()
+                                },
+                                children: vec![CompiledJsxNode::Element {
+                                    key: "daily".to_string(),
+                                    tag: "option".to_string(),
+                                    import_source: None,
+                                    props: CompiledProps {
+                                        attributes: BTreeMap::from([(
+                                            "label".to_string(),
+                                            "Daily".to_string(),
+                                        )]),
+                                        ..CompiledProps::default()
+                                    },
+                                    children: Vec::new(),
+                                }],
+                            }],
+                        },
+                    ],
+                },
+                CompiledJsxNode::Element {
+                    key: "result".to_string(),
+                    tag: "output".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "result-text".to_string(),
+                        value: "Saved".to_string(),
+                    }],
+                },
+                CompiledJsxNode::Element {
+                    key: "quota".to_string(),
+                    tag: "meter".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([
+                            ("min".to_string(), "0".to_string()),
+                            ("max".to_string(), "10".to_string()),
+                            ("value".to_string(), "7".to_string()),
+                        ]),
+                        ..CompiledProps::default()
+                    },
+                    children: Vec::new(),
+                },
+            ],
+        };
+
+        let native = bridge.lower_to_native(&form).unwrap();
+        assert_eq!(native.role, NativeRole::Form);
+        assert_eq!(native.props.label.as_deref(), Some("Settings"));
+        assert_eq!(native.children[0].role, NativeRole::FieldSet);
+        assert_eq!(
+            native.children[0].props.label.as_deref(),
+            Some("Notifications")
+        );
+        assert_eq!(native.children[0].children[0].role, NativeRole::Legend);
+        assert_eq!(
+            native.children[0].children[0].props.label.as_deref(),
+            Some("Notifications")
+        );
+        assert_eq!(native.children[0].children[1].role, NativeRole::Select);
+        assert_eq!(
+            native.children[0].children[1].children[0].role,
+            NativeRole::OptionGroup
+        );
+        assert_eq!(
+            native.children[0].children[1].children[0]
+                .props
+                .label
+                .as_deref(),
+            Some("Standard")
+        );
+        assert_eq!(
+            native.children[0].children[1].children[0].children[0].role,
+            NativeRole::ListBoxItem
+        );
+        assert_eq!(
+            native.children[0].children[1].children[0].children[0]
+                .props
+                .label
+                .as_deref(),
+            Some("Daily")
+        );
+        assert_eq!(native.children[1].role, NativeRole::Output);
+        assert_eq!(native.children[1].props.label.as_deref(), Some("Saved"));
+        assert_eq!(native.children[2].role, NativeRole::Meter);
+        assert_eq!(native.children[2].props.min, Some(0.0));
+        assert_eq!(native.children[2].props.max, Some(10.0));
+        assert_eq!(native.children[2].props.current, Some(7.0));
     }
 
     #[test]
