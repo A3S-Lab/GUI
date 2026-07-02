@@ -481,9 +481,11 @@ deterministically:
 
 CSS custom properties are stored separately. Tailwind variant utilities are
 stored under `variant_declarations` so state or responsive processing can apply
-them without reparsing `className`. Unsupported style declarations are
-preserved so callers can report unmapped declarations without dropping source
-data.
+them without reparsing `className`. Tailwind important utilities using the `!`
+modifier are evaluated after normal utilities within the same `className`, with
+the original relative order preserved inside each priority group. Unsupported
+style declarations are preserved so callers can report unmapped declarations
+without dropping source data.
 CSS length values that cannot be converted to numeric points or percentages are
 kept as `StyleLength::Css`, including `calc(...)`, `calc-size(...)`,
 `var(...)`, `clamp(...)`, `anchor(...)`, `anchor-size(...)`,

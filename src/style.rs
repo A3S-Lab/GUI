@@ -5,6 +5,7 @@ use crate::web::WebProps;
 use serde::{Deserialize, Serialize};
 
 mod color_parsing;
+mod tailwind;
 mod value_parsing;
 
 use color_parsing::{parse_background_shorthand_color, parse_color};
@@ -519,7 +520,7 @@ impl PortableStyle {
     pub fn from_web(web: &WebProps) -> Self {
         let mut style = PortableStyle::default();
         if let Some(class_name) = &web.class_name {
-            for class in class_name.split_whitespace() {
+            for class in tailwind::ordered_class_tokens(class_name) {
                 style.apply_tailwind_utility(class);
             }
         }
@@ -2017,10 +2018,11 @@ impl PortableStyle {
     }
 
     fn apply_tailwind_utility(&mut self, class: &str) {
-        let Some((variants, class)) = split_tailwind_class(class.trim()) else {
+        let Some(class) = tailwind::parse_class(class) else {
             return;
         };
-        let class = class.strip_prefix('!').unwrap_or(class);
+        let variants = class.variants;
+        let class = class.utility;
         if class.is_empty() {
             return;
         }
@@ -3980,27 +3982,6 @@ fn make_corner_radius(horizontal: &StyleLength, vertical: Option<&StyleLength>) 
         horizontal: horizontal.clone(),
         vertical: vertical.cloned(),
     }
-}
-
-fn split_tailwind_class(class: &str) -> Option<(Vec<String>, &str)> {
-    if class.is_empty() {
-        return None;
-    }
-    let mut bracket_depth = 0usize;
-    let mut start = 0usize;
-    let mut variants = Vec::new();
-    for (index, ch) in class.char_indices() {
-        match ch {
-            '[' => bracket_depth += 1,
-            ']' => bracket_depth = bracket_depth.saturating_sub(1),
-            ':' if bracket_depth == 0 => {
-                variants.push(class[start..index].to_string());
-                start = index + 1;
-            }
-            _ => {}
-        }
-    }
-    Some((variants, &class[start..]))
 }
 
 fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, String> {
@@ -8154,6 +8135,35 @@ mod tests {
                 blue: 255,
                 alpha: 255,
             })
+        );
+    }
+
+    #[test]
+    fn applies_tailwind_important_utilities_after_normal_utilities() {
+        let web = WebProps::new().class_name(
+            "!mt-4 mt-2 \
+             hover:![background-color:red] hover:[background-color:blue] \
+             ![color:red] [color:blue]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(style.margin.top, Some(StyleLength::Points(16.0)));
+        assert_eq!(
+            style.declarations.get("margin-top").map(String::as_str),
+            Some("16px")
+        );
+        assert_eq!(
+            style.declarations.get("color").map(String::as_str),
+            Some("red")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("background-color"))
+                .map(String::as_str),
+            Some("red")
         );
     }
 
