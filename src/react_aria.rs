@@ -8,6 +8,10 @@ pub enum AriaComponent {
     Button,
     Label,
     Text,
+    Image,
+    Media,
+    Canvas,
+    EmbeddedContent,
     TextField,
     Input,
     Checkbox,
@@ -32,6 +36,12 @@ pub enum AriaComponent {
     Slider,
     ProgressBar,
     Toolbar,
+    Table,
+    TableSection,
+    TableRow,
+    TableCell,
+    TableColumn,
+    TableCaption,
 }
 
 impl AriaComponent {
@@ -40,6 +50,10 @@ impl AriaComponent {
             AriaComponent::Button => "Button",
             AriaComponent::Label => "Label",
             AriaComponent::Text => "Text",
+            AriaComponent::Image => "Image",
+            AriaComponent::Media => "Media",
+            AriaComponent::Canvas => "Canvas",
+            AriaComponent::EmbeddedContent => "EmbeddedContent",
             AriaComponent::TextField => "TextField",
             AriaComponent::Input => "Input",
             AriaComponent::Checkbox => "Checkbox",
@@ -64,6 +78,12 @@ impl AriaComponent {
             AriaComponent::Slider => "Slider",
             AriaComponent::ProgressBar => "ProgressBar",
             AriaComponent::Toolbar => "Toolbar",
+            AriaComponent::Table => "Table",
+            AriaComponent::TableSection => "TableSection",
+            AriaComponent::TableRow => "TableRow",
+            AriaComponent::TableCell => "TableCell",
+            AriaComponent::TableColumn => "TableColumn",
+            AriaComponent::TableCaption => "TableCaption",
         }
     }
 }
@@ -300,6 +320,12 @@ impl ReactAriaMapper {
             AriaComponent::Label | AriaComponent::Text | AriaComponent::SelectValue => Ok(
                 simple_leaf(element, NativeRole::Text, self.best_label(element)?),
             ),
+            AriaComponent::Image => self.map_container_with_label(element, NativeRole::Image),
+            AriaComponent::Media => self.map_container_with_label(element, NativeRole::Media),
+            AriaComponent::Canvas => self.map_container(element, NativeRole::Canvas),
+            AriaComponent::EmbeddedContent => {
+                self.map_container(element, NativeRole::EmbeddedContent)
+            }
             AriaComponent::TextField => self.map_text_field(element),
             AriaComponent::Input => Ok(simple_leaf(
                 element,
@@ -358,6 +384,16 @@ impl ReactAriaMapper {
                 self.best_label(element)?,
             )),
             AriaComponent::Toolbar => self.map_container(element, NativeRole::Toolbar),
+            AriaComponent::Table => self.map_container(element, NativeRole::Table),
+            AriaComponent::TableSection => self.map_container(element, NativeRole::TableSection),
+            AriaComponent::TableRow => self.map_container(element, NativeRole::TableRow),
+            AriaComponent::TableCell => {
+                self.map_container_with_label(element, NativeRole::TableCell)
+            }
+            AriaComponent::TableColumn => self.map_container(element, NativeRole::TableColumn),
+            AriaComponent::TableCaption => {
+                self.map_container_with_label(element, NativeRole::TableCaption)
+            }
         }
     }
 
@@ -980,6 +1016,30 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::Separator),
             "gtk::Separator"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::Image),
+            "NSImageView"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::Media),
+            "Microsoft.UI.Xaml.Controls.MediaPlayerElement"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::Canvas),
+            "gtk::DrawingArea"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::Table),
+            "NSTableView"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::TableCell),
+            "Microsoft.UI.Xaml.Controls.Grid(cell)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::TableCaption),
+            "gtk::Label(table-caption)"
         );
     }
 }

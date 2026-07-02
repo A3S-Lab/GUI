@@ -93,15 +93,19 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 
 ## Native Adapter Contract
 
-The current platform planning adapters map the same native IR to concrete widget
+The current platform planning adapters map the same native IR to target widget
 families:
 
 | Native role | macOS AppKit | Windows WinUI | Linux GTK4 |
 | --- | --- | --- | --- |
 | `Button` | `NSButton` | `Microsoft.UI.Xaml.Controls.Button` | `gtk::Button` |
 | `TextField` | `NSTextField(input)` | `Microsoft.UI.Xaml.Controls.TextBox` | `gtk::Entry` |
+| `Image` | `NSImageView` | `Microsoft.UI.Xaml.Controls.Image` | `gtk::Picture` |
+| `Media` | `AVPlayerView` | `Microsoft.UI.Xaml.Controls.MediaPlayerElement` | `gtk::Video` |
+| `Canvas` | `NSView(canvas)` | `Microsoft.UI.Xaml.Controls.Canvas` | `gtk::DrawingArea` |
+| `EmbeddedContent` | `NSView(embedded-content)` | `Microsoft.UI.Xaml.Controls.ContentControl(embedded-content)` | `gtk::Box(embedded-content)` |
 | `Checkbox` | `NSButton(checkbox)` | `Microsoft.UI.Xaml.Controls.CheckBox` | `gtk::CheckButton` |
-| `Switch` | `NSSwitch` | `Microsoft.UI.Xaml.Controls.CheckBox` fallback | `gtk::Switch` |
+| `Switch` | `NSSwitch` | `Microsoft.UI.Xaml.Controls.ToggleSwitch` | `gtk::Switch` |
 | `RadioGroup` | `NSStackView(radio-group)` | `Microsoft.UI.Xaml.Controls.RadioButtons` | `gtk::Box(radio-group)` |
 | `Radio` | `NSButton(radio)` | `Microsoft.UI.Xaml.Controls.RadioButton` | `gtk::CheckButton(radio)` |
 | `Select` | `NSComboBox` | `Microsoft.UI.Xaml.Controls.ComboBox` | `gtk::DropDown` |
@@ -116,6 +120,12 @@ families:
 | `Slider` | `NSSlider` | `Microsoft.UI.Xaml.Controls.Slider` | `gtk::Scale` |
 | `ProgressBar` | `NSProgressIndicator` | `Microsoft.UI.Xaml.Controls.ProgressBar` | `gtk::ProgressBar` |
 | `Toolbar` | `NSStackView(toolbar)` | `Microsoft.UI.Xaml.Controls.StackPanel(toolbar)` | `gtk::Box(toolbar)` |
+| `Table` | `NSTableView` | `Microsoft.UI.Xaml.Controls.Grid(table)` | `gtk::Grid(table)` |
+| `TableSection` | `NSView(table-section)` | `Microsoft.UI.Xaml.Controls.StackPanel(table-section)` | `gtk::Box(table-section)` |
+| `TableRow` | `NSTableRowView` | `Microsoft.UI.Xaml.Controls.Grid(row)` | `gtk::Grid(row)` |
+| `TableCell` | `NSTableCellView` | `Microsoft.UI.Xaml.Controls.Grid(cell)` | `gtk::Grid(cell)` |
+| `TableColumn` | `NSTableColumn` | `Microsoft.UI.Xaml.Controls.Grid(column)` | `gtk::ColumnViewColumn` |
+| `TableCaption` | `NSTextField(table-caption)` | `Microsoft.UI.Xaml.Controls.TextBlock(table-caption)` | `gtk::Label(table-caption)` |
 
 Top-level Web attributes such as `aria-label` are accepted by the compiler
 bridge and preserved in the native accessibility metadata while also feeding the

@@ -7,6 +7,10 @@ pub enum AccessibilityRole {
     Window,
     Group,
     StaticText,
+    Image,
+    Media,
+    Canvas,
+    EmbeddedContent,
     Button,
     TextField,
     Checkbox,
@@ -28,6 +32,12 @@ pub enum AccessibilityRole {
     Slider,
     ProgressIndicator,
     Toolbar,
+    Table,
+    TableSection,
+    TableRow,
+    TableCell,
+    TableColumn,
+    TableCaption,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -71,6 +81,10 @@ pub fn accessibility_role(role: NativeRole) -> AccessibilityRole {
         NativeRole::Window => AccessibilityRole::Window,
         NativeRole::View => AccessibilityRole::Group,
         NativeRole::Text => AccessibilityRole::StaticText,
+        NativeRole::Image => AccessibilityRole::Image,
+        NativeRole::Media => AccessibilityRole::Media,
+        NativeRole::Canvas => AccessibilityRole::Canvas,
+        NativeRole::EmbeddedContent => AccessibilityRole::EmbeddedContent,
         NativeRole::Button => AccessibilityRole::Button,
         NativeRole::TextField => AccessibilityRole::TextField,
         NativeRole::Checkbox => AccessibilityRole::Checkbox,
@@ -92,5 +106,11 @@ pub fn accessibility_role(role: NativeRole) -> AccessibilityRole {
         NativeRole::Slider => AccessibilityRole::Slider,
         NativeRole::ProgressBar => AccessibilityRole::ProgressIndicator,
         NativeRole::Toolbar => AccessibilityRole::Toolbar,
+        NativeRole::Table => AccessibilityRole::Table,
+        NativeRole::TableSection => AccessibilityRole::TableSection,
+        NativeRole::TableRow => AccessibilityRole::TableRow,
+        NativeRole::TableCell => AccessibilityRole::TableCell,
+        NativeRole::TableColumn => AccessibilityRole::TableColumn,
+        NativeRole::TableCaption => AccessibilityRole::TableCaption,
     }
 }

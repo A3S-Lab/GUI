@@ -46,8 +46,13 @@ impl WinUiWidgetKind {
     pub fn from_widget_class(widget_class: &str) -> GuiResult<Self> {
         match widget_class {
             "Microsoft.UI.Xaml.Window" => Ok(WinUiWidgetKind::Window),
-            "Microsoft.UI.Xaml.Controls.StackPanel" => Ok(WinUiWidgetKind::StackPanel),
-            "Microsoft.UI.Xaml.Controls.TextBlock" => Ok(WinUiWidgetKind::TextBlock),
+            "Microsoft.UI.Xaml.Controls.StackPanel"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(table-section)" => {
+                Ok(WinUiWidgetKind::StackPanel)
+            }
+            "Microsoft.UI.Xaml.Controls.TextBlock"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(table-caption)"
+            | "Microsoft.UI.Xaml.Controls.Image" => Ok(WinUiWidgetKind::TextBlock),
             "Microsoft.UI.Xaml.Controls.Button" => Ok(WinUiWidgetKind::Button),
             "Microsoft.UI.Xaml.Controls.TextBox" => Ok(WinUiWidgetKind::TextBox),
             "Microsoft.UI.Xaml.Controls.CheckBox" => Ok(WinUiWidgetKind::CheckBox),
@@ -61,7 +66,14 @@ impl WinUiWidgetKind {
             "Microsoft.UI.Xaml.Controls.ToolTip" => Ok(WinUiWidgetKind::ToolTip),
             "Microsoft.UI.Xaml.Controls.TabView" => Ok(WinUiWidgetKind::TabView),
             "Microsoft.UI.Xaml.Controls.TabViewItem" => Ok(WinUiWidgetKind::TabViewItem),
-            "Microsoft.UI.Xaml.Controls.Grid" => Ok(WinUiWidgetKind::Grid),
+            "Microsoft.UI.Xaml.Controls.Grid"
+            | "Microsoft.UI.Xaml.Controls.MediaPlayerElement"
+            | "Microsoft.UI.Xaml.Controls.Canvas"
+            | "Microsoft.UI.Xaml.Controls.ContentControl(embedded-content)"
+            | "Microsoft.UI.Xaml.Controls.Grid(table)"
+            | "Microsoft.UI.Xaml.Controls.Grid(row)"
+            | "Microsoft.UI.Xaml.Controls.Grid(cell)"
+            | "Microsoft.UI.Xaml.Controls.Grid(column)" => Ok(WinUiWidgetKind::Grid),
             "Microsoft.UI.Xaml.Controls.StackPanel(menu)" => Ok(WinUiWidgetKind::MenuPanel),
             "Microsoft.UI.Xaml.Controls.Button(menu-item)" => Ok(WinUiWidgetKind::MenuItemButton),
             "Microsoft.UI.Xaml.Controls.Primitives.SelectorItem" => {

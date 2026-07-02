@@ -41,8 +41,20 @@ impl Gtk4WidgetKind {
     pub fn from_widget_class(widget_class: &str) -> GuiResult<Self> {
         match widget_class {
             "gtk::ApplicationWindow" => Ok(Gtk4WidgetKind::ApplicationWindow),
-            "gtk::Box" | "gtk::Box(radio-group)" => Ok(Gtk4WidgetKind::Box),
-            "gtk::Label" | "gtk::Label(tab)" => Ok(Gtk4WidgetKind::Label),
+            "gtk::Box"
+            | "gtk::Box(radio-group)"
+            | "gtk::Box(embedded-content)"
+            | "gtk::Grid(table)"
+            | "gtk::Grid(row)"
+            | "gtk::Grid(cell)"
+            | "gtk::Box(table-section)"
+            | "gtk::ColumnViewColumn"
+            | "gtk::Picture"
+            | "gtk::Video"
+            | "gtk::DrawingArea" => Ok(Gtk4WidgetKind::Box),
+            "gtk::Label" | "gtk::Label(tab)" | "gtk::Label(table-caption)" => {
+                Ok(Gtk4WidgetKind::Label)
+            }
             "gtk::Button" => Ok(Gtk4WidgetKind::Button),
             "gtk::Entry" => Ok(Gtk4WidgetKind::Entry),
             "gtk::CheckButton" | "gtk::CheckButton(radio)" => Ok(Gtk4WidgetKind::CheckButton),

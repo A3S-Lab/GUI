@@ -178,13 +178,25 @@ pub fn component_for_html_tag(
         "option" => AriaComponent::ListBoxItem,
         "ul" | "ol" | "datalist" => AriaComponent::ListBox,
         "li" => AriaComponent::ListBoxItem,
+        "img" | "picture" => AriaComponent::Image,
+        "audio" | "video" => AriaComponent::Media,
+        "canvas" => AriaComponent::Canvas,
+        "embed" | "iframe" | "object" | "source" | "track" | "param" => {
+            AriaComponent::EmbeddedContent
+        }
+        "table" => AriaComponent::Table,
+        "thead" | "tbody" | "tfoot" | "colgroup" => AriaComponent::TableSection,
+        "tr" => AriaComponent::TableRow,
+        "td" | "th" => AriaComponent::TableCell,
+        "col" => AriaComponent::TableColumn,
+        "caption" => AriaComponent::TableCaption,
         "dialog" => AriaComponent::Dialog,
         "menu" => AriaComponent::Menu,
         "hr" => AriaComponent::Separator,
         "meter" | "progress" => AriaComponent::ProgressBar,
         "form" => AriaComponent::Form,
         "summary" => AriaComponent::Button,
-        "a" => AriaComponent::Button,
+        "a" | "area" => AriaComponent::Button,
         tag if is_text_html_tag(tag) => AriaComponent::Text,
         _ => AriaComponent::Group,
     })
@@ -303,6 +315,60 @@ mod tests {
         assert_eq!(
             component_for_html_tag("input", &BTreeMap::from([("type".into(), "range".into())])),
             Some(AriaComponent::Slider)
+        );
+    }
+
+    #[test]
+    fn maps_embedded_media_and_table_tags_to_native_semantics() {
+        let attributes = BTreeMap::new();
+
+        assert_eq!(
+            component_for_html_tag("img", &attributes),
+            Some(AriaComponent::Image)
+        );
+        assert_eq!(
+            component_for_html_tag("picture", &attributes),
+            Some(AriaComponent::Image)
+        );
+        assert_eq!(
+            component_for_html_tag("video", &attributes),
+            Some(AriaComponent::Media)
+        );
+        assert_eq!(
+            component_for_html_tag("audio", &attributes),
+            Some(AriaComponent::Media)
+        );
+        assert_eq!(
+            component_for_html_tag("canvas", &attributes),
+            Some(AriaComponent::Canvas)
+        );
+        assert_eq!(
+            component_for_html_tag("iframe", &attributes),
+            Some(AriaComponent::EmbeddedContent)
+        );
+        assert_eq!(
+            component_for_html_tag("table", &attributes),
+            Some(AriaComponent::Table)
+        );
+        assert_eq!(
+            component_for_html_tag("tbody", &attributes),
+            Some(AriaComponent::TableSection)
+        );
+        assert_eq!(
+            component_for_html_tag("tr", &attributes),
+            Some(AriaComponent::TableRow)
+        );
+        assert_eq!(
+            component_for_html_tag("td", &attributes),
+            Some(AriaComponent::TableCell)
+        );
+        assert_eq!(
+            component_for_html_tag("col", &attributes),
+            Some(AriaComponent::TableColumn)
+        );
+        assert_eq!(
+            component_for_html_tag("caption", &attributes),
+            Some(AriaComponent::TableCaption)
         );
     }
 }

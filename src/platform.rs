@@ -622,6 +622,10 @@ fn appkit_widget_name(role: NativeRole) -> &'static str {
         NativeRole::Window => "NSWindow",
         NativeRole::View => "NSView",
         NativeRole::Text => "NSTextField(label)",
+        NativeRole::Image => "NSImageView",
+        NativeRole::Media => "AVPlayerView",
+        NativeRole::Canvas => "NSView(canvas)",
+        NativeRole::EmbeddedContent => "NSView(embedded-content)",
         NativeRole::Button => "NSButton",
         NativeRole::TextField => "NSTextField(input)",
         NativeRole::Checkbox => "NSButton(checkbox)",
@@ -643,6 +647,12 @@ fn appkit_widget_name(role: NativeRole) -> &'static str {
         NativeRole::Slider => "NSSlider",
         NativeRole::ProgressBar => "NSProgressIndicator",
         NativeRole::Toolbar => "NSStackView(toolbar)",
+        NativeRole::Table => "NSTableView",
+        NativeRole::TableSection => "NSView(table-section)",
+        NativeRole::TableRow => "NSTableRowView",
+        NativeRole::TableCell => "NSTableCellView",
+        NativeRole::TableColumn => "NSTableColumn",
+        NativeRole::TableCaption => "NSTextField(table-caption)",
     }
 }
 
@@ -1177,6 +1187,12 @@ fn winui_widget_name(role: NativeRole) -> &'static str {
         NativeRole::Window => "Microsoft.UI.Xaml.Window",
         NativeRole::View => "Microsoft.UI.Xaml.Controls.StackPanel",
         NativeRole::Text => "Microsoft.UI.Xaml.Controls.TextBlock",
+        NativeRole::Image => "Microsoft.UI.Xaml.Controls.Image",
+        NativeRole::Media => "Microsoft.UI.Xaml.Controls.MediaPlayerElement",
+        NativeRole::Canvas => "Microsoft.UI.Xaml.Controls.Canvas",
+        NativeRole::EmbeddedContent => {
+            "Microsoft.UI.Xaml.Controls.ContentControl(embedded-content)"
+        }
         NativeRole::Button => "Microsoft.UI.Xaml.Controls.Button",
         NativeRole::TextField => "Microsoft.UI.Xaml.Controls.TextBox",
         NativeRole::Checkbox => "Microsoft.UI.Xaml.Controls.CheckBox",
@@ -1198,6 +1214,12 @@ fn winui_widget_name(role: NativeRole) -> &'static str {
         NativeRole::Slider => "Microsoft.UI.Xaml.Controls.Slider",
         NativeRole::ProgressBar => "Microsoft.UI.Xaml.Controls.ProgressBar",
         NativeRole::Toolbar => "Microsoft.UI.Xaml.Controls.StackPanel(toolbar)",
+        NativeRole::Table => "Microsoft.UI.Xaml.Controls.Grid(table)",
+        NativeRole::TableSection => "Microsoft.UI.Xaml.Controls.StackPanel(table-section)",
+        NativeRole::TableRow => "Microsoft.UI.Xaml.Controls.Grid(row)",
+        NativeRole::TableCell => "Microsoft.UI.Xaml.Controls.Grid(cell)",
+        NativeRole::TableColumn => "Microsoft.UI.Xaml.Controls.Grid(column)",
+        NativeRole::TableCaption => "Microsoft.UI.Xaml.Controls.TextBlock(table-caption)",
     }
 }
 
@@ -1206,6 +1228,10 @@ fn gtk4_widget_name(role: NativeRole) -> &'static str {
         NativeRole::Window => "gtk::ApplicationWindow",
         NativeRole::View => "gtk::Box",
         NativeRole::Text => "gtk::Label",
+        NativeRole::Image => "gtk::Picture",
+        NativeRole::Media => "gtk::Video",
+        NativeRole::Canvas => "gtk::DrawingArea",
+        NativeRole::EmbeddedContent => "gtk::Box(embedded-content)",
         NativeRole::Button => "gtk::Button",
         NativeRole::TextField => "gtk::Entry",
         NativeRole::Checkbox => "gtk::CheckButton",
@@ -1227,5 +1253,11 @@ fn gtk4_widget_name(role: NativeRole) -> &'static str {
         NativeRole::Slider => "gtk::Scale",
         NativeRole::ProgressBar => "gtk::ProgressBar",
         NativeRole::Toolbar => "gtk::Box(toolbar)",
+        NativeRole::Table => "gtk::Grid(table)",
+        NativeRole::TableSection => "gtk::Box(table-section)",
+        NativeRole::TableRow => "gtk::Grid(row)",
+        NativeRole::TableCell => "gtk::Grid(cell)",
+        NativeRole::TableColumn => "gtk::ColumnViewColumn",
+        NativeRole::TableCaption => "gtk::Label(table-caption)",
     }
 }

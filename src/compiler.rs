@@ -249,6 +249,7 @@ impl CompiledProps {
         for (name, action) in self.events {
             web = web.event(name, action);
         }
+        let html_fallback_label = html_fallback_label(tag, &web);
         let semantic = WebSemanticAliases::from_web(&web);
 
         let orientation = self.orientation.map(|orientation| match orientation {
@@ -257,7 +258,7 @@ impl CompiledProps {
         });
 
         let mut props = AriaProps::new().web(web);
-        props.label = self.label;
+        props.label = self.label.or(html_fallback_label);
         props.text_value = self.text_value;
         props.value = self.value;
         props.placeholder = self.placeholder;
@@ -273,6 +274,21 @@ impl CompiledProps {
         props.max_value = self.max_value.or(semantic.max_value);
         props.value_number = self.value_number.or(semantic.value_number);
         props
+    }
+}
+
+fn html_fallback_label(tag: &str, web: &WebProps) -> Option<String> {
+    if web.attributes.contains_key("aria-label") {
+        return None;
+    }
+    match canonical_html_tag(tag)? {
+        "area" | "img" => web
+            .attributes
+            .get("alt")
+            .map(String::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_string),
+        _ => None,
     }
 }
 
@@ -718,6 +734,126 @@ mod tests {
                 Some(*tag)
             );
         }
+    }
+
+    #[test]
+    fn lowers_html_embedded_media_and_table_tags_to_native_roles() {
+        let bridge = ReactCompilerBridge::new();
+        let img = CompiledJsxNode::Element {
+            key: "hero".to_string(),
+            tag: "img".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([
+                    ("alt".to_string(), "Product screenshot".to_string()),
+                    ("src".to_string(), "/hero.png".to_string()),
+                ]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+
+        let native_img = bridge.lower_to_native(&img).unwrap();
+        assert_eq!(native_img.role, NativeRole::Image);
+        assert_eq!(
+            native_img.props.label.as_deref(),
+            Some("Product screenshot")
+        );
+        assert_eq!(
+            native_img
+                .props
+                .metadata
+                .get(HTML_TAG_METADATA_KEY)
+                .map(String::as_str),
+            Some("img")
+        );
+
+        let video = CompiledJsxNode::Element {
+            key: "demo-video".to_string(),
+            tag: "video".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![CompiledJsxNode::Element {
+                key: "demo-source".to_string(),
+                tag: "source".to_string(),
+                import_source: None,
+                props: CompiledProps {
+                    attributes: BTreeMap::from([("src".to_string(), "/demo.mp4".to_string())]),
+                    ..CompiledProps::default()
+                },
+                children: Vec::new(),
+            }],
+        };
+
+        let native_video = bridge.lower_to_native(&video).unwrap();
+        assert_eq!(native_video.role, NativeRole::Media);
+        assert_eq!(native_video.children.len(), 1);
+        assert_eq!(native_video.children[0].role, NativeRole::EmbeddedContent);
+
+        let table = CompiledJsxNode::Element {
+            key: "metrics".to_string(),
+            tag: "table".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![
+                CompiledJsxNode::Element {
+                    key: "metrics-caption".to_string(),
+                    tag: "caption".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "metrics-caption-text".to_string(),
+                        value: "Metrics".to_string(),
+                    }],
+                },
+                CompiledJsxNode::Element {
+                    key: "metrics-body".to_string(),
+                    tag: "tbody".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Element {
+                        key: "metrics-row".to_string(),
+                        tag: "tr".to_string(),
+                        import_source: None,
+                        props: CompiledProps::default(),
+                        children: vec![CompiledJsxNode::Element {
+                            key: "metrics-cell".to_string(),
+                            tag: "td".to_string(),
+                            import_source: None,
+                            props: CompiledProps::default(),
+                            children: vec![CompiledJsxNode::Text {
+                                key: "metrics-cell-text".to_string(),
+                                value: "42".to_string(),
+                            }],
+                        }],
+                    }],
+                },
+            ],
+        };
+
+        let native_table = bridge.lower_to_native(&table).unwrap();
+        assert_eq!(native_table.role, NativeRole::Table);
+        assert_eq!(native_table.children[0].role, NativeRole::TableCaption);
+        assert_eq!(
+            native_table.children[0].props.label.as_deref(),
+            Some("Metrics")
+        );
+        assert_eq!(native_table.children[1].role, NativeRole::TableSection);
+        assert_eq!(
+            native_table.children[1].children[0].role,
+            NativeRole::TableRow
+        );
+        assert_eq!(
+            native_table.children[1].children[0].children[0].role,
+            NativeRole::TableCell
+        );
+        assert_eq!(
+            native_table.children[1].children[0].children[0]
+                .props
+                .label
+                .as_deref(),
+            Some("42")
+        );
     }
 
     #[test]

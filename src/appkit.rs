@@ -44,8 +44,16 @@ impl AppKitWidgetKind {
     pub fn from_widget_class(widget_class: &str) -> GuiResult<Self> {
         match widget_class {
             "NSWindow" => Ok(AppKitWidgetKind::Window),
-            "NSView" => Ok(AppKitWidgetKind::View),
-            "NSTextField(label)" => Ok(AppKitWidgetKind::Label),
+            "NSView"
+            | "NSImageView"
+            | "AVPlayerView"
+            | "NSView(canvas)"
+            | "NSView(embedded-content)"
+            | "NSView(table-section)"
+            | "NSTableRowView"
+            | "NSTableCellView"
+            | "NSTableColumn" => Ok(AppKitWidgetKind::View),
+            "NSTextField(label)" | "NSTextField(table-caption)" => Ok(AppKitWidgetKind::Label),
             "NSButton" => Ok(AppKitWidgetKind::Button),
             "NSTextField(input)" => Ok(AppKitWidgetKind::TextField),
             "NSButton(checkbox)" => Ok(AppKitWidgetKind::Checkbox),
@@ -53,7 +61,7 @@ impl AppKitWidgetKind {
             "NSStackView(radio-group)" => Ok(AppKitWidgetKind::RadioGroup),
             "NSButton(radio)" => Ok(AppKitWidgetKind::Radio),
             "NSComboBox" => Ok(AppKitWidgetKind::ComboBox),
-            "NSScrollView+NSStackView" => Ok(AppKitWidgetKind::ListView),
+            "NSScrollView+NSStackView" | "NSTableView" => Ok(AppKitWidgetKind::ListView),
             "NSButton(list-row)" => Ok(AppKitWidgetKind::ListItem),
             "NSPanel" => Ok(AppKitWidgetKind::Panel),
             "NSPopover" => Ok(AppKitWidgetKind::Popover),

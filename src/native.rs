@@ -35,6 +35,10 @@ pub enum NativeRole {
     Window,
     View,
     Text,
+    Image,
+    Media,
+    Canvas,
+    EmbeddedContent,
     Button,
     TextField,
     Checkbox,
@@ -57,6 +61,12 @@ pub enum NativeRole {
     Slider,
     ProgressBar,
     Toolbar,
+    Table,
+    TableSection,
+    TableRow,
+    TableCell,
+    TableColumn,
+    TableCaption,
 }
 
 #[derive(Debug, Clone, PartialEq)]

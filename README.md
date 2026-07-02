@@ -34,9 +34,10 @@ The compiler bridge recognizes the HTML element surface exposed by the HTML
 Living Standard plus common historical tags. It also recognizes common SVG
 intrinsic element names used by JSX icon and vector trees. Known intrinsic
 elements are mapped to native semantic roles where a matching role exists.
-Elements without a dedicated native role are represented as generic native views
-or text nodes, and the original tag is preserved in metadata under
-`data-a3s-html-tag` or `data-a3s-svg-tag`.
+Text, form, list, dialog, menu, media, embedded-content, and table-structure
+tags lower to dedicated native roles. Elements without a dedicated native role
+are represented as generic native views or text nodes, and the original tag is
+preserved in metadata under `data-a3s-html-tag` or `data-a3s-svg-tag`.
 
 The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
@@ -444,11 +445,14 @@ Windows, and Linux.
 On macOS, the `appkit-native` feature includes a minimal real AppKit surface.
 It creates `NSWindow`, `NSPanel`, `NSView`, `NSButton`, `NSTextField`,
 `NSSwitch`, `NSStackView`, `NSComboBox`, `NSScrollView`, `NSTabView`,
-`NSTabViewItem`, `NSMenu`, `NSMenuItem`, `NSBox(separator)`, `NSSlider`, and
-`NSProgressIndicator` objects directly from the native command stream. Buttons,
-editable text fields, checkboxes, switches, radio buttons, lists, selects,
-toolbars, dialogs, popovers, tabs, menus, separators, sliders, and progress
-indicators use native setters and native callbacks.
+`NSTabViewItem`, `NSMenu`, `NSMenuItem`, `NSBox(separator)`, `NSSlider`,
+and `NSProgressIndicator` objects directly from the native command stream.
+Buttons, editable text fields, checkboxes, switches, radio buttons, lists,
+selects, toolbars, dialogs, popovers, tabs, menus, separators, sliders, and
+progress indicators use native setters and native callbacks. Image, media,
+embedded-content, and table roles are present in the native IR and planning
+target map; native surfaces can accept them through the same command path and
+may use generic native container fallbacks until dedicated controls are wired.
 
 On Windows, the `winui-native` feature adds an in-process WinUI 3 surface behind
 the same `NativeWidgetSurface` contract. It uses `winio-winui3` and the Windows
@@ -456,8 +460,10 @@ App SDK package bootstrap to create real `Microsoft.UI.Xaml.Window`,
 `StackPanel`, `TextBlock`, `Button`, `TextBox`, `CheckBox`, `RadioButton`,
 `ComboBox`, `ListBox`, `Grid`, `TabView`, `TabViewItem`, `ContentDialog`,
 `ToolTip`, menu `StackPanel`/`Button` fallback controls, `Border(separator)`,
-`Slider`, and `ProgressBar` objects directly. It uses WinUI controls as the
-rendered surface.
+`Slider`, and `ProgressBar` objects directly. Image, media, canvas,
+embedded-content, and table roles are present in the native IR and planning
+target map; native surfaces can accept them through the same command path and
+may use generic WinUI container fallbacks until dedicated controls are wired.
 
 On Linux, the `gtk4-native` feature adds an in-process GTK4 surface behind the
 same `NativeWidgetSurface` contract. It creates `gtk::ApplicationWindow`,
@@ -465,8 +471,11 @@ same `NativeWidgetSurface` contract. It creates `gtk::ApplicationWindow`,
 `gtk::Switch`, `gtk::DropDown`, `gtk::ListBox`, `gtk::ListBoxRow`,
 `gtk::Dialog`, `gtk::Popover`, `gtk::PopoverMenuBar`, `gio::Menu`,
 `gio::MenuItem`, `gtk::Notebook`, `gtk::Separator`, `gtk::Scale`, and
-`gtk::ProgressBar` objects directly. The feature is compiled only on Linux and
-requires GTK4 development libraries plus `pkg-config`.
+`gtk::ProgressBar` objects directly. Image, media, canvas, embedded-content,
+and table roles are present in the native IR and planning target map; native
+surfaces can accept them through the same command path and may use generic GTK
+container fallbacks until dedicated controls are wired. The feature is compiled
+only on Linux and requires GTK4 development libraries plus `pkg-config`.
 
 ```rust
 use a3s_gui::{AppKitNativeSurface, GuiRuntime};
@@ -487,6 +496,11 @@ registered action ids.
 | Semantic UI input | Native IR role |
 | --- | --- |
 | `Button` | `Button` |
+| `img` / `picture` | native image role |
+| `audio` / `video` | native media role |
+| `canvas` | native canvas role |
+| `iframe` / `embed` / `object` | native embedded-content role |
+| `table` / `thead` / `tbody` / `tfoot` / `tr` / `td` / `th` / `col` / `caption` | native table roles |
 | `TextField` / `Label` / `Input` | one native `TextField` |
 | `Checkbox` | `Checkbox` |
 | `Switch` | `Switch` |
@@ -505,9 +519,9 @@ registered action ids.
 
 | Platform | Target adapter |
 | --- | --- |
-| macOS | AppKit (`NSWindow`, `NSButton`, `NSTextField`, `NSSwitch`, `NSStackView`, `NSComboBox`, `NSScrollView`, `NSPanel`, `NSPopover`, `NSTabView`, `NSTabViewItem`, `NSMenu`, `NSMenuItem`, `NSBox(separator)`, `NSSlider`, `NSProgressIndicator`) |
-| Windows | WinUI 3 (`Window`, `Button`, `TextBox`, `CheckBox`, `RadioButton`, `ComboBox`, `ListBox`, `ContentDialog`, `ToolTip`, `TabView`, `TabViewItem`, `StackPanel(menu)`, `Button(menu-item)`, `Border(separator)`, `Slider`, `ProgressBar`) |
-| Linux | GTK4 (`gtk::ApplicationWindow`, `gtk::Button`, `gtk::Entry`, `gtk::DropDown`, `gtk::ListBox`, `gtk::Dialog`, `gtk::Popover`, `gtk::PopoverMenuBar`, `gio::Menu`, `gio::MenuItem`, `gtk::Notebook`, `gtk::Separator`, `gtk::Scale`) |
+| macOS | AppKit (`NSWindow`, `NSButton`, `NSTextField`, `NSImageView`, `NSSwitch`, `NSStackView`, `NSComboBox`, `NSScrollView`, `NSPanel`, `NSPopover`, `NSTabView`, `NSTabViewItem`, `NSMenu`, `NSMenuItem`, `NSBox(separator)`, `NSSlider`, `NSProgressIndicator`, `NSTableView`) |
+| Windows | WinUI 3 (`Window`, `Button`, `TextBlock`, `Image`, `TextBox`, `CheckBox`, `RadioButton`, `ComboBox`, `ListBox`, `Grid`, `ContentDialog`, `ToolTip`, `TabView`, `TabViewItem`, `StackPanel(menu)`, `Button(menu-item)`, `Border(separator)`, `Slider`, `ProgressBar`) |
+| Linux | GTK4 (`gtk::ApplicationWindow`, `gtk::Button`, `gtk::Entry`, `gtk::Picture`, `gtk::Video`, `gtk::DrawingArea`, `gtk::DropDown`, `gtk::ListBox`, `gtk::Dialog`, `gtk::Popover`, `gtk::PopoverMenuBar`, `gio::Menu`, `gio::MenuItem`, `gtk::Notebook`, `gtk::Separator`, `gtk::Scale`, `gtk::Grid`) |
 
 ## TypeScript SDK
 
