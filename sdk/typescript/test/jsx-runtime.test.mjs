@@ -227,6 +227,26 @@ test('intrinsic range input normalizes numeric value props', () => {
   assert.equal(root.props.events.onChange, 'setVolume');
 });
 
+test('intrinsic number input normalizes numeric value props', () => {
+  const root = jsx('input', {
+    type: 'number',
+    defaultValue: '7',
+    min: '1',
+    max: '10',
+    step: '0.5',
+    onChange: 'setQuantity',
+  }, 'quantity');
+
+  assert.equal(root.tag, 'input');
+  assert.equal(root.props.valueNumber, 7);
+  assert.equal(root.props.value, undefined);
+  assert.equal(root.props.minValue, 1);
+  assert.equal(root.props.maxValue, 10);
+  assert.equal(root.props.stepValue, 0.5);
+  assert.equal(root.props.attributes.type, 'number');
+  assert.equal(root.props.events.onChange, 'setQuantity');
+});
+
 test('radio group markers lower to structured compiled nodes', () => {
   const setTheme = createAction('setTheme', 'Set theme');
   const root = jsxs(RadioGroup, {

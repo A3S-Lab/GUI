@@ -149,9 +149,9 @@ function normalizeProps(props, tag) {
     } else if (name === 'textValue') {
       out.textValue = String(value);
     } else if (name === 'value' || name === 'defaultValue') {
-      const rangeValue = isRangeValueTag(tag, props) ? numberValue(value) : undefined;
-      if (rangeValue !== undefined) {
-        out.valueNumber = rangeValue;
+      const numericValue = isNumericValueTag(tag, props) ? numberValue(value) : undefined;
+      if (numericValue !== undefined) {
+        out.valueNumber = numericValue;
       } else {
         out.value = String(value);
       }
@@ -412,13 +412,14 @@ function numberValue(value) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function isRangeValueTag(tag, props = {}) {
+function isNumericValueTag(tag, props = {}) {
+  const inputType = String(props.type ?? '').trim().toLowerCase();
   return (
     tag === 'Slider' ||
     tag === 'ProgressBar' ||
     tag === 'progress' ||
     tag === 'meter' ||
-    (tag === 'input' && String(props.type ?? '').trim().toLowerCase() === 'range')
+    (tag === 'input' && (inputType === 'range' || inputType === 'number'))
   );
 }
 

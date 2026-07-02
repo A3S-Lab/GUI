@@ -351,7 +351,7 @@ impl CompiledProps {
         }
         let html_fallback_label = html_fallback_label(tag, &web);
         let html_details_open = html_details_open_state(tag, &web);
-        let html_range_value = html_range_value_state(tag, &web, self.value.as_deref());
+        let html_numeric_value = html_numeric_value_state(tag, &web, self.value.as_deref());
         let html_range_step = html_range_step_state(tag, &web);
         let semantic = WebSemanticAliases::from_web(&web);
 
@@ -378,7 +378,7 @@ impl CompiledProps {
         props.value_number = self
             .value_number
             .or(semantic.value_number)
-            .or(html_range_value);
+            .or(html_numeric_value);
         props.step_value = self.step_value.or(semantic.step_value).or(html_range_step);
         props
     }
@@ -391,12 +391,12 @@ fn html_details_open_state(tag: &str, web: &WebProps) -> Option<bool> {
     }
 }
 
-fn html_range_value_state(tag: &str, web: &WebProps, value: Option<&str>) -> Option<f64> {
+fn html_numeric_value_state(tag: &str, web: &WebProps, value: Option<&str>) -> Option<f64> {
     match canonical_html_tag(tag)? {
         "meter" | "progress" => value
             .and_then(parse_number_attribute)
             .or_else(|| number_attribute(&web.attributes, &["value"])),
-        "input" if html_input_type_is(web, "range") => value
+        "input" if html_input_type_is(web, "range") || html_input_type_is(web, "number") => value
             .and_then(parse_number_attribute)
             .or_else(|| number_attribute(&web.attributes, &["value"])),
         _ => None,
@@ -2353,6 +2353,35 @@ mod tests {
         assert_eq!(
             bridge.lower_to_native(&input("email")).unwrap().role,
             NativeRole::TextField
+        );
+
+        let number = CompiledJsxNode::Element {
+            key: "quantity".to_string(),
+            tag: "input".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                value: Some("7".to_string()),
+                attributes: BTreeMap::from([
+                    ("type".to_string(), "number".to_string()),
+                    ("min".to_string(), "1".to_string()),
+                    ("max".to_string(), "10".to_string()),
+                    ("step".to_string(), "0.5".to_string()),
+                ]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+        let native_number = bridge.lower_to_native(&number).unwrap();
+
+        assert_eq!(native_number.role, NativeRole::TextField);
+        assert_eq!(native_number.props.value.as_deref(), Some("7"));
+        assert_eq!(native_number.props.current, Some(7.0));
+        assert_eq!(native_number.props.min, Some(1.0));
+        assert_eq!(native_number.props.max, Some(10.0));
+        assert_eq!(native_number.props.step, Some(0.5));
+        assert_eq!(
+            native_number.props.metadata.get("type").map(String::as_str),
+            Some("number")
         );
 
         let range = CompiledJsxNode::Element {

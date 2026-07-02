@@ -121,7 +121,9 @@ dialog, menu, media, embedded-content, link, image-map, and table-structure
 tags lower to dedicated native roles. `input[type=range]` lowers to a native
 slider role, numeric `value` or `defaultValue` props are projected as the
 ranged current value, and numeric `step` is projected as native ranged-control
-step state. Generic HTML containers lower to `NativeRole::View`;
+step state. `input[type=number]` lowers to the native text-field role while
+numeric `value` or `defaultValue`, `min`, `max`, and `step` props are preserved
+as native control state. Generic HTML containers lower to `NativeRole::View`;
 unsupported
 custom elements with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering

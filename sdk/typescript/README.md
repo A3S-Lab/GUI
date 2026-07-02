@@ -44,6 +44,8 @@ exports include form and selection components such as `RadioGroup`, `Radio`,
 `TabPanel`, `Menu`, `MenuItem`, `Link`, `Slider`, and `ProgressBar`, plus
 structural markers such as `Separator` and `Toolbar`. The emitted frame
 contains semantic JSX element names.
+For intrinsic `input` tags, `type="range"` and `type="number"` normalize
+numeric `value` and `defaultValue` props to `valueNumber`.
 
 The emitted frame is plain JSON:
 
