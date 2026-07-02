@@ -52,6 +52,8 @@ labels, and image `alt` text are used as fallback native labels.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.
+HTML `option` and `data` `value` attributes are projected as native value
+state for selection items and machine-readable data text.
 
 The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
@@ -539,7 +541,7 @@ registered action ids.
 | `html` / `head` / `body` / `title` | native document roles |
 | `base` / `link` / `meta` / `style` / `script` / `noscript` | native metadata and resource roles |
 | `template` / `slot` | native template and slot roles |
-| `abbr` / `cite` / `dfn` / `data` / `ins` / `del` / `mark` / `time` | native text annotation roles |
+| `abbr` / `cite` / `dfn` / `data` / `ins` / `del` / `mark` / `time` | native text annotation roles; `data[value]` preserves native value state |
 | `em` / `strong` / `code` / `kbd` / `samp` / `var` / `q` / `sub` / `sup` / `small` | native phrasing text roles |
 | `b` / `i` / `s` / `strike` / `u` / `bdi` / `bdo` | native typographic and bidi text roles |
 | `p` / `pre` / `blockquote` / `address` / `br` / `wbr` | native flow text roles |
@@ -558,7 +560,7 @@ registered action ids.
 | `input[type=range]` | native slider role with numeric current value and step state |
 | `input[type=number]` | native text-field role with numeric current value, bounds, and step state |
 | `input[type=button]` / `input[type=submit]` / `input[type=reset]` / `input[type=image]` | native button role with HTML fallback labels |
-| `select` / `optgroup` / `option` | native select option-group and option roles |
+| `select` / `optgroup` / `option` | native select option-group and option roles; `option[value]` preserves native value state |
 | `output` | native output role |
 | `meter` / `progress` | native ranged indicator roles |
 | `a[href]` | native link role |

@@ -352,6 +352,7 @@ impl CompiledProps {
         let html_fallback_label = html_fallback_label(tag, &web, self.value.as_deref());
         let html_details_open = html_details_open_state(tag, &web);
         let html_placeholder = html_placeholder_state(tag, &web);
+        let html_string_value = html_string_value_state(tag, &web);
         let html_numeric_value = html_numeric_value_state(tag, &web, self.value.as_deref());
         let html_range_step = html_range_step_state(tag, &web);
         let semantic = WebSemanticAliases::from_web(&web);
@@ -364,7 +365,7 @@ impl CompiledProps {
         let mut props = AriaProps::new().web(web);
         props.label = self.label.or(html_fallback_label);
         props.text_value = self.text_value;
-        props.value = self.value;
+        props.value = self.value.or(html_string_value);
         props.placeholder = self
             .placeholder
             .or(semantic.placeholder)
@@ -399,6 +400,15 @@ fn html_placeholder_state(tag: &str, web: &WebProps) -> Option<String> {
     match canonical_html_tag(tag)? {
         "input" | "textarea" => {
             non_empty_string_attribute(&web.attributes, &["placeholder"]).map(str::to_string)
+        }
+        _ => None,
+    }
+}
+
+fn html_string_value_state(tag: &str, web: &WebProps) -> Option<String> {
+    match canonical_html_tag(tag)? {
+        "data" | "option" => {
+            non_empty_string_attribute(&web.attributes, &["value"]).map(str::to_string)
         }
         _ => None,
     }
@@ -1475,6 +1485,7 @@ mod tests {
             assert_eq!(native.children[index].role, *role);
             assert_eq!(native.children[index].props.label.as_deref(), Some(*label));
         }
+        assert_eq!(native.children[3].props.value.as_deref(), Some("42"));
         assert_eq!(
             native.children[0]
                 .props
@@ -2329,10 +2340,10 @@ mod tests {
                                     tag: "option".to_string(),
                                     import_source: None,
                                     props: CompiledProps {
-                                        attributes: BTreeMap::from([(
-                                            "label".to_string(),
-                                            "Daily".to_string(),
-                                        )]),
+                                        attributes: BTreeMap::from([
+                                            ("label".to_string(), "Daily".to_string()),
+                                            ("value".to_string(), "daily".to_string()),
+                                        ]),
                                         ..CompiledProps::default()
                                     },
                                     children: Vec::new(),
@@ -2403,6 +2414,13 @@ mod tests {
                 .label
                 .as_deref(),
             Some("Daily")
+        );
+        assert_eq!(
+            native.children[0].children[1].children[0].children[0]
+                .props
+                .value
+                .as_deref(),
+            Some("daily")
         );
         assert_eq!(native.children[1].role, NativeRole::Output);
         assert_eq!(native.children[1].props.label.as_deref(), Some("Saved"));
