@@ -38,6 +38,7 @@ export const Separator = createComponent('Separator');
 export const Slider = createComponent('Slider');
 export const ProgressBar = createComponent('ProgressBar');
 export const Toolbar = createComponent('Toolbar');
+export const Link = createComponent('Link');
 
 export function jsx(type, props, key) {
   return createNode(type, props ?? {}, key);

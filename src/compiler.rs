@@ -182,6 +182,8 @@ fn lower_node(node: &CompiledJsxNode) -> GuiResult<AriaElement> {
 fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaComponent> {
     match tag {
         "Button" | "button" => Ok(AriaComponent::Button),
+        "Link" => Ok(AriaComponent::Link),
+        "a" => Ok(component_for_anchor_element(props)),
         "Label" | "label" => Ok(AriaComponent::Label),
         "Text" | "span" | "p" | "strong" | "em" => Ok(AriaComponent::Text),
         "Heading" => Ok(AriaComponent::Heading),
@@ -202,6 +204,8 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "OptionGroup" | "optgroup" => Ok(AriaComponent::OptionGroup),
         "Output" | "output" => Ok(AriaComponent::Output),
         "Meter" | "meter" => Ok(AriaComponent::Meter),
+        "ImageMap" | "map" => Ok(AriaComponent::ImageMap),
+        "ImageMapArea" | "area" => Ok(AriaComponent::ImageMapArea),
         "Select" | "select" => Ok(AriaComponent::Select),
         "SelectValue" => Ok(AriaComponent::SelectValue),
         "ListBox" | "ul" | "ol" => Ok(AriaComponent::ListBox),
@@ -239,6 +243,16 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
             .ok_or_else(|| GuiError::UnsupportedAriaComponent {
                 component: other.to_string(),
             }),
+    }
+}
+
+fn component_for_anchor_element(props: &CompiledProps) -> AriaComponent {
+    if component_for_intrinsic_tag("a", &props.attributes) == Some(AriaComponent::Link) {
+        AriaComponent::Link
+    } else if props.events.contains_key("onClick") || props.events.contains_key("onPress") {
+        AriaComponent::Button
+    } else {
+        AriaComponent::Group
     }
 }
 
@@ -779,6 +793,113 @@ mod tests {
                 Some(*tag)
             );
         }
+    }
+
+    #[test]
+    fn lowers_html_link_and_image_map_tags_to_native_roles() {
+        let bridge = ReactCompilerBridge::new();
+        let link = CompiledJsxNode::Element {
+            key: "docs-link".to_string(),
+            tag: "a".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([("href".to_string(), "/docs".to_string())]),
+                ..CompiledProps::default()
+            },
+            children: vec![CompiledJsxNode::Text {
+                key: "docs-link-text".to_string(),
+                value: "Docs".to_string(),
+            }],
+        };
+
+        let native_link = bridge.lower_to_native(&link).unwrap();
+        assert_eq!(native_link.role, NativeRole::Link);
+        assert_eq!(native_link.props.label.as_deref(), Some("Docs"));
+        assert_eq!(
+            native_link
+                .props
+                .metadata
+                .get(HTML_TAG_METADATA_KEY)
+                .map(String::as_str),
+            Some("a")
+        );
+        assert_eq!(
+            native_link
+                .props
+                .web
+                .attributes
+                .get("href")
+                .map(String::as_str),
+            Some("/docs")
+        );
+
+        let clickable_anchor = CompiledJsxNode::Element {
+            key: "archive-anchor".to_string(),
+            tag: "a".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                events: BTreeMap::from([("onClick".to_string(), "archive".to_string())]),
+                ..CompiledProps::default()
+            },
+            children: vec![CompiledJsxNode::Text {
+                key: "archive-anchor-text".to_string(),
+                value: "Archive".to_string(),
+            }],
+        };
+
+        let native_clickable_anchor = bridge.lower_to_native(&clickable_anchor).unwrap();
+        assert_eq!(native_clickable_anchor.role, NativeRole::Button);
+        assert_eq!(
+            native_clickable_anchor.props.label.as_deref(),
+            Some("Archive")
+        );
+        assert_eq!(
+            native_clickable_anchor.props.action.as_deref(),
+            Some("archive")
+        );
+
+        let image_map = CompiledJsxNode::Element {
+            key: "hero-map".to_string(),
+            tag: "map".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([("name".to_string(), "hero-map".to_string())]),
+                ..CompiledProps::default()
+            },
+            children: vec![CompiledJsxNode::Element {
+                key: "cta-area".to_string(),
+                tag: "area".to_string(),
+                import_source: None,
+                props: CompiledProps {
+                    attributes: BTreeMap::from([
+                        ("href".to_string(), "/signup".to_string()),
+                        ("alt".to_string(), "Sign up".to_string()),
+                        ("shape".to_string(), "rect".to_string()),
+                        ("coords".to_string(), "0,0,120,48".to_string()),
+                    ]),
+                    ..CompiledProps::default()
+                },
+                children: Vec::new(),
+            }],
+        };
+
+        let native_image_map = bridge.lower_to_native(&image_map).unwrap();
+        assert_eq!(native_image_map.role, NativeRole::ImageMap);
+        assert_eq!(native_image_map.children.len(), 1);
+        assert_eq!(native_image_map.children[0].role, NativeRole::ImageMapArea);
+        assert_eq!(
+            native_image_map.children[0].props.label.as_deref(),
+            Some("Sign up")
+        );
+        assert_eq!(
+            native_image_map.children[0]
+                .props
+                .web
+                .attributes
+                .get("href")
+                .map(String::as_str),
+            Some("/signup")
+        );
     }
 
     #[test]

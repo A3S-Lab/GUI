@@ -36,7 +36,8 @@ intrinsic element names used by JSX icon and vector trees. Known intrinsic
 elements are mapped to native semantic roles where a matching role exists.
 Text, heading, landmark, sectioning, disclosure, figure, description-list,
 form, form-grouping, option-group, output, meter, list, dialog, menu, media,
-embedded-content, and table-structure tags lower to dedicated native roles.
+embedded-content, link, image-map, and table-structure tags lower to dedicated
+native roles.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.
@@ -507,6 +508,8 @@ registered action ids.
 | `select` / `optgroup` / `option` | native select option-group and option roles |
 | `output` | native output role |
 | `meter` / `progress` | native ranged indicator roles |
+| `a[href]` | native link role |
+| `map` / `area` | native image-map roles |
 | `img` / `picture` | native image role |
 | `audio` / `video` | native media role |
 | `canvas` | native canvas role |

@@ -216,7 +216,9 @@ pub fn component_for_html_tag(
         "fieldset" => AriaComponent::FieldSet,
         "output" => AriaComponent::Output,
         "form" => AriaComponent::Form,
-        "a" | "area" => AriaComponent::Button,
+        "a" => component_for_anchor(attributes),
+        "map" => AriaComponent::ImageMap,
+        "area" => AriaComponent::ImageMapArea,
         tag if is_text_html_tag(tag) => AriaComponent::Text,
         _ => AriaComponent::Group,
     })
@@ -247,6 +249,18 @@ fn component_for_input_type(input_type: Option<&str>) -> AriaComponent {
         "radio" => AriaComponent::Radio,
         "range" => AriaComponent::Slider,
         _ => AriaComponent::Input,
+    }
+}
+
+fn component_for_anchor(attributes: &BTreeMap<String, String>) -> AriaComponent {
+    if attributes
+        .get("href")
+        .map(String::as_str)
+        .is_some_and(|value| !value.trim().is_empty())
+    {
+        AriaComponent::Link
+    } else {
+        AriaComponent::Group
     }
 }
 
@@ -365,6 +379,29 @@ mod tests {
         assert_eq!(
             component_for_html_tag("progress", &attributes),
             Some(AriaComponent::ProgressBar)
+        );
+    }
+
+    #[test]
+    fn maps_link_and_image_map_tags_to_native_semantics() {
+        let empty_attributes = BTreeMap::new();
+        let href_attributes = BTreeMap::from([("href".to_string(), "/docs".to_string())]);
+
+        assert_eq!(
+            component_for_html_tag("a", &href_attributes),
+            Some(AriaComponent::Link)
+        );
+        assert_eq!(
+            component_for_html_tag("a", &empty_attributes),
+            Some(AriaComponent::Group)
+        );
+        assert_eq!(
+            component_for_html_tag("map", &empty_attributes),
+            Some(AriaComponent::ImageMap)
+        );
+        assert_eq!(
+            component_for_html_tag("area", &empty_attributes),
+            Some(AriaComponent::ImageMapArea)
         );
     }
 

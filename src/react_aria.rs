@@ -28,6 +28,9 @@ pub enum AriaComponent {
     Media,
     Canvas,
     EmbeddedContent,
+    Link,
+    ImageMap,
+    ImageMapArea,
     TextField,
     Input,
     Checkbox,
@@ -91,6 +94,9 @@ impl AriaComponent {
             AriaComponent::Media => "Media",
             AriaComponent::Canvas => "Canvas",
             AriaComponent::EmbeddedContent => "EmbeddedContent",
+            AriaComponent::Link => "Link",
+            AriaComponent::ImageMap => "ImageMap",
+            AriaComponent::ImageMapArea => "ImageMapArea",
             AriaComponent::TextField => "TextField",
             AriaComponent::Input => "Input",
             AriaComponent::Checkbox => "Checkbox",
@@ -402,6 +408,17 @@ impl ReactAriaMapper {
             AriaComponent::EmbeddedContent => {
                 self.map_container(element, NativeRole::EmbeddedContent)
             }
+            AriaComponent::Link => Ok(simple_leaf(
+                element,
+                NativeRole::Link,
+                self.best_label(element)?,
+            )),
+            AriaComponent::ImageMap => self.map_container_with_label(element, NativeRole::ImageMap),
+            AriaComponent::ImageMapArea => Ok(simple_leaf(
+                element,
+                NativeRole::ImageMapArea,
+                self.best_label(element)?,
+            )),
             AriaComponent::TextField => self.map_text_field(element),
             AriaComponent::Input => Ok(simple_leaf(
                 element,
@@ -1200,6 +1217,18 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::OptionGroup),
             "gtk::Box(option-group)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::Link),
+            "NSButton(link)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::ImageMapArea),
+            "Microsoft.UI.Xaml.Controls.HyperlinkButton(image-map-area)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::ImageMap),
+            "gtk::DrawingArea(image-map)"
         );
     }
 }

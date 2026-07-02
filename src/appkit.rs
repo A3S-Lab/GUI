@@ -60,6 +60,7 @@ impl AppKitWidgetKind {
             | "NSView(form)"
             | "NSView(fieldset)"
             | "NSView(option-group)"
+            | "NSView(image-map)"
             | "NSImageView"
             | "AVPlayerView"
             | "NSView(canvas)"
@@ -75,7 +76,10 @@ impl AppKitWidgetKind {
             | "NSTextField(legend)"
             | "NSTextField(output)"
             | "NSTextField(table-caption)" => Ok(AppKitWidgetKind::Label),
-            "NSButton" | "NSButton(disclosure-summary)" => Ok(AppKitWidgetKind::Button),
+            "NSButton"
+            | "NSButton(link)"
+            | "NSButton(image-map-area)"
+            | "NSButton(disclosure-summary)" => Ok(AppKitWidgetKind::Button),
             "NSTextField(input)" => Ok(AppKitWidgetKind::TextField),
             "NSButton(checkbox)" => Ok(AppKitWidgetKind::Checkbox),
             "NSSwitch" => Ok(AppKitWidgetKind::Switch),

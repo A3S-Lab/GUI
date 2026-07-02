@@ -30,6 +30,7 @@ export {
   Slider,
   ProgressBar,
   Toolbar,
+  Link,
 } from './jsx-runtime.js';
 
 export function createAction(id, label) {

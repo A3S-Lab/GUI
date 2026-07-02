@@ -5,6 +5,7 @@ import {
   Button,
   Input,
   Label,
+  Link,
   Menu,
   MenuItem,
   Popover,
@@ -75,6 +76,19 @@ test('button marker creates stable compiled element', () => {
   assert.equal(root.props.events.onPress, 'saveProfile');
   assert.equal(root.props.attributes['aria-label'], 'Save profile');
   assert.equal(root.children[0].value, 'Save');
+});
+
+test('link marker creates stable compiled element', () => {
+  const root = jsxs(Link, {
+    href: '/docs',
+    children: 'Docs',
+  }, 'docs');
+
+  assert.equal(root.kind, 'element');
+  assert.equal(root.key, 'docs');
+  assert.equal(root.tag, 'Link');
+  assert.equal(root.props.attributes.href, '/docs');
+  assert.equal(root.children[0].value, 'Docs');
 });
 
 test('intrinsic HTML elements preserve CSS text and Tailwind class names', () => {

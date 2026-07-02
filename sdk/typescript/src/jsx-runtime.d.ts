@@ -81,6 +81,7 @@ export const Separator: ComponentMarker;
 export const Slider: ComponentMarker;
 export const ProgressBar: ComponentMarker;
 export const Toolbar: ComponentMarker;
+export const Link: ComponentMarker;
 
 export function jsx(
   type: string | ComponentMarker | typeof Fragment,

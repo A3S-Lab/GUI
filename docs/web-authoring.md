@@ -120,6 +120,9 @@ families:
 | `Media` | `AVPlayerView` | `Microsoft.UI.Xaml.Controls.MediaPlayerElement` | `gtk::Video` |
 | `Canvas` | `NSView(canvas)` | `Microsoft.UI.Xaml.Controls.Canvas` | `gtk::DrawingArea` |
 | `EmbeddedContent` | `NSView(embedded-content)` | `Microsoft.UI.Xaml.Controls.ContentControl(embedded-content)` | `gtk::Box(embedded-content)` |
+| `Link` | `NSButton(link)` | `Microsoft.UI.Xaml.Controls.HyperlinkButton` | `gtk::LinkButton` |
+| `ImageMap` | `NSView(image-map)` | `Microsoft.UI.Xaml.Controls.Canvas(image-map)` | `gtk::DrawingArea(image-map)` |
+| `ImageMapArea` | `NSButton(image-map-area)` | `Microsoft.UI.Xaml.Controls.HyperlinkButton(image-map-area)` | `gtk::LinkButton(image-map-area)` |
 | `Checkbox` | `NSButton(checkbox)` | `Microsoft.UI.Xaml.Controls.CheckBox` | `gtk::CheckButton` |
 | `Switch` | `NSSwitch` | `Microsoft.UI.Xaml.Controls.ToggleSwitch` | `gtk::Switch` |
 | `RadioGroup` | `NSStackView(radio-group)` | `Microsoft.UI.Xaml.Controls.RadioButtons` | `gtk::Box(radio-group)` |

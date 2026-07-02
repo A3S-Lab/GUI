@@ -41,9 +41,9 @@ or ARIA aliases such as `disabled`, `required`, `aria-expanded`,
 native control-state fields consumed by the Rust renderer. Marker exports
 include form and selection components such as `RadioGroup`, `Radio`, `Select`,
 `ListBoxItem`, `Dialog`, `Popover`, `Tabs`, `TabList`, `Tab`, `TabPanel`,
-`Menu`, `MenuItem`, `Slider`, and `ProgressBar`, plus structural markers such as
-`Separator` and `Toolbar`. The emitted frame contains semantic JSX element
-names.
+`Menu`, `MenuItem`, `Link`, `Slider`, and `ProgressBar`, plus structural
+markers such as `Separator` and `Toolbar`. The emitted frame contains semantic
+JSX element names.
 
 The emitted frame is plain JSON:
 

@@ -74,6 +74,8 @@ impl WinUiWidgetKind {
             | "Microsoft.UI.Xaml.Controls.TextBlock(table-caption)"
             | "Microsoft.UI.Xaml.Controls.Image" => Ok(WinUiWidgetKind::TextBlock),
             "Microsoft.UI.Xaml.Controls.Button"
+            | "Microsoft.UI.Xaml.Controls.HyperlinkButton"
+            | "Microsoft.UI.Xaml.Controls.HyperlinkButton(image-map-area)"
             | "Microsoft.UI.Xaml.Controls.Button(disclosure-summary)" => {
                 Ok(WinUiWidgetKind::Button)
             }
@@ -92,6 +94,7 @@ impl WinUiWidgetKind {
             "Microsoft.UI.Xaml.Controls.Grid"
             | "Microsoft.UI.Xaml.Controls.MediaPlayerElement"
             | "Microsoft.UI.Xaml.Controls.Canvas"
+            | "Microsoft.UI.Xaml.Controls.Canvas(image-map)"
             | "Microsoft.UI.Xaml.Controls.ContentControl(embedded-content)"
             | "Microsoft.UI.Xaml.Controls.Grid(table)"
             | "Microsoft.UI.Xaml.Controls.Grid(row)"

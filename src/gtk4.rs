@@ -66,7 +66,8 @@ impl Gtk4WidgetKind {
             | "gtk::ColumnViewColumn"
             | "gtk::Picture"
             | "gtk::Video"
-            | "gtk::DrawingArea" => Ok(Gtk4WidgetKind::Box),
+            | "gtk::DrawingArea"
+            | "gtk::DrawingArea(image-map)" => Ok(Gtk4WidgetKind::Box),
             "gtk::Label"
             | "gtk::Label(heading)"
             | "gtk::Label(tab)"
@@ -75,7 +76,10 @@ impl Gtk4WidgetKind {
             | "gtk::Label(legend)"
             | "gtk::Label(output)"
             | "gtk::Label(table-caption)" => Ok(Gtk4WidgetKind::Label),
-            "gtk::Button" | "gtk::Button(disclosure-summary)" => Ok(Gtk4WidgetKind::Button),
+            "gtk::Button"
+            | "gtk::LinkButton"
+            | "gtk::LinkButton(image-map-area)"
+            | "gtk::Button(disclosure-summary)" => Ok(Gtk4WidgetKind::Button),
             "gtk::Entry" => Ok(Gtk4WidgetKind::Entry),
             "gtk::CheckButton" | "gtk::CheckButton(radio)" => Ok(Gtk4WidgetKind::CheckButton),
             "gtk::Switch" => Ok(Gtk4WidgetKind::Switch),
