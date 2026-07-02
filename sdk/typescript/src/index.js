@@ -166,7 +166,8 @@ function validateCompiledNode(node) {
     if (typeof node.tag !== 'string' || node.tag.length === 0) {
       throw new Error('a3s-gui compiled elements need non-empty string tags');
     }
-    validateCompiledChildren(node.children ?? []);
+    validateCompiledProps(node.props);
+    validateCompiledChildren(node.children === undefined ? [] : node.children);
     return;
   }
   if (node.kind === 'text') {
@@ -179,6 +180,54 @@ function validateCompiledNode(node) {
     return;
   }
   throw new Error('a3s-gui compiled children need element or text nodes');
+}
+
+function validateCompiledProps(props) {
+  if (props === undefined) {
+    return;
+  }
+  if (props == null || typeof props !== 'object' || Array.isArray(props)) {
+    throw new Error('a3s-gui compiled props need an object');
+  }
+  validateCompiledStringMap(props.attributes, 'attributes');
+  validateCompiledStringMap(props.events, 'events');
+  validateCompiledStringMap(props.actionLabels, 'actionLabels');
+  validateCompiledStyleMap(props.style);
+}
+
+function validateCompiledStringMap(values, name) {
+  if (values === undefined) {
+    return;
+  }
+  if (values == null || typeof values !== 'object' || Array.isArray(values)) {
+    throw new Error(`a3s-gui compiled props.${name} need an object`);
+  }
+  for (const value of Object.values(values)) {
+    if (typeof value !== 'string') {
+      throw new Error(`a3s-gui compiled props.${name} values need strings`);
+    }
+  }
+}
+
+function validateCompiledStyleMap(style) {
+  if (style === undefined) {
+    return;
+  }
+  if (style == null || typeof style !== 'object' || Array.isArray(style)) {
+    throw new Error('a3s-gui compiled props.style need an object');
+  }
+  for (const value of Object.values(style)) {
+    const valueType = typeof value;
+    if (
+      valueType !== 'string'
+      && valueType !== 'number'
+      && valueType !== 'boolean'
+    ) {
+      throw new Error(
+        'a3s-gui compiled props.style values need strings, numbers, or booleans',
+      );
+    }
+  }
 }
 
 function validateCompiledChildren(children) {

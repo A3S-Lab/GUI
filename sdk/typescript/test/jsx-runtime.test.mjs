@@ -1001,6 +1001,42 @@ test('compiled frame nodes must have stable identities', () => {
       kind: 'element',
       key: 'profile',
       tag: 'Group',
+      children: null,
+    }),
+    /array children/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      props: null,
+    }),
+    /props need an object/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      props: {events: {onPress: 42}},
+    }),
+    /props\.events values need strings/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      props: {style: {color: {token: 'red'}}},
+    }),
+    /props\.style values need strings, numbers, or booleans/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
       children: [
         {kind: 'element', key: 'save', tag: 'Button'},
         {kind: 'text', key: 'save', value: 'Save'},
