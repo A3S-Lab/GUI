@@ -388,9 +388,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     AppKitOsWidget::Menu(menu) => menu.setTitle(&native_label),
                     AppKitOsWidget::MenuItem(menu_item) => menu_item.setTitle(&native_label),
                     AppKitOsWidget::Button(button) => button.setTitle(&native_label),
-                    AppKitOsWidget::TextField(text_field) => {
+                    AppKitOsWidget::TextField(text_field)
+                        if handle.kind == AppKitWidgetKind::Label =>
+                    {
                         text_field.as_super().setStringValue(&native_label)
                     }
+                    AppKitOsWidget::TextField(_) => {}
                     AppKitOsWidget::ComboBoxItem(item) => {
                         if let Some(label) = value {
                             self.update_option_item_label(handle.id, item, label.clone())?;
@@ -423,16 +426,19 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
             NativeWidgetSetter::SetValue(value) => match &handle.widget {
                 AppKitOsWidget::TextField(text_field) => {
-                    let max_length = self.action_targets.get(&id).and_then(|target| {
-                        (handle.kind == AppKitWidgetKind::TextField)
-                            .then(|| target.max_length())
-                            .flatten()
-                    });
-                    set_control_string_value(
-                        text_field.as_super(),
-                        value.as_deref().unwrap_or(""),
-                        max_length,
-                    );
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        let max_length = self
+                            .action_targets
+                            .get(&id)
+                            .and_then(|target| target.max_length());
+                        set_control_string_value(
+                            text_field.as_super(),
+                            value.as_deref().unwrap_or(""),
+                            max_length,
+                        );
+                    } else if let Some(value) = value.as_deref() {
+                        text_field.as_super().setStringValue(&ns_string(value));
+                    }
                 }
                 AppKitOsWidget::ComboBox(combo_box) => {
                     set_combo_box_value(combo_box, value.as_deref());
@@ -473,9 +479,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             NativeWidgetSetter::SetPlaceholder(value) => {
                 let placeholder = value.as_deref().map(ns_string);
                 match &handle.widget {
-                    AppKitOsWidget::TextField(text_field) => {
+                    AppKitOsWidget::TextField(text_field)
+                        if handle.kind == AppKitWidgetKind::TextField =>
+                    {
                         text_field.setPlaceholderString(placeholder.as_deref());
                     }
+                    AppKitOsWidget::TextField(_) => {}
                     AppKitOsWidget::ComboBox(combo_box) => {
                         combo_box
                             .as_super()
@@ -512,7 +521,9 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
             NativeWidgetSetter::SetReadOnly(value) => {
                 if let AppKitOsWidget::TextField(text_field) = &handle.widget {
-                    text_field.setEditable(!*value);
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        text_field.setEditable(!*value);
+                    }
                 }
             }
             NativeWidgetSetter::SetVisible(value) => {

@@ -107,10 +107,12 @@ pub(super) fn set_value(
     let value_text = value.unwrap_or_default();
     match widget {
         WinUiOsWidget::TextBlock(text) => {
-            map_winui(
-                "failed to set WinUI text block value",
-                text.SetText(&hstr(value_text)),
-            )?;
+            if let Some(value) = value {
+                map_winui(
+                    "failed to set WinUI text block value",
+                    text.SetText(&hstr(value)),
+                )?;
+            }
         }
         WinUiOsWidget::Separator(_) => {}
         WinUiOsWidget::TextBox(text_box) => {

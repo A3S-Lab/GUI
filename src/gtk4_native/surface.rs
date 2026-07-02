@@ -336,8 +336,8 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                         if let Some(value) = value {
                             self.update_notebook_tab_value(id, &tab, value.clone())?;
                         }
-                    } else {
-                        label.set_text(value.as_deref().unwrap_or(""));
+                    } else if let Some(value) = value.as_deref() {
+                        label.set_text(value);
                     }
                 }
                 Gtk4OsWidget::DropDown(_) => {
