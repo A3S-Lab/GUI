@@ -25,6 +25,9 @@ import {
   createAction,
   createHandledNativeEvent,
   createHostEvent,
+  createHostEventResponse,
+  createNativeHostEventResponse,
+  createNativeRenderResponse,
   createUiFrame,
   defineAction,
   jsx,
@@ -349,6 +352,150 @@ test('handled native event helper rejects invalid protocol shapes', () => {
       ],
     }),
     /interaction state\.checked values need booleans or null/,
+  );
+});
+
+test('native response helpers mirror Rust protocol envelopes', () => {
+  const accessibilityTree = {
+    node: 1,
+    role: 'Button',
+    label: 'Save',
+    relationships: {},
+    description: {},
+    structure: {},
+    state: {},
+    disabled: false,
+    required: false,
+    invalid: false,
+    readOnly: false,
+    multiple: false,
+    focused: false,
+    selected: false,
+    checked: null,
+    expanded: null,
+    children: [],
+  };
+  const invocation = {
+    node: 1,
+    action: 'saveProfile',
+    event: 'press',
+    value: 'Save',
+  };
+  const interactionChanges = [{
+    node: 1,
+    before: {
+      focused: false,
+      selected: false,
+      checked: null,
+      expanded: null,
+    },
+    after: {
+      focused: true,
+      selected: false,
+      checked: null,
+      expanded: null,
+    },
+  }];
+
+  assert.deepEqual(
+    createNativeRenderResponse(
+      'profile',
+      1,
+      [{type: 'setRoot', id: 1}],
+      {accessibilityTree},
+    ),
+    {
+      frameId: 'profile',
+      root: 1,
+      commands: [{type: 'setRoot', id: 1}],
+      accessibilityTree,
+    },
+  );
+  assert.deepEqual(createHostEventResponse('profile', invocation), {
+    frameId: 'profile',
+    invocation,
+  });
+  assert.deepEqual(createHostEventResponse('profile', invocation, {interactionChanges}), {
+    frameId: 'profile',
+    invocation,
+    interactionChanges,
+  });
+  assert.deepEqual(
+    createNativeHostEventResponse('profile', {
+      invocation: null,
+      accessibilityTree: null,
+    }),
+    {
+      frameId: 'profile',
+      invocation: null,
+      accessibilityTree: null,
+    },
+  );
+  assert.deepEqual(
+    createNativeHostEventResponse('profile', {
+      invocation,
+      accessibilityTree,
+      interactionChanges,
+    }),
+    {
+      frameId: 'profile',
+      invocation,
+      accessibilityTree,
+      interactionChanges,
+    },
+  );
+});
+
+test('native response helpers reject invalid protocol envelopes', () => {
+  const invocation = {node: 1, action: 'saveProfile', event: 'press'};
+
+  assert.throws(
+    () => createNativeRenderResponse('', 1, []),
+    /non-empty frame id/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 0, []),
+    /positive integer root node id/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, {}),
+    /commands need an array/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [{id: 1}]),
+    /commands need object commands with non-empty string types/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [], null),
+    /options need an object/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [], {
+      accessibilityTree: {role: 'Button'},
+    }),
+    /accessibilityTree children need an array/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [], {
+      accessibilityTree: {node: 0, role: 'Button', children: []},
+    }),
+    /accessibilityTree node ids need positive integers/,
+  );
+  assert.throws(
+    () => createHostEventResponse('profile', {node: 1, action: 'saveProfile', event: 'submit'}),
+    /supported native event kinds/,
+  );
+  assert.throws(
+    () => createHostEventResponse('profile', invocation, {interactionChanges: {}}),
+    /interaction changes need an array/,
+  );
+  assert.throws(
+    () => createNativeHostEventResponse('profile', null),
+    /options need an object/,
+  );
+  assert.throws(
+    () => createNativeHostEventResponse('profile', {invocation: {}}),
+    /invocations need positive integer node ids/,
   );
 });
 

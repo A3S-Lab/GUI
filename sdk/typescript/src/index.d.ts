@@ -272,5 +272,28 @@ export function createHandledNativeEvent(
     interactionChanges?: InteractionChange[];
   },
 ): HandledNativeEvent;
+export function createNativeRenderResponse(
+  frameId: string,
+  root: number,
+  commands: NativePlatformCommand[],
+  options?: {
+    accessibilityTree?: AccessibilityNode | null;
+  },
+): NativeRenderResponse;
+export function createHostEventResponse(
+  frameId: string,
+  invocation: ActionInvocation,
+  options?: {
+    interactionChanges?: InteractionChange[];
+  },
+): HostEventResponse;
+export function createNativeHostEventResponse(
+  frameId: string,
+  options?: {
+    invocation?: ActionInvocation | null;
+    accessibilityTree?: AccessibilityNode | null;
+    interactionChanges?: InteractionChange[];
+  },
+): NativeHostEventResponse;
 
 export * from './jsx-runtime.js';

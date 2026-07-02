@@ -529,6 +529,140 @@ export function createHandledNativeEvent(event, options = {}) {
   };
 }
 
+export function createNativeRenderResponse(frameId, root, commands, options = {}) {
+  validateResponseFrameId(frameId, 'native render responses');
+  validateRootNodeId(root, 'native render responses');
+  validatePlatformCommands(commands);
+  validateResponseOptions(options, 'native render responses');
+  const accessibilityTree = validateOptionalAccessibilityTree(
+    options.accessibilityTree,
+    'native render responses',
+  );
+  return {
+    frameId,
+    root,
+    commands,
+    ...(options.accessibilityTree === undefined ? {} : {accessibilityTree}),
+  };
+}
+
+export function createHostEventResponse(frameId, invocation, options = {}) {
+  validateResponseFrameId(frameId, 'host event responses');
+  validateResponseOptions(options, 'host event responses');
+  validateActionInvocation(invocation);
+  const interactionChanges = validateOptionalInteractionChanges(
+    options.interactionChanges,
+    'host event responses',
+  );
+  return {
+    frameId,
+    invocation,
+    ...(interactionChanges.length === 0 ? {} : {interactionChanges}),
+  };
+}
+
+export function createNativeHostEventResponse(frameId, options = {}) {
+  validateResponseFrameId(frameId, 'native host event responses');
+  validateResponseOptions(options, 'native host event responses');
+  if (options.invocation != null) {
+    validateActionInvocation(options.invocation);
+  }
+  const accessibilityTree = validateOptionalAccessibilityTree(
+    options.accessibilityTree,
+    'native host event responses',
+  );
+  const interactionChanges = validateOptionalInteractionChanges(
+    options.interactionChanges,
+    'native host event responses',
+  );
+  return {
+    frameId,
+    ...(options.invocation === undefined ? {} : {invocation: options.invocation}),
+    ...(options.accessibilityTree === undefined ? {} : {accessibilityTree}),
+    ...(interactionChanges.length === 0 ? {} : {interactionChanges}),
+  };
+}
+
+function validateResponseFrameId(frameId, context) {
+  if (typeof frameId !== 'string' || frameId.length === 0) {
+    throw new Error(`a3s-gui ${context} need a non-empty frame id`);
+  }
+}
+
+function validateRootNodeId(root, context) {
+  if (!Number.isSafeInteger(root) || root <= 0) {
+    throw new Error(`a3s-gui ${context} need a positive integer root node id`);
+  }
+}
+
+function validatePlatformCommands(commands) {
+  if (!Array.isArray(commands)) {
+    throw new Error('a3s-gui native render response commands need an array');
+  }
+  for (const command of commands) {
+    if (
+      command == null ||
+      typeof command !== 'object' ||
+      Array.isArray(command) ||
+      typeof command.type !== 'string' ||
+      command.type.length === 0
+    ) {
+      throw new Error(
+        'a3s-gui native render response commands need object commands with non-empty string types',
+      );
+    }
+  }
+}
+
+function validateResponseOptions(options, context) {
+  if (options == null || typeof options !== 'object' || Array.isArray(options)) {
+    throw new Error(`a3s-gui ${context} options need an object`);
+  }
+}
+
+function validateOptionalAccessibilityTree(tree, context) {
+  if (tree === undefined || tree === null) {
+    return tree;
+  }
+  validateAccessibilityNode(tree, context);
+  return tree;
+}
+
+function validateAccessibilityNode(node, context) {
+  if (node == null || typeof node !== 'object' || Array.isArray(node)) {
+    throw new Error(`a3s-gui ${context} accessibilityTree needs an object or null`);
+  }
+  if (node.node != null && (!Number.isSafeInteger(node.node) || node.node <= 0)) {
+    throw new Error(
+      `a3s-gui ${context} accessibilityTree node ids need positive integers`,
+    );
+  }
+  if (typeof node.role !== 'string' || node.role.length === 0) {
+    throw new Error(
+      `a3s-gui ${context} accessibilityTree roles need non-empty strings`,
+    );
+  }
+  if (!Array.isArray(node.children)) {
+    throw new Error(`a3s-gui ${context} accessibilityTree children need an array`);
+  }
+  for (const child of node.children) {
+    validateAccessibilityNode(child, context);
+  }
+}
+
+function validateOptionalInteractionChanges(changes, context) {
+  if (changes === undefined) {
+    return [];
+  }
+  if (!Array.isArray(changes)) {
+    throw new Error(`a3s-gui ${context} interaction changes need an array`);
+  }
+  for (const change of changes) {
+    validateInteractionChange(change);
+  }
+  return changes;
+}
+
 function validateNativeEvent(event, context) {
   if (event == null || typeof event !== 'object' || Array.isArray(event)) {
     throw new Error(`a3s-gui ${context} need an event object`);
