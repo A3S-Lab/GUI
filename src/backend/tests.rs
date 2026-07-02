@@ -624,6 +624,65 @@ fn recording_backend_reparents_children_and_rejects_cycles() {
 }
 
 #[test]
+fn recording_backend_remove_deletes_entire_subtree() {
+    let mut backend = RecordingBackend::default();
+    let root = HostNodeId::new(1);
+    let child = HostNodeId::new(2);
+    let grandchild = HostNodeId::new(3);
+    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+
+    backend
+        .execute(&PlatformCommand::Create {
+            id: root,
+            blueprint: container.clone(),
+        })
+        .unwrap();
+    backend
+        .execute(&PlatformCommand::Create {
+            id: child,
+            blueprint: container,
+        })
+        .unwrap();
+    backend
+        .execute(&PlatformCommand::Create {
+            id: grandchild,
+            blueprint: button,
+        })
+        .unwrap();
+    backend
+        .execute(&PlatformCommand::InsertChild {
+            parent: root,
+            child,
+            index: 0,
+        })
+        .unwrap();
+    backend
+        .execute(&PlatformCommand::InsertChild {
+            parent: child,
+            child: grandchild,
+            index: 0,
+        })
+        .unwrap();
+    backend
+        .execute(&PlatformCommand::SetRoot { id: root })
+        .unwrap();
+    let command_count = backend.commands().len();
+
+    backend
+        .execute(&PlatformCommand::Remove { id: root })
+        .unwrap();
+
+    assert!(backend.root().is_none());
+    assert!(backend.objects().is_empty());
+    assert_eq!(backend.commands().len(), command_count + 1);
+    assert_eq!(
+        backend.commands().last(),
+        Some(&PlatformCommand::Remove { id: root })
+    );
+}
+
+#[test]
 fn command_executing_host_dispatches_driver_native_events_to_actions() {
     let compiled: CompiledJsxNode = serde_json::from_str(
         r#"

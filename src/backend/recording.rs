@@ -73,6 +73,22 @@ impl RecordingBackend {
 
         false
     }
+
+    fn subtree_ids(&self, root: HostNodeId) -> BTreeSet<HostNodeId> {
+        let mut ids = BTreeSet::new();
+        let mut stack = vec![root];
+
+        while let Some(id) = stack.pop() {
+            if !ids.insert(id) {
+                continue;
+            }
+            if let Some(object) = self.objects.get(&id) {
+                stack.extend(object.children.iter().copied());
+            }
+        }
+
+        ids
+    }
 }
 
 impl PlatformCommandExecutor for RecordingBackend {
@@ -134,11 +150,18 @@ impl PlatformCommandExecutor for RecordingBackend {
             }
             PlatformCommand::Remove { id } => {
                 self.ensure_object(*id)?;
+                let removed_ids = self.subtree_ids(*id);
                 for object in self.objects.values_mut() {
-                    object.children.retain(|child| *child != *id);
+                    object.children.retain(|child| !removed_ids.contains(child));
                 }
-                self.objects.remove(id);
-                if self.root == Some(*id) {
+                for removed_id in &removed_ids {
+                    self.objects.remove(removed_id);
+                }
+                if self
+                    .root
+                    .map(|root| removed_ids.contains(&root))
+                    .unwrap_or(false)
+                {
                     self.root = None;
                 }
             }

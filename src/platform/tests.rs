@@ -1495,6 +1495,34 @@ fn platform_planning_host_reparents_children_and_rejects_cycles() {
 }
 
 #[test]
+fn platform_planning_host_remove_deletes_entire_subtree() {
+    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let root = host
+        .create(&NativeElement::new("root", NativeRole::View))
+        .unwrap();
+    let child = host
+        .create(&NativeElement::new("child", NativeRole::View))
+        .unwrap();
+    let grandchild = host
+        .create(&NativeElement::new("grandchild", NativeRole::Button))
+        .unwrap();
+    host.insert_child(root, child, 0).unwrap();
+    host.insert_child(child, grandchild, 0).unwrap();
+    host.set_root(root).unwrap();
+    let command_count = host.commands().len();
+
+    host.remove(root).unwrap();
+
+    assert!(host.root().is_none());
+    assert!(host.nodes().is_empty());
+    assert_eq!(host.commands().len(), command_count + 1);
+    assert_eq!(
+        host.commands().last(),
+        Some(&PlatformCommand::Remove { id: root })
+    );
+}
+
+#[test]
 fn command_stream_records_native_remove_and_reorder() {
     let first = NativeElement::new("root", NativeRole::View)
         .child(NativeElement::new("a", NativeRole::Button))

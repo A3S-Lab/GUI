@@ -130,6 +130,22 @@ impl HeadlessHost {
         false
     }
 
+    fn subtree_ids(&self, root: HostNodeId) -> BTreeSet<HostNodeId> {
+        let mut ids = BTreeSet::new();
+        let mut stack = vec![root];
+
+        while let Some(id) = stack.pop() {
+            if !ids.insert(id) {
+                continue;
+            }
+            if let Some(node) = self.nodes.get(&id) {
+                stack.extend(node.children.iter().copied());
+            }
+        }
+
+        ids
+    }
+
     fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
         let node = self.nodes.get(&id)?;
         if !is_accessibility_visible(&node.props)
@@ -258,11 +274,18 @@ impl NativeHost for HeadlessHost {
 
     fn remove(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.ensure_node(id)?;
+        let removed_ids = self.subtree_ids(id);
         for node in self.nodes.values_mut() {
-            node.children.retain(|child| *child != id);
+            node.children.retain(|child| !removed_ids.contains(child));
         }
-        self.nodes.remove(&id);
-        if self.root == Some(id) {
+        for removed_id in &removed_ids {
+            self.nodes.remove(removed_id);
+        }
+        if self
+            .root
+            .map(|root| removed_ids.contains(&root))
+            .unwrap_or(false)
+        {
             self.root = None;
         }
         self.operations.push(HostOperation::Remove { id });
@@ -326,5 +349,33 @@ mod tests {
         assert_eq!(host.operations().len(), operation_count);
         assert_eq!(host.node(parent).unwrap().children, vec![child]);
         assert!(host.node(child).unwrap().children.is_empty());
+    }
+
+    #[test]
+    fn headless_host_remove_deletes_entire_subtree() {
+        let mut host = HeadlessHost::default();
+        let root = host
+            .create(&NativeElement::new("root", NativeRole::View))
+            .unwrap();
+        let child = host
+            .create(&NativeElement::new("child", NativeRole::View))
+            .unwrap();
+        let grandchild = host
+            .create(&NativeElement::new("grandchild", NativeRole::Button))
+            .unwrap();
+        host.insert_child(root, child, 0).unwrap();
+        host.insert_child(child, grandchild, 0).unwrap();
+        host.set_root(root).unwrap();
+        let operation_count = host.operations().len();
+
+        host.remove(root).unwrap();
+
+        assert!(host.root().is_none());
+        assert!(host.nodes().is_empty());
+        assert_eq!(host.operations().len(), operation_count + 1);
+        assert_eq!(
+            host.operations().last(),
+            Some(&HostOperation::Remove { id: root })
+        );
     }
 }

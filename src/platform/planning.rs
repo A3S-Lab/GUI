@@ -141,6 +141,22 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         false
     }
 
+    fn subtree_ids(&self, root: HostNodeId) -> BTreeSet<HostNodeId> {
+        let mut ids = BTreeSet::new();
+        let mut stack = vec![root];
+
+        while let Some(id) = stack.pop() {
+            if !ids.insert(id) {
+                continue;
+            }
+            if let Some(node) = self.nodes.get(&id) {
+                stack.extend(node.children.iter().copied());
+            }
+        }
+
+        ids
+    }
+
     fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
         let node = self.nodes.get(&id)?;
         let state = &node.blueprint.control_state;
@@ -264,11 +280,18 @@ impl<A: PlatformAdapter> NativeHost for PlatformPlanningHost<A> {
 
     fn remove(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.ensure_node(id)?;
+        let removed_ids = self.subtree_ids(id);
         for node in self.nodes.values_mut() {
-            node.children.retain(|child| *child != id);
+            node.children.retain(|child| !removed_ids.contains(child));
         }
-        self.nodes.remove(&id);
-        if self.root == Some(id) {
+        for removed_id in &removed_ids {
+            self.nodes.remove(removed_id);
+        }
+        if self
+            .root
+            .map(|root| removed_ids.contains(&root))
+            .unwrap_or(false)
+        {
             self.root = None;
         }
         self.commands.push(PlatformCommand::Remove { id });
