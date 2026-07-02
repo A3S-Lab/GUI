@@ -163,11 +163,13 @@ ARIA state and live-region attributes including `aria-hidden`,
 available in metadata. `aria-hidden` is accessibility-only state and does not
 change native widget visibility, but `aria-hidden="true"` omits the subtree
 from rendered accessibility tree projection.
-HTML global attributes including `title`, `hidden`, `lang`, `dir`, `tabindex`/`tabIndex`, `role`,
-`accesskey`/`accessKey`, `contenteditable`/`contentEditable`, `draggable`,
-`spellcheck`/`spellCheck`, `translate`, `inert`, `popover`, `anchor`, `is`,
-and global `nonce` project into native fields and stay available in metadata. `hidden`
-also makes the native widget config invisible. Shadow DOM distribution and style-part attributes such
+HTML global attributes including `title`, `hidden`, `lang`, `dir`,
+`tabindex`/`tabIndex`, `role`, `accesskey`/`accessKey`,
+`contenteditable`/`contentEditable`, `draggable`, `spellcheck`/`spellCheck`,
+`translate`, `inert`, `popover`, `anchor`, `is`, and global `nonce` project
+into native fields and stay available in metadata. Native surfaces map `title`
+to platform tooltip/title hints where available. `hidden` also makes the native
+widget config invisible. Shadow DOM distribution and style-part attributes such
 as `slot`, `part`, and `exportparts`/`exportParts` project into a structured
 `HtmlShadowProps` value for native composition and styling adapters. Microdata
 attributes such as `itemscope`/`itemScope`, `itemprop`/`itemProp`,

@@ -224,6 +224,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             }
         };
 
+        if config.title.is_some() {
+            set_title(&widget, config.title.as_deref())?;
+        }
         register_focus_events(id, &widget, &self.events)?;
         self.widgets.insert(id, widget.clone());
         Ok(WinUiOsHandle { id, kind, widget })
@@ -256,6 +259,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             }
             NativeWidgetSetter::SetPlaceholder(value) => {
                 set_placeholder(&handle.widget, value.as_deref())?;
+            }
+            NativeWidgetSetter::SetTitle(value) => {
+                set_title(&handle.widget, value.as_deref())?;
             }
             NativeWidgetSetter::SetEnabled(enabled) => {
                 if let Some(control) = handle.widget.control() {
@@ -365,7 +371,6 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             | NativeWidgetSetter::SetAutoCapitalize(_)
             | NativeWidgetSetter::SetAutoCorrect(_)
             | NativeWidgetSetter::SetVirtualKeyboardPolicy(_)
-            | NativeWidgetSetter::SetTitle(_)
             | NativeWidgetSetter::SetWindowResizable(_)
             | NativeWidgetSetter::SetHidden(_)
             | NativeWidgetSetter::SetLang(_)

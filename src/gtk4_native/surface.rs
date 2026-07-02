@@ -266,6 +266,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         }
 
         let handle = Gtk4OsHandle { id, kind, widget };
+        set_widget_title(&handle.widget, config.title.as_deref());
         if let Some(widget) = handle.widget.as_widget() {
             self.widgets.insert(id, widget);
         }
@@ -377,6 +378,9 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 if let Gtk4OsWidget::Entry(entry) = &handle.widget {
                     entry.set_placeholder_text(value.as_deref());
                 }
+            }
+            NativeWidgetSetter::SetTitle(value) => {
+                set_widget_title(&handle.widget, value.as_deref());
             }
             NativeWidgetSetter::SetEnabled(value) => {
                 if let Some(widget) = handle.widget.as_widget() {
@@ -569,7 +573,6 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             | NativeWidgetSetter::SetAutoCapitalize(_)
             | NativeWidgetSetter::SetAutoCorrect(_)
             | NativeWidgetSetter::SetVirtualKeyboardPolicy(_)
-            | NativeWidgetSetter::SetTitle(_)
             | NativeWidgetSetter::SetHidden(_)
             | NativeWidgetSetter::SetLang(_)
             | NativeWidgetSetter::SetDir(_)
@@ -843,5 +846,11 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
 
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         std::mem::take(&mut self.events.borrow_mut())
+    }
+}
+
+fn set_widget_title(widget: &Gtk4OsWidget, title: Option<&str>) {
+    if let Some(widget) = widget.as_widget() {
+        widget.set_tooltip_text(title);
     }
 }

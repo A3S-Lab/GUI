@@ -87,6 +87,17 @@ pub(super) fn set_label(widget: &WinUiOsWidget, value: Option<&str>) -> GuiResul
     Ok(())
 }
 
+pub(super) fn set_title(widget: &WinUiOsWidget, value: Option<&str>) -> GuiResult<()> {
+    let Some(element) = widget.framework_element() else {
+        return Ok(());
+    };
+    let content = text_content(value.unwrap_or_default())?;
+    map_winui(
+        "failed to set WinUI element tooltip title",
+        Controls::ToolTipService::SetToolTip(&element, &content),
+    )
+}
+
 pub(super) fn set_value(
     surface: &mut WinUiNativeSurface,
     id: HostNodeId,

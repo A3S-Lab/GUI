@@ -335,12 +335,14 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 AppKitOsWidget::TextField(text_field)
             }
         };
-        Ok(AppKitOsHandle {
+        let handle = AppKitOsHandle {
             id,
             kind,
             selected: config.selected,
             widget,
-        })
+        };
+        set_widget_title(&handle.widget, config.title.as_deref());
+        Ok(handle)
     }
 
     fn apply_native_setter(
@@ -463,6 +465,9 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     | AppKitOsWidget::Box(_)
                     | AppKitOsWidget::ComboBoxItem(_) => {}
                 }
+            }
+            NativeWidgetSetter::SetTitle(value) => {
+                set_widget_title(&handle.widget, value.as_deref());
             }
             NativeWidgetSetter::SetEnabled(value) => {
                 if let Some(control) = handle.widget.as_control() {
@@ -633,7 +638,6 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             | NativeWidgetSetter::SetAutoCapitalize(_)
             | NativeWidgetSetter::SetAutoCorrect(_)
             | NativeWidgetSetter::SetVirtualKeyboardPolicy(_)
-            | NativeWidgetSetter::SetTitle(_)
             | NativeWidgetSetter::SetHidden(_)
             | NativeWidgetSetter::SetLang(_)
             | NativeWidgetSetter::SetDir(_)
@@ -907,5 +911,31 @@ impl NativeWidgetSurface for AppKitNativeSurface {
 
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         std::mem::take(&mut self.events.borrow_mut())
+    }
+}
+
+fn set_widget_title(widget: &AppKitOsWidget, title: Option<&str>) {
+    let title = title.map(ns_string);
+    let title = title.as_deref();
+    match widget {
+        AppKitOsWidget::Window(window) => {
+            if let Some(content_view) = window.contentView() {
+                content_view.setToolTip(title);
+            }
+        }
+        AppKitOsWidget::Panel(panel) => {
+            if let Some(content_view) = panel.as_super().contentView() {
+                content_view.setToolTip(title);
+            }
+        }
+        AppKitOsWidget::Popover(state) => state.content_view.setToolTip(title),
+        AppKitOsWidget::MenuItem(menu_item) => menu_item.setToolTip(title),
+        AppKitOsWidget::TabViewItem(tab_item) => tab_item.setToolTip(title),
+        AppKitOsWidget::Menu(_) | AppKitOsWidget::ComboBoxItem(_) => {}
+        _ => {
+            if let Some(view) = widget.as_view() {
+                view.setToolTip(title);
+            }
+        }
     }
 }
