@@ -879,6 +879,7 @@ mod tests {
         runtime.render_native(&second).unwrap();
 
         assert!(runtime.interactions().node(save).is_none());
+        assert!(runtime.interactions().changes().is_empty());
         assert!(!runtime.accessibility_tree().unwrap().children[0].focused);
     }
 

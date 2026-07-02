@@ -50,6 +50,8 @@ impl InteractionState {
 
     pub fn retain_nodes(&mut self, mounted_nodes: &BTreeSet<HostNodeId>) {
         self.nodes.retain(|node, _| mounted_nodes.contains(node));
+        self.changes
+            .retain(|change| mounted_nodes.contains(&change.node));
     }
 
     pub fn apply_event(
@@ -317,5 +319,32 @@ mod tests {
         assert_eq!(state.changes().len(), 3);
         assert_eq!(state.changes()[1].node, HostNodeId::new(3));
         assert!(!state.changes()[1].after.focused);
+    }
+
+    #[test]
+    fn retain_nodes_prunes_state_and_change_history() {
+        let element = NativeElement::new("save", NativeRole::Button);
+        let blueprint = Gtk4Adapter.blueprint(&element);
+        let mut state = InteractionState::new();
+
+        state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(3), NativeEventKind::Focus),
+            )
+            .unwrap();
+        state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(4), NativeEventKind::Focus),
+            )
+            .unwrap();
+
+        state.retain_nodes(&BTreeSet::from([HostNodeId::new(4)]));
+
+        assert!(state.node(HostNodeId::new(3)).is_none());
+        assert!(state.node(HostNodeId::new(4)).is_some());
+        assert_eq!(state.changes().len(), 1);
+        assert_eq!(state.changes()[0].node, HostNodeId::new(4));
     }
 }
