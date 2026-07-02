@@ -110,6 +110,12 @@ pub struct PortableStyle {
     pub border_style: Option<BorderStyle>,
     pub border_styles: EdgeBorderStyles,
     pub logical_border_styles: LogicalBorderStyles,
+    pub border_image: Option<String>,
+    pub border_image_source: Option<String>,
+    pub border_image_slice: Option<String>,
+    pub border_image_width: Option<String>,
+    pub border_image_outset: Option<String>,
+    pub border_image_repeat: Option<String>,
     pub box_shadow: Option<String>,
     pub outline_width: Option<StyleLength>,
     pub outline_color: Option<StyleColor>,
@@ -844,6 +850,22 @@ impl PortableStyle {
             "border-right-style" => self.border_styles.right = parse_border_style(value_ref),
             "border-bottom-style" => self.border_styles.bottom = parse_border_style(value_ref),
             "border-left-style" => self.border_styles.left = parse_border_style(value_ref),
+            "border-image" => self.border_image = parse_css_string_token(value_ref),
+            "border-image-source" => {
+                self.border_image_source = parse_css_string_token(value_ref);
+            }
+            "border-image-slice" => {
+                self.border_image_slice = parse_css_string_token(value_ref);
+            }
+            "border-image-width" => {
+                self.border_image_width = parse_css_string_token(value_ref);
+            }
+            "border-image-outset" => {
+                self.border_image_outset = parse_css_string_token(value_ref);
+            }
+            "border-image-repeat" => {
+                self.border_image_repeat = parse_css_string_token(value_ref);
+            }
             "box-shadow" => self.apply_box_shadow_property(value_ref),
             "outline" => self.apply_outline_shorthand(value_ref),
             "outline-width" => self.outline_width = parse_length(value_ref),
@@ -8753,6 +8775,85 @@ mod tests {
         );
         assert!(!style.unsupported.contains_key("border-inline-start-color"));
         assert!(!style.unsupported.contains_key("border-block-end-style"));
+    }
+
+    #[test]
+    fn parses_css_border_image_properties() {
+        let web = WebProps::new()
+            .style("borderImage", "url(border.svg) 30 fill / 10px / 2px round")
+            .style("borderImageSource", "linear-gradient(red, blue)")
+            .style("borderImageSlice", "30 fill")
+            .style("borderImageWidth", "10px")
+            .style("borderImageOutset", "2")
+            .style("borderImageRepeat", "round space");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.border_image.as_deref(),
+            Some("url(border.svg) 30 fill / 10px / 2px round")
+        );
+        assert_eq!(
+            style.border_image_source.as_deref(),
+            Some("linear-gradient(red, blue)")
+        );
+        assert_eq!(style.border_image_slice.as_deref(), Some("30 fill"));
+        assert_eq!(style.border_image_width.as_deref(), Some("10px"));
+        assert_eq!(style.border_image_outset.as_deref(), Some("2"));
+        assert_eq!(style.border_image_repeat.as_deref(), Some("round space"));
+        assert_eq!(
+            style.declarations.get("border-image").map(String::as_str),
+            Some("url(border.svg) 30 fill / 10px / 2px round")
+        );
+        assert!(!style.unsupported.contains_key("border-image"));
+        assert!(!style.unsupported.contains_key("border-image-source"));
+        assert!(!style.unsupported.contains_key("border-image-slice"));
+        assert!(!style.unsupported.contains_key("border-image-width"));
+        assert!(!style.unsupported.contains_key("border-image-outset"));
+        assert!(!style.unsupported.contains_key("border-image-repeat"));
+    }
+
+    #[test]
+    fn parses_tailwind_arbitrary_border_image_properties() {
+        let web = WebProps::new().class_name(
+            "[border-image:url(/border.svg)_30_fill_/_10px_/_2px_round] \
+             [border-image-source:linear-gradient(red,_blue)] \
+             [border-image-slice:30_fill] [border-image-width:10px] \
+             [border-image-outset:2] [border-image-repeat:round_space] \
+             hover:[border-image-repeat:space] focus:[border-image-slice:10_20_fill]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.border_image.as_deref(),
+            Some("url(/border.svg) 30 fill / 10px / 2px round")
+        );
+        assert_eq!(
+            style.border_image_source.as_deref(),
+            Some("linear-gradient(red, blue)")
+        );
+        assert_eq!(style.border_image_slice.as_deref(), Some("30 fill"));
+        assert_eq!(style.border_image_width.as_deref(), Some("10px"));
+        assert_eq!(style.border_image_outset.as_deref(), Some("2"));
+        assert_eq!(style.border_image_repeat.as_deref(), Some("round space"));
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("border-image-repeat"))
+                .map(String::as_str),
+            Some("space")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("border-image-slice"))
+                .map(String::as_str),
+            Some("10 20 fill")
+        );
+        assert!(!style.unsupported.contains_key("border-image"));
     }
 
     #[test]

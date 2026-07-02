@@ -55,7 +55,7 @@ shorthand/templates/auto tracks/auto flow/placement, physical and logical
 sizing, gap/row-gap/column-gap, CSS containment, generated content,
 CSS counters, quotes, string sets, and container query metadata, physical, logical, and child spacing, uniform,
 physical-edge, and logical-edge border width/style/color, uniform,
-physical-corner, and logical-corner border radius,
+physical-corner, and logical-corner border radius, CSS border image metadata,
 text color, background
 color/image/position/size/repeat/attachment/origin/clip/blend mode,
 CSS clip, CSS clip path, CSS mask, CSS mask border,
@@ -116,8 +116,8 @@ Screen-reader utilities such as `sr-only` and `not-sr-only` are projected into
 their generated declaration groups. Formatting and table utilities such as
 `box-*`, `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`,
 `clear-*`, `align-*`, `border-collapse`, `border-separate`,
-`border-spacing-*`, `caption-*`, and arbitrary `empty-cells` properties are
-projected into portable style tokens.
+`border-spacing-*`, `caption-*`, arbitrary `empty-cells` properties, and
+arbitrary `border-image*` properties are projected into portable style tokens.
 SVG presentation utilities such as `fill-*`, `stroke-*`, and `stroke-{width}`,
 plus arbitrary SVG marker, rendering, paint server, and filter color
 properties, are projected into portable style tokens. Common

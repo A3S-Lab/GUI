@@ -383,6 +383,8 @@ deterministically:
   and Tailwind `space*` child-spacing metadata
 - `border`, physical and logical `borderWidth`, `borderStyle`,
   `borderColor`, uniform, physical-corner, and logical-corner `borderRadius`
+- `borderImage`, `borderImageSource`, `borderImageSlice`,
+  `borderImageWidth`, `borderImageOutset`, and `borderImageRepeat`
 - `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
   `backgroundSize`, `backgroundRepeat`, `backgroundAttachment`,
   `backgroundOrigin`, `backgroundClip`, `backgroundBlendMode`
@@ -474,8 +476,8 @@ variants such as `@md:` are stored in `variant_declarations`.
 Common Tailwind formatting and table utilities such as `box-*`,
 `box-decoration-*`, `isolate`, `isolation-auto`, `float-*`, `clear-*`,
 `align-*`, `border-collapse`, `border-separate`, `border-spacing-*`, and
-`caption-*`, plus arbitrary `empty-cells` properties, project into the same
-declaration model. Tailwind display
+`caption-*`, plus arbitrary `empty-cells` and `border-image*` properties,
+project into the same declaration model. Tailwind display
 utilities such as `inline-block`, `flow-root`, `contents`, `list-item`,
 `table-*`, `inline-table`, `inline-flex`, and `inline-grid` project into
 portable display tokens. Arbitrary `display` properties project into the same
