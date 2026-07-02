@@ -231,13 +231,14 @@ impl HostEvent {
         &self,
         runtime: &mut GuiRuntime<H>,
     ) -> GuiResult<HostEventResponse> {
-        let interaction_start = runtime.interactions().changes().len();
-        let invocation = runtime.dispatch_native_event(self.event.clone())?;
-        let interaction_changes = runtime.interactions().changes()[interaction_start..].to_vec();
+        let handled = runtime.handle_native_event_with_changes(self.event.clone())?;
+        let invocation = handled.invocation.ok_or_else(|| {
+            crate::error::GuiError::host("native event has no registered Web action")
+        })?;
         Ok(HostEventResponse {
             frame_id: self.frame_id.clone(),
             invocation,
-            interaction_changes,
+            interaction_changes: handled.interaction_changes,
         })
     }
 
@@ -245,15 +246,13 @@ impl HostEvent {
         &self,
         runtime: &mut GuiRuntime<H>,
     ) -> GuiResult<NativeHostEventResponse> {
-        let interaction_start = runtime.interactions().changes().len();
-        let invocation = runtime.handle_native_event(self.event.clone())?;
-        let interaction_changes = runtime.interactions().changes()[interaction_start..].to_vec();
+        let handled = runtime.handle_native_event_with_changes(self.event.clone())?;
         let accessibility_tree = runtime.accessibility_tree();
         Ok(NativeHostEventResponse {
             frame_id: self.frame_id.clone(),
-            invocation,
+            invocation: handled.invocation,
             accessibility_tree,
-            interaction_changes,
+            interaction_changes: handled.interaction_changes,
         })
     }
 }

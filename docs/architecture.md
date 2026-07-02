@@ -244,10 +244,11 @@ host event queue, applies interaction state updates, and returns validated
 action invocations. `GuiRuntime::handle_pending_native_event_results()` keeps
 the same drain boundary but returns one result per native event, including
 optional action invocations and the interaction state changes caused by that
-event. Protocol hosts can still send explicit `HostEvent` records. Use the
-`handle_*` event APIs when an event should update runtime state even when no
-Web action is bound, such as focus and blur events used only for accessibility
-state.
+event. Those handled event results are serializable for host logging and
+process boundaries. Protocol hosts can still send explicit `HostEvent`
+records. Use the `handle_*` event APIs when an event should update runtime
+state even when no Web action is bound, such as focus and blur events used only
+for accessibility state.
 
 ## Host Protocol
 

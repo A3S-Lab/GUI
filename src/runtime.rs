@@ -9,8 +9,10 @@ use crate::native::NativeElement;
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::react_aria::{AriaElement, ReactAriaMapper};
 use crate::renderer::Renderer;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HandledNativeEvent {
     pub event: NativeEvent,
     pub invocation: Option<ActionInvocation>,

@@ -601,6 +601,10 @@ fn command_executing_host_reports_pending_native_event_results() {
     assert!(events[0].invocation.is_none());
     assert_eq!(events[0].interaction_changes.len(), 1);
     assert!(events[0].interaction_changes[0].after.focused);
+    let json = serde_json::to_string(&events[0]).unwrap();
+    assert!(json.contains(r#""interactionChanges""#));
+    let decoded: crate::runtime::HandledNativeEvent = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded, events[0]);
     assert_eq!(events[1].event.kind, NativeEventKind::Press);
     assert_eq!(
         events[1]
