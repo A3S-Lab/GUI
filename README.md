@@ -86,7 +86,7 @@ line clamp longhands,
 CSS Speech cue/pause/rest/speak/voice metadata,
 SVG fill/stroke/marker presentation properties, SVG rendering hints, SVG paint
 server and filter color properties, text decoration,
-text decoration skip ink, underline offset/position, text shadow, text overflow,
+text decoration skip metadata, underline offset/position, text shadow, text overflow,
 text emphasis, ruby layout, hanging punctuation, line breaking, whitespace,
 whitespace collapse/trim, word breaking, hyphen handling and limits, overflow, opacity, aspect ratio, box shadow, ring shadow, divide
 rule metadata, outline, transform, translate, rotate, scale, transform origin/style,
@@ -159,7 +159,7 @@ Typography utilities such as `font-*`, `italic`, `not-italic`,
 `font-language-override` properties,
 font variant numeric utilities,
 `tab-*`, text transform utilities, text decoration utilities,
-`underline-offset-*`, arbitrary `text-decoration-skip-ink` and
+`underline-offset-*`, arbitrary `text-decoration-skip*` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
 arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
 `text-align-all`, `text-group-align`, `text-justify`, baseline and

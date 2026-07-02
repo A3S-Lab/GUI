@@ -333,12 +333,18 @@ pub struct PortableStyle {
     pub text_decoration_color: Option<StyleColor>,
     pub text_decoration_style: Option<TextDecorationStyle>,
     pub text_decoration_thickness: Option<StyleLength>,
+    pub text_decoration_skip: Option<String>,
+    pub text_decoration_skip_box: Option<String>,
     pub text_decoration_skip_ink: Option<String>,
+    pub text_decoration_skip_inset: Option<String>,
+    pub text_decoration_skip_self: Option<String>,
+    pub text_decoration_skip_spaces: Option<String>,
     pub text_underline_offset: Option<StyleLength>,
     pub text_underline_position: Option<String>,
     pub text_emphasis_style: Option<String>,
     pub text_emphasis_color: Option<StyleColor>,
     pub text_emphasis_position: Option<String>,
+    pub text_emphasis_skip: Option<String>,
     pub ruby_align: Option<String>,
     pub ruby_position: Option<String>,
     pub ruby_merge: Option<String>,
@@ -1234,8 +1240,23 @@ impl PortableStyle {
                 self.text_decoration_style = parse_text_decoration_style(value_ref);
             }
             "text-decoration-thickness" => self.text_decoration_thickness = parse_length(value_ref),
+            "text-decoration-skip" => {
+                self.text_decoration_skip = parse_css_string_token(value_ref);
+            }
+            "text-decoration-skip-box" => {
+                self.text_decoration_skip_box = parse_css_string_token(value_ref);
+            }
             "text-decoration-skip-ink" => {
                 self.text_decoration_skip_ink = parse_css_string_token(value_ref);
+            }
+            "text-decoration-skip-inset" => {
+                self.text_decoration_skip_inset = parse_css_string_token(value_ref);
+            }
+            "text-decoration-skip-self" => {
+                self.text_decoration_skip_self = parse_css_string_token(value_ref);
+            }
+            "text-decoration-skip-spaces" => {
+                self.text_decoration_skip_spaces = parse_css_string_token(value_ref);
             }
             "text-underline-offset" => self.text_underline_offset = parse_length(value_ref),
             "text-underline-position" => {
@@ -1258,6 +1279,9 @@ impl PortableStyle {
             | "-webkit-text-emphasis-position"
             | "webkit-text-emphasis-position" => {
                 self.text_emphasis_position = parse_css_string_token(value_ref);
+            }
+            "text-emphasis-skip" | "-webkit-text-emphasis-skip" | "webkit-text-emphasis-skip" => {
+                self.text_emphasis_skip = parse_css_string_token(value_ref);
             }
             "ruby-align" => self.ruby_align = parse_css_string_token(value_ref),
             "ruby-position" => self.ruby_position = parse_css_string_token(value_ref),
@@ -10424,10 +10448,16 @@ mod tests {
             .style("textDecorationColor", "#663399")
             .style("textDecorationStyle", "wavy")
             .style("textDecorationThickness", "from-font")
+            .style("textDecorationSkip", "objects spaces")
+            .style("textDecorationSkipBox", "all")
             .style("textDecorationSkipInk", "none")
+            .style("textDecorationSkipInset", "0.15em")
+            .style("textDecorationSkipSelf", "skip-all")
+            .style("textDecorationSkipSpaces", "start end")
             .style("textUnderlineOffset", "4px")
             .style("textUnderlinePosition", "under left")
             .style("textEmphasis", "filled sesame #663399")
+            .style("textEmphasisSkip", "spaces")
             .style("WebkitTextEmphasisPosition", "under right")
             .style("textShadow", "0 1px 2px rgb(0 0 0 / 0.3)")
             .style("textOverflow", "ellipsis")
@@ -10568,7 +10598,18 @@ mod tests {
             style.text_decoration_thickness,
             Some(StyleLength::Css("from-font".to_string()))
         );
+        assert_eq!(
+            style.text_decoration_skip.as_deref(),
+            Some("objects spaces")
+        );
+        assert_eq!(style.text_decoration_skip_box.as_deref(), Some("all"));
         assert_eq!(style.text_decoration_skip_ink.as_deref(), Some("none"));
+        assert_eq!(style.text_decoration_skip_inset.as_deref(), Some("0.15em"));
+        assert_eq!(style.text_decoration_skip_self.as_deref(), Some("skip-all"));
+        assert_eq!(
+            style.text_decoration_skip_spaces.as_deref(),
+            Some("start end")
+        );
         assert_eq!(style.text_underline_offset, Some(StyleLength::Points(4.0)));
         assert_eq!(style.text_underline_position.as_deref(), Some("under left"));
         assert_eq!(style.text_emphasis_style.as_deref(), Some("filled sesame"));
@@ -10582,6 +10623,7 @@ mod tests {
             })
         );
         assert_eq!(style.text_emphasis_position.as_deref(), Some("under right"));
+        assert_eq!(style.text_emphasis_skip.as_deref(), Some("spaces"));
         assert_eq!(
             style.text_shadow.as_deref(),
             Some("0 1px 2px rgb(0 0 0 / 0.3)")
@@ -10603,9 +10645,17 @@ mod tests {
         assert_eq!(style.hyphenate_limit_lines.as_deref(), Some("2"));
         assert_eq!(style.hyphenate_limit_last.as_deref(), Some("always"));
         assert!(!style.unsupported.contains_key("text-decoration-line"));
+        assert!(!style.unsupported.contains_key("text-decoration-skip"));
+        assert!(!style.unsupported.contains_key("text-decoration-skip-box"));
         assert!(!style.unsupported.contains_key("text-decoration-skip-ink"));
+        assert!(!style.unsupported.contains_key("text-decoration-skip-inset"));
+        assert!(!style.unsupported.contains_key("text-decoration-skip-self"));
+        assert!(!style
+            .unsupported
+            .contains_key("text-decoration-skip-spaces"));
         assert!(!style.unsupported.contains_key("text-underline-position"));
         assert!(!style.unsupported.contains_key("text-emphasis"));
+        assert!(!style.unsupported.contains_key("text-emphasis-skip"));
         assert!(!style
             .unsupported
             .contains_key("webkit-text-emphasis-position"));
@@ -10719,9 +10769,13 @@ mod tests {
              [word-space-transform:space] \
              [direction:rtl] [unicode-bidi:isolate] [writing-mode:vertical-rl] \
              [text-orientation:upright] [text-combine-upright:all] \
+             [text-decoration-skip:objects_spaces] [text-decoration-skip-box:all] \
              [text-decoration-skip-ink:none] \
+             [text-decoration-skip-inset:0.15em] [text-decoration-skip-self:skip-all] \
+             [text-decoration-skip-spaces:start_end] \
              [text-underline-position:under_left] [text-emphasis-style:open_dot] \
              [text-emphasis-color:#663399] [text-emphasis-position:under_right] \
+             [text-emphasis-skip:spaces] \
              line-clamp-3 md:tracking-[0.2em] hover:decoration-[3px] \
              focus:text-pretty lg:line-clamp-none ltr:[direction:ltr] \
              rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
@@ -10746,6 +10800,9 @@ mod tests {
              [white-space-trim:discard-before] [hyphenate-character:\"=\"] \
              [hyphenate-limit-zone:8%] [hyphenate-limit-chars:6_3_2] \
              [hyphenate-limit-lines:2] [hyphenate-limit-last:always] \
+             hover:[text-decoration-skip:objects] focus:[text-decoration-skip-box:none] \
+             active:[text-decoration-skip-inset:auto] visited:[text-decoration-skip-self:skip] \
+             before:[text-decoration-skip-spaces:none] after:[text-emphasis-skip:punctuation] \
              hover:[text-decoration-skip-ink:all] focus:[text-underline-position:left] \
              hover:[text-emphasis-style:filled_sesame] focus:[text-emphasis-color:#663399] \
              active:[text-emphasis-position:over_left] \
@@ -10855,7 +10912,18 @@ mod tests {
             style.text_decoration_thickness,
             Some(StyleLength::Points(2.0))
         );
+        assert_eq!(
+            style.text_decoration_skip.as_deref(),
+            Some("objects spaces")
+        );
+        assert_eq!(style.text_decoration_skip_box.as_deref(), Some("all"));
         assert_eq!(style.text_decoration_skip_ink.as_deref(), Some("none"));
+        assert_eq!(style.text_decoration_skip_inset.as_deref(), Some("0.15em"));
+        assert_eq!(style.text_decoration_skip_self.as_deref(), Some("skip-all"));
+        assert_eq!(
+            style.text_decoration_skip_spaces.as_deref(),
+            Some("start end")
+        );
         assert_eq!(style.text_underline_offset, Some(StyleLength::Points(4.0)));
         assert_eq!(style.text_underline_position.as_deref(), Some("under left"));
         assert_eq!(style.text_emphasis_style.as_deref(), Some("open dot"));
@@ -10869,6 +10937,7 @@ mod tests {
             })
         );
         assert_eq!(style.text_emphasis_position.as_deref(), Some("under right"));
+        assert_eq!(style.text_emphasis_skip.as_deref(), Some("spaces"));
         assert_eq!(style.text_overflow, Some(TextOverflow::Ellipsis));
         assert_eq!(style.overflow_x, Some(OverflowMode::Hidden));
         assert_eq!(style.overflow_y, Some(OverflowMode::Hidden));
@@ -11174,6 +11243,54 @@ mod tests {
                 .and_then(|styles| styles.get("overflow-wrap"))
                 .map(String::as_str),
             Some("var(--overflow-wrap)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("text-decoration-skip"))
+                .map(String::as_str),
+            Some("objects")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("text-decoration-skip-box"))
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("text-decoration-skip-inset"))
+                .map(String::as_str),
+            Some("auto")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("visited")
+                .and_then(|styles| styles.get("text-decoration-skip-self"))
+                .map(String::as_str),
+            Some("skip")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("text-decoration-skip-spaces"))
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("after")
+                .and_then(|styles| styles.get("text-emphasis-skip"))
+                .map(String::as_str),
+            Some("punctuation")
         );
         assert_eq!(
             style

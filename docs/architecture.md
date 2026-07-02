@@ -428,9 +428,9 @@ deterministically:
   `marker*`, `stopColor`, `stopOpacity`, `floodColor`, `floodOpacity`, and
   `lightingColor`
 - `textDecorationLine`, `textDecorationColor`, `textDecorationStyle`,
-  `textDecorationThickness`, `textDecorationSkipInk`, `textUnderlineOffset`,
+  `textDecorationThickness`, `textDecorationSkip*`, `textUnderlineOffset`,
   `textUnderlinePosition`, `textEmphasisStyle`, `textEmphasisColor`,
-  `textEmphasisPosition`, `rubyAlign`, `rubyPosition`, `rubyMerge`,
+  `textEmphasisPosition`, `textEmphasisSkip`, `rubyAlign`, `rubyPosition`, `rubyMerge`,
   `rubyOverhang`, `textShadow`, `textOverflow`, `lineBreak`, `whiteSpace`,
   `whiteSpaceCollapse`, `whiteSpaceTrim`, `wordBreak`, `overflowWrap`,
   `hyphens`, `hyphenateCharacter`, and `hyphenateLimit*`
@@ -523,7 +523,7 @@ Common Tailwind typography and text utilities such as `font-*`, `italic`,
 `font-stretch-*`, `font-features-*`, arbitrary `font`, `font-size-adjust`,
 `font-palette`, and `font-language-override` properties,
 font variant numeric utilities, `tab-*`, text transform utilities, text decoration
-utilities, `underline-offset-*`, arbitrary `text-decoration-skip-ink` and
+utilities, `underline-offset-*`, arbitrary `text-decoration-skip*` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
 arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
 `text-align-all`, `text-group-align`, `text-justify`, baseline and
