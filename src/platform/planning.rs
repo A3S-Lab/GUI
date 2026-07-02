@@ -116,6 +116,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
             disabled: state.disabled,
             required: state.required,
             invalid: state.invalid,
+            multiple: state.multiple,
             focused: false,
             selected: state.selected,
             checked: state.checked,

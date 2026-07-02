@@ -232,12 +232,14 @@ to the JavaScript state bridge. Hosts that implement `AccessibilityTreeHost`
 can expose the rendered tree through `GuiRuntime::accessibility_tree()` for
 tests, protocol inspection, and native accessibility integration. Runtime export
 overlays interaction state, so changed values, checked state, selection, focus,
-and host node ids are visible to protocol consumers. Non-focus interaction
-state is revision-scoped: after a successful rerender, controlled values from
-the new blueprint supersede stale local event state while focus remains
-preserved until a blur or another focus event arrives. Later native events on
-that node also rebase their interaction baseline from the latest blueprint
-before applying local changes.
+multiple-selection mode, and host node ids are visible to protocol consumers.
+ListBox selection projection uses that multiple-selection flag to keep existing
+selected children in multi-select lists while single-select lists follow the
+latest selected child. Non-focus interaction state is revision-scoped: after a
+successful rerender, controlled values from the new blueprint supersede stale
+local event state while focus remains preserved until a blur or another focus
+event arrives. Later native events on that node also rebase their interaction
+baseline from the latest blueprint before applying local changes.
 
 CSS style attribute text is parsed by `src/css_text.rs` before it enters
 `WebProps`. The parser splits declarations only on top-level CSS separators, so

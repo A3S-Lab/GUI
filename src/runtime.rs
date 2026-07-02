@@ -315,7 +315,7 @@ fn apply_latest_child_selection_to_children(
     interaction_revisions: &BTreeMap<HostNodeId, u64>,
     render_revision: u64,
 ) {
-    if !is_exclusive_child_selection_container(node.role) {
+    if !is_exclusive_child_selection_container(node) {
         return;
     }
     let Some(SelectionSource::Child(selected_node)) =
@@ -387,14 +387,15 @@ fn is_selection_container(role: AccessibilityRole) -> bool {
     )
 }
 
-fn is_exclusive_child_selection_container(role: AccessibilityRole) -> bool {
-    matches!(
-        role,
+fn is_exclusive_child_selection_container(node: &AccessibilityNode) -> bool {
+    match node.role {
         AccessibilityRole::ComboBox
-            | AccessibilityRole::RadioGroup
-            | AccessibilityRole::TabGroup
-            | AccessibilityRole::TabList
-    )
+        | AccessibilityRole::RadioGroup
+        | AccessibilityRole::TabGroup
+        | AccessibilityRole::TabList => true,
+        AccessibilityRole::ListBox => !node.multiple,
+        _ => false,
+    }
 }
 
 fn is_selectable_child(role: AccessibilityRole) -> bool {
@@ -982,6 +983,67 @@ mod tests {
         let accessibility = runtime.accessibility_tree().unwrap();
         assert_eq!(accessibility.value.as_deref(), Some("other"));
         assert!(!accessibility.children[0].selected);
+        assert!(accessibility.children[1].selected);
+    }
+
+    #[test]
+    fn runtime_accessibility_tree_projects_single_listbox_child_selection_to_siblings() {
+        let tree = NativeElement::new("project", NativeRole::ListBox)
+            .with_props(NativeProps::new().label("Project"))
+            .child(
+                NativeElement::new("a3s", NativeRole::ListBoxItem)
+                    .with_props(NativeProps::new().label("A3S").value("a3s").selected(true)),
+            )
+            .child(
+                NativeElement::new("other", NativeRole::ListBoxItem)
+                    .with_props(NativeProps::new().label("Other").value("other")),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&tree).unwrap();
+        let other = runtime.host().node(root_id).unwrap().children[1];
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                other,
+                crate::event::NativeEventKind::SelectionChange,
+            ))
+            .unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(!accessibility.multiple);
+        assert_eq!(accessibility.value.as_deref(), Some("other"));
+        assert!(!accessibility.children[0].selected);
+        assert!(accessibility.children[1].selected);
+    }
+
+    #[test]
+    fn runtime_accessibility_tree_preserves_multiple_listbox_child_selections() {
+        let tree = NativeElement::new("project", NativeRole::ListBox)
+            .with_props(NativeProps::new().label("Project").multiple(true))
+            .child(
+                NativeElement::new("a3s", NativeRole::ListBoxItem)
+                    .with_props(NativeProps::new().label("A3S").value("a3s").selected(true)),
+            )
+            .child(
+                NativeElement::new("other", NativeRole::ListBoxItem)
+                    .with_props(NativeProps::new().label("Other").value("other")),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&tree).unwrap();
+        let other = runtime.host().node(root_id).unwrap().children[1];
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                other,
+                crate::event::NativeEventKind::SelectionChange,
+            ))
+            .unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(accessibility.multiple);
+        assert!(accessibility.children[0].selected);
         assert!(accessibility.children[1].selected);
     }
 

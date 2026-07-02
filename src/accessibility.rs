@@ -395,6 +395,8 @@ pub struct AccessibilityNode {
     pub disabled: bool,
     pub required: bool,
     pub invalid: bool,
+    #[serde(default)]
+    pub multiple: bool,
     pub focused: bool,
     pub selected: bool,
     pub checked: Option<bool>,
@@ -420,6 +422,7 @@ impl AccessibilityNode {
             disabled: element.props.disabled,
             required: element.props.required,
             invalid: element.props.invalid,
+            multiple: element.props.multiple,
             focused: false,
             selected: element.props.selected,
             checked: element.props.checked,
@@ -555,5 +558,49 @@ pub fn accessibility_role(role: NativeRole) -> AccessibilityRole {
         NativeRole::TableCell => AccessibilityRole::TableCell,
         NativeRole::TableColumn => AccessibilityRole::TableColumn,
         NativeRole::TableCaption => AccessibilityRole::TableCaption,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::native::{NativeElement, NativeProps, NativeRole};
+
+    #[test]
+    fn accessibility_node_defaults_missing_multiple_to_false() {
+        let node: AccessibilityNode = serde_json::from_str(
+            r#"
+            {
+              "role": "listBox",
+              "label": "Projects",
+              "value": null,
+              "relationships": {},
+              "description": {},
+              "structure": {},
+              "state": {},
+              "disabled": false,
+              "required": false,
+              "invalid": false,
+              "focused": false,
+              "selected": false,
+              "checked": null,
+              "expanded": null,
+              "children": []
+            }
+            "#,
+        )
+        .unwrap();
+
+        assert!(!node.multiple);
+    }
+
+    #[test]
+    fn accessibility_node_projects_multiple_from_native_props() {
+        let element = NativeElement::new("projects", NativeRole::ListBox)
+            .with_props(NativeProps::new().multiple(true));
+
+        let node = AccessibilityNode::from_native(&element);
+
+        assert!(node.multiple);
     }
 }
