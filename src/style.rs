@@ -402,6 +402,7 @@ pub struct PortableStyle {
     pub animation_direction: Option<String>,
     pub animation_fill_mode: Option<String>,
     pub animation_play_state: Option<String>,
+    pub animation_composition: Option<String>,
     pub animation_timeline: Option<String>,
     pub animation_range: Option<String>,
     pub animation_range_start: Option<String>,
@@ -1304,6 +1305,9 @@ impl PortableStyle {
             "animation-direction" => self.animation_direction = parse_css_string_token(value_ref),
             "animation-fill-mode" => self.animation_fill_mode = parse_css_string_token(value_ref),
             "animation-play-state" => self.animation_play_state = parse_css_string_token(value_ref),
+            "animation-composition" => {
+                self.animation_composition = parse_css_string_token(value_ref);
+            }
             "animation-timeline" => self.animation_timeline = parse_css_string_token(value_ref),
             "animation-range" => self.animation_range = parse_css_string_token(value_ref),
             "animation-range-start" => {
@@ -12448,6 +12452,7 @@ mod tests {
             .style("animationDirection", "alternate")
             .style("animationFillMode", "both")
             .style("animationPlayState", "running")
+            .style("animationComposition", "add")
             .style("animationTimeline", "--gallery")
             .style("animationRange", "entry 10% cover 80%")
             .style("animationRangeStart", "entry 10%")
@@ -12537,6 +12542,7 @@ mod tests {
         assert_eq!(style.animation_direction.as_deref(), Some("alternate"));
         assert_eq!(style.animation_fill_mode.as_deref(), Some("both"));
         assert_eq!(style.animation_play_state.as_deref(), Some("running"));
+        assert_eq!(style.animation_composition.as_deref(), Some("add"));
         assert_eq!(style.animation_timeline.as_deref(), Some("--gallery"));
         assert_eq!(
             style.animation_range.as_deref(),
@@ -12628,6 +12634,7 @@ mod tests {
         assert_eq!(style.spatial_navigation_function.as_deref(), Some("grid"));
         assert_eq!(style.interactivity.as_deref(), Some("inert"));
         assert!(!style.unsupported.contains_key("transition-duration"));
+        assert!(!style.unsupported.contains_key("animation-composition"));
         assert!(!style.unsupported.contains_key("animation-timeline"));
         assert!(!style.unsupported.contains_key("animation-range"));
         assert!(!style.unsupported.contains_key("animation-range-start"));
@@ -12683,6 +12690,7 @@ mod tests {
              caret-white resize-y scroll-smooth scroll-mt-4 scroll-px-2 \
              [animation-timeline:--gallery] [animation-range:entry_10%_cover_80%] \
              [animation-range-start:entry_10%] [animation-range-end:cover_80%] \
+             [animation-composition:add] \
              [view-transition-name:card] [view-transition-class:shared_card] \
              [view-transition-group:contain] [view-transition-scope:root] \
              [scroll-timeline:--scroller_inline] [scroll-timeline-name:--scroller] \
@@ -12701,6 +12709,7 @@ mod tests {
              hover:animate-[wiggle_1s_ease-in-out_infinite] hover:scrollbar-thumb-blue-500 \
              focus:will-change-[opacity] md:[animation-timeline:view()] \
              hover:[animation-range:cover_0%_contain_100%] \
+             focus:[animation-composition:accumulate] \
              md:[view-transition-name:avatar] hover:[view-transition-class:active_card] \
              focus:[print-color-adjust:economy] active:[caret-shape:underscore] \
              focus:[scroll-timeline-axis:block] active:[view-timeline-inset:auto] \
@@ -12733,6 +12742,7 @@ mod tests {
         );
         assert_eq!(style.transition_behavior.as_deref(), Some("allow-discrete"));
         assert_eq!(style.animation.as_deref(), Some("spin 1s linear infinite"));
+        assert_eq!(style.animation_composition.as_deref(), Some("add"));
         assert_eq!(style.animation_timeline.as_deref(), Some("--gallery"));
         assert_eq!(
             style.animation_range.as_deref(),
@@ -12883,6 +12893,14 @@ mod tests {
                 .and_then(|styles| styles.get("animation-range"))
                 .map(String::as_str),
             Some("cover 0% contain 100%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("animation-composition"))
+                .map(String::as_str),
+            Some("accumulate")
         );
         assert_eq!(
             style

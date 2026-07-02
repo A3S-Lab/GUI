@@ -187,8 +187,8 @@ media, background shorthand, and list properties such as `page`, `orphans`,
 projected into portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, arbitrary scroll-driven animation
-properties such as `animation-timeline`, `scroll-timeline`, and
-`view-timeline`, arbitrary CSS View Transitions properties,
+properties such as `animation-composition`, `animation-timeline`,
+`scroll-timeline`, and `view-timeline`, arbitrary CSS View Transitions properties,
 `will-change-*`, `appearance-*`,
 `scheme-*`, `forced-color-adjust-*`, arbitrary `print-color-adjust`,
 `field-sizing-*`, `accent-*`,
