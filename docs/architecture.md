@@ -277,15 +277,16 @@ declarations.
 
 For embedded Rust hosts, native backends can expose callbacks through
 `NativeEventSource`. `GuiRuntime::dispatch_pending_native_events()` drains the
-host event queue, applies interaction state updates, and returns validated
-action invocations. `GuiRuntime::handle_pending_native_event_results()` keeps
-the same drain boundary but returns one result per native event, including
-optional action invocations and the interaction state changes caused by that
-event. Those handled event results are serializable for host logging and
-process boundaries. Protocol hosts can still send explicit `HostEvent`
-records. Keyboard event values can carry the platform key or shortcut token.
-Use the `handle_*` event APIs when an event should update runtime state even
-when no Web action is bound, such as focus and blur events used only for
+host event queue, applies interaction state updates for every event, and returns
+the action invocations from events that have bound Web actions. State-only events
+such as focus or blur do not interrupt the batch.
+`GuiRuntime::handle_pending_native_event_results()` keeps the same drain boundary
+but returns one result per native event, including optional action invocations
+and the interaction state changes caused by that event. Those handled event
+results are serializable for host logging and process boundaries. Protocol hosts
+can still send explicit `HostEvent` records. Keyboard event values can carry the
+platform key or shortcut token. Use the `handle_*` event APIs when the caller
+needs per-event results, including events that only update runtime or
 accessibility state.
 
 ## Host Protocol

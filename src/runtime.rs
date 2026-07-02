@@ -691,11 +691,7 @@ fn child_matches_selection_value(child: &AccessibilityNode, value: &str) -> bool
 
 impl<H: NativeHost + BlueprintHost + NativeEventHost> GuiRuntime<H> {
     pub fn dispatch_pending_native_events(&mut self) -> GuiResult<Vec<ActionInvocation>> {
-        let events = self.host.take_native_events();
-        events
-            .into_iter()
-            .map(|event| self.dispatch_native_event(event))
-            .collect()
+        self.handle_pending_native_events()
     }
 
     pub fn handle_pending_native_events(&mut self) -> GuiResult<Vec<ActionInvocation>> {

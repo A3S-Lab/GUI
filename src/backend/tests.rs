@@ -522,6 +522,51 @@ fn command_executing_host_dispatches_driver_native_events_to_actions() {
 }
 
 #[test]
+fn command_executing_host_dispatches_pending_state_events_without_invocation() {
+    let compiled: CompiledJsxNode = serde_json::from_str(
+        r#"
+            {
+              "kind": "element",
+              "key": "save",
+              "tag": "Button",
+              "props": {"events": {"onPress": "saveProfile"}},
+              "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+            }
+            "#,
+    )
+    .unwrap();
+    let executor = DriverCommandExecutor::new(TestWidgetDriver::default());
+    let host = CommandExecutingHost::new(Gtk4Adapter, executor);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("saveProfile");
+
+    let root_id = runtime.render_compiled(&compiled).unwrap();
+    runtime
+        .host_mut()
+        .executor_mut()
+        .driver_mut()
+        .events
+        .push(NativeEvent::new(root_id, NativeEventKind::Focus));
+    runtime
+        .host_mut()
+        .executor_mut()
+        .driver_mut()
+        .events
+        .push(NativeEvent::new(root_id, NativeEventKind::Press));
+
+    let invocations = runtime.dispatch_pending_native_events().unwrap();
+
+    assert_eq!(invocations.len(), 1);
+    assert_eq!(invocations[0].action, "saveProfile");
+    assert!(runtime.accessibility_tree().unwrap().focused);
+    assert!(runtime
+        .host_mut()
+        .executor_mut()
+        .take_native_events()
+        .is_empty());
+}
+
+#[test]
 fn command_executing_host_handles_unbound_native_events_without_invocation() {
     let compiled: CompiledJsxNode = serde_json::from_str(
         r#"
