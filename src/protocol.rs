@@ -706,6 +706,49 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_suppresses_disabled_user_events() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "saveProfile"}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {
+                  "isDisabled": true,
+                  "events": {"onPress": "saveProfile"}
+                },
+                "children": [{"kind": "text", "key": "label", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let response = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
+            })
+            .unwrap();
+
+        assert!(response.invocation.is_none());
+        assert!(response.interaction_changes.is_empty());
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .map(|tree| tree.disabled),
+            Some(true)
+        );
+        assert!(session.runtime().actions().invocations().is_empty());
+    }
+
+    #[test]
     fn protocol_window_options_wrap_root_in_native_window() {
         let frame: UiFrame = serde_json::from_str(
             r#"

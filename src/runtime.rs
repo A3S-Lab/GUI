@@ -121,6 +121,13 @@ impl<H: NativeHost> GuiRuntime<H> {
         event: NativeEvent,
     ) -> GuiResult<HandledNativeEvent> {
         self.refresh_stale_interaction_baseline(event.node, blueprint);
+        if is_disabled_user_event(blueprint, event.kind) {
+            return Ok(HandledNativeEvent {
+                event,
+                invocation: None,
+                interaction_changes: Vec::new(),
+            });
+        }
         let event = self.normalize_event_value(blueprint, route_blueprints, event);
         let interaction_start = self.interaction_state.changes().len();
         self.interaction_state.apply_event(blueprint, &event);
@@ -373,6 +380,17 @@ fn has_explicit_key_down_handler(
         || route_blueprints
             .iter()
             .any(|route_blueprint| route_blueprint.events.contains_key("onKeyDown"))
+}
+
+fn is_disabled_user_event(
+    blueprint: &NativeWidgetBlueprint,
+    event: crate::event::NativeEventKind,
+) -> bool {
+    blueprint.control_state.disabled
+        && !matches!(
+            event,
+            crate::event::NativeEventKind::Focus | crate::event::NativeEventKind::Blur
+        )
 }
 
 fn is_space_key(value: Option<&str>) -> bool {
@@ -940,6 +958,101 @@ mod tests {
 
         assert!(error.to_string().contains("no registered Web action"));
         assert!(runtime.interactions().node(root_id).unwrap().focused);
+    }
+
+    #[test]
+    fn runtime_suppresses_disabled_press_actions() {
+        let element = NativeElement::new("save", NativeRole::Button).with_props(
+            NativeProps::new()
+                .label("Save")
+                .disabled(true)
+                .web(WebProps::new().on_press("saveDocument")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("saveDocument");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Press,
+            ))
+            .unwrap();
+        let error = runtime
+            .dispatch_native_event(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Press,
+            ))
+            .unwrap_err();
+
+        assert!(handled.invocation.is_none());
+        assert!(handled.interaction_changes.is_empty());
+        assert!(runtime.actions().invocations().is_empty());
+        assert!(error.to_string().contains("no registered Web action"));
+    }
+
+    #[test]
+    fn runtime_suppresses_disabled_toggle_state_changes() {
+        let element = NativeElement::new("notifications", NativeRole::Switch).with_props(
+            NativeProps::new()
+                .label("Notifications")
+                .disabled(true)
+                .checked(false)
+                .web(WebProps::new().on_change("setNotifications")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setNotifications");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let toggle = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Toggle,
+            ))
+            .unwrap();
+        let key = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::KeyDown)
+                    .value(" "),
+            )
+            .unwrap();
+
+        assert!(toggle.invocation.is_none());
+        assert!(toggle.interaction_changes.is_empty());
+        assert_eq!(toggle.event.value, None);
+        assert!(key.invocation.is_none());
+        assert_eq!(key.event.kind, crate::event::NativeEventKind::KeyDown);
+        assert!(key.interaction_changes.is_empty());
+        assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(false));
+        assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
+    fn runtime_allows_disabled_focus_state_changes() {
+        let element = NativeElement::new("save", NativeRole::Button).with_props(
+            NativeProps::new()
+                .label("Save")
+                .disabled(true)
+                .web(WebProps::new().on_focus("inspectSave")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("inspectSave");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+
+        assert!(handled.invocation.is_some());
+        assert_eq!(handled.interaction_changes.len(), 1);
+        assert!(runtime.interactions().node(root_id).unwrap().focused);
+        assert_eq!(runtime.actions().invocations().len(), 1);
     }
 
     #[test]
