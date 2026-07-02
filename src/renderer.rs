@@ -23,6 +23,7 @@ struct ReconcileRollback {
     new_mounts: Vec<MountedNode>,
     updated_props: Vec<(HostNodeId, NativeProps)>,
     child_orders: Vec<(HostNodeId, Vec<HostNodeId>)>,
+    deferred_unmounts: Vec<MountedNode>,
 }
 
 impl ReconcileRollback {
@@ -45,6 +46,17 @@ impl ReconcileRollback {
         self.child_orders.push((parent, children));
     }
 
+    fn record_deferred_unmount(&mut self, mounted: MountedNode) {
+        self.deferred_unmounts.push(mounted);
+    }
+
+    fn commit_deferred_unmounts<H: NativeHost>(&mut self, host: &mut H) -> GuiResult<()> {
+        for mounted in std::mem::take(&mut self.deferred_unmounts) {
+            unmount_node(mounted, host)?;
+        }
+        Ok(())
+    }
+
     fn rollback<H: NativeHost>(&mut self, host: &mut H) {
         for mounted in std::mem::take(&mut self.new_mounts).into_iter().rev() {
             best_effort_unmount_node(mounted, host);
@@ -55,6 +67,7 @@ impl ReconcileRollback {
         for (id, props) in std::mem::take(&mut self.updated_props).into_iter().rev() {
             let _ = host.update(id, &props);
         }
+        self.deferred_unmounts.clear();
     }
 }
 
@@ -80,15 +93,9 @@ impl Renderer {
                         return Err(error);
                     }
                 };
-                if let Err(error) = host.set_root(mounted.id) {
-                    best_effort_unmount_node(mounted, host);
-                    self.root = Some(old);
-                    return Err(error);
-                }
-                let root_id = mounted.id;
-                self.root = Some(mounted);
-                unmount_node(old, host)?;
-                return Ok(root_id);
+                rollback.record_new_mount(mounted.clone());
+                rollback.record_deferred_unmount(old);
+                mounted
             }
             Some(old) => match reconcile_node(None, 0, old, element, host, &mut rollback) {
                 Ok(mounted) => mounted,
@@ -105,6 +112,14 @@ impl Renderer {
                 best_effort_unmount_node(mounted, host);
             } else {
                 rollback.rollback(host);
+            }
+            self.root = previous_root;
+            return Err(error);
+        }
+        if let Err(error) = rollback.commit_deferred_unmounts(host) {
+            rollback.rollback(host);
+            if let Some(previous_root) = &previous_root {
+                let _ = host.set_root(previous_root.id);
             }
             self.root = previous_root;
             return Err(error);
@@ -256,7 +271,8 @@ fn reconcile_node<H: NativeHost>(
 ) -> GuiResult<MountedNode> {
     if needs_replacement(&old, new) {
         let mounted = mount_node(parent, index, new, host)?;
-        unmount_node(old, host)?;
+        rollback.record_new_mount(mounted.clone());
+        rollback.record_deferred_unmount(old);
         return Ok(mounted);
     }
 
@@ -317,7 +333,7 @@ fn reconcile_children<H: NativeHost>(
     }
 
     for (_, old_child) in old_by_key.into_values() {
-        unmount_node(old_child, host)?;
+        rollback.record_deferred_unmount(old_child);
     }
 
     Ok(mounted_children)
@@ -692,6 +708,51 @@ mod tests {
     }
 
     #[test]
+    fn renderer_rolls_back_child_replacement_after_set_root_failure() {
+        let first = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("child", NativeRole::Text));
+        let replacement = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("child", NativeRole::Button));
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost::default();
+
+        let root_id = renderer.render(&first, &mut host).unwrap();
+        let child_id = host.node(root_id).unwrap().children[0];
+        host.fail_set_root = true;
+        let error = renderer.render(&replacement, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host set_root failure"));
+        assert_eq!(renderer.mounted_node_ids().len(), 2);
+        assert!(renderer.mounted_node_ids().contains(&child_id));
+        assert_eq!(host.nodes().len(), 2);
+        assert_eq!(host.root(), Some(root_id));
+        assert_eq!(host.node(root_id).unwrap().children, vec![child_id]);
+        assert_eq!(host.node(child_id).unwrap().role, NativeRole::Text);
+    }
+
+    #[test]
+    fn renderer_rolls_back_child_removal_after_set_root_failure() {
+        let first = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("a", NativeRole::Button))
+            .child(NativeElement::new("b", NativeRole::Button));
+        let removal = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("a", NativeRole::Button));
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost::default();
+
+        let root_id = renderer.render(&first, &mut host).unwrap();
+        let original_children = host.node(root_id).unwrap().children.clone();
+        host.fail_set_root = true;
+        let error = renderer.render(&removal, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host set_root failure"));
+        assert_eq!(renderer.mounted_node_ids().len(), 3);
+        assert_eq!(host.nodes().len(), 3);
+        assert_eq!(host.root(), Some(root_id));
+        assert_eq!(host.node(root_id).unwrap().children, original_children);
+    }
+
+    #[test]
     fn renderer_cleans_up_first_mount_after_set_root_failure() {
         let tree = NativeElement::new("root", NativeRole::View);
         let mut renderer = Renderer::new();
@@ -762,6 +823,33 @@ mod tests {
         assert_eq!(host.root(), Some(root_id));
         assert_eq!(host.node(root_id).unwrap().children, vec![child_id]);
         assert_eq!(host.node(child_id).unwrap().role, NativeRole::Text);
+    }
+
+    #[test]
+    fn renderer_rolls_back_child_replacement_after_later_create_failure() {
+        let first = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("a", NativeRole::Text))
+            .child(NativeElement::new("b", NativeRole::Button));
+        let failed = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("a", NativeRole::Button))
+            .child(NativeElement::new("b", NativeRole::Button))
+            .child(NativeElement::new("c", NativeRole::Button));
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost::default();
+
+        let root_id = renderer.render(&first, &mut host).unwrap();
+        let original_children = host.node(root_id).unwrap().children.clone();
+        let original_child = original_children[0];
+        host.fail_create_call = Some(host.create_calls + 2);
+        let error = renderer.render(&failed, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host create failure"));
+        assert_eq!(renderer.mounted_node_ids().len(), 3);
+        assert!(renderer.mounted_node_ids().contains(&original_child));
+        assert_eq!(host.nodes().len(), 3);
+        assert_eq!(host.root(), Some(root_id));
+        assert_eq!(host.node(root_id).unwrap().children, original_children);
+        assert_eq!(host.node(original_child).unwrap().role, NativeRole::Text);
     }
 
     #[test]
