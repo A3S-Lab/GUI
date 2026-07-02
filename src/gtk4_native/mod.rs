@@ -49,6 +49,7 @@ pub struct Gtk4NativeSurface {
     menus: Gtk4MenuRegistry,
     ranges: BTreeMap<HostNodeId, Gtk4RangeState>,
     text_inputs: BTreeMap<HostNodeId, Gtk4TextInputSizing>,
+    text_input_max_lengths: Rc<RefCell<BTreeMap<HostNodeId, Option<u32>>>>,
 }
 
 impl Gtk4NativeSurface {
@@ -89,6 +90,7 @@ impl Gtk4NativeSurface {
             menus: Gtk4MenuRegistry::default(),
             ranges: BTreeMap::new(),
             text_inputs: BTreeMap::new(),
+            text_input_max_lengths: Rc::new(RefCell::new(BTreeMap::new())),
         }
     }
 
@@ -713,6 +715,22 @@ fn text_buffer_text(buffer: &gtk::TextBuffer) -> String {
     buffer.text(&start, &end, true).to_string()
 }
 
+fn truncate_to_max_length(value: &str, max_length: Option<u32>) -> String {
+    let Some(max_length) = max_length else {
+        return value.to_string();
+    };
+    let max_length = max_length as usize;
+    if value.chars().count() <= max_length {
+        value.to_string()
+    } else {
+        value.chars().take(max_length).collect()
+    }
+}
+
+fn set_text_buffer_text(buffer: &gtk::TextBuffer, value: &str, max_length: Option<u32>) {
+    buffer.set_text(&truncate_to_max_length(value, max_length));
+}
+
 fn set_progress_bar_fraction(progress_bar: &gtk::ProgressBar, range: Gtk4RangeState) {
     let min = range.lower();
     let max = range.upper();
@@ -724,6 +742,19 @@ fn set_progress_bar_fraction(progress_bar: &gtk::ProgressBar, range: Gtk4RangeSt
         ((current - min) / range).clamp(0.0, 1.0)
     };
     progress_bar.set_fraction(fraction);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncate_to_max_length_limits_unicode_scalar_values() {
+        assert_eq!(truncate_to_max_length("abcdef", Some(3)), "abc");
+        assert_eq!(truncate_to_max_length("aé日b", Some(3)), "aé日");
+        assert_eq!(truncate_to_max_length("abc", None), "abc");
+        assert_eq!(truncate_to_max_length("abc", Some(0)), "");
+    }
 }
 
 fn points_to_i32(value: f64) -> i32 {

@@ -98,23 +98,44 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 let text_view = gtk::TextView::new();
                 text_view.set_wrap_mode(gtk::WrapMode::WordChar);
                 text_view.set_editable(!config.read_only);
+                if let Some(placeholder) = config.placeholder.as_deref() {
+                    text_view.set_placeholder_text(Some(placeholder));
+                }
                 let buffer = text_view.buffer();
+                let max_length = config.max_length;
                 self.suppress_events(|| {
-                    buffer.set_text(config.value.as_deref().unwrap_or(""));
+                    set_text_buffer_text(
+                        &buffer,
+                        config.value.as_deref().unwrap_or(""),
+                        max_length,
+                    );
                 });
                 self.text_inputs
                     .insert(id, Gtk4TextInputSizing::from_config(&config));
+                self.text_input_max_lengths
+                    .borrow_mut()
+                    .insert(id, config.max_length);
                 self.apply_text_view_size_hint(id, &text_view);
 
                 let events = self.events.clone();
                 let events_suppressed = self.events_suppressed.clone();
+                let text_input_max_lengths = self.text_input_max_lengths.clone();
                 buffer.connect_changed(move |buffer| {
-                    push_event(
-                        &events,
-                        &events_suppressed,
-                        NativeEvent::new(id, NativeEventKind::Change)
-                            .value(text_buffer_text(buffer)),
-                    );
+                    if *events_suppressed.borrow() {
+                        return;
+                    }
+
+                    let raw_value = text_buffer_text(buffer);
+                    let max_length = text_input_max_lengths.borrow().get(&id).copied().flatten();
+                    let value = truncate_to_max_length(&raw_value, max_length);
+                    if value != raw_value {
+                        let previous = events_suppressed.replace(true);
+                        buffer.set_text(&value);
+                        events_suppressed.replace(previous);
+                    }
+                    events
+                        .borrow_mut()
+                        .push(NativeEvent::new(id, NativeEventKind::Change).value(value));
                 });
 
                 let events = self.events.clone();
@@ -373,7 +394,15 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 }
                 Gtk4OsWidget::TextView(text_view) => {
                     let buffer = text_view.buffer();
-                    self.suppress_events(|| buffer.set_text(value.as_deref().unwrap_or("")));
+                    let max_length = self
+                        .text_input_max_lengths
+                        .borrow()
+                        .get(&id)
+                        .copied()
+                        .flatten();
+                    self.suppress_events(|| {
+                        set_text_buffer_text(&buffer, value.as_deref().unwrap_or(""), max_length);
+                    });
                 }
                 Gtk4OsWidget::Label(label) => {
                     if let Some(tab) = self.notebook_tabs.get(&id).cloned() {
@@ -419,11 +448,15 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Scale(_)
                 | Gtk4OsWidget::ProgressBar(_) => {}
             },
-            NativeWidgetSetter::SetPlaceholder(value) => {
-                if let Gtk4OsWidget::Entry(entry) = &handle.widget {
+            NativeWidgetSetter::SetPlaceholder(value) => match &handle.widget {
+                Gtk4OsWidget::Entry(entry) => {
                     entry.set_placeholder_text(value.as_deref());
                 }
-            }
+                Gtk4OsWidget::TextView(text_view) => {
+                    text_view.set_placeholder_text(value.as_deref());
+                }
+                _ => {}
+            },
             NativeWidgetSetter::SetTitle(value) => {
                 set_widget_title(&handle.widget, value.as_deref());
             }
@@ -608,11 +641,20 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     scale.set_increments(range.step(), range.step() * 10.0);
                 }
             }
-            NativeWidgetSetter::SetMaxLength(value) => {
-                if let (Gtk4OsWidget::Entry(entry), Some(value)) = (&handle.widget, value) {
-                    entry.set_max_length(points_to_i32(*value as f64));
+            NativeWidgetSetter::SetMaxLength(value) => match &handle.widget {
+                Gtk4OsWidget::Entry(entry) => {
+                    entry.set_max_length(value.map(u32_to_i32).unwrap_or(0));
                 }
-            }
+                Gtk4OsWidget::TextView(text_view) => {
+                    self.text_input_max_lengths.borrow_mut().insert(id, *value);
+                    let buffer = text_view.buffer();
+                    let current = text_buffer_text(&buffer);
+                    self.suppress_events(|| {
+                        set_text_buffer_text(&buffer, &current, *value);
+                    });
+                }
+                _ => {}
+            },
             NativeWidgetSetter::SetCols(value) => {
                 if let Gtk4OsWidget::Entry(entry) = &handle.widget {
                     self.text_inputs.entry(id).or_default().cols = *value;
@@ -898,6 +940,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         }
         self.ranges.remove(&id);
         self.text_inputs.remove(&id);
+        self.text_input_max_lengths.borrow_mut().remove(&id);
         match &handle.widget {
             Gtk4OsWidget::ApplicationWindow(window) => window.close(),
             Gtk4OsWidget::Dialog(dialog) => dialog.close(),
