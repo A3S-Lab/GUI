@@ -937,3 +937,52 @@ test('frame actions must have stable ids', () => {
     /actions need an array/,
   );
 });
+
+test('window options must be valid native dimensions', () => {
+  const root = jsx(Group, {children: 'Profile'}, 'profile');
+  const frame = createUiFrame('profile', root, {
+    window: {
+      title: '',
+      width: 640,
+      height: 480,
+      minWidth: 320,
+      maxWidth: 1280,
+      resizable: false,
+    },
+  });
+
+  assert.deepEqual(frame.window, {
+    title: '',
+    width: 640,
+    height: 480,
+    minWidth: 320,
+    maxWidth: 1280,
+    resizable: false,
+  });
+  assert.throws(
+    () => createUiFrame('profile', root, {window: {width: 640}}),
+    /string title/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {window: {title: 'Profile', width: 0}}),
+    /positive finite number/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {
+      window: {title: 'Profile', minWidth: 800, maxWidth: 640},
+    }),
+    /minWidth.*greater than.*maxWidth/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {
+      window: {title: 'Profile', width: 320, minWidth: 640},
+    }),
+    /width.*smaller than.*minWidth/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {
+      window: {title: 'Profile', resizable: 'false'},
+    }),
+    /resizable.*boolean/,
+  );
+});

@@ -143,6 +143,9 @@ impl UiFrame {
                 "a3s-gui frame actions need non-empty string ids",
             ));
         }
+        if let Some(window) = &self.window {
+            window.validate()?;
+        }
         Ok(())
     }
 
@@ -179,6 +182,32 @@ impl UiAction {
 }
 
 impl WindowOptions {
+    pub fn validate(&self) -> GuiResult<()> {
+        validate_window_dimension("window.width", self.width)?;
+        validate_window_dimension("window.height", self.height)?;
+        validate_window_dimension("window.minWidth", self.min_width)?;
+        validate_window_dimension("window.minHeight", self.min_height)?;
+        validate_window_dimension("window.maxWidth", self.max_width)?;
+        validate_window_dimension("window.maxHeight", self.max_height)?;
+        validate_dimension_bounds(
+            "window.width",
+            self.width,
+            "window.minWidth",
+            self.min_width,
+            "window.maxWidth",
+            self.max_width,
+        )?;
+        validate_dimension_bounds(
+            "window.height",
+            self.height,
+            "window.minHeight",
+            self.min_height,
+            "window.maxHeight",
+            self.max_height,
+        )?;
+        Ok(())
+    }
+
     pub fn wrap_native_root(&self, frame_id: &str, content: NativeElement) -> NativeElement {
         let resizable = self.resizable.to_string();
         let mut web = WebProps::new()
@@ -216,6 +245,51 @@ impl WindowOptions {
 
 fn default_true() -> bool {
     true
+}
+
+fn validate_window_dimension(name: &'static str, value: Option<f64>) -> GuiResult<()> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    if value.is_finite() && value > 0.0 {
+        Ok(())
+    } else {
+        Err(GuiError::invalid_tree(format!(
+            "a3s-gui {name} must be a positive finite number"
+        )))
+    }
+}
+
+fn validate_dimension_bounds(
+    value_name: &'static str,
+    value: Option<f64>,
+    min_name: &'static str,
+    min: Option<f64>,
+    max_name: &'static str,
+    max: Option<f64>,
+) -> GuiResult<()> {
+    if let (Some(min), Some(max)) = (min, max) {
+        if min > max {
+            return Err(GuiError::invalid_tree(format!(
+                "a3s-gui {min_name} cannot be greater than {max_name}"
+            )));
+        }
+    }
+    if let (Some(value), Some(min)) = (value, min) {
+        if value < min {
+            return Err(GuiError::invalid_tree(format!(
+                "a3s-gui {value_name} cannot be smaller than {min_name}"
+            )));
+        }
+    }
+    if let (Some(value), Some(max)) = (value, max) {
+        if value > max {
+            return Err(GuiError::invalid_tree(format!(
+                "a3s-gui {value_name} cannot be greater than {max_name}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn collect_actions_from_node(root: &CompiledJsxNode) -> Vec<UiAction> {
@@ -552,6 +626,60 @@ mod tests {
             "#,
         )
         .unwrap();
+        let negative_width: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "negative-width",
+              "window": {"title": "Profile", "width": -1},
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button"
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let inverted_width_bounds: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "inverted-width-bounds",
+              "window": {"title": "Profile", "minWidth": 800, "maxWidth": 640},
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button"
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let width_below_minimum: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "width-below-minimum",
+              "window": {"title": "Profile", "width": 320, "minWidth": 640},
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button"
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut non_finite_window = valid.clone();
+        non_finite_window.frame_id = "non-finite-window".to_string();
+        non_finite_window.window = Some(WindowOptions {
+            title: "Profile".to_string(),
+            width: Some(f64::NAN),
+            height: None,
+            min_width: None,
+            min_height: None,
+            max_width: None,
+            max_height: None,
+            resizable: true,
+        });
 
         let mut session = NativeProtocolSession::new(Gtk4Adapter);
         let rendered = session.render_frame(&valid).unwrap();
@@ -572,6 +700,34 @@ mod tests {
         assert!(error
             .to_string()
             .contains("frame actions need non-empty string ids"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&negative_width).unwrap_err();
+        assert!(error.to_string().contains("positive finite number"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&inverted_width_bounds).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("window.minWidth cannot be greater than window.maxWidth"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&width_below_minimum).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("window.width cannot be smaller than window.minWidth"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&non_finite_window).unwrap_err();
+        assert!(error.to_string().contains("positive finite number"));
         assert_eq!(session.active_frame_id(), Some("valid"));
         assert_eq!(session.root(), Some(rendered.root));
         assert!(session.pending_commands().is_empty());

@@ -66,12 +66,54 @@ export function createUiFrame(frameId, root, options = {}) {
     throw new Error(FRAME_ROOT_ERROR);
   }
   const actions = normalizeFrameActions(options.actions ?? collectActions(root));
+  const window = options.window == null ? undefined : normalizeWindowOptions(options.window);
   return {
     frameId,
     root,
     actions,
-    ...(options.window ? {window: options.window} : {}),
+    ...(window ? {window} : {}),
   };
+}
+
+function normalizeWindowOptions(window) {
+  if (window == null || typeof window !== 'object' || Array.isArray(window)) {
+    throw new Error('a3s-gui window options need an object');
+  }
+  if (typeof window.title !== 'string') {
+    throw new Error('a3s-gui window options need a string title');
+  }
+
+  const normalized = {title: window.title};
+  for (const property of ['width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight']) {
+    if (window[property] == null) continue;
+    const value = window[property];
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      throw new Error(`a3s-gui window.${property} must be a positive finite number`);
+    }
+    normalized[property] = value;
+  }
+  if (window.resizable != null) {
+    if (typeof window.resizable !== 'boolean') {
+      throw new Error('a3s-gui window.resizable must be a boolean');
+    }
+    normalized.resizable = window.resizable;
+  }
+
+  validateWindowDimensionBounds(normalized, 'width', 'minWidth', 'maxWidth');
+  validateWindowDimensionBounds(normalized, 'height', 'minHeight', 'maxHeight');
+  return normalized;
+}
+
+function validateWindowDimensionBounds(window, valueName, minName, maxName) {
+  if (window[minName] != null && window[maxName] != null && window[minName] > window[maxName]) {
+    throw new Error(`a3s-gui window.${minName} cannot be greater than window.${maxName}`);
+  }
+  if (window[valueName] != null && window[minName] != null && window[valueName] < window[minName]) {
+    throw new Error(`a3s-gui window.${valueName} cannot be smaller than window.${minName}`);
+  }
+  if (window[valueName] != null && window[maxName] != null && window[valueName] > window[maxName]) {
+    throw new Error(`a3s-gui window.${valueName} cannot be greater than window.${maxName}`);
+  }
 }
 
 function normalizeFrameActions(actions) {

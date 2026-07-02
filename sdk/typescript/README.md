@@ -37,6 +37,8 @@ compiled element; wrap fragment children in `Group` or another container.
 Explicit frame actions must also use non-empty string ids. Use `defineAction`
 when the host needs action metadata beyond the stable id.
 Inferred actions preserve labels from `createAction(id, label)` handlers.
+Window dimensions must be positive finite numbers, and explicit width/height
+values must stay within any declared min/max constraints.
 Focus and toggle aliases such as `onFocusChange`, `onToggle`, and
 `onExpandedChange` are preserved in the emitted protocol alongside press,
 change, selection, and keyboard events.
