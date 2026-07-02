@@ -377,6 +377,11 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     widget.set_sensitive(*value);
                 }
             }
+            NativeWidgetSetter::SetReadOnly(value) => {
+                if let Gtk4OsWidget::Entry(entry) = &handle.widget {
+                    entry.set_editable(!*value);
+                }
+            }
             NativeWidgetSetter::SetVisible(value) => {
                 if let Some(widget) = handle.widget.as_widget() {
                     widget.set_visible(*value);
@@ -530,11 +535,25 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     scale.set_increments(range.step(), range.step() * 10.0);
                 }
             }
+            NativeWidgetSetter::SetMaxLength(value) => {
+                if let (Gtk4OsWidget::Entry(entry), Some(value)) = (&handle.widget, value) {
+                    entry.set_max_length(points_to_i32(*value as f64));
+                }
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetRequired(_)
             | NativeWidgetSetter::SetInvalid(_)
+            | NativeWidgetSetter::SetMultiple(_)
+            | NativeWidgetSetter::SetAutoFocus(_)
             | NativeWidgetSetter::SetExpanded(_)
+            | NativeWidgetSetter::SetAutocomplete(_)
+            | NativeWidgetSetter::SetInputMode(_)
+            | NativeWidgetSetter::SetPattern(_)
+            | NativeWidgetSetter::SetMinLength(_)
+            | NativeWidgetSetter::SetRows(_)
+            | NativeWidgetSetter::SetCols(_)
+            | NativeWidgetSetter::SetSize(_)
             | NativeWidgetSetter::SetWebStyle(_)
             | NativeWidgetSetter::SetEvents(_)
             | NativeWidgetSetter::SetMetadata(_) => {}

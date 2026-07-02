@@ -239,6 +239,55 @@ fn widget_config_normalizes_blueprint_for_native_setters() {
 }
 
 #[test]
+fn widget_config_preserves_html_form_control_hints() {
+    let element = NativeElement::new("email", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Email")
+            .read_only(true)
+            .multiple(true)
+            .auto_focus(true)
+            .autocomplete("email")
+            .input_mode("email")
+            .pattern(".+@example\\.com")
+            .min_length(Some(3))
+            .max_length(Some(64))
+            .rows(Some(6))
+            .cols(Some(40))
+            .size(Some(32)),
+    );
+
+    let config = AppKitAdapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert!(config.read_only);
+    assert!(config.multiple);
+    assert!(config.auto_focus);
+    assert_eq!(config.autocomplete.as_deref(), Some("email"));
+    assert_eq!(config.input_mode.as_deref(), Some("email"));
+    assert_eq!(config.pattern.as_deref(), Some(".+@example\\.com"));
+    assert_eq!(config.min_length, Some(3));
+    assert_eq!(config.max_length, Some(64));
+    assert_eq!(config.rows, Some(6));
+    assert_eq!(config.cols, Some(40));
+    assert_eq!(config.size, Some(32));
+    assert!(setters.contains(&NativeWidgetSetter::SetReadOnly(true)));
+    assert!(setters.contains(&NativeWidgetSetter::SetMultiple(true)));
+    assert!(setters.contains(&NativeWidgetSetter::SetAutoFocus(true)));
+    assert!(setters.contains(&NativeWidgetSetter::SetAutocomplete(Some(
+        "email".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetInputMode(Some("email".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetPattern(Some(
+        ".+@example\\.com".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetMinLength(Some(3))));
+    assert!(setters.contains(&NativeWidgetSetter::SetMaxLength(Some(64))));
+    assert!(setters.contains(&NativeWidgetSetter::SetRows(Some(6))));
+    assert!(setters.contains(&NativeWidgetSetter::SetCols(Some(40))));
+    assert!(setters.contains(&NativeWidgetSetter::SetSize(Some(32))));
+}
+
+#[test]
 fn widget_config_diff_reports_changed_native_setters() {
     let first = NativeElement::new("volume", NativeRole::Slider).with_props(
         NativeProps::new()
@@ -319,8 +368,10 @@ fn native_widget_setters_round_trip_as_json() {
     let setters = vec![
         NativeWidgetSetter::SetLabel(Some("Save".to_string())),
         NativeWidgetSetter::SetEnabled(false),
+        NativeWidgetSetter::SetReadOnly(true),
         NativeWidgetSetter::SetCurrent(Some(50.0)),
         NativeWidgetSetter::SetStep(Some(5.0)),
+        NativeWidgetSetter::SetAutocomplete(Some("email".to_string())),
         NativeWidgetSetter::SetEvents(BTreeMap::from([(
             "onPress".to_string(),
             "saveProfile".to_string(),

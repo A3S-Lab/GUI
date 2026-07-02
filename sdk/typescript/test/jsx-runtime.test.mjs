@@ -247,6 +247,29 @@ test('intrinsic number input normalizes numeric value props', () => {
   assert.equal(root.props.events.onChange, 'setQuantity');
 });
 
+test('intrinsic form control attributes preserve Web JSX names', () => {
+  const root = jsx('input', {
+    type: 'email',
+    readOnly: true,
+    autoFocus: true,
+    autoComplete: 'email',
+    inputMode: 'email',
+    pattern: '.+@example\\.com',
+    minLength: 3,
+    maxLength: 64,
+    size: 32,
+  }, 'email');
+
+  assert.equal(root.props.attributes.readOnly, 'true');
+  assert.equal(root.props.attributes.autoFocus, 'true');
+  assert.equal(root.props.attributes.autoComplete, 'email');
+  assert.equal(root.props.attributes.inputMode, 'email');
+  assert.equal(root.props.attributes.pattern, '.+@example\\.com');
+  assert.equal(root.props.attributes.minLength, '3');
+  assert.equal(root.props.attributes.maxLength, '64');
+  assert.equal(root.props.attributes.size, '32');
+});
+
 test('radio group markers lower to structured compiled nodes', () => {
   const setTheme = createAction('setTheme', 'Set theme');
   const root = jsxs(RadioGroup, {

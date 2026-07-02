@@ -265,6 +265,14 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     )?;
                 }
             }
+            NativeWidgetSetter::SetReadOnly(read_only) => {
+                if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
+                    map_winui(
+                        "failed to set WinUI text box read-only state",
+                        text_box.SetIsReadOnly(*read_only),
+                    )?;
+                }
+            }
             NativeWidgetSetter::SetVisible(visible) => {
                 if let WinUiOsWidget::ToolTip(tool_tip) = &handle.widget {
                     map_winui(
@@ -323,12 +331,31 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             NativeWidgetSetter::SetPortableStyle(style) => {
                 apply_portable_style(&handle.widget, style)?;
             }
+            NativeWidgetSetter::SetMaxLength(max_length) => {
+                if let (WinUiOsWidget::TextBox(text_box), Some(max_length)) =
+                    (&handle.widget, max_length)
+                {
+                    map_winui(
+                        "failed to set WinUI text box max length",
+                        text_box.SetMaxLength(*max_length as i32),
+                    )?;
+                }
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetClassName(_)
             | NativeWidgetSetter::SetRequired(_)
             | NativeWidgetSetter::SetInvalid(_)
+            | NativeWidgetSetter::SetMultiple(_)
+            | NativeWidgetSetter::SetAutoFocus(_)
             | NativeWidgetSetter::SetExpanded(_)
+            | NativeWidgetSetter::SetAutocomplete(_)
+            | NativeWidgetSetter::SetInputMode(_)
+            | NativeWidgetSetter::SetPattern(_)
+            | NativeWidgetSetter::SetMinLength(_)
+            | NativeWidgetSetter::SetRows(_)
+            | NativeWidgetSetter::SetCols(_)
+            | NativeWidgetSetter::SetSize(_)
             | NativeWidgetSetter::SetWebStyle(_)
             | NativeWidgetSetter::SetEvents(_)
             | NativeWidgetSetter::SetMetadata(_) => {}

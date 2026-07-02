@@ -459,6 +459,11 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     menu_item.setEnabled(*value);
                 }
             }
+            NativeWidgetSetter::SetReadOnly(value) => {
+                if let AppKitOsWidget::TextField(text_field) = &handle.widget {
+                    text_field.setEditable(!*value);
+                }
+            }
             NativeWidgetSetter::SetVisible(value) => {
                 if let Some(view) = handle.widget.as_view() {
                     view.setHidden(!*value);
@@ -586,7 +591,17 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             | NativeWidgetSetter::SetClassName(_)
             | NativeWidgetSetter::SetRequired(_)
             | NativeWidgetSetter::SetInvalid(_)
+            | NativeWidgetSetter::SetMultiple(_)
+            | NativeWidgetSetter::SetAutoFocus(_)
             | NativeWidgetSetter::SetExpanded(_)
+            | NativeWidgetSetter::SetAutocomplete(_)
+            | NativeWidgetSetter::SetInputMode(_)
+            | NativeWidgetSetter::SetPattern(_)
+            | NativeWidgetSetter::SetMinLength(_)
+            | NativeWidgetSetter::SetMaxLength(_)
+            | NativeWidgetSetter::SetRows(_)
+            | NativeWidgetSetter::SetCols(_)
+            | NativeWidgetSetter::SetSize(_)
             | NativeWidgetSetter::SetWebStyle(_)
             | NativeWidgetSetter::SetEvents(_)
             | NativeWidgetSetter::SetMetadata(_) => {}

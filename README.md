@@ -60,6 +60,11 @@ native control state.
 labels, and image `alt` text are used as fallback native labels.
 `textarea` direct text children are projected as the native text-field value
 when no explicit value is supplied.
+Common form-control attributes such as `readonly`/`readOnly`, `multiple`,
+`autofocus`/`autoFocus`, `autocomplete`/`autoComplete`, `inputmode`/`inputMode`,
+`pattern`, `minlength`/`minLength`, `maxlength`/`maxLength`, `rows`, `cols`,
+and `size` are projected into native control-state fields and remain available
+as metadata for platform adapters.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.
@@ -328,8 +333,10 @@ nodes, browser CSS layout, or browser focus APIs as runtime primitives.
 Accepted input fields include `className`, inline `style`, `aria-*`,
 `data-*`, HTML state props such as `disabled` and `required`, ranged attributes
 such as `min`/`max`/`step`/`aria-valuenow`, `input[type=range]` and
-`input[type=number]` numeric values, `placeholder`/`aria-placeholder`, stable
-keys, and DOM-style event props.
+`input[type=number]` numeric values, `placeholder`/`aria-placeholder`,
+HTML form-control hints such as `readOnly`, `multiple`, `autoFocus`,
+`autoComplete`, `inputMode`, `pattern`, `minLength`, `maxLength`, `rows`,
+`cols`, and `size`, stable keys, and DOM-style event props.
 Those values are normalized into native props and portable style tokens.
 Platform adapters decide how to apply the resulting setters and how to expose
 the matching platform accessibility metadata.
@@ -571,6 +578,7 @@ registered action ids.
 | `input[type=range]` | native slider role with numeric current value and step state |
 | `input[type=number]` | native text-field role with numeric current value, bounds, and step state |
 | `input[type=button]` / `input[type=submit]` / `input[type=reset]` / `input[type=image]` | native button role with HTML fallback labels |
+| `readOnly` / `multiple` / `autoFocus` / `autoComplete` / `inputMode` / `pattern` / `minLength` / `maxLength` / `rows` / `cols` / `size` | native control-state fields plus preserved metadata |
 | `select` / `optgroup` / `option` | native select option-group and option roles; `option[value]` preserves native value state |
 | `output` | native output role |
 | `meter` / `progress` | native ranged indicator roles |

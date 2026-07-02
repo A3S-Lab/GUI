@@ -68,6 +68,9 @@ impl CompiledProps {
         props.is_disabled = self.is_disabled || semantic.disabled.unwrap_or(false);
         props.is_required = self.is_required || semantic.required.unwrap_or(false);
         props.is_invalid = self.is_invalid || semantic.invalid.unwrap_or(false);
+        props.is_read_only = semantic.read_only.unwrap_or(false);
+        props.is_multiple = semantic.multiple.unwrap_or(false);
+        props.auto_focus = semantic.auto_focus.unwrap_or(false);
         props.is_selected = self.is_selected || semantic.selected.unwrap_or(false);
         props.is_checked = self.is_checked.or(semantic.checked);
         props.is_expanded = self.is_expanded.or(semantic.expanded).or(html_details_open);
@@ -79,6 +82,14 @@ impl CompiledProps {
             .or(semantic.value_number)
             .or(html_numeric_value);
         props.step_value = self.step_value.or(semantic.step_value).or(html_range_step);
+        props.autocomplete = semantic.autocomplete;
+        props.input_mode = semantic.input_mode;
+        props.pattern = semantic.pattern;
+        props.min_length = semantic.min_length;
+        props.max_length = semantic.max_length;
+        props.rows = semantic.rows;
+        props.cols = semantic.cols;
+        props.size = semantic.size;
         props
     }
 }
@@ -191,6 +202,9 @@ struct WebSemanticAliases {
     disabled: Option<bool>,
     required: Option<bool>,
     invalid: Option<bool>,
+    read_only: Option<bool>,
+    multiple: Option<bool>,
+    auto_focus: Option<bool>,
     selected: Option<bool>,
     checked: Option<bool>,
     expanded: Option<bool>,
@@ -200,6 +214,14 @@ struct WebSemanticAliases {
     max_value: Option<f64>,
     value_number: Option<f64>,
     step_value: Option<f64>,
+    autocomplete: Option<String>,
+    input_mode: Option<String>,
+    pattern: Option<String>,
+    min_length: Option<u32>,
+    max_length: Option<u32>,
+    rows: Option<u32>,
+    cols: Option<u32>,
+    size: Option<u32>,
 }
 
 impl WebSemanticAliases {
@@ -209,6 +231,9 @@ impl WebSemanticAliases {
             disabled: bool_attribute(attributes, &["disabled", "aria-disabled"]),
             required: bool_attribute(attributes, &["required", "aria-required"]),
             invalid: invalid_attribute(attributes, &["invalid", "aria-invalid"]),
+            read_only: bool_attribute(attributes, &["readonly", "readOnly", "aria-readonly"]),
+            multiple: bool_attribute(attributes, &["multiple", "aria-multiselectable"]),
+            auto_focus: bool_attribute(attributes, &["autofocus", "autoFocus"]),
             selected: bool_attribute(attributes, &["selected", "aria-selected"]),
             checked: bool_attribute(attributes, &["checked", "aria-checked"]),
             expanded: bool_attribute(attributes, &["expanded", "aria-expanded"]),
@@ -220,6 +245,16 @@ impl WebSemanticAliases {
             max_value: number_attribute(attributes, &["max", "aria-valuemax"]),
             value_number: number_attribute(attributes, &["aria-valuenow"]),
             step_value: number_attribute(attributes, &["step"]),
+            autocomplete: non_empty_string_attribute(attributes, &["autocomplete", "autoComplete"])
+                .map(str::to_string),
+            input_mode: non_empty_string_attribute(attributes, &["inputmode", "inputMode"])
+                .map(str::to_string),
+            pattern: non_empty_string_attribute(attributes, &["pattern"]).map(str::to_string),
+            min_length: u32_attribute(attributes, &["minlength", "minLength"]),
+            max_length: u32_attribute(attributes, &["maxlength", "maxLength"]),
+            rows: u32_attribute(attributes, &["rows"]),
+            cols: u32_attribute(attributes, &["cols"]),
+            size: u32_attribute(attributes, &["size"]),
         }
     }
 }
@@ -258,8 +293,16 @@ fn number_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Op
     string_attribute(attributes, names).and_then(parse_number_attribute)
 }
 
+fn u32_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<u32> {
+    string_attribute(attributes, names).and_then(parse_u32_attribute)
+}
+
 fn parse_number_attribute(value: &str) -> Option<f64> {
     value.trim().parse::<f64>().ok()
+}
+
+fn parse_u32_attribute(value: &str) -> Option<u32> {
+    value.trim().parse::<u32>().ok()
 }
 
 fn parse_bool_attribute(value: &str) -> Option<bool> {

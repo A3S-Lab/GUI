@@ -71,7 +71,9 @@ Allowed data:
 - semantic component names, HTML intrinsic element names, and SVG intrinsic
   element names
 - labels, values, placeholders, orientation, disabled state, selected state,
-  checked state, expanded state, ranged values
+  checked state, expanded state, read-only state, multiple-selection state,
+  autofocus state, text-entry hints, text-length hints, textarea sizing hints,
+  and ranged values
 - list, dialog, popover, tab, menu, and form structure
 - stable keys for reconciliation
 - `className`, Tailwind utility classes, inline `style` objects, and CSS text
@@ -129,7 +131,12 @@ HTML fallback labels from `value`, default submit/reset labels, or image `alt`
 text. `input` and `textarea` `placeholder` attributes, plus `aria-placeholder`,
 project into native placeholder state. `textarea` direct text children project
 into native text-field value state when no explicit value is supplied. HTML
-`option` and `data` `value` attributes project into native value state.
+form-control attributes including `readonly`/`readOnly`, `multiple`,
+`autofocus`/`autoFocus`, `autocomplete`/`autoComplete`,
+`inputmode`/`inputMode`, `pattern`, `minlength`/`minLength`,
+`maxlength`/`maxLength`, `rows`, `cols`, and `size` project into native
+control-state fields and stay available in metadata. HTML `option` and `data`
+`value` attributes project into native value state.
 Generic HTML containers lower to `NativeRole::View`; unsupported custom elements
 with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering
@@ -215,9 +222,11 @@ Unmapped CSS declarations are retained in `PortableStyle::unsupported` and in
 the raw blueprint style map.
 Native bindings can call `blueprint.config()` to derive a `NativeWidgetConfig`
 with setter-oriented values such as `enabled`, `visible`, `placeholder`,
-range bounds, range step state, selected/checked state, event action ids,
-metadata, and portable style. This keeps AppKit, WinUI, and GTK bindings from
-reinterpreting protocol fields differently.
+range bounds, range step state, selected/checked state, read-only state,
+multiple-selection state, autofocus state, text-entry hints, text-length hints,
+textarea sizing hints, event action ids, metadata, and portable style. This
+keeps AppKit, WinUI, and GTK bindings from reinterpreting protocol fields
+differently.
 `NativeWidgetConfig::diff()` returns a `NativeWidgetConfigPatch` for update
 passes, and `HandleWidgetDriver` stores the last config for each handle so
 `NativeHandleAdapter::update_handle_config()` can apply only changed setters.

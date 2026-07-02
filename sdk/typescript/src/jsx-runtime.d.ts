@@ -13,6 +13,9 @@ export interface WebCompatibleProps {
   children?: unknown;
   disabled?: boolean;
   required?: boolean;
+  readOnly?: boolean;
+  multiple?: boolean;
+  autoFocus?: boolean;
   invalid?: boolean;
   selected?: boolean;
   checked?: boolean;
@@ -34,6 +37,15 @@ export interface WebCompatibleProps {
   value?: string | number | boolean;
   defaultValue?: string | number | boolean;
   placeholder?: string;
+  autocomplete?: string;
+  autoComplete?: string;
+  inputMode?: string;
+  pattern?: string;
+  minLength?: number | string;
+  maxLength?: number | string;
+  rows?: number | string;
+  cols?: number | string;
+  size?: number | string;
   orientation?: 'horizontal' | 'vertical';
   min?: number | string;
   max?: number | string;

@@ -2,6 +2,7 @@ use super::*;
 use crate::accessibility::{AccessibilityNode, AccessibilityRole};
 use crate::geometry::Orientation;
 use crate::host::{HeadlessHost, HostOperation};
+use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::platform::{native_widget_name, NativeBackendKind};
 use crate::renderer::Renderer;
 

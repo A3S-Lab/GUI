@@ -164,6 +164,9 @@ pub struct NativeProps {
     pub disabled: bool,
     pub required: bool,
     pub invalid: bool,
+    pub read_only: bool,
+    pub multiple: bool,
+    pub auto_focus: bool,
     pub selected: bool,
     pub checked: Option<bool>,
     pub expanded: Option<bool>,
@@ -172,6 +175,14 @@ pub struct NativeProps {
     pub max: Option<f64>,
     pub current: Option<f64>,
     pub step: Option<f64>,
+    pub autocomplete: Option<String>,
+    pub input_mode: Option<String>,
+    pub pattern: Option<String>,
+    pub min_length: Option<u32>,
+    pub max_length: Option<u32>,
+    pub rows: Option<u32>,
+    pub cols: Option<u32>,
+    pub size: Option<u32>,
     pub web: WebProps,
     pub metadata: BTreeMap<String, String>,
 }
@@ -186,6 +197,9 @@ impl Default for NativeProps {
             disabled: false,
             required: false,
             invalid: false,
+            read_only: false,
+            multiple: false,
+            auto_focus: false,
             selected: false,
             checked: None,
             expanded: None,
@@ -194,6 +208,14 @@ impl Default for NativeProps {
             max: None,
             current: None,
             step: None,
+            autocomplete: None,
+            input_mode: None,
+            pattern: None,
+            min_length: None,
+            max_length: None,
+            rows: None,
+            cols: None,
+            size: None,
             web: WebProps::default(),
             metadata: BTreeMap::new(),
         }
@@ -240,6 +262,21 @@ impl NativeProps {
         self
     }
 
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.read_only = read_only;
+        self
+    }
+
+    pub fn multiple(mut self, multiple: bool) -> Self {
+        self.multiple = multiple;
+        self
+    }
+
+    pub fn auto_focus(mut self, auto_focus: bool) -> Self {
+        self.auto_focus = auto_focus;
+        self
+    }
+
     pub fn selected(mut self, selected: bool) -> Self {
         self.selected = selected;
         self
@@ -269,6 +306,46 @@ impl NativeProps {
 
     pub fn step(mut self, step: Option<f64>) -> Self {
         self.step = step;
+        self
+    }
+
+    pub fn autocomplete(mut self, autocomplete: impl Into<String>) -> Self {
+        self.autocomplete = Some(autocomplete.into());
+        self
+    }
+
+    pub fn input_mode(mut self, input_mode: impl Into<String>) -> Self {
+        self.input_mode = Some(input_mode.into());
+        self
+    }
+
+    pub fn pattern(mut self, pattern: impl Into<String>) -> Self {
+        self.pattern = Some(pattern.into());
+        self
+    }
+
+    pub fn min_length(mut self, min_length: Option<u32>) -> Self {
+        self.min_length = min_length;
+        self
+    }
+
+    pub fn max_length(mut self, max_length: Option<u32>) -> Self {
+        self.max_length = max_length;
+        self
+    }
+
+    pub fn rows(mut self, rows: Option<u32>) -> Self {
+        self.rows = rows;
+        self
+    }
+
+    pub fn cols(mut self, cols: Option<u32>) -> Self {
+        self.cols = cols;
+        self
+    }
+
+    pub fn size(mut self, size: Option<u32>) -> Self {
+        self.size = size;
         self
     }
 

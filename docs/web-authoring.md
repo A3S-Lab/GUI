@@ -86,6 +86,9 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `data-*` | preserved as metadata for testing, analytics, and automation |
 | `disabled` / `required` / `checked` / `selected` | normalized to React Aria-style native control state |
 | `min` / `max` / `aria-valuenow` | normalized to native ranged control state |
+| `readOnly` / `multiple` / `autoFocus` | normalized to native control state |
+| `autoComplete` / `inputMode` / `pattern` | normalized to native text-entry hints and preserved as metadata |
+| `minLength` / `maxLength` / `rows` / `cols` / `size` | normalized to native numeric control hints and preserved as metadata |
 | `onClick` / `onPress` | normalized to the primary native action |
 | `onChange` | normalized to the primary action for value controls |
 | `TextField` + `Label` + `Input` | folded into one native text field; `Input` value, placeholder, style, metadata, and events are inherited |

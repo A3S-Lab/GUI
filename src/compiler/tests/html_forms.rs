@@ -82,6 +82,90 @@ fn lowers_html_textarea_child_text_to_native_value() {
 }
 
 #[test]
+fn lowers_common_html_form_control_attributes_to_native_state() {
+    let bridge = ReactCompilerBridge::new();
+    let input = CompiledJsxNode::Element {
+        key: "email".to_string(),
+        tag: "input".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("type".to_string(), "email".to_string()),
+                ("readOnly".to_string(), "true".to_string()),
+                ("autofocus".to_string(), String::new()),
+                ("autocomplete".to_string(), "email".to_string()),
+                ("inputMode".to_string(), "email".to_string()),
+                ("pattern".to_string(), ".+@example\\.com".to_string()),
+                ("minLength".to_string(), "3".to_string()),
+                ("maxLength".to_string(), "64".to_string()),
+                ("size".to_string(), "32".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let textarea = CompiledJsxNode::Element {
+        key: "message".to_string(),
+        tag: "textarea".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("readonly".to_string(), String::new()),
+                ("rows".to_string(), "6".to_string()),
+                ("cols".to_string(), "40".to_string()),
+                ("maxlength".to_string(), "280".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let select = CompiledJsxNode::Element {
+        key: "projects".to_string(),
+        tag: "select".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([("multiple".to_string(), String::new())]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+
+    let native_input = bridge.lower_to_native(&input).unwrap();
+    let native_textarea = bridge.lower_to_native(&textarea).unwrap();
+    let native_select = bridge.lower_to_native(&select).unwrap();
+
+    assert_eq!(native_input.role, NativeRole::TextField);
+    assert!(native_input.props.read_only);
+    assert!(native_input.props.auto_focus);
+    assert_eq!(native_input.props.autocomplete.as_deref(), Some("email"));
+    assert_eq!(native_input.props.input_mode.as_deref(), Some("email"));
+    assert_eq!(
+        native_input.props.pattern.as_deref(),
+        Some(".+@example\\.com")
+    );
+    assert_eq!(native_input.props.min_length, Some(3));
+    assert_eq!(native_input.props.max_length, Some(64));
+    assert_eq!(native_input.props.size, Some(32));
+    assert_eq!(
+        native_input
+            .props
+            .metadata
+            .get("readOnly")
+            .map(String::as_str),
+        Some("true")
+    );
+
+    assert_eq!(native_textarea.role, NativeRole::TextField);
+    assert!(native_textarea.props.read_only);
+    assert_eq!(native_textarea.props.rows, Some(6));
+    assert_eq!(native_textarea.props.cols, Some(40));
+    assert_eq!(native_textarea.props.max_length, Some(280));
+
+    assert_eq!(native_select.role, NativeRole::Select);
+    assert!(native_select.props.multiple);
+}
+
+#[test]
 fn preserves_explicit_html_textarea_values_over_child_text() {
     let bridge = ReactCompilerBridge::new();
     let textarea = CompiledJsxNode::Element {
