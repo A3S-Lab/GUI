@@ -134,6 +134,7 @@ pub struct PortableStyle {
     pub color: Option<StyleColor>,
     pub accent_color: Option<StyleColor>,
     pub caret_color: Option<StyleColor>,
+    pub background: Option<String>,
     pub background_color: Option<StyleColor>,
     pub background_image: Option<String>,
     pub background_position: Option<String>,
@@ -879,7 +880,8 @@ impl PortableStyle {
             "color" => self.color = parse_color(value_ref),
             "accent-color" => self.accent_color = parse_color(value_ref),
             "caret-color" => self.caret_color = parse_color(value_ref),
-            "background" | "background-color" => self.background_color = parse_color(value_ref),
+            "background" => self.apply_background_shorthand(value_ref),
+            "background-color" => self.background_color = parse_color(value_ref),
             "background-image" => self.background_image = parse_css_string_token(value_ref),
             "background-position" => self.background_position = parse_css_string_token(value_ref),
             "background-size" => self.background_size = parse_css_string_token(value_ref),
@@ -1480,6 +1482,13 @@ impl PortableStyle {
             } else if let Some(color) = parse_color(part) {
                 self.outline_color = Some(color);
             }
+        }
+    }
+
+    fn apply_background_shorthand(&mut self, value: &str) {
+        self.background = parse_css_string_token(value);
+        if let Some(color) = parse_background_shorthand_color(value) {
+            self.background_color = Some(color);
         }
     }
 
@@ -4056,6 +4065,66 @@ fn parse_color(value: &str) -> Option<StyleColor> {
     } else {
         Some(StyleColor::Keyword(value.to_string()))
     }
+}
+
+fn parse_background_shorthand_color(value: &str) -> Option<StyleColor> {
+    let color = parse_color(value)?;
+    match &color {
+        StyleColor::Rgba { .. } => Some(color),
+        StyleColor::Keyword(keyword) if is_background_color_keyword_candidate(keyword) => {
+            Some(color)
+        }
+        StyleColor::Keyword(_) => None,
+    }
+}
+
+fn is_background_color_keyword_candidate(value: &str) -> bool {
+    let value = value.trim();
+    if value.is_empty()
+        || value.contains('/')
+        || value.contains(',')
+        || value.contains('(')
+        || value.chars().any(char::is_whitespace)
+    {
+        return false;
+    }
+
+    let lower = value.to_ascii_lowercase();
+    if matches!(
+        lower.as_str(),
+        "auto"
+            | "border-box"
+            | "bottom"
+            | "center"
+            | "contain"
+            | "content-box"
+            | "cover"
+            | "fixed"
+            | "inherit"
+            | "initial"
+            | "left"
+            | "local"
+            | "none"
+            | "no-repeat"
+            | "padding-box"
+            | "repeat"
+            | "repeat-x"
+            | "repeat-y"
+            | "revert"
+            | "revert-layer"
+            | "right"
+            | "round"
+            | "scroll"
+            | "space"
+            | "top"
+            | "unset"
+    ) {
+        return false;
+    }
+
+    value
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '-')
 }
 
 fn parse_hex_color(hex: &str) -> Option<StyleColor> {
@@ -11087,6 +11156,67 @@ mod tests {
                 .map(String::as_str),
             Some("normal")
         );
+    }
+
+    #[test]
+    fn parses_css_background_shorthand_property() {
+        let web = WebProps::new().style(
+            "background",
+            "center / cover no-repeat fixed padding-box border-box url('/hero.png') #101820",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.background.as_deref(),
+            Some("center / cover no-repeat fixed padding-box border-box url('/hero.png') #101820")
+        );
+        assert_eq!(
+            style.declarations.get("background").map(String::as_str),
+            Some("center / cover no-repeat fixed padding-box border-box url('/hero.png') #101820")
+        );
+        assert_eq!(style.background_color, None);
+        assert!(!style.unsupported.contains_key("background"));
+
+        let color_only = PortableStyle::from_web(&WebProps::new().style("background", "#663399"));
+        assert_eq!(color_only.background.as_deref(), Some("#663399"));
+        assert_eq!(
+            color_only.background_color,
+            Some(StyleColor::Rgba {
+                red: 0x66,
+                green: 0x33,
+                blue: 0x99,
+                alpha: 255,
+            })
+        );
+    }
+
+    #[test]
+    fn parses_tailwind_arbitrary_background_shorthand_property() {
+        let web = WebProps::new().class_name(
+            "[background:center_/_cover_no-repeat_url('/hero.png')_#101820] \
+             hover:[background:linear-gradient(red,_blue)]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.background.as_deref(),
+            Some("center / cover no-repeat url('/hero.png') #101820")
+        );
+        assert_eq!(
+            style.declarations.get("background").map(String::as_str),
+            Some("center / cover no-repeat url('/hero.png') #101820")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("background"))
+                .map(String::as_str),
+            Some("linear-gradient(red, blue)")
+        );
+        assert!(!style.unsupported.contains_key("background"));
     }
 
     #[test]

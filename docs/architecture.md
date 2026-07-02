@@ -385,7 +385,7 @@ deterministically:
   `borderColor`, uniform, physical-corner, and logical-corner `borderRadius`
 - `borderImage`, `borderImageSource`, `borderImageSlice`,
   `borderImageWidth`, `borderImageOutset`, and `borderImageRepeat`
-- `color`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
+- `color`, `background`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
   `backgroundSize`, `backgroundRepeat`, `backgroundAttachment`,
   `backgroundOrigin`, `backgroundClip`, `backgroundBlendMode`
 - `clip`, `clipPath`, `mask*`, and `maskBorder*`
@@ -535,10 +535,10 @@ Arbitrary `all` properties project into cascade reset metadata.
 Common Tailwind background, object, list, columns, and fragmentation utilities
 such as `bg-*`, `object-*`, `list-*`, `list-image-*`, `columns-*`,
 `break-before-*`, `break-after-*`, and `break-inside-*`, plus arbitrary CSS
-image and shape properties such as `image-rendering` and `shape-outside`, and
-arbitrary paged media and list properties such as `page`, `orphans`, `widows`,
-and `marker-side`, plus bookmark and footnote properties, project into the same
-declaration model.
+background shorthand, image, and shape properties such as `background`,
+`image-rendering`, and `shape-outside`, and arbitrary paged media and list
+properties such as `page`, `orphans`, `widows`, and `marker-side`, plus bookmark
+and footnote properties, project into the same declaration model.
 Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,
 `rounded-r-*`, `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`,
 `rounded-tr-*`, `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`,
