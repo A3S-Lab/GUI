@@ -87,12 +87,10 @@ label `htmlFor`, output `for`, and meter `low`, `high`, and `optimum` are
 preserved with their Web JSX names and projected by the Rust bridge into native
 control, activation, text annotation, form association, and resource policy
 hints.
-Marker
-exports include form and selection components such as `RadioGroup`, `Radio`,
-`Select`, `ListBoxItem`, `Dialog`, `Popover`, `Tabs`, `TabList`, `Tab`,
-`TabPanel`, `Menu`, `MenuItem`, `Link`, `Slider`, and `ProgressBar`, plus
-structural markers such as `Separator` and `Toolbar`. The emitted frame
-contains semantic JSX element names.
+Marker exports cover the same semantic component names accepted by the Rust
+compiler bridge, including document, text, landmark, disclosure, figure,
+description-list, media, form, selection, overlay, tab, menu, toolbar, and
+table structures. The emitted frame contains semantic JSX element names.
 For intrinsic `input` tags, `type="range"` and `type="number"` normalize
 numeric `value` and `defaultValue` props to `valueNumber`.
 For intrinsic `textarea` tags, direct text children remain in the compiled

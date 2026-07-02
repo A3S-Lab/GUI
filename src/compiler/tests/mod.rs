@@ -16,5 +16,6 @@ mod support {
     pub(super) use crate::geometry::Orientation;
     pub(super) use crate::html::{HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS, HTML_TAG_METADATA_KEY};
     pub(super) use crate::native::NativeRole;
+    pub(super) use crate::react_aria::AriaComponent;
     pub(super) use crate::svg::{SVG_ELEMENTS, SVG_TAG_METADATA_KEY};
 }

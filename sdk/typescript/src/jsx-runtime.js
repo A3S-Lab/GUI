@@ -13,13 +13,102 @@ export function createComponent(name) {
 
 export const Button = createComponent('Button');
 export const Label = createComponent('Label');
+export const Document = createComponent('Document');
+export const DocumentHead = createComponent('DocumentHead');
+export const DocumentBody = createComponent('DocumentBody');
+export const DocumentTitle = createComponent('DocumentTitle');
+export const Metadata = createComponent('Metadata');
+export const ResourceLink = createComponent('ResourceLink');
+export const StyleSheet = createComponent('StyleSheet');
+export const Script = createComponent('Script');
+export const Template = createComponent('Template');
+export const Slot = createComponent('Slot');
 export const Text = createComponent('Text');
+export const Abbreviation = createComponent('Abbreviation');
+export const Citation = createComponent('Citation');
+export const Definition = createComponent('Definition');
+export const DataValue = createComponent('DataValue');
+export const InsertedText = createComponent('InsertedText');
+export const DeletedText = createComponent('DeletedText');
+export const MarkedText = createComponent('MarkedText');
+export const Time = createComponent('Time');
+export const Emphasis = createComponent('Emphasis');
+export const StrongText = createComponent('StrongText');
+export const Code = createComponent('Code');
+export const KeyboardInput = createComponent('KeyboardInput');
+export const SampleOutput = createComponent('SampleOutput');
+export const Variable = createComponent('Variable');
+export const InlineQuote = createComponent('InlineQuote');
+export const Subscript = createComponent('Subscript');
+export const Superscript = createComponent('Superscript');
+export const SmallText = createComponent('SmallText');
+export const BoldText = createComponent('BoldText');
+export const ItalicText = createComponent('ItalicText');
+export const StruckText = createComponent('StruckText');
+export const UnderlinedText = createComponent('UnderlinedText');
+export const BidirectionalIsolate = createComponent('BidirectionalIsolate');
+export const BidirectionalOverride = createComponent('BidirectionalOverride');
+export const Paragraph = createComponent('Paragraph');
+export const PreformattedText = createComponent('PreformattedText');
+export const BlockQuote = createComponent('BlockQuote');
+export const ContactAddress = createComponent('ContactAddress');
+export const LineBreak = createComponent('LineBreak');
+export const WordBreakOpportunity = createComponent('WordBreakOpportunity');
+export const NoBreakText = createComponent('NoBreakText');
+export const CenteredText = createComponent('CenteredText');
+export const FontText = createComponent('FontText');
+export const BigText = createComponent('BigText');
+export const TeletypeText = createComponent('TeletypeText');
+export const Applet = createComponent('Applet');
+export const BackgroundSound = createComponent('BackgroundSound');
+export const Frame = createComponent('Frame');
+export const FrameSet = createComponent('FrameSet');
+export const NoEmbedFallback = createComponent('NoEmbedFallback');
+export const NoFramesFallback = createComponent('NoFramesFallback');
+export const Marquee = createComponent('Marquee');
+export const Math = createComponent('Math');
+export const NextId = createComponent('NextId');
+export const SelectedContent = createComponent('SelectedContent');
+export const Heading = createComponent('Heading');
+export const HeadingGroup = createComponent('HeadingGroup');
+export const Ruby = createComponent('Ruby');
+export const RubyBase = createComponent('RubyBase');
+export const RubyText = createComponent('RubyText');
+export const RubyParenthesis = createComponent('RubyParenthesis');
+export const RubyTextContainer = createComponent('RubyTextContainer');
+export const Main = createComponent('Main');
+export const Navigation = createComponent('Navigation');
+export const Header = createComponent('Header');
+export const Footer = createComponent('Footer');
+export const Article = createComponent('Article');
+export const Section = createComponent('Section');
+export const Aside = createComponent('Aside');
+export const Search = createComponent('Search');
+export const Disclosure = createComponent('Disclosure');
+export const DisclosureSummary = createComponent('DisclosureSummary');
+export const Figure = createComponent('Figure');
+export const FigureCaption = createComponent('FigureCaption');
+export const DescriptionList = createComponent('DescriptionList');
+export const DescriptionTerm = createComponent('DescriptionTerm');
+export const DescriptionDetails = createComponent('DescriptionDetails');
+export const Image = createComponent('Image');
+export const Media = createComponent('Media');
+export const Canvas = createComponent('Canvas');
+export const EmbeddedContent = createComponent('EmbeddedContent');
+export const Link = createComponent('Link');
+export const ImageMap = createComponent('ImageMap');
+export const ImageMapArea = createComponent('ImageMapArea');
 export const TextField = createComponent('TextField');
 export const Input = createComponent('Input');
 export const Checkbox = createComponent('Checkbox');
 export const Switch = createComponent('Switch');
 export const RadioGroup = createComponent('RadioGroup');
 export const Radio = createComponent('Radio');
+export const FieldSet = createComponent('FieldSet');
+export const Legend = createComponent('Legend');
+export const OptionGroup = createComponent('OptionGroup');
+export const Output = createComponent('Output');
+export const Meter = createComponent('Meter');
 export const Select = createComponent('Select');
 export const SelectValue = createComponent('SelectValue');
 export const ListBox = createComponent('ListBox');
@@ -38,7 +127,12 @@ export const Separator = createComponent('Separator');
 export const Slider = createComponent('Slider');
 export const ProgressBar = createComponent('ProgressBar');
 export const Toolbar = createComponent('Toolbar');
-export const Link = createComponent('Link');
+export const Table = createComponent('Table');
+export const TableSection = createComponent('TableSection');
+export const TableRow = createComponent('TableRow');
+export const TableCell = createComponent('TableCell');
+export const TableColumn = createComponent('TableColumn');
+export const TableCaption = createComponent('TableCaption');
 
 export function jsx(type, props, key) {
   return createNode(type, props ?? {}, key);
@@ -255,13 +349,13 @@ function splitCssDeclarations(value) {
       parenDepth += 1;
       current += char;
     } else if (char === ')') {
-      parenDepth = Math.max(0, parenDepth - 1);
+      parenDepth = globalThis.Math.max(0, parenDepth - 1);
       current += char;
     } else if (char === '[') {
       bracketDepth += 1;
       current += char;
     } else if (char === ']') {
-      bracketDepth = Math.max(0, bracketDepth - 1);
+      bracketDepth = globalThis.Math.max(0, bracketDepth - 1);
       current += char;
     } else if (char === ';' && parenDepth === 0 && bracketDepth === 0) {
       declarations.push(current);
@@ -300,11 +394,11 @@ function findCssDeclarationSeparator(declaration) {
     } else if (char === '(') {
       parenDepth += 1;
     } else if (char === ')') {
-      parenDepth = Math.max(0, parenDepth - 1);
+      parenDepth = globalThis.Math.max(0, parenDepth - 1);
     } else if (char === '[') {
       bracketDepth += 1;
     } else if (char === ']') {
-      bracketDepth = Math.max(0, bracketDepth - 1);
+      bracketDepth = globalThis.Math.max(0, bracketDepth - 1);
     } else if (char === ':' && parenDepth === 0 && bracketDepth === 0) {
       return index;
     }
@@ -339,11 +433,11 @@ function stripImportantPriority(value) {
     } else if (char === '(') {
       parenDepth += 1;
     } else if (char === ')') {
-      parenDepth = Math.max(0, parenDepth - 1);
+      parenDepth = globalThis.Math.max(0, parenDepth - 1);
     } else if (char === '[') {
       bracketDepth += 1;
     } else if (char === ']') {
-      bracketDepth = Math.max(0, bracketDepth - 1);
+      bracketDepth = globalThis.Math.max(0, bracketDepth - 1);
     } else if (char === '!' && parenDepth === 0 && bracketDepth === 0) {
       importantStart = index;
     }

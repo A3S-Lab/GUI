@@ -8,6 +8,10 @@ use crate::svg::component_for_svg_tag;
 use super::CompiledProps;
 
 pub(super) fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaComponent> {
+    if let Some(component) = AriaComponent::from_name(tag) {
+        return Ok(component);
+    }
+
     match tag {
         "Button" | "button" => Ok(AriaComponent::Button),
         "Link" => Ok(AriaComponent::Link),
