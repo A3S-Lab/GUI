@@ -106,8 +106,9 @@ CSS UI interactivity metadata, cursor, pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `calc-size(...)`, `var(...)`, `clamp(...)`, `anchor(...)`,
-`anchor-size(...)`, viewport units, and sizing keywords, are preserved as CSS
-length tokens for platform adapters that can consume them.
+`anchor-size(...)`, CSS math functions such as `round(...)`, `hypot(...)`, and
+`abs(...)`, viewport units, and sizing keywords, are preserved as CSS length
+tokens for platform adapters that can consume them.
 CSS color values support hex, RGB/RGBA, HSL/HSLA, slash alpha syntax, keyword
 preservation, and CSS color function preservation for `hwb(...)`, `lab(...)`,
 `lch(...)`, `oklab(...)`, `oklch(...)`, `color(...)`, `color-mix(...)`,

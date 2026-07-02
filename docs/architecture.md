@@ -357,6 +357,11 @@ Menu-specific native backend code lives under `src/native_backends/`:
 model rebuilds. The large surface files keep the platform event loop and widget
 dispatch logic, while backend-local menu details stay in focused modules.
 
+Style normalization remains centered in `src/style.rs`, with lower-level value
+parsing split into `src/style/value_parsing.rs`. The value parsing module owns
+length and time token recognition, including CSS custom properties, CSS math
+functions, and units that must be preserved instead of converted eagerly.
+
 ## Style Contract
 
 `WebProps` keeps the original Web style map. `PortableStyle` keeps normalized
@@ -473,7 +478,10 @@ data.
 CSS length values that cannot be converted to numeric points or percentages are
 kept as `StyleLength::Css`, including `calc(...)`, `calc-size(...)`,
 `var(...)`, `clamp(...)`, `anchor(...)`, `anchor-size(...)`,
+CSS math functions such as `round(...)`, `hypot(...)`, and `abs(...)`,
 viewport/container units, and sizing keywords such as `min-content`.
+CSS time values that cannot be converted to milliseconds are kept as
+`StyleTime::Css`, including custom properties and CSS math functions.
 CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
 RGBA tokens when possible. Native CSS color functions such as `hwb(...)`,
 `lab(...)`, `lch(...)`, `oklab(...)`, `oklch(...)`, `color(...)`,

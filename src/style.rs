@@ -4,6 +4,10 @@ use crate::geometry::Orientation;
 use crate::web::WebProps;
 use serde::{Deserialize, Serialize};
 
+mod value_parsing;
+
+use value_parsing::{parse_length, parse_time};
+
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PortableStyle {
@@ -3974,191 +3978,6 @@ fn make_corner_radius(horizontal: &StyleLength, vertical: Option<&StyleLength>) 
         horizontal: horizontal.clone(),
         vertical: vertical.cloned(),
     }
-}
-
-fn parse_time(value: &str) -> Option<StyleTime> {
-    let value = value.trim();
-    if value.is_empty() {
-        return None;
-    }
-    if value == "0" {
-        return Some(StyleTime::Milliseconds(0.0));
-    }
-    if let Some(milliseconds) = value.strip_suffix("ms") {
-        return milliseconds
-            .trim()
-            .parse::<f64>()
-            .ok()
-            .map(StyleTime::Milliseconds);
-    }
-    if let Some(seconds) = value.strip_suffix('s') {
-        return seconds
-            .trim()
-            .parse::<f64>()
-            .ok()
-            .map(|value| StyleTime::Milliseconds(value * 1000.0));
-    }
-    if is_css_time_expression(value) {
-        return Some(StyleTime::Css(value.to_string()));
-    }
-    None
-}
-
-fn is_css_time_expression(value: &str) -> bool {
-    if matches!(
-        value,
-        "inherit" | "initial" | "unset" | "revert" | "revert-layer"
-    ) {
-        return true;
-    }
-    matches!(
-        value.split_once('(').map(|(name, _)| name.trim()),
-        Some("calc" | "min" | "max" | "clamp" | "var")
-    ) && value.ends_with(')')
-}
-
-fn parse_length(value: &str) -> Option<StyleLength> {
-    let value = value.trim();
-    if value.is_empty() {
-        return None;
-    }
-    if value == "auto" {
-        return Some(StyleLength::Auto);
-    }
-    if let Some(percent) = value.strip_suffix('%') {
-        return percent.trim().parse::<f64>().ok().map(StyleLength::Percent);
-    }
-    if let Some(points) = value.strip_suffix("px") {
-        return points.trim().parse::<f64>().ok().map(StyleLength::Points);
-    }
-    if let Some(rem) = value.strip_suffix("rem") {
-        return rem
-            .trim()
-            .parse::<f64>()
-            .ok()
-            .map(|value| StyleLength::Points(value * 16.0));
-    }
-    if let Some(em) = value.strip_suffix("em") {
-        return em
-            .trim()
-            .parse::<f64>()
-            .ok()
-            .map(|value| StyleLength::Points(value * 16.0));
-    }
-    if let Some(points) = value.strip_suffix("pt") {
-        return points.trim().parse::<f64>().ok().map(StyleLength::Points);
-    }
-    if let Ok(points) = value.parse::<f64>() {
-        return Some(StyleLength::Points(points));
-    }
-    if is_css_length_expression(value) {
-        return Some(StyleLength::Css(value.to_string()));
-    }
-    None
-}
-
-fn is_css_length_expression(value: &str) -> bool {
-    if matches!(
-        value,
-        "inherit"
-            | "initial"
-            | "unset"
-            | "revert"
-            | "revert-layer"
-            | "normal"
-            | "none"
-            | "from-font"
-            | "min-content"
-            | "max-content"
-            | "fit-content"
-            | "stretch"
-            | "contain"
-    ) {
-        return true;
-    }
-    if matches!(
-        value.split_once('(').map(|(name, _)| name.trim()),
-        Some(
-            "anchor"
-                | "anchor-size"
-                | "calc"
-                | "calc-size"
-                | "min"
-                | "max"
-                | "clamp"
-                | "var"
-                | "env"
-                | "fit-content",
-        )
-    ) && value.ends_with(')')
-    {
-        return true;
-    }
-    let Some((number, unit)) = split_number_and_unit(value) else {
-        return false;
-    };
-    number.parse::<f64>().is_ok() && is_css_length_unit(unit)
-}
-
-fn split_number_and_unit(value: &str) -> Option<(&str, &str)> {
-    let mut split = value.len();
-    for (index, ch) in value.char_indices().rev() {
-        if ch.is_ascii_alphabetic() || ch == '%' {
-            split = index;
-        } else {
-            break;
-        }
-    }
-    if split == value.len() || split == 0 {
-        return None;
-    }
-    Some((&value[..split], &value[split..]))
-}
-
-fn is_css_length_unit(unit: &str) -> bool {
-    matches!(
-        unit,
-        "cap"
-            | "ch"
-            | "em"
-            | "ex"
-            | "ic"
-            | "lh"
-            | "rlh"
-            | "rem"
-            | "vw"
-            | "svw"
-            | "lvw"
-            | "dvw"
-            | "vh"
-            | "svh"
-            | "lvh"
-            | "dvh"
-            | "vi"
-            | "svi"
-            | "lvi"
-            | "dvi"
-            | "vb"
-            | "svb"
-            | "lvb"
-            | "dvb"
-            | "vmin"
-            | "svmin"
-            | "lvmin"
-            | "dvmin"
-            | "vmax"
-            | "svmax"
-            | "lvmax"
-            | "dvmax"
-            | "cm"
-            | "mm"
-            | "q"
-            | "Q"
-            | "in"
-            | "pc"
-            | "pt"
-            | "px"
-    )
 }
 
 fn parse_color(value: &str) -> Option<StyleColor> {
@@ -12097,8 +11916,11 @@ mod tests {
             .style("height", "calc-size(auto, size + 2rem)")
             .style("minWidth", "min-content")
             .style("maxHeight", "clamp(240px, 50vh, 640px)")
+            .style("inlineSize", "round(nearest, 100%, 1px)")
+            .style("blockSize", "hypot(3px, 4px)")
             .style("interpolateSize", "allow-keywords")
             .style("gap", "var(--space)")
+            .style("marginTop", "abs(-2rem)")
             .style("borderWidth", "fit-content");
 
         let style = PortableStyle::from_web(&web);
@@ -12120,8 +11942,20 @@ mod tests {
             Some(StyleLength::Css("clamp(240px, 50vh, 640px)".to_string()))
         );
         assert_eq!(
+            style.inline_size,
+            Some(StyleLength::Css("round(nearest, 100%, 1px)".to_string()))
+        );
+        assert_eq!(
+            style.block_size,
+            Some(StyleLength::Css("hypot(3px, 4px)".to_string()))
+        );
+        assert_eq!(
             style.gap,
             Some(StyleLength::Css("var(--space)".to_string()))
+        );
+        assert_eq!(
+            style.margin.top,
+            Some(StyleLength::Css("abs(-2rem)".to_string()))
         );
         assert_eq!(
             style.border_width.top,
@@ -12136,6 +11970,8 @@ mod tests {
         let web = WebProps::new().class_name(
             "w-[calc(100%_-_2rem)] h-[calc-size(auto,size_+_2rem)] min-w-[min-content] \
              max-h-[clamp(240px,_50vh,_640px)] gap-[var(--space)] \
+             [inline-size:round(nearest,100%,1px)] [block-size:hypot(3px,4px)] \
+             [margin-top:abs(-2rem)] \
              [interpolate-size:allow-keywords] hover:[interpolate-size:numeric-only]",
         );
 
@@ -12160,6 +11996,18 @@ mod tests {
         assert_eq!(
             style.gap,
             Some(StyleLength::Css("var(--space)".to_string()))
+        );
+        assert_eq!(
+            style.inline_size,
+            Some(StyleLength::Css("round(nearest,100%,1px)".to_string()))
+        );
+        assert_eq!(
+            style.block_size,
+            Some(StyleLength::Css("hypot(3px,4px)".to_string()))
+        );
+        assert_eq!(
+            style.margin.top,
+            Some(StyleLength::Css("abs(-2rem)".to_string()))
         );
         assert_eq!(
             style.declarations.get("width").map(String::as_str),
@@ -13029,7 +12877,7 @@ mod tests {
         let web = WebProps::new()
             .style("transition", "opacity 200ms ease-in")
             .style("transitionProperty", "opacity")
-            .style("transitionDuration", "200ms")
+            .style("transitionDuration", "round(nearest, 1s, 100ms)")
             .style("transitionTimingFunction", "ease-in")
             .style("transitionDelay", "0.25s")
             .style("transitionBehavior", "allow-discrete")
@@ -13113,7 +12961,7 @@ mod tests {
         assert_eq!(style.transition_property.as_deref(), Some("opacity"));
         assert_eq!(
             style.transition_duration,
-            Some(StyleTime::Milliseconds(200.0))
+            Some(StyleTime::Css("round(nearest, 1s, 100ms)".to_string()))
         );
         assert_eq!(style.transition_timing_function.as_deref(), Some("ease-in"));
         assert_eq!(style.transition_delay, Some(StyleTime::Milliseconds(250.0)));
