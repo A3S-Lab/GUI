@@ -83,6 +83,7 @@ mode, text orientation, text combine upright, text transform, text indent, text
 wrapping, wrap control, text spacing, text autospace, word space transform,
 text box trim/edge, line clamp,
 line clamp longhands,
+CSS Speech cue/pause/rest/speak/voice metadata,
 SVG fill/stroke/marker presentation properties, SVG rendering hints, SVG paint
 server and filter color properties, text decoration,
 text decoration skip ink, underline offset/position, text shadow, text overflow,
@@ -168,6 +169,8 @@ initial-letter properties,
 `text-box*`, `white-space-collapse`, `white-space-trim`,
 `hanging-punctuation`, hyphenation limit properties, and line-clamp
 longhand properties,
+arbitrary CSS Speech properties such as `speak`, `speak-as`, `pause`, `rest`,
+`cue`, and `voice-*`,
 arbitrary `ruby-*`
 properties, `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `truncate`,

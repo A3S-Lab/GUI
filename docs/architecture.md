@@ -419,6 +419,7 @@ deterministically:
   `linePadding`, `textSpacing`, `textSpacingTrim`, `textAutospace`,
   `textBox*`, `hangingPunctuation`, `lineClamp`, `blockEllipsis`,
   `continue`, `maxLines`, `boxOrient`
+- `speak`, `speakAs`, `pause*`, `rest*`, `cue*`, and `voice*`
 - SVG presentation properties such as `fill`, `fillOpacity`, `fillRule`,
   `clipRule`, `stroke`, `strokeWidth`, `strokeLinecap`, `strokeLinejoin`,
   `strokeMiterlimit`, `strokeDasharray`, `strokeDashoffset`, `strokeOpacity`,
@@ -532,6 +533,8 @@ initial-letter properties, `text-wrap-*`, arbitrary `wrap-*`,
 `text-box*`, `white-space-collapse`, `white-space-trim`,
 `hanging-punctuation`, hyphenation limit properties, and line-clamp
 longhand properties,
+arbitrary CSS Speech properties such as `speak`, `speak-as`, `pause`, `rest`,
+`cue`, and `voice-*`,
 arbitrary `ruby-*`
 properties, `truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`,
 `text-shadow-*`, `text-wrap`, `text-nowrap`,
