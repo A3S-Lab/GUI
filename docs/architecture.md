@@ -127,11 +127,11 @@ as native control state. `input[type=button]`, `input[type=submit]`,
 `input[type=reset]`, and `input[type=image]` lower to native button roles with
 HTML fallback labels from `value`, default submit/reset labels, or image `alt`
 text. `input` and `textarea` `placeholder` attributes, plus `aria-placeholder`,
-project into native placeholder state. HTML `option` and `data` `value`
-attributes project into native value state. Generic HTML containers lower to
-`NativeRole::View`;
-unsupported
-custom elements with a hyphenated tag name also lower to a generic native view.
+project into native placeholder state. `textarea` direct text children project
+into native text-field value state when no explicit value is supplied. HTML
+`option` and `data` `value` attributes project into native value state.
+Generic HTML containers lower to `NativeRole::View`; unsupported custom elements
+with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering
 path for vector and icon JSX trees. Recognized SVG tags lower to generic native
 views or text nodes and preserve the original tag as `data-a3s-svg-tag`
@@ -376,15 +376,17 @@ Menu-specific native backend code lives under `src/native_backends/`:
 model rebuilds. The large surface files keep the platform event loop and widget
 dispatch logic, while backend-local menu details stay in focused modules.
 
-Style normalization lives under `src/style/`. `src/style/mod.rs` owns the
-`PortableStyle` data model and CSS property projection entry points,
-`src/style/tailwind_utilities.rs` owns Tailwind utility-to-declaration mapping,
-and lower-level value parsing is split into focused submodules.
-`src/style/value_parsing.rs` owns length and time token recognition, including
-CSS custom properties, CSS math functions, and units that must be preserved
-instead of converted eagerly.
-`src/style/color_parsing.rs` owns hex, RGB/HSL, modern CSS color function, and
-background-shorthand color recognition.
+Style normalization lives under `src/style/`. `src/style/mod.rs` is the module
+entry point. `portable.rs`, `apply.rs`, `shorthands.rs`, `composition.rs`,
+`tailwind_apply.rs`, and `declarations.rs` split the `PortableStyle` data model
+from CSS property projection and declaration bookkeeping. `types.rs` owns the
+portable style value types, and `parsing.rs` owns CSS property parsers.
+Tailwind utility-to-declaration mapping is split under `src/style/tailwind_utilities/`
+by utility family. `src/style/value_parsing.rs` owns length and time token
+recognition, including CSS custom properties, CSS math functions, and units that
+must be preserved instead of converted eagerly. `src/style/color_parsing.rs`
+owns hex, RGB/HSL, modern CSS color function, and background-shorthand color
+recognition.
 
 ## Style Contract
 

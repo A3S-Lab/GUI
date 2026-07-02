@@ -49,6 +49,8 @@ native control state.
 `input[type=button]`, `input[type=submit]`, `input[type=reset]`, and
 `input[type=image]` lower to native button roles; `value`, default submit/reset
 labels, and image `alt` text are used as fallback native labels.
+`textarea` direct text children are projected as the native text-field value
+when no explicit value is supplied.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.

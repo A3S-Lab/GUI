@@ -89,6 +89,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `onClick` / `onPress` | normalized to the primary native action |
 | `onChange` | normalized to the primary action for value controls |
 | `TextField` + `Label` + `Input` | folded into one native text field; `Input` value, placeholder, style, metadata, and events are inherited |
+| `textarea` direct text children | projected as native text-field value when no explicit value is supplied |
 | `Select` + `ListBoxItem` | folded into a native select with native options |
 
 ## Native Adapter Contract

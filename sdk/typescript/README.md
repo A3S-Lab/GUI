@@ -46,6 +46,9 @@ structural markers such as `Separator` and `Toolbar`. The emitted frame
 contains semantic JSX element names.
 For intrinsic `input` tags, `type="range"` and `type="number"` normalize
 numeric `value` and `defaultValue` props to `valueNumber`.
+For intrinsic `textarea` tags, direct text children remain in the compiled
+children list and are projected by the Rust bridge as the native text-field
+value when no explicit value is supplied.
 
 The emitted frame is plain JSON:
 
