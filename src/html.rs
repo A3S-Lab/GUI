@@ -354,6 +354,22 @@ mod tests {
             component_for_html_tag("input", &BTreeMap::from([("type".into(), "range".into())])),
             Some(AriaComponent::Slider)
         );
+        assert_eq!(
+            component_for_html_tag("input", &BTreeMap::from([("type".into(), "submit".into())])),
+            Some(AriaComponent::Button)
+        );
+        assert_eq!(
+            component_for_html_tag("input", &BTreeMap::from([("type".into(), "reset".into())])),
+            Some(AriaComponent::Button)
+        );
+        assert_eq!(
+            component_for_html_tag("input", &BTreeMap::from([("type".into(), "button".into())])),
+            Some(AriaComponent::Button)
+        );
+        assert_eq!(
+            component_for_html_tag("input", &BTreeMap::from([("type".into(), "image".into())])),
+            Some(AriaComponent::Button)
+        );
     }
 
     #[test]

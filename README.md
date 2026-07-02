@@ -46,6 +46,9 @@ table-structure tags lower to dedicated native roles.
 `input[type=number]` lowers to the native text-field role while numeric
 `value` or `defaultValue`, `min`, `max`, and `step` props are preserved as
 native control state.
+`input[type=button]`, `input[type=submit]`, `input[type=reset]`, and
+`input[type=image]` lower to native button roles; `value`, default submit/reset
+labels, and image `alt` text are used as fallback native labels.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.
@@ -553,6 +556,7 @@ registered action ids.
 | `form` / `fieldset` / `legend` | native form and fieldset roles |
 | `input[type=range]` | native slider role with numeric current value and step state |
 | `input[type=number]` | native text-field role with numeric current value, bounds, and step state |
+| `input[type=button]` / `input[type=submit]` / `input[type=reset]` / `input[type=image]` | native button role with HTML fallback labels |
 | `select` / `optgroup` / `option` | native select option-group and option roles |
 | `output` | native output role |
 | `meter` / `progress` | native ranged indicator roles |

@@ -123,7 +123,10 @@ slider role, numeric `value` or `defaultValue` props are projected as the
 ranged current value, and numeric `step` is projected as native ranged-control
 step state. `input[type=number]` lowers to the native text-field role while
 numeric `value` or `defaultValue`, `min`, `max`, and `step` props are preserved
-as native control state. Generic HTML containers lower to `NativeRole::View`;
+as native control state. `input[type=button]`, `input[type=submit]`,
+`input[type=reset]`, and `input[type=image]` lower to native button roles with
+HTML fallback labels from `value`, default submit/reset labels, or image `alt`
+text. Generic HTML containers lower to `NativeRole::View`;
 unsupported
 custom elements with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering

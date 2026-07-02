@@ -349,7 +349,7 @@ impl CompiledProps {
         for (name, action) in self.events {
             web = web.event(name, action);
         }
-        let html_fallback_label = html_fallback_label(tag, &web);
+        let html_fallback_label = html_fallback_label(tag, &web, self.value.as_deref());
         let html_details_open = html_details_open_state(tag, &web);
         let html_numeric_value = html_numeric_value_state(tag, &web, self.value.as_deref());
         let html_range_step = html_range_step_state(tag, &web);
@@ -416,23 +416,35 @@ fn html_input_type_is(web: &WebProps, expected: &str) -> bool {
         .is_some_and(|value| value.trim().eq_ignore_ascii_case(expected))
 }
 
-fn html_fallback_label(tag: &str, web: &WebProps) -> Option<String> {
+fn html_fallback_label(tag: &str, web: &WebProps, value: Option<&str>) -> Option<String> {
     if web.attributes.contains_key("aria-label") {
         return None;
     }
     match canonical_html_tag(tag)? {
-        "area" | "img" => web
-            .attributes
-            .get("alt")
-            .map(String::as_str)
-            .filter(|value| !value.trim().is_empty())
+        "area" | "img" => non_empty_string_attribute(&web.attributes, &["alt"]).map(str::to_string),
+        "input" if html_input_type_is(web, "image") => {
+            non_empty_string_attribute(&web.attributes, &["alt"])
+                .or_else(|| non_empty_string_value(value))
+                .map(str::to_string)
+        }
+        "input" if html_input_type_is(web, "submit") => Some(
+            non_empty_string_value(value)
+                .or_else(|| non_empty_string_attribute(&web.attributes, &["value"]))
+                .unwrap_or("Submit")
+                .to_string(),
+        ),
+        "input" if html_input_type_is(web, "reset") => Some(
+            non_empty_string_value(value)
+                .or_else(|| non_empty_string_attribute(&web.attributes, &["value"]))
+                .unwrap_or("Reset")
+                .to_string(),
+        ),
+        "input" if html_input_type_is(web, "button") => non_empty_string_value(value)
+            .or_else(|| non_empty_string_attribute(&web.attributes, &["value"]))
             .map(str::to_string),
-        "optgroup" | "option" => web
-            .attributes
-            .get("label")
-            .map(String::as_str)
-            .filter(|value| !value.trim().is_empty())
-            .map(str::to_string),
+        "optgroup" | "option" => {
+            non_empty_string_attribute(&web.attributes, &["label"]).map(str::to_string)
+        }
         _ => None,
     }
 }
@@ -479,6 +491,19 @@ fn string_attribute<'a>(
     names
         .iter()
         .find_map(|name| attributes.get(*name).map(String::as_str))
+}
+
+fn non_empty_string_attribute<'a>(
+    attributes: &'a BTreeMap<String, String>,
+    names: &[&str],
+) -> Option<&'a str> {
+    string_attribute(attributes, names)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn non_empty_string_value(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
 }
 
 fn bool_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<bool> {
@@ -2354,6 +2379,88 @@ mod tests {
             bridge.lower_to_native(&input("email")).unwrap().role,
             NativeRole::TextField
         );
+
+        let submit = CompiledJsxNode::Element {
+            key: "submit".to_string(),
+            tag: "input".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                value: Some("Save changes".to_string()),
+                attributes: BTreeMap::from([("type".to_string(), "submit".to_string())]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+        let native_submit = bridge.lower_to_native(&submit).unwrap();
+
+        assert_eq!(native_submit.role, NativeRole::Button);
+        assert_eq!(native_submit.props.label.as_deref(), Some("Save changes"));
+
+        let submit_default = CompiledJsxNode::Element {
+            key: "submit-default".to_string(),
+            tag: "input".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([("type".to_string(), "submit".to_string())]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+        let native_submit_default = bridge.lower_to_native(&submit_default).unwrap();
+
+        assert_eq!(native_submit_default.role, NativeRole::Button);
+        assert_eq!(native_submit_default.props.label.as_deref(), Some("Submit"));
+
+        let reset = CompiledJsxNode::Element {
+            key: "reset".to_string(),
+            tag: "input".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([("type".to_string(), "reset".to_string())]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+        let native_reset = bridge.lower_to_native(&reset).unwrap();
+
+        assert_eq!(native_reset.role, NativeRole::Button);
+        assert_eq!(native_reset.props.label.as_deref(), Some("Reset"));
+
+        let button = CompiledJsxNode::Element {
+            key: "button".to_string(),
+            tag: "input".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([
+                    ("type".to_string(), "button".to_string()),
+                    ("value".to_string(), "Open panel".to_string()),
+                ]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+        let native_button = bridge.lower_to_native(&button).unwrap();
+
+        assert_eq!(native_button.role, NativeRole::Button);
+        assert_eq!(native_button.props.label.as_deref(), Some("Open panel"));
+
+        let image_button = CompiledJsxNode::Element {
+            key: "image-submit".to_string(),
+            tag: "input".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([
+                    ("type".to_string(), "image".to_string()),
+                    ("alt".to_string(), "Search".to_string()),
+                ]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+        let native_image_button = bridge.lower_to_native(&image_button).unwrap();
+
+        assert_eq!(native_image_button.role, NativeRole::Button);
+        assert_eq!(native_image_button.props.label.as_deref(), Some("Search"));
 
         let number = CompiledJsxNode::Element {
             key: "quantity".to_string(),
