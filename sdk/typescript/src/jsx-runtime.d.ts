@@ -141,6 +141,9 @@ export interface WebCompatibleProps {
   onSelectionChange?: ActionLike;
   onFocus?: ActionLike;
   onBlur?: ActionLike;
+  onFocusChange?: ActionLike;
+  onToggle?: ActionLike;
+  onExpandedChange?: ActionLike;
   isDisabled?: boolean;
   isRequired?: boolean;
   isInvalid?: boolean;

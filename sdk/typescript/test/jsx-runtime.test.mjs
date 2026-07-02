@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   Button,
+  Dialog,
   Input,
   Label,
   Link,
@@ -594,6 +595,21 @@ test('function event props compile to stable action ids', () => {
     id: 'saveProfile',
     label: 'Save profile',
   });
+});
+
+test('focus and expanded event aliases compile to stable action ids', () => {
+  const setFocus = createAction('setFocus');
+  const setOpen = createAction('setOpen');
+  const root = jsxs(Dialog, {
+    onFocusChange: setFocus,
+    onExpandedChange: setOpen,
+    children: 'Details',
+  }, 'details');
+  const frame = createUiFrame('details', root);
+
+  assert.equal(root.props.events.onFocusChange, 'setFocus');
+  assert.equal(root.props.events.onExpandedChange, 'setOpen');
+  assert.deepEqual(frame.actions, [{id: 'setFocus'}, {id: 'setOpen'}]);
 });
 
 test('web and aria state attributes normalize to native control props', () => {

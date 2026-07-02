@@ -108,6 +108,8 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `colSpan` / `rowSpan` / `headers` / `scope` / `abbr` / `span` / `start` / `reversed` / list `type` / `li value` | normalized to native table and list structure hints when applicable |
 | `onClick` / `onPress` | normalized to the primary native action |
 | `onChange` | normalized to the primary action for value controls |
+| `onFocus` / `onBlur` / `onFocusChange` | routed from native focus and blur events; `onFocusChange` receives boolean string payloads |
+| `onToggle` / `onExpandedChange` | routed from native toggle events; expanded controls receive boolean string payloads |
 | `TextField` + `Label` + `Input` | folded into one native text field; `Input` value, placeholder, style, metadata, and events are inherited |
 | `textarea` direct text children | projected as native text-field value when no explicit value is supplied |
 | `Select` + `ListBoxItem` | folded into a native select with native options |

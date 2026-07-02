@@ -74,7 +74,7 @@ impl InteractionState {
             NativeEventKind::Blur => after.focused = false,
             NativeEventKind::Change => apply_change(blueprint.role, event, &mut after),
             NativeEventKind::SelectionChange => apply_selection(blueprint.role, event, &mut after),
-            NativeEventKind::Toggle => apply_toggle(event, &mut after),
+            NativeEventKind::Toggle => apply_toggle(blueprint.role, event, &mut after),
             NativeEventKind::Press => {}
         }
 
@@ -158,11 +158,26 @@ fn apply_selection(role: NativeRole, event: &NativeEvent, state: &mut Interactio
     }
 }
 
-fn apply_toggle(event: &NativeEvent, state: &mut InteractionNodeState) {
+fn apply_toggle(role: NativeRole, event: &NativeEvent, state: &mut InteractionNodeState) {
+    if is_expansion_toggle_role(role) || state.expanded.is_some() {
+        state.expanded = match event.value.as_deref().and_then(parse_bool) {
+            Some(value) => Some(value),
+            None => Some(!state.expanded.unwrap_or(false)),
+        };
+        return;
+    }
+
     state.checked = match event.value.as_deref().and_then(parse_bool) {
         Some(value) => Some(value),
         None => Some(!state.checked.unwrap_or(false)),
     };
+}
+
+fn is_expansion_toggle_role(role: NativeRole) -> bool {
+    matches!(
+        role,
+        NativeRole::Disclosure | NativeRole::DisclosureSummary | NativeRole::Popover
+    )
 }
 
 fn parse_bool(value: &str) -> Option<bool> {
@@ -239,6 +254,25 @@ mod tests {
 
         assert_eq!(change.before.checked, Some(true));
         assert_eq!(change.after.checked, Some(false));
+    }
+
+    #[test]
+    fn disclosure_toggle_updates_expanded_state() {
+        let element = NativeElement::new("details", NativeRole::Disclosure)
+            .with_props(NativeProps::new().expanded(false));
+        let blueprint = Gtk4Adapter.blueprint(&element);
+        let mut state = InteractionState::new();
+
+        let change = state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(5), NativeEventKind::Toggle),
+            )
+            .unwrap();
+
+        assert_eq!(change.before.expanded, Some(false));
+        assert_eq!(change.after.expanded, Some(true));
+        assert_eq!(change.after.checked, None);
     }
 
     #[test]

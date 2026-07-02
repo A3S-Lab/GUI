@@ -100,7 +100,6 @@ impl<H: NativeHost> GuiRuntime<H> {
         blueprint: &NativeWidgetBlueprint,
         event: NativeEvent,
     ) -> GuiResult<Option<ActionInvocation>> {
-        let event = normalize_event_value(blueprint, event);
         self.handle_event_with_routes(blueprint, &[], event)
     }
 
@@ -110,15 +109,35 @@ impl<H: NativeHost> GuiRuntime<H> {
         route_blueprints: &[NativeWidgetBlueprint],
         event: NativeEvent,
     ) -> GuiResult<Option<ActionInvocation>> {
+        Ok(self
+            .handle_event_with_route_results(blueprint, route_blueprints, event)?
+            .invocation)
+    }
+
+    fn handle_event_with_route_results(
+        &mut self,
+        blueprint: &NativeWidgetBlueprint,
+        route_blueprints: &[NativeWidgetBlueprint],
+        event: NativeEvent,
+    ) -> GuiResult<HandledNativeEvent> {
         self.refresh_stale_interaction_baseline(event.node, blueprint);
+        let event = self.normalize_event_value(blueprint, event);
         let interaction_start = self.interaction_state.changes().len();
         self.interaction_state.apply_event(blueprint, &event);
         self.record_interaction_revisions(interaction_start);
-        let Some(invocation) = self.route_event(blueprint, route_blueprints, &event) else {
-            return Ok(None);
-        };
-        self.action_registry.invoke(invocation.clone())?;
-        Ok(Some(invocation))
+        let invocation =
+            if let Some(invocation) = self.route_event(blueprint, route_blueprints, &event) {
+                self.action_registry.invoke(invocation.clone())?;
+                Some(invocation)
+            } else {
+                None
+            };
+        let interaction_changes = self.interaction_state.changes()[interaction_start..].to_vec();
+        Ok(HandledNativeEvent {
+            event,
+            invocation,
+            interaction_changes,
+        })
     }
 
     fn route_event(
@@ -132,6 +151,60 @@ impl<H: NativeHost> GuiRuntime<H> {
                 .iter()
                 .find_map(|route_blueprint| self.event_router.route(route_blueprint, event))
         })
+    }
+
+    fn normalize_event_value(
+        &self,
+        blueprint: &NativeWidgetBlueprint,
+        mut event: NativeEvent,
+    ) -> NativeEvent {
+        if event.value.is_some() {
+            return event;
+        }
+
+        match event.kind {
+            crate::event::NativeEventKind::Focus => event.value = Some("true".to_string()),
+            crate::event::NativeEventKind::Blur => event.value = Some("false".to_string()),
+            crate::event::NativeEventKind::SelectionChange => {
+                event.value = selected_node_value(blueprint);
+            }
+            crate::event::NativeEventKind::Toggle
+                if self.is_expansion_toggle(blueprint, event.node) =>
+            {
+                let expanded = self
+                    .current_expanded_state(event.node, blueprint)
+                    .unwrap_or(false);
+                event.value = Some((!expanded).to_string());
+            }
+            _ => {}
+        }
+        event
+    }
+
+    fn is_expansion_toggle(&self, blueprint: &NativeWidgetBlueprint, node: HostNodeId) -> bool {
+        matches!(
+            blueprint.role,
+            crate::native::NativeRole::Disclosure
+                | crate::native::NativeRole::DisclosureSummary
+                | crate::native::NativeRole::Popover
+        ) || self.current_expanded_state(node, blueprint).is_some()
+    }
+
+    fn current_expanded_state(
+        &self,
+        node: HostNodeId,
+        blueprint: &NativeWidgetBlueprint,
+    ) -> Option<bool> {
+        if self.interaction_revisions.get(&node).copied() == Some(self.render_revision) {
+            if let Some(expanded) = self
+                .interaction_state
+                .node(node)
+                .and_then(|state| state.expanded)
+            {
+                return Some(expanded);
+            }
+        }
+        blueprint.control_state.expanded
     }
 
     fn refresh_stale_interaction_baseline(
@@ -194,25 +267,8 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
             .into_iter()
             .filter_map(|node| self.host.blueprint(node).cloned())
             .collect::<Vec<_>>();
-        let event = normalize_event_value(&blueprint, event);
-
-        let interaction_start = self.interaction_state.changes().len();
-        let invocation =
-            self.handle_event_with_routes(&blueprint, &route_blueprints, event.clone())?;
-        let interaction_changes = self.interaction_state.changes()[interaction_start..].to_vec();
-        Ok(HandledNativeEvent {
-            event,
-            invocation,
-            interaction_changes,
-        })
+        self.handle_event_with_route_results(&blueprint, &route_blueprints, event)
     }
-}
-
-fn normalize_event_value(blueprint: &NativeWidgetBlueprint, mut event: NativeEvent) -> NativeEvent {
-    if event.value.is_none() && event.kind == crate::event::NativeEventKind::SelectionChange {
-        event.value = selected_node_value(blueprint);
-    }
-    event
 }
 
 fn selected_node_value(blueprint: &NativeWidgetBlueprint) -> Option<String> {
@@ -665,6 +721,45 @@ mod tests {
     }
 
     #[test]
+    fn runtime_routes_focus_change_with_boolean_payloads() {
+        let element = NativeElement::new("email", NativeRole::TextField)
+            .with_props(NativeProps::new().web(WebProps::new().on_focus_change("setFocus")));
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setFocus");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let focus = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+        let blur = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Blur,
+            ))
+            .unwrap();
+
+        assert_eq!(focus.event.value.as_deref(), Some("true"));
+        assert_eq!(
+            focus
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("true")
+        );
+        assert_eq!(blur.event.value.as_deref(), Some("false"));
+        assert_eq!(
+            blur.invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("false")
+        );
+    }
+
+    #[test]
     fn runtime_accessibility_tree_exposes_single_focused_node() {
         let element = NativeElement::new("tools", NativeRole::Toolbar)
             .child(
@@ -814,6 +909,53 @@ mod tests {
         );
         assert_eq!(accessibility.children[1].node, Some(notifications));
         assert_eq!(accessibility.children[1].checked, Some(true));
+    }
+
+    #[test]
+    fn runtime_routes_expanded_toggle_with_current_boolean_payload() {
+        let element = NativeElement::new("details", NativeRole::Disclosure).with_props(
+            NativeProps::new()
+                .label("Details")
+                .expanded(false)
+                .web(WebProps::new().on_expanded_change("setOpen")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setOpen");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let first = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Toggle,
+            ))
+            .unwrap();
+        let second = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Toggle,
+            ))
+            .unwrap();
+
+        assert_eq!(first.event.value.as_deref(), Some("true"));
+        assert_eq!(
+            first
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("true")
+        );
+        assert_eq!(first.interaction_changes[0].after.expanded, Some(true));
+        assert_eq!(second.event.value.as_deref(), Some("false"));
+        assert_eq!(
+            second
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("false")
+        );
+        assert_eq!(second.interaction_changes[0].after.expanded, Some(false));
+        assert_eq!(runtime.accessibility_tree().unwrap().expanded, Some(false));
     }
 
     #[test]

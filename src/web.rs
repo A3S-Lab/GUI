@@ -82,6 +82,26 @@ impl WebProps {
         self.event("onSelectionChange", action)
     }
 
+    pub fn on_focus(self, action: impl Into<String>) -> Self {
+        self.event("onFocus", action)
+    }
+
+    pub fn on_blur(self, action: impl Into<String>) -> Self {
+        self.event("onBlur", action)
+    }
+
+    pub fn on_focus_change(self, action: impl Into<String>) -> Self {
+        self.event("onFocusChange", action)
+    }
+
+    pub fn on_toggle(self, action: impl Into<String>) -> Self {
+        self.event("onToggle", action)
+    }
+
+    pub fn on_expanded_change(self, action: impl Into<String>) -> Self {
+        self.event("onExpandedChange", action)
+    }
+
     pub fn primary_action(&self) -> Option<&str> {
         self.events
             .get("onPress")

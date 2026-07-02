@@ -145,14 +145,36 @@ fn action_for_event(blueprint: &NativeWidgetBlueprint, event: NativeEventKind) -
             .or_else(|| events.get("onChange"))
             .or(blueprint.action.as_ref())
             .map(String::as_str),
+        NativeEventKind::Toggle if is_expansion_toggle(blueprint) => events
+            .get("onExpandedChange")
+            .or_else(|| events.get("onToggle"))
+            .or_else(|| events.get("onChange"))
+            .or(blueprint.action.as_ref())
+            .map(String::as_str),
         NativeEventKind::Toggle => events
             .get("onChange")
+            .or_else(|| events.get("onToggle"))
             .or_else(|| events.get("onClick"))
             .or(blueprint.action.as_ref())
             .map(String::as_str),
-        NativeEventKind::Focus => events.get("onFocus").map(String::as_str),
-        NativeEventKind::Blur => events.get("onBlur").map(String::as_str),
+        NativeEventKind::Focus => events
+            .get("onFocus")
+            .or_else(|| events.get("onFocusChange"))
+            .map(String::as_str),
+        NativeEventKind::Blur => events
+            .get("onBlur")
+            .or_else(|| events.get("onFocusChange"))
+            .map(String::as_str),
     }
+}
+
+fn is_expansion_toggle(blueprint: &NativeWidgetBlueprint) -> bool {
+    matches!(
+        blueprint.role,
+        crate::native::NativeRole::Disclosure
+            | crate::native::NativeRole::DisclosureSummary
+            | crate::native::NativeRole::Popover
+    ) || blueprint.control_state.expanded.is_some()
 }
 
 #[cfg(test)]
@@ -201,6 +223,48 @@ mod tests {
         assert_eq!(invocation.action, "setNotifications");
         assert_eq!(invocation.event, NativeEventKind::Toggle);
         assert_eq!(invocation.value.as_deref(), Some("true"));
+    }
+
+    #[test]
+    fn routes_native_toggle_to_expanded_change_for_disclosure_controls() {
+        let element = NativeElement::new("summary", NativeRole::DisclosureSummary).with_props(
+            NativeProps::new()
+                .expanded(false)
+                .web(WebProps::new().event("onExpandedChange", "setOpen")),
+        );
+        let blueprint = AppKitAdapter.blueprint(&element);
+        let event = NativeEvent::new(HostNodeId::new(12), NativeEventKind::Toggle).value("true");
+
+        let invocation = EventRouter::new().route(&blueprint, &event).unwrap();
+
+        assert_eq!(invocation.action, "setOpen");
+        assert_eq!(invocation.event, NativeEventKind::Toggle);
+        assert_eq!(invocation.value.as_deref(), Some("true"));
+    }
+
+    #[test]
+    fn routes_native_focus_and_blur_to_focus_change_alias() {
+        let element = NativeElement::new("email", NativeRole::TextField)
+            .with_props(NativeProps::new().web(WebProps::new().event("onFocusChange", "setFocus")));
+        let blueprint = AppKitAdapter.blueprint(&element);
+
+        let focus = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(13), NativeEventKind::Focus).value("true"),
+            )
+            .unwrap();
+        let blur = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(13), NativeEventKind::Blur).value("false"),
+            )
+            .unwrap();
+
+        assert_eq!(focus.action, "setFocus");
+        assert_eq!(focus.value.as_deref(), Some("true"));
+        assert_eq!(blur.action, "setFocus");
+        assert_eq!(blur.value.as_deref(), Some("false"));
     }
 
     #[test]

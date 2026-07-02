@@ -79,8 +79,9 @@ Allowed data:
 - `className`, Tailwind utility classes, inline `style` objects, and CSS text
   style strings as portable style input
 - `aria-*`, `data-*`, and HTML attributes as metadata
-- common JSX event prop names such as `onClick` and `onChange` with named
-  callback functions, normalized into native actions
+- common JSX event prop names such as `onClick`, `onChange`, `onFocusChange`,
+  and `onExpandedChange` with named callback functions, normalized into native
+  actions
 
 Non-portable runtime assumptions:
 
@@ -222,8 +223,9 @@ metadata.
 supported semantic component trees, or native IR trees and renders them into any
 `NativeHost`. `InteractionState` updates platform-independent focus, value,
 checked, selected, and expanded state from native events before action routing.
-`EventRouter` maps native events such as press, change, focus, and selection
-change back to serialized action identifiers such as `onClick` and `onChange`.
+`EventRouter` maps native events such as press, change, focus, toggle, and
+selection change back to serialized action identifiers such as `onClick`,
+`onChange`, `onFocusChange`, and `onExpandedChange`.
 Native event routing tries the target widget first, then mounted ancestors, so
 child widget callbacks can reach container-level handlers. Selection events
 without a value are normalized from the selected child's value or label.
