@@ -145,6 +145,16 @@ families:
 | `FontText` | `NSView(font-text)` | `Microsoft.UI.Xaml.Controls.StackPanel(font-text)` | `gtk::Box(font-text)` |
 | `BigText` | `NSView(big-text)` | `Microsoft.UI.Xaml.Controls.StackPanel(big-text)` | `gtk::Box(big-text)` |
 | `TeletypeText` | `NSView(teletype-text)` | `Microsoft.UI.Xaml.Controls.StackPanel(teletype-text)` | `gtk::Box(teletype-text)` |
+| `Applet` | `NSView(applet)` | `Microsoft.UI.Xaml.Controls.StackPanel(applet)` | `gtk::Box(applet)` |
+| `BackgroundSound` | `NSView(background-sound)` | `Microsoft.UI.Xaml.Controls.StackPanel(background-sound)` | `gtk::Box(background-sound)` |
+| `Frame` | `NSView(frame)` | `Microsoft.UI.Xaml.Controls.StackPanel(frame)` | `gtk::Box(frame)` |
+| `FrameSet` | `NSView(frameset)` | `Microsoft.UI.Xaml.Controls.StackPanel(frameset)` | `gtk::Box(frameset)` |
+| `NoEmbedFallback` | `NSView(noembed-fallback)` | `Microsoft.UI.Xaml.Controls.StackPanel(noembed-fallback)` | `gtk::Box(noembed-fallback)` |
+| `NoFramesFallback` | `NSView(noframes-fallback)` | `Microsoft.UI.Xaml.Controls.StackPanel(noframes-fallback)` | `gtk::Box(noframes-fallback)` |
+| `Marquee` | `NSView(marquee)` | `Microsoft.UI.Xaml.Controls.StackPanel(marquee)` | `gtk::Box(marquee)` |
+| `Math` | `NSView(math)` | `Microsoft.UI.Xaml.Controls.StackPanel(math)` | `gtk::Box(math)` |
+| `NextId` | `NSView(nextid)` | `Microsoft.UI.Xaml.Controls.StackPanel(nextid)` | `gtk::Box(nextid)` |
+| `SelectedContent` | `NSView(selected-content)` | `Microsoft.UI.Xaml.Controls.StackPanel(selected-content)` | `gtk::Box(selected-content)` |
 | `HeadingGroup` | `NSView(heading-group)` | `Microsoft.UI.Xaml.Controls.StackPanel(heading-group)` | `gtk::Box(heading-group)` |
 | `Ruby` | `NSView(ruby)` | `Microsoft.UI.Xaml.Controls.StackPanel(ruby)` | `gtk::Box(ruby)` |
 | `RubyBase` | `NSTextField(ruby-base)` | `Microsoft.UI.Xaml.Controls.TextBlock(ruby-base)` | `gtk::Label(ruby-base)` |

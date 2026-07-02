@@ -232,6 +232,16 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "FontText" | "font" | "basefont" => Ok(AriaComponent::FontText),
         "BigText" | "big" => Ok(AriaComponent::BigText),
         "TeletypeText" | "tt" => Ok(AriaComponent::TeletypeText),
+        "Applet" | "applet" => Ok(AriaComponent::Applet),
+        "BackgroundSound" | "bgsound" => Ok(AriaComponent::BackgroundSound),
+        "Frame" | "frame" => Ok(AriaComponent::Frame),
+        "FrameSet" | "frameset" => Ok(AriaComponent::FrameSet),
+        "NoEmbedFallback" | "noembed" => Ok(AriaComponent::NoEmbedFallback),
+        "NoFramesFallback" | "noframes" => Ok(AriaComponent::NoFramesFallback),
+        "Marquee" | "marquee" => Ok(AriaComponent::Marquee),
+        "Math" | "math" => Ok(AriaComponent::Math),
+        "NextId" | "nextid" => Ok(AriaComponent::NextId),
+        "SelectedContent" | "selectedcontent" => Ok(AriaComponent::SelectedContent),
         "Text" | "span" => Ok(AriaComponent::Text),
         "Heading" => Ok(AriaComponent::Heading),
         "HeadingGroup" | "hgroup" => Ok(AriaComponent::HeadingGroup),
@@ -1640,6 +1650,147 @@ mod tests {
         assert_eq!(
             native.children[15].children[0].role,
             NativeRole::ListBoxItem
+        );
+    }
+
+    #[test]
+    fn lowers_html_remaining_legacy_and_foreign_tags_to_native_roles() {
+        fn container(key: &str, tag: &str, text: &str) -> CompiledJsxNode {
+            CompiledJsxNode::Element {
+                key: key.to_string(),
+                tag: tag.to_string(),
+                import_source: None,
+                props: CompiledProps::default(),
+                children: vec![CompiledJsxNode::Text {
+                    key: format!("{key}-text"),
+                    value: text.to_string(),
+                }],
+            }
+        }
+
+        let bridge = ReactCompilerBridge::new();
+        let root = CompiledJsxNode::Element {
+            key: "legacy".to_string(),
+            tag: "div".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![
+                CompiledJsxNode::Element {
+                    key: "applet".to_string(),
+                    tag: "applet".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([(
+                            "code".to_string(),
+                            "Demo.class".to_string(),
+                        )]),
+                        ..CompiledProps::default()
+                    },
+                    children: vec![CompiledJsxNode::Text {
+                        key: "applet-text".to_string(),
+                        value: "Applet fallback".to_string(),
+                    }],
+                },
+                CompiledJsxNode::Element {
+                    key: "bgsound".to_string(),
+                    tag: "bgsound".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([("src".to_string(), "/tone.wav".to_string())]),
+                        ..CompiledProps::default()
+                    },
+                    children: Vec::new(),
+                },
+                CompiledJsxNode::Element {
+                    key: "frameset".to_string(),
+                    tag: "frameset".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Element {
+                        key: "frame".to_string(),
+                        tag: "frame".to_string(),
+                        import_source: None,
+                        props: CompiledProps {
+                            attributes: BTreeMap::from([(
+                                "src".to_string(),
+                                "/legacy-frame.html".to_string(),
+                            )]),
+                            ..CompiledProps::default()
+                        },
+                        children: Vec::new(),
+                    }],
+                },
+                container("noembed", "noembed", "No embed fallback"),
+                container("noframes", "noframes", "No frames fallback"),
+                container("marquee", "marquee", "Moving text"),
+                container("math", "math", "x+y"),
+                CompiledJsxNode::Element {
+                    key: "nextid".to_string(),
+                    tag: "nextid".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([("n".to_string(), "z42".to_string())]),
+                        ..CompiledProps::default()
+                    },
+                    children: Vec::new(),
+                },
+                container("selected-content", "selectedcontent", "Selected option"),
+            ],
+        };
+
+        let native = bridge.lower_to_native(&root).unwrap();
+        assert_eq!(native.role, NativeRole::View);
+        let expected = [
+            (NativeRole::Applet, Some("Applet fallback")),
+            (NativeRole::BackgroundSound, None),
+            (NativeRole::FrameSet, None),
+            (NativeRole::NoEmbedFallback, Some("No embed fallback")),
+            (NativeRole::NoFramesFallback, Some("No frames fallback")),
+            (NativeRole::Marquee, Some("Moving text")),
+            (NativeRole::Math, Some("x+y")),
+            (NativeRole::NextId, None),
+            (NativeRole::SelectedContent, Some("Selected option")),
+        ];
+        for (index, (role, label)) in expected.iter().enumerate() {
+            assert_eq!(native.children[index].role, *role);
+            assert_eq!(native.children[index].props.label.as_deref(), *label);
+        }
+        assert_eq!(
+            native.children[0]
+                .props
+                .web
+                .attributes
+                .get("code")
+                .map(String::as_str),
+            Some("Demo.class")
+        );
+        assert_eq!(
+            native.children[1]
+                .props
+                .web
+                .attributes
+                .get("src")
+                .map(String::as_str),
+            Some("/tone.wav")
+        );
+        assert_eq!(native.children[2].children[0].role, NativeRole::Frame);
+        assert_eq!(
+            native.children[2].children[0]
+                .props
+                .web
+                .attributes
+                .get("src")
+                .map(String::as_str),
+            Some("/legacy-frame.html")
+        );
+        assert_eq!(
+            native.children[7]
+                .props
+                .web
+                .attributes
+                .get("n")
+                .map(String::as_str),
+            Some("z42")
         );
     }
 

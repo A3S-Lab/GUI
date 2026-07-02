@@ -53,6 +53,16 @@ pub enum AriaComponent {
     FontText,
     BigText,
     TeletypeText,
+    Applet,
+    BackgroundSound,
+    Frame,
+    FrameSet,
+    NoEmbedFallback,
+    NoFramesFallback,
+    Marquee,
+    Math,
+    NextId,
+    SelectedContent,
     Heading,
     HeadingGroup,
     Ruby,
@@ -170,6 +180,16 @@ impl AriaComponent {
             AriaComponent::FontText => "FontText",
             AriaComponent::BigText => "BigText",
             AriaComponent::TeletypeText => "TeletypeText",
+            AriaComponent::Applet => "Applet",
+            AriaComponent::BackgroundSound => "BackgroundSound",
+            AriaComponent::Frame => "Frame",
+            AriaComponent::FrameSet => "FrameSet",
+            AriaComponent::NoEmbedFallback => "NoEmbedFallback",
+            AriaComponent::NoFramesFallback => "NoFramesFallback",
+            AriaComponent::Marquee => "Marquee",
+            AriaComponent::Math => "Math",
+            AriaComponent::NextId => "NextId",
+            AriaComponent::SelectedContent => "SelectedContent",
             AriaComponent::Heading => "Heading",
             AriaComponent::HeadingGroup => "HeadingGroup",
             AriaComponent::Ruby => "Ruby",
@@ -625,6 +645,30 @@ impl ReactAriaMapper {
             AriaComponent::BigText => self.map_container_with_label(element, NativeRole::BigText),
             AriaComponent::TeletypeText => {
                 self.map_container_with_label(element, NativeRole::TeletypeText)
+            }
+            AriaComponent::Applet => self.map_container_with_label(element, NativeRole::Applet),
+            AriaComponent::BackgroundSound => Ok(simple_leaf(
+                element,
+                NativeRole::BackgroundSound,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Frame => self.map_container_with_label(element, NativeRole::Frame),
+            AriaComponent::FrameSet => self.map_container_with_label(element, NativeRole::FrameSet),
+            AriaComponent::NoEmbedFallback => {
+                self.map_container_with_label(element, NativeRole::NoEmbedFallback)
+            }
+            AriaComponent::NoFramesFallback => {
+                self.map_container_with_label(element, NativeRole::NoFramesFallback)
+            }
+            AriaComponent::Marquee => self.map_container_with_label(element, NativeRole::Marquee),
+            AriaComponent::Math => self.map_container_with_label(element, NativeRole::Math),
+            AriaComponent::NextId => Ok(simple_leaf(
+                element,
+                NativeRole::NextId,
+                self.best_label(element)?,
+            )),
+            AriaComponent::SelectedContent => {
+                self.map_container_with_label(element, NativeRole::SelectedContent)
             }
             AriaComponent::Document => self.map_container_with_label(element, NativeRole::Document),
             AriaComponent::DocumentHead => self.map_container(element, NativeRole::DocumentHead),
@@ -1595,6 +1639,18 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::WordBreakOpportunity),
             "gtk::Label(word-break-opportunity)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::FrameSet),
+            "NSView(frameset)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::Math),
+            "Microsoft.UI.Xaml.Controls.StackPanel(math)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::SelectedContent),
+            "gtk::Box(selected-content)"
         );
     }
 }

@@ -114,11 +114,12 @@ The compiler bridge accepts the HTML element registry exposed by `HTML_ELEMENTS`
 Each recognized intrinsic tag lowers to the closest native semantic role, and
 the original tag is preserved as `data-a3s-html-tag` metadata. Document,
 metadata, template, slot, text, text-annotation, phrasing-text, flow-text,
-legacy-text, heading, heading-group, ruby annotation, landmark, sectioning,
-disclosure, figure, description-list, form, form-grouping, option-group,
-output, meter, list, dialog, menu, media, embedded-content, link, image-map,
-and table-structure tags lower to dedicated native roles. Generic HTML
-containers lower to `NativeRole::View`; unsupported
+legacy-text, legacy-frame, fallback-content, math, selected-content, heading,
+heading-group, ruby annotation, landmark, sectioning, disclosure, figure,
+description-list, form, form-grouping, option-group, output, meter, list,
+dialog, menu, media, embedded-content, link, image-map, and table-structure
+tags lower to dedicated native roles. Generic HTML containers lower to
+`NativeRole::View`; unsupported
 custom elements with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering
 path for vector and icon JSX trees. Recognized SVG tags lower to generic native

@@ -35,10 +35,11 @@ Living Standard plus common historical tags. It also recognizes common SVG
 intrinsic element names used by JSX icon and vector trees. Known intrinsic
 elements are mapped to native semantic roles where a matching role exists.
 Document, metadata, template, slot, text, text-annotation, phrasing-text,
-flow-text, legacy-text, heading, heading-group, ruby annotation, landmark,
-sectioning, disclosure, figure, description-list, form, form-grouping,
-option-group, output, meter, list, dialog, menu, media, embedded-content,
-link, image-map, and table-structure tags lower to dedicated native roles.
+flow-text, legacy-text, legacy-frame, fallback-content, math, selected-content,
+heading, heading-group, ruby annotation, landmark, sectioning, disclosure,
+figure, description-list, form, form-grouping, option-group, output, meter,
+list, dialog, menu, media, embedded-content, link, image-map, and
+table-structure tags lower to dedicated native roles.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.
@@ -508,6 +509,9 @@ registered action ids.
 | `b` / `i` / `s` / `strike` / `u` / `bdi` / `bdo` | native typographic and bidi text roles |
 | `p` / `pre` / `blockquote` / `address` / `br` / `wbr` | native flow text roles |
 | `listing` / `plaintext` / `xmp` / `nobr` / `center` / `font` / `basefont` / `big` / `tt` | native legacy text roles |
+| `applet` / `bgsound` / `frame` / `frameset` / `noembed` / `noframes` / `marquee` / `nextid` | native legacy document roles |
+| `math` | native math role |
+| `selectedcontent` | native selected-content role |
 | `h1` / `h2` / `h3` / `h4` / `h5` / `h6` | native heading role |
 | `hgroup` | native heading-group role |
 | `ruby` / `rb` / `rt` / `rp` / `rtc` | native ruby annotation roles |

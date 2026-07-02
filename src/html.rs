@@ -225,6 +225,16 @@ pub fn component_for_html_tag(
         "font" | "basefont" => AriaComponent::FontText,
         "big" => AriaComponent::BigText,
         "tt" => AriaComponent::TeletypeText,
+        "applet" => AriaComponent::Applet,
+        "bgsound" => AriaComponent::BackgroundSound,
+        "frame" => AriaComponent::Frame,
+        "frameset" => AriaComponent::FrameSet,
+        "noembed" => AriaComponent::NoEmbedFallback,
+        "noframes" => AriaComponent::NoFramesFallback,
+        "marquee" => AriaComponent::Marquee,
+        "math" => AriaComponent::Math,
+        "nextid" => AriaComponent::NextId,
+        "selectedcontent" => AriaComponent::SelectedContent,
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => AriaComponent::Heading,
         "hgroup" => AriaComponent::HeadingGroup,
         "ruby" => AriaComponent::Ruby,
@@ -670,6 +680,52 @@ mod tests {
         assert_eq!(
             component_for_html_tag("dir", &attributes),
             Some(AriaComponent::ListBox)
+        );
+    }
+
+    #[test]
+    fn maps_remaining_legacy_and_foreign_tags_to_native_semantics() {
+        let attributes = BTreeMap::new();
+
+        assert_eq!(
+            component_for_html_tag("applet", &attributes),
+            Some(AriaComponent::Applet)
+        );
+        assert_eq!(
+            component_for_html_tag("bgsound", &attributes),
+            Some(AriaComponent::BackgroundSound)
+        );
+        assert_eq!(
+            component_for_html_tag("frame", &attributes),
+            Some(AriaComponent::Frame)
+        );
+        assert_eq!(
+            component_for_html_tag("frameset", &attributes),
+            Some(AriaComponent::FrameSet)
+        );
+        assert_eq!(
+            component_for_html_tag("noembed", &attributes),
+            Some(AriaComponent::NoEmbedFallback)
+        );
+        assert_eq!(
+            component_for_html_tag("noframes", &attributes),
+            Some(AriaComponent::NoFramesFallback)
+        );
+        assert_eq!(
+            component_for_html_tag("marquee", &attributes),
+            Some(AriaComponent::Marquee)
+        );
+        assert_eq!(
+            component_for_html_tag("math", &attributes),
+            Some(AriaComponent::Math)
+        );
+        assert_eq!(
+            component_for_html_tag("nextid", &attributes),
+            Some(AriaComponent::NextId)
+        );
+        assert_eq!(
+            component_for_html_tag("selectedcontent", &attributes),
+            Some(AriaComponent::SelectedContent)
         );
     }
 
