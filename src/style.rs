@@ -211,6 +211,7 @@ pub struct PortableStyle {
     pub font_size_adjust: Option<String>,
     pub font_weight: Option<FontWeight>,
     pub font_stretch: Option<String>,
+    pub font_width: Option<String>,
     pub font_palette: Option<String>,
     pub font_language_override: Option<String>,
     pub font_kerning: Option<String>,
@@ -242,6 +243,9 @@ pub struct PortableStyle {
     pub line_grid: Option<String>,
     pub line_snap: Option<String>,
     pub box_snap: Option<String>,
+    pub math_depth: Option<String>,
+    pub math_shift: Option<String>,
+    pub math_style: Option<String>,
     pub dominant_baseline: Option<String>,
     pub baseline_source: Option<String>,
     pub alignment_baseline: Option<String>,
@@ -1063,6 +1067,7 @@ impl PortableStyle {
             "font-size-adjust" => self.font_size_adjust = parse_css_string_token(value_ref),
             "font-weight" => self.font_weight = parse_font_weight(value_ref),
             "font-stretch" => self.font_stretch = parse_css_string_token(value_ref),
+            "font-width" => self.font_width = parse_css_string_token(value_ref),
             "font-palette" => self.font_palette = parse_css_string_token(value_ref),
             "font-language-override"
             | "-moz-font-language-override"
@@ -1126,6 +1131,9 @@ impl PortableStyle {
             "line-grid" => self.line_grid = parse_css_string_token(value_ref),
             "line-snap" => self.line_snap = parse_css_string_token(value_ref),
             "box-snap" => self.box_snap = parse_css_string_token(value_ref),
+            "math-depth" => self.math_depth = parse_css_string_token(value_ref),
+            "math-shift" => self.math_shift = parse_css_string_token(value_ref),
+            "math-style" => self.math_style = parse_css_string_token(value_ref),
             "dominant-baseline" => self.dominant_baseline = parse_css_string_token(value_ref),
             "baseline-source" => self.baseline_source = parse_css_string_token(value_ref),
             "alignment-baseline" => self.alignment_baseline = parse_css_string_token(value_ref),
@@ -10392,6 +10400,7 @@ mod tests {
             .style("fontFamily", "ui-monospace, monospace")
             .style("fontStyle", "italic")
             .style("fontStretch", "semi-condensed")
+            .style("fontWidth", "condensed")
             .style("fontPalette", "dark")
             .style("fontLanguageOverride", "\"TRK\"")
             .style("fontKerning", "normal")
@@ -10423,6 +10432,9 @@ mod tests {
             .style("lineGrid", "create")
             .style("lineSnap", "baseline")
             .style("boxSnap", "block-start")
+            .style("mathDepth", "add(1)")
+            .style("mathShift", "compact")
+            .style("mathStyle", "compact")
             .style("dominantBaseline", "central")
             .style("baselineSource", "first")
             .style("alignmentBaseline", "text-before-edge")
@@ -10513,6 +10525,7 @@ mod tests {
         );
         assert_eq!(style.font_style, Some(FontStyle::Italic));
         assert_eq!(style.font_stretch.as_deref(), Some("semi-condensed"));
+        assert_eq!(style.font_width.as_deref(), Some("condensed"));
         assert_eq!(style.font_palette.as_deref(), Some("dark"));
         assert_eq!(style.font_language_override.as_deref(), Some("\"TRK\""));
         assert_eq!(style.font_kerning.as_deref(), Some("normal"));
@@ -10562,6 +10575,9 @@ mod tests {
         assert_eq!(style.line_grid.as_deref(), Some("create"));
         assert_eq!(style.line_snap.as_deref(), Some("baseline"));
         assert_eq!(style.box_snap.as_deref(), Some("block-start"));
+        assert_eq!(style.math_depth.as_deref(), Some("add(1)"));
+        assert_eq!(style.math_shift.as_deref(), Some("compact"));
+        assert_eq!(style.math_style.as_deref(), Some("compact"));
         assert_eq!(style.dominant_baseline.as_deref(), Some("central"));
         assert_eq!(style.baseline_source.as_deref(), Some("first"));
         assert_eq!(
@@ -10698,6 +10714,7 @@ mod tests {
         assert!(!style.unsupported.contains_key("font"));
         assert!(!style.unsupported.contains_key("font-feature-settings"));
         assert!(!style.unsupported.contains_key("font-size-adjust"));
+        assert!(!style.unsupported.contains_key("font-width"));
         assert!(!style.unsupported.contains_key("font-palette"));
         assert!(!style.unsupported.contains_key("font-language-override"));
         assert!(!style.unsupported.contains_key("font-variant-numeric"));
@@ -10710,6 +10727,9 @@ mod tests {
         assert!(!style.unsupported.contains_key("line-grid"));
         assert!(!style.unsupported.contains_key("line-snap"));
         assert!(!style.unsupported.contains_key("box-snap"));
+        assert!(!style.unsupported.contains_key("math-depth"));
+        assert!(!style.unsupported.contains_key("math-shift"));
+        assert!(!style.unsupported.contains_key("math-style"));
         assert!(!style.unsupported.contains_key("text-size-adjust"));
         assert!(!style.unsupported.contains_key("dominant-baseline"));
         assert!(!style.unsupported.contains_key("baseline-source"));
@@ -10800,7 +10820,7 @@ mod tests {
              ordinal slashed-zero tabular-nums diagonal-fractions \
              font-stretch-condensed font-features-[\"kern\"_1] tab-4 text-shadow-sm \
              [font:italic_1rem/1.5_serif] [font-size-adjust:0.5] \
-             [font-palette:dark] [font-language-override:\"TRK\"] \
+             [font-width:condensed] [font-palette:dark] [font-language-override:\"TRK\"] \
              [dominant-baseline:central] [baseline-source:first] \
              [alignment-baseline:text-before-edge] [baseline-shift:super] \
              [line-fit-edge:leading] [inline-sizing:stretch] \
@@ -10808,6 +10828,7 @@ mod tests {
              [block-step-size:1lh] [block-step-insert:margin-box] \
              [block-step-align:center] [block-step-round:up] \
              [line-grid:create] [line-snap:baseline] [box-snap:block-start] \
+             [math-depth:add(1)] [math-shift:compact] [math-style:compact] \
              [initial-letter:3_2] [initial-letter-align:border-box] \
              [initial-letter-wrap:first] \
              [text-size-adjust:100%] \
@@ -10829,6 +10850,8 @@ mod tests {
              focus:text-pretty lg:line-clamp-none ltr:[direction:ltr] \
              rtl:[unicode-bidi:plaintext] md:[writing-mode:horizontal-tb] \
              hover:[text-orientation:sideways] md:font-stretch-[87.5%] \
+             hover:[font-width:expanded] focus:[math-depth:0] \
+             active:[math-style:normal] before:[math-shift:normal] \
              hover:[font-size-adjust:0.6] focus:[text-size-adjust:none] \
              hover:[font-palette:light] focus:[font-language-override:normal] \
              hover:[dominant-baseline:hanging] focus:[baseline-shift:sub] \
@@ -10888,6 +10911,7 @@ mod tests {
         assert_eq!(style.font.as_deref(), Some("italic 1rem/1.5 serif"));
         assert_eq!(style.font_feature_settings.as_deref(), Some("\"kern\" 1"));
         assert_eq!(style.font_size_adjust.as_deref(), Some("0.5"));
+        assert_eq!(style.font_width.as_deref(), Some("condensed"));
         assert_eq!(style.font_palette.as_deref(), Some("dark"));
         assert_eq!(style.font_language_override.as_deref(), Some("\"TRK\""));
         assert_eq!(style.dominant_baseline.as_deref(), Some("central"));
@@ -10908,6 +10932,9 @@ mod tests {
         assert_eq!(style.line_grid.as_deref(), Some("create"));
         assert_eq!(style.line_snap.as_deref(), Some("baseline"));
         assert_eq!(style.box_snap.as_deref(), Some("block-start"));
+        assert_eq!(style.math_depth.as_deref(), Some("add(1)"));
+        assert_eq!(style.math_shift.as_deref(), Some("compact"));
+        assert_eq!(style.math_style.as_deref(), Some("compact"));
         assert_eq!(style.initial_letter.as_deref(), Some("3 2"));
         assert_eq!(style.initial_letter_align.as_deref(), Some("border-box"));
         assert_eq!(style.initial_letter_wrap.as_deref(), Some("first"));
@@ -11064,6 +11091,38 @@ mod tests {
                 .and_then(|styles| styles.get("font-stretch"))
                 .map(String::as_str),
             Some("87.5%")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("font-width"))
+                .map(String::as_str),
+            Some("expanded")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("math-depth"))
+                .map(String::as_str),
+            Some("0")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("math-style"))
+                .map(String::as_str),
+            Some("normal")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("math-shift"))
+                .map(String::as_str),
+            Some("normal")
         );
         assert_eq!(
             style

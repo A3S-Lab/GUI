@@ -403,11 +403,12 @@ deterministically:
   `orphans`, `widows`, `bookmark*`, `footnote*`, `breakBefore`, `breakAfter`,
   `breakInside`
 - `font`, `fontFamily`, `fontStyle`, `fontSize`, `fontSizeAdjust`,
-  `fontWeight`, `fontStretch`, `fontPalette`, `fontLanguageOverride`,
+  `fontWeight`, `fontStretch`, `fontWidth`, `fontPalette`, `fontLanguageOverride`,
   `fontKerning`, `fontOpticalSizing`, `WebkitFontSmoothing`,
   `MozOsxFontSmoothing`, `fontFeatureSettings`, `fontVariationSettings`,
   `fontVariant*`, `fontSynthesis*`, `lineHeight`, `lineHeightStep`,
-  `blockStep*`, `lineGrid`, `lineSnap`, `boxSnap`, `dominantBaseline`,
+  `blockStep*`, `lineGrid`, `lineSnap`, `boxSnap`, `mathDepth`, `mathShift`,
+  `mathStyle`, `dominantBaseline`,
   `baselineSource`, `alignmentBaseline`, `baselineShift`, `lineFitEdge`,
   `inlineSizing`, `initialLetter*`,
   `letterSpacing`, `wordSpacing`, `tabSize`, `textAlign`, `textAlignAll`,
@@ -521,11 +522,12 @@ Common Tailwind sizing and child-spacing utilities such as `size-*`,
 into the same declaration model.
 Common Tailwind typography and text utilities such as `font-*`, `italic`,
 `not-italic`, `antialiased`, `subpixel-antialiased`, `tracking-*`,
-`font-stretch-*`, `font-features-*`, arbitrary `font`, `font-size-adjust`,
-`font-palette`, and `font-language-override` properties,
+`font-stretch-*`, `font-features-*`, arbitrary `font`, `font-width`,
+`font-size-adjust`, `font-palette`, and `font-language-override` properties,
 font variant numeric utilities, arbitrary rhythmic sizing and line-grid
 properties such as `line-height-step`, `block-step*`, `line-grid`,
-`line-snap`, and `box-snap`, `tab-*`, text transform utilities, text decoration
+`line-snap`, and `box-snap`, arbitrary MathML math properties such as
+`math-depth`, `math-shift`, and `math-style`, `tab-*`, text transform utilities, text decoration
 utilities, `underline-offset-*`, arbitrary `text-decoration-skip*` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
 arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,

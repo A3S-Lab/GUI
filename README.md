@@ -72,11 +72,11 @@ marker side metadata,
 columns, column rule/span/fill,
 CSS page size/orientation/selection, bleed/marks, orphans/widows, bookmark and footnote metadata,
 fragmentation breaks, font shorthand, font size and font size adjustment,
-font weight, font family, font style, font stretch, font palette,
+font weight, font family, font style, font stretch/width, font palette,
 font language override, font kerning, font optical sizing, font smoothing hints,
 font feature and variation settings, font variant and
 font synthesis properties, line height, rhythmic sizing and line-grid metadata,
-baseline alignment metadata,
+MathML math depth/shift/style metadata, baseline alignment metadata,
 initial letter metadata, inline sizing, letter spacing, word spacing, tab size,
 text alignment, final-line alignment, text justification, text size adjustment,
 text direction, Unicode bidi, writing
@@ -156,11 +156,13 @@ Sizing and child-spacing utilities such as `size-*`, `space-x-*`,
 portable layout tokens.
 Typography utilities such as `font-*`, `italic`, `not-italic`,
 `antialiased`, `subpixel-antialiased`, `tracking-*`, `font-stretch-*`,
-`font-features-*`, arbitrary `font`, `font-size-adjust`, `font-palette`, and
-`font-language-override` properties,
+`font-features-*`, arbitrary `font`, `font-width`, `font-size-adjust`,
+`font-palette`, and `font-language-override` properties,
 font variant numeric utilities,
 arbitrary rhythmic sizing and line-grid properties such as `line-height-step`,
 `block-step*`, `line-grid`, `line-snap`, and `box-snap`,
+arbitrary MathML math properties such as `math-depth`, `math-shift`, and
+`math-style`,
 `tab-*`, text transform utilities, text decoration utilities,
 `underline-offset-*`, arbitrary `text-decoration-skip*` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
