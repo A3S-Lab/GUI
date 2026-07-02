@@ -1,4 +1,4 @@
-use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
+use crate::accessibility::{AccessibilityNode, AccessibilityRole, AccessibilityTreeHost};
 use crate::backend::NativeEventHost;
 use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
 use crate::error::{GuiError, GuiResult};
@@ -133,6 +133,8 @@ fn apply_interactions_to_accessibility_tree(
     for child in &mut node.children {
         apply_interactions_to_accessibility_tree(child, interactions);
     }
+
+    apply_selection_value_to_children(node);
 }
 
 fn apply_interaction_state(node: &mut AccessibilityNode, state: &InteractionNodeState) {
@@ -149,6 +151,51 @@ fn apply_interaction_state(node: &mut AccessibilityNode, state: &InteractionNode
     if let Some(expanded) = state.expanded {
         node.expanded = Some(expanded);
     }
+}
+
+fn apply_selection_value_to_children(node: &mut AccessibilityNode) {
+    if !is_selection_container(node.role) {
+        return;
+    }
+    let Some(value) = node.value.as_deref() else {
+        return;
+    };
+
+    for child in &mut node.children {
+        if is_selectable_child(child.role) {
+            let selected = child_matches_selection_value(child, value);
+            child.selected = selected;
+            if child.role == AccessibilityRole::RadioButton {
+                child.checked = Some(selected);
+            }
+        }
+    }
+}
+
+fn is_selection_container(role: AccessibilityRole) -> bool {
+    matches!(
+        role,
+        AccessibilityRole::ComboBox
+            | AccessibilityRole::ListBox
+            | AccessibilityRole::Menu
+            | AccessibilityRole::RadioGroup
+            | AccessibilityRole::TabGroup
+            | AccessibilityRole::TabList
+    )
+}
+
+fn is_selectable_child(role: AccessibilityRole) -> bool {
+    matches!(
+        role,
+        AccessibilityRole::ListBoxOption
+            | AccessibilityRole::MenuItem
+            | AccessibilityRole::RadioButton
+            | AccessibilityRole::Tab
+    )
+}
+
+fn child_matches_selection_value(child: &AccessibilityNode, value: &str) -> bool {
+    child.value.as_deref() == Some(value) || child.label.as_deref() == Some(value)
 }
 
 impl<H: NativeHost + BlueprintHost + NativeEventHost> GuiRuntime<H> {
@@ -498,6 +545,85 @@ mod tests {
             Some("new@example.com")
         );
         assert_eq!(accessibility.children[1].node, Some(notifications));
+        assert_eq!(accessibility.children[1].checked, Some(true));
+    }
+
+    #[test]
+    fn runtime_accessibility_tree_projects_selection_value_to_children() {
+        let tree = NativeElement::new("project", NativeRole::Select)
+            .with_props(
+                NativeProps::new()
+                    .label("Project")
+                    .web(WebProps::new().on_selection_change("setProject")),
+            )
+            .child(
+                NativeElement::new("a3s", NativeRole::ListBoxItem)
+                    .with_props(NativeProps::new().label("A3S").value("a3s").selected(true)),
+            )
+            .child(
+                NativeElement::new("other", NativeRole::ListBoxItem)
+                    .with_props(NativeProps::new().label("Other").value("other")),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setProject");
+
+        let root_id = runtime.render_native(&tree).unwrap();
+        runtime
+            .dispatch_native_event(
+                crate::event::NativeEvent::new(
+                    root_id,
+                    crate::event::NativeEventKind::SelectionChange,
+                )
+                .value("other"),
+            )
+            .unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert_eq!(accessibility.value.as_deref(), Some("other"));
+        assert!(!accessibility.children[0].selected);
+        assert!(accessibility.children[1].selected);
+    }
+
+    #[test]
+    fn runtime_accessibility_tree_projects_radio_group_value_to_checked_child() {
+        let tree = NativeElement::new("theme", NativeRole::RadioGroup)
+            .with_props(
+                NativeProps::new()
+                    .label("Theme")
+                    .web(WebProps::new().on_selection_change("setTheme")),
+            )
+            .child(
+                NativeElement::new("light", NativeRole::Radio).with_props(
+                    NativeProps::new()
+                        .label("Light")
+                        .value("light")
+                        .selected(true),
+                ),
+            )
+            .child(
+                NativeElement::new("dark", NativeRole::Radio)
+                    .with_props(NativeProps::new().label("Dark").value("dark")),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setTheme");
+
+        let root_id = runtime.render_native(&tree).unwrap();
+        runtime
+            .dispatch_native_event(
+                crate::event::NativeEvent::new(
+                    root_id,
+                    crate::event::NativeEventKind::SelectionChange,
+                )
+                .value("dark"),
+            )
+            .unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(!accessibility.children[0].selected);
+        assert_eq!(accessibility.children[0].checked, Some(false));
+        assert!(accessibility.children[1].selected);
         assert_eq!(accessibility.children[1].checked, Some(true));
     }
 
