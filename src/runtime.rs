@@ -384,6 +384,25 @@ mod tests {
     }
 
     #[test]
+    fn runtime_dispatch_stays_strict_for_unbound_events() {
+        let element = NativeElement::new("save", NativeRole::Button)
+            .with_props(NativeProps::new().label("Save"));
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let error = runtime
+            .dispatch_native_event(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap_err();
+
+        assert!(error.to_string().contains("no registered Web action"));
+        assert!(runtime.interactions().node(root_id).unwrap().focused);
+    }
+
+    #[test]
     fn runtime_updates_interaction_state_before_dispatching_action() {
         let compiled: CompiledJsxNode = serde_json::from_str(
             r#"
