@@ -26,6 +26,22 @@ pub enum AriaComponent {
     DeletedText,
     MarkedText,
     Time,
+    Emphasis,
+    StrongText,
+    Code,
+    KeyboardInput,
+    SampleOutput,
+    Variable,
+    InlineQuote,
+    Subscript,
+    Superscript,
+    SmallText,
+    BoldText,
+    ItalicText,
+    StruckText,
+    UnderlinedText,
+    BidirectionalIsolate,
+    BidirectionalOverride,
     Heading,
     HeadingGroup,
     Ruby,
@@ -116,6 +132,22 @@ impl AriaComponent {
             AriaComponent::DeletedText => "DeletedText",
             AriaComponent::MarkedText => "MarkedText",
             AriaComponent::Time => "Time",
+            AriaComponent::Emphasis => "Emphasis",
+            AriaComponent::StrongText => "StrongText",
+            AriaComponent::Code => "Code",
+            AriaComponent::KeyboardInput => "KeyboardInput",
+            AriaComponent::SampleOutput => "SampleOutput",
+            AriaComponent::Variable => "Variable",
+            AriaComponent::InlineQuote => "InlineQuote",
+            AriaComponent::Subscript => "Subscript",
+            AriaComponent::Superscript => "Superscript",
+            AriaComponent::SmallText => "SmallText",
+            AriaComponent::BoldText => "BoldText",
+            AriaComponent::ItalicText => "ItalicText",
+            AriaComponent::StruckText => "StruckText",
+            AriaComponent::UnderlinedText => "UnderlinedText",
+            AriaComponent::BidirectionalIsolate => "BidirectionalIsolate",
+            AriaComponent::BidirectionalOverride => "BidirectionalOverride",
             AriaComponent::Heading => "Heading",
             AriaComponent::HeadingGroup => "HeadingGroup",
             AriaComponent::Ruby => "Ruby",
@@ -413,9 +445,12 @@ impl ReactAriaMapper {
                 NativeRole::Button,
                 self.best_label(element)?,
             )),
-            AriaComponent::Label | AriaComponent::Text | AriaComponent::SelectValue => Ok(
-                simple_leaf(element, NativeRole::Text, self.best_label(element)?),
-            ),
+            AriaComponent::Label | AriaComponent::SelectValue => Ok(simple_leaf(
+                element,
+                NativeRole::Text,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Text => self.map_text(element),
             AriaComponent::Abbreviation => Ok(simple_leaf(
                 element,
                 NativeRole::Abbreviation,
@@ -454,6 +489,86 @@ impl ReactAriaMapper {
             AriaComponent::Time => Ok(simple_leaf(
                 element,
                 NativeRole::Time,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Emphasis => Ok(simple_leaf(
+                element,
+                NativeRole::Emphasis,
+                self.best_label(element)?,
+            )),
+            AriaComponent::StrongText => Ok(simple_leaf(
+                element,
+                NativeRole::StrongText,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Code => Ok(simple_leaf(
+                element,
+                NativeRole::Code,
+                self.best_label(element)?,
+            )),
+            AriaComponent::KeyboardInput => Ok(simple_leaf(
+                element,
+                NativeRole::KeyboardInput,
+                self.best_label(element)?,
+            )),
+            AriaComponent::SampleOutput => Ok(simple_leaf(
+                element,
+                NativeRole::SampleOutput,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Variable => Ok(simple_leaf(
+                element,
+                NativeRole::Variable,
+                self.best_label(element)?,
+            )),
+            AriaComponent::InlineQuote => Ok(simple_leaf(
+                element,
+                NativeRole::InlineQuote,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Subscript => Ok(simple_leaf(
+                element,
+                NativeRole::Subscript,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Superscript => Ok(simple_leaf(
+                element,
+                NativeRole::Superscript,
+                self.best_label(element)?,
+            )),
+            AriaComponent::SmallText => Ok(simple_leaf(
+                element,
+                NativeRole::SmallText,
+                self.best_label(element)?,
+            )),
+            AriaComponent::BoldText => Ok(simple_leaf(
+                element,
+                NativeRole::BoldText,
+                self.best_label(element)?,
+            )),
+            AriaComponent::ItalicText => Ok(simple_leaf(
+                element,
+                NativeRole::ItalicText,
+                self.best_label(element)?,
+            )),
+            AriaComponent::StruckText => Ok(simple_leaf(
+                element,
+                NativeRole::StruckText,
+                self.best_label(element)?,
+            )),
+            AriaComponent::UnderlinedText => Ok(simple_leaf(
+                element,
+                NativeRole::UnderlinedText,
+                self.best_label(element)?,
+            )),
+            AriaComponent::BidirectionalIsolate => Ok(simple_leaf(
+                element,
+                NativeRole::BidirectionalIsolate,
+                self.best_label(element)?,
+            )),
+            AriaComponent::BidirectionalOverride => Ok(simple_leaf(
+                element,
+                NativeRole::BidirectionalOverride,
                 self.best_label(element)?,
             )),
             AriaComponent::Document => self.map_container_with_label(element, NativeRole::Document),
@@ -650,6 +765,18 @@ impl ReactAriaMapper {
         role: NativeRole,
     ) -> GuiResult<NativeElement> {
         self.map_container(element, role)
+    }
+
+    fn map_text(&self, element: &AriaElement) -> GuiResult<NativeElement> {
+        if element.children.is_empty() {
+            Ok(simple_leaf(
+                element,
+                NativeRole::Text,
+                self.best_label(element)?,
+            ))
+        } else {
+            self.map_container_with_label(element, NativeRole::Text)
+        }
     }
 
     fn map_text_field(&self, element: &AriaElement) -> GuiResult<NativeElement> {
@@ -1389,6 +1516,18 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::Time),
             "gtk::Label(time)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::Code),
+            "NSTextField(code)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::InlineQuote),
+            "Microsoft.UI.Xaml.Controls.TextBlock(inline-quote)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::BidirectionalOverride),
+            "gtk::Label(bidi-override)"
         );
     }
 }

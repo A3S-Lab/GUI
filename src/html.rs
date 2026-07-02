@@ -198,6 +198,22 @@ pub fn component_for_html_tag(
         "del" => AriaComponent::DeletedText,
         "mark" => AriaComponent::MarkedText,
         "time" => AriaComponent::Time,
+        "em" => AriaComponent::Emphasis,
+        "strong" => AriaComponent::StrongText,
+        "code" => AriaComponent::Code,
+        "kbd" => AriaComponent::KeyboardInput,
+        "samp" => AriaComponent::SampleOutput,
+        "var" => AriaComponent::Variable,
+        "q" => AriaComponent::InlineQuote,
+        "sub" => AriaComponent::Subscript,
+        "sup" => AriaComponent::Superscript,
+        "small" => AriaComponent::SmallText,
+        "b" => AriaComponent::BoldText,
+        "i" => AriaComponent::ItalicText,
+        "s" | "strike" => AriaComponent::StruckText,
+        "u" => AriaComponent::UnderlinedText,
+        "bdi" => AriaComponent::BidirectionalIsolate,
+        "bdo" => AriaComponent::BidirectionalOverride,
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => AriaComponent::Heading,
         "hgroup" => AriaComponent::HeadingGroup,
         "ruby" => AriaComponent::Ruby,
@@ -292,16 +308,11 @@ fn is_text_html_tag(tag: &str) -> bool {
     matches!(
         tag,
         "address"
-            | "b"
-            | "bdi"
-            | "bdo"
             | "big"
             | "blockquote"
             | "br"
             | "caption"
             | "center"
-            | "code"
-            | "em"
             | "font"
             | "h1"
             | "h2"
@@ -309,23 +320,11 @@ fn is_text_html_tag(tag: &str) -> bool {
             | "h4"
             | "h5"
             | "h6"
-            | "i"
-            | "kbd"
             | "nobr"
             | "p"
             | "pre"
-            | "q"
-            | "s"
-            | "samp"
-            | "small"
             | "span"
-            | "strike"
-            | "strong"
-            | "sub"
-            | "sup"
             | "tt"
-            | "u"
-            | "var"
             | "wbr"
     )
 }
@@ -537,6 +536,80 @@ mod tests {
         assert_eq!(
             component_for_html_tag("time", &attributes),
             Some(AriaComponent::Time)
+        );
+    }
+
+    #[test]
+    fn maps_phrasing_text_tags_to_native_semantics() {
+        let attributes = BTreeMap::new();
+
+        assert_eq!(
+            component_for_html_tag("em", &attributes),
+            Some(AriaComponent::Emphasis)
+        );
+        assert_eq!(
+            component_for_html_tag("strong", &attributes),
+            Some(AriaComponent::StrongText)
+        );
+        assert_eq!(
+            component_for_html_tag("code", &attributes),
+            Some(AriaComponent::Code)
+        );
+        assert_eq!(
+            component_for_html_tag("kbd", &attributes),
+            Some(AriaComponent::KeyboardInput)
+        );
+        assert_eq!(
+            component_for_html_tag("samp", &attributes),
+            Some(AriaComponent::SampleOutput)
+        );
+        assert_eq!(
+            component_for_html_tag("var", &attributes),
+            Some(AriaComponent::Variable)
+        );
+        assert_eq!(
+            component_for_html_tag("q", &attributes),
+            Some(AriaComponent::InlineQuote)
+        );
+        assert_eq!(
+            component_for_html_tag("sub", &attributes),
+            Some(AriaComponent::Subscript)
+        );
+        assert_eq!(
+            component_for_html_tag("sup", &attributes),
+            Some(AriaComponent::Superscript)
+        );
+        assert_eq!(
+            component_for_html_tag("small", &attributes),
+            Some(AriaComponent::SmallText)
+        );
+        assert_eq!(
+            component_for_html_tag("b", &attributes),
+            Some(AriaComponent::BoldText)
+        );
+        assert_eq!(
+            component_for_html_tag("i", &attributes),
+            Some(AriaComponent::ItalicText)
+        );
+        assert_eq!(
+            component_for_html_tag("s", &attributes),
+            Some(AriaComponent::StruckText)
+        );
+        assert_eq!(
+            component_for_html_tag("strike", &attributes),
+            Some(AriaComponent::StruckText)
+        );
+        assert_eq!(
+            component_for_html_tag("u", &attributes),
+            Some(AriaComponent::UnderlinedText)
+        );
+        assert_eq!(
+            component_for_html_tag("bdi", &attributes),
+            Some(AriaComponent::BidirectionalIsolate)
+        );
+        assert_eq!(
+            component_for_html_tag("bdo", &attributes),
+            Some(AriaComponent::BidirectionalOverride)
         );
     }
 

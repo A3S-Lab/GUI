@@ -203,7 +203,23 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "DeletedText" | "del" => Ok(AriaComponent::DeletedText),
         "MarkedText" | "mark" => Ok(AriaComponent::MarkedText),
         "Time" | "time" => Ok(AriaComponent::Time),
-        "Text" | "span" | "p" | "strong" | "em" => Ok(AriaComponent::Text),
+        "Emphasis" | "em" => Ok(AriaComponent::Emphasis),
+        "StrongText" | "strong" => Ok(AriaComponent::StrongText),
+        "Code" | "code" => Ok(AriaComponent::Code),
+        "KeyboardInput" | "kbd" => Ok(AriaComponent::KeyboardInput),
+        "SampleOutput" | "samp" => Ok(AriaComponent::SampleOutput),
+        "Variable" | "var" => Ok(AriaComponent::Variable),
+        "InlineQuote" | "q" => Ok(AriaComponent::InlineQuote),
+        "Subscript" | "sub" => Ok(AriaComponent::Subscript),
+        "Superscript" | "sup" => Ok(AriaComponent::Superscript),
+        "SmallText" | "small" => Ok(AriaComponent::SmallText),
+        "BoldText" | "b" => Ok(AriaComponent::BoldText),
+        "ItalicText" | "i" => Ok(AriaComponent::ItalicText),
+        "StruckText" | "s" | "strike" => Ok(AriaComponent::StruckText),
+        "UnderlinedText" | "u" => Ok(AriaComponent::UnderlinedText),
+        "BidirectionalIsolate" | "bdi" => Ok(AriaComponent::BidirectionalIsolate),
+        "BidirectionalOverride" | "bdo" => Ok(AriaComponent::BidirectionalOverride),
+        "Text" | "span" | "p" => Ok(AriaComponent::Text),
         "Heading" => Ok(AriaComponent::Heading),
         "HeadingGroup" | "hgroup" => Ok(AriaComponent::HeadingGroup),
         "Ruby" | "ruby" => Ok(AriaComponent::Ruby),
@@ -1345,6 +1361,118 @@ mod tests {
                 .get("datetime")
                 .map(String::as_str),
             Some("2026-07-02")
+        );
+    }
+
+    #[test]
+    fn lowers_html_phrasing_text_tags_to_native_roles() {
+        fn phrasing(key: &str, tag: &str, text: &str) -> CompiledJsxNode {
+            CompiledJsxNode::Element {
+                key: key.to_string(),
+                tag: tag.to_string(),
+                import_source: None,
+                props: CompiledProps::default(),
+                children: vec![CompiledJsxNode::Text {
+                    key: format!("{key}-text"),
+                    value: text.to_string(),
+                }],
+            }
+        }
+
+        let bridge = ReactCompilerBridge::new();
+        let root = CompiledJsxNode::Element {
+            key: "phrasing".to_string(),
+            tag: "p".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![
+                phrasing("em", "em", "emphasized"),
+                phrasing("strong", "strong", "important"),
+                phrasing("code", "code", "let value = 1;"),
+                phrasing("kbd", "kbd", "Command K"),
+                phrasing("samp", "samp", "OK"),
+                phrasing("var", "var", "x"),
+                CompiledJsxNode::Element {
+                    key: "quote".to_string(),
+                    tag: "q".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([(
+                            "cite".to_string(),
+                            "https://example.test/spec".to_string(),
+                        )]),
+                        ..CompiledProps::default()
+                    },
+                    children: vec![CompiledJsxNode::Text {
+                        key: "quote-text".to_string(),
+                        value: "quoted".to_string(),
+                    }],
+                },
+                phrasing("sub", "sub", "2"),
+                phrasing("sup", "sup", "3"),
+                phrasing("small", "small", "fine print"),
+                phrasing("b", "b", "attention"),
+                phrasing("i", "i", "idiomatic"),
+                phrasing("s", "s", "obsolete"),
+                phrasing("u", "u", "annotation"),
+                phrasing("bdi", "bdi", "مرحبا"),
+                CompiledJsxNode::Element {
+                    key: "bdo".to_string(),
+                    tag: "bdo".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([("dir".to_string(), "rtl".to_string())]),
+                        ..CompiledProps::default()
+                    },
+                    children: vec![CompiledJsxNode::Text {
+                        key: "bdo-text".to_string(),
+                        value: "abc".to_string(),
+                    }],
+                },
+            ],
+        };
+
+        let native = bridge.lower_to_native(&root).unwrap();
+        assert_eq!(native.role, NativeRole::Text);
+        let expected = [
+            (NativeRole::Emphasis, "emphasized"),
+            (NativeRole::StrongText, "important"),
+            (NativeRole::Code, "let value = 1;"),
+            (NativeRole::KeyboardInput, "Command K"),
+            (NativeRole::SampleOutput, "OK"),
+            (NativeRole::Variable, "x"),
+            (NativeRole::InlineQuote, "quoted"),
+            (NativeRole::Subscript, "2"),
+            (NativeRole::Superscript, "3"),
+            (NativeRole::SmallText, "fine print"),
+            (NativeRole::BoldText, "attention"),
+            (NativeRole::ItalicText, "idiomatic"),
+            (NativeRole::StruckText, "obsolete"),
+            (NativeRole::UnderlinedText, "annotation"),
+            (NativeRole::BidirectionalIsolate, "مرحبا"),
+            (NativeRole::BidirectionalOverride, "abc"),
+        ];
+        for (index, (role, label)) in expected.iter().enumerate() {
+            assert_eq!(native.children[index].role, *role);
+            assert_eq!(native.children[index].props.label.as_deref(), Some(*label));
+        }
+        assert_eq!(
+            native.children[6]
+                .props
+                .web
+                .attributes
+                .get("cite")
+                .map(String::as_str),
+            Some("https://example.test/spec")
+        );
+        assert_eq!(
+            native.children[15]
+                .props
+                .web
+                .attributes
+                .get("dir")
+                .map(String::as_str),
+            Some("rtl")
         );
     }
 
