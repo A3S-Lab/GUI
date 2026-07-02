@@ -34,10 +34,11 @@ The compiler bridge recognizes the HTML element surface exposed by the HTML
 Living Standard plus common historical tags. It also recognizes common SVG
 intrinsic element names used by JSX icon and vector trees. Known intrinsic
 elements are mapped to native semantic roles where a matching role exists.
-Document, metadata, template, slot, text, heading, heading-group, ruby annotation, landmark,
-sectioning, disclosure, figure, description-list, form, form-grouping,
-option-group, output, meter, list, dialog, menu, media, embedded-content, link,
-image-map, and table-structure tags lower to dedicated native roles.
+Document, metadata, template, slot, text, text-annotation, heading,
+heading-group, ruby annotation, landmark, sectioning, disclosure, figure,
+description-list, form, form-grouping, option-group, output, meter, list,
+dialog, menu, media, embedded-content, link, image-map, and table-structure
+tags lower to dedicated native roles.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.
@@ -502,6 +503,7 @@ registered action ids.
 | `html` / `head` / `body` / `title` | native document roles |
 | `base` / `link` / `meta` / `style` / `script` / `noscript` | native metadata and resource roles |
 | `template` / `slot` | native template and slot roles |
+| `abbr` / `cite` / `dfn` / `data` / `ins` / `del` / `mark` / `time` | native text annotation roles |
 | `h1` / `h2` / `h3` / `h4` / `h5` / `h6` | native heading role |
 | `hgroup` | native heading-group role |
 | `ruby` / `rb` / `rt` / `rp` / `rtc` | native ruby annotation roles |

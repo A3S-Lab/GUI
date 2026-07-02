@@ -78,6 +78,14 @@ impl WinUiWidgetKind {
                 Ok(WinUiWidgetKind::StackPanel)
             }
             "Microsoft.UI.Xaml.Controls.TextBlock"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(abbreviation)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(citation)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(definition)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(data-value)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(inserted-text)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(deleted-text)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(marked-text)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(time)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(document-title)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(heading)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(ruby-base)"

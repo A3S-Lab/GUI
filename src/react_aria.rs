@@ -18,6 +18,14 @@ pub enum AriaComponent {
     Template,
     Slot,
     Text,
+    Abbreviation,
+    Citation,
+    Definition,
+    DataValue,
+    InsertedText,
+    DeletedText,
+    MarkedText,
+    Time,
     Heading,
     HeadingGroup,
     Ruby,
@@ -100,6 +108,14 @@ impl AriaComponent {
             AriaComponent::Template => "Template",
             AriaComponent::Slot => "Slot",
             AriaComponent::Text => "Text",
+            AriaComponent::Abbreviation => "Abbreviation",
+            AriaComponent::Citation => "Citation",
+            AriaComponent::Definition => "Definition",
+            AriaComponent::DataValue => "DataValue",
+            AriaComponent::InsertedText => "InsertedText",
+            AriaComponent::DeletedText => "DeletedText",
+            AriaComponent::MarkedText => "MarkedText",
+            AriaComponent::Time => "Time",
             AriaComponent::Heading => "Heading",
             AriaComponent::HeadingGroup => "HeadingGroup",
             AriaComponent::Ruby => "Ruby",
@@ -400,6 +416,46 @@ impl ReactAriaMapper {
             AriaComponent::Label | AriaComponent::Text | AriaComponent::SelectValue => Ok(
                 simple_leaf(element, NativeRole::Text, self.best_label(element)?),
             ),
+            AriaComponent::Abbreviation => Ok(simple_leaf(
+                element,
+                NativeRole::Abbreviation,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Citation => Ok(simple_leaf(
+                element,
+                NativeRole::Citation,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Definition => Ok(simple_leaf(
+                element,
+                NativeRole::Definition,
+                self.best_label(element)?,
+            )),
+            AriaComponent::DataValue => Ok(simple_leaf(
+                element,
+                NativeRole::DataValue,
+                self.best_label(element)?,
+            )),
+            AriaComponent::InsertedText => Ok(simple_leaf(
+                element,
+                NativeRole::InsertedText,
+                self.best_label(element)?,
+            )),
+            AriaComponent::DeletedText => Ok(simple_leaf(
+                element,
+                NativeRole::DeletedText,
+                self.best_label(element)?,
+            )),
+            AriaComponent::MarkedText => Ok(simple_leaf(
+                element,
+                NativeRole::MarkedText,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Time => Ok(simple_leaf(
+                element,
+                NativeRole::Time,
+                self.best_label(element)?,
+            )),
             AriaComponent::Document => self.map_container_with_label(element, NativeRole::Document),
             AriaComponent::DocumentHead => self.map_container(element, NativeRole::DocumentHead),
             AriaComponent::DocumentBody => {
@@ -1321,6 +1377,18 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::RubyText),
             "gtk::Label(ruby-text)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::Abbreviation),
+            "NSTextField(abbreviation)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::MarkedText),
+            "Microsoft.UI.Xaml.Controls.TextBlock(marked-text)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::Time),
+            "gtk::Label(time)"
         );
     }
 }

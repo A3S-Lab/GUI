@@ -113,8 +113,8 @@ that a platform backend applies.
 The compiler bridge accepts the HTML element registry exposed by `HTML_ELEMENTS`.
 Each recognized intrinsic tag lowers to the closest native semantic role, and
 the original tag is preserved as `data-a3s-html-tag` metadata. Document,
-metadata, template, slot, text, heading, heading-group, ruby annotation,
-landmark, sectioning, disclosure, figure, description-list, form,
+metadata, template, slot, text, text-annotation, heading, heading-group, ruby
+annotation, landmark, sectioning, disclosure, figure, description-list, form,
 form-grouping, option-group, output, meter, list, dialog, menu, media,
 embedded-content, link, image-map, and table-structure tags lower to dedicated
 native roles. Generic HTML containers lower to `NativeRole::View`; unsupported

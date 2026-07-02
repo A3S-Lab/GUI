@@ -190,6 +190,14 @@ pub fn component_for_html_tag(
         "script" | "noscript" => AriaComponent::Script,
         "template" => AriaComponent::Template,
         "slot" => AriaComponent::Slot,
+        "abbr" | "acronym" => AriaComponent::Abbreviation,
+        "cite" => AriaComponent::Citation,
+        "dfn" => AriaComponent::Definition,
+        "data" => AriaComponent::DataValue,
+        "ins" => AriaComponent::InsertedText,
+        "del" => AriaComponent::DeletedText,
+        "mark" => AriaComponent::MarkedText,
+        "time" => AriaComponent::Time,
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => AriaComponent::Heading,
         "hgroup" => AriaComponent::HeadingGroup,
         "ruby" => AriaComponent::Ruby,
@@ -283,9 +291,7 @@ fn component_for_anchor(attributes: &BTreeMap<String, String>) -> AriaComponent 
 fn is_text_html_tag(tag: &str) -> bool {
     matches!(
         tag,
-        "abbr"
-            | "acronym"
-            | "address"
+        "address"
             | "b"
             | "bdi"
             | "bdo"
@@ -294,11 +300,7 @@ fn is_text_html_tag(tag: &str) -> bool {
             | "br"
             | "caption"
             | "center"
-            | "cite"
             | "code"
-            | "data"
-            | "del"
-            | "dfn"
             | "em"
             | "font"
             | "h1"
@@ -308,9 +310,7 @@ fn is_text_html_tag(tag: &str) -> bool {
             | "h5"
             | "h6"
             | "i"
-            | "ins"
             | "kbd"
-            | "mark"
             | "nobr"
             | "p"
             | "pre"
@@ -323,7 +323,6 @@ fn is_text_html_tag(tag: &str) -> bool {
             | "strong"
             | "sub"
             | "sup"
-            | "time"
             | "tt"
             | "u"
             | "var"
@@ -496,6 +495,48 @@ mod tests {
         assert_eq!(
             component_for_html_tag("rtc", &attributes),
             Some(AriaComponent::RubyTextContainer)
+        );
+    }
+
+    #[test]
+    fn maps_text_annotation_tags_to_native_semantics() {
+        let attributes = BTreeMap::new();
+
+        assert_eq!(
+            component_for_html_tag("abbr", &attributes),
+            Some(AriaComponent::Abbreviation)
+        );
+        assert_eq!(
+            component_for_html_tag("acronym", &attributes),
+            Some(AriaComponent::Abbreviation)
+        );
+        assert_eq!(
+            component_for_html_tag("cite", &attributes),
+            Some(AriaComponent::Citation)
+        );
+        assert_eq!(
+            component_for_html_tag("dfn", &attributes),
+            Some(AriaComponent::Definition)
+        );
+        assert_eq!(
+            component_for_html_tag("data", &attributes),
+            Some(AriaComponent::DataValue)
+        );
+        assert_eq!(
+            component_for_html_tag("ins", &attributes),
+            Some(AriaComponent::InsertedText)
+        );
+        assert_eq!(
+            component_for_html_tag("del", &attributes),
+            Some(AriaComponent::DeletedText)
+        );
+        assert_eq!(
+            component_for_html_tag("mark", &attributes),
+            Some(AriaComponent::MarkedText)
+        );
+        assert_eq!(
+            component_for_html_tag("time", &attributes),
+            Some(AriaComponent::Time)
         );
     }
 

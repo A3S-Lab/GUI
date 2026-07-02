@@ -110,6 +110,14 @@ families:
 | `Template` | `NSView(template)` | `Microsoft.UI.Xaml.Controls.StackPanel(template)` | `gtk::Box(template)` |
 | `Slot` | `NSView(slot)` | `Microsoft.UI.Xaml.Controls.StackPanel(slot)` | `gtk::Box(slot)` |
 | `Heading` | `NSTextField(heading)` | `Microsoft.UI.Xaml.Controls.TextBlock(heading)` | `gtk::Label(heading)` |
+| `Abbreviation` | `NSTextField(abbreviation)` | `Microsoft.UI.Xaml.Controls.TextBlock(abbreviation)` | `gtk::Label(abbreviation)` |
+| `Citation` | `NSTextField(citation)` | `Microsoft.UI.Xaml.Controls.TextBlock(citation)` | `gtk::Label(citation)` |
+| `Definition` | `NSTextField(definition)` | `Microsoft.UI.Xaml.Controls.TextBlock(definition)` | `gtk::Label(definition)` |
+| `DataValue` | `NSTextField(data-value)` | `Microsoft.UI.Xaml.Controls.TextBlock(data-value)` | `gtk::Label(data-value)` |
+| `InsertedText` | `NSTextField(inserted-text)` | `Microsoft.UI.Xaml.Controls.TextBlock(inserted-text)` | `gtk::Label(inserted-text)` |
+| `DeletedText` | `NSTextField(deleted-text)` | `Microsoft.UI.Xaml.Controls.TextBlock(deleted-text)` | `gtk::Label(deleted-text)` |
+| `MarkedText` | `NSTextField(marked-text)` | `Microsoft.UI.Xaml.Controls.TextBlock(marked-text)` | `gtk::Label(marked-text)` |
+| `Time` | `NSTextField(time)` | `Microsoft.UI.Xaml.Controls.TextBlock(time)` | `gtk::Label(time)` |
 | `HeadingGroup` | `NSView(heading-group)` | `Microsoft.UI.Xaml.Controls.StackPanel(heading-group)` | `gtk::Box(heading-group)` |
 | `Ruby` | `NSView(ruby)` | `Microsoft.UI.Xaml.Controls.StackPanel(ruby)` | `gtk::Box(ruby)` |
 | `RubyBase` | `NSTextField(ruby-base)` | `Microsoft.UI.Xaml.Controls.TextBlock(ruby-base)` | `gtk::Label(ruby-base)` |

@@ -195,6 +195,14 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "Script" | "script" | "noscript" => Ok(AriaComponent::Script),
         "Template" | "template" => Ok(AriaComponent::Template),
         "Slot" | "slot" => Ok(AriaComponent::Slot),
+        "Abbreviation" | "abbr" | "acronym" => Ok(AriaComponent::Abbreviation),
+        "Citation" | "cite" => Ok(AriaComponent::Citation),
+        "Definition" | "dfn" => Ok(AriaComponent::Definition),
+        "DataValue" | "data" => Ok(AriaComponent::DataValue),
+        "InsertedText" | "ins" => Ok(AriaComponent::InsertedText),
+        "DeletedText" | "del" => Ok(AriaComponent::DeletedText),
+        "MarkedText" | "mark" => Ok(AriaComponent::MarkedText),
+        "Time" | "time" => Ok(AriaComponent::Time),
         "Text" | "span" | "p" | "strong" | "em" => Ok(AriaComponent::Text),
         "Heading" => Ok(AriaComponent::Heading),
         "HeadingGroup" | "hgroup" => Ok(AriaComponent::HeadingGroup),
@@ -1218,6 +1226,126 @@ mod tests {
         assert_eq!(native.children[4].role, NativeRole::RubyTextContainer);
         assert_eq!(native.children[4].props.label.as_deref(), Some("Han"));
         assert_eq!(native.children[4].children[0].role, NativeRole::RubyText);
+    }
+
+    #[test]
+    fn lowers_html_text_annotation_tags_to_native_roles() {
+        fn text_annotation(key: &str, tag: &str, text: &str) -> CompiledJsxNode {
+            CompiledJsxNode::Element {
+                key: key.to_string(),
+                tag: tag.to_string(),
+                import_source: None,
+                props: CompiledProps::default(),
+                children: vec![CompiledJsxNode::Text {
+                    key: format!("{key}-text"),
+                    value: text.to_string(),
+                }],
+            }
+        }
+
+        let bridge = ReactCompilerBridge::new();
+        let root = CompiledJsxNode::Element {
+            key: "annotations".to_string(),
+            tag: "div".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![
+                CompiledJsxNode::Element {
+                    key: "abbr".to_string(),
+                    tag: "abbr".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([(
+                            "title".to_string(),
+                            "HyperText Markup Language".to_string(),
+                        )]),
+                        ..CompiledProps::default()
+                    },
+                    children: vec![CompiledJsxNode::Text {
+                        key: "abbr-text".to_string(),
+                        value: "HTML".to_string(),
+                    }],
+                },
+                text_annotation("cite", "cite", "Spec"),
+                text_annotation("dfn", "dfn", "Term"),
+                CompiledJsxNode::Element {
+                    key: "data".to_string(),
+                    tag: "data".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([("value".to_string(), "42".to_string())]),
+                        ..CompiledProps::default()
+                    },
+                    children: vec![CompiledJsxNode::Text {
+                        key: "data-text".to_string(),
+                        value: "Answer".to_string(),
+                    }],
+                },
+                text_annotation("ins", "ins", "added"),
+                text_annotation("del", "del", "removed"),
+                text_annotation("mark", "mark", "highlight"),
+                CompiledJsxNode::Element {
+                    key: "time".to_string(),
+                    tag: "time".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([(
+                            "datetime".to_string(),
+                            "2026-07-02".to_string(),
+                        )]),
+                        ..CompiledProps::default()
+                    },
+                    children: vec![CompiledJsxNode::Text {
+                        key: "time-text".to_string(),
+                        value: "Today".to_string(),
+                    }],
+                },
+            ],
+        };
+
+        let native = bridge.lower_to_native(&root).unwrap();
+        assert_eq!(native.role, NativeRole::View);
+        let expected = [
+            (NativeRole::Abbreviation, "HTML"),
+            (NativeRole::Citation, "Spec"),
+            (NativeRole::Definition, "Term"),
+            (NativeRole::DataValue, "Answer"),
+            (NativeRole::InsertedText, "added"),
+            (NativeRole::DeletedText, "removed"),
+            (NativeRole::MarkedText, "highlight"),
+            (NativeRole::Time, "Today"),
+        ];
+        for (index, (role, label)) in expected.iter().enumerate() {
+            assert_eq!(native.children[index].role, *role);
+            assert_eq!(native.children[index].props.label.as_deref(), Some(*label));
+        }
+        assert_eq!(
+            native.children[0]
+                .props
+                .web
+                .attributes
+                .get("title")
+                .map(String::as_str),
+            Some("HyperText Markup Language")
+        );
+        assert_eq!(
+            native.children[3]
+                .props
+                .web
+                .attributes
+                .get("value")
+                .map(String::as_str),
+            Some("42")
+        );
+        assert_eq!(
+            native.children[7]
+                .props
+                .web
+                .attributes
+                .get("datetime")
+                .map(String::as_str),
+            Some("2026-07-02")
+        );
     }
 
     #[test]
