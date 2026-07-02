@@ -381,7 +381,9 @@ map to OS controls.
 `CommandExecutingHost` wraps this command stream around a
 `PlatformCommandExecutor`. `DriverCommandExecutor` is the reusable executor for
 real native backends: it validates that a blueprint targets the driver's backend
-and delegates command effects to `NativeWidgetDriver`.
+and delegates command effects to `NativeWidgetDriver`. If a backend command
+fails, the host restores the planning snapshot for that command so failed
+creates or updates do not leave the planned tree ahead of the native backend.
 
 `NativeWidgetDriver` is the OS-binding contract. A platform layer implements:
 

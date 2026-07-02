@@ -1,7 +1,7 @@
 use super::*;
 use crate::accessibility::AccessibilityRole;
 use crate::compiler::CompiledJsxNode;
-use crate::error::GuiResult;
+use crate::error::{GuiError, GuiResult};
 use crate::event::{NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
 use crate::native::{NativeElement, NativeProps, NativeRole};
@@ -40,6 +40,26 @@ struct ThreadBoundHandleAdapter {
 struct TestNativeSurface {
     calls: Rc<RefCell<Vec<String>>>,
     events: Rc<RefCell<Vec<NativeEvent>>>,
+}
+
+#[derive(Debug, Default)]
+struct FailingCommandExecutor {
+    fail_creates: bool,
+    fail_updates: bool,
+}
+
+impl PlatformCommandExecutor for FailingCommandExecutor {
+    fn execute(&mut self, command: &PlatformCommand) -> GuiResult<()> {
+        match command {
+            PlatformCommand::Create { .. } if self.fail_creates => {
+                Err(GuiError::host("forced backend create failure"))
+            }
+            PlatformCommand::Update { .. } if self.fail_updates => {
+                Err(GuiError::host("forced backend update failure"))
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 impl NativeWidgetSurface for TestNativeSurface {
@@ -519,6 +539,52 @@ fn command_executing_host_dispatches_driver_native_events_to_actions() {
         .executor_mut()
         .take_native_events()
         .is_empty());
+}
+
+#[test]
+fn command_executing_host_rolls_back_planning_after_backend_create_failure() {
+    let host = CommandExecutingHost::new(
+        Gtk4Adapter,
+        FailingCommandExecutor {
+            fail_creates: true,
+            ..FailingCommandExecutor::default()
+        },
+    );
+    let mut runtime = GuiRuntime::new(host);
+
+    let error = runtime
+        .render_native(&NativeElement::new("save", NativeRole::Button))
+        .unwrap_err();
+
+    assert!(error.to_string().contains("forced backend create failure"));
+    assert!(runtime.host().planning().nodes().is_empty());
+    assert!(runtime.host().planning().commands().is_empty());
+    assert!(runtime.host().planning().root().is_none());
+}
+
+#[test]
+fn command_executing_host_rolls_back_planning_after_backend_update_failure() {
+    let host = CommandExecutingHost::new(Gtk4Adapter, FailingCommandExecutor::default());
+    let mut runtime = GuiRuntime::new(host);
+    let first =
+        NativeElement::new("save", NativeRole::Button).with_props(NativeProps::new().label("Save"));
+    let second = NativeElement::new("save", NativeRole::Button)
+        .with_props(NativeProps::new().label("Saved"));
+
+    let root_id = runtime.render_native(&first).unwrap();
+    runtime.host_mut().executor_mut().fail_updates = true;
+    let error = runtime.render_native(&second).unwrap_err();
+
+    assert!(error.to_string().contains("forced backend update failure"));
+    let planned = runtime.host().planning().node(root_id).unwrap();
+    assert_eq!(planned.blueprint.label.as_deref(), Some("Save"));
+    assert_eq!(runtime.host().planning().root(), Some(root_id));
+    assert!(!runtime
+        .host()
+        .planning()
+        .commands()
+        .iter()
+        .any(|command| matches!(command, PlatformCommand::Update { .. })));
 }
 
 #[test]

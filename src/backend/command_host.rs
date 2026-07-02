@@ -42,11 +42,31 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> CommandExecutingHost<A, E> 
     }
 
     fn flush_commands(&mut self) -> GuiResult<()> {
-        for command in &self.planning.commands()[self.executed_commands..] {
-            self.executor.execute(command)?;
+        while self.executed_commands < self.planning.commands().len() {
+            let command = self.planning.commands()[self.executed_commands].clone();
+            self.executor.execute(&command)?;
+            self.executed_commands += 1;
         }
-        self.executed_commands = self.planning.commands().len();
         Ok(())
+    }
+
+    fn commit_planning<T>(
+        &mut self,
+        apply: impl FnOnce(&mut PlatformPlanningHost<A>) -> GuiResult<T>,
+    ) -> GuiResult<T> {
+        let checkpoint = self.planning.checkpoint();
+        let value = match apply(&mut self.planning) {
+            Ok(value) => value,
+            Err(error) => {
+                self.planning.restore(checkpoint);
+                return Err(error);
+            }
+        };
+        if let Err(error) = self.flush_commands() {
+            self.planning.restore(checkpoint);
+            return Err(error);
+        }
+        Ok(value)
     }
 }
 
@@ -74,14 +94,11 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> BlueprintHost for CommandEx
 
 impl<A: PlatformAdapter, E: PlatformCommandExecutor> NativeHost for CommandExecutingHost<A, E> {
     fn create(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
-        let id = self.planning.create(element)?;
-        self.flush_commands()?;
-        Ok(id)
+        self.commit_planning(|planning| planning.create(element))
     }
 
     fn update(&mut self, id: HostNodeId, props: &NativeProps) -> GuiResult<()> {
-        self.planning.update(id, props)?;
-        self.flush_commands()
+        self.commit_planning(|planning| planning.update(id, props))
     }
 
     fn insert_child(
@@ -90,17 +107,14 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> NativeHost for CommandExecu
         child: HostNodeId,
         index: usize,
     ) -> GuiResult<()> {
-        self.planning.insert_child(parent, child, index)?;
-        self.flush_commands()
+        self.commit_planning(|planning| planning.insert_child(parent, child, index))
     }
 
     fn remove(&mut self, id: HostNodeId) -> GuiResult<()> {
-        self.planning.remove(id)?;
-        self.flush_commands()
+        self.commit_planning(|planning| planning.remove(id))
     }
 
     fn set_root(&mut self, id: HostNodeId) -> GuiResult<()> {
-        self.planning.set_root(id)?;
-        self.flush_commands()
+        self.commit_planning(|planning| planning.set_root(id))
     }
 }

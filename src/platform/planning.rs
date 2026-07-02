@@ -51,6 +51,14 @@ pub struct PlatformPlanningHost<A: PlatformAdapter> {
     commands: Vec<PlatformCommand>,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct PlatformPlanningCheckpoint {
+    next_id: u64,
+    root: Option<HostNodeId>,
+    nodes: BTreeMap<HostNodeId, PlatformPlannedNode>,
+    command_len: usize,
+}
+
 impl<A: PlatformAdapter> PlatformPlanningHost<A> {
     pub fn new(adapter: A) -> Self {
         Self {
@@ -80,6 +88,22 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
 
     pub fn clear_commands(&mut self) {
         self.commands.clear();
+    }
+
+    pub(crate) fn checkpoint(&self) -> PlatformPlanningCheckpoint {
+        PlatformPlanningCheckpoint {
+            next_id: self.next_id,
+            root: self.root,
+            nodes: self.nodes.clone(),
+            command_len: self.commands.len(),
+        }
+    }
+
+    pub(crate) fn restore(&mut self, checkpoint: PlatformPlanningCheckpoint) {
+        self.next_id = checkpoint.next_id;
+        self.root = checkpoint.root;
+        self.nodes = checkpoint.nodes;
+        self.commands.truncate(checkpoint.command_len);
     }
 
     fn allocate_id(&mut self) -> HostNodeId {
