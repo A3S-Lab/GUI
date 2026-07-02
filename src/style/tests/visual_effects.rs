@@ -179,9 +179,17 @@ fn parses_tailwind_visual_effect_and_interaction_utilities() {
         style
             .variant_declarations
             .get("hover")
-            .and_then(|styles| styles.get("box-shadow"))
+            .and_then(|styles| styles.get("--tw-shadow"))
             .map(String::as_str),
         Some("0 0 4px black")
+    );
+    assert_eq!(
+        style
+            .variant_declarations
+            .get("hover")
+            .and_then(|styles| styles.get("box-shadow"))
+            .map(String::as_str),
+        Some("var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-shadow), var(--tw-shadow)")
     );
     assert_eq!(
         style
@@ -190,5 +198,58 @@ fn parses_tailwind_visual_effect_and_interaction_utilities() {
             .and_then(|styles| styles.get("outline"))
             .map(String::as_str),
         Some("3px solid red")
+    );
+}
+
+#[test]
+fn parses_tailwind_v4_shadow_and_inset_shadow_utilities() {
+    let web = WebProps::new().class_name(
+        "inset-shadow-sm inset-shadow-sky-500 shadow-2xs shadow-red-500 ring-2 ring-blue-600 \
+             hover:inset-shadow-[inset_0_0_2px_black] focus:shadow-(--elevation) \
+             active:shadow-(color:--shadow-color)",
+    );
+
+    let style = PortableStyle::from_web(&web);
+
+    assert_eq!(
+        style.tailwind_inset_shadow.as_deref(),
+        Some("inset 0 2px 4px rgb(0 0 0 / 0.05)")
+    );
+    assert_eq!(
+        style.tailwind_inset_shadow_color.as_deref(),
+        Some("sky-500")
+    );
+    assert_eq!(
+        style.tailwind_shadow.as_deref(),
+        Some("0 1px rgb(0 0 0 / 0.05)")
+    );
+    assert_eq!(style.tailwind_shadow_color.as_deref(), Some("red-500"));
+    assert_eq!(
+        style.box_shadow.as_deref(),
+        Some("inset 0 2px 4px sky-500, 0 0 0 2px blue-600, 0 1px red-500")
+    );
+    assert_eq!(
+        style
+            .variant_declarations
+            .get("hover")
+            .and_then(|styles| styles.get("--tw-inset-shadow"))
+            .map(String::as_str),
+        Some("inset 0 0 2px black")
+    );
+    assert_eq!(
+        style
+            .variant_declarations
+            .get("focus")
+            .and_then(|styles| styles.get("--tw-shadow"))
+            .map(String::as_str),
+        Some("var(--elevation)")
+    );
+    assert_eq!(
+        style
+            .variant_declarations
+            .get("active")
+            .and_then(|styles| styles.get("--tw-shadow-color"))
+            .map(String::as_str),
+        Some("var(--shadow-color)")
     );
 }

@@ -1,18 +1,40 @@
 use super::support::*;
 
 #[test]
+fn lowers_all_conforming_html_elements_without_rejecting_intrinsic_tags() {
+    let bridge = ReactCompilerBridge::new();
+
+    for tag in HTML_CONFORMING_ELEMENTS {
+        let props = intrinsic_props_for_tag(tag);
+        let compiled = CompiledJsxNode::Element {
+            key: format!("{tag}-key"),
+            tag: tag.to_string(),
+            import_source: None,
+            props,
+            children: Vec::new(),
+        };
+
+        let native = bridge
+            .lower_to_native(&compiled)
+            .unwrap_or_else(|error| panic!("{tag} should lower to native IR: {error}"));
+
+        assert_eq!(
+            native
+                .props
+                .metadata
+                .get(HTML_TAG_METADATA_KEY)
+                .map(String::as_str),
+            Some(*tag)
+        );
+    }
+}
+
+#[test]
 fn lowers_all_known_html_elements_without_rejecting_intrinsic_tags() {
     let bridge = ReactCompilerBridge::new();
 
     for tag in HTML_ELEMENTS {
-        let props = if *tag == "input" {
-            CompiledProps {
-                attributes: BTreeMap::from([("type".to_string(), "checkbox".to_string())]),
-                ..CompiledProps::default()
-            }
-        } else {
-            CompiledProps::default()
-        };
+        let props = intrinsic_props_for_tag(tag);
         let compiled = CompiledJsxNode::Element {
             key: format!("{tag}-key"),
             tag: tag.to_string(),
@@ -169,4 +191,15 @@ fn lowers_html_link_and_image_map_tags_to_native_roles() {
             .map(String::as_str),
         Some("/signup")
     );
+}
+
+fn intrinsic_props_for_tag(tag: &str) -> CompiledProps {
+    if tag == "input" {
+        CompiledProps {
+            attributes: BTreeMap::from([("type".to_string(), "checkbox".to_string())]),
+            ..CompiledProps::default()
+        }
+    } else {
+        CompiledProps::default()
+    }
 }

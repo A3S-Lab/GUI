@@ -31,9 +31,9 @@ use tailwind::{
 #[cfg(test)]
 use tailwind_utilities::tailwind_filter_pipeline;
 use tailwind_utilities::{
-    compose_tailwind_ring_shadow, tailwind_box_shadow_pipeline, tailwind_color,
-    tailwind_edge_utility, tailwind_length, tailwind_opacity, tailwind_scrollbar_color_pipeline,
-    tailwind_utility_declarations,
+    compose_tailwind_ring_shadow, compose_tailwind_shadow, tailwind_box_shadow_pipeline,
+    tailwind_color, tailwind_edge_utility, tailwind_length, tailwind_opacity,
+    tailwind_scrollbar_color_pipeline, tailwind_utility_declarations,
 };
 use types::{CornerSelection, EdgeSelection, LogicalCornerSelection, LogicalEdgeSelection};
 use value_parsing::{parse_length, parse_time};

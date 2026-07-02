@@ -58,6 +58,22 @@ impl PortableStyle {
                 self.inset_ring_color = parse_non_empty_css_string(value);
                 self.box_shadow = self.compose_tailwind_box_shadow();
             }
+            "--tw-shadow" => {
+                self.tailwind_shadow = parse_non_empty_css_string(value);
+                self.box_shadow = self.compose_tailwind_box_shadow();
+            }
+            "--tw-shadow-color" => {
+                self.tailwind_shadow_color = parse_non_empty_css_string(value);
+                self.box_shadow = self.compose_tailwind_box_shadow();
+            }
+            "--tw-inset-shadow" => {
+                self.tailwind_inset_shadow = parse_non_empty_css_string(value);
+                self.box_shadow = self.compose_tailwind_box_shadow();
+            }
+            "--tw-inset-shadow-color" => {
+                self.tailwind_inset_shadow_color = parse_non_empty_css_string(value);
+                self.box_shadow = self.compose_tailwind_box_shadow();
+            }
             "--tw-divide-x-reverse" => {
                 self.divide_x_reverse = parse_non_empty_css_string(value);
             }
@@ -308,6 +324,12 @@ impl PortableStyle {
 
     pub(super) fn compose_tailwind_box_shadow(&self) -> Option<String> {
         let mut parts = Vec::new();
+        if let Some(shadow) = self.tailwind_inset_shadow.as_deref() {
+            parts.push(compose_tailwind_shadow(
+                shadow,
+                self.tailwind_inset_shadow_color.as_deref(),
+            ));
+        }
         if let Some(shadow) = self.inset_ring_shadow.as_deref() {
             parts.push(compose_tailwind_ring_shadow(
                 shadow,
@@ -324,6 +346,12 @@ impl PortableStyle {
                 shadow,
                 self.ring_color.as_deref(),
                 inset,
+            ));
+        }
+        if let Some(shadow) = self.tailwind_shadow.as_deref() {
+            parts.push(compose_tailwind_shadow(
+                shadow,
+                self.tailwind_shadow_color.as_deref(),
             ));
         }
         if parts.is_empty() {

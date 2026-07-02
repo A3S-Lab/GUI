@@ -12,13 +12,16 @@ pub(crate) fn parse_class(class: &str) -> Option<TailwindClass<'_>> {
     }
 
     let mut bracket_depth = 0usize;
+    let mut paren_depth = 0usize;
     let mut start = 0usize;
     let mut variants = Vec::new();
     for (index, ch) in class.char_indices() {
         match ch {
             '[' => bracket_depth += 1,
             ']' => bracket_depth = bracket_depth.saturating_sub(1),
-            ':' if bracket_depth == 0 => {
+            '(' if bracket_depth == 0 => paren_depth += 1,
+            ')' if bracket_depth == 0 => paren_depth = paren_depth.saturating_sub(1),
+            ':' if bracket_depth == 0 && paren_depth == 0 => {
                 variants.push(class[start..index].to_string());
                 start = index + 1;
             }
@@ -199,6 +202,21 @@ mod tests {
         assert_eq!(parsed.variants, ["group-hover", "[&:focus]"]);
         assert_eq!(parsed.utility, "bg-[color:var(--accent)]");
         assert!(parsed.important);
+    }
+
+    #[test]
+    fn parses_variants_around_parenthesized_values() {
+        let parsed = parse_class("active:shadow-(color:--shadow-color)").unwrap();
+
+        assert_eq!(parsed.variants, ["active"]);
+        assert_eq!(parsed.utility, "shadow-(color:--shadow-color)");
+        assert!(!parsed.important);
+
+        let parsed = parse_class("focus:shadow-(--elevation)").unwrap();
+
+        assert_eq!(parsed.variants, ["focus"]);
+        assert_eq!(parsed.utility, "shadow-(--elevation)");
+        assert!(!parsed.important);
     }
 
     #[test]

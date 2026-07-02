@@ -229,7 +229,7 @@ pub(in crate::style) fn tailwind_visual_effect_declaration(
         .strip_prefix("shadow-[")
         .and_then(|value| value.strip_suffix(']'))
     {
-        return Some(("box-shadow".to_string(), tailwind_arbitrary_value(value)));
+        return Some(("--tw-shadow".to_string(), tailwind_arbitrary_value(value)));
     }
     if let Some(value) = class
         .strip_prefix("outline-[")

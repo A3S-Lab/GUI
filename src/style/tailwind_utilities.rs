@@ -1,18 +1,24 @@
 use super::*;
 
+mod box_model;
 mod core;
 mod filters;
+mod grid;
 mod media;
 mod motion;
-mod ring_grid;
+mod ring;
+mod shadow;
 mod transform;
 mod values;
 
+pub(super) use box_model::*;
 pub(super) use core::*;
 pub(super) use filters::*;
+pub(super) use grid::*;
 pub(super) use media::*;
 pub(super) use motion::*;
-pub(super) use ring_grid::*;
+pub(super) use ring::*;
+pub(super) use shadow::*;
 pub(super) use transform::*;
 pub(super) use values::*;
 
@@ -28,6 +34,10 @@ pub(super) fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, Str
                 tailwind_arbitrary_value(value.trim()),
             );
         }
+        return declarations;
+    }
+    if let Some(shadow) = tailwind_shadow_declarations(class) {
+        declarations.extend(shadow);
         return declarations;
     }
     if let Some(radius) = tailwind_radius_declarations(class) {
@@ -374,33 +384,10 @@ pub(super) fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, Str
         "outline-dashed" => Some(("outline-style", "dashed".to_string())),
         "outline-dotted" => Some(("outline-style", "dotted".to_string())),
         "outline-double" => Some(("outline-style", "double".to_string())),
-        "shadow" => Some((
-            "box-shadow",
-            "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)".to_string(),
-        )),
-        "shadow-xs" => Some(("box-shadow", "0 1px rgb(0 0 0 / 0.05)".to_string())),
-        "shadow-sm" => Some(("box-shadow", "0 1px 2px 0 rgb(0 0 0 / 0.05)".to_string())),
-        "shadow-md" => Some((
-            "box-shadow",
-            "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)".to_string(),
-        )),
-        "shadow-lg" => Some((
-            "box-shadow",
-            "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)".to_string(),
-        )),
-        "shadow-xl" => Some((
-            "box-shadow",
-            "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)".to_string(),
-        )),
-        "shadow-2xl" => Some((
-            "box-shadow",
-            "0 25px 50px -12px rgb(0 0 0 / 0.25)".to_string(),
-        )),
         "shadow-inner" => Some((
             "box-shadow",
             "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)".to_string(),
         )),
-        "shadow-none" => Some(("box-shadow", "none".to_string())),
         "transform" => Some(("transform", "translateZ(0)".to_string())),
         "transform-none" => Some(("transform", "none".to_string())),
         "filter" => Some(("filter", "var(--tw-filter)".to_string())),

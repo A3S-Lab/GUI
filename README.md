@@ -170,7 +170,8 @@ arbitrary `border-image*` properties are projected into portable style tokens.
 SVG presentation utilities such as `fill-*`, `stroke-*`, and `stroke-{width}`,
 plus arbitrary SVG marker, rendering, paint server, and filter color
 properties, are projected into portable style tokens. Common
-visual-effect utilities such as `shadow-*`, `ring-*`, `inset-ring-*`,
+visual-effect utilities such as `shadow-*`, `shadow-(...)`,
+`shadow-(color:...)`, `inset-shadow-*`, `ring-*`, `inset-ring-*`,
 `outline-*`, `cursor-*`,
 `pointer-events-*`, `select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`, and
 `mask-*`, transform utilities such as `translate-*`, `scale-*`, `rotate-*`,

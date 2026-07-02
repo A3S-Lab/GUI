@@ -2,148 +2,11 @@ use std::collections::BTreeMap;
 
 use crate::react_aria::AriaComponent;
 
-pub const HTML_TAG_METADATA_KEY: &str = "data-a3s-html-tag";
+mod registry;
 
-pub const HTML_ELEMENTS: &[&str] = &[
-    "a",
-    "abbr",
-    "acronym",
-    "address",
-    "applet",
-    "area",
-    "article",
-    "aside",
-    "audio",
-    "b",
-    "base",
-    "basefont",
-    "bdi",
-    "bdo",
-    "bgsound",
-    "big",
-    "blockquote",
-    "body",
-    "br",
-    "button",
-    "canvas",
-    "caption",
-    "center",
-    "cite",
-    "code",
-    "col",
-    "colgroup",
-    "data",
-    "datalist",
-    "dd",
-    "del",
-    "details",
-    "dfn",
-    "dialog",
-    "dir",
-    "div",
-    "dl",
-    "dt",
-    "em",
-    "embed",
-    "fieldset",
-    "figcaption",
-    "figure",
-    "font",
-    "footer",
-    "form",
-    "frame",
-    "frameset",
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    "head",
-    "header",
-    "hgroup",
-    "hr",
-    "html",
-    "i",
-    "iframe",
-    "img",
-    "input",
-    "ins",
-    "kbd",
-    "label",
-    "legend",
-    "li",
-    "link",
-    "listing",
-    "main",
-    "map",
-    "mark",
-    "marquee",
-    "math",
-    "menu",
-    "meta",
-    "meter",
-    "nav",
-    "nextid",
-    "nobr",
-    "noembed",
-    "noframes",
-    "noscript",
-    "object",
-    "ol",
-    "optgroup",
-    "option",
-    "output",
-    "p",
-    "param",
-    "picture",
-    "plaintext",
-    "pre",
-    "progress",
-    "q",
-    "rb",
-    "rp",
-    "rt",
-    "rtc",
-    "ruby",
-    "s",
-    "samp",
-    "script",
-    "search",
-    "section",
-    "select",
-    "selectedcontent",
-    "slot",
-    "small",
-    "source",
-    "span",
-    "strike",
-    "strong",
-    "style",
-    "sub",
-    "summary",
-    "sup",
-    "svg",
-    "table",
-    "tbody",
-    "td",
-    "template",
-    "textarea",
-    "tfoot",
-    "th",
-    "thead",
-    "time",
-    "title",
-    "tr",
-    "track",
-    "tt",
-    "u",
-    "ul",
-    "var",
-    "video",
-    "wbr",
-    "xmp",
-];
+pub use registry::{HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS};
+
+pub const HTML_TAG_METADATA_KEY: &str = "data-a3s-html-tag";
 
 pub fn is_html_element(tag: &str) -> bool {
     canonical_html_tag(tag).is_some()
@@ -332,6 +195,36 @@ fn is_text_html_tag(tag: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
+
+    fn assert_unique_sorted(elements: &[&str]) {
+        let mut seen = BTreeSet::new();
+        for element in elements {
+            assert!(seen.insert(*element), "{element} should be listed once");
+        }
+        for pair in elements.windows(2) {
+            assert!(
+                pair[0] < pair[1],
+                "{} should sort before {}",
+                pair[0],
+                pair[1]
+            );
+        }
+    }
+
+    #[test]
+    fn conforming_html_elements_are_a_registry_baseline() {
+        assert_unique_sorted(HTML_CONFORMING_ELEMENTS);
+        assert_unique_sorted(HTML_ELEMENTS);
+
+        for tag in HTML_CONFORMING_ELEMENTS {
+            assert!(
+                HTML_ELEMENTS.contains(tag),
+                "{tag} should be included in the full HTML registry"
+            );
+            assert_eq!(canonical_html_tag(tag), Some(*tag));
+        }
+    }
 
     #[test]
     fn recognizes_html_elements_case_insensitively() {
