@@ -13,7 +13,8 @@ fn lowers_compiled_react_aria_button_json_to_native_button() {
             "className": "primary",
             "style": {"minWidth": 280, "backgroundColor": "#663399"},
             "attributes": {"aria-label": "Save document", "data-testid": "save-button"},
-            "events": {"onClick": "saveDocument"}
+            "events": {"onClick": "saveDocument"},
+            "actionLabels": {"saveDocument": "Save document"}
           },
           "children": [
             {"kind": "text", "key": "save-text", "value": "Save"}

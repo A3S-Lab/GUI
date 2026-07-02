@@ -97,6 +97,7 @@ function normalizeProps(props, tag) {
   const out = {};
   const attributes = {};
   const events = {};
+  const actionLabels = {};
   const style = {};
 
   for (const [name, value] of Object.entries(props)) {
@@ -114,7 +115,10 @@ function normalizeProps(props, tag) {
     } else if (name.startsWith('on') && typeof value === 'string') {
       events[name] = value;
     } else if (name.startsWith('on') && typeof value === 'function') {
-      events[name] = actionIdForEvent(value);
+      const actionId = actionIdForEvent(value);
+      events[name] = actionId;
+      const actionLabel = actionLabelForEvent(value);
+      if (actionLabel != null) actionLabels[actionId] = actionLabel;
     } else if (name.startsWith('aria-') || name.startsWith('data-')) {
       attributes[name] = String(value);
       applySemanticAttribute(out, name, value);
@@ -185,6 +189,7 @@ function normalizeProps(props, tag) {
   if (Object.keys(style).length > 0) out.style = style;
   if (Object.keys(attributes).length > 0) out.attributes = attributes;
   if (Object.keys(events).length > 0) out.events = events;
+  if (Object.keys(actionLabels).length > 0) out.actionLabels = actionLabels;
   return out;
 }
 
@@ -443,4 +448,8 @@ function actionIdForEvent(handler) {
   throw new Error(
     'a3s-gui cannot serialize anonymous event handlers without a stable id; use createAction("save") or a named function',
   );
+}
+
+function actionLabelForEvent(handler) {
+  return handler.a3sLabel == null ? undefined : String(handler.a3sLabel);
 }

@@ -68,6 +68,7 @@ export interface CompiledProps {
   style?: Record<string, string | number | boolean>;
   attributes?: Record<string, string>;
   events?: Record<string, string>;
+  actionLabels?: Record<string, string>;
 }
 
 export interface UiAction {

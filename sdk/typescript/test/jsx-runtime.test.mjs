@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   Button,
   Dialog,
+  Group,
   Input,
   Label,
   Link,
@@ -590,11 +591,25 @@ test('function event props compile to stable action ids', () => {
   const frame = createUiFrame('profile', root);
 
   assert.equal(root.props.events.onPress, 'saveProfile');
-  assert.deepEqual(frame.actions, [{id: 'saveProfile'}]);
+  assert.equal(root.props.actionLabels.saveProfile, 'Save profile');
+  assert.deepEqual(frame.actions, [{id: 'saveProfile', label: 'Save profile'}]);
   assert.deepEqual(defineAction(saveProfile), {
     id: 'saveProfile',
     label: 'Save profile',
   });
+});
+
+test('inferred frame actions merge labels by stable action id', () => {
+  const saveProfile = createAction('saveProfile', 'Save profile');
+  const root = jsxs(Group, {
+    children: [
+      jsxs(Button, {onPress: 'saveProfile', children: 'Save'}, 'save-text'),
+      jsxs(Button, {onPress: saveProfile, children: 'Save labeled'}, 'save-labeled'),
+    ],
+  }, 'root');
+  const frame = createUiFrame('profile', root);
+
+  assert.deepEqual(frame.actions, [{id: 'saveProfile', label: 'Save profile'}]);
 });
 
 test('focus and expanded event aliases compile to stable action ids', () => {
@@ -756,7 +771,7 @@ test('radio group markers lower to structured compiled nodes', () => {
   assert.equal(root.props.attributes['aria-label'], 'Theme');
   assert.equal(root.children[0].tag, 'Radio');
   assert.equal(root.children[1].props.isSelected, true);
-  assert.deepEqual(frame.actions, [{id: 'setTheme'}]);
+  assert.deepEqual(frame.actions, [{id: 'setTheme', label: 'Set theme'}]);
 });
 
 test('tabs markers preserve React Aria tablist and panel structure', () => {
@@ -782,7 +797,7 @@ test('tabs markers preserve React Aria tablist and panel structure', () => {
   assert.equal(root.children[0].children[0].tag, 'Tab');
   assert.equal(root.children[0].children[0].props.isSelected, true);
   assert.equal(root.children[1].tag, 'TabPanel');
-  assert.deepEqual(frame.actions, [{id: 'setTab'}]);
+  assert.deepEqual(frame.actions, [{id: 'setTab', label: 'Set tab'}]);
 });
 
 test('popover marker preserves structured overlay nodes', () => {
@@ -799,7 +814,7 @@ test('popover marker preserves structured overlay nodes', () => {
   assert.equal(root.props.attributes['aria-label'], 'Actions');
   assert.equal(root.children[0].tag, 'Button');
   assert.equal(root.children[0].props.events.onPress, 'archiveItem');
-  assert.deepEqual(frame.actions, [{id: 'archiveItem'}]);
+  assert.deepEqual(frame.actions, [{id: 'archiveItem', label: 'Archive item'}]);
 });
 
 test('menu markers preserve structured native menu nodes', () => {
@@ -817,7 +832,7 @@ test('menu markers preserve structured native menu nodes', () => {
   assert.equal(root.children[0].tag, 'MenuItem');
   assert.equal(root.children[0].props.value, 'open');
   assert.equal(root.children[0].props.events.onPress, 'openFile');
-  assert.deepEqual(frame.actions, [{id: 'openFile'}]);
+  assert.deepEqual(frame.actions, [{id: 'openFile', label: 'Open file'}]);
 });
 
 test('anonymous event functions fail with a protocol hint', () => {

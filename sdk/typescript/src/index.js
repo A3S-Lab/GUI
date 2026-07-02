@@ -106,30 +106,35 @@ function actionId(actionOrId) {
 
 function collectActions(root) {
   const actions = new Map();
-  for (const id of walkActionIds(root)) {
-    if (!actions.has(id)) {
-      actions.set(id, {id});
+  for (const action of walkActions(root)) {
+    const existing = actions.get(action.id);
+    if (existing == null || (existing.label == null && action.label != null)) {
+      actions.set(action.id, action);
     }
   }
   return [...actions.values()];
 }
 
-function* walkActionIds(node) {
+function* walkActions(node) {
   if (Array.isArray(node)) {
     for (const child of node) {
-      yield* walkActionIds(child);
+      yield* walkActions(child);
     }
     return;
   }
   if (node == null || node.kind !== 'element') {
     return;
   }
+  const labels = node.props?.actionLabels ?? {};
   for (const id of Object.values(node.props?.events ?? {})) {
     if (typeof id === 'string' && id.length > 0) {
-      yield id;
+      const label = typeof labels[id] === 'string' && labels[id].length > 0
+        ? labels[id]
+        : undefined;
+      yield label == null ? {id} : {id, label};
     }
   }
   for (const child of node.children ?? []) {
-    yield* walkActionIds(child);
+    yield* walkActions(child);
   }
 }
