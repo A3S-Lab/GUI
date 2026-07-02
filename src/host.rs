@@ -29,6 +29,7 @@ pub trait NativeHost {
         child: HostNodeId,
         index: usize,
     ) -> GuiResult<()>;
+    /// Remove a host node and its complete descendant subtree.
     fn remove(&mut self, id: HostNodeId) -> GuiResult<()>;
     fn set_root(&mut self, id: HostNodeId) -> GuiResult<()>;
 }

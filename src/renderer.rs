@@ -346,16 +346,10 @@ fn restore_child_order<H: NativeHost>(parent: HostNodeId, children: Vec<HostNode
 }
 
 fn unmount_node<H: NativeHost>(node: MountedNode, host: &mut H) -> GuiResult<()> {
-    for child in node.children {
-        unmount_node(child, host)?;
-    }
     host.remove(node.id)
 }
 
 fn best_effort_unmount_node<H: NativeHost>(node: MountedNode, host: &mut H) {
-    for child in node.children {
-        best_effort_unmount_node(child, host);
-    }
     let _ = host.remove(node.id);
 }
 
@@ -482,6 +476,40 @@ mod tests {
             .map(|id| host.node(*id).unwrap().props.label.as_deref().unwrap())
             .collect();
         assert_eq!(labels, vec!["B", "A"]);
+    }
+
+    #[test]
+    fn renderer_removes_deferred_subtrees_with_one_host_remove() {
+        let first = NativeElement::new("root", NativeRole::View).child(
+            NativeElement::new("group", NativeRole::View)
+                .child(NativeElement::new("save", NativeRole::Button)),
+        );
+        let second = NativeElement::new("root", NativeRole::View);
+        let mut renderer = Renderer::new();
+        let mut host = HeadlessHost::default();
+
+        let root_id = renderer.render(&first, &mut host).unwrap();
+        let group_id = host.node(root_id).unwrap().children[0];
+        host.clear_operations();
+
+        renderer.render(&second, &mut host).unwrap();
+
+        assert_eq!(
+            host.operations()
+                .iter()
+                .filter(|operation| matches!(operation, HostOperation::Remove { .. }))
+                .count(),
+            1
+        );
+        assert!(host.operations().iter().any(|operation| matches!(
+            operation,
+            HostOperation::Remove { id } if *id == group_id
+        )));
+        assert_eq!(
+            host.node(root_id).unwrap().children,
+            Vec::<HostNodeId>::new()
+        );
+        assert!(!renderer.mounted_node_ids().contains(&group_id));
     }
 
     #[test]
