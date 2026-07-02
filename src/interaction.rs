@@ -41,6 +41,13 @@ impl InteractionState {
         &self.changes
     }
 
+    pub fn sync_node_from_blueprint(&mut self, id: HostNodeId, blueprint: &NativeWidgetBlueprint) {
+        let focused = self.nodes.get(&id).is_some_and(|state| state.focused);
+        let mut state = initial_state_from_blueprint(blueprint);
+        state.focused = focused;
+        self.nodes.insert(id, state);
+    }
+
     pub fn apply_event(
         &mut self,
         blueprint: &NativeWidgetBlueprint,
@@ -237,6 +244,27 @@ mod tests {
 
         assert!(change.after.selected);
         assert_eq!(change.after.checked, Some(true));
+    }
+
+    #[test]
+    fn sync_node_from_blueprint_preserves_focus_and_refreshes_control_state() {
+        let first = NativeElement::new("enabled", NativeRole::Switch)
+            .with_props(NativeProps::new().checked(true));
+        let second = NativeElement::new("enabled", NativeRole::Switch)
+            .with_props(NativeProps::new().checked(false));
+        let mut state = InteractionState::new();
+
+        state
+            .apply_event(
+                &Gtk4Adapter.blueprint(&first),
+                &NativeEvent::new(HostNodeId::new(4), NativeEventKind::Focus),
+            )
+            .unwrap();
+        state.sync_node_from_blueprint(HostNodeId::new(4), &Gtk4Adapter.blueprint(&second));
+
+        let node = state.node(HostNodeId::new(4)).unwrap();
+        assert!(node.focused);
+        assert_eq!(node.checked, Some(false));
     }
 
     #[test]

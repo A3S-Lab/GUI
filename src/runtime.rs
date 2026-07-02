@@ -99,6 +99,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         blueprint: &NativeWidgetBlueprint,
         event: NativeEvent,
     ) -> GuiResult<Option<ActionInvocation>> {
+        self.refresh_stale_interaction_baseline(event.node, blueprint);
         let interaction_start = self.interaction_state.changes().len();
         self.interaction_state.apply_event(blueprint, &event);
         self.record_interaction_revisions(interaction_start);
@@ -107,6 +108,21 @@ impl<H: NativeHost> GuiRuntime<H> {
         };
         self.action_registry.invoke(invocation.clone())?;
         Ok(Some(invocation))
+    }
+
+    fn refresh_stale_interaction_baseline(
+        &mut self,
+        node: HostNodeId,
+        blueprint: &NativeWidgetBlueprint,
+    ) {
+        if self.interaction_state.node(node).is_none()
+            || self.interaction_revisions.get(&node).copied() == Some(self.render_revision)
+        {
+            return;
+        }
+
+        self.interaction_state
+            .sync_node_from_blueprint(node, blueprint);
     }
 
     fn record_interaction_revisions(&mut self, interaction_start: usize) {
@@ -763,6 +779,41 @@ mod tests {
             runtime.accessibility_tree().unwrap().value.as_deref(),
             Some("controlled@example.com")
         );
+    }
+
+    #[test]
+    fn runtime_interactions_start_from_rerendered_control_state() {
+        let first = NativeElement::new("notifications", NativeRole::Switch)
+            .with_props(NativeProps::new().label("Notifications").checked(false));
+        let second = NativeElement::new("notifications", NativeRole::Switch)
+            .with_props(NativeProps::new().label("Notifications").checked(false));
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&first).unwrap();
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Toggle,
+            ))
+            .unwrap();
+        assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(true));
+
+        let second_id = runtime.render_native(&second).unwrap();
+        assert_eq!(second_id, root_id);
+        assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(false));
+
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Toggle,
+            ))
+            .unwrap();
+
+        assert_eq!(handled.interaction_changes.len(), 1);
+        assert_eq!(handled.interaction_changes[0].before.checked, Some(false));
+        assert_eq!(handled.interaction_changes[0].after.checked, Some(true));
+        assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(true));
     }
 
     #[test]
