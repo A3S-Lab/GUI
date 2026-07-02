@@ -62,6 +62,7 @@ pub struct NativeWidgetConfig {
     pub cols: Option<u32>,
     pub size: Option<u32>,
     pub title: Option<String>,
+    pub window_resizable: Option<bool>,
     pub hidden: bool,
     pub lang: Option<String>,
     pub dir: Option<String>,
@@ -175,6 +176,7 @@ impl NativeWidgetConfig {
             cols: state.cols,
             size: state.size,
             title: state.title.clone(),
+            window_resizable: window_resizable_from_blueprint(blueprint),
             hidden: state.hidden,
             lang: state.lang.clone(),
             dir: state.dir.clone(),
@@ -286,6 +288,7 @@ impl NativeWidgetConfig {
             NativeWidgetSetter::SetCols(self.cols),
             NativeWidgetSetter::SetSize(self.size),
             NativeWidgetSetter::SetTitle(self.title.clone()),
+            NativeWidgetSetter::SetWindowResizable(self.window_resizable),
             NativeWidgetSetter::SetHidden(self.hidden),
             NativeWidgetSetter::SetLang(self.lang.clone()),
             NativeWidgetSetter::SetDir(self.dir.clone()),
@@ -358,4 +361,18 @@ impl NativeWidgetConfig {
             NativeWidgetSetter::SetMetadata(self.metadata.clone()),
         ]
     }
+}
+
+fn window_resizable_from_blueprint(blueprint: &NativeWidgetBlueprint) -> Option<bool> {
+    if blueprint.role != NativeRole::Window {
+        return None;
+    }
+
+    Some(
+        blueprint
+            .metadata
+            .get("data-a3s-window-resizable")
+            .and_then(|value| value.parse::<bool>().ok())
+            .unwrap_or(true),
+    )
 }

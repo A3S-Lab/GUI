@@ -21,6 +21,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     .title(config.label.as_deref().unwrap_or(""))
                     .default_width(config_dimension(config.portable_style.width, 640))
                     .default_height(config_dimension(config.portable_style.height, 480))
+                    .resizable(config.window_resizable.unwrap_or(true))
                     .build();
                 Gtk4OsWidget::ApplicationWindow(window)
             }
@@ -318,6 +319,11 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     | Gtk4OsWidget::Scale(_)
                     | Gtk4OsWidget::ProgressBar(_)
                     | Gtk4OsWidget::Box(_) => {}
+                }
+            }
+            NativeWidgetSetter::SetWindowResizable(value) => {
+                if let Gtk4OsWidget::ApplicationWindow(window) = &handle.widget {
+                    window.set_resizable(value.unwrap_or(true));
                 }
             }
             NativeWidgetSetter::SetValue(value) => match &handle.widget {

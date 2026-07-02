@@ -17,13 +17,15 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         let widget = match kind {
             AppKitWidgetKind::Window => {
                 let rect = config_rect(&config, 640.0, 480.0);
-                let style = if config.enabled {
+                let style = if config.window_resizable.unwrap_or(true) {
                     NSWindowStyleMask::Titled
                         | NSWindowStyleMask::Closable
                         | NSWindowStyleMask::Miniaturizable
                         | NSWindowStyleMask::Resizable
                 } else {
                     NSWindowStyleMask::Titled
+                        | NSWindowStyleMask::Closable
+                        | NSWindowStyleMask::Miniaturizable
                 };
                 let window = unsafe {
                     NSWindow::initWithContentRect_styleMask_backing_defer(
@@ -380,6 +382,17 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     | AppKitOsWidget::TabView(_)
                     | AppKitOsWidget::StackView(_)
                     | AppKitOsWidget::View(_) => {}
+                }
+            }
+            NativeWidgetSetter::SetWindowResizable(value) => {
+                if let AppKitOsWidget::Window(window) = &handle.widget {
+                    let mut style = window.styleMask();
+                    if value.unwrap_or(true) {
+                        style.insert(NSWindowStyleMask::Resizable);
+                    } else {
+                        style.remove(NSWindowStyleMask::Resizable);
+                    }
+                    window.setStyleMask(style);
                 }
             }
             NativeWidgetSetter::SetValue(value) => match &handle.widget {

@@ -366,6 +366,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             | NativeWidgetSetter::SetAutoCorrect(_)
             | NativeWidgetSetter::SetVirtualKeyboardPolicy(_)
             | NativeWidgetSetter::SetTitle(_)
+            | NativeWidgetSetter::SetWindowResizable(_)
             | NativeWidgetSetter::SetHidden(_)
             | NativeWidgetSetter::SetLang(_)
             | NativeWidgetSetter::SetDir(_)

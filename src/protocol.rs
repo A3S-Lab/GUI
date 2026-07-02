@@ -152,9 +152,10 @@ impl UiAction {
 
 impl WindowOptions {
     pub fn wrap_native_root(&self, frame_id: &str, content: NativeElement) -> NativeElement {
+        let resizable = self.resizable.to_string();
         let mut web = WebProps::new()
             .attribute("data-a3s-frame", frame_id)
-            .attribute("data-a3s-window-resizable", self.resizable.to_string());
+            .attribute("data-a3s-window-resizable", resizable.clone());
         if let Some(width) = self.width {
             web = web.style("width", width.to_string());
         }
@@ -163,7 +164,12 @@ impl WindowOptions {
         }
 
         NativeElement::new(format!("{frame_id}:window"), NativeRole::Window)
-            .with_props(NativeProps::new().label(self.title.clone()).web(web))
+            .with_props(
+                NativeProps::new()
+                    .label(self.title.clone())
+                    .metadata("data-a3s-window-resizable", resizable)
+                    .web(web),
+            )
             .child(content)
     }
 }
@@ -343,7 +349,7 @@ mod tests {
     use crate::accessibility::AccessibilityRole;
     use crate::backend::{CommandExecutingHost, RecordingBackend};
     use crate::event::NativeEventKind;
-    use crate::platform::Gtk4Adapter;
+    use crate::platform::{Gtk4Adapter, NativeWidgetSetter};
 
     #[test]
     fn protocol_renders_frame_and_dispatches_native_event_to_action() {
@@ -1230,6 +1236,15 @@ mod tests {
         assert_eq!(
             window
                 .blueprint
+                .metadata
+                .get("data-a3s-window-resizable")
+                .map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(window.blueprint.config().window_resizable, Some(true));
+        assert_eq!(
+            window
+                .blueprint
                 .portable_style
                 .width
                 .as_ref()
@@ -1246,6 +1261,40 @@ mod tests {
             Some(480.0)
         );
         assert_eq!(window.children.len(), 1);
+
+        let fixed_frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "fixed-window",
+              "window": {"title": "Fixed", "resizable": false},
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "children": [{"kind": "text", "key": "text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let rendered = fixed_frame.render_into(&mut runtime).unwrap();
+        let window = runtime.host().planning().node(rendered.root).unwrap();
+        let config = window.blueprint.config();
+
+        assert_eq!(config.window_resizable, Some(false));
+        assert_eq!(
+            config
+                .metadata
+                .get("data-a3s-window-resizable")
+                .map(String::as_str),
+            Some("false")
+        );
+        assert!(config
+            .create_setters()
+            .contains(&NativeWidgetSetter::SetWindowResizable(Some(false))));
     }
 
     #[test]

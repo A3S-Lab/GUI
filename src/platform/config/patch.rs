@@ -64,6 +64,7 @@ pub struct NativeWidgetConfigPatch {
     pub cols: Option<NativeConfigValueChange<Option<u32>>>,
     pub size: Option<NativeConfigValueChange<Option<u32>>>,
     pub title: Option<NativeConfigValueChange<Option<String>>>,
+    pub window_resizable: Option<NativeConfigValueChange<Option<bool>>>,
     pub hidden: Option<NativeConfigValueChange<bool>>,
     pub lang: Option<NativeConfigValueChange<Option<String>>>,
     pub dir: Option<NativeConfigValueChange<Option<String>>>,
@@ -178,6 +179,7 @@ impl NativeWidgetConfigPatch {
             cols: diff_value(&before.cols, &after.cols),
             size: diff_value(&before.size, &after.size),
             title: diff_value(&before.title, &after.title),
+            window_resizable: diff_value(&before.window_resizable, &after.window_resizable),
             hidden: diff_value(&before.hidden, &after.hidden),
             lang: diff_value(&before.lang, &after.lang),
             dir: diff_value(&before.dir, &after.dir),
@@ -382,6 +384,11 @@ impl NativeWidgetConfigPatch {
         push_setter(&mut setters, &self.cols, NativeWidgetSetter::SetCols);
         push_setter(&mut setters, &self.size, NativeWidgetSetter::SetSize);
         push_setter(&mut setters, &self.title, NativeWidgetSetter::SetTitle);
+        push_setter(
+            &mut setters,
+            &self.window_resizable,
+            NativeWidgetSetter::SetWindowResizable,
+        );
         push_setter(&mut setters, &self.hidden, NativeWidgetSetter::SetHidden);
         push_setter(&mut setters, &self.lang, NativeWidgetSetter::SetLang);
         push_setter(&mut setters, &self.dir, NativeWidgetSetter::SetDir);

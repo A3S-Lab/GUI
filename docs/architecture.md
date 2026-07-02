@@ -326,7 +326,9 @@ Explicit `actions`, including an empty list, remain authoritative.
 When `UiFrame.window` is present, the Rust core wraps the compiled React root in
 a `NativeRole::Window`. The same command stream then creates `NSWindow`,
 `Microsoft.UI.Xaml.Window`, or `gtk::ApplicationWindow` before inserting the
-frame content as its child.
+frame content as its child. Window title, initial dimensions, and the resizable
+flag are projected into the native blueprint/config path; the resizable value is
+also retained as Web metadata for hosts that still read protocol attributes.
 
 ## Native Commands
 
@@ -356,18 +358,18 @@ Native bindings can call `blueprint.config()` to derive a `NativeWidgetConfig`
 with setter-oriented values such as `enabled`, `visible`, `placeholder`,
 range bounds, range step state, selected/checked state, read-only state,
 multiple-selection state, autofocus state, text-entry hints, text-length hints,
-textarea sizing hints, event action ids, metadata, and portable style. This
-keeps AppKit, WinUI, and GTK bindings from reinterpreting protocol fields
-differently.
+textarea sizing hints, window resizability, event action ids, metadata, and
+portable style. This keeps AppKit, WinUI, and GTK bindings from reinterpreting
+protocol fields differently.
 `NativeWidgetConfig::diff()` returns a `NativeWidgetConfigPatch` for update
 passes, and `HandleWidgetDriver` stores the last config for each handle so
 `NativeHandleAdapter::update_handle_config()` can apply only changed setters.
 `NativeWidgetConfig::create_setters()` and `NativeWidgetConfigPatch::setters()`
 produce `NativeWidgetSetter` operations such as `SetLabel`, `SetEnabled`,
 `SetVisible`, `SetPlaceholder`, `SetMinimum`, `SetMaximum`, `SetCurrent`,
-`SetStep`, `SetEvents`, `SetPortableStyle`, and `SetMetadata`. Platform
-bindings can map those operations to the corresponding AppKit, WinUI, or GTK
-property setters.
+`SetStep`, `SetWindowResizable`, `SetEvents`, `SetPortableStyle`, and
+`SetMetadata`. Platform bindings can map those operations to the corresponding
+AppKit, WinUI, or GTK property setters.
 The feature-gated handle adapters keep a replayable setter log in their handle
 state, so tests exercise the same create/update flow real native bindings will
 map to OS controls.

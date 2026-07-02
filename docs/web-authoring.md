@@ -333,7 +333,9 @@ when the host wants labels for menus, logs, or command palettes.
 
 The window wrapper is part of the host protocol, not the source component
 tree. The source tree stays independent of host surface selection; hosts decide
-which frames become windows, panels, or embedded surfaces.
+which frames become windows, panels, or embedded surfaces. `window.resizable`
+defaults to `true` and is projected into typed native config/setter state while
+remaining available as protocol metadata for compatibility.
 
 Native platform hosts can use `NativeProtocolSession` as the frame boundary:
 

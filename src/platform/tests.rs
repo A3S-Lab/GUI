@@ -343,6 +343,41 @@ fn widget_config_marks_interactivity_inert_as_native_inert() {
 }
 
 #[test]
+fn widget_config_projects_window_resizable_into_native_setters_and_patches() {
+    let resizable_window = NativeElement::new("profile-window", NativeRole::Window).with_props(
+        NativeProps::new()
+            .label("Profile")
+            .metadata("data-a3s-window-resizable", "true"),
+    );
+    let fixed_window = NativeElement::new("profile-window", NativeRole::Window).with_props(
+        NativeProps::new()
+            .label("Profile")
+            .metadata("data-a3s-window-resizable", "false"),
+    );
+    let before = Gtk4Adapter.blueprint(&resizable_window).config();
+    let after = Gtk4Adapter.blueprint(&fixed_window).config();
+
+    assert_eq!(before.window_resizable, Some(true));
+    assert_eq!(after.window_resizable, Some(false));
+    assert!(after
+        .create_setters()
+        .contains(&NativeWidgetSetter::SetWindowResizable(Some(false))));
+
+    let patch = before.diff(&after);
+    let change = patch.window_resizable.as_ref().unwrap();
+    assert_eq!(change.before, Some(true));
+    assert_eq!(change.after, Some(false));
+    assert!(patch
+        .setters()
+        .contains(&NativeWidgetSetter::SetWindowResizable(Some(false))));
+
+    let mut replayed = before;
+    apply_widget_setters(&mut replayed, &patch.setters());
+
+    assert_eq!(replayed.window_resizable, Some(false));
+}
+
+#[test]
 fn widget_config_preserves_html_form_control_hints() {
     let element = NativeElement::new("email", NativeRole::TextField).with_props(
         NativeProps::new()
@@ -1051,6 +1086,7 @@ fn native_widget_setters_round_trip_as_json() {
         NativeWidgetSetter::SetReadOnly(true),
         NativeWidgetSetter::SetCurrent(Some(50.0)),
         NativeWidgetSetter::SetStep(Some(5.0)),
+        NativeWidgetSetter::SetWindowResizable(Some(false)),
         NativeWidgetSetter::SetAutocomplete(Some("email".to_string())),
         NativeWidgetSetter::SetEnterKeyHint(Some("send".to_string())),
         NativeWidgetSetter::SetAccessibilityRelationships(
@@ -1107,6 +1143,7 @@ fn native_widget_setters_round_trip_as_json() {
     assert!(json.contains(r#""type":"setEnabled""#));
     assert!(json.contains(r#""type":"setCurrent""#));
     assert!(json.contains(r#""type":"setStep""#));
+    assert!(json.contains(r#""type":"setWindowResizable""#));
     assert!(json.contains(r#""type":"setEnterKeyHint""#));
     assert!(json.contains(r#""type":"setAccessibilityRelationships""#));
     assert!(json.contains(r#""type":"setAccessibilityDescription""#));
