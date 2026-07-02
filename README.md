@@ -1,10 +1,10 @@
 # a3s-gui
 
-`a3s-gui` is a Rust crate for rendering structured UI protocol frames through
-native platform adapters. It parses accepted element and style records into a
-serializable native UI intermediate representation and emits an incremental
-native command stream. The public API accepts `UiFrame` protocol frames, Rust
-`NativeElement` trees, and JSX-generated element records.
+`a3s-gui` is a Rust crate that converts structured UI protocol frames into
+native platform command streams. It lowers accepted element and style records
+into a serializable Native UI IR and emits incremental create, update, insert,
+remove, and root-setting commands. The public API accepts `UiFrame` protocol
+frames, Rust `NativeElement` trees, and compiled element records.
 
 The core renderer is backend-independent. Platform adapters translate the native
 command stream into AppKit, WinUI, or GTK4 widgets.
@@ -216,11 +216,11 @@ remain available as raw `className`, style declarations, metadata, or
 
 The crate is organized into four layers:
 
-1. **Input layer**: accepts JSX-generated element records, direct
+1. **Input layer**: accepts compiled element records, direct
    `NativeElement` trees, and `UiFrame` protocol frames.
 2. **A3S Native UI IR**: stores native roles, state, labels, values,
-   accessibility metadata, Web metadata, portable style tokens, event bindings,
-   and children.
+   accessibility metadata, source metadata, portable style tokens, event
+   bindings, and children.
 3. **Renderer and protocol runtime**: reconciles keyed trees, emits incremental
    native commands, tracks interaction state, and routes native events back to
    registered action ids.
