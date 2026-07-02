@@ -203,7 +203,7 @@ test('web and aria state attributes normalize to native control props', () => {
   assert.equal(root.props.events.onChange, 'setVolume');
 });
 
-test('radio group markers lower to Web-compatible compiled nodes', () => {
+test('radio group markers lower to structured compiled nodes', () => {
   const setTheme = createAction('setTheme', 'Set theme');
   const root = jsxs(RadioGroup, {
     'aria-label': 'Theme',
@@ -251,7 +251,7 @@ test('tabs markers preserve React Aria tablist and panel structure', () => {
   assert.deepEqual(frame.actions, [{id: 'setTab'}]);
 });
 
-test('popover marker preserves Web-compatible overlay structure', () => {
+test('popover marker preserves structured overlay nodes', () => {
   const archiveItem = createAction('archiveItem', 'Archive item');
   const root = jsxs(Popover, {
     'aria-label': 'Actions',
@@ -268,7 +268,7 @@ test('popover marker preserves Web-compatible overlay structure', () => {
   assert.deepEqual(frame.actions, [{id: 'archiveItem'}]);
 });
 
-test('menu markers preserve Web-compatible native menu structure', () => {
+test('menu markers preserve structured native menu nodes', () => {
   const openFile = createAction('openFile', 'Open file');
   const root = jsxs(Menu, {
     'aria-label': 'File',
