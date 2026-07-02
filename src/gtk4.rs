@@ -50,6 +50,10 @@ impl Gtk4WidgetKind {
             | "gtk::Box(section)"
             | "gtk::Box(aside)"
             | "gtk::Box(search)"
+            | "gtk::Box(disclosure)"
+            | "gtk::Box(figure)"
+            | "gtk::Box(description-list)"
+            | "gtk::Box(description-details)"
             | "gtk::Box(radio-group)"
             | "gtk::Box(embedded-content)"
             | "gtk::Grid(table)"
@@ -63,8 +67,10 @@ impl Gtk4WidgetKind {
             "gtk::Label"
             | "gtk::Label(heading)"
             | "gtk::Label(tab)"
+            | "gtk::Label(figure-caption)"
+            | "gtk::Label(description-term)"
             | "gtk::Label(table-caption)" => Ok(Gtk4WidgetKind::Label),
-            "gtk::Button" => Ok(Gtk4WidgetKind::Button),
+            "gtk::Button" | "gtk::Button(disclosure-summary)" => Ok(Gtk4WidgetKind::Button),
             "gtk::Entry" => Ok(Gtk4WidgetKind::Entry),
             "gtk::CheckButton" | "gtk::CheckButton(radio)" => Ok(Gtk4WidgetKind::CheckButton),
             "gtk::Switch" => Ok(Gtk4WidgetKind::Switch),

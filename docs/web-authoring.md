@@ -108,6 +108,13 @@ families:
 | `Section` | `NSView(section)` | `Microsoft.UI.Xaml.Controls.StackPanel(section)` | `gtk::Box(section)` |
 | `Aside` | `NSView(aside)` | `Microsoft.UI.Xaml.Controls.StackPanel(aside)` | `gtk::Box(aside)` |
 | `Search` | `NSView(search)` | `Microsoft.UI.Xaml.Controls.StackPanel(search)` | `gtk::Box(search)` |
+| `Disclosure` | `NSView(disclosure)` | `Microsoft.UI.Xaml.Controls.StackPanel(disclosure)` | `gtk::Box(disclosure)` |
+| `DisclosureSummary` | `NSButton(disclosure-summary)` | `Microsoft.UI.Xaml.Controls.Button(disclosure-summary)` | `gtk::Button(disclosure-summary)` |
+| `Figure` | `NSView(figure)` | `Microsoft.UI.Xaml.Controls.StackPanel(figure)` | `gtk::Box(figure)` |
+| `FigureCaption` | `NSTextField(figure-caption)` | `Microsoft.UI.Xaml.Controls.TextBlock(figure-caption)` | `gtk::Label(figure-caption)` |
+| `DescriptionList` | `NSView(description-list)` | `Microsoft.UI.Xaml.Controls.StackPanel(description-list)` | `gtk::Box(description-list)` |
+| `DescriptionTerm` | `NSTextField(description-term)` | `Microsoft.UI.Xaml.Controls.TextBlock(description-term)` | `gtk::Label(description-term)` |
+| `DescriptionDetails` | `NSView(description-details)` | `Microsoft.UI.Xaml.Controls.StackPanel(description-details)` | `gtk::Box(description-details)` |
 | `TextField` | `NSTextField(input)` | `Microsoft.UI.Xaml.Controls.TextBox` | `gtk::Entry` |
 | `Image` | `NSImageView` | `Microsoft.UI.Xaml.Controls.Image` | `gtk::Picture` |
 | `Media` | `AVPlayerView` | `Microsoft.UI.Xaml.Controls.MediaPlayerElement` | `gtk::Video` |

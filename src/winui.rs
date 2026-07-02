@@ -55,14 +55,23 @@ impl WinUiWidgetKind {
             | "Microsoft.UI.Xaml.Controls.StackPanel(section)"
             | "Microsoft.UI.Xaml.Controls.StackPanel(aside)"
             | "Microsoft.UI.Xaml.Controls.StackPanel(search)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(disclosure)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(figure)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(description-list)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(description-details)"
             | "Microsoft.UI.Xaml.Controls.StackPanel(table-section)" => {
                 Ok(WinUiWidgetKind::StackPanel)
             }
             "Microsoft.UI.Xaml.Controls.TextBlock"
             | "Microsoft.UI.Xaml.Controls.TextBlock(heading)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(figure-caption)"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(description-term)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(table-caption)"
             | "Microsoft.UI.Xaml.Controls.Image" => Ok(WinUiWidgetKind::TextBlock),
-            "Microsoft.UI.Xaml.Controls.Button" => Ok(WinUiWidgetKind::Button),
+            "Microsoft.UI.Xaml.Controls.Button"
+            | "Microsoft.UI.Xaml.Controls.Button(disclosure-summary)" => {
+                Ok(WinUiWidgetKind::Button)
+            }
             "Microsoft.UI.Xaml.Controls.TextBox" => Ok(WinUiWidgetKind::TextBox),
             "Microsoft.UI.Xaml.Controls.CheckBox" => Ok(WinUiWidgetKind::CheckBox),
             "Microsoft.UI.Xaml.Controls.ToggleSwitch" => Ok(WinUiWidgetKind::ToggleSwitch),

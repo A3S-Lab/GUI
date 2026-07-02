@@ -214,6 +214,13 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "Section" => Ok(AriaComponent::Section),
         "Aside" => Ok(AriaComponent::Aside),
         "Search" => Ok(AriaComponent::Search),
+        "Disclosure" | "details" => Ok(AriaComponent::Disclosure),
+        "DisclosureSummary" | "summary" => Ok(AriaComponent::DisclosureSummary),
+        "Figure" | "figure" => Ok(AriaComponent::Figure),
+        "FigureCaption" | "figcaption" => Ok(AriaComponent::FigureCaption),
+        "DescriptionList" | "dl" => Ok(AriaComponent::DescriptionList),
+        "DescriptionTerm" | "dt" => Ok(AriaComponent::DescriptionTerm),
+        "DescriptionDetails" | "dd" => Ok(AriaComponent::DescriptionDetails),
         "Group" | "Form" | "form" | "div" => Ok(AriaComponent::Group),
         "Menu" => Ok(AriaComponent::Menu),
         "MenuItem" => Ok(AriaComponent::MenuItem),
@@ -257,6 +264,7 @@ impl CompiledProps {
             web = web.event(name, action);
         }
         let html_fallback_label = html_fallback_label(tag, &web);
+        let html_details_open = html_details_open_state(tag, &web);
         let semantic = WebSemanticAliases::from_web(&web);
 
         let orientation = self.orientation.map(|orientation| match orientation {
@@ -275,12 +283,19 @@ impl CompiledProps {
         props.is_invalid = self.is_invalid || semantic.invalid.unwrap_or(false);
         props.is_selected = self.is_selected || semantic.selected.unwrap_or(false);
         props.is_checked = self.is_checked.or(semantic.checked);
-        props.is_expanded = self.is_expanded.or(semantic.expanded);
+        props.is_expanded = self.is_expanded.or(semantic.expanded).or(html_details_open);
         props.orientation = orientation.or(semantic.orientation);
         props.min_value = self.min_value.or(semantic.min_value);
         props.max_value = self.max_value.or(semantic.max_value);
         props.value_number = self.value_number.or(semantic.value_number);
         props
+    }
+}
+
+fn html_details_open_state(tag: &str, web: &WebProps) -> Option<bool> {
+    match canonical_html_tag(tag)? {
+        "details" => bool_attribute(&web.attributes, &["open"]),
+        _ => None,
     }
 }
 
@@ -961,6 +976,155 @@ mod tests {
         );
         assert_eq!(native.children[2].role, NativeRole::Aside);
         assert_eq!(native.children[3].role, NativeRole::Search);
+    }
+
+    #[test]
+    fn lowers_html_disclosure_figure_and_description_list_tags_to_native_roles() {
+        let bridge = ReactCompilerBridge::new();
+        let disclosure = CompiledJsxNode::Element {
+            key: "release-notes".to_string(),
+            tag: "details".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([("open".to_string(), String::new())]),
+                ..CompiledProps::default()
+            },
+            children: vec![
+                CompiledJsxNode::Element {
+                    key: "release-summary".to_string(),
+                    tag: "summary".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "release-summary-text".to_string(),
+                        value: "Release details".to_string(),
+                    }],
+                },
+                CompiledJsxNode::Element {
+                    key: "release-body".to_string(),
+                    tag: "p".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "release-body-text".to_string(),
+                        value: "Native semantic roles are preserved.".to_string(),
+                    }],
+                },
+            ],
+        };
+
+        let native_disclosure = bridge.lower_to_native(&disclosure).unwrap();
+        assert_eq!(native_disclosure.role, NativeRole::Disclosure);
+        assert_eq!(native_disclosure.props.expanded, Some(true));
+        assert_eq!(
+            native_disclosure
+                .props
+                .metadata
+                .get(HTML_TAG_METADATA_KEY)
+                .map(String::as_str),
+            Some("details")
+        );
+        assert_eq!(
+            native_disclosure.children[0].role,
+            NativeRole::DisclosureSummary
+        );
+        assert_eq!(
+            native_disclosure.children[0].props.label.as_deref(),
+            Some("Release details")
+        );
+
+        let figure = CompiledJsxNode::Element {
+            key: "chart".to_string(),
+            tag: "figure".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![
+                CompiledJsxNode::Element {
+                    key: "chart-image".to_string(),
+                    tag: "img".to_string(),
+                    import_source: None,
+                    props: CompiledProps {
+                        attributes: BTreeMap::from([(
+                            "alt".to_string(),
+                            "Revenue chart".to_string(),
+                        )]),
+                        ..CompiledProps::default()
+                    },
+                    children: Vec::new(),
+                },
+                CompiledJsxNode::Element {
+                    key: "chart-caption".to_string(),
+                    tag: "figcaption".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "chart-caption-text".to_string(),
+                        value: "Revenue by quarter".to_string(),
+                    }],
+                },
+            ],
+        };
+
+        let native_figure = bridge.lower_to_native(&figure).unwrap();
+        assert_eq!(native_figure.role, NativeRole::Figure);
+        assert_eq!(native_figure.children[0].role, NativeRole::Image);
+        assert_eq!(
+            native_figure.children[0].props.label.as_deref(),
+            Some("Revenue chart")
+        );
+        assert_eq!(native_figure.children[1].role, NativeRole::FigureCaption);
+        assert_eq!(
+            native_figure.children[1].props.label.as_deref(),
+            Some("Revenue by quarter")
+        );
+
+        let description_list = CompiledJsxNode::Element {
+            key: "terms".to_string(),
+            tag: "dl".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![
+                CompiledJsxNode::Element {
+                    key: "term".to_string(),
+                    tag: "dt".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "term-text".to_string(),
+                        value: "IR".to_string(),
+                    }],
+                },
+                CompiledJsxNode::Element {
+                    key: "details".to_string(),
+                    tag: "dd".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![CompiledJsxNode::Text {
+                        key: "details-text".to_string(),
+                        value: "Intermediate representation".to_string(),
+                    }],
+                },
+            ],
+        };
+
+        let native_description_list = bridge.lower_to_native(&description_list).unwrap();
+        assert_eq!(native_description_list.role, NativeRole::DescriptionList);
+        assert_eq!(
+            native_description_list.children[0].role,
+            NativeRole::DescriptionTerm
+        );
+        assert_eq!(
+            native_description_list.children[0].props.label.as_deref(),
+            Some("IR")
+        );
+        assert_eq!(
+            native_description_list.children[1].role,
+            NativeRole::DescriptionDetails
+        );
+        assert_eq!(
+            native_description_list.children[1].props.label.as_deref(),
+            Some("Intermediate representation")
+        );
     }
 
     #[test]

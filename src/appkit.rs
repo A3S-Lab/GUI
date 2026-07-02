@@ -53,6 +53,10 @@ impl AppKitWidgetKind {
             | "NSView(section)"
             | "NSView(aside)"
             | "NSView(search)"
+            | "NSView(disclosure)"
+            | "NSView(figure)"
+            | "NSView(description-list)"
+            | "NSView(description-details)"
             | "NSImageView"
             | "AVPlayerView"
             | "NSView(canvas)"
@@ -61,10 +65,12 @@ impl AppKitWidgetKind {
             | "NSTableRowView"
             | "NSTableCellView"
             | "NSTableColumn" => Ok(AppKitWidgetKind::View),
-            "NSTextField(label)" | "NSTextField(heading)" | "NSTextField(table-caption)" => {
-                Ok(AppKitWidgetKind::Label)
-            }
-            "NSButton" => Ok(AppKitWidgetKind::Button),
+            "NSTextField(label)"
+            | "NSTextField(heading)"
+            | "NSTextField(figure-caption)"
+            | "NSTextField(description-term)"
+            | "NSTextField(table-caption)" => Ok(AppKitWidgetKind::Label),
+            "NSButton" | "NSButton(disclosure-summary)" => Ok(AppKitWidgetKind::Button),
             "NSTextField(input)" => Ok(AppKitWidgetKind::TextField),
             "NSButton(checkbox)" => Ok(AppKitWidgetKind::Checkbox),
             "NSSwitch" => Ok(AppKitWidgetKind::Switch),

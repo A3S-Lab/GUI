@@ -187,6 +187,13 @@ pub fn component_for_html_tag(
         "section" => AriaComponent::Section,
         "aside" => AriaComponent::Aside,
         "search" => AriaComponent::Search,
+        "details" => AriaComponent::Disclosure,
+        "summary" => AriaComponent::DisclosureSummary,
+        "figure" => AriaComponent::Figure,
+        "figcaption" => AriaComponent::FigureCaption,
+        "dl" => AriaComponent::DescriptionList,
+        "dt" => AriaComponent::DescriptionTerm,
+        "dd" => AriaComponent::DescriptionDetails,
         "img" | "picture" => AriaComponent::Image,
         "audio" | "video" => AriaComponent::Media,
         "canvas" => AriaComponent::Canvas,
@@ -204,7 +211,6 @@ pub fn component_for_html_tag(
         "hr" => AriaComponent::Separator,
         "meter" | "progress" => AriaComponent::ProgressBar,
         "form" => AriaComponent::Form,
-        "summary" => AriaComponent::Button,
         "a" | "area" => AriaComponent::Button,
         tag if is_text_html_tag(tag) => AriaComponent::Text,
         _ => AriaComponent::Group,
@@ -256,12 +262,9 @@ fn is_text_html_tag(tag: &str) -> bool {
             | "cite"
             | "code"
             | "data"
-            | "dd"
             | "del"
             | "dfn"
-            | "dt"
             | "em"
-            | "figcaption"
             | "font"
             | "h1"
             | "h2"
@@ -420,6 +423,40 @@ mod tests {
         assert_eq!(
             component_for_html_tag("search", &attributes),
             Some(AriaComponent::Search)
+        );
+    }
+
+    #[test]
+    fn maps_disclosure_figure_and_description_list_tags_to_native_semantics() {
+        let attributes = BTreeMap::new();
+
+        assert_eq!(
+            component_for_html_tag("details", &attributes),
+            Some(AriaComponent::Disclosure)
+        );
+        assert_eq!(
+            component_for_html_tag("summary", &attributes),
+            Some(AriaComponent::DisclosureSummary)
+        );
+        assert_eq!(
+            component_for_html_tag("figure", &attributes),
+            Some(AriaComponent::Figure)
+        );
+        assert_eq!(
+            component_for_html_tag("figcaption", &attributes),
+            Some(AriaComponent::FigureCaption)
+        );
+        assert_eq!(
+            component_for_html_tag("dl", &attributes),
+            Some(AriaComponent::DescriptionList)
+        );
+        assert_eq!(
+            component_for_html_tag("dt", &attributes),
+            Some(AriaComponent::DescriptionTerm)
+        );
+        assert_eq!(
+            component_for_html_tag("dd", &attributes),
+            Some(AriaComponent::DescriptionDetails)
         );
     }
 }

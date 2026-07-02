@@ -17,6 +17,13 @@ pub enum AriaComponent {
     Section,
     Aside,
     Search,
+    Disclosure,
+    DisclosureSummary,
+    Figure,
+    FigureCaption,
+    DescriptionList,
+    DescriptionTerm,
+    DescriptionDetails,
     Image,
     Media,
     Canvas,
@@ -68,6 +75,13 @@ impl AriaComponent {
             AriaComponent::Section => "Section",
             AriaComponent::Aside => "Aside",
             AriaComponent::Search => "Search",
+            AriaComponent::Disclosure => "Disclosure",
+            AriaComponent::DisclosureSummary => "DisclosureSummary",
+            AriaComponent::Figure => "Figure",
+            AriaComponent::FigureCaption => "FigureCaption",
+            AriaComponent::DescriptionList => "DescriptionList",
+            AriaComponent::DescriptionTerm => "DescriptionTerm",
+            AriaComponent::DescriptionDetails => "DescriptionDetails",
             AriaComponent::Image => "Image",
             AriaComponent::Media => "Media",
             AriaComponent::Canvas => "Canvas",
@@ -351,6 +365,27 @@ impl ReactAriaMapper {
             AriaComponent::Section => self.map_container_with_label(element, NativeRole::Section),
             AriaComponent::Aside => self.map_container_with_label(element, NativeRole::Aside),
             AriaComponent::Search => self.map_container_with_label(element, NativeRole::Search),
+            AriaComponent::Disclosure => {
+                self.map_container_with_label(element, NativeRole::Disclosure)
+            }
+            AriaComponent::DisclosureSummary => Ok(simple_leaf(
+                element,
+                NativeRole::DisclosureSummary,
+                self.best_label(element)?,
+            )),
+            AriaComponent::Figure => self.map_container_with_label(element, NativeRole::Figure),
+            AriaComponent::FigureCaption => {
+                self.map_container_with_label(element, NativeRole::FigureCaption)
+            }
+            AriaComponent::DescriptionList => {
+                self.map_container(element, NativeRole::DescriptionList)
+            }
+            AriaComponent::DescriptionTerm => {
+                self.map_container_with_label(element, NativeRole::DescriptionTerm)
+            }
+            AriaComponent::DescriptionDetails => {
+                self.map_container_with_label(element, NativeRole::DescriptionDetails)
+            }
             AriaComponent::Image => self.map_container_with_label(element, NativeRole::Image),
             AriaComponent::Media => self.map_container_with_label(element, NativeRole::Media),
             AriaComponent::Canvas => self.map_container(element, NativeRole::Canvas),
@@ -1083,6 +1118,18 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::TableCaption),
             "gtk::Label(table-caption)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::DisclosureSummary),
+            "NSButton(disclosure-summary)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::FigureCaption),
+            "Microsoft.UI.Xaml.Controls.TextBlock(figure-caption)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::DescriptionDetails),
+            "gtk::Box(description-details)"
         );
     }
 }
