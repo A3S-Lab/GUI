@@ -346,6 +346,85 @@ fn widget_config_preserves_html_form_control_hints() {
 }
 
 #[test]
+fn widget_config_preserves_html_media_and_resource_hints() {
+    let element = NativeElement::new("hero", NativeRole::Image).with_props(
+        NativeProps::new()
+            .label("Hero")
+            .alt("Hero")
+            .href("/gallery")
+            .src("/hero.png")
+            .srcset("/hero.png 1x, /hero@2x.png 2x")
+            .sizes("100vw")
+            .media("(min-width: 48rem)")
+            .resource_type("image/png")
+            .intrinsic_width(Some(640))
+            .intrinsic_height(Some(360))
+            .loading("lazy")
+            .decoding("async")
+            .fetch_priority("high")
+            .cross_origin("anonymous")
+            .referrer_policy("no-referrer")
+            .poster("/poster.png")
+            .controls(true)
+            .autoplay(true)
+            .loop_playback(true)
+            .muted(true)
+            .plays_inline(true)
+            .preload("metadata")
+            .track_kind("captions")
+            .srclang("en")
+            .track_label("English")
+            .default_track(true),
+    );
+
+    let config = Gtk4Adapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert_eq!(config.alt.as_deref(), Some("Hero"));
+    assert_eq!(config.href.as_deref(), Some("/gallery"));
+    assert_eq!(config.src.as_deref(), Some("/hero.png"));
+    assert_eq!(
+        config.srcset.as_deref(),
+        Some("/hero.png 1x, /hero@2x.png 2x")
+    );
+    assert_eq!(config.sizes.as_deref(), Some("100vw"));
+    assert_eq!(config.media.as_deref(), Some("(min-width: 48rem)"));
+    assert_eq!(config.resource_type.as_deref(), Some("image/png"));
+    assert_eq!(config.intrinsic_width, Some(640));
+    assert_eq!(config.intrinsic_height, Some(360));
+    assert_eq!(config.loading.as_deref(), Some("lazy"));
+    assert_eq!(config.decoding.as_deref(), Some("async"));
+    assert_eq!(config.fetch_priority.as_deref(), Some("high"));
+    assert_eq!(config.cross_origin.as_deref(), Some("anonymous"));
+    assert_eq!(config.referrer_policy.as_deref(), Some("no-referrer"));
+    assert_eq!(config.poster.as_deref(), Some("/poster.png"));
+    assert!(config.controls);
+    assert!(config.autoplay);
+    assert!(config.loop_playback);
+    assert!(config.muted);
+    assert!(config.plays_inline);
+    assert_eq!(config.preload.as_deref(), Some("metadata"));
+    assert_eq!(config.track_kind.as_deref(), Some("captions"));
+    assert_eq!(config.srclang.as_deref(), Some("en"));
+    assert_eq!(config.track_label.as_deref(), Some("English"));
+    assert!(config.default_track);
+    assert!(setters.contains(&NativeWidgetSetter::SetAlt(Some("Hero".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetHref(Some("/gallery".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetSrc(Some("/hero.png".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetSrcset(Some(
+        "/hero.png 1x, /hero@2x.png 2x".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetIntrinsicWidth(Some(640))));
+    assert!(setters.contains(&NativeWidgetSetter::SetIntrinsicHeight(Some(360))));
+    assert!(setters.contains(&NativeWidgetSetter::SetControls(true)));
+    assert!(setters.contains(&NativeWidgetSetter::SetAutoplay(true)));
+    assert!(setters.contains(&NativeWidgetSetter::SetLoopPlayback(true)));
+    assert!(setters.contains(&NativeWidgetSetter::SetMuted(true)));
+    assert!(setters.contains(&NativeWidgetSetter::SetPlaysInline(true)));
+    assert!(setters.contains(&NativeWidgetSetter::SetDefaultTrack(true)));
+}
+
+#[test]
 fn widget_config_diff_reports_changed_native_setters() {
     let first = NativeElement::new("volume", NativeRole::Slider).with_props(
         NativeProps::new()

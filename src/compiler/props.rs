@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::geometry::Orientation;
 use crate::html::{canonical_html_tag, HTML_TAG_METADATA_KEY};
 use crate::react_aria::AriaProps;
@@ -7,6 +5,21 @@ use crate::svg::{canonical_svg_tag, SVG_TAG_METADATA_KEY};
 use crate::web::WebProps;
 
 use super::{CompiledJsxNode, CompiledOrientation, CompiledProps};
+
+mod attributes;
+mod controls;
+mod resources;
+mod semantic;
+mod states;
+
+use controls::HtmlControlAliases;
+use resources::HtmlResourceAliases;
+use semantic::WebSemanticAliases;
+use states::{
+    has_explicit_textarea_value, html_details_open_state, html_fallback_label,
+    html_numeric_value_state, html_placeholder_state, html_range_step_state,
+    html_string_value_state, html_textarea_child_value,
+};
 
 impl CompiledProps {
     pub(super) fn into_aria_props_for_tag(
@@ -50,6 +63,7 @@ impl CompiledProps {
         let html_numeric_value = html_numeric_value_state(tag, &web, self.value.as_deref());
         let html_range_step = html_range_step_state(tag, &web);
         let html_control = HtmlControlAliases::from_tag(tag, &web);
+        let html_resource = HtmlResourceAliases::from_tag(tag, &web);
         let semantic = WebSemanticAliases::from_web(&web);
 
         let orientation = self.orientation.map(|orientation| match orientation {
@@ -96,8 +110,31 @@ impl CompiledProps {
         props.input_type = html_control.input_type;
         props.accept = html_control.accept;
         props.capture = html_control.capture;
-        props.alt = html_control.alt;
-        props.src = html_control.src;
+        props.alt = html_control.alt.or(html_resource.alt);
+        props.href = html_resource.href;
+        props.src = html_control.src.or(html_resource.src);
+        props.srcset = html_resource.srcset;
+        props.sizes = html_resource.sizes;
+        props.media = html_resource.media;
+        props.resource_type = html_resource.resource_type;
+        props.intrinsic_width = html_resource.intrinsic_width;
+        props.intrinsic_height = html_resource.intrinsic_height;
+        props.loading = html_resource.loading;
+        props.decoding = html_resource.decoding;
+        props.fetch_priority = html_resource.fetch_priority;
+        props.cross_origin = html_resource.cross_origin;
+        props.referrer_policy = html_resource.referrer_policy;
+        props.poster = html_resource.poster;
+        props.controls = html_resource.controls;
+        props.autoplay = html_resource.autoplay;
+        props.loop_playback = html_resource.loop_playback;
+        props.muted = html_resource.muted;
+        props.plays_inline = html_resource.plays_inline;
+        props.preload = html_resource.preload;
+        props.track_kind = html_resource.track_kind;
+        props.srclang = html_resource.srclang;
+        props.track_label = html_resource.track_label;
+        props.default_track = html_resource.default_track;
         props.list = html_control.list;
         props.dirname = html_control.dirname;
         props.form_action = html_control.form_action;
@@ -106,349 +143,5 @@ impl CompiledProps {
         props.form_target = html_control.form_target;
         props.form_no_validate = html_control.form_no_validate;
         props
-    }
-}
-
-fn html_textarea_child_value(tag: &str, children: &[CompiledJsxNode]) -> Option<String> {
-    if canonical_html_tag(tag)? != "textarea" {
-        return None;
-    }
-
-    let mut value = String::new();
-    let mut has_text = false;
-    for child in children {
-        if let CompiledJsxNode::Text { value: text, .. } = child {
-            value.push_str(text);
-            has_text = true;
-        }
-    }
-    has_text.then_some(value)
-}
-
-fn has_explicit_textarea_value(attributes: &BTreeMap<String, String>) -> bool {
-    attributes.contains_key("value") || attributes.contains_key("defaultValue")
-}
-
-fn html_details_open_state(tag: &str, web: &WebProps) -> Option<bool> {
-    match canonical_html_tag(tag)? {
-        "details" => bool_attribute(&web.attributes, &["open"]),
-        _ => None,
-    }
-}
-
-fn html_placeholder_state(tag: &str, web: &WebProps) -> Option<String> {
-    match canonical_html_tag(tag)? {
-        "input" | "textarea" => {
-            non_empty_string_attribute(&web.attributes, &["placeholder"]).map(str::to_string)
-        }
-        _ => None,
-    }
-}
-
-fn html_string_value_state(tag: &str, web: &WebProps) -> Option<String> {
-    match canonical_html_tag(tag)? {
-        "data" | "option" => {
-            non_empty_string_attribute(&web.attributes, &["value"]).map(str::to_string)
-        }
-        _ => None,
-    }
-}
-
-fn html_numeric_value_state(tag: &str, web: &WebProps, value: Option<&str>) -> Option<f64> {
-    match canonical_html_tag(tag)? {
-        "meter" | "progress" => value
-            .and_then(parse_number_attribute)
-            .or_else(|| number_attribute(&web.attributes, &["value"])),
-        "input" if html_input_type_is(web, "range") || html_input_type_is(web, "number") => value
-            .and_then(parse_number_attribute)
-            .or_else(|| number_attribute(&web.attributes, &["value"])),
-        _ => None,
-    }
-}
-
-fn html_range_step_state(tag: &str, web: &WebProps) -> Option<f64> {
-    match canonical_html_tag(tag)? {
-        "input" if html_input_type_is(web, "range") => number_attribute(&web.attributes, &["step"]),
-        _ => None,
-    }
-}
-
-fn html_input_type_is(web: &WebProps, expected: &str) -> bool {
-    web.attributes
-        .get("type")
-        .is_some_and(|value| value.trim().eq_ignore_ascii_case(expected))
-}
-
-fn html_fallback_label(tag: &str, web: &WebProps, value: Option<&str>) -> Option<String> {
-    if web.attributes.contains_key("aria-label") {
-        return None;
-    }
-    match canonical_html_tag(tag)? {
-        "area" | "img" => non_empty_string_attribute(&web.attributes, &["alt"]).map(str::to_string),
-        "input" if html_input_type_is(web, "image") => {
-            non_empty_string_attribute(&web.attributes, &["alt"])
-                .or_else(|| non_empty_string_value(value))
-                .map(str::to_string)
-        }
-        "input" if html_input_type_is(web, "submit") => Some(
-            non_empty_string_value(value)
-                .or_else(|| non_empty_string_attribute(&web.attributes, &["value"]))
-                .unwrap_or("Submit")
-                .to_string(),
-        ),
-        "input" if html_input_type_is(web, "reset") => Some(
-            non_empty_string_value(value)
-                .or_else(|| non_empty_string_attribute(&web.attributes, &["value"]))
-                .unwrap_or("Reset")
-                .to_string(),
-        ),
-        "input" if html_input_type_is(web, "button") => non_empty_string_value(value)
-            .or_else(|| non_empty_string_attribute(&web.attributes, &["value"]))
-            .map(str::to_string),
-        "optgroup" | "option" => {
-            non_empty_string_attribute(&web.attributes, &["label"]).map(str::to_string)
-        }
-        _ => None,
-    }
-}
-
-#[derive(Debug, Default)]
-struct HtmlControlAliases {
-    name: Option<String>,
-    form: Option<String>,
-    input_type: Option<String>,
-    accept: Option<String>,
-    capture: Option<String>,
-    alt: Option<String>,
-    src: Option<String>,
-    list: Option<String>,
-    dirname: Option<String>,
-    form_action: Option<String>,
-    form_enctype: Option<String>,
-    form_method: Option<String>,
-    form_target: Option<String>,
-    form_no_validate: bool,
-}
-
-impl HtmlControlAliases {
-    fn from_tag(tag: &str, web: &WebProps) -> Self {
-        let Some(tag) = canonical_html_tag(tag) else {
-            return Self::default();
-        };
-
-        let attributes = &web.attributes;
-        let mut aliases = Self::default();
-
-        if matches!(
-            tag,
-            "button" | "fieldset" | "input" | "object" | "output" | "select" | "textarea"
-        ) {
-            aliases.name = html_string_attribute(attributes, &["name"]);
-            aliases.form = html_string_attribute(attributes, &["form"]);
-        }
-
-        match tag {
-            "form" => {
-                aliases.name = html_string_attribute(attributes, &["name"]);
-                aliases.form_action = html_string_attribute(attributes, &["action"]);
-                aliases.form_enctype = html_string_attribute(attributes, &["enctype", "encType"]);
-                aliases.form_method = html_string_attribute(attributes, &["method"]);
-                aliases.form_target = html_string_attribute(attributes, &["target"]);
-                aliases.form_no_validate =
-                    bool_attribute(attributes, &["novalidate", "noValidate"]).unwrap_or(false);
-            }
-            "button" => {
-                aliases.input_type = html_string_attribute(attributes, &["type"]);
-                if html_button_is_submit(attributes) {
-                    aliases.read_submit_overrides(attributes);
-                }
-            }
-            "input" => {
-                aliases.input_type = html_string_attribute(attributes, &["type"]);
-                aliases.accept = html_string_attribute(attributes, &["accept"]);
-                aliases.capture = html_present_string_attribute(attributes, &["capture"]);
-                aliases.alt = html_string_attribute(attributes, &["alt"]);
-                aliases.src = html_string_attribute(attributes, &["src"]);
-                aliases.list = html_string_attribute(attributes, &["list"]);
-                aliases.dirname = html_string_attribute(attributes, &["dirname"]);
-                if html_input_is_submit(attributes) {
-                    aliases.read_submit_overrides(attributes);
-                }
-            }
-            "textarea" => {
-                aliases.dirname = html_string_attribute(attributes, &["dirname"]);
-            }
-            _ => {}
-        }
-
-        aliases
-    }
-
-    fn read_submit_overrides(&mut self, attributes: &BTreeMap<String, String>) {
-        self.form_action = html_string_attribute(attributes, &["formaction", "formAction"]);
-        self.form_enctype = html_string_attribute(attributes, &["formenctype", "formEncType"]);
-        self.form_method = html_string_attribute(attributes, &["formmethod", "formMethod"]);
-        self.form_target = html_string_attribute(attributes, &["formtarget", "formTarget"]);
-        self.form_no_validate =
-            bool_attribute(attributes, &["formnovalidate", "formNoValidate"]).unwrap_or(false);
-    }
-}
-
-fn html_button_is_submit(attributes: &BTreeMap<String, String>) -> bool {
-    match string_attribute(attributes, &["type"]) {
-        Some(value) => value.trim().eq_ignore_ascii_case("submit"),
-        None => true,
-    }
-}
-
-fn html_input_is_submit(attributes: &BTreeMap<String, String>) -> bool {
-    string_attribute(attributes, &["type"]).is_some_and(|value| {
-        matches!(
-            value.trim().to_ascii_lowercase().as_str(),
-            "submit" | "image"
-        )
-    })
-}
-
-#[derive(Debug, Default)]
-struct WebSemanticAliases {
-    disabled: Option<bool>,
-    required: Option<bool>,
-    invalid: Option<bool>,
-    read_only: Option<bool>,
-    multiple: Option<bool>,
-    auto_focus: Option<bool>,
-    selected: Option<bool>,
-    checked: Option<bool>,
-    expanded: Option<bool>,
-    placeholder: Option<String>,
-    orientation: Option<Orientation>,
-    min_value: Option<f64>,
-    max_value: Option<f64>,
-    value_number: Option<f64>,
-    step_value: Option<f64>,
-    autocomplete: Option<String>,
-    input_mode: Option<String>,
-    pattern: Option<String>,
-    min_length: Option<u32>,
-    max_length: Option<u32>,
-    rows: Option<u32>,
-    cols: Option<u32>,
-    size: Option<u32>,
-}
-
-impl WebSemanticAliases {
-    fn from_web(web: &WebProps) -> Self {
-        let attributes = &web.attributes;
-        Self {
-            disabled: bool_attribute(attributes, &["disabled", "aria-disabled"]),
-            required: bool_attribute(attributes, &["required", "aria-required"]),
-            invalid: invalid_attribute(attributes, &["invalid", "aria-invalid"]),
-            read_only: bool_attribute(attributes, &["readonly", "readOnly", "aria-readonly"]),
-            multiple: bool_attribute(attributes, &["multiple", "aria-multiselectable"]),
-            auto_focus: bool_attribute(attributes, &["autofocus", "autoFocus"]),
-            selected: bool_attribute(attributes, &["selected", "aria-selected"]),
-            checked: bool_attribute(attributes, &["checked", "aria-checked"]),
-            expanded: bool_attribute(attributes, &["expanded", "aria-expanded"]),
-            placeholder: non_empty_string_attribute(attributes, &["aria-placeholder"])
-                .map(str::to_string),
-            orientation: string_attribute(attributes, &["orientation", "aria-orientation"])
-                .and_then(parse_orientation),
-            min_value: number_attribute(attributes, &["min", "aria-valuemin"]),
-            max_value: number_attribute(attributes, &["max", "aria-valuemax"]),
-            value_number: number_attribute(attributes, &["aria-valuenow"]),
-            step_value: number_attribute(attributes, &["step"]),
-            autocomplete: non_empty_string_attribute(attributes, &["autocomplete", "autoComplete"])
-                .map(str::to_string),
-            input_mode: non_empty_string_attribute(attributes, &["inputmode", "inputMode"])
-                .map(str::to_string),
-            pattern: non_empty_string_attribute(attributes, &["pattern"]).map(str::to_string),
-            min_length: u32_attribute(attributes, &["minlength", "minLength"]),
-            max_length: u32_attribute(attributes, &["maxlength", "maxLength"]),
-            rows: u32_attribute(attributes, &["rows"]),
-            cols: u32_attribute(attributes, &["cols"]),
-            size: u32_attribute(attributes, &["size"]),
-        }
-    }
-}
-
-fn string_attribute<'a>(
-    attributes: &'a BTreeMap<String, String>,
-    names: &[&str],
-) -> Option<&'a str> {
-    names
-        .iter()
-        .find_map(|name| attributes.get(*name).map(String::as_str))
-}
-
-fn non_empty_string_attribute<'a>(
-    attributes: &'a BTreeMap<String, String>,
-    names: &[&str],
-) -> Option<&'a str> {
-    string_attribute(attributes, names)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-}
-
-fn non_empty_string_value(value: Option<&str>) -> Option<&str> {
-    value.map(str::trim).filter(|value| !value.is_empty())
-}
-
-fn html_string_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<String> {
-    non_empty_string_attribute(attributes, names).map(str::to_string)
-}
-
-fn html_present_string_attribute(
-    attributes: &BTreeMap<String, String>,
-    names: &[&str],
-) -> Option<String> {
-    string_attribute(attributes, names).map(|value| value.trim().to_string())
-}
-
-fn bool_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<bool> {
-    string_attribute(attributes, names).and_then(parse_bool_attribute)
-}
-
-fn invalid_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<bool> {
-    string_attribute(attributes, names).and_then(parse_invalid_attribute)
-}
-
-fn number_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<f64> {
-    string_attribute(attributes, names).and_then(parse_number_attribute)
-}
-
-fn u32_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<u32> {
-    string_attribute(attributes, names).and_then(parse_u32_attribute)
-}
-
-fn parse_number_attribute(value: &str) -> Option<f64> {
-    value.trim().parse::<f64>().ok()
-}
-
-fn parse_u32_attribute(value: &str) -> Option<u32> {
-    value.trim().parse::<u32>().ok()
-}
-
-fn parse_bool_attribute(value: &str) -> Option<bool> {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "" | "true" => Some(true),
-        "false" => Some(false),
-        _ => None,
-    }
-}
-
-fn parse_invalid_attribute(value: &str) -> Option<bool> {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "" | "true" | "grammar" | "spelling" => Some(true),
-        "false" => Some(false),
-        _ => None,
-    }
-}
-
-fn parse_orientation(value: &str) -> Option<Orientation> {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "horizontal" => Some(Orientation::Horizontal),
-        "vertical" => Some(Orientation::Vertical),
-        _ => None,
     }
 }

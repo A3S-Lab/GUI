@@ -42,8 +42,11 @@ the same native control-state fields consumed by the Rust renderer. Intrinsic
 form-control props such as `readOnly`, `multiple`, `autoFocus`, `autoComplete`,
 `inputMode`, `pattern`, `minLength`, `maxLength`, `rows`, `cols`, `size`,
 `formAction`, `formEncType`, `formMethod`, `formTarget`, `formNoValidate`,
-`accept`, `capture`, `alt`, `src`, `list`, and `dirname` are preserved with
-their Web JSX names and projected by the Rust bridge into native control hints.
+`accept`, `capture`, `alt`, `href`, `src`, `srcSet`, `sizes`, `loading`,
+`decoding`, `fetchPriority`, `crossOrigin`, `referrerPolicy`, `poster`,
+`controls`, `autoPlay`, `playsInline`, `preload`, `srcLang`, `list`, and
+`dirname` are preserved with their Web JSX names and projected by the Rust
+bridge into native control hints.
 Marker
 exports include form and selection components such as `RadioGroup`, `Radio`,
 `Select`, `ListBoxItem`, `Dialog`, `Popover`, `Tabs`, `TabList`, `Tab`,

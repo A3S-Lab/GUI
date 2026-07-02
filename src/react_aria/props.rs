@@ -36,7 +36,30 @@ pub struct AriaProps {
     pub accept: Option<String>,
     pub capture: Option<String>,
     pub alt: Option<String>,
+    pub href: Option<String>,
     pub src: Option<String>,
+    pub srcset: Option<String>,
+    pub sizes: Option<String>,
+    pub media: Option<String>,
+    pub resource_type: Option<String>,
+    pub intrinsic_width: Option<u32>,
+    pub intrinsic_height: Option<u32>,
+    pub loading: Option<String>,
+    pub decoding: Option<String>,
+    pub fetch_priority: Option<String>,
+    pub cross_origin: Option<String>,
+    pub referrer_policy: Option<String>,
+    pub poster: Option<String>,
+    pub controls: bool,
+    pub autoplay: bool,
+    pub loop_playback: bool,
+    pub muted: bool,
+    pub plays_inline: bool,
+    pub preload: Option<String>,
+    pub track_kind: Option<String>,
+    pub srclang: Option<String>,
+    pub track_label: Option<String>,
+    pub default_track: bool,
     pub list: Option<String>,
     pub dirname: Option<String>,
     pub form_action: Option<String>,
@@ -83,7 +106,30 @@ impl Default for AriaProps {
             accept: None,
             capture: None,
             alt: None,
+            href: None,
             src: None,
+            srcset: None,
+            sizes: None,
+            media: None,
+            resource_type: None,
+            intrinsic_width: None,
+            intrinsic_height: None,
+            loading: None,
+            decoding: None,
+            fetch_priority: None,
+            cross_origin: None,
+            referrer_policy: None,
+            poster: None,
+            controls: false,
+            autoplay: false,
+            loop_playback: false,
+            muted: false,
+            plays_inline: false,
+            preload: None,
+            track_kind: None,
+            srclang: None,
+            track_label: None,
+            default_track: false,
             list: None,
             dirname: None,
             form_action: None,
@@ -258,8 +304,123 @@ impl AriaProps {
         self
     }
 
+    pub fn href(mut self, href: impl Into<String>) -> Self {
+        self.href = Some(href.into());
+        self
+    }
+
     pub fn src(mut self, src: impl Into<String>) -> Self {
         self.src = Some(src.into());
+        self
+    }
+
+    pub fn srcset(mut self, srcset: impl Into<String>) -> Self {
+        self.srcset = Some(srcset.into());
+        self
+    }
+
+    pub fn sizes(mut self, sizes: impl Into<String>) -> Self {
+        self.sizes = Some(sizes.into());
+        self
+    }
+
+    pub fn media(mut self, media: impl Into<String>) -> Self {
+        self.media = Some(media.into());
+        self
+    }
+
+    pub fn resource_type(mut self, resource_type: impl Into<String>) -> Self {
+        self.resource_type = Some(resource_type.into());
+        self
+    }
+
+    pub fn intrinsic_width(mut self, intrinsic_width: Option<u32>) -> Self {
+        self.intrinsic_width = intrinsic_width;
+        self
+    }
+
+    pub fn intrinsic_height(mut self, intrinsic_height: Option<u32>) -> Self {
+        self.intrinsic_height = intrinsic_height;
+        self
+    }
+
+    pub fn loading(mut self, loading: impl Into<String>) -> Self {
+        self.loading = Some(loading.into());
+        self
+    }
+
+    pub fn decoding(mut self, decoding: impl Into<String>) -> Self {
+        self.decoding = Some(decoding.into());
+        self
+    }
+
+    pub fn fetch_priority(mut self, fetch_priority: impl Into<String>) -> Self {
+        self.fetch_priority = Some(fetch_priority.into());
+        self
+    }
+
+    pub fn cross_origin(mut self, cross_origin: impl Into<String>) -> Self {
+        self.cross_origin = Some(cross_origin.into());
+        self
+    }
+
+    pub fn referrer_policy(mut self, referrer_policy: impl Into<String>) -> Self {
+        self.referrer_policy = Some(referrer_policy.into());
+        self
+    }
+
+    pub fn poster(mut self, poster: impl Into<String>) -> Self {
+        self.poster = Some(poster.into());
+        self
+    }
+
+    pub fn controls(mut self, controls: bool) -> Self {
+        self.controls = controls;
+        self
+    }
+
+    pub fn autoplay(mut self, autoplay: bool) -> Self {
+        self.autoplay = autoplay;
+        self
+    }
+
+    pub fn loop_playback(mut self, loop_playback: bool) -> Self {
+        self.loop_playback = loop_playback;
+        self
+    }
+
+    pub fn muted(mut self, muted: bool) -> Self {
+        self.muted = muted;
+        self
+    }
+
+    pub fn plays_inline(mut self, plays_inline: bool) -> Self {
+        self.plays_inline = plays_inline;
+        self
+    }
+
+    pub fn preload(mut self, preload: impl Into<String>) -> Self {
+        self.preload = Some(preload.into());
+        self
+    }
+
+    pub fn track_kind(mut self, track_kind: impl Into<String>) -> Self {
+        self.track_kind = Some(track_kind.into());
+        self
+    }
+
+    pub fn srclang(mut self, srclang: impl Into<String>) -> Self {
+        self.srclang = Some(srclang.into());
+        self
+    }
+
+    pub fn track_label(mut self, track_label: impl Into<String>) -> Self {
+        self.track_label = Some(track_label.into());
+        self
+    }
+
+    pub fn default_track(mut self, default_track: bool) -> Self {
+        self.default_track = default_track;
         self
     }
 

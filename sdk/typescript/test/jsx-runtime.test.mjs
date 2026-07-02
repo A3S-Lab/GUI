@@ -138,6 +138,67 @@ test('intrinsic SVG elements preserve presentation props and Tailwind class name
   assert.equal(root.children[0].props.attributes.strokeLinejoin, 'round');
 });
 
+test('intrinsic media and resource attributes preserve Web JSX names', () => {
+  const image = jsx('img', {
+    alt: 'Hero',
+    src: '/hero.png',
+    srcSet: '/hero.png 1x, /hero@2x.png 2x',
+    sizes: '100vw',
+    width: 640,
+    height: 360,
+    loading: 'lazy',
+    decoding: 'async',
+    fetchPriority: 'high',
+    crossOrigin: 'anonymous',
+    referrerPolicy: 'no-referrer',
+  }, 'hero');
+  const video = jsxs('video', {
+    src: '/demo.mp4',
+    poster: '/poster.png',
+    controls: true,
+    autoPlay: true,
+    loop: true,
+    muted: true,
+    playsInline: true,
+    preload: 'metadata',
+    children: jsx('track', {
+      src: '/captions.vtt',
+      kind: 'captions',
+      srcLang: 'en',
+      label: 'English',
+      default: true,
+    }, 'captions'),
+  }, 'video');
+  const stylesheet = jsx('link', {
+    href: '/app.css',
+    media: 'screen',
+    type: 'text/css',
+    fetchpriority: 'low',
+    crossorigin: '',
+    referrerpolicy: 'origin',
+  }, 'stylesheet');
+
+  assert.equal(image.props.attributes.alt, 'Hero');
+  assert.equal(image.props.attributes.src, '/hero.png');
+  assert.equal(image.props.attributes.srcSet, '/hero.png 1x, /hero@2x.png 2x');
+  assert.equal(image.props.attributes.sizes, '100vw');
+  assert.equal(image.props.attributes.width, '640');
+  assert.equal(image.props.attributes.height, '360');
+  assert.equal(image.props.attributes.loading, 'lazy');
+  assert.equal(image.props.attributes.decoding, 'async');
+  assert.equal(image.props.attributes.fetchPriority, 'high');
+  assert.equal(image.props.attributes.crossOrigin, 'anonymous');
+  assert.equal(image.props.attributes.referrerPolicy, 'no-referrer');
+  assert.equal(video.props.attributes.controls, 'true');
+  assert.equal(video.props.attributes.autoPlay, 'true');
+  assert.equal(video.props.attributes.playsInline, 'true');
+  assert.equal(video.children[0].props.attributes.srcLang, 'en');
+  assert.equal(video.children[0].props.attributes.default, 'true');
+  assert.equal(stylesheet.props.attributes.href, '/app.css');
+  assert.equal(stylesheet.props.attributes.fetchpriority, 'low');
+  assert.equal(stylesheet.props.attributes.crossorigin, '');
+});
+
 test('CSS text parser preserves delimiters inside functions and strings', () => {
   const root = jsxs('div', {
     style: `

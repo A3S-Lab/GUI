@@ -35,7 +35,9 @@ planning and widget-name mapping live under `src/platform/`. Compiler lowering,
 React Aria mapping, and style normalization are split under `src/compiler/`,
 `src/react_aria/`, and `src/style/`. Native surface implementations are grouped
 by platform under `src/appkit_native/`, `src/gtk4_native/`, and
-`src/winui_native/`.
+`src/winui_native/`. HTML prop lowering is split under `src/compiler/props/`
+by shared attribute parsing, control/form aliases, resource/media aliases,
+semantic state aliases, and tag-specific native state rules.
 
 ## Compatibility Scope
 
@@ -71,6 +73,14 @@ Form submission and media hints such as `name`, `form`, `type`, `accept`,
 `formenctype`/`formEncType`, `formmethod`/`formMethod`, `formtarget`/
 `formTarget`, and `formnovalidate`/`formNoValidate` are projected into native
 control-state fields when they apply to the associated HTML form or control tag.
+Media and resource attributes such as `href`, `srcset`/`srcSet`, `sizes`,
+`media`, resource `type`, intrinsic `width`/`height`, `loading`, `decoding`,
+`fetchpriority`/`fetchPriority`, `crossorigin`/`crossOrigin`,
+`referrerpolicy`/`referrerPolicy`, `poster`, `controls`, `autoplay`/
+`autoPlay`, `loop`, `muted`, `playsinline`/`playsInline`, `preload`, `kind`,
+`srclang`/`srcLang`, `label`, and `default` are projected into native
+control-state fields for image, media, source, track, link, script, embed,
+iframe, object, and related resource tags.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.

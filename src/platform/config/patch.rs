@@ -58,7 +58,30 @@ pub struct NativeWidgetConfigPatch {
     pub accept: Option<NativeConfigValueChange<Option<String>>>,
     pub capture: Option<NativeConfigValueChange<Option<String>>>,
     pub alt: Option<NativeConfigValueChange<Option<String>>>,
+    pub href: Option<NativeConfigValueChange<Option<String>>>,
     pub src: Option<NativeConfigValueChange<Option<String>>>,
+    pub srcset: Option<NativeConfigValueChange<Option<String>>>,
+    pub sizes: Option<NativeConfigValueChange<Option<String>>>,
+    pub media: Option<NativeConfigValueChange<Option<String>>>,
+    pub resource_type: Option<NativeConfigValueChange<Option<String>>>,
+    pub intrinsic_width: Option<NativeConfigValueChange<Option<u32>>>,
+    pub intrinsic_height: Option<NativeConfigValueChange<Option<u32>>>,
+    pub loading: Option<NativeConfigValueChange<Option<String>>>,
+    pub decoding: Option<NativeConfigValueChange<Option<String>>>,
+    pub fetch_priority: Option<NativeConfigValueChange<Option<String>>>,
+    pub cross_origin: Option<NativeConfigValueChange<Option<String>>>,
+    pub referrer_policy: Option<NativeConfigValueChange<Option<String>>>,
+    pub poster: Option<NativeConfigValueChange<Option<String>>>,
+    pub controls: Option<NativeConfigValueChange<bool>>,
+    pub autoplay: Option<NativeConfigValueChange<bool>>,
+    pub loop_playback: Option<NativeConfigValueChange<bool>>,
+    pub muted: Option<NativeConfigValueChange<bool>>,
+    pub plays_inline: Option<NativeConfigValueChange<bool>>,
+    pub preload: Option<NativeConfigValueChange<Option<String>>>,
+    pub track_kind: Option<NativeConfigValueChange<Option<String>>>,
+    pub srclang: Option<NativeConfigValueChange<Option<String>>>,
+    pub track_label: Option<NativeConfigValueChange<Option<String>>>,
+    pub default_track: Option<NativeConfigValueChange<bool>>,
     pub list: Option<NativeConfigValueChange<Option<String>>>,
     pub dirname: Option<NativeConfigValueChange<Option<String>>>,
     pub form_action: Option<NativeConfigValueChange<Option<String>>>,
@@ -113,7 +136,30 @@ impl NativeWidgetConfigPatch {
             accept: diff_value(&before.accept, &after.accept),
             capture: diff_value(&before.capture, &after.capture),
             alt: diff_value(&before.alt, &after.alt),
+            href: diff_value(&before.href, &after.href),
             src: diff_value(&before.src, &after.src),
+            srcset: diff_value(&before.srcset, &after.srcset),
+            sizes: diff_value(&before.sizes, &after.sizes),
+            media: diff_value(&before.media, &after.media),
+            resource_type: diff_value(&before.resource_type, &after.resource_type),
+            intrinsic_width: diff_value(&before.intrinsic_width, &after.intrinsic_width),
+            intrinsic_height: diff_value(&before.intrinsic_height, &after.intrinsic_height),
+            loading: diff_value(&before.loading, &after.loading),
+            decoding: diff_value(&before.decoding, &after.decoding),
+            fetch_priority: diff_value(&before.fetch_priority, &after.fetch_priority),
+            cross_origin: diff_value(&before.cross_origin, &after.cross_origin),
+            referrer_policy: diff_value(&before.referrer_policy, &after.referrer_policy),
+            poster: diff_value(&before.poster, &after.poster),
+            controls: diff_value(&before.controls, &after.controls),
+            autoplay: diff_value(&before.autoplay, &after.autoplay),
+            loop_playback: diff_value(&before.loop_playback, &after.loop_playback),
+            muted: diff_value(&before.muted, &after.muted),
+            plays_inline: diff_value(&before.plays_inline, &after.plays_inline),
+            preload: diff_value(&before.preload, &after.preload),
+            track_kind: diff_value(&before.track_kind, &after.track_kind),
+            srclang: diff_value(&before.srclang, &after.srclang),
+            track_label: diff_value(&before.track_label, &after.track_label),
+            default_track: diff_value(&before.default_track, &after.default_track),
             list: diff_value(&before.list, &after.list),
             dirname: diff_value(&before.dirname, &after.dirname),
             form_action: diff_value(&before.form_action, &after.form_action),
@@ -229,7 +275,86 @@ impl NativeWidgetConfigPatch {
         push_setter(&mut setters, &self.accept, NativeWidgetSetter::SetAccept);
         push_setter(&mut setters, &self.capture, NativeWidgetSetter::SetCapture);
         push_setter(&mut setters, &self.alt, NativeWidgetSetter::SetAlt);
+        push_setter(&mut setters, &self.href, NativeWidgetSetter::SetHref);
         push_setter(&mut setters, &self.src, NativeWidgetSetter::SetSrc);
+        push_setter(&mut setters, &self.srcset, NativeWidgetSetter::SetSrcset);
+        push_setter(&mut setters, &self.sizes, NativeWidgetSetter::SetSizes);
+        push_setter(&mut setters, &self.media, NativeWidgetSetter::SetMedia);
+        push_setter(
+            &mut setters,
+            &self.resource_type,
+            NativeWidgetSetter::SetResourceType,
+        );
+        push_setter(
+            &mut setters,
+            &self.intrinsic_width,
+            NativeWidgetSetter::SetIntrinsicWidth,
+        );
+        push_setter(
+            &mut setters,
+            &self.intrinsic_height,
+            NativeWidgetSetter::SetIntrinsicHeight,
+        );
+        push_setter(&mut setters, &self.loading, NativeWidgetSetter::SetLoading);
+        push_setter(
+            &mut setters,
+            &self.decoding,
+            NativeWidgetSetter::SetDecoding,
+        );
+        push_setter(
+            &mut setters,
+            &self.fetch_priority,
+            NativeWidgetSetter::SetFetchPriority,
+        );
+        push_setter(
+            &mut setters,
+            &self.cross_origin,
+            NativeWidgetSetter::SetCrossOrigin,
+        );
+        push_setter(
+            &mut setters,
+            &self.referrer_policy,
+            NativeWidgetSetter::SetReferrerPolicy,
+        );
+        push_setter(&mut setters, &self.poster, NativeWidgetSetter::SetPoster);
+        push_setter(
+            &mut setters,
+            &self.controls,
+            NativeWidgetSetter::SetControls,
+        );
+        push_setter(
+            &mut setters,
+            &self.autoplay,
+            NativeWidgetSetter::SetAutoplay,
+        );
+        push_setter(
+            &mut setters,
+            &self.loop_playback,
+            NativeWidgetSetter::SetLoopPlayback,
+        );
+        push_setter(&mut setters, &self.muted, NativeWidgetSetter::SetMuted);
+        push_setter(
+            &mut setters,
+            &self.plays_inline,
+            NativeWidgetSetter::SetPlaysInline,
+        );
+        push_setter(&mut setters, &self.preload, NativeWidgetSetter::SetPreload);
+        push_setter(
+            &mut setters,
+            &self.track_kind,
+            NativeWidgetSetter::SetTrackKind,
+        );
+        push_setter(&mut setters, &self.srclang, NativeWidgetSetter::SetSrclang);
+        push_setter(
+            &mut setters,
+            &self.track_label,
+            NativeWidgetSetter::SetTrackLabel,
+        );
+        push_setter(
+            &mut setters,
+            &self.default_track,
+            NativeWidgetSetter::SetDefaultTrack,
+        );
         push_setter(&mut setters, &self.list, NativeWidgetSetter::SetList);
         push_setter(&mut setters, &self.dirname, NativeWidgetSetter::SetDirname);
         push_setter(
