@@ -29,11 +29,21 @@ impl Renderer {
         host: &mut H,
     ) -> GuiResult<HostNodeId> {
         validate_native_tree(element)?;
+        let previous_root = self.root.clone();
         let mounted = match self.root.take() {
-            Some(old) => reconcile_node(None, 0, old, element, host)?,
+            Some(old) => match reconcile_node(None, 0, old, element, host) {
+                Ok(mounted) => mounted,
+                Err(error) => {
+                    self.root = previous_root;
+                    return Err(error);
+                }
+            },
             None => mount_node(None, 0, element, host)?,
         };
-        host.set_root(mounted.id)?;
+        if let Err(error) = host.set_root(mounted.id) {
+            self.root = previous_root;
+            return Err(error);
+        }
         let root_id = mounted.id;
         self.root = Some(mounted);
         Ok(root_id)
@@ -213,6 +223,60 @@ mod tests {
     use crate::host::{HeadlessHost, HostOperation};
     use crate::native::{NativeElement, NativeProps, NativeRole};
 
+    #[derive(Default)]
+    struct FailingUpdateHost {
+        inner: HeadlessHost,
+        fail_updates: bool,
+    }
+
+    impl FailingUpdateHost {
+        fn root(&self) -> Option<HostNodeId> {
+            self.inner.root()
+        }
+
+        fn node(&self, id: HostNodeId) -> Option<&crate::host::HeadlessNode> {
+            self.inner.node(id)
+        }
+
+        fn operations(&self) -> &[HostOperation] {
+            self.inner.operations()
+        }
+
+        fn clear_operations(&mut self) {
+            self.inner.clear_operations();
+        }
+    }
+
+    impl NativeHost for FailingUpdateHost {
+        fn create(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
+            self.inner.create(element)
+        }
+
+        fn update(&mut self, id: HostNodeId, props: &NativeProps) -> GuiResult<()> {
+            if self.fail_updates {
+                return Err(GuiError::host("forced host update failure"));
+            }
+            self.inner.update(id, props)
+        }
+
+        fn insert_child(
+            &mut self,
+            parent: HostNodeId,
+            child: HostNodeId,
+            index: usize,
+        ) -> GuiResult<()> {
+            self.inner.insert_child(parent, child, index)
+        }
+
+        fn remove(&mut self, id: HostNodeId) -> GuiResult<()> {
+            self.inner.remove(id)
+        }
+
+        fn set_root(&mut self, id: HostNodeId) -> GuiResult<()> {
+            self.inner.set_root(id)
+        }
+    }
+
     #[test]
     fn keyed_children_are_reordered_without_remounting() {
         let first = NativeElement::new("root", NativeRole::View)
@@ -284,6 +348,44 @@ mod tests {
             .to_string()
             .contains("native sibling elements need unique keys"));
         assert!(host.operations().is_empty());
+    }
+
+    #[test]
+    fn renderer_preserves_mounted_tree_after_host_update_failure() {
+        let first = NativeElement::new("root", NativeRole::View)
+            .with_props(NativeProps::new().label("Old"));
+        let failed = NativeElement::new("root", NativeRole::View)
+            .with_props(NativeProps::new().label("Failed"));
+        let recovered = NativeElement::new("root", NativeRole::View)
+            .with_props(NativeProps::new().label("Recovered"));
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost::default();
+
+        let root_id = renderer.render(&first, &mut host).unwrap();
+        host.fail_updates = true;
+        let error = renderer.render(&failed, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host update failure"));
+        assert!(renderer.mounted_node_ids().contains(&root_id));
+        assert_eq!(host.root(), Some(root_id));
+        assert_eq!(
+            host.node(root_id).unwrap().props.label.as_deref(),
+            Some("Old")
+        );
+
+        host.fail_updates = false;
+        host.clear_operations();
+        let recovered_id = renderer.render(&recovered, &mut host).unwrap();
+
+        assert_eq!(recovered_id, root_id);
+        assert!(!host.operations().iter().any(|operation| matches!(
+            operation,
+            HostOperation::Create { .. } | HostOperation::Remove { .. }
+        )));
+        assert_eq!(
+            host.node(root_id).unwrap().props.label.as_deref(),
+            Some("Recovered")
+        );
     }
 
     #[test]
