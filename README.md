@@ -1,23 +1,21 @@
 # a3s-gui
 
-Rust-native GUI runtime for A3S UI frames.
+Native GUI runtime for A3S protocol frames.
 
-`a3s-gui` lowers structured Rust or JSX UI trees into a portable native IR,
-reconciles keyed updates, and drives AppKit, WinUI, GTK4, or a headless host.
+`a3s-gui` turns structured Rust or JSX UI trees into a portable native UI IR,
+diffs keyed updates, routes events, and drives AppKit, WinUI, GTK4, or a
+headless test host.
 
-It is not a browser wrapper. There is no DOM, CSSOM, WebView, or browser layout
-contract; Web-like input is supported only when it maps to native roles, state,
-styles, metadata, accessibility hints, or action ids.
+This is not a browser shell. There is no DOM, CSSOM, WebView, or browser layout
+contract. Web-style input is accepted only when it can lower into native roles,
+state, style tokens, metadata, accessibility hints, or action ids.
 
-## Scope
+## Use It For
 
-- Native UI model: `NativeElement`, `NativeProps`, `NativeRole`.
-- Runtime: `GuiRuntime`, keyed reconciliation, event routing, interaction
-  state, and accessibility projection.
-- Web/JSX bridge: React Aria-style components, HTML/SVG intrinsics, Web props,
-  CSS text, Tailwind utilities, and JSX events.
-- Hosts: headless testing, platform planning, and native surfaces.
-- TypeScript JSX runtime: [sdk/typescript](sdk/typescript).
+- Rendering `UiFrame` protocol data into native widgets.
+- Testing UI protocol and reconciliation logic without a platform GUI.
+- Bridging JSX and React Aria-style component trees into A3S native UI.
+- Building or validating AppKit, WinUI, and GTK4 native surface adapters.
 
 ## Install
 
@@ -29,16 +27,22 @@ a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ## Rust
 
 ```rust
-use a3s_gui::{GuiRuntime, HeadlessHost, NativeElement, NativeProps, NativeRole, WebProps};
+use a3s_gui::{
+    GuiRuntime, GuiResult, HeadlessHost, NativeElement, NativeProps, NativeRole, WebProps,
+};
 
-let root = NativeElement::new("save", NativeRole::Button).with_props(
-    NativeProps::new()
-        .label("Save")
-        .web(WebProps::new().on_press("saveDocument")),
-);
+fn main() -> GuiResult<()> {
+    let root = NativeElement::new("save", NativeRole::Button).with_props(
+        NativeProps::new()
+            .label("Save")
+            .web(WebProps::new().on_press("saveDocument")),
+    );
 
-let mut runtime = GuiRuntime::new(HeadlessHost::default());
-let rendered = runtime.render_native(&root)?;
+    let mut runtime = GuiRuntime::new(HeadlessHost::default());
+    let _rendered = runtime.render_native(&root)?;
+
+    Ok(())
+}
 ```
 
 ## JSX
@@ -59,22 +63,25 @@ export const frame = createUiFrame(
 );
 ```
 
-## Feature Flags
+The TypeScript SDK emits plain serializable frame data. The Rust side consumes
+that data with `ReactCompilerBridge`, renders it with `GuiRuntime`, and returns
+native commands, routed events, and accessibility trees.
 
-`headless` is enabled by default.
+## Features
 
-| Feature | Purpose |
+The default feature is `headless`.
+
+| Feature | Enables |
 | --- | --- |
 | `headless` | Pure Rust host for tests and protocol validation. |
-| `appkit`, `winui`, `gtk4` | Platform planning and handle adapter types. |
+| `appkit`, `winui`, `gtk4` | Platform planning adapters and handle types. |
 | `appkit-native`, `winui-native`, `gtk4-native` | Real native surfaces for the matching OS. |
 
-Native surface flags are platform-specific. `gtk4-native` requires GTK4
-development libraries and `pkg-config`.
+`gtk4-native` needs GTK4 development libraries and `pkg-config`.
 
 ## Validate
 
-Run checks from this crate directory:
+Run the common checks from this directory:
 
 ```bash
 cargo fmt --all
@@ -84,7 +91,7 @@ npm test --prefix sdk/typescript
 git diff --check
 ```
 
-Native-surface checks depend on the target platform:
+Native-surface checks are platform-specific:
 
 ```bash
 cargo check --features appkit-native
@@ -92,7 +99,7 @@ cargo check --target x86_64-pc-windows-msvc --features winui-native
 cargo check --features gtk4-native
 ```
 
-## Docs
+## More
 
 - [Architecture](docs/architecture.md)
 - [Web authoring](docs/web-authoring.md)
