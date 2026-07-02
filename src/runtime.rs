@@ -4,11 +4,18 @@ use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
 use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, ActionRegistry, EventRouter, NativeEvent};
 use crate::host::{HostNodeId, NativeHost};
-use crate::interaction::{InteractionNodeState, InteractionState};
+use crate::interaction::{InteractionChange, InteractionNodeState, InteractionState};
 use crate::native::NativeElement;
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::react_aria::{AriaElement, ReactAriaMapper};
 use crate::renderer::Renderer;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HandledNativeEvent {
+    pub event: NativeEvent,
+    pub invocation: Option<ActionInvocation>,
+    pub interaction_changes: Vec<InteractionChange>,
+}
 
 #[derive(Debug)]
 pub struct GuiRuntime<H: NativeHost> {
@@ -109,6 +116,20 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
             GuiError::host(format!("native node {} has no blueprint", event.node.get()))
         })?;
         self.handle_event(&blueprint, event)
+    }
+
+    pub fn handle_native_event_with_changes(
+        &mut self,
+        event: NativeEvent,
+    ) -> GuiResult<HandledNativeEvent> {
+        let interaction_start = self.interaction_state.changes().len();
+        let invocation = self.handle_native_event(event.clone())?;
+        let interaction_changes = self.interaction_state.changes()[interaction_start..].to_vec();
+        Ok(HandledNativeEvent {
+            event,
+            invocation,
+            interaction_changes,
+        })
     }
 }
 
@@ -272,14 +293,20 @@ impl<H: NativeHost + BlueprintHost + NativeEventHost> GuiRuntime<H> {
     }
 
     pub fn handle_pending_native_events(&mut self) -> GuiResult<Vec<ActionInvocation>> {
+        let events = self.handle_pending_native_event_results()?;
+        Ok(events
+            .into_iter()
+            .filter_map(|event| event.invocation)
+            .collect())
+    }
+
+    pub fn handle_pending_native_event_results(&mut self) -> GuiResult<Vec<HandledNativeEvent>> {
         let events = self.host.take_native_events();
-        let mut invocations = Vec::new();
+        let mut handled = Vec::new();
         for event in events {
-            if let Some(invocation) = self.handle_native_event(event)? {
-                invocations.push(invocation);
-            }
+            handled.push(self.handle_native_event_with_changes(event)?);
         }
-        Ok(invocations)
+        Ok(handled)
     }
 }
 

@@ -562,6 +562,57 @@ fn command_executing_host_handles_unbound_native_events_without_invocation() {
 }
 
 #[test]
+fn command_executing_host_reports_pending_native_event_results() {
+    let compiled: CompiledJsxNode = serde_json::from_str(
+        r#"
+            {
+              "kind": "element",
+              "key": "save",
+              "tag": "Button",
+              "props": {"events": {"onPress": "saveProfile"}},
+              "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+            }
+            "#,
+    )
+    .unwrap();
+    let executor = DriverCommandExecutor::new(TestWidgetDriver::default());
+    let host = CommandExecutingHost::new(Gtk4Adapter, executor);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("saveProfile");
+
+    let root_id = runtime.render_compiled(&compiled).unwrap();
+    runtime
+        .host_mut()
+        .executor_mut()
+        .driver_mut()
+        .events
+        .push(NativeEvent::new(root_id, NativeEventKind::Focus));
+    runtime
+        .host_mut()
+        .executor_mut()
+        .driver_mut()
+        .events
+        .push(NativeEvent::new(root_id, NativeEventKind::Press));
+
+    let events = runtime.handle_pending_native_event_results().unwrap();
+
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0].event.kind, NativeEventKind::Focus);
+    assert!(events[0].invocation.is_none());
+    assert_eq!(events[0].interaction_changes.len(), 1);
+    assert!(events[0].interaction_changes[0].after.focused);
+    assert_eq!(events[1].event.kind, NativeEventKind::Press);
+    assert_eq!(
+        events[1]
+            .invocation
+            .as_ref()
+            .map(|invocation| invocation.action.as_str()),
+        Some("saveProfile")
+    );
+    assert!(events[1].interaction_changes.is_empty());
+}
+
+#[test]
 fn command_executing_host_creates_backend_object_tree_from_compiled_jsx() {
     let compiled: CompiledJsxNode = serde_json::from_str(
         r#"

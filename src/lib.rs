@@ -102,7 +102,7 @@ pub use protocol::{
 };
 pub use react_aria::{AriaComponent, AriaElement, AriaProps, ReactAriaMapper};
 pub use renderer::Renderer;
-pub use runtime::GuiRuntime;
+pub use runtime::{GuiRuntime, HandledNativeEvent};
 pub use style::{
     AlignItems, BackfaceVisibility, BackgroundAttachment, BackgroundBox, BlendMode, BorderCollapse,
     BorderStyle, BoxDecorationBreak, BoxSizing, CaptionSide, ClearMode, ContainerType,
