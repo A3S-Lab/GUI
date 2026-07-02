@@ -231,6 +231,58 @@ test('intrinsic media and resource attributes preserve Web JSX names', () => {
   assert.equal(stylesheet.props.attributes.crossorigin, '');
 });
 
+test('intrinsic table and list attributes preserve Web JSX names', () => {
+  const table = jsxs('table', {
+    children: [
+      jsxs('colgroup', {
+        span: 2,
+        children: jsx('col', {span: 3}, 'metric-col'),
+      }, 'metric-cols'),
+      jsxs('tr', {
+        children: [
+          jsx('th', {
+            colSpan: 2,
+            rowSpan: 3,
+            headers: 'quarter revenue',
+            scope: 'colgroup',
+            abbr: 'Rev',
+          }, 'heading'),
+          jsx('td', {
+            colspan: 4,
+            rowspan: 1,
+            headers: 'heading',
+          }, 'cell'),
+        ],
+      }, 'metric-row'),
+    ],
+  }, 'metrics');
+  const list = jsxs('ol', {
+    start: 5,
+    reversed: true,
+    type: 'A',
+    children: jsx('li', {
+      value: 7,
+      type: 'i',
+      children: 'Inspect',
+    }, 'step'),
+  }, 'steps');
+
+  assert.equal(table.children[0].props.attributes.span, '2');
+  assert.equal(table.children[0].children[0].props.attributes.span, '3');
+  assert.equal(table.children[1].children[0].props.attributes.colSpan, '2');
+  assert.equal(table.children[1].children[0].props.attributes.rowSpan, '3');
+  assert.equal(table.children[1].children[0].props.attributes.headers, 'quarter revenue');
+  assert.equal(table.children[1].children[0].props.attributes.scope, 'colgroup');
+  assert.equal(table.children[1].children[0].props.attributes.abbr, 'Rev');
+  assert.equal(table.children[1].children[1].props.attributes.colspan, '4');
+  assert.equal(table.children[1].children[1].props.attributes.rowspan, '1');
+  assert.equal(list.props.attributes.start, '5');
+  assert.equal(list.props.attributes.reversed, 'true');
+  assert.equal(list.props.attributes.type, 'A');
+  assert.equal(list.children[0].props.attributes.value, '7');
+  assert.equal(list.children[0].props.attributes.type, 'i');
+});
+
 test('CSS text parser preserves delimiters inside functions and strings', () => {
   const root = jsxs('div', {
     style: `

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::accessibility::AccessibilityRole;
 use crate::geometry::Orientation;
+use crate::html::HtmlCollectionProps;
 use crate::native::{NativeProps, NativeRole};
 use crate::style::PortableStyle;
 
@@ -118,6 +119,7 @@ pub struct NativeControlState {
     pub form_method: Option<String>,
     pub form_target: Option<String>,
     pub form_no_validate: bool,
+    pub html_collection: HtmlCollectionProps,
 }
 
 impl NativeControlState {
@@ -196,6 +198,7 @@ impl NativeControlState {
             form_method: props.form_method.clone(),
             form_target: props.form_target.clone(),
             form_no_validate: props.form_no_validate,
+            html_collection: props.html_collection.clone(),
         }
     }
 }

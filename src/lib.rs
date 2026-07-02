@@ -80,7 +80,9 @@ pub use gtk4_native::{
     Gtk4OsWidget,
 };
 pub use host::{HeadlessHost, HostNodeId, HostOperation, NativeHost};
-pub use html::{HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS, HTML_TAG_METADATA_KEY};
+pub use html::{
+    HtmlCollectionProps, HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS, HTML_TAG_METADATA_KEY,
+};
 pub use interaction::{InteractionChange, InteractionNodeState, InteractionState};
 pub use native::{ElementKey, NativeElement, NativeProps, NativeRole};
 pub use platform::{

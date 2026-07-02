@@ -12,6 +12,7 @@ mod global;
 mod resources;
 mod semantic;
 mod states;
+mod structure;
 
 use controls::HtmlControlAliases;
 use global::HtmlGlobalAliases;
@@ -22,6 +23,7 @@ use states::{
     html_numeric_value_state, html_placeholder_state, html_range_step_state,
     html_string_value_state, html_textarea_child_value,
 };
+use structure::html_collection_props_from_tag;
 
 impl CompiledProps {
     pub(super) fn into_aria_props_for_tag(
@@ -67,6 +69,7 @@ impl CompiledProps {
         let html_control = HtmlControlAliases::from_tag(tag, &web);
         let html_global = HtmlGlobalAliases::from_web(&web);
         let html_resource = HtmlResourceAliases::from_tag(tag, &web);
+        let html_collection = html_collection_props_from_tag(tag, &web, self.value.as_deref());
         let semantic = WebSemanticAliases::from_web(&web);
 
         let orientation = self.orientation.map(|orientation| match orientation {
@@ -158,6 +161,7 @@ impl CompiledProps {
         props.form_method = html_control.form_method;
         props.form_target = html_control.form_target;
         props.form_no_validate = html_control.form_no_validate;
+        props.html_collection = html_collection;
         props
     }
 }

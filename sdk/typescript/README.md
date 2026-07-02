@@ -47,8 +47,9 @@ global and form-control props such as `title`, `hidden`, `lang`, `dir`,
 `formNoValidate`, `accept`, `capture`, `alt`, `href`, `src`, `srcSet`, `sizes`,
 `loading`, `decoding`, `fetchPriority`, `crossOrigin`, `referrerPolicy`,
 `poster`, `controls`, `autoPlay`, `playsInline`, `preload`, `srcLang`, `list`,
-and `dirname` are preserved with their Web JSX names and projected by the Rust
-bridge into native control hints.
+`dirname`, `colSpan`, `rowSpan`, `headers`, `scope`, `abbr`, `span`, `start`,
+`reversed`, list `type`, and `li value` are preserved with their Web JSX names
+and projected by the Rust bridge into native control hints.
 Marker
 exports include form and selection components such as `RadioGroup`, `Radio`,
 `Select`, `ListBoxItem`, `Dialog`, `Popover`, `Tabs`, `TabList`, `Tab`,

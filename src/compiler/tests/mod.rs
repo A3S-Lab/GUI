@@ -1,4 +1,5 @@
 mod core;
+mod html_collections;
 mod html_forms;
 mod html_global;
 mod html_structure;

@@ -148,6 +148,8 @@ function normalizeProps(props, tag) {
       out.isExpanded = Boolean(value);
     } else if (name === 'textValue') {
       out.textValue = String(value);
+    } else if (name === 'value' && isAttributeValueTag(tag)) {
+      attributes[name] = String(value);
     } else if (name === 'value' || name === 'defaultValue') {
       const numericValue = isNumericValueTag(tag, props) ? numberValue(value) : undefined;
       if (numericValue !== undefined) {
@@ -421,6 +423,10 @@ function isNumericValueTag(tag, props = {}) {
     tag === 'meter' ||
     (tag === 'input' && (inputType === 'range' || inputType === 'number'))
   );
+}
+
+function isAttributeValueTag(tag) {
+  return tag === 'li';
 }
 
 function actionIdForEvent(handler) {

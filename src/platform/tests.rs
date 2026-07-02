@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use crate::accessibility::AccessibilityRole;
 use crate::geometry::Orientation;
 use crate::host::HostNodeId;
+use crate::html::HtmlCollectionProps;
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::renderer::Renderer;
 use crate::web::WebProps;
@@ -482,6 +483,55 @@ fn widget_config_preserves_html_media_and_resource_hints() {
     assert!(setters.contains(&NativeWidgetSetter::SetMuted(true)));
     assert!(setters.contains(&NativeWidgetSetter::SetPlaysInline(true)));
     assert!(setters.contains(&NativeWidgetSetter::SetDefaultTrack(true)));
+}
+
+#[test]
+fn widget_config_preserves_html_collection_hints() {
+    let table_cell = NativeElement::new("metric-cell", NativeRole::TableCell).with_props(
+        NativeProps::new()
+            .column_span(Some(2))
+            .row_span(Some(3))
+            .headers("quarter revenue")
+            .scope("colgroup")
+            .cell_abbr("Rev"),
+    );
+    let list = NativeElement::new("steps", NativeRole::ListBox).with_props(
+        NativeProps::new()
+            .list_start(Some(5))
+            .list_reversed(true)
+            .list_type("A")
+            .list_item_value(Some(7)),
+    );
+
+    let table_config = Gtk4Adapter.blueprint(&table_cell).config();
+    let list_config = Gtk4Adapter.blueprint(&list).config();
+    let table_setters = table_config.create_setters();
+    let list_setters = list_config.create_setters();
+
+    let expected_table_collection = HtmlCollectionProps::default()
+        .column_span(Some(2))
+        .row_span(Some(3))
+        .headers("quarter revenue")
+        .scope("colgroup")
+        .cell_abbr("Rev");
+    let expected_list_collection = HtmlCollectionProps::default()
+        .list_start(Some(5))
+        .list_reversed(true)
+        .list_type("A")
+        .list_item_value(Some(7));
+
+    assert_eq!(table_config.html_collection, expected_table_collection);
+    assert_eq!(list_config.html_collection, expected_list_collection);
+    assert!(
+        table_setters.contains(&NativeWidgetSetter::SetHtmlCollection(
+            expected_table_collection
+        ))
+    );
+    assert!(
+        list_setters.contains(&NativeWidgetSetter::SetHtmlCollection(
+            expected_list_collection
+        ))
+    );
 }
 
 #[test]

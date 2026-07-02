@@ -37,8 +37,11 @@ React Aria mapping, and style normalization are split under `src/compiler/`,
 by platform under `src/appkit_native/`, `src/gtk4_native/`, and
 `src/winui_native/`. HTML prop lowering is split under `src/compiler/props/`
 by shared attribute parsing, control/form aliases, global attributes,
-resource/media aliases, semantic state aliases, and tag-specific native state
-rules.
+resource/media aliases, semantic state aliases, table/list structure aliases,
+and tag-specific native state rules. Shared table/list hints live in
+`HtmlCollectionProps` under `src/html/collections.rs`; native and React Aria
+builder methods for those hints are split into their own `html_collection`
+submodules.
 
 ## Compatibility Scope
 
@@ -88,6 +91,10 @@ Media and resource attributes such as `href`, `srcset`/`srcSet`, `sizes`,
 `srclang`/`srcLang`, `label`, and `default` are projected into native
 control-state fields for image, media, source, track, link, script, embed,
 iframe, object, and related resource tags.
+Table and list structure attributes such as `colspan`/`colSpan`, `rowspan`/
+`rowSpan`, `headers`, `scope`, `abbr`, `span`, `start`, `reversed`, list
+`type`, and list item `value` are projected into native control-state fields
+for table cells, columns, column groups, ordered lists, and list items.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.

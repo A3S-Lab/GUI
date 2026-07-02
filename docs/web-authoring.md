@@ -94,6 +94,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `action` / `method` / `encType` / `target` / `noValidate` / `formAction` / `formEncType` / `formMethod` / `formTarget` / `formNoValidate` | normalized to native form submission hints when applicable |
 | `href` / `srcSet` / `sizes` / `media` / `width` / `height` / `loading` / `decoding` / `fetchPriority` / `crossOrigin` / `referrerPolicy` | normalized to native media and resource loading hints when applicable |
 | `poster` / `controls` / `autoPlay` / `loop` / `muted` / `playsInline` / `preload` / `kind` / `srcLang` / `label` / `default` | normalized to native media playback and track hints when applicable |
+| `colSpan` / `rowSpan` / `headers` / `scope` / `abbr` / `span` / `start` / `reversed` / list `type` / `li value` | normalized to native table and list structure hints when applicable |
 | `onClick` / `onPress` | normalized to the primary native action |
 | `onChange` | normalized to the primary action for value controls |
 | `TextField` + `Label` + `Input` | folded into one native text field; `Input` value, placeholder, style, metadata, and events are inherited |

@@ -73,7 +73,7 @@ fn parse_u32_attribute(value: &str) -> Option<u32> {
     value.trim().parse::<u32>().ok()
 }
 
-fn parse_i32_attribute(value: &str) -> Option<i32> {
+pub(super) fn parse_i32_attribute(value: &str) -> Option<i32> {
     value.trim().parse::<i32>().ok()
 }
 

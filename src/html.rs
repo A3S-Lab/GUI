@@ -2,8 +2,10 @@ use std::collections::BTreeMap;
 
 use crate::react_aria::AriaComponent;
 
+mod collections;
 mod registry;
 
+pub use collections::HtmlCollectionProps;
 pub use registry::{HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS};
 
 pub const HTML_TAG_METADATA_KEY: &str = "data-a3s-html-tag";

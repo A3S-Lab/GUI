@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::accessibility::AccessibilityRole;
 use crate::geometry::Orientation;
+use crate::html::HtmlCollectionProps;
 use crate::style::PortableStyle;
 
 use super::NativeWidgetConfig;
@@ -90,6 +91,7 @@ pub enum NativeWidgetSetter {
     SetFormMethod(Option<String>),
     SetFormTarget(Option<String>),
     SetFormNoValidate(bool),
+    SetHtmlCollection(HtmlCollectionProps),
     SetWebStyle(BTreeMap<String, String>),
     SetPortableStyle(PortableStyle),
     SetEvents(BTreeMap<String, String>),
@@ -177,6 +179,7 @@ pub fn apply_widget_setter(config: &mut NativeWidgetConfig, setter: &NativeWidge
         NativeWidgetSetter::SetFormMethod(value) => config.form_method = value.clone(),
         NativeWidgetSetter::SetFormTarget(value) => config.form_target = value.clone(),
         NativeWidgetSetter::SetFormNoValidate(value) => config.form_no_validate = *value,
+        NativeWidgetSetter::SetHtmlCollection(value) => config.html_collection = value.clone(),
         NativeWidgetSetter::SetWebStyle(value) => config.web_style = value.clone(),
         NativeWidgetSetter::SetPortableStyle(value) => config.portable_style = value.clone(),
         NativeWidgetSetter::SetEvents(value) => config.events = value.clone(),

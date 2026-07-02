@@ -111,6 +111,16 @@ export interface WebCompatibleProps {
   rows?: number | string;
   cols?: number | string;
   size?: number | string;
+  colSpan?: number | string;
+  colspan?: number | string;
+  rowSpan?: number | string;
+  rowspan?: number | string;
+  headers?: string;
+  scope?: string;
+  abbr?: string;
+  span?: number | string;
+  start?: number | string;
+  reversed?: boolean;
   orientation?: 'horizontal' | 'vertical';
   min?: number | string;
   max?: number | string;
