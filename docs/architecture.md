@@ -491,8 +491,11 @@ Feature-gated platform executor surfaces:
   `Grid`, `TabView`, `TabViewItem`, `Border(separator)`, `Slider`, and
   `ProgressBar` objects through
   `WinUiNativeSurface`. The backend creates WinUI controls directly. WinUI
-  textarea-shaped text boxes enable return input and wrapping. WinUI callbacks
-  enqueue press, change,
+  textarea-shaped text boxes enable return input and wrapping. WinUI text boxes
+  map portable text-entry hints into native spell-check, text-prediction,
+  programmatic keyboard display, and color-font settings where the current
+  `winio-winui3` bindings expose those APIs. WinUI callbacks enqueue press,
+  change,
   focus, blur, toggle, selection-change, and ranged value events through the
   same `NativeEventSource` and action routing path as AppKit and GTK. Semantic
   `Tabs` trees fold `TabList` and ordered `TabPanel` children into native

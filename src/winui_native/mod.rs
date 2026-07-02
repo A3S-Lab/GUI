@@ -20,10 +20,11 @@ use crate::host::HostNodeId;
 use crate::html::HTML_TAG_METADATA_KEY;
 use crate::native_backends::winui::menu as winui_menu;
 use crate::platform::{
-    NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter, WinUiAdapter,
+    apply_widget_setter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig,
+    NativeWidgetSetter, WinUiAdapter,
 };
 use crate::style::{PortableStyle, StyleLength};
-use crate::winui::WinUiWidgetKind;
+use crate::winui::{winui_text_input_hints, WinUiWidgetKind};
 use helpers::{child_position, map_winui, set_combo_box_item_content, to_u32};
 
 mod helpers;
@@ -61,6 +62,7 @@ pub struct WinUiNativeSurface {
     tab_values: Arc<Mutex<BTreeMap<HostNodeId, Vec<String>>>>,
     ranges: BTreeMap<HostNodeId, WinUiRangeState>,
     text_inputs: BTreeMap<HostNodeId, WinUiTextInputSizing>,
+    text_input_configs: BTreeMap<HostNodeId, NativeWidgetConfig>,
 }
 
 type ControlsComboBox = Controls::ComboBox;
@@ -99,6 +101,7 @@ impl WinUiNativeSurface {
             tab_values: Arc::new(Mutex::new(BTreeMap::new())),
             ranges: BTreeMap::new(),
             text_inputs: BTreeMap::new(),
+            text_input_configs: BTreeMap::new(),
         }
     }
 
@@ -188,6 +191,49 @@ impl WinUiNativeSurface {
                 "failed to set WinUI password box hinted height",
                 element.SetHeight(height),
             )?;
+        }
+        Ok(())
+    }
+
+    fn apply_text_input_hints(&self, id: HostNodeId, widget: &WinUiOsWidget) -> GuiResult<()> {
+        let Some(config) = self.text_input_configs.get(&id) else {
+            return Ok(());
+        };
+        let hints = winui_text_input_hints(config);
+        match widget {
+            WinUiOsWidget::TextBox(text_box) => {
+                if let Some(spellcheck) = hints.spellcheck_enabled {
+                    map_winui(
+                        "failed to set WinUI text box spell check hint",
+                        text_box.SetIsSpellCheckEnabled(spellcheck),
+                    )?;
+                }
+                if let Some(text_prediction) = hints.text_prediction_enabled {
+                    map_winui(
+                        "failed to set WinUI text box prediction hint",
+                        text_box.SetIsTextPredictionEnabled(text_prediction),
+                    )?;
+                }
+                map_winui(
+                    "failed to set WinUI text box keyboard display hint",
+                    text_box.SetPreventKeyboardDisplayOnProgrammaticFocus(
+                        hints.prevent_keyboard_display_on_programmatic_focus,
+                    ),
+                )?;
+                map_winui(
+                    "failed to set WinUI text box color font hint",
+                    text_box.SetIsColorFontEnabled(hints.color_font_enabled),
+                )?;
+            }
+            WinUiOsWidget::PasswordBox(password_box) => {
+                map_winui(
+                    "failed to set WinUI password box keyboard display hint",
+                    password_box.SetPreventKeyboardDisplayOnProgrammaticFocus(
+                        hints.prevent_keyboard_display_on_programmatic_focus,
+                    ),
+                )?;
+            }
+            _ => {}
         }
         Ok(())
     }

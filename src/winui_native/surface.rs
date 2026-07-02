@@ -72,6 +72,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     )?;
                     self.text_inputs
                         .insert(id, WinUiTextInputSizing::from_config(&config));
+                    self.text_input_configs.insert(id, config.clone());
                     self.apply_password_box_size_hint(id, &password_box)?;
                     register_password_change(
                         id,
@@ -95,6 +96,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     }
                     self.text_inputs
                         .insert(id, WinUiTextInputSizing::from_config(&config));
+                    self.text_input_configs.insert(id, config.clone());
                     self.apply_text_box_size_hint(id, &text_box)?;
                     register_text_change(
                         id,
@@ -257,6 +259,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         if config.title.is_some() {
             set_title(&widget, config.title.as_deref())?;
         }
+        self.apply_text_input_hints(id, &widget)?;
         register_focus_events(id, &widget, &self.events)?;
         self.widgets.insert(id, widget.clone());
         Ok(WinUiOsHandle { id, kind, widget })
@@ -268,6 +271,10 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         handle: &Self::Handle,
         setter: &NativeWidgetSetter,
     ) -> GuiResult<()> {
+        if let Some(config) = self.text_input_configs.get_mut(&id) {
+            apply_widget_setter(config, setter);
+        }
+
         match setter {
             NativeWidgetSetter::SetLabel(value) => {
                 set_label(&handle.widget, value.as_deref())?;
@@ -429,6 +436,14 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     self.apply_password_box_size_hint(id, password_box)?;
                 }
             }
+            NativeWidgetSetter::SetAutocomplete(_)
+            | NativeWidgetSetter::SetInputMode(_)
+            | NativeWidgetSetter::SetAutoCorrect(_)
+            | NativeWidgetSetter::SetVirtualKeyboardPolicy(_)
+            | NativeWidgetSetter::SetInputType(_)
+            | NativeWidgetSetter::SetSpellCheck(_) => {
+                self.apply_text_input_hints(id, &handle.widget)?;
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetClassName(_)
@@ -437,19 +452,14 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             | NativeWidgetSetter::SetMultiple(_)
             | NativeWidgetSetter::SetAutoFocus(_)
             | NativeWidgetSetter::SetExpanded(_)
-            | NativeWidgetSetter::SetAutocomplete(_)
-            | NativeWidgetSetter::SetInputMode(_)
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
             | NativeWidgetSetter::SetName(_)
             | NativeWidgetSetter::SetForm(_)
-            | NativeWidgetSetter::SetInputType(_)
             | NativeWidgetSetter::SetAccept(_)
             | NativeWidgetSetter::SetCapture(_)
             | NativeWidgetSetter::SetEnterKeyHint(_)
             | NativeWidgetSetter::SetAutoCapitalize(_)
-            | NativeWidgetSetter::SetAutoCorrect(_)
-            | NativeWidgetSetter::SetVirtualKeyboardPolicy(_)
             | NativeWidgetSetter::SetWindowResizable(_)
             | NativeWidgetSetter::SetHidden(_)
             | NativeWidgetSetter::SetLang(_)
@@ -459,7 +469,6 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             | NativeWidgetSetter::SetAccessKey(_)
             | NativeWidgetSetter::SetContentEditable(_)
             | NativeWidgetSetter::SetDraggable(_)
-            | NativeWidgetSetter::SetSpellCheck(_)
             | NativeWidgetSetter::SetTranslate(_)
             | NativeWidgetSetter::SetInert(_)
             | NativeWidgetSetter::SetPopover(_)
@@ -732,6 +741,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         }
         self.ranges.remove(&id);
         self.text_inputs.remove(&id);
+        self.text_input_configs.remove(&id);
         if self.root == Some(id) {
             self.root = None;
         }

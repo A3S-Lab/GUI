@@ -9,6 +9,8 @@ use crate::backend::{
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
+#[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
+use crate::platform::NativeTextInputPurpose;
 use crate::platform::{
     apply_widget_setters, NativeBackendKind, NativeControlState, NativeWidgetBlueprint,
     NativeWidgetConfig, NativeWidgetConfigPatch, NativeWidgetSetter,
@@ -180,6 +182,86 @@ impl WinUiWidgetKind {
             ))),
         }
     }
+}
+
+#[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct WinUiTextInputHints {
+    pub spellcheck_enabled: Option<bool>,
+    pub text_prediction_enabled: Option<bool>,
+    pub prevent_keyboard_display_on_programmatic_focus: bool,
+    pub color_font_enabled: bool,
+}
+
+#[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
+pub(crate) fn winui_text_input_hints(config: &NativeWidgetConfig) -> WinUiTextInputHints {
+    let hints = config.text_input_hints();
+    WinUiTextInputHints {
+        spellcheck_enabled: winui_spellcheck_enabled(config, hints.spellcheck),
+        text_prediction_enabled: winui_text_prediction_enabled(config),
+        prevent_keyboard_display_on_programmatic_focus: hints.inhibit_osk,
+        color_font_enabled: hints.emoji.unwrap_or(true),
+    }
+}
+
+#[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
+fn winui_spellcheck_enabled(config: &NativeWidgetConfig, spellcheck: Option<bool>) -> Option<bool> {
+    if spellcheck.is_some() {
+        return spellcheck;
+    }
+    match config.text_input_purpose() {
+        NativeTextInputPurpose::Digits
+        | NativeTextInputPurpose::Number
+        | NativeTextInputPurpose::Phone
+        | NativeTextInputPurpose::Url
+        | NativeTextInputPurpose::Email
+        | NativeTextInputPurpose::Password
+        | NativeTextInputPurpose::Pin
+        | NativeTextInputPurpose::Terminal => Some(false),
+        NativeTextInputPurpose::FreeForm
+        | NativeTextInputPurpose::Alpha
+        | NativeTextInputPurpose::Name => None,
+    }
+}
+
+#[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
+fn winui_text_prediction_enabled(config: &NativeWidgetConfig) -> Option<bool> {
+    if normalized_token(config.input_mode.as_deref()).as_deref() == Some("none") {
+        return Some(false);
+    }
+
+    match config.text_input_purpose() {
+        NativeTextInputPurpose::Digits
+        | NativeTextInputPurpose::Number
+        | NativeTextInputPurpose::Phone
+        | NativeTextInputPurpose::Url
+        | NativeTextInputPurpose::Email
+        | NativeTextInputPurpose::Password
+        | NativeTextInputPurpose::Pin
+        | NativeTextInputPurpose::Terminal => return Some(false),
+        NativeTextInputPurpose::FreeForm
+        | NativeTextInputPurpose::Alpha
+        | NativeTextInputPurpose::Name => {}
+    }
+
+    match normalized_token(config.auto_correct.as_deref()).as_deref() {
+        Some("on" | "true") => return Some(true),
+        Some("off" | "false") => return Some(false),
+        _ => {}
+    }
+    match normalized_token(config.autocomplete.as_deref()).as_deref() {
+        Some("on") => Some(true),
+        Some("off") => Some(false),
+        _ => None,
+    }
+}
+
+#[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
+fn normalized_token(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_ascii_lowercase)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -526,9 +608,69 @@ mod tests {
     use super::*;
     use crate::backend::CommandExecutingHost;
     use crate::compiler::CompiledJsxNode;
-    use crate::native::{NativeElement, NativeRole};
+    use crate::native::{NativeElement, NativeProps, NativeRole};
     use crate::platform::{PlatformAdapter, WinUiAdapter};
     use crate::runtime::GuiRuntime;
+
+    #[test]
+    fn winui_text_input_hints_disable_prediction_for_structured_fields() {
+        let config = WinUiAdapter
+            .blueprint(
+                &NativeElement::new("field", NativeRole::TextField).with_props(
+                    NativeProps::new()
+                        .input_type("email")
+                        .autocomplete("on")
+                        .spell_check(Some(true)),
+                ),
+            )
+            .config();
+
+        assert_eq!(
+            winui_text_input_hints(&config),
+            WinUiTextInputHints {
+                spellcheck_enabled: Some(true),
+                text_prediction_enabled: Some(false),
+                prevent_keyboard_display_on_programmatic_focus: false,
+                color_font_enabled: true,
+            }
+        );
+    }
+
+    #[test]
+    fn winui_text_input_hints_track_web_completion_and_keyboard_hints() {
+        let config = WinUiAdapter
+            .blueprint(
+                &NativeElement::new("field", NativeRole::TextField).with_props(
+                    NativeProps::new()
+                        .autocomplete("on")
+                        .auto_correct("off")
+                        .input_mode("none"),
+                ),
+            )
+            .config();
+
+        assert_eq!(
+            winui_text_input_hints(&config),
+            WinUiTextInputHints {
+                spellcheck_enabled: Some(false),
+                text_prediction_enabled: Some(false),
+                prevent_keyboard_display_on_programmatic_focus: true,
+                color_font_enabled: false,
+            }
+        );
+
+        let config = WinUiAdapter
+            .blueprint(
+                &NativeElement::new("field", NativeRole::TextField)
+                    .with_props(NativeProps::new().autocomplete("on")),
+            )
+            .config();
+
+        assert_eq!(
+            winui_text_input_hints(&config).text_prediction_enabled,
+            Some(true)
+        );
+    }
 
     #[test]
     fn winui_widget_driver_reparents_children_and_removes_subtrees() {
