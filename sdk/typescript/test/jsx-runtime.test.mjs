@@ -1037,6 +1037,51 @@ test('compiled frame nodes must have stable identities', () => {
       kind: 'element',
       key: 'profile',
       tag: 'Group',
+      props: {isDisabled: 'true'},
+    }),
+    /props\.isDisabled values need booleans/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      props: {valueNumber: '42'},
+    }),
+    /props\.valueNumber values need finite numbers/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      props: {orientation: 'diagonal'},
+    }),
+    /props\.orientation values need horizontal or vertical/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      props: {intrinsicWidth: -1},
+    }),
+    /props\.intrinsicWidth values need unsigned integer numbers/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      props: {style: {opacity: NaN}},
+    }),
+    /props\.style values need finite numbers/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
       children: [
         {kind: 'element', key: 'save', tag: 'Button'},
         {kind: 'text', key: 'save', value: 'Save'},

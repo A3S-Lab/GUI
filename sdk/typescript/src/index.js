@@ -61,6 +61,73 @@ const HOST_EVENT_KINDS = new Set([
   'keyDown',
   'keyUp',
 ]);
+const COMPILED_STRING_PROPS = [
+  'label',
+  'textValue',
+  'value',
+  'placeholder',
+  'action',
+  'ariaLabel',
+  'aria-label',
+  'name',
+  'form',
+  'inputType',
+  'accept',
+  'capture',
+  'alt',
+  'href',
+  'src',
+  'srcset',
+  'sizes',
+  'media',
+  'resourceType',
+  'loading',
+  'decoding',
+  'fetchPriority',
+  'crossOrigin',
+  'referrerPolicy',
+  'poster',
+  'preload',
+  'trackKind',
+  'srclang',
+  'trackLabel',
+  'list',
+  'dirname',
+  'formAction',
+  'formEnctype',
+  'formMethod',
+  'formTarget',
+  'id',
+  'className',
+];
+const COMPILED_BOOLEAN_PROPS = [
+  'isDisabled',
+  'isRequired',
+  'isInvalid',
+  'isReadOnly',
+  'isSelected',
+];
+const COMPILED_NULLABLE_BOOLEAN_PROPS = [
+  'isChecked',
+  'isExpanded',
+  'controls',
+  'autoplay',
+  'loopPlayback',
+  'muted',
+  'playsInline',
+  'defaultTrack',
+  'formNoValidate',
+];
+const COMPILED_NUMBER_PROPS = [
+  'minValue',
+  'maxValue',
+  'valueNumber',
+  'stepValue',
+];
+const COMPILED_U32_PROPS = [
+  'intrinsicWidth',
+  'intrinsicHeight',
+];
 
 export function defineAction(actionOrId, label) {
   const id = actionId(actionOrId);
@@ -189,10 +256,94 @@ function validateCompiledProps(props) {
   if (props == null || typeof props !== 'object' || Array.isArray(props)) {
     throw new Error('a3s-gui compiled props need an object');
   }
+  validateCompiledStringProps(props);
+  validateCompiledBooleanProps(props);
+  validateCompiledNullableBooleanProps(props);
+  validateCompiledNumberProps(props);
+  validateCompiledU32Props(props);
+  validateCompiledOrientation(props.orientation);
   validateCompiledStringMap(props.attributes, 'attributes');
   validateCompiledStringMap(props.events, 'events');
   validateCompiledStringMap(props.actionLabels, 'actionLabels');
   validateCompiledStyleMap(props.style);
+}
+
+function validateCompiledStringProps(props) {
+  for (const name of COMPILED_STRING_PROPS) {
+    const value = props[name];
+    if (value == null) {
+      continue;
+    }
+    if (typeof value !== 'string') {
+      throw new Error(`a3s-gui compiled props.${name} values need strings`);
+    }
+  }
+}
+
+function validateCompiledBooleanProps(props) {
+  for (const name of COMPILED_BOOLEAN_PROPS) {
+    const value = props[name];
+    if (value === undefined) {
+      continue;
+    }
+    if (typeof value !== 'boolean') {
+      throw new Error(`a3s-gui compiled props.${name} values need booleans`);
+    }
+  }
+}
+
+function validateCompiledNullableBooleanProps(props) {
+  for (const name of COMPILED_NULLABLE_BOOLEAN_PROPS) {
+    const value = props[name];
+    if (value == null) {
+      continue;
+    }
+    if (typeof value !== 'boolean') {
+      throw new Error(`a3s-gui compiled props.${name} values need booleans`);
+    }
+  }
+}
+
+function validateCompiledNumberProps(props) {
+  for (const name of COMPILED_NUMBER_PROPS) {
+    const value = props[name];
+    if (value == null) {
+      continue;
+    }
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new Error(`a3s-gui compiled props.${name} values need finite numbers`);
+    }
+  }
+}
+
+function validateCompiledU32Props(props) {
+  for (const name of COMPILED_U32_PROPS) {
+    const value = props[name];
+    if (value == null) {
+      continue;
+    }
+    if (
+      typeof value !== 'number'
+      || !Number.isInteger(value)
+      || value < 0
+      || value > 0xffffffff
+    ) {
+      throw new Error(
+        `a3s-gui compiled props.${name} values need unsigned integer numbers`,
+      );
+    }
+  }
+}
+
+function validateCompiledOrientation(orientation) {
+  if (orientation == null) {
+    return;
+  }
+  if (orientation !== 'horizontal' && orientation !== 'vertical') {
+    throw new Error(
+      'a3s-gui compiled props.orientation values need horizontal or vertical',
+    );
+  }
 }
 
 function validateCompiledStringMap(values, name) {
@@ -218,6 +369,9 @@ function validateCompiledStyleMap(style) {
   }
   for (const value of Object.values(style)) {
     const valueType = typeof value;
+    if (valueType === 'number' && !Number.isFinite(value)) {
+      throw new Error('a3s-gui compiled props.style values need finite numbers');
+    }
     if (
       valueType !== 'string'
       && valueType !== 'number'

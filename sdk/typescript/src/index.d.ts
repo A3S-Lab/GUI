@@ -21,6 +21,8 @@ export interface CompiledProps {
   value?: string;
   placeholder?: string;
   action?: string;
+  ariaLabel?: string;
+  'aria-label'?: string;
   isDisabled?: boolean;
   isRequired?: boolean;
   isInvalid?: boolean;
