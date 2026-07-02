@@ -1,8 +1,9 @@
 use crate::geometry::Orientation;
-use crate::html::HtmlCollectionProps;
+use crate::html::{HtmlCollectionProps, HtmlResourcePolicyProps};
 use crate::web::WebProps;
 
 mod html_collection;
+mod html_resource_policy;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AriaProps {
@@ -83,6 +84,7 @@ pub struct AriaProps {
     pub form_method: Option<String>,
     pub form_target: Option<String>,
     pub form_no_validate: bool,
+    pub html_resource_policy: HtmlResourcePolicyProps,
     pub html_collection: HtmlCollectionProps,
     pub web: WebProps,
 }
@@ -167,6 +169,7 @@ impl Default for AriaProps {
             form_method: None,
             form_target: None,
             form_no_validate: false,
+            html_resource_policy: HtmlResourcePolicyProps::default(),
             html_collection: HtmlCollectionProps::default(),
             web: WebProps::default(),
         }

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use crate::accessibility::AccessibilityRole;
 use crate::geometry::Orientation;
 use crate::host::HostNodeId;
-use crate::html::HtmlCollectionProps;
+use crate::html::{HtmlCollectionProps, HtmlResourcePolicyProps};
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::renderer::Renderer;
 use crate::web::WebProps;
@@ -532,6 +532,39 @@ fn widget_config_preserves_html_collection_hints() {
             expected_list_collection
         ))
     );
+}
+
+#[test]
+fn widget_config_preserves_html_resource_policy_hints() {
+    let resource_policy = HtmlResourcePolicyProps::default()
+        .target("_blank")
+        .download("guide.pdf")
+        .ping("/analytics")
+        .rel("noopener")
+        .href_lang("en")
+        .link_as("image")
+        .integrity("sha384-resource")
+        .blocking("render")
+        .nonce("nonce-1")
+        .image_srcset("/hero.avif 1x")
+        .image_sizes("100vw")
+        .resource_disabled(true)
+        .async_script(true)
+        .defer_script(true)
+        .no_module(true)
+        .frame_name("preview")
+        .frame_allow("fullscreen")
+        .frame_allow_fullscreen(true)
+        .frame_sandbox("allow-scripts")
+        .frame_srcdoc("<p>Preview</p>");
+    let element = NativeElement::new("preload", NativeRole::ResourceLink)
+        .with_props(NativeProps::new().html_resource_policy(resource_policy.clone()));
+
+    let config = Gtk4Adapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert_eq!(config.html_resource_policy, resource_policy);
+    assert!(setters.contains(&NativeWidgetSetter::SetHtmlResourcePolicy(resource_policy)));
 }
 
 #[test]

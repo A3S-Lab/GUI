@@ -231,6 +231,66 @@ test('intrinsic media and resource attributes preserve Web JSX names', () => {
   assert.equal(stylesheet.props.attributes.crossorigin, '');
 });
 
+test('intrinsic resource policy attributes preserve Web JSX names', () => {
+  const anchor = jsx('a', {
+    href: '/docs',
+    target: '_blank',
+    download: 'guide.pdf',
+    ping: '/analytics',
+    rel: 'noopener',
+    hrefLang: 'en',
+    referrerPolicy: 'no-referrer',
+    children: 'Docs',
+  }, 'docs');
+  const preload = jsx('link', {
+    rel: 'preload',
+    as: 'image',
+    href: '/hero.avif',
+    integrity: 'sha384-link',
+    blocking: 'render',
+    imageSrcSet: '/hero.avif 1x',
+    imageSizes: '100vw',
+    disabled: true,
+  }, 'preload');
+  const script = jsx('script', {
+    src: '/app.js',
+    integrity: 'sha384-script',
+    nonce: 'nonce-1',
+    async: true,
+    defer: true,
+    noModule: true,
+  }, 'script');
+  const frame = jsx('iframe', {
+    src: 'https://example.test/embed',
+    name: 'preview',
+    allow: 'fullscreen',
+    allowFullScreen: true,
+    sandbox: 'allow-scripts',
+    srcDoc: '<p>Preview</p>',
+  }, 'frame');
+
+  assert.equal(anchor.props.attributes.target, '_blank');
+  assert.equal(anchor.props.attributes.download, 'guide.pdf');
+  assert.equal(anchor.props.attributes.ping, '/analytics');
+  assert.equal(anchor.props.attributes.rel, 'noopener');
+  assert.equal(anchor.props.attributes.hrefLang, 'en');
+  assert.equal(anchor.props.attributes.referrerPolicy, 'no-referrer');
+  assert.equal(preload.props.attributes.as, 'image');
+  assert.equal(preload.props.attributes.integrity, 'sha384-link');
+  assert.equal(preload.props.attributes.blocking, 'render');
+  assert.equal(preload.props.attributes.imageSrcSet, '/hero.avif 1x');
+  assert.equal(preload.props.attributes.imageSizes, '100vw');
+  assert.equal(preload.props.attributes.disabled, 'true');
+  assert.equal(script.props.attributes.async, 'true');
+  assert.equal(script.props.attributes.defer, 'true');
+  assert.equal(script.props.attributes.noModule, 'true');
+  assert.equal(frame.props.attributes.name, 'preview');
+  assert.equal(frame.props.attributes.allow, 'fullscreen');
+  assert.equal(frame.props.attributes.allowFullScreen, 'true');
+  assert.equal(frame.props.attributes.sandbox, 'allow-scripts');
+  assert.equal(frame.props.attributes.srcDoc, '<p>Preview</p>');
+});
+
 test('intrinsic table and list attributes preserve Web JSX names', () => {
   const table = jsxs('table', {
     children: [

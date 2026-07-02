@@ -46,6 +46,11 @@ impl HtmlResourceAliases {
         match tag {
             "a" | "area" | "base" => {
                 aliases.href = html_string_attribute(attributes, &["href"]);
+                aliases.referrer_policy =
+                    html_string_attribute(attributes, &["referrerpolicy", "referrerPolicy"]);
+                if tag != "base" {
+                    aliases.resource_type = html_string_attribute(attributes, &["type"]);
+                }
             }
             "link" => {
                 aliases.href = html_string_attribute(attributes, &["href"]);

@@ -120,6 +120,8 @@ function normalizeProps(props, tag) {
       applySemanticAttribute(out, name, value);
     } else if (name === 'id') {
       out.id = String(value);
+    } else if (name === 'disabled' && isAttributeDisabledTag(tag)) {
+      attributes[name] = String(value);
     } else if (name === 'disabled') {
       out.isDisabled = Boolean(value);
     } else if (name === 'required') {
@@ -427,6 +429,10 @@ function isNumericValueTag(tag, props = {}) {
 
 function isAttributeValueTag(tag) {
   return tag === 'li';
+}
+
+function isAttributeDisabledTag(tag) {
+  return tag === 'link';
 }
 
 function actionIdForEvent(handler) {

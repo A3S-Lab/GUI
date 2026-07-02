@@ -81,7 +81,8 @@ pub use gtk4_native::{
 };
 pub use host::{HeadlessHost, HostNodeId, HostOperation, NativeHost};
 pub use html::{
-    HtmlCollectionProps, HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS, HTML_TAG_METADATA_KEY,
+    HtmlCollectionProps, HtmlResourcePolicyProps, HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS,
+    HTML_TAG_METADATA_KEY,
 };
 pub use interaction::{InteractionChange, InteractionNodeState, InteractionState};
 pub use native::{ElementKey, NativeElement, NativeProps, NativeRole};

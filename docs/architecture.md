@@ -149,18 +149,25 @@ attributes including `href`, `src`, `srcset`/`srcSet`,
 `autoPlay`, `loop`, `muted`, `playsinline`/`playsInline`, `preload`, `kind`,
 `srclang`/`srcLang`, `label`, and `default` project into native fields for
 matching image, media, source, track, link, script, embed, iframe, object, and
-related resource tags. HTML `option` and `data` `value` attributes project
-into native value state. Table and list structure attributes including
+related resource tags. Resource policy attributes including anchor and area
+`target`, `download`, `ping`, `rel`, `hreflang`/`hrefLang`, link `as`,
+`integrity`, `blocking`, `nonce`, `imagesrcset`/`imageSrcSet`,
+`imagesizes`/`imageSizes`, link `disabled`, script `async`, `defer`,
+`nomodule`/`noModule`, iframe `name`, `allow`,
+`allowfullscreen`/`allowFullScreen`, `sandbox`, and `srcdoc`/`srcDoc` project
+into a structured `HtmlResourcePolicyProps` value for native resource loading,
+navigation, and embedding adapters. HTML `option` and `data` `value`
+attributes project into native value state. Table and list structure attributes including
 `colspan`/`colSpan`, `rowspan`/`rowSpan`, `headers`, `scope`, `abbr`, `span`,
 `start`, `reversed`, list `type`, and list item `value` project into native
 fields for table cells, columns, column groups, ordered lists, and list items.
 The HTML prop lowering implementation is split under `src/compiler/props/` into
 shared attribute parsing, control/form aliases, global attributes,
-resource/media aliases, semantic state aliases, table/list structure aliases,
-and tag-specific native state rules. Shared table/list hints are represented by
-`HtmlCollectionProps` in `src/html/collections.rs`; native and React Aria
-builder methods for those hints are split into dedicated `html_collection`
-submodules.
+resource/media aliases, resource policy aliases, semantic state aliases,
+table/list structure aliases, and tag-specific native state rules. Shared
+resource policy and table/list hints are represented by `HtmlResourcePolicyProps`
+and `HtmlCollectionProps` under `src/html/`; native and React Aria builder
+methods for those grouped hints are split into dedicated submodules.
 Generic HTML containers lower to `NativeRole::View`; unsupported custom elements
 with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering

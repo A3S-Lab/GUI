@@ -2,6 +2,7 @@ mod core;
 mod html_collections;
 mod html_forms;
 mod html_global;
+mod html_resource_policy;
 mod html_structure;
 mod html_text;
 mod intrinsic;

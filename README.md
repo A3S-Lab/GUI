@@ -37,11 +37,11 @@ React Aria mapping, and style normalization are split under `src/compiler/`,
 by platform under `src/appkit_native/`, `src/gtk4_native/`, and
 `src/winui_native/`. HTML prop lowering is split under `src/compiler/props/`
 by shared attribute parsing, control/form aliases, global attributes,
-resource/media aliases, semantic state aliases, table/list structure aliases,
-and tag-specific native state rules. Shared table/list hints live in
-`HtmlCollectionProps` under `src/html/collections.rs`; native and React Aria
-builder methods for those hints are split into their own `html_collection`
-submodules.
+resource/media aliases, resource policy aliases, semantic state aliases,
+table/list structure aliases, and tag-specific native state rules. Shared
+resource policy and table/list hints live in `HtmlResourcePolicyProps` and
+`HtmlCollectionProps` under `src/html/`; native and React Aria builder methods
+for those grouped hints are split into dedicated submodules.
 
 ## Compatibility Scope
 
@@ -91,6 +91,13 @@ Media and resource attributes such as `href`, `srcset`/`srcSet`, `sizes`,
 `srclang`/`srcLang`, `label`, and `default` are projected into native
 control-state fields for image, media, source, track, link, script, embed,
 iframe, object, and related resource tags.
+Resource policy attributes such as anchor and area `target`, `download`,
+`ping`, `rel`, `hreflang`/`hrefLang`, link `as`, `integrity`, `blocking`,
+`nonce`, `imagesrcset`/`imageSrcSet`, `imagesizes`/`imageSizes`, link
+`disabled`, script `async`, `defer`, `nomodule`/`noModule`, iframe `name`,
+`allow`, `allowfullscreen`/`allowFullScreen`, `sandbox`, and
+`srcdoc`/`srcDoc` are projected into a structured `HtmlResourcePolicyProps`
+value for native resource loading, navigation, and embedding adapters.
 Table and list structure attributes such as `colspan`/`colSpan`, `rowspan`/
 `rowSpan`, `headers`, `scope`, `abbr`, `span`, `start`, `reversed`, list
 `type`, and list item `value` are projected into native control-state fields
