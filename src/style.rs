@@ -233,6 +233,15 @@ pub struct PortableStyle {
     pub font_synthesis_small_caps: Option<String>,
     pub font_synthesis_position: Option<String>,
     pub line_height: Option<StyleLength>,
+    pub line_height_step: Option<String>,
+    pub block_step: Option<String>,
+    pub block_step_size: Option<String>,
+    pub block_step_insert: Option<String>,
+    pub block_step_align: Option<String>,
+    pub block_step_round: Option<String>,
+    pub line_grid: Option<String>,
+    pub line_snap: Option<String>,
+    pub box_snap: Option<String>,
     pub dominant_baseline: Option<String>,
     pub baseline_source: Option<String>,
     pub alignment_baseline: Option<String>,
@@ -1108,6 +1117,15 @@ impl PortableStyle {
                 self.font_synthesis_position = parse_css_string_token(value_ref);
             }
             "line-height" => self.line_height = parse_length(value_ref),
+            "line-height-step" => self.line_height_step = parse_css_string_token(value_ref),
+            "block-step" => self.block_step = parse_css_string_token(value_ref),
+            "block-step-size" => self.block_step_size = parse_css_string_token(value_ref),
+            "block-step-insert" => self.block_step_insert = parse_css_string_token(value_ref),
+            "block-step-align" => self.block_step_align = parse_css_string_token(value_ref),
+            "block-step-round" => self.block_step_round = parse_css_string_token(value_ref),
+            "line-grid" => self.line_grid = parse_css_string_token(value_ref),
+            "line-snap" => self.line_snap = parse_css_string_token(value_ref),
+            "box-snap" => self.box_snap = parse_css_string_token(value_ref),
             "dominant-baseline" => self.dominant_baseline = parse_css_string_token(value_ref),
             "baseline-source" => self.baseline_source = parse_css_string_token(value_ref),
             "alignment-baseline" => self.alignment_baseline = parse_css_string_token(value_ref),
@@ -10396,6 +10414,15 @@ mod tests {
             .style("fontSynthesisStyle", "auto")
             .style("fontSynthesisSmallCaps", "none")
             .style("fontSynthesisPosition", "auto")
+            .style("lineHeightStep", "4px")
+            .style("blockStep", "1lh center up")
+            .style("blockStepSize", "1lh")
+            .style("blockStepInsert", "margin-box")
+            .style("blockStepAlign", "center")
+            .style("blockStepRound", "up")
+            .style("lineGrid", "create")
+            .style("lineSnap", "baseline")
+            .style("boxSnap", "block-start")
             .style("dominantBaseline", "central")
             .style("baselineSource", "first")
             .style("alignmentBaseline", "text-before-edge")
@@ -10526,6 +10553,15 @@ mod tests {
         assert_eq!(style.font_synthesis_style.as_deref(), Some("auto"));
         assert_eq!(style.font_synthesis_small_caps.as_deref(), Some("none"));
         assert_eq!(style.font_synthesis_position.as_deref(), Some("auto"));
+        assert_eq!(style.line_height_step.as_deref(), Some("4px"));
+        assert_eq!(style.block_step.as_deref(), Some("1lh center up"));
+        assert_eq!(style.block_step_size.as_deref(), Some("1lh"));
+        assert_eq!(style.block_step_insert.as_deref(), Some("margin-box"));
+        assert_eq!(style.block_step_align.as_deref(), Some("center"));
+        assert_eq!(style.block_step_round.as_deref(), Some("up"));
+        assert_eq!(style.line_grid.as_deref(), Some("create"));
+        assert_eq!(style.line_snap.as_deref(), Some("baseline"));
+        assert_eq!(style.box_snap.as_deref(), Some("block-start"));
         assert_eq!(style.dominant_baseline.as_deref(), Some("central"));
         assert_eq!(style.baseline_source.as_deref(), Some("first"));
         assert_eq!(
@@ -10665,6 +10701,15 @@ mod tests {
         assert!(!style.unsupported.contains_key("font-palette"));
         assert!(!style.unsupported.contains_key("font-language-override"));
         assert!(!style.unsupported.contains_key("font-variant-numeric"));
+        assert!(!style.unsupported.contains_key("line-height-step"));
+        assert!(!style.unsupported.contains_key("block-step"));
+        assert!(!style.unsupported.contains_key("block-step-size"));
+        assert!(!style.unsupported.contains_key("block-step-insert"));
+        assert!(!style.unsupported.contains_key("block-step-align"));
+        assert!(!style.unsupported.contains_key("block-step-round"));
+        assert!(!style.unsupported.contains_key("line-grid"));
+        assert!(!style.unsupported.contains_key("line-snap"));
+        assert!(!style.unsupported.contains_key("box-snap"));
         assert!(!style.unsupported.contains_key("text-size-adjust"));
         assert!(!style.unsupported.contains_key("dominant-baseline"));
         assert!(!style.unsupported.contains_key("baseline-source"));
@@ -10759,6 +10804,10 @@ mod tests {
              [dominant-baseline:central] [baseline-source:first] \
              [alignment-baseline:text-before-edge] [baseline-shift:super] \
              [line-fit-edge:leading] [inline-sizing:stretch] \
+             [line-height-step:4px] [block-step:1lh_center_up] \
+             [block-step-size:1lh] [block-step-insert:margin-box] \
+             [block-step-align:center] [block-step-round:up] \
+             [line-grid:create] [line-snap:baseline] [box-snap:block-start] \
              [initial-letter:3_2] [initial-letter-align:border-box] \
              [initial-letter-wrap:first] \
              [text-size-adjust:100%] \
@@ -10783,6 +10832,9 @@ mod tests {
              hover:[font-size-adjust:0.6] focus:[text-size-adjust:none] \
              hover:[font-palette:light] focus:[font-language-override:normal] \
              hover:[dominant-baseline:hanging] focus:[baseline-shift:sub] \
+             active:[line-height-step:8px] hover:[block-step:none] \
+             focus:[block-step-size:2lh] before:[line-grid:match-parent] \
+             after:[line-snap:contain] visited:[box-snap:none] \
              active:[initial-letter:2] before:[initial-letter-wrap:all] \
              after:[block-ellipsis:auto] visited:[max-lines:none] \
              md:[text-align-all:center] hover:[text-group-align:start] \
@@ -10847,6 +10899,15 @@ mod tests {
         assert_eq!(style.baseline_shift.as_deref(), Some("super"));
         assert_eq!(style.line_fit_edge.as_deref(), Some("leading"));
         assert_eq!(style.inline_sizing.as_deref(), Some("stretch"));
+        assert_eq!(style.line_height_step.as_deref(), Some("4px"));
+        assert_eq!(style.block_step.as_deref(), Some("1lh center up"));
+        assert_eq!(style.block_step_size.as_deref(), Some("1lh"));
+        assert_eq!(style.block_step_insert.as_deref(), Some("margin-box"));
+        assert_eq!(style.block_step_align.as_deref(), Some("center"));
+        assert_eq!(style.block_step_round.as_deref(), Some("up"));
+        assert_eq!(style.line_grid.as_deref(), Some("create"));
+        assert_eq!(style.line_snap.as_deref(), Some("baseline"));
+        assert_eq!(style.box_snap.as_deref(), Some("block-start"));
         assert_eq!(style.initial_letter.as_deref(), Some("3 2"));
         assert_eq!(style.initial_letter_align.as_deref(), Some("border-box"));
         assert_eq!(style.initial_letter_wrap.as_deref(), Some("first"));
@@ -11043,6 +11104,54 @@ mod tests {
                 .and_then(|styles| styles.get("baseline-shift"))
                 .map(String::as_str),
             Some("sub")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("line-height-step"))
+                .map(String::as_str),
+            Some("8px")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("block-step"))
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("block-step-size"))
+                .map(String::as_str),
+            Some("2lh")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("line-grid"))
+                .map(String::as_str),
+            Some("match-parent")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("after")
+                .and_then(|styles| styles.get("line-snap"))
+                .map(String::as_str),
+            Some("contain")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("visited")
+                .and_then(|styles| styles.get("box-snap"))
+                .map(String::as_str),
+            Some("none")
         );
         assert_eq!(
             style

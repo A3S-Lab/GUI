@@ -406,7 +406,8 @@ deterministically:
   `fontWeight`, `fontStretch`, `fontPalette`, `fontLanguageOverride`,
   `fontKerning`, `fontOpticalSizing`, `WebkitFontSmoothing`,
   `MozOsxFontSmoothing`, `fontFeatureSettings`, `fontVariationSettings`,
-  `fontVariant*`, `fontSynthesis*`, `lineHeight`, `dominantBaseline`,
+  `fontVariant*`, `fontSynthesis*`, `lineHeight`, `lineHeightStep`,
+  `blockStep*`, `lineGrid`, `lineSnap`, `boxSnap`, `dominantBaseline`,
   `baselineSource`, `alignmentBaseline`, `baselineShift`, `lineFitEdge`,
   `inlineSizing`, `initialLetter*`,
   `letterSpacing`, `wordSpacing`, `tabSize`, `textAlign`, `textAlignAll`,
@@ -522,7 +523,9 @@ Common Tailwind typography and text utilities such as `font-*`, `italic`,
 `not-italic`, `antialiased`, `subpixel-antialiased`, `tracking-*`,
 `font-stretch-*`, `font-features-*`, arbitrary `font`, `font-size-adjust`,
 `font-palette`, and `font-language-override` properties,
-font variant numeric utilities, `tab-*`, text transform utilities, text decoration
+font variant numeric utilities, arbitrary rhythmic sizing and line-grid
+properties such as `line-height-step`, `block-step*`, `line-grid`,
+`line-snap`, and `box-snap`, `tab-*`, text transform utilities, text decoration
 utilities, `underline-offset-*`, arbitrary `text-decoration-skip*` and
 `text-underline-position` properties, arbitrary `text-emphasis-*` properties,
 arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
