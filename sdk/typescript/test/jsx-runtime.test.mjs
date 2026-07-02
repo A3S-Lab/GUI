@@ -448,6 +448,22 @@ test('native response helpers mirror Rust protocol envelopes', () => {
 
 test('native response helpers reject invalid protocol envelopes', () => {
   const invocation = {node: 1, action: 'saveProfile', event: 'press'};
+  const accessibilityTree = {
+    node: 1,
+    role: 'Button',
+    relationships: {},
+    description: {},
+    structure: {},
+    state: {},
+    disabled: false,
+    required: false,
+    invalid: false,
+    readOnly: false,
+    multiple: false,
+    focused: false,
+    selected: false,
+    children: [],
+  };
 
   assert.throws(
     () => createNativeRenderResponse('', 1, []),
@@ -480,6 +496,51 @@ test('native response helpers reject invalid protocol envelopes', () => {
       accessibilityTree: {node: 0, role: 'Button', children: []},
     }),
     /accessibilityTree node ids need positive integers/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [], {
+      accessibilityTree: {...accessibilityTree, label: 42},
+    }),
+    /accessibilityTree label values need strings or null/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [], {
+      accessibilityTree: {...accessibilityTree, relationships: null},
+    }),
+    /accessibilityTree relationships need an object/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [], {
+      accessibilityTree: {
+        ...accessibilityTree,
+        relationships: {labelledBy: 42},
+      },
+    }),
+    /accessibilityTree relationships\.labelledBy values need strings or null/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [], {
+      accessibilityTree: {
+        ...accessibilityTree,
+        structure: {level: -1},
+      },
+    }),
+    /accessibilityTree structure\.level values need unsigned integer numbers or null/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [], {
+      accessibilityTree: {
+        ...accessibilityTree,
+        state: {hidden: 'true'},
+      },
+    }),
+    /accessibilityTree state\.hidden values need booleans or null/,
+  );
+  assert.throws(
+    () => createNativeRenderResponse('profile', 1, [], {
+      accessibilityTree: {...accessibilityTree, focused: 'false'},
+    }),
+    /accessibilityTree focused values need booleans/,
   );
   assert.throws(
     () => createHostEventResponse('profile', {node: 1, action: 'saveProfile', event: 'submit'}),

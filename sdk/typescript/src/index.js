@@ -222,6 +222,68 @@ const COMPILED_U32_PROPS = [
   'intrinsicWidth',
   'intrinsicHeight',
 ];
+const ACCESSIBILITY_BOOLEAN_FIELDS = [
+  'disabled',
+  'required',
+  'invalid',
+  'readOnly',
+  'multiple',
+  'focused',
+  'selected',
+];
+const ACCESSIBILITY_NULLABLE_BOOLEAN_FIELDS = [
+  'checked',
+  'expanded',
+];
+const ACCESSIBILITY_RELATIONSHIP_STRING_FIELDS = [
+  'labelledBy',
+  'describedBy',
+  'details',
+  'controls',
+  'owns',
+  'flowTo',
+  'errorMessage',
+  'activeDescendant',
+];
+const ACCESSIBILITY_DESCRIPTION_STRING_FIELDS = [
+  'description',
+  'roleDescription',
+  'keyShortcuts',
+  'valueText',
+];
+const ACCESSIBILITY_STRUCTURE_I32_FIELDS = [
+  'positionInSet',
+  'setSize',
+  'rowCount',
+  'rowIndex',
+  'columnCount',
+  'columnIndex',
+];
+const ACCESSIBILITY_STRUCTURE_U32_FIELDS = [
+  'level',
+  'rowSpan',
+  'columnSpan',
+];
+const ACCESSIBILITY_STRUCTURE_STRING_FIELDS = [
+  'rowIndexText',
+  'columnIndexText',
+  'sort',
+];
+const ACCESSIBILITY_STATE_BOOLEAN_FIELDS = [
+  'hidden',
+  'multiline',
+  'atomic',
+  'busy',
+  'modal',
+];
+const ACCESSIBILITY_STATE_STRING_FIELDS = [
+  'autocomplete',
+  'current',
+  'hasPopup',
+  'pressed',
+  'live',
+  'relevant',
+];
 
 export function defineAction(actionOrId, label) {
   const id = actionId(actionOrId);
@@ -642,11 +704,111 @@ function validateAccessibilityNode(node, context) {
       `a3s-gui ${context} accessibilityTree roles need non-empty strings`,
     );
   }
+  validateNullableString(node.label, `${context} accessibilityTree label`);
+  validateNullableString(node.value, `${context} accessibilityTree value`);
   if (!Array.isArray(node.children)) {
     throw new Error(`a3s-gui ${context} accessibilityTree children need an array`);
   }
+  validateAccessibilityStringRecord(
+    node.relationships,
+    ACCESSIBILITY_RELATIONSHIP_STRING_FIELDS,
+    `${context} accessibilityTree relationships`,
+  );
+  validateAccessibilityStringRecord(
+    node.description,
+    ACCESSIBILITY_DESCRIPTION_STRING_FIELDS,
+    `${context} accessibilityTree description`,
+  );
+  validateAccessibilityStructure(node.structure, context);
+  validateAccessibilityState(node.state, context);
+  for (const field of ACCESSIBILITY_BOOLEAN_FIELDS) {
+    validateRequiredBoolean(node[field], `${context} accessibilityTree ${field}`);
+  }
+  for (const field of ACCESSIBILITY_NULLABLE_BOOLEAN_FIELDS) {
+    validateNullableBoolean(node[field], `${context} accessibilityTree ${field}`);
+  }
   for (const child of node.children) {
     validateAccessibilityNode(child, context);
+  }
+}
+
+function validateAccessibilityStringRecord(record, fields, context) {
+  validatePlainObject(record, context);
+  for (const field of fields) {
+    validateNullableString(record[field], `${context}.${field}`);
+  }
+}
+
+function validateAccessibilityStructure(structure, context) {
+  const structureContext = `${context} accessibilityTree structure`;
+  validatePlainObject(structure, structureContext);
+  for (const field of ACCESSIBILITY_STRUCTURE_I32_FIELDS) {
+    validateNullableI32(structure[field], `${structureContext}.${field}`);
+  }
+  for (const field of ACCESSIBILITY_STRUCTURE_U32_FIELDS) {
+    validateNullableU32(structure[field], `${structureContext}.${field}`);
+  }
+  for (const field of ACCESSIBILITY_STRUCTURE_STRING_FIELDS) {
+    validateNullableString(structure[field], `${structureContext}.${field}`);
+  }
+}
+
+function validateAccessibilityState(state, context) {
+  const stateContext = `${context} accessibilityTree state`;
+  validatePlainObject(state, stateContext);
+  for (const field of ACCESSIBILITY_STATE_BOOLEAN_FIELDS) {
+    validateNullableBoolean(state[field], `${stateContext}.${field}`);
+  }
+  for (const field of ACCESSIBILITY_STATE_STRING_FIELDS) {
+    validateNullableString(state[field], `${stateContext}.${field}`);
+  }
+}
+
+function validatePlainObject(value, context) {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`a3s-gui ${context} need an object`);
+  }
+}
+
+function validateRequiredBoolean(value, context) {
+  if (typeof value !== 'boolean') {
+    throw new Error(`a3s-gui ${context} values need booleans`);
+  }
+}
+
+function validateNullableBoolean(value, context) {
+  if (value != null && typeof value !== 'boolean') {
+    throw new Error(`a3s-gui ${context} values need booleans or null`);
+  }
+}
+
+function validateNullableString(value, context) {
+  if (value != null && typeof value !== 'string') {
+    throw new Error(`a3s-gui ${context} values need strings or null`);
+  }
+}
+
+function validateNullableI32(value, context) {
+  if (value == null) {
+    return;
+  }
+  if (
+    !Number.isSafeInteger(value) ||
+    value < -0x80000000 ||
+    value > 0x7fffffff
+  ) {
+    throw new Error(`a3s-gui ${context} values need integer numbers or null`);
+  }
+}
+
+function validateNullableU32(value, context) {
+  if (value == null) {
+    return;
+  }
+  if (!Number.isSafeInteger(value) || value < 0 || value > 0xffffffff) {
+    throw new Error(
+      `a3s-gui ${context} values need unsigned integer numbers or null`,
+    );
   }
 }
 
