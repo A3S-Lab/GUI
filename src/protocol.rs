@@ -166,9 +166,6 @@ impl UiFrame {
         runtime: &mut GuiRuntime<H>,
     ) -> GuiResult<RenderedFrame> {
         self.validate()?;
-        runtime
-            .actions_mut()
-            .replace_registered(self.actions.iter().map(UiAction::registered_action));
         let root = match &self.window {
             Some(window) => {
                 let content = ReactCompilerBridge::new().lower_to_native(&self.root)?;
@@ -177,6 +174,9 @@ impl UiFrame {
             }
             None => runtime.render_compiled(&self.root)?,
         };
+        runtime
+            .actions_mut()
+            .replace_registered(self.actions.iter().map(UiAction::registered_action));
         Ok(RenderedFrame {
             frame_id: self.frame_id.clone(),
             root,
@@ -488,7 +488,44 @@ mod tests {
     use crate::accessibility::AccessibilityRole;
     use crate::backend::{CommandExecutingHost, RecordingBackend};
     use crate::event::NativeEventKind;
+    use crate::host::HeadlessHost;
     use crate::platform::{Gtk4Adapter, NativeWidgetSetter};
+
+    #[derive(Default)]
+    struct FailingUpdateHost {
+        inner: HeadlessHost,
+        fail_updates: bool,
+    }
+
+    impl NativeHost for FailingUpdateHost {
+        fn create(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
+            self.inner.create(element)
+        }
+
+        fn update(&mut self, id: HostNodeId, props: &NativeProps) -> GuiResult<()> {
+            if self.fail_updates {
+                return Err(GuiError::host("forced host update failure"));
+            }
+            self.inner.update(id, props)
+        }
+
+        fn insert_child(
+            &mut self,
+            parent: HostNodeId,
+            child: HostNodeId,
+            index: usize,
+        ) -> GuiResult<()> {
+            self.inner.insert_child(parent, child, index)
+        }
+
+        fn remove(&mut self, id: HostNodeId) -> GuiResult<()> {
+            self.inner.remove(id)
+        }
+
+        fn set_root(&mut self, id: HostNodeId) -> GuiResult<()> {
+            self.inner.set_root(id)
+        }
+    }
 
     #[test]
     fn protocol_renders_frame_and_dispatches_native_event_to_action() {
@@ -530,6 +567,52 @@ mod tests {
         assert_eq!(response.frame_id, "frame-1");
         assert_eq!(response.invocation.action, "saveProfile");
         assert_eq!(runtime.actions().invocations().len(), 1);
+    }
+
+    #[test]
+    fn ui_frame_render_preserves_action_scope_after_failed_native_render() {
+        let first: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "saveProfile"}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"events": {"onPress": "saveProfile"}},
+                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let second: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "deleteProfile"}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"events": {"onPress": "deleteProfile"}},
+                "children": [{"kind": "text", "key": "save-text", "value": "Delete"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut runtime = GuiRuntime::new(FailingUpdateHost::default());
+
+        first.render_into(&mut runtime).unwrap();
+        assert!(runtime.actions().contains("saveProfile"));
+        runtime.host_mut().fail_updates = true;
+        let error = second.render_into(&mut runtime).unwrap_err();
+
+        assert!(error.to_string().contains("forced host update failure"));
+        assert!(runtime.actions().contains("saveProfile"));
+        assert!(!runtime.actions().contains("deleteProfile"));
     }
 
     #[test]
