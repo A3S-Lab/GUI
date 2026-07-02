@@ -81,6 +81,14 @@ export function createHostEvent(frameId, node, kind, value) {
   };
 }
 
+export function createHandledNativeEvent(event, options = {}) {
+  return {
+    event,
+    invocation: options.invocation ?? null,
+    interactionChanges: options.interactionChanges ?? [],
+  };
+}
+
 function actionId(actionOrId) {
   if (typeof actionOrId === 'string' && actionOrId.length > 0) {
     return actionOrId;

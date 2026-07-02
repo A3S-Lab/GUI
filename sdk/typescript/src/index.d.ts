@@ -97,13 +97,15 @@ export interface UiFrame {
   window?: WindowOptions;
 }
 
+export interface NativeEvent {
+  node: number;
+  kind: 'press' | 'change' | 'selectionChange' | 'toggle' | 'focus' | 'blur';
+  value?: string | null;
+}
+
 export interface HostEvent {
   frameId: string;
-  event: {
-    node: number;
-    kind: 'press' | 'change' | 'selectionChange' | 'toggle' | 'focus' | 'blur';
-    value?: string;
-  };
+  event: NativeEvent;
 }
 
 export interface AccessibilityRelationshipProps {
@@ -218,6 +220,12 @@ export interface NativeHostEventResponse {
   interactionChanges?: InteractionChange[];
 }
 
+export interface HandledNativeEvent {
+  event: NativeEvent;
+  invocation: ActionInvocation | null;
+  interactionChanges: InteractionChange[];
+}
+
 export function createAction(id: string, label?: string): ActionHandler;
 export const action: typeof createAction;
 export function defineAction(id: string, label?: string): UiAction;
@@ -233,5 +241,12 @@ export function createHostEvent(
   kind: HostEvent['event']['kind'],
   value?: string,
 ): HostEvent;
+export function createHandledNativeEvent(
+  event: NativeEvent,
+  options?: {
+    invocation?: ActionInvocation | null;
+    interactionChanges?: InteractionChange[];
+  },
+): HandledNativeEvent;
 
 export * from './jsx-runtime.js';

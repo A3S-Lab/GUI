@@ -101,7 +101,9 @@ The emitted frame is plain JSON:
 ```
 
 The package also exports protocol types for native render responses, host event
-responses, and rendered accessibility trees with host node ids.
+responses, handled native event results, and rendered accessibility trees with
+host node ids. `createHandledNativeEvent` mirrors the Rust serde shape for mock
+hosts and process-boundary tests.
 
 ## Test
 

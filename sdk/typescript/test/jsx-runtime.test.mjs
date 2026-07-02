@@ -18,6 +18,7 @@ import {
   Tabs,
   TextField,
   createAction,
+  createHandledNativeEvent,
   createHostEvent,
   createUiFrame,
   defineAction,
@@ -60,6 +61,49 @@ test('event helper creates HostEvent protocol shape', () => {
     frameId: 'profile',
     event: {node: 7, kind: 'press'},
   });
+});
+
+test('handled native event helper mirrors Rust protocol shape', () => {
+  const event = createHandledNativeEvent({node: 7, kind: 'focus'});
+
+  assert.deepEqual(event, {
+    event: {node: 7, kind: 'focus'},
+    invocation: null,
+    interactionChanges: [],
+  });
+
+  const changed = createHandledNativeEvent(
+    {node: 7, kind: 'change', value: 'saved'},
+    {
+      invocation: {
+        node: 7,
+        action: 'saveProfile',
+        event: 'change',
+        value: 'saved',
+      },
+      interactionChanges: [
+        {
+          node: 7,
+          before: {
+            focused: false,
+            selected: false,
+            checked: null,
+            expanded: null,
+          },
+          after: {
+            focused: false,
+            value: 'saved',
+            selected: false,
+            checked: null,
+            expanded: null,
+          },
+        },
+      ],
+    },
+  );
+
+  assert.equal(changed.invocation.action, 'saveProfile');
+  assert.equal(changed.interactionChanges[0].after.value, 'saved');
 });
 
 test('button marker creates stable compiled element', () => {
