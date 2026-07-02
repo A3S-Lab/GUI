@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::accessibility::{AccessibilityNode, AccessibilityRole, AccessibilityTreeHost};
 use crate::backend::NativeEventHost;
@@ -352,10 +352,40 @@ impl<H: NativeHost> GuiRuntime<H> {
     }
 
     fn prune_unmounted_interactions(&mut self) {
-        let mounted_nodes = self.renderer.mounted_node_ids();
-        self.interaction_state.retain_nodes(&mounted_nodes);
+        let interactive_nodes = self.interactive_mounted_node_ids();
+        self.interaction_state.retain_nodes(&interactive_nodes);
         self.interaction_revisions
-            .retain(|node, _| mounted_nodes.contains(node));
+            .retain(|node, _| interactive_nodes.contains(node));
+    }
+
+    fn interactive_mounted_node_ids(&self) -> BTreeSet<HostNodeId> {
+        let mounted_props = self.renderer.mounted_node_props();
+        let props_by_node = mounted_props
+            .iter()
+            .map(|(node, props)| (*node, props))
+            .collect::<BTreeMap<_, _>>();
+
+        mounted_props
+            .iter()
+            .filter_map(|(node, props)| {
+                if can_retain_interactions(props)
+                    && self
+                        .renderer
+                        .ancestor_ids(*node)
+                        .into_iter()
+                        .all(|ancestor| {
+                            props_by_node
+                                .get(&ancestor)
+                                .map(|props| can_retain_interactions(props))
+                                .unwrap_or(true)
+                        })
+                {
+                    Some(*node)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     fn initialize_auto_focus(&mut self) {
@@ -377,7 +407,7 @@ impl<H: NativeHost> GuiRuntime<H> {
                     .all(|ancestor| {
                         props_by_node
                             .get(&ancestor)
-                            .map(|props| can_contain_auto_focus(props))
+                            .map(|props| can_retain_interactions(props))
                             .unwrap_or(true)
                     })
         }) else {
@@ -465,10 +495,10 @@ fn is_inert_blueprint(blueprint: &NativeWidgetBlueprint) -> bool {
 }
 
 fn can_auto_focus(props: &NativeProps) -> bool {
-    props.auto_focus && !props.disabled && can_contain_auto_focus(props)
+    props.auto_focus && !props.disabled && can_retain_interactions(props)
 }
 
-fn can_contain_auto_focus(props: &NativeProps) -> bool {
+fn can_retain_interactions(props: &NativeProps) -> bool {
     let style = PortableStyle::from_web(&props.web);
     !props.hidden
         && !props.inert
@@ -2192,6 +2222,58 @@ mod tests {
         assert!(runtime.interactions().node(save).is_none());
         assert!(runtime.interactions().changes().is_empty());
         assert!(!runtime.accessibility_tree().unwrap().children[0].focused);
+    }
+
+    #[test]
+    fn runtime_prunes_interaction_state_for_non_interactive_rerendered_subtrees() {
+        let first = NativeElement::new("tools", NativeRole::Toolbar)
+            .child(
+                NativeElement::new("primary", NativeRole::View).child(
+                    NativeElement::new("save", NativeRole::Button)
+                        .with_props(NativeProps::new().label("Save")),
+                ),
+            )
+            .child(
+                NativeElement::new("cancel", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Cancel")),
+            );
+        let second = NativeElement::new("tools", NativeRole::Toolbar)
+            .child(
+                NativeElement::new("primary", NativeRole::View)
+                    .with_props(NativeProps::new().hidden(true))
+                    .child(
+                        NativeElement::new("save", NativeRole::Button)
+                            .with_props(NativeProps::new().label("Save")),
+                    ),
+            )
+            .child(
+                NativeElement::new("cancel", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Cancel").auto_focus(true)),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&first).unwrap();
+        let children = runtime.host().node(root_id).unwrap().children.clone();
+        let save = runtime.host().node(children[0]).unwrap().children[0];
+        let cancel = children[1];
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                save,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+        assert!(runtime.interactions().node(save).unwrap().focused);
+
+        runtime.render_native(&second).unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(runtime.interactions().node(save).is_none());
+        assert!(runtime.interactions().node(cancel).unwrap().focused);
+        assert!(runtime.interactions().changes().is_empty());
+        assert_eq!(accessibility.children.len(), 1);
+        assert_eq!(accessibility.children[0].label.as_deref(), Some("Cancel"));
+        assert!(accessibility.children[0].focused);
     }
 
     #[test]
