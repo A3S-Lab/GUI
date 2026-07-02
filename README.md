@@ -1,29 +1,20 @@
 # a3s-gui
 
-Rust-native GUI runtime for A3S.
+Rust-native GUI runtime for structured A3S UI frames.
 
-`a3s-gui` turns structured UI frames into native widget commands. It accepts
-protocol JSON, compiled JSX, React Aria-style component trees, and direct Rust
-`NativeElement` trees. Web-shaped input is an authoring format only: the runtime
-does not embed a browser, DOM, or WebView.
+`a3s-gui` takes semantic UI trees and drives native widget hosts. JSX, React
+Aria-style components, HTML/SVG intrinsic tags, protocol JSON, and direct Rust
+`NativeElement` trees are accepted as authoring inputs. The runtime lowers them
+to a portable native IR, reconciles the tree, emits platform commands, and
+routes native events back to stable action ids.
+
+It does not embed a browser, DOM, or WebView.
 
 ```text
-JSX / protocol JSON / Rust
-        |
-        v
-NativeElement IR
-        |
-        v
-keyed renderer diff
-        |
-        v
-PlatformCommand stream
-        |
-        v
-headless / AppKit / WinUI / GTK4
+JSX / protocol JSON / Rust -> NativeElement IR -> keyed diff -> PlatformCommand -> native host
 ```
 
-## Quick Start
+## Use It
 
 Rust:
 
@@ -45,12 +36,12 @@ TypeScript JSX:
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
-import {Button, createAction, createUiFrame, defineAction} from '@a3s-lab/gui';
+import {Button, createAction, createUiFrame, defineAction} from "@a3s-lab/gui";
 
-const saveDocument = createAction('saveDocument', 'Save document');
+const saveDocument = createAction("saveDocument", "Save document");
 
 export const frame = createUiFrame(
-  'save-frame',
+  "save-frame",
   <Button className="primary" onPress={saveDocument}>
     Save
   </Button>,
@@ -58,56 +49,46 @@ export const frame = createUiFrame(
 );
 ```
 
-The TypeScript package lives in [sdk/typescript](sdk/typescript).
+The zero-dependency TypeScript protocol bridge lives in
+[sdk/typescript](sdk/typescript).
 
-## What It Owns
+## Scope
 
-- A portable native UI IR: roles, props, accessibility data, style metadata, and
-  action ids.
-- A compiler bridge for semantic components, React Aria names, HTML intrinsic
-  tags, SVG intrinsic tags, `className`, `style`, `data-*`, `aria-*`, and common
-  JSX event props.
-- A keyed renderer that emits create, update, insert, remove, and root commands.
-- A rendered accessibility tree API for hosts that retain native widget state.
-- Platform planning adapters for AppKit, WinUI, and GTK4.
-- Headless and recording backends for tests and protocol integration.
-- Incremental native surfaces behind OS-specific feature flags.
+- Native IR, builders, accessibility data, style metadata, and action ids.
+- JSX/protocol lowering for semantic components, React Aria names, HTML/SVG
+  tags, web attributes, and common event props.
+- Keyed rendering, interaction state, action dispatch, and accessibility tree
+  projection.
+- Headless, recording, platform-planning, and incremental native hosts.
 
-Unsupported web details are preserved as metadata where possible so platform
-adapters can learn to consume them without changing the protocol shape.
+Unsupported web details are preserved as metadata when possible so adapters can
+consume them later without changing the protocol.
 
-## Important Paths
+## Feature Flags
 
-- [src/compiler](src/compiler.rs): compiled JSX and intrinsic tag lowering.
-- [src/react_aria](src/react_aria.rs): semantic and React Aria tree mapping.
-- [src/native.rs](src/native.rs): native roles, elements, props, and builders.
-- [src/platform](src/platform/mod.rs): widget blueprints, diffs, and setters.
-- [src/backend](src/backend/mod.rs): command executors and driver boundaries.
-- [src/style](src/style/mod.rs): CSS and Tailwind projection.
-- [docs/web-authoring.md](docs/web-authoring.md): accepted JSX and web props.
-- [docs/architecture.md](docs/architecture.md): renderer and backend contract.
+| Feature | Use |
+| --- | --- |
+| `headless` | Pure Rust host, enabled by default. |
+| `appkit` / `appkit-native` | macOS planning types / AppKit surface. |
+| `winui` / `winui-native` | Windows planning types / WinUI 3 surface. |
+| `gtk4` / `gtk4-native` | Linux planning types / GTK4 surface. |
 
-## Features
-
-Default builds use the pure Rust `headless` path.
-
-```text
-headless       test/planning host, enabled by default
-appkit         macOS planning types
-appkit-native  real AppKit surface on macOS
-winui          Windows planning types
-winui-native   real WinUI 3 surface on Windows
-gtk4           Linux planning types
-gtk4-native    real GTK4 surface on Linux
-```
-
-Native features are platform-specific. `gtk4-native` requires GTK4 development
+Native features are platform-specific. `gtk4-native` needs GTK4 development
 libraries and `pkg-config`; `winui-native` targets the Windows App SDK;
 `appkit-native` targets macOS AppKit.
 
+## Docs
+
+- [docs/architecture.md](docs/architecture.md): renderer, runtime, host, and
+  protocol contracts.
+- [docs/web-authoring.md](docs/web-authoring.md): accepted JSX, Web props,
+  event flow, and lowering rules.
+- [sdk/typescript/README.md](sdk/typescript/README.md): JSX runtime and
+  protocol helpers.
+
 ## Validate
 
-Run checks from this crate directory:
+Run checks from this crate directory, not the monorepo root:
 
 ```bash
 cargo fmt --all
@@ -116,21 +97,11 @@ npm test --prefix sdk/typescript
 git diff --check
 ```
 
-Platform checks:
-
-```bash
-cargo test --features appkit
-cargo check --features appkit-native
-cargo test --features winui
-cargo check --target x86_64-pc-windows-msvc --features winui-native
-cargo test --features gtk4
-cargo check --features gtk4-native
-```
-
 ## Status
 
-The protocol, native IR, renderer, and planning path are usable for host
-integration and tests. Native platform coverage is still incremental.
+The protocol, native IR, renderer, runtime event path, accessibility projection,
+and planning adapters are usable for host integration and tests. Native platform
+coverage is still incremental.
 
 ## License
 
