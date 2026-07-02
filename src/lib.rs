@@ -14,6 +14,7 @@ pub mod appkit;
 pub mod appkit_native;
 pub mod backend;
 pub mod compiler;
+mod css_text;
 pub mod error;
 pub mod event;
 pub mod geometry;

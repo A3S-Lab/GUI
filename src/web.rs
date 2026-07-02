@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use crate::css_text::parse_style_declarations;
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct WebProps {
     pub id: Option<String>,
@@ -36,11 +38,8 @@ impl WebProps {
             "id" => self.id = Some(value),
             "class" | "className" => self.class_name = Some(value),
             "style" => {
-                for declaration in value.split(';') {
-                    if let Some((property, value)) = declaration.split_once(':') {
-                        self.style
-                            .insert(property.trim().to_string(), value.trim().to_string());
-                    }
+                for (property, value) in parse_style_declarations(&value) {
+                    self.style.insert(property, value);
                 }
             }
             _ => {
@@ -105,5 +104,42 @@ mod tests {
             .on_press("primaryPress");
 
         assert_eq!(props.primary_action(), Some("primaryPress"));
+    }
+
+    #[test]
+    fn style_attribute_preserves_css_text_delimiters_inside_values() {
+        let props = WebProps::new().attribute(
+            "style",
+            r#"
+            color: rgb(10 20 30 / 50%);
+            background-image: url("https://example.com/a:b;c.svg");
+            content: "label: value; still text";
+            --accent: color-mix(in srgb, rebeccapurple 40%, white);
+            /* ignored comment: with delimiter; */
+            padding-inline: 1rem 2rem;
+            "#,
+        );
+
+        assert_eq!(
+            props.style.get("color").map(String::as_str),
+            Some("rgb(10 20 30 / 50%)")
+        );
+        assert_eq!(
+            props.style.get("background-image").map(String::as_str),
+            Some(r#"url("https://example.com/a:b;c.svg")"#)
+        );
+        assert_eq!(
+            props.style.get("content").map(String::as_str),
+            Some(r#""label: value; still text""#)
+        );
+        assert_eq!(
+            props.style.get("--accent").map(String::as_str),
+            Some("color-mix(in srgb, rebeccapurple 40%, white)")
+        );
+        assert_eq!(
+            props.style.get("padding-inline").map(String::as_str),
+            Some("1rem 2rem")
+        );
+        assert!(!props.style.contains_key("ignored comment"));
     }
 }

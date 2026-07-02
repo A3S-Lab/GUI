@@ -47,7 +47,9 @@ views or text nodes, and the original tag is preserved in metadata under
 The style layer accepts inline CSS declarations from style objects and CSS text.
 It normalizes property names into a declaration map, preserves CSS custom
 properties separately, and projects supported declarations into native style
-tokens. The current portable token set includes the CSS display mode family,
+tokens. CSS text parsing preserves delimiters inside functions, URLs, strings,
+and brackets while ignoring comments. The current portable token set includes
+the CSS display mode family,
 including legacy, representable multi-keyword, internal table, and ruby display
 modes,
 CSS cascade reset metadata, position, physical and logical inset, z-index,
