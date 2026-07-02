@@ -66,6 +66,9 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 if let Some(placeholder) = config.placeholder.as_deref() {
                     entry.set_placeholder_text(Some(placeholder));
                 }
+                self.text_inputs
+                    .insert(id, Gtk4TextInputSizing::from_config(&config));
+                self.apply_entry_width_hint(id, &entry);
 
                 let events = self.events.clone();
                 let events_suppressed = self.events_suppressed.clone();
@@ -443,6 +446,11 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 if let Some(widget) = handle.widget.as_widget() {
                     apply_widget_size(&widget, style);
                 }
+                if let Gtk4OsWidget::Entry(entry) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().has_explicit_width =
+                        style_sets_gtk_width(style);
+                    self.apply_entry_width_hint(id, entry);
+                }
                 if let Gtk4OsWidget::Box(box_) = &handle.widget {
                     if let Some(orientation) = style.flex_direction {
                         box_.set_orientation(gtk_orientation(orientation));
@@ -550,6 +558,18 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     entry.set_max_length(points_to_i32(*value as f64));
                 }
             }
+            NativeWidgetSetter::SetCols(value) => {
+                if let Gtk4OsWidget::Entry(entry) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().cols = *value;
+                    self.apply_entry_width_hint(id, entry);
+                }
+            }
+            NativeWidgetSetter::SetSize(value) => {
+                if let Gtk4OsWidget::Entry(entry) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().size = *value;
+                    self.apply_entry_width_hint(id, entry);
+                }
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetRequired(_)
@@ -562,8 +582,6 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
             | NativeWidgetSetter::SetRows(_)
-            | NativeWidgetSetter::SetCols(_)
-            | NativeWidgetSetter::SetSize(_)
             | NativeWidgetSetter::SetName(_)
             | NativeWidgetSetter::SetForm(_)
             | NativeWidgetSetter::SetInputType(_)
@@ -814,6 +832,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             self.menus.remove_item(id, &self.application);
         }
         self.ranges.remove(&id);
+        self.text_inputs.remove(&id);
         match &handle.widget {
             Gtk4OsWidget::ApplicationWindow(window) => window.close(),
             Gtk4OsWidget::Dialog(dialog) => dialog.close(),

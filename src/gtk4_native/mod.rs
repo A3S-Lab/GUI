@@ -48,6 +48,7 @@ pub struct Gtk4NativeSurface {
     notebook_values: Rc<RefCell<BTreeMap<HostNodeId, Vec<String>>>>,
     menus: Gtk4MenuRegistry,
     ranges: BTreeMap<HostNodeId, Gtk4RangeState>,
+    text_inputs: BTreeMap<HostNodeId, Gtk4TextInputSizing>,
 }
 
 impl Gtk4NativeSurface {
@@ -87,6 +88,7 @@ impl Gtk4NativeSurface {
             notebook_values: Rc::new(RefCell::new(BTreeMap::new())),
             menus: Gtk4MenuRegistry::default(),
             ranges: BTreeMap::new(),
+            text_inputs: BTreeMap::new(),
         }
     }
 
@@ -108,6 +110,18 @@ impl Gtk4NativeSurface {
 
     pub fn into_host(self) -> CommandExecutingHost<Gtk4Adapter, Gtk4NativeSurfaceCommandExecutor> {
         CommandExecutingHost::new(Gtk4Adapter, self.into_executor())
+    }
+
+    fn apply_entry_width_hint(&self, id: HostNodeId, entry: &gtk::Entry) {
+        let Some(sizing) = self.text_inputs.get(&id).copied() else {
+            return;
+        };
+        let width_chars = if sizing.has_explicit_width {
+            -1
+        } else {
+            sizing.hinted_width_chars().unwrap_or(-1)
+        };
+        entry.set_width_chars(width_chars);
     }
 
     fn suppress_events<T>(&self, apply: impl FnOnce() -> T) -> T {
@@ -442,6 +456,30 @@ impl Gtk4RangeState {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+struct Gtk4TextInputSizing {
+    cols: Option<u32>,
+    size: Option<u32>,
+    has_explicit_width: bool,
+}
+
+impl Gtk4TextInputSizing {
+    fn from_config(config: &NativeWidgetConfig) -> Self {
+        Self {
+            cols: config.cols,
+            size: config.size,
+            has_explicit_width: style_sets_gtk_width(&config.portable_style),
+        }
+    }
+
+    fn hinted_width_chars(self) -> Option<i32> {
+        self.size
+            .or(self.cols)
+            .filter(|value| *value > 0)
+            .map(u32_to_i32)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Gtk4OsHandle {
     pub id: HostNodeId,
@@ -607,6 +645,19 @@ fn apply_widget_size(widget: &gtk::Widget, style: &crate::style::PortableStyle) 
     if width >= 0 || height >= 0 {
         widget.set_size_request(width, height);
     }
+}
+
+fn style_sets_gtk_width(style: &crate::style::PortableStyle) -> bool {
+    style
+        .width
+        .as_ref()
+        .or(style.min_width.as_ref())
+        .and_then(StyleLength::points)
+        .is_some()
+}
+
+fn u32_to_i32(value: u32) -> i32 {
+    i32::try_from(value).unwrap_or(i32::MAX)
 }
 
 fn set_progress_bar_fraction(progress_bar: &gtk::ProgressBar, range: Gtk4RangeState) {

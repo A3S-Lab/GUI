@@ -45,6 +45,9 @@ pub type AppKitNativeSurfaceDriver = HandleWidgetDriver<AppKitNativeSurfaceAdapt
 pub type AppKitNativeSurfaceCommandExecutor = DriverCommandExecutor<AppKitNativeSurfaceDriver>;
 
 const MAX_APPKIT_SLIDER_TICK_MARKS: NSInteger = 101;
+const APPKIT_TEXT_INPUT_DEFAULT_WIDTH: f64 = 120.0;
+const APPKIT_TEXT_INPUT_DEFAULT_HEIGHT: f64 = 24.0;
+const APPKIT_TEXT_INPUT_MIN_WIDTH: f64 = 80.0;
 
 #[derive(Debug)]
 pub struct AppKitNativeSurface {
@@ -61,6 +64,7 @@ pub struct AppKitNativeSurface {
     list_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     list_item_parents: BTreeMap<HostNodeId, HostNodeId>,
     ranges: BTreeMap<HostNodeId, AppKitRangeState>,
+    text_inputs: BTreeMap<HostNodeId, AppKitTextInputSizing>,
     menus: AppKitMenuRegistry,
 }
 
@@ -85,6 +89,7 @@ impl AppKitNativeSurface {
             list_children: BTreeMap::new(),
             list_item_parents: BTreeMap::new(),
             ranges: BTreeMap::new(),
+            text_inputs: BTreeMap::new(),
             menus: AppKitMenuRegistry::default(),
         })
     }
@@ -105,6 +110,26 @@ impl AppKitNativeSurface {
         self,
     ) -> CommandExecutingHost<AppKitAdapter, AppKitNativeSurfaceCommandExecutor> {
         CommandExecutingHost::new(AppKitAdapter, self.into_executor())
+    }
+
+    fn apply_text_input_size(&self, id: HostNodeId, text_field: &NSTextField) {
+        let Some(sizing) = self.text_inputs.get(&id).copied() else {
+            return;
+        };
+        if sizing.explicit_width.is_some() {
+            return;
+        }
+        let width = sizing
+            .hinted_width()
+            .unwrap_or(APPKIT_TEXT_INPUT_DEFAULT_WIDTH);
+        let view = text_field.as_super().as_super();
+        let current = view.frame().size;
+        let height = if current.height > 0.0 {
+            current.height
+        } else {
+            APPKIT_TEXT_INPUT_DEFAULT_HEIGHT
+        };
+        view.setFrameSize(NSSize::new(width, height));
     }
 
     fn update_option_item_label(
@@ -610,6 +635,21 @@ fn config_size(config: &NativeWidgetConfig, default_width: f64, default_height: 
     NSSize::new(width, height)
 }
 
+fn config_text_input_size(config: &NativeWidgetConfig) -> NSSize {
+    let sizing = AppKitTextInputSizing::from_config(config);
+    let width = sizing
+        .explicit_width
+        .or_else(|| sizing.hinted_width())
+        .unwrap_or(APPKIT_TEXT_INPUT_DEFAULT_WIDTH);
+    let height = config
+        .portable_style
+        .height
+        .as_ref()
+        .and_then(StyleLength::points)
+        .unwrap_or(APPKIT_TEXT_INPUT_DEFAULT_HEIGHT);
+    NSSize::new(width, height)
+}
+
 fn apply_window_portable_style(window: &NSWindow, style: &crate::style::PortableStyle) {
     let width = style.width.as_ref().and_then(StyleLength::points);
     let height = style.height.as_ref().and_then(StyleLength::points);
@@ -684,6 +724,37 @@ impl AppKitRangeState {
 
     fn step(self) -> Option<f64> {
         self.step.filter(|value| value.is_finite() && *value > 0.0)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct AppKitTextInputSizing {
+    cols: Option<u32>,
+    size: Option<u32>,
+    explicit_width: Option<f64>,
+}
+
+impl AppKitTextInputSizing {
+    fn from_config(config: &NativeWidgetConfig) -> Self {
+        Self {
+            cols: config.cols,
+            size: config.size,
+            explicit_width: config
+                .portable_style
+                .width
+                .as_ref()
+                .and_then(StyleLength::points),
+        }
+    }
+
+    fn hinted_width(self) -> Option<f64> {
+        if self.explicit_width.is_some() {
+            return None;
+        }
+        self.size
+            .or(self.cols)
+            .filter(|value| *value > 0)
+            .map(|columns| APPKIT_TEXT_INPUT_MIN_WIDTH.max(columns as f64 * 8.0 + 28.0))
     }
 }
 

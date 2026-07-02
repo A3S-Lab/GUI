@@ -349,6 +349,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             AppKitWidgetKind::TextField => {
                 let value = ns_string(config.value.as_deref().unwrap_or(""));
                 let text_field = NSTextField::textFieldWithString(&value, self.mtm);
+                text_field
+                    .as_super()
+                    .as_super()
+                    .setFrameSize(config_text_input_size(&config));
+                self.text_inputs
+                    .insert(id, AppKitTextInputSizing::from_config(&config));
                 let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
                 let delegate: &ProtocolObject<dyn NSTextFieldDelegate> =
                     ProtocolObject::from_ref(&*target);
@@ -568,6 +574,13 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         state.content_view.setFrameSize(size);
                     }
                 }
+                if let AppKitOsWidget::TextField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        let sizing = self.text_inputs.entry(id).or_default();
+                        sizing.explicit_width = style.width.as_ref().and_then(StyleLength::points);
+                        self.apply_text_input_size(id, text_field);
+                    }
+                }
             }
             NativeWidgetSetter::SetChecked(value) => match &handle.widget {
                 AppKitOsWidget::Button(button) => {
@@ -655,6 +668,22 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     }
                 }
             }
+            NativeWidgetSetter::SetCols(value) => {
+                if let AppKitOsWidget::TextField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        self.text_inputs.entry(id).or_default().cols = *value;
+                        self.apply_text_input_size(id, text_field);
+                    }
+                }
+            }
+            NativeWidgetSetter::SetSize(value) => {
+                if let AppKitOsWidget::TextField(text_field) = &handle.widget {
+                    if handle.kind == AppKitWidgetKind::TextField {
+                        self.text_inputs.entry(id).or_default().size = *value;
+                        self.apply_text_input_size(id, text_field);
+                    }
+                }
+            }
             NativeWidgetSetter::SetOrientation(value) => {
                 if let (AppKitOsWidget::StackView(stack_view), Some(orientation)) =
                     (&handle.widget, value)
@@ -687,8 +716,6 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
             | NativeWidgetSetter::SetRows(_)
-            | NativeWidgetSetter::SetCols(_)
-            | NativeWidgetSetter::SetSize(_)
             | NativeWidgetSetter::SetName(_)
             | NativeWidgetSetter::SetForm(_)
             | NativeWidgetSetter::SetInputType(_)
@@ -902,6 +929,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         }
         self.action_targets.remove(&id);
         self.ranges.remove(&id);
+        self.text_inputs.remove(&id);
         if let AppKitOsWidget::ComboBox(_) = &handle.widget {
             self.combo_boxes.remove(&id);
             if let Some(children) = self.combo_children.remove(&id) {

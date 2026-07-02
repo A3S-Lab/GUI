@@ -28,6 +28,9 @@ use helpers::{child_position, map_winui, set_combo_box_item_content, to_u32};
 mod helpers;
 mod surface;
 
+const WINUI_TEXT_INPUT_DEFAULT_WIDTH: f64 = f64::NAN;
+const WINUI_TEXT_INPUT_MIN_WIDTH: f64 = 80.0;
+
 type WinUiEventQueue = Arc<Mutex<Vec<NativeEvent>>>;
 
 pub type WinUiNativeSurfaceAdapter = SurfaceHandleAdapter<WinUiNativeSurface>;
@@ -54,6 +57,7 @@ pub struct WinUiNativeSurface {
     tab_selected_values: BTreeMap<HostNodeId, Option<String>>,
     tab_values: Arc<Mutex<BTreeMap<HostNodeId, Vec<String>>>>,
     ranges: BTreeMap<HostNodeId, WinUiRangeState>,
+    text_inputs: BTreeMap<HostNodeId, WinUiTextInputSizing>,
 }
 
 type ControlsComboBox = Controls::ComboBox;
@@ -91,6 +95,7 @@ impl WinUiNativeSurface {
             tab_selected_values: BTreeMap::new(),
             tab_values: Arc::new(Mutex::new(BTreeMap::new())),
             ranges: BTreeMap::new(),
+            text_inputs: BTreeMap::new(),
         }
     }
 
@@ -110,6 +115,31 @@ impl WinUiNativeSurface {
         self,
     ) -> CommandExecutingHost<WinUiAdapter, WinUiNativeSurfaceCommandExecutor> {
         CommandExecutingHost::new(WinUiAdapter, self.into_executor())
+    }
+
+    fn apply_text_box_width_hint(
+        &self,
+        id: HostNodeId,
+        text_box: &Controls::TextBox,
+    ) -> GuiResult<()> {
+        let Some(sizing) = self.text_inputs.get(&id).copied() else {
+            return Ok(());
+        };
+        if sizing.explicit_width.is_some() {
+            return Ok(());
+        }
+        let element: xaml::FrameworkElement = map_winui(
+            "failed to read WinUI text box framework element",
+            text_box.cast(),
+        )?;
+        let width = sizing
+            .hinted_width()
+            .unwrap_or(WINUI_TEXT_INPUT_DEFAULT_WIDTH);
+        map_winui(
+            "failed to set WinUI text box hinted width",
+            element.SetWidth(width),
+        )?;
+        Ok(())
     }
 
     fn suppress_events<T>(&self, apply: impl FnOnce() -> T) -> T {
@@ -787,5 +817,36 @@ impl WinUiRangeState {
 
     fn step(self) -> f64 {
         self.step.filter(|value| *value > 0.0).unwrap_or(1.0)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct WinUiTextInputSizing {
+    cols: Option<u32>,
+    size: Option<u32>,
+    explicit_width: Option<f64>,
+}
+
+impl WinUiTextInputSizing {
+    fn from_config(config: &NativeWidgetConfig) -> Self {
+        Self {
+            cols: config.cols,
+            size: config.size,
+            explicit_width: config
+                .portable_style
+                .width
+                .as_ref()
+                .and_then(StyleLength::points),
+        }
+    }
+
+    fn hinted_width(self) -> Option<f64> {
+        if self.explicit_width.is_some() {
+            return None;
+        }
+        self.size
+            .or(self.cols)
+            .filter(|value| *value > 0)
+            .map(|columns| WINUI_TEXT_INPUT_MIN_WIDTH.max(columns as f64 * 8.0 + 28.0))
     }
 }
