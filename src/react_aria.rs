@@ -7,8 +7,19 @@ use crate::web::WebProps;
 pub enum AriaComponent {
     Button,
     Label,
+    Document,
+    DocumentHead,
+    DocumentBody,
+    DocumentTitle,
+    Metadata,
+    ResourceLink,
+    StyleSheet,
+    Script,
+    Template,
+    Slot,
     Text,
     Heading,
+    HeadingGroup,
     Main,
     Navigation,
     Header,
@@ -73,8 +84,19 @@ impl AriaComponent {
         match self {
             AriaComponent::Button => "Button",
             AriaComponent::Label => "Label",
+            AriaComponent::Document => "Document",
+            AriaComponent::DocumentHead => "DocumentHead",
+            AriaComponent::DocumentBody => "DocumentBody",
+            AriaComponent::DocumentTitle => "DocumentTitle",
+            AriaComponent::Metadata => "Metadata",
+            AriaComponent::ResourceLink => "ResourceLink",
+            AriaComponent::StyleSheet => "StyleSheet",
+            AriaComponent::Script => "Script",
+            AriaComponent::Template => "Template",
+            AriaComponent::Slot => "Slot",
             AriaComponent::Text => "Text",
             AriaComponent::Heading => "Heading",
+            AriaComponent::HeadingGroup => "HeadingGroup",
             AriaComponent::Main => "Main",
             AriaComponent::Navigation => "Navigation",
             AriaComponent::Header => "Header",
@@ -368,11 +390,28 @@ impl ReactAriaMapper {
             AriaComponent::Label | AriaComponent::Text | AriaComponent::SelectValue => Ok(
                 simple_leaf(element, NativeRole::Text, self.best_label(element)?),
             ),
+            AriaComponent::Document => self.map_container_with_label(element, NativeRole::Document),
+            AriaComponent::DocumentHead => self.map_container(element, NativeRole::DocumentHead),
+            AriaComponent::DocumentBody => {
+                self.map_container_with_label(element, NativeRole::DocumentBody)
+            }
+            AriaComponent::DocumentTitle => {
+                self.map_container_with_label(element, NativeRole::DocumentTitle)
+            }
+            AriaComponent::Metadata => self.map_container(element, NativeRole::Metadata),
+            AriaComponent::ResourceLink => self.map_container(element, NativeRole::ResourceLink),
+            AriaComponent::StyleSheet => self.map_container(element, NativeRole::StyleSheet),
+            AriaComponent::Script => self.map_container(element, NativeRole::Script),
+            AriaComponent::Template => self.map_container(element, NativeRole::Template),
+            AriaComponent::Slot => self.map_container_with_label(element, NativeRole::Slot),
             AriaComponent::Heading => Ok(simple_leaf(
                 element,
                 NativeRole::Heading,
                 self.best_label(element)?,
             )),
+            AriaComponent::HeadingGroup => {
+                self.map_container_with_label(element, NativeRole::HeadingGroup)
+            }
             AriaComponent::Main => self.map_container(element, NativeRole::Main),
             AriaComponent::Navigation => self.map_container(element, NativeRole::Navigation),
             AriaComponent::Header => self.map_container(element, NativeRole::Header),
@@ -1229,6 +1268,18 @@ mod tests {
         assert_eq!(
             native_widget_name(NativeBackendKind::Gtk4, NativeRole::ImageMap),
             "gtk::DrawingArea(image-map)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::AppKit, NativeRole::DocumentTitle),
+            "NSTextField(document-title)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::WinUI, NativeRole::ResourceLink),
+            "Microsoft.UI.Xaml.Controls.StackPanel(resource-link)"
+        );
+        assert_eq!(
+            native_widget_name(NativeBackendKind::Gtk4, NativeRole::Slot),
+            "gtk::Box(slot)"
         );
     }
 }

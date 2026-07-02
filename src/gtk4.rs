@@ -42,6 +42,16 @@ impl Gtk4WidgetKind {
         match widget_class {
             "gtk::ApplicationWindow" => Ok(Gtk4WidgetKind::ApplicationWindow),
             "gtk::Box"
+            | "gtk::Box(document)"
+            | "gtk::Box(document-head)"
+            | "gtk::Box(document-body)"
+            | "gtk::Box(metadata)"
+            | "gtk::Box(resource-link)"
+            | "gtk::Box(style-sheet)"
+            | "gtk::Box(script)"
+            | "gtk::Box(template)"
+            | "gtk::Box(slot)"
+            | "gtk::Box(heading-group)"
             | "gtk::Box(main)"
             | "gtk::Box(navigation)"
             | "gtk::Box(header)"
@@ -69,6 +79,7 @@ impl Gtk4WidgetKind {
             | "gtk::DrawingArea"
             | "gtk::DrawingArea(image-map)" => Ok(Gtk4WidgetKind::Box),
             "gtk::Label"
+            | "gtk::Label(document-title)"
             | "gtk::Label(heading)"
             | "gtk::Label(tab)"
             | "gtk::Label(figure-caption)"

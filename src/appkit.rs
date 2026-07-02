@@ -45,6 +45,16 @@ impl AppKitWidgetKind {
         match widget_class {
             "NSWindow" => Ok(AppKitWidgetKind::Window),
             "NSView"
+            | "NSView(document)"
+            | "NSView(document-head)"
+            | "NSView(document-body)"
+            | "NSView(metadata)"
+            | "NSView(resource-link)"
+            | "NSView(style-sheet)"
+            | "NSView(script)"
+            | "NSView(template)"
+            | "NSView(slot)"
+            | "NSView(heading-group)"
             | "NSView(main)"
             | "NSView(navigation)"
             | "NSView(header)"
@@ -70,6 +80,7 @@ impl AppKitWidgetKind {
             | "NSTableCellView"
             | "NSTableColumn" => Ok(AppKitWidgetKind::View),
             "NSTextField(label)"
+            | "NSTextField(document-title)"
             | "NSTextField(heading)"
             | "NSTextField(figure-caption)"
             | "NSTextField(description-term)"

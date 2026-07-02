@@ -185,8 +185,19 @@ fn component_from_jsx_tag(tag: &str, props: &CompiledProps) -> GuiResult<AriaCom
         "Link" => Ok(AriaComponent::Link),
         "a" => Ok(component_for_anchor_element(props)),
         "Label" | "label" => Ok(AriaComponent::Label),
+        "Document" | "html" => Ok(AriaComponent::Document),
+        "DocumentHead" | "head" => Ok(AriaComponent::DocumentHead),
+        "DocumentBody" | "body" => Ok(AriaComponent::DocumentBody),
+        "DocumentTitle" | "title" => Ok(AriaComponent::DocumentTitle),
+        "Metadata" | "base" | "meta" => Ok(AriaComponent::Metadata),
+        "ResourceLink" | "link" => Ok(AriaComponent::ResourceLink),
+        "StyleSheet" | "style" => Ok(AriaComponent::StyleSheet),
+        "Script" | "script" | "noscript" => Ok(AriaComponent::Script),
+        "Template" | "template" => Ok(AriaComponent::Template),
+        "Slot" | "slot" => Ok(AriaComponent::Slot),
         "Text" | "span" | "p" | "strong" | "em" => Ok(AriaComponent::Text),
         "Heading" => Ok(AriaComponent::Heading),
+        "HeadingGroup" | "hgroup" => Ok(AriaComponent::HeadingGroup),
         "TextField" => Ok(AriaComponent::TextField),
         "Input" | "textarea" => Ok(AriaComponent::Input),
         "input" => component_for_intrinsic_tag(tag, &props.attributes).ok_or_else(|| {
@@ -899,6 +910,224 @@ mod tests {
                 .get("href")
                 .map(String::as_str),
             Some("/signup")
+        );
+    }
+
+    #[test]
+    fn lowers_html_document_metadata_template_and_slot_tags_to_native_roles() {
+        let bridge = ReactCompilerBridge::new();
+        let document = CompiledJsxNode::Element {
+            key: "document".to_string(),
+            tag: "html".to_string(),
+            import_source: None,
+            props: CompiledProps::default(),
+            children: vec![
+                CompiledJsxNode::Element {
+                    key: "head".to_string(),
+                    tag: "head".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![
+                        CompiledJsxNode::Element {
+                            key: "title".to_string(),
+                            tag: "title".to_string(),
+                            import_source: None,
+                            props: CompiledProps::default(),
+                            children: vec![CompiledJsxNode::Text {
+                                key: "title-text".to_string(),
+                                value: "Dashboard".to_string(),
+                            }],
+                        },
+                        CompiledJsxNode::Element {
+                            key: "base".to_string(),
+                            tag: "base".to_string(),
+                            import_source: None,
+                            props: CompiledProps {
+                                attributes: BTreeMap::from([(
+                                    "href".to_string(),
+                                    "https://example.test/".to_string(),
+                                )]),
+                                ..CompiledProps::default()
+                            },
+                            children: Vec::new(),
+                        },
+                        CompiledJsxNode::Element {
+                            key: "description".to_string(),
+                            tag: "meta".to_string(),
+                            import_source: None,
+                            props: CompiledProps {
+                                attributes: BTreeMap::from([
+                                    ("name".to_string(), "description".to_string()),
+                                    ("content".to_string(), "Native dashboard".to_string()),
+                                ]),
+                                ..CompiledProps::default()
+                            },
+                            children: Vec::new(),
+                        },
+                        CompiledJsxNode::Element {
+                            key: "stylesheet".to_string(),
+                            tag: "link".to_string(),
+                            import_source: None,
+                            props: CompiledProps {
+                                attributes: BTreeMap::from([
+                                    ("rel".to_string(), "stylesheet".to_string()),
+                                    ("href".to_string(), "/app.css".to_string()),
+                                ]),
+                                ..CompiledProps::default()
+                            },
+                            children: Vec::new(),
+                        },
+                        CompiledJsxNode::Element {
+                            key: "style".to_string(),
+                            tag: "style".to_string(),
+                            import_source: None,
+                            props: CompiledProps::default(),
+                            children: vec![CompiledJsxNode::Text {
+                                key: "style-text".to_string(),
+                                value: ".card{display:grid}".to_string(),
+                            }],
+                        },
+                        CompiledJsxNode::Element {
+                            key: "script".to_string(),
+                            tag: "script".to_string(),
+                            import_source: None,
+                            props: CompiledProps {
+                                attributes: BTreeMap::from([(
+                                    "src".to_string(),
+                                    "/app.js".to_string(),
+                                )]),
+                                ..CompiledProps::default()
+                            },
+                            children: Vec::new(),
+                        },
+                        CompiledJsxNode::Element {
+                            key: "noscript".to_string(),
+                            tag: "noscript".to_string(),
+                            import_source: None,
+                            props: CompiledProps::default(),
+                            children: vec![CompiledJsxNode::Text {
+                                key: "noscript-text".to_string(),
+                                value: "JavaScript is disabled".to_string(),
+                            }],
+                        },
+                        CompiledJsxNode::Element {
+                            key: "card-template".to_string(),
+                            tag: "template".to_string(),
+                            import_source: None,
+                            props: CompiledProps::default(),
+                            children: vec![CompiledJsxNode::Element {
+                                key: "template-card".to_string(),
+                                tag: "div".to_string(),
+                                import_source: None,
+                                props: CompiledProps::default(),
+                                children: Vec::new(),
+                            }],
+                        },
+                    ],
+                },
+                CompiledJsxNode::Element {
+                    key: "body".to_string(),
+                    tag: "body".to_string(),
+                    import_source: None,
+                    props: CompiledProps::default(),
+                    children: vec![
+                        CompiledJsxNode::Element {
+                            key: "hero-heading".to_string(),
+                            tag: "hgroup".to_string(),
+                            import_source: None,
+                            props: CompiledProps::default(),
+                            children: vec![
+                                CompiledJsxNode::Element {
+                                    key: "headline".to_string(),
+                                    tag: "h1".to_string(),
+                                    import_source: None,
+                                    props: CompiledProps::default(),
+                                    children: vec![CompiledJsxNode::Text {
+                                        key: "headline-text".to_string(),
+                                        value: "Dashboard".to_string(),
+                                    }],
+                                },
+                                CompiledJsxNode::Element {
+                                    key: "tagline".to_string(),
+                                    tag: "p".to_string(),
+                                    import_source: None,
+                                    props: CompiledProps::default(),
+                                    children: vec![CompiledJsxNode::Text {
+                                        key: "tagline-text".to_string(),
+                                        value: "Operational summary".to_string(),
+                                    }],
+                                },
+                            ],
+                        },
+                        CompiledJsxNode::Element {
+                            key: "actions-slot".to_string(),
+                            tag: "slot".to_string(),
+                            import_source: None,
+                            props: CompiledProps {
+                                attributes: BTreeMap::from([(
+                                    "name".to_string(),
+                                    "actions".to_string(),
+                                )]),
+                                ..CompiledProps::default()
+                            },
+                            children: Vec::new(),
+                        },
+                    ],
+                },
+            ],
+        };
+
+        let native = bridge.lower_to_native(&document).unwrap();
+        assert_eq!(native.role, NativeRole::Document);
+        assert_eq!(native.children[0].role, NativeRole::DocumentHead);
+        assert_eq!(
+            native.children[0].children[0].role,
+            NativeRole::DocumentTitle
+        );
+        assert_eq!(
+            native.children[0].children[0].props.label.as_deref(),
+            Some("Dashboard")
+        );
+        assert_eq!(native.children[0].children[1].role, NativeRole::Metadata);
+        assert_eq!(
+            native.children[0].children[2]
+                .props
+                .web
+                .attributes
+                .get("content")
+                .map(String::as_str),
+            Some("Native dashboard")
+        );
+        assert_eq!(
+            native.children[0].children[3].role,
+            NativeRole::ResourceLink
+        );
+        assert_eq!(native.children[0].children[4].role, NativeRole::StyleSheet);
+        assert_eq!(native.children[0].children[5].role, NativeRole::Script);
+        assert_eq!(native.children[0].children[6].role, NativeRole::Script);
+        assert_eq!(native.children[0].children[7].role, NativeRole::Template);
+        assert_eq!(native.children[1].role, NativeRole::DocumentBody);
+        assert_eq!(
+            native.children[1].children[0].role,
+            NativeRole::HeadingGroup
+        );
+        assert_eq!(
+            native.children[1].children[0].props.label.as_deref(),
+            Some("Dashboard")
+        );
+        assert_eq!(
+            native.children[1].children[0].children[0].role,
+            NativeRole::Heading
+        );
+        assert_eq!(native.children[1].children[1].role, NativeRole::Slot);
+        assert_eq!(
+            native.children[1].children[1]
+                .props
+                .web
+                .attributes
+                .get("name")
+                .map(String::as_str),
+            Some("actions")
         );
     }
 

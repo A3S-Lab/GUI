@@ -112,12 +112,13 @@ that a platform backend applies.
 
 The compiler bridge accepts the HTML element registry exposed by `HTML_ELEMENTS`.
 Each recognized intrinsic tag lowers to the closest native semantic role, and
-the original tag is preserved as `data-a3s-html-tag` metadata. Text, heading,
-landmark, sectioning, disclosure, figure, description-list, form,
-form-grouping, option-group, output, meter, list, dialog, menu, media,
-embedded-content, link, image-map, and table-structure tags lower to dedicated
-native roles. Generic HTML containers lower to `NativeRole::View`; unsupported
-custom elements with a hyphenated tag name also lower to a generic native view.
+the original tag is preserved as `data-a3s-html-tag` metadata. Document,
+metadata, template, slot, text, heading, heading-group, landmark, sectioning,
+disclosure, figure, description-list, form, form-grouping, option-group,
+output, meter, list, dialog, menu, media, embedded-content, link, image-map,
+and table-structure tags lower to dedicated native roles. Generic HTML
+containers lower to `NativeRole::View`; unsupported custom elements with a
+hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering
 path for vector and icon JSX trees. Recognized SVG tags lower to generic native
 views or text nodes and preserve the original tag as `data-a3s-svg-tag`

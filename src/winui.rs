@@ -47,6 +47,16 @@ impl WinUiWidgetKind {
         match widget_class {
             "Microsoft.UI.Xaml.Window" => Ok(WinUiWidgetKind::Window),
             "Microsoft.UI.Xaml.Controls.StackPanel"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(document)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(document-head)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(document-body)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(metadata)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(resource-link)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(style-sheet)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(script)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(template)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(slot)"
+            | "Microsoft.UI.Xaml.Controls.StackPanel(heading-group)"
             | "Microsoft.UI.Xaml.Controls.StackPanel(main)"
             | "Microsoft.UI.Xaml.Controls.StackPanel(navigation)"
             | "Microsoft.UI.Xaml.Controls.StackPanel(header)"
@@ -66,6 +76,7 @@ impl WinUiWidgetKind {
                 Ok(WinUiWidgetKind::StackPanel)
             }
             "Microsoft.UI.Xaml.Controls.TextBlock"
+            | "Microsoft.UI.Xaml.Controls.TextBlock(document-title)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(heading)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(figure-caption)"
             | "Microsoft.UI.Xaml.Controls.TextBlock(description-term)"

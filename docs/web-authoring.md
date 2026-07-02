@@ -99,7 +99,18 @@ families:
 | Native role | macOS AppKit | Windows WinUI | Linux GTK4 |
 | --- | --- | --- | --- |
 | `Button` | `NSButton` | `Microsoft.UI.Xaml.Controls.Button` | `gtk::Button` |
+| `Document` | `NSView(document)` | `Microsoft.UI.Xaml.Controls.StackPanel(document)` | `gtk::Box(document)` |
+| `DocumentHead` | `NSView(document-head)` | `Microsoft.UI.Xaml.Controls.StackPanel(document-head)` | `gtk::Box(document-head)` |
+| `DocumentBody` | `NSView(document-body)` | `Microsoft.UI.Xaml.Controls.StackPanel(document-body)` | `gtk::Box(document-body)` |
+| `DocumentTitle` | `NSTextField(document-title)` | `Microsoft.UI.Xaml.Controls.TextBlock(document-title)` | `gtk::Label(document-title)` |
+| `Metadata` | `NSView(metadata)` | `Microsoft.UI.Xaml.Controls.StackPanel(metadata)` | `gtk::Box(metadata)` |
+| `ResourceLink` | `NSView(resource-link)` | `Microsoft.UI.Xaml.Controls.StackPanel(resource-link)` | `gtk::Box(resource-link)` |
+| `StyleSheet` | `NSView(style-sheet)` | `Microsoft.UI.Xaml.Controls.StackPanel(style-sheet)` | `gtk::Box(style-sheet)` |
+| `Script` | `NSView(script)` | `Microsoft.UI.Xaml.Controls.StackPanel(script)` | `gtk::Box(script)` |
+| `Template` | `NSView(template)` | `Microsoft.UI.Xaml.Controls.StackPanel(template)` | `gtk::Box(template)` |
+| `Slot` | `NSView(slot)` | `Microsoft.UI.Xaml.Controls.StackPanel(slot)` | `gtk::Box(slot)` |
 | `Heading` | `NSTextField(heading)` | `Microsoft.UI.Xaml.Controls.TextBlock(heading)` | `gtk::Label(heading)` |
+| `HeadingGroup` | `NSView(heading-group)` | `Microsoft.UI.Xaml.Controls.StackPanel(heading-group)` | `gtk::Box(heading-group)` |
 | `Main` | `NSView(main)` | `Microsoft.UI.Xaml.Controls.StackPanel(main)` | `gtk::Box(main)` |
 | `Navigation` | `NSView(navigation)` | `Microsoft.UI.Xaml.Controls.StackPanel(navigation)` | `gtk::Box(navigation)` |
 | `Header` | `NSView(header)` | `Microsoft.UI.Xaml.Controls.StackPanel(header)` | `gtk::Box(header)` |

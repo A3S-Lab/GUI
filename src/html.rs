@@ -180,7 +180,18 @@ pub fn component_for_html_tag(
         "option" => AriaComponent::ListBoxItem,
         "ul" | "ol" | "datalist" => AriaComponent::ListBox,
         "li" => AriaComponent::ListBoxItem,
+        "html" => AriaComponent::Document,
+        "head" => AriaComponent::DocumentHead,
+        "body" => AriaComponent::DocumentBody,
+        "title" => AriaComponent::DocumentTitle,
+        "base" | "meta" => AriaComponent::Metadata,
+        "link" => AriaComponent::ResourceLink,
+        "style" => AriaComponent::StyleSheet,
+        "script" | "noscript" => AriaComponent::Script,
+        "template" => AriaComponent::Template,
+        "slot" => AriaComponent::Slot,
         "h1" | "h2" | "h3" | "h4" | "h5" | "h6" => AriaComponent::Heading,
+        "hgroup" => AriaComponent::HeadingGroup,
         "main" => AriaComponent::Main,
         "nav" => AriaComponent::Navigation,
         "header" => AriaComponent::Header,
@@ -313,7 +324,6 @@ fn is_text_html_tag(tag: &str) -> bool {
             | "sub"
             | "sup"
             | "time"
-            | "title"
             | "tt"
             | "u"
             | "var"
@@ -402,6 +412,64 @@ mod tests {
         assert_eq!(
             component_for_html_tag("area", &empty_attributes),
             Some(AriaComponent::ImageMapArea)
+        );
+    }
+
+    #[test]
+    fn maps_document_metadata_template_and_slot_tags_to_native_semantics() {
+        let attributes = BTreeMap::new();
+
+        assert_eq!(
+            component_for_html_tag("html", &attributes),
+            Some(AriaComponent::Document)
+        );
+        assert_eq!(
+            component_for_html_tag("head", &attributes),
+            Some(AriaComponent::DocumentHead)
+        );
+        assert_eq!(
+            component_for_html_tag("body", &attributes),
+            Some(AriaComponent::DocumentBody)
+        );
+        assert_eq!(
+            component_for_html_tag("title", &attributes),
+            Some(AriaComponent::DocumentTitle)
+        );
+        assert_eq!(
+            component_for_html_tag("base", &attributes),
+            Some(AriaComponent::Metadata)
+        );
+        assert_eq!(
+            component_for_html_tag("meta", &attributes),
+            Some(AriaComponent::Metadata)
+        );
+        assert_eq!(
+            component_for_html_tag("link", &attributes),
+            Some(AriaComponent::ResourceLink)
+        );
+        assert_eq!(
+            component_for_html_tag("style", &attributes),
+            Some(AriaComponent::StyleSheet)
+        );
+        assert_eq!(
+            component_for_html_tag("script", &attributes),
+            Some(AriaComponent::Script)
+        );
+        assert_eq!(
+            component_for_html_tag("noscript", &attributes),
+            Some(AriaComponent::Script)
+        );
+        assert_eq!(
+            component_for_html_tag("template", &attributes),
+            Some(AriaComponent::Template)
+        );
+        assert_eq!(
+            component_for_html_tag("slot", &attributes),
+            Some(AriaComponent::Slot)
+        );
+        assert_eq!(
+            component_for_html_tag("hgroup", &attributes),
+            Some(AriaComponent::HeadingGroup)
         );
     }
 
