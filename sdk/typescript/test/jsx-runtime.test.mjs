@@ -607,14 +607,44 @@ test('intrinsic media and resource attributes preserve Web JSX names', () => {
   assert.equal(image.props.attributes.fetchPriority, 'high');
   assert.equal(image.props.attributes.crossOrigin, 'anonymous');
   assert.equal(image.props.attributes.referrerPolicy, 'no-referrer');
+  assert.equal(image.props.alt, 'Hero');
+  assert.equal(image.props.src, '/hero.png');
+  assert.equal(image.props.srcset, '/hero.png 1x, /hero@2x.png 2x');
+  assert.equal(image.props.sizes, '100vw');
+  assert.equal(image.props.intrinsicWidth, 640);
+  assert.equal(image.props.intrinsicHeight, 360);
+  assert.equal(image.props.loading, 'lazy');
+  assert.equal(image.props.decoding, 'async');
+  assert.equal(image.props.fetchPriority, 'high');
+  assert.equal(image.props.crossOrigin, 'anonymous');
+  assert.equal(image.props.referrerPolicy, 'no-referrer');
   assert.equal(video.props.attributes.controls, 'true');
   assert.equal(video.props.attributes.autoPlay, 'true');
   assert.equal(video.props.attributes.playsInline, 'true');
+  assert.equal(video.props.src, '/demo.mp4');
+  assert.equal(video.props.poster, '/poster.png');
+  assert.equal(video.props.controls, true);
+  assert.equal(video.props.autoplay, true);
+  assert.equal(video.props.loopPlayback, true);
+  assert.equal(video.props.muted, true);
+  assert.equal(video.props.playsInline, true);
+  assert.equal(video.props.preload, 'metadata');
   assert.equal(video.children[0].props.attributes.srcLang, 'en');
   assert.equal(video.children[0].props.attributes.default, 'true');
+  assert.equal(video.children[0].props.src, '/captions.vtt');
+  assert.equal(video.children[0].props.trackKind, 'captions');
+  assert.equal(video.children[0].props.srclang, 'en');
+  assert.equal(video.children[0].props.trackLabel, 'English');
+  assert.equal(video.children[0].props.defaultTrack, true);
   assert.equal(stylesheet.props.attributes.href, '/app.css');
   assert.equal(stylesheet.props.attributes.fetchpriority, 'low');
   assert.equal(stylesheet.props.attributes.crossorigin, '');
+  assert.equal(stylesheet.props.href, '/app.css');
+  assert.equal(stylesheet.props.media, 'screen');
+  assert.equal(stylesheet.props.resourceType, 'text/css');
+  assert.equal(stylesheet.props.fetchPriority, 'low');
+  assert.equal(stylesheet.props.crossOrigin, '');
+  assert.equal(stylesheet.props.referrerPolicy, 'origin');
 });
 
 test('intrinsic resource policy attributes preserve Web JSX names', () => {
@@ -1041,6 +1071,20 @@ test('intrinsic form control attributes preserve Web JSX names', () => {
   assert.equal(root.props.attributes.minLength, '3');
   assert.equal(root.props.attributes.maxLength, '64');
   assert.equal(root.props.attributes.size, '32');
+  assert.equal(root.props.inputType, 'email');
+  assert.equal(root.props.name, 'email');
+  assert.equal(root.props.form, 'profile-form');
+  assert.equal(root.props.accept, 'image/*');
+  assert.equal(root.props.capture, 'environment');
+  assert.equal(root.props.alt, 'Profile photo');
+  assert.equal(root.props.src, '/photo.png');
+  assert.equal(root.props.list, 'email-options');
+  assert.equal(root.props.dirname, 'email.dir');
+  assert.equal(root.props.formAction, '/profiles');
+  assert.equal(root.props.formEnctype, 'multipart/form-data');
+  assert.equal(root.props.formMethod, 'post');
+  assert.equal(root.props.formTarget, '_blank');
+  assert.equal(root.props.formNoValidate, true);
 });
 
 test('radio group markers lower to structured compiled nodes', () => {

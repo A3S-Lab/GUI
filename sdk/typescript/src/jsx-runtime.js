@@ -253,6 +253,157 @@ function normalizeProps(props, tag) {
       out.isExpanded = Boolean(value);
     } else if (name === 'textValue') {
       out.textValue = String(value);
+    } else if (name === 'label') {
+      attributes[name] = String(value);
+      if (tag === 'track') {
+        out.trackLabel = String(value);
+      } else {
+        out.label = String(value);
+      }
+    } else if (name === 'ariaLabel') {
+      out.ariaLabel = String(value);
+    } else if (name === 'name') {
+      out.name = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'form') {
+      out.form = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'type') {
+      attributes[name] = String(value);
+      if (isInputTypeTag(tag)) {
+        out.inputType = String(value);
+      } else if (isResourceTypeTag(tag)) {
+        out.resourceType = String(value);
+      }
+    } else if (name === 'inputType') {
+      out.inputType = String(value);
+    } else if (name === 'resourceType') {
+      out.resourceType = String(value);
+    } else if (name === 'accept') {
+      out.accept = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'capture') {
+      out.capture = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'alt') {
+      out.alt = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'href') {
+      out.href = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'src') {
+      out.src = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'srcSet' || name === 'srcset') {
+      out.srcset = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'sizes') {
+      out.sizes = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'media') {
+      out.media = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'width') {
+      setU32(out, 'intrinsicWidth', value);
+      attributes[name] = String(value);
+    } else if (name === 'height') {
+      setU32(out, 'intrinsicHeight', value);
+      attributes[name] = String(value);
+    } else if (name === 'intrinsicWidth') {
+      setU32(out, 'intrinsicWidth', value);
+    } else if (name === 'intrinsicHeight') {
+      setU32(out, 'intrinsicHeight', value);
+    } else if (name === 'loading') {
+      out.loading = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'decoding') {
+      out.decoding = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'fetchPriority' || name === 'fetchpriority') {
+      out.fetchPriority = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'crossOrigin' || name === 'crossorigin') {
+      out.crossOrigin = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'referrerPolicy' || name === 'referrerpolicy') {
+      out.referrerPolicy = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'poster') {
+      out.poster = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'controls') {
+      setBoolean(out, 'controls', value);
+      attributes[name] = String(value);
+    } else if (name === 'autoPlay' || name === 'autoplay') {
+      setBoolean(out, 'autoplay', value);
+      attributes[name] = String(value);
+    } else if (name === 'loop') {
+      setBoolean(out, 'loopPlayback', value);
+      attributes[name] = String(value);
+    } else if (name === 'loopPlayback') {
+      setBoolean(out, 'loopPlayback', value);
+    } else if (name === 'muted') {
+      setBoolean(out, 'muted', value);
+      attributes[name] = String(value);
+    } else if (name === 'playsInline' || name === 'playsinline') {
+      setBoolean(out, 'playsInline', value);
+      attributes[name] = String(value);
+    } else if (name === 'preload') {
+      out.preload = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'kind') {
+      out.trackKind = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'trackKind') {
+      out.trackKind = String(value);
+    } else if (name === 'srcLang' || name === 'srclang') {
+      out.srclang = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'trackLabel') {
+      out.trackLabel = String(value);
+    } else if (name === 'default') {
+      setBoolean(out, 'defaultTrack', value);
+      attributes[name] = String(value);
+    } else if (name === 'defaultTrack') {
+      setBoolean(out, 'defaultTrack', value);
+    } else if (name === 'list') {
+      out.list = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'dirname') {
+      out.dirname = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'action' && tag === 'form') {
+      out.formAction = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'action') {
+      out.action = String(value);
+    } else if (name === 'method' && tag === 'form') {
+      out.formMethod = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'target' && tag === 'form') {
+      out.formTarget = String(value);
+      attributes[name] = String(value);
+    } else if ((name === 'encType' || name === 'enctype') && tag === 'form') {
+      out.formEnctype = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'noValidate' || name === 'novalidate') {
+      setBoolean(out, 'formNoValidate', value);
+      attributes[name] = String(value);
+    } else if (name === 'formAction') {
+      out.formAction = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'formEncType' || name === 'formEnctype' || name === 'formenctype') {
+      out.formEnctype = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'formMethod') {
+      out.formMethod = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'formTarget') {
+      out.formTarget = String(value);
+      attributes[name] = String(value);
+    } else if (name === 'formNoValidate' || name === 'formnovalidate') {
+      setBoolean(out, 'formNoValidate', value);
+      attributes[name] = String(value);
     } else if (name === 'value' && isAttributeValueTag(tag)) {
       attributes[name] = String(value);
     } else if (name === 'value' || name === 'defaultValue') {
@@ -522,6 +673,18 @@ function numberValue(value) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function setU32(out, field, value) {
+  const parsed = numberValue(value);
+  if (
+    parsed !== undefined &&
+    Number.isInteger(parsed) &&
+    parsed >= 0 &&
+    parsed <= 0xffffffff
+  ) {
+    out[field] = parsed;
+  }
+}
+
 function isNumericValueTag(tag, props = {}) {
   const inputType = String(props.type ?? '').trim().toLowerCase();
   return (
@@ -531,6 +694,20 @@ function isNumericValueTag(tag, props = {}) {
     tag === 'meter' ||
     (tag === 'input' && (inputType === 'range' || inputType === 'number'))
   );
+}
+
+function isInputTypeTag(tag) {
+  return tag === 'button' || tag === 'input';
+}
+
+function isResourceTypeTag(tag) {
+  return tag === 'a' ||
+    tag === 'area' ||
+    tag === 'embed' ||
+    tag === 'link' ||
+    tag === 'object' ||
+    tag === 'script' ||
+    tag === 'source';
 }
 
 function isAttributeValueTag(tag) {

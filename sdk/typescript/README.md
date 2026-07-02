@@ -87,6 +87,10 @@ label `htmlFor`, output `for`, and meter `low`, `high`, and `optimum` are
 preserved with their Web JSX names and projected by the Rust bridge into native
 control, activation, text annotation, form association, and resource policy
 hints.
+For protocol-native aliases such as media resource fields, form submission
+overrides, track labels, intrinsic dimensions, and boolean playback flags, the
+SDK also fills the corresponding compiled `UiFrame` fields while retaining the
+original Web JSX attribute names.
 Marker exports cover the same semantic component names accepted by the Rust
 compiler bridge, including document, text, landmark, disclosure, figure,
 description-list, media, form, selection, overlay, tab, menu, toolbar, and
