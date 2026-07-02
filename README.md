@@ -86,7 +86,8 @@ field sizing, appearance, accent color, caret color and caret shape metadata,
 resize, scroll behavior, physical and logical scroll
 margin/padding, scroll snap, scrollbar gutter/width/color, scroll anchoring,
 logical overflow, overflow clip margin, overscroll behavior,
-touch action, cursor, pointer events, and user selection.
+touch action, CSS UI directional navigation, CSS Spatial Navigation metadata,
+cursor, pointer events, and user selection.
 
 CSS length values that cannot be converted to points or percentages, such as
 `calc(...)`, `var(...)`, `clamp(...)`, `anchor(...)`, `anchor-size(...)`,
@@ -176,8 +177,8 @@ properties such as `animation-timeline`, `scroll-timeline`, and
 properties, `resize-*`, `scroll-*`, `snap-*`, `scrollbar-*`,
 `scrollbar-gutter-*`, `scrollbar-thumb-*`, `scrollbar-track-*`,
 `overscroll-*`, arbitrary logical overflow, overflow clip margin, scroll
-anchoring, and logical overscroll properties, and `touch-*` are projected into
-portable style tokens.
+anchoring, logical overscroll, CSS UI directional navigation, CSS Spatial
+Navigation, and `touch-*` properties are projected into portable style tokens.
 Border radius utilities such as `rounded-*`, `rounded-t-*`, `rounded-r-*`,
 `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`, `rounded-tr-*`,
 `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`, `rounded-e-*`,

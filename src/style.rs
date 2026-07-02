@@ -426,6 +426,13 @@ pub struct PortableStyle {
     pub overscroll_behavior_block: Option<OverscrollBehavior>,
     pub overscroll_behavior_inline: Option<OverscrollBehavior>,
     pub touch_action: Option<String>,
+    pub nav_up: Option<String>,
+    pub nav_right: Option<String>,
+    pub nav_down: Option<String>,
+    pub nav_left: Option<String>,
+    pub spatial_navigation_action: Option<String>,
+    pub spatial_navigation_contain: Option<String>,
+    pub spatial_navigation_function: Option<String>,
     pub cursor: Option<String>,
     pub pointer_events: Option<PointerEvents>,
     pub user_select: Option<UserSelect>,
@@ -1316,6 +1323,19 @@ impl PortableStyle {
                 self.overscroll_behavior_inline = parse_overscroll_behavior(value_ref);
             }
             "touch-action" => self.touch_action = parse_css_string_token(value_ref),
+            "nav-up" => self.nav_up = parse_css_string_token(value_ref),
+            "nav-right" => self.nav_right = parse_css_string_token(value_ref),
+            "nav-down" => self.nav_down = parse_css_string_token(value_ref),
+            "nav-left" => self.nav_left = parse_css_string_token(value_ref),
+            "spatial-navigation-action" => {
+                self.spatial_navigation_action = parse_css_string_token(value_ref);
+            }
+            "spatial-navigation-contain" => {
+                self.spatial_navigation_contain = parse_css_string_token(value_ref);
+            }
+            "spatial-navigation-function" => {
+                self.spatial_navigation_function = parse_css_string_token(value_ref);
+            }
             "cursor" => self.cursor = parse_css_string_token(value_ref),
             "caret-shape" => self.caret_shape = parse_css_string_token(value_ref),
             "pointer-events" => self.pointer_events = parse_pointer_events(value_ref),
@@ -11780,7 +11800,14 @@ mod tests {
             .style("overscrollBehaviorX", "none")
             .style("overscrollBehaviorBlock", "contain")
             .style("overscrollBehaviorInline", "none")
-            .style("touchAction", "pan-x pinch-zoom");
+            .style("touchAction", "pan-x pinch-zoom")
+            .style("navUp", "#previous")
+            .style("navRight", "auto")
+            .style("navDown", "#next")
+            .style("navLeft", "current")
+            .style("spatialNavigationAction", "focus")
+            .style("spatialNavigationContain", "contain")
+            .style("spatialNavigationFunction", "grid");
 
         let style = PortableStyle::from_web(&web);
 
@@ -11887,6 +11914,13 @@ mod tests {
             Some(OverscrollBehavior::None)
         );
         assert_eq!(style.touch_action.as_deref(), Some("pan-x pinch-zoom"));
+        assert_eq!(style.nav_up.as_deref(), Some("#previous"));
+        assert_eq!(style.nav_right.as_deref(), Some("auto"));
+        assert_eq!(style.nav_down.as_deref(), Some("#next"));
+        assert_eq!(style.nav_left.as_deref(), Some("current"));
+        assert_eq!(style.spatial_navigation_action.as_deref(), Some("focus"));
+        assert_eq!(style.spatial_navigation_contain.as_deref(), Some("contain"));
+        assert_eq!(style.spatial_navigation_function.as_deref(), Some("grid"));
         assert!(!style.unsupported.contains_key("transition-duration"));
         assert!(!style.unsupported.contains_key("animation-timeline"));
         assert!(!style.unsupported.contains_key("animation-range"));
@@ -11919,6 +11953,15 @@ mod tests {
         assert!(!style.unsupported.contains_key("overflow-anchor"));
         assert!(!style.unsupported.contains_key("overscroll-behavior-block"));
         assert!(!style.unsupported.contains_key("overscroll-behavior-inline"));
+        assert!(!style.unsupported.contains_key("nav-up"));
+        assert!(!style.unsupported.contains_key("nav-right"));
+        assert!(!style.unsupported.contains_key("nav-down"));
+        assert!(!style.unsupported.contains_key("nav-left"));
+        assert!(!style.unsupported.contains_key("spatial-navigation-action"));
+        assert!(!style.unsupported.contains_key("spatial-navigation-contain"));
+        assert!(!style
+            .unsupported
+            .contains_key("spatial-navigation-function"));
     }
 
     #[test]
@@ -11952,8 +11995,12 @@ mod tests {
              [overflow-block:clip] [overflow-inline:auto] \
              [overflow-clip-margin:content-box_8px] [overflow-anchor:none] \
              [overscroll-behavior-block:contain] [overscroll-behavior-inline:none] \
+             [nav-up:#previous] [nav-right:auto] [nav-down:#next] [nav-left:current] \
+             [spatial-navigation-action:focus] [spatial-navigation-contain:contain] \
+             [spatial-navigation-function:grid] \
              hover:[overflow-clip-margin:border-box_2px] focus:[overflow-anchor:auto] \
-             active:[overscroll-behavior-block:none]",
+             active:[overscroll-behavior-block:none] hover:[nav-right:#next] \
+             focus:[spatial-navigation-action:scroll] active:[spatial-navigation-function:normal]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -12070,6 +12117,13 @@ mod tests {
             style.overscroll_behavior_inline,
             Some(OverscrollBehavior::None)
         );
+        assert_eq!(style.nav_up.as_deref(), Some("#previous"));
+        assert_eq!(style.nav_right.as_deref(), Some("auto"));
+        assert_eq!(style.nav_down.as_deref(), Some("#next"));
+        assert_eq!(style.nav_left.as_deref(), Some("current"));
+        assert_eq!(style.spatial_navigation_action.as_deref(), Some("focus"));
+        assert_eq!(style.spatial_navigation_contain.as_deref(), Some("contain"));
+        assert_eq!(style.spatial_navigation_function.as_deref(), Some("grid"));
         assert_eq!(
             style
                 .variant_declarations
@@ -12189,6 +12243,30 @@ mod tests {
                 .and_then(|styles| styles.get("overscroll-behavior-block"))
                 .map(String::as_str),
             Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("nav-right"))
+                .map(String::as_str),
+            Some("#next")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("spatial-navigation-action"))
+                .map(String::as_str),
+            Some("scroll")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("spatial-navigation-function"))
+                .map(String::as_str),
+            Some("normal")
         );
         assert_eq!(
             style
