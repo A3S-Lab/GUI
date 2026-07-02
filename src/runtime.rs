@@ -351,19 +351,31 @@ impl<H: NativeHost> GuiRuntime<H> {
             return;
         }
 
-        let Some((node, props)) = self
-            .renderer
-            .mounted_node_props()
-            .into_iter()
-            .find(|(_, props)| can_auto_focus(props))
-        else {
+        let mounted_props = self.renderer.mounted_node_props();
+        let props_by_node = mounted_props
+            .iter()
+            .map(|(node, props)| (*node, props))
+            .collect::<BTreeMap<_, _>>();
+        let Some((node, props)) = mounted_props.iter().find(|(node, props)| {
+            can_auto_focus(props)
+                && self
+                    .renderer
+                    .ancestor_ids(*node)
+                    .into_iter()
+                    .all(|ancestor| {
+                        props_by_node
+                            .get(&ancestor)
+                            .map(|props| can_contain_auto_focus(props))
+                            .unwrap_or(true)
+                    })
+        }) else {
             return;
         };
 
         self.interaction_state
-            .set_initial_focus_from_props(node, &props);
+            .set_initial_focus_from_props(*node, props);
         self.interaction_revisions
-            .insert(node, self.render_revision);
+            .insert(*node, self.render_revision);
     }
 
     pub fn into_host(self) -> H {
@@ -441,10 +453,12 @@ fn is_inert_blueprint(blueprint: &NativeWidgetBlueprint) -> bool {
 }
 
 fn can_auto_focus(props: &NativeProps) -> bool {
+    props.auto_focus && !props.disabled && can_contain_auto_focus(props)
+}
+
+fn can_contain_auto_focus(props: &NativeProps) -> bool {
     let style = PortableStyle::from_web(&props.web);
-    props.auto_focus
-        && !props.disabled
-        && !props.hidden
+    !props.hidden
         && !props.inert
         && props.html_dialog.open.unwrap_or(true)
         && style.renders_native_widget()
@@ -980,6 +994,70 @@ mod tests {
         assert!(accessibility.children[0].focused);
         assert_eq!(accessibility.children[1].label.as_deref(), Some("Cancel"));
         assert!(!accessibility.children[1].focused);
+    }
+
+    #[test]
+    fn runtime_auto_focus_skips_hidden_and_inert_ancestor_subtrees() {
+        let element = NativeElement::new("tools", NativeRole::Toolbar)
+            .child(
+                NativeElement::new("hidden-group", NativeRole::View)
+                    .with_props(NativeProps::new().hidden(true))
+                    .child(
+                        NativeElement::new("hidden-save", NativeRole::Button)
+                            .with_props(NativeProps::new().label("Hidden save").auto_focus(true)),
+                    ),
+            )
+            .child(
+                NativeElement::new("inert-group", NativeRole::View)
+                    .with_props(NativeProps::new().inert(true))
+                    .child(
+                        NativeElement::new("inert-save", NativeRole::Button)
+                            .with_props(NativeProps::new().label("Inert save").auto_focus(true)),
+                    ),
+            )
+            .child(
+                NativeElement::new("css-hidden-group", NativeRole::View)
+                    .with_props(NativeProps::new().web(WebProps::new().style("display", "none")))
+                    .child(
+                        NativeElement::new("css-hidden-save", NativeRole::Button).with_props(
+                            NativeProps::new().label("CSS hidden save").auto_focus(true),
+                        ),
+                    ),
+            )
+            .child(
+                NativeElement::new("closed-dialog", NativeRole::Dialog)
+                    .with_props(
+                        NativeProps::new().html_dialog(HtmlDialogProps::default().open(false)),
+                    )
+                    .child(
+                        NativeElement::new("dialog-save", NativeRole::Button)
+                            .with_props(NativeProps::new().label("Dialog save").auto_focus(true)),
+                    ),
+            )
+            .child(
+                NativeElement::new("save", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Save").auto_focus(true)),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let children = runtime.host().node(root_id).unwrap().children.clone();
+        let hidden_save = runtime.host().node(children[0]).unwrap().children[0];
+        let inert_save = runtime.host().node(children[1]).unwrap().children[0];
+        let css_hidden_save = runtime.host().node(children[2]).unwrap().children[0];
+        let dialog_save = runtime.host().node(children[3]).unwrap().children[0];
+        let save = children[4];
+        let accessibility = runtime.accessibility_tree().unwrap();
+
+        assert!(runtime.interactions().node(hidden_save).is_none());
+        assert!(runtime.interactions().node(inert_save).is_none());
+        assert!(runtime.interactions().node(css_hidden_save).is_none());
+        assert!(runtime.interactions().node(dialog_save).is_none());
+        assert!(runtime.interactions().node(save).unwrap().focused);
+        assert_eq!(accessibility.children.len(), 1);
+        assert_eq!(accessibility.children[0].label.as_deref(), Some("Save"));
+        assert!(accessibility.children[0].focused);
     }
 
     #[test]
