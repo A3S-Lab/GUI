@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::accessibility::{accessibility_role, AccessibilityNode, AccessibilityTreeHost};
 use crate::error::{GuiError, GuiResult};
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::style::{DisplayMode, PortableStyle};
+use crate::style::PortableStyle;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -147,7 +147,7 @@ impl HeadlessHost {
 
 fn is_accessibility_visible(props: &NativeProps) -> bool {
     !props.hidden
-        && PortableStyle::from_web(&props.web).display != Some(DisplayMode::None)
+        && PortableStyle::from_web(&props.web).renders_native_widget()
         && props.html_dialog.open.unwrap_or(true)
 }
 

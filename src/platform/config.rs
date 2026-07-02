@@ -12,7 +12,7 @@ use crate::html::{
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
 };
 use crate::native::NativeRole;
-use crate::style::{DisplayMode, PortableStyle};
+use crate::style::PortableStyle;
 
 use super::types::{NativeBackendKind, NativeWidgetBlueprint};
 
@@ -147,7 +147,7 @@ impl NativeWidgetConfig {
             placeholder: state.placeholder.clone(),
             enabled: !state.disabled,
             visible: !state.hidden
-                && blueprint.portable_style.display != Some(DisplayMode::None)
+                && blueprint.portable_style.renders_native_widget()
                 && state.html_dialog.open.unwrap_or(true),
             required: state.required,
             invalid: state.invalid,

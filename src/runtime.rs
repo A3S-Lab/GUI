@@ -11,7 +11,6 @@ use crate::native::NativeElement;
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::react_aria::{AriaElement, ReactAriaMapper};
 use crate::renderer::Renderer;
-use crate::style::DisplayMode;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -410,7 +409,7 @@ fn is_invisible_or_inert(blueprint: &NativeWidgetBlueprint) -> bool {
 
 fn is_visible_blueprint(blueprint: &NativeWidgetBlueprint) -> bool {
     !blueprint.control_state.hidden
-        && blueprint.portable_style.display != Some(DisplayMode::None)
+        && blueprint.portable_style.renders_native_widget()
         && blueprint.control_state.html_dialog.open.unwrap_or(true)
 }
 
@@ -1138,30 +1137,52 @@ mod tests {
     }
 
     #[test]
-    fn runtime_suppresses_display_none_actions() {
-        let element = NativeElement::new("save", NativeRole::Button).with_props(
-            NativeProps::new().label("Save").web(
-                WebProps::new()
-                    .style("display", "none")
-                    .on_press("saveDocument"),
-            ),
-        );
-        let host = PlatformPlanningHost::new(Gtk4Adapter);
-        let mut runtime = GuiRuntime::new(host);
-        runtime.actions_mut().register("saveDocument");
+    fn runtime_suppresses_non_rendered_style_actions() {
+        let cases = [
+            ("display", "none"),
+            ("visibility", "hidden"),
+            ("visibility", "collapse"),
+            ("contentVisibility", "hidden"),
+        ];
 
-        let root_id = runtime.render_native(&element).unwrap();
-        let handled = runtime
-            .handle_native_event_with_changes(crate::event::NativeEvent::new(
-                root_id,
-                crate::event::NativeEventKind::Press,
-            ))
-            .unwrap();
+        for (property, value) in cases {
+            let element = NativeElement::new(format!("{property}-{value}"), NativeRole::Button)
+                .with_props(
+                    NativeProps::new().label("Save").web(
+                        WebProps::new()
+                            .style(property, value)
+                            .on_press("saveDocument"),
+                    ),
+                );
+            let host = PlatformPlanningHost::new(Gtk4Adapter);
+            let mut runtime = GuiRuntime::new(host);
+            runtime.actions_mut().register("saveDocument");
 
-        assert!(handled.invocation.is_none());
-        assert!(handled.interaction_changes.is_empty());
-        assert!(runtime.accessibility_tree().is_none());
-        assert!(runtime.actions().invocations().is_empty());
+            let root_id = runtime.render_native(&element).unwrap();
+            let handled = runtime
+                .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                    root_id,
+                    crate::event::NativeEventKind::Press,
+                ))
+                .unwrap();
+
+            assert!(
+                handled.invocation.is_none(),
+                "{property}: {value} should suppress invocation"
+            );
+            assert!(
+                handled.interaction_changes.is_empty(),
+                "{property}: {value} should suppress interaction changes"
+            );
+            assert!(
+                runtime.accessibility_tree().is_none(),
+                "{property}: {value} should suppress accessibility projection"
+            );
+            assert!(
+                runtime.actions().invocations().is_empty(),
+                "{property}: {value} should suppress action dispatch"
+            );
+        }
     }
 
     #[test]
@@ -1221,6 +1242,20 @@ mod tests {
                     NativeProps::new()
                         .label("Details")
                         .web(WebProps::new().style("display", "none")),
+                ),
+            )
+            .child(
+                NativeElement::new("filters", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Filters")
+                        .web(WebProps::new().style("visibility", "hidden")),
+                ),
+            )
+            .child(
+                NativeElement::new("summary", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Summary")
+                        .web(WebProps::new().style("contentVisibility", "hidden")),
                 ),
             )
             .child(

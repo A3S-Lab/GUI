@@ -475,6 +475,24 @@ mod tests {
                   },
                   {
                     "kind": "element",
+                    "key": "filters",
+                    "tag": "Button",
+                    "props": {
+                      "label": "Filters",
+                      "style": {"visibility": "hidden"}
+                    }
+                  },
+                  {
+                    "kind": "element",
+                    "key": "summary",
+                    "tag": "Button",
+                    "props": {
+                      "label": "Summary",
+                      "style": {"contentVisibility": "hidden"}
+                    }
+                  },
+                  {
+                    "kind": "element",
                     "key": "dialog",
                     "tag": "dialog",
                     "children": [

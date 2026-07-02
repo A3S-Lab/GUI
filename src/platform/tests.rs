@@ -272,6 +272,44 @@ fn widget_config_normalizes_blueprint_for_native_setters() {
 }
 
 #[test]
+fn widget_config_marks_non_rendered_styles_invisible() {
+    let cases = [
+        ("display", "none"),
+        ("visibility", "hidden"),
+        ("visibility", "collapse"),
+        ("contentVisibility", "hidden"),
+    ];
+
+    for (property, value) in cases {
+        let element = NativeElement::new(format!("{property}-{value}"), NativeRole::Button)
+            .with_props(
+                NativeProps::new()
+                    .label("Skip")
+                    .web(WebProps::new().style(property, value)),
+            );
+        let config = Gtk4Adapter.blueprint(&element).config();
+
+        assert!(!config.visible, "{property}: {value} should be invisible");
+        assert!(
+            config
+                .create_setters()
+                .contains(&NativeWidgetSetter::SetVisible(false)),
+            "{property}: {value} should emit a visibility setter"
+        );
+    }
+
+    let visible = NativeElement::new("visible", NativeRole::Button).with_props(
+        NativeProps::new().label("Visible").web(
+            WebProps::new()
+                .style("visibility", "visible")
+                .style("contentVisibility", "auto"),
+        ),
+    );
+
+    assert!(Gtk4Adapter.blueprint(&visible).config().visible);
+}
+
+#[test]
 fn widget_config_preserves_html_form_control_hints() {
     let element = NativeElement::new("email", NativeRole::TextField).with_props(
         NativeProps::new()

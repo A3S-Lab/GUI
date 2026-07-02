@@ -529,4 +529,13 @@ impl PortableStyle {
         }
         style
     }
+
+    pub fn renders_native_widget(&self) -> bool {
+        self.display != Some(DisplayMode::None)
+            && self.content_visibility != Some(ContentVisibility::Hidden)
+            && !matches!(
+                self.visibility,
+                Some(VisibilityMode::Hidden | VisibilityMode::Collapse)
+            )
+    }
 }
