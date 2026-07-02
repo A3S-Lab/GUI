@@ -431,6 +431,40 @@ mod tests {
     }
 
     #[test]
+    fn runtime_accessibility_tree_exposes_single_focused_node() {
+        let element = NativeElement::new("tools", NativeRole::Toolbar)
+            .child(
+                NativeElement::new("save", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Save")),
+            )
+            .child(
+                NativeElement::new("cancel", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Cancel")),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let children = runtime.host().node(root_id).unwrap().children.clone();
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                children[0],
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                children[1],
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(!accessibility.children[0].focused);
+        assert!(accessibility.children[1].focused);
+    }
+
+    #[test]
     fn runtime_dispatch_stays_strict_for_unbound_events() {
         let element = NativeElement::new("save", NativeRole::Button)
             .with_props(NativeProps::new().label("Save"));
