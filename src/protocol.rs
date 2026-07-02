@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
 use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
@@ -29,9 +29,9 @@ pub struct UiFrame {
 struct UiFrameWire {
     frame_id: String,
     root: CompiledJsxNode,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_frame_actions")]
     actions: Option<Vec<UiAction>>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_frame_window")]
     window: Option<WindowOptions>,
 }
 
@@ -257,6 +257,30 @@ impl WindowOptions {
 
 fn default_true() -> bool {
     true
+}
+
+fn deserialize_frame_actions<'de, D>(deserializer: D) -> Result<Option<Vec<UiAction>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match Option::<Vec<UiAction>>::deserialize(deserializer)? {
+        Some(actions) => Ok(Some(actions)),
+        None => Err(serde::de::Error::custom(
+            "a3s-gui frame actions cannot be null; omit the field instead",
+        )),
+    }
+}
+
+fn deserialize_frame_window<'de, D>(deserializer: D) -> Result<Option<WindowOptions>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match Option::<WindowOptions>::deserialize(deserializer)? {
+        Some(window) => Ok(Some(window)),
+        None => Err(serde::de::Error::custom(
+            "a3s-gui frame window cannot be null; omit the field instead",
+        )),
+    }
 }
 
 fn validate_window_dimension(name: &'static str, value: Option<f64>) -> GuiResult<()> {
@@ -946,6 +970,47 @@ mod tests {
         assert_eq!(session.active_frame_id(), Some("valid"));
         assert_eq!(session.root(), Some(rendered.root));
         assert!(session.pending_commands().is_empty());
+    }
+
+    #[test]
+    fn ui_frame_rejects_null_optional_protocol_fields() {
+        let actions_null = serde_json::from_str::<UiFrame>(
+            r#"
+            {
+              "frameId": "actions-null",
+              "actions": null,
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button"
+              }
+            }
+            "#,
+        )
+        .unwrap_err();
+
+        assert!(actions_null
+            .to_string()
+            .contains("a3s-gui frame actions cannot be null"));
+
+        let window_null = serde_json::from_str::<UiFrame>(
+            r#"
+            {
+              "frameId": "window-null",
+              "window": null,
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button"
+              }
+            }
+            "#,
+        )
+        .unwrap_err();
+
+        assert!(window_null
+            .to_string()
+            .contains("a3s-gui frame window cannot be null"));
     }
 
     #[test]
