@@ -87,7 +87,8 @@ scroll-driven animation timelines and ranges, CSS View Transitions metadata,
 will-change, color scheme, forced color adjustment, print color adjustment,
 field sizing, appearance, accent color, caret color and caret shape metadata,
 resize, scroll behavior, physical and logical scroll
-margin/padding, scroll snap, scrollbar gutter/width/color, scroll anchoring,
+margin/padding, scroll snap, scroll initial target, scroll target groups,
+scroll marker groups, scrollbar gutter/width/color, scroll anchoring,
 logical overflow, overflow clip margin, overscroll behavior,
 touch action, CSS UI directional navigation, CSS Spatial Navigation metadata,
 CSS UI interactivity metadata, cursor, pointer events, and user selection.
@@ -182,9 +183,10 @@ properties such as `animation-timeline`, `scroll-timeline`, and
 properties, `resize-*`, `scroll-*`, `snap-*`, `scrollbar-*`,
 `scrollbar-gutter-*`, `scrollbar-thumb-*`, `scrollbar-track-*`,
 `overscroll-*`, arbitrary logical overflow, overflow clip margin, scroll
-anchoring, logical overscroll, CSS UI directional navigation, CSS Spatial
-Navigation, CSS UI interactivity, and `touch-*` properties are projected into
-portable style tokens.
+anchoring, scroll initial target, scroll target groups, scroll marker groups,
+logical overscroll, CSS UI directional navigation, CSS Spatial Navigation, CSS
+UI interactivity, and `touch-*` properties are projected into portable style
+tokens.
 Border radius utilities such as `rounded-*`, `rounded-t-*`, `rounded-r-*`,
 `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`, `rounded-tr-*`,
 `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`, `rounded-e-*`,

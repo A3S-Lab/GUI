@@ -425,6 +425,9 @@ pub struct PortableStyle {
     pub scroll_snap_type: Option<String>,
     pub scroll_snap_align: Option<String>,
     pub scroll_snap_stop: Option<String>,
+    pub scroll_initial_target: Option<String>,
+    pub scroll_target_group: Option<String>,
+    pub scroll_marker_group: Option<String>,
     pub scrollbar_gutter: Option<String>,
     pub scrollbar_width: Option<String>,
     pub scrollbar_color: Option<String>,
@@ -1321,6 +1324,11 @@ impl PortableStyle {
             "scroll-snap-type" => self.scroll_snap_type = parse_css_string_token(value_ref),
             "scroll-snap-align" => self.scroll_snap_align = parse_css_string_token(value_ref),
             "scroll-snap-stop" => self.scroll_snap_stop = parse_css_string_token(value_ref),
+            "scroll-initial-target" | "scroll-start-target" => {
+                self.scroll_initial_target = parse_css_string_token(value_ref);
+            }
+            "scroll-target-group" => self.scroll_target_group = parse_css_string_token(value_ref),
+            "scroll-marker-group" => self.scroll_marker_group = parse_css_string_token(value_ref),
             "scrollbar-gutter" => self.scrollbar_gutter = parse_css_string_token(value_ref),
             "scrollbar-width" => self.scrollbar_width = parse_css_string_token(value_ref),
             "scrollbar-color" => self.apply_scrollbar_color_property(value_ref),
@@ -11923,6 +11931,10 @@ mod tests {
             .style("scrollSnapType", "x mandatory")
             .style("scrollSnapAlign", "center")
             .style("scrollSnapStop", "always")
+            .style("scrollInitialTarget", "nearest")
+            .style("scrollStartTarget", "nearest")
+            .style("scrollTargetGroup", "auto")
+            .style("scrollMarkerGroup", "before")
             .style("scrollbarGutter", "stable both-edges")
             .style("scrollbarWidth", "thin")
             .style("scrollbarColor", "red blue")
@@ -12025,6 +12037,9 @@ mod tests {
         assert_eq!(style.scroll_snap_type.as_deref(), Some("x mandatory"));
         assert_eq!(style.scroll_snap_align.as_deref(), Some("center"));
         assert_eq!(style.scroll_snap_stop.as_deref(), Some("always"));
+        assert_eq!(style.scroll_initial_target.as_deref(), Some("nearest"));
+        assert_eq!(style.scroll_target_group.as_deref(), Some("auto"));
+        assert_eq!(style.scroll_marker_group.as_deref(), Some("before"));
         assert_eq!(style.scrollbar_gutter.as_deref(), Some("stable both-edges"));
         assert_eq!(style.scrollbar_width.as_deref(), Some("thin"));
         assert_eq!(style.scrollbar_color.as_deref(), Some("red blue"));
@@ -12075,6 +12090,10 @@ mod tests {
         assert!(!style.unsupported.contains_key("view-timeline-inset"));
         assert!(!style.unsupported.contains_key("timeline-scope"));
         assert!(!style.unsupported.contains_key("scroll-snap-type"));
+        assert!(!style.unsupported.contains_key("scroll-initial-target"));
+        assert!(!style.unsupported.contains_key("scroll-start-target"));
+        assert!(!style.unsupported.contains_key("scroll-target-group"));
+        assert!(!style.unsupported.contains_key("scroll-marker-group"));
         assert!(!style.unsupported.contains_key("color-scheme"));
         assert!(!style.unsupported.contains_key("print-color-adjust"));
         assert!(!style.unsupported.contains_key("webkit-print-color-adjust"));
@@ -12121,6 +12140,8 @@ mod tests {
              [caret:bar_currentColor] [caret-animation:manual] [caret-shape:block] \
              field-sizing-content scrollbar-gutter-both scrollbar-thin \
              scrollbar-thumb-[#663399]/50 scrollbar-track-(--scrollbar-track) \
+             [scroll-initial-target:nearest] [scroll-target-group:auto] \
+             [scroll-marker-group:before] \
              md:duration-[1s] md:scheme-light-dark \
              hover:animate-[wiggle_1s_ease-in-out_infinite] hover:scrollbar-thumb-blue-500 \
              focus:will-change-[opacity] md:[animation-timeline:view()] \
@@ -12129,6 +12150,8 @@ mod tests {
              focus:[print-color-adjust:economy] active:[caret-shape:underscore] \
              focus:[scroll-timeline-axis:block] active:[view-timeline-inset:auto] \
              before:[timeline-scope:none] \
+             hover:[scroll-start-target:nearest] focus:[scroll-target-group:none] \
+             active:[scroll-marker-group:after] \
              [overflow-block:clip] [overflow-inline:auto] \
              [overflow-clip-margin:content-box_8px] [overflow-anchor:none] \
              [overscroll-behavior-block:contain] [overscroll-behavior-inline:none] \
@@ -12220,6 +12243,9 @@ mod tests {
         );
         assert_eq!(style.scroll_snap_align.as_deref(), Some("center"));
         assert_eq!(style.scroll_snap_stop.as_deref(), Some("always"));
+        assert_eq!(style.scroll_initial_target.as_deref(), Some("nearest"));
+        assert_eq!(style.scroll_target_group.as_deref(), Some("auto"));
+        assert_eq!(style.scroll_marker_group.as_deref(), Some("before"));
         assert_eq!(
             style.overscroll_behavior_x,
             Some(OverscrollBehavior::Contain)
@@ -12358,6 +12384,30 @@ mod tests {
                 .and_then(|styles| styles.get("timeline-scope"))
                 .map(String::as_str),
             Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("scroll-start-target"))
+                .map(String::as_str),
+            Some("nearest")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("scroll-target-group"))
+                .map(String::as_str),
+            Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("scroll-marker-group"))
+                .map(String::as_str),
+            Some("after")
         );
         assert_eq!(
             style

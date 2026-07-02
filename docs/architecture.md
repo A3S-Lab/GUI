@@ -444,9 +444,10 @@ deterministically:
 - `scrollBehavior`, `scrollTimeline*`, `viewTimeline*`, `timelineScope`,
   physical and logical `scrollMargin*`,
   `scrollPadding*`, `scrollSnap*`, `scrollbarGutter`, `scrollbarWidth`,
-  `scrollbarColor`, `overscrollBehavior*`, `overscrollBehaviorBlock`,
-  `overscrollBehaviorInline`, `touchAction`, `nav*`, `spatialNavigation*`,
-  and `interactivity`
+  `scrollbarColor`, `scrollInitialTarget`, `scrollTargetGroup`,
+  `scrollMarkerGroup`, `overscrollBehavior*`, `overscrollBehaviorBlock`,
+  `overscrollBehaviorInline`, `touchAction`, `nav*`, `spatialNavigation*`, and
+  `interactivity`
 - `cursor`, `pointerEvents`, `userSelect`
 - `opacity`
 
@@ -554,9 +555,10 @@ properties, `will-change-*`, `appearance-*`,
 `field-sizing-*`, `scroll-*`, `snap-*`,
 `scrollbar-*`, `scrollbar-gutter-*`, `scrollbar-thumb-*`,
 `scrollbar-track-*`, `overscroll-*`, arbitrary logical overflow, overflow clip
-margin, scroll anchoring, logical overscroll, CSS UI directional navigation,
-CSS Spatial Navigation, CSS UI interactivity, and `touch-*` properties project
-into the same declaration model.
+margin, scroll anchoring, scroll initial target, scroll target groups, scroll
+marker groups, logical overscroll, CSS UI directional navigation, CSS Spatial
+Navigation, CSS UI interactivity, and `touch-*` properties project into the
+same declaration model.
 Tailwind logical direction utilities such as `start-*`, `end-*`, `ms-*`,
 `me-*`, `mbs-*`, `mbe-*`, `mis-*`, `mie-*`, `ps-*`, `pe-*`, `pbs-*`,
 `pbe-*`, `pis-*`, `pie-*`, `scroll-ms-*`, `scroll-me-*`, `scroll-mbs-*`,
