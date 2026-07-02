@@ -32,8 +32,10 @@ export const frame = createUiFrame('profile', root, {
 ```
 
 When labels are not needed, `createUiFrame` can infer actions from JSX event
-props. Use `defineAction` when the host needs action metadata beyond the stable
-id. Inferred actions preserve labels from `createAction(id, label)` handlers.
+props. Frame ids must be non-empty strings, and frame roots must be a single
+compiled element; wrap fragment children in `Group` or another container. Use
+`defineAction` when the host needs action metadata beyond the stable id.
+Inferred actions preserve labels from `createAction(id, label)` handlers.
 Focus and toggle aliases such as `onFocusChange`, `onToggle`, and
 `onExpandedChange` are preserved in the emitted protocol alongside press,
 change, selection, and keyboard events.

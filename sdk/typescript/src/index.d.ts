@@ -1,13 +1,19 @@
-export type CompiledJsxNode =
-  | {
-      kind: 'element';
-      key: string;
-      tag: string;
-      importSource?: string;
-      props?: CompiledProps;
-      children?: CompiledJsxNode[];
-    }
-  | {kind: 'text'; key: string; value: string};
+export interface CompiledJsxElement {
+  kind: 'element';
+  key: string;
+  tag: string;
+  importSource?: string;
+  props?: CompiledProps;
+  children?: CompiledJsxNode[];
+}
+
+export interface CompiledJsxText {
+  kind: 'text';
+  key: string;
+  value: string;
+}
+
+export type CompiledJsxNode = CompiledJsxElement | CompiledJsxText;
 
 export interface CompiledProps {
   label?: string;
@@ -98,7 +104,7 @@ export interface WindowOptions {
 
 export interface UiFrame {
   frameId: string;
-  root: CompiledJsxNode;
+  root: CompiledJsxElement;
   actions?: UiAction[];
   window?: WindowOptions;
 }
@@ -248,7 +254,7 @@ export function defineAction(id: string, label?: string): UiAction;
 export function defineAction(action: ActionHandler, label?: string): UiAction;
 export function createUiFrame(
   frameId: string,
-  root: CompiledJsxNode,
+  root: CompiledJsxElement,
   options?: {actions?: UiAction[]; window?: WindowOptions},
 ): UiFrame;
 export function createHostEvent(

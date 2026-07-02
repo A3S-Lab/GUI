@@ -49,6 +49,9 @@ export function createAction(id, label) {
 
 export const action = createAction;
 
+const FRAME_ROOT_ERROR =
+  'a3s-gui frames need one root element; wrap fragment children in a Group or form';
+
 export function defineAction(actionOrId, label) {
   const id = actionId(actionOrId);
   const resolvedLabel = label ?? actionOrId?.a3sLabel;
@@ -56,10 +59,11 @@ export function defineAction(actionOrId, label) {
 }
 
 export function createUiFrame(frameId, root, options = {}) {
-  if (Array.isArray(root)) {
-    throw new Error(
-      'a3s-gui frames need one root element; wrap fragment children in a Group or form',
-    );
+  if (typeof frameId !== 'string' || frameId.length === 0) {
+    throw new Error('a3s-gui frames need a non-empty string frame id');
+  }
+  if (!isCompiledElement(root)) {
+    throw new Error(FRAME_ROOT_ERROR);
   }
   const actions = options.actions ?? collectActions(root);
   return {
@@ -68,6 +72,15 @@ export function createUiFrame(frameId, root, options = {}) {
     actions,
     ...(options.window ? {window: options.window} : {}),
   };
+}
+
+function isCompiledElement(node) {
+  return node != null
+    && typeof node === 'object'
+    && !Array.isArray(node)
+    && node.kind === 'element'
+    && typeof node.key === 'string'
+    && typeof node.tag === 'string';
 }
 
 export function createHostEvent(frameId, node, kind, value) {

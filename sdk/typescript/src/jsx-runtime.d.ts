@@ -1,4 +1,4 @@
-import type {ActionLike, CompiledJsxNode} from './index.js';
+import type {ActionLike, CompiledJsxElement, CompiledJsxNode} from './index.js';
 
 export const Fragment: unique symbol;
 
@@ -277,14 +277,19 @@ export const Toolbar: ComponentMarker;
 export const Link: ComponentMarker;
 
 export function jsx(
-  type: string | ComponentMarker | typeof Fragment,
+  type: typeof Fragment,
   props: WebCompatibleProps,
   key?: unknown,
-): CompiledJsxNode | CompiledJsxNode[];
+): CompiledJsxNode[];
+export function jsx(
+  type: string | ComponentMarker,
+  props: WebCompatibleProps,
+  key?: unknown,
+): CompiledJsxElement;
 export const jsxs: typeof jsx;
 
 export namespace JSX {
-  type Element = CompiledJsxNode | CompiledJsxNode[];
+  type Element = CompiledJsxElement | CompiledJsxNode[];
   interface ElementChildrenAttribute {
     children: {};
   }

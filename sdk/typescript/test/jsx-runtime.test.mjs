@@ -882,12 +882,41 @@ test('anonymous event functions fail with a protocol hint', () => {
   );
 });
 
-test('frame roots must be a single element', () => {
+test('frame ids must be stable non-empty strings', () => {
+  const root = jsx(Group, {children: 'Profile'}, 'profile');
+
+  assert.throws(
+    () => createUiFrame('', root),
+    /non-empty string frame id/,
+  );
+  assert.throws(
+    () => createUiFrame(null, root),
+    /non-empty string frame id/,
+  );
+});
+
+test('frame roots must be a single compiled element', () => {
   assert.throws(
     () => createUiFrame('profile', [
       jsxs(Button, {children: 'One'}, 'one'),
       jsxs(Button, {children: 'Two'}, 'two'),
     ]),
+    /one root element/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', null),
+    /one root element/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', 'Profile'),
+    /one root element/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {kind: 'text', key: 'text-0', value: 'Profile'}),
+    /one root element/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {kind: 'element', key: 'profile'}),
     /one root element/,
   );
 });
