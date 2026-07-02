@@ -1,35 +1,43 @@
 # a3s-gui
 
-Rust-native GUI runtime for structured A3S UI frames.
+Rust-native GUI runtime for A3S UI frames.
 
-`a3s-gui` takes semantic UI data from Rust, protocol JSON, or JSX compiled by
-`@a3s-lab/gui`, lowers it into portable native UI IR, reconciles keyed trees,
-and emits commands for native hosts. It keeps useful Web, accessibility, style,
-and event metadata without embedding a browser, DOM, CSSOM, or WebView.
+`a3s-gui` turns structured UI input into native widget operations. It accepts
+Rust `NativeElement` trees, protocol JSON, or JSX emitted by `@a3s-lab/gui`,
+then lowers the tree into portable native UI IR, reconciles keyed updates, and
+drives a platform host.
+
+It is not a browser wrapper. There is no DOM, CSSOM, WebView, or browser layout
+contract. Web-style tags and props are accepted only when they can be projected
+into native roles, state, styles, accessibility hints, metadata, and action ids.
 
 ```text
-JSX / JSON / Rust tree
-  -> semantic bridge
-  -> NativeElement IR
-  -> keyed renderer
-  -> native host commands
-  -> action events
+JSX / JSON / Rust
+        |
+        v
+NativeElement IR
+        |
+        v
+keyed renderer
+        |
+        v
+NativeHost commands
+        |
+        v
+AppKit / WinUI / GTK4 / headless
 ```
 
-## Scope
+## What It Provides
 
-- Native UI IR for roles, props, style tokens, accessibility hints, action ids,
-  and stable keys.
-- Lowering for protocol frames, React Aria-style names, semantic names,
-  intrinsic HTML/SVG tags, Web props, and event props.
-- Keyed reconciliation, interaction state, event routing, action dispatch, and
-  accessibility tree projection.
-- Headless and planning hosts, plus AppKit, WinUI, and GTK4 surface adapters.
+- A typed native UI IR for roles, props, style tokens, accessibility data,
+  stable keys, and event actions.
+- Lowering from protocol frames, React Aria-style component names, semantic
+  names, HTML/SVG intrinsic tags, Web props, and event props.
+- A keyed renderer with incremental updates, event routing, interaction state,
+  and accessibility tree projection.
+- Headless and planning hosts for tests, plus AppKit, WinUI, and GTK4 adapters.
 
-It is not a browser compatibility layer. DOM access, browser layout APIs,
-arbitrary CSS selectors, and WebView-hosted apps are outside the contract.
-
-## Rust
+## Rust Example
 
 ```rust
 use a3s_gui::{
@@ -37,20 +45,20 @@ use a3s_gui::{
 };
 
 fn main() -> GuiResult<()> {
-    let root = NativeElement::new("save-button", NativeRole::Button).with_props(
+    let button = NativeElement::new("save-button", NativeRole::Button).with_props(
         NativeProps::new()
             .label("Save")
             .web(WebProps::new().on_press("saveDocument")),
     );
 
     let mut runtime = GuiRuntime::new(HeadlessHost::default());
-    runtime.render_native(&root)?;
+    runtime.render_native(&button)?;
 
     Ok(())
 }
 ```
 
-## JSX Protocol
+## JSX Protocol Example
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
@@ -75,21 +83,24 @@ The TypeScript package in [sdk/typescript](sdk/typescript) emits serializable
 | Feature | Purpose |
 | --- | --- |
 | `headless` | Pure Rust host for tests and protocol validation. |
-| `appkit` / `appkit-native` | macOS AppKit planning types and native surface. |
-| `winui` / `winui-native` | Windows App SDK planning types and native surface. |
-| `gtk4` / `gtk4-native` | GTK4 planning types and native surface. |
+| `appkit` | macOS AppKit planning types. |
+| `appkit-native` | macOS AppKit native surface. |
+| `winui` | Windows App SDK planning types. |
+| `winui-native` | Windows App SDK native surface. |
+| `gtk4` | GTK4 planning types. |
+| `gtk4-native` | GTK4 native surface. |
 
 Native feature flags are platform-specific. `gtk4-native` requires GTK4
 development libraries and `pkg-config`.
 
-## Docs
+## Repository Map
 
-- [docs/architecture.md](docs/architecture.md): runtime, renderer, host,
-  protocol, and platform boundaries.
-- [docs/web-authoring.md](docs/web-authoring.md): JSX tags, Web props, event
-  flow, and lowering rules.
-- [sdk/typescript/README.md](sdk/typescript/README.md): JSX runtime and protocol
-  helpers.
+- [docs/architecture.md](docs/architecture.md): runtime and platform boundary.
+- [docs/web-authoring.md](docs/web-authoring.md): JSX tags, Web props, and
+  lowering rules.
+- [sdk/typescript](sdk/typescript): JSX runtime and protocol types.
+- [src/platform](src/platform): platform planning adapters.
+- [src/backend](src/backend): command and handle driver abstractions.
 
 ## Validate
 
@@ -102,8 +113,11 @@ npm test --prefix sdk/typescript
 git diff --check
 ```
 
-Use native feature checks only on matching systems, for example
-`cargo check --features appkit-native` on macOS.
+Use native checks only on matching systems, for example:
+
+```bash
+cargo check --features appkit-native
+```
 
 ## Status
 
