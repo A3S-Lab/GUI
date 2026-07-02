@@ -22,6 +22,7 @@ pub struct Renderer {
 struct ReconcileRollback {
     new_mounts: Vec<MountedNode>,
     updated_props: Vec<(HostNodeId, NativeProps)>,
+    child_orders: Vec<(HostNodeId, Vec<HostNodeId>)>,
 }
 
 impl ReconcileRollback {
@@ -33,9 +34,23 @@ impl ReconcileRollback {
         self.updated_props.push((id, previous_props));
     }
 
+    fn record_child_order(&mut self, parent: HostNodeId, children: Vec<HostNodeId>) {
+        if self
+            .child_orders
+            .iter()
+            .any(|(recorded_parent, _)| *recorded_parent == parent)
+        {
+            return;
+        }
+        self.child_orders.push((parent, children));
+    }
+
     fn rollback<H: NativeHost>(&mut self, host: &mut H) {
         for mounted in std::mem::take(&mut self.new_mounts).into_iter().rev() {
             best_effort_unmount_node(mounted, host);
+        }
+        for (parent, children) in std::mem::take(&mut self.child_orders).into_iter().rev() {
+            restore_child_order(parent, children, host);
         }
         for (id, props) in std::mem::take(&mut self.updated_props).into_iter().rev() {
             let _ = host.update(id, &props);
@@ -269,6 +284,10 @@ fn reconcile_children<H: NativeHost>(
     rollback: &mut ReconcileRollback,
 ) -> GuiResult<Vec<MountedNode>> {
     let mut mounted_children = Vec::with_capacity(new_children.len());
+    let previous_child_order = old_children
+        .iter()
+        .map(|child| child.id)
+        .collect::<Vec<_>>();
     let mut old_by_key: BTreeMap<ElementKey, (usize, MountedNode)> = old_children
         .into_iter()
         .enumerate()
@@ -282,6 +301,7 @@ fn reconcile_children<H: NativeHost>(
                 let mounted =
                     reconcile_node(Some(parent), index, old_child, new_child, host, rollback)?;
                 if mounted.id == old_id && old_index != index {
+                    rollback.record_child_order(parent, previous_child_order.clone());
                     host.insert_child(parent, mounted.id, index)?;
                 }
                 mounted_children.push(mounted);
@@ -301,6 +321,12 @@ fn reconcile_children<H: NativeHost>(
     }
 
     Ok(mounted_children)
+}
+
+fn restore_child_order<H: NativeHost>(parent: HostNodeId, children: Vec<HostNodeId>, host: &mut H) {
+    for (index, child) in children.into_iter().enumerate() {
+        let _ = host.insert_child(parent, child, index);
+    }
 }
 
 fn unmount_node<H: NativeHost>(node: MountedNode, host: &mut H) -> GuiResult<()> {
@@ -597,6 +623,42 @@ mod tests {
             host.node(first_child).unwrap().props.label.as_deref(),
             Some("Old")
         );
+    }
+
+    #[test]
+    fn renderer_rolls_back_child_reorder_after_later_create_failure() {
+        let first = NativeElement::new("root", NativeRole::View)
+            .child(
+                NativeElement::new("a", NativeRole::Button)
+                    .with_props(NativeProps::new().label("A")),
+            )
+            .child(
+                NativeElement::new("b", NativeRole::Button)
+                    .with_props(NativeProps::new().label("B")),
+            );
+        let second = NativeElement::new("root", NativeRole::View)
+            .child(
+                NativeElement::new("b", NativeRole::Button)
+                    .with_props(NativeProps::new().label("B")),
+            )
+            .child(
+                NativeElement::new("a", NativeRole::Button)
+                    .with_props(NativeProps::new().label("A")),
+            )
+            .child(NativeElement::new("c", NativeRole::Button));
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost::default();
+
+        let root_id = renderer.render(&first, &mut host).unwrap();
+        let original_children = host.node(root_id).unwrap().children.clone();
+        host.fail_create_call = Some(host.create_calls + 1);
+        let error = renderer.render(&second, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host create failure"));
+        assert_eq!(renderer.mounted_node_ids().len(), 3);
+        assert_eq!(host.nodes().len(), 3);
+        assert_eq!(host.root(), Some(root_id));
+        assert_eq!(host.node(root_id).unwrap().children, original_children);
     }
 
     #[test]
