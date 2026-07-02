@@ -137,10 +137,16 @@ fn apply_selection(role: NativeRole, event: &NativeEvent, state: &mut Interactio
     match role {
         NativeRole::ListBoxItem | NativeRole::Tab | NativeRole::MenuItem => {
             state.selected = true;
+            if let Some(value) = &event.value {
+                state.value = Some(value.clone());
+            }
         }
         NativeRole::Radio => {
             state.selected = true;
             state.checked = Some(true);
+            if let Some(value) = &event.value {
+                state.value = Some(value.clone());
+            }
         }
         NativeRole::Select | NativeRole::ListBox | NativeRole::Tabs | NativeRole::RadioGroup => {
             state.value = event.value.clone();

@@ -45,6 +45,14 @@ impl Renderer {
         }
         ids
     }
+
+    pub fn ancestor_ids(&self, node: HostNodeId) -> Vec<HostNodeId> {
+        let mut ancestors = Vec::new();
+        if let Some(root) = &self.root {
+            collect_ancestor_ids(root, node, &mut ancestors);
+        }
+        ancestors
+    }
 }
 
 fn collect_mounted_node_ids(node: &MountedNode, ids: &mut BTreeSet<HostNodeId>) {
@@ -52,6 +60,25 @@ fn collect_mounted_node_ids(node: &MountedNode, ids: &mut BTreeSet<HostNodeId>) 
     for child in &node.children {
         collect_mounted_node_ids(child, ids);
     }
+}
+
+fn collect_ancestor_ids(
+    node: &MountedNode,
+    target: HostNodeId,
+    ancestors: &mut Vec<HostNodeId>,
+) -> bool {
+    if node.id == target {
+        return true;
+    }
+
+    for child in &node.children {
+        if collect_ancestor_ids(child, target, ancestors) {
+            ancestors.push(node.id);
+            return true;
+        }
+    }
+
+    false
 }
 
 fn mount_node<H: NativeHost>(
@@ -217,5 +244,22 @@ mod tests {
         assert!(mounted.contains(&root_id));
         assert!(!mounted.contains(&removed));
         assert_eq!(mounted.len(), 3);
+    }
+
+    #[test]
+    fn ancestor_ids_return_nearest_parent_first() {
+        let tree = NativeElement::new("root", NativeRole::View).child(
+            NativeElement::new("group", NativeRole::View)
+                .child(NativeElement::new("save", NativeRole::Button)),
+        );
+        let mut renderer = Renderer::new();
+        let mut host = HeadlessHost::default();
+
+        let root_id = renderer.render(&tree, &mut host).unwrap();
+        let group_id = host.node(root_id).unwrap().children[0];
+        let save_id = host.node(group_id).unwrap().children[0];
+
+        assert_eq!(renderer.ancestor_ids(save_id), vec![group_id, root_id]);
+        assert!(renderer.ancestor_ids(root_id).is_empty());
     }
 }

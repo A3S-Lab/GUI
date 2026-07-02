@@ -224,6 +224,9 @@ supported semantic component trees, or native IR trees and renders them into any
 checked, selected, and expanded state from native events before action routing.
 `EventRouter` maps native events such as press, change, focus, and selection
 change back to serialized action identifiers such as `onClick` and `onChange`.
+Native event routing tries the target widget first, then mounted ancestors, so
+child widget callbacks can reach container-level handlers. Selection events
+without a value are normalized from the selected child's value or label.
 `ActionRegistry` records and validates those action ids before they are handed
 to the JavaScript state bridge. Hosts that implement `AccessibilityTreeHost`
 can expose the rendered tree through `GuiRuntime::accessibility_tree()` for

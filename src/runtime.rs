@@ -100,15 +100,38 @@ impl<H: NativeHost> GuiRuntime<H> {
         blueprint: &NativeWidgetBlueprint,
         event: NativeEvent,
     ) -> GuiResult<Option<ActionInvocation>> {
+        let event = normalize_event_value(blueprint, event);
+        self.handle_event_with_routes(blueprint, &[], event)
+    }
+
+    fn handle_event_with_routes(
+        &mut self,
+        blueprint: &NativeWidgetBlueprint,
+        route_blueprints: &[NativeWidgetBlueprint],
+        event: NativeEvent,
+    ) -> GuiResult<Option<ActionInvocation>> {
         self.refresh_stale_interaction_baseline(event.node, blueprint);
         let interaction_start = self.interaction_state.changes().len();
         self.interaction_state.apply_event(blueprint, &event);
         self.record_interaction_revisions(interaction_start);
-        let Some(invocation) = self.event_router.route(blueprint, &event) else {
+        let Some(invocation) = self.route_event(blueprint, route_blueprints, &event) else {
             return Ok(None);
         };
         self.action_registry.invoke(invocation.clone())?;
         Ok(Some(invocation))
+    }
+
+    fn route_event(
+        &self,
+        blueprint: &NativeWidgetBlueprint,
+        route_blueprints: &[NativeWidgetBlueprint],
+        event: &NativeEvent,
+    ) -> Option<ActionInvocation> {
+        self.event_router.route(blueprint, event).or_else(|| {
+            route_blueprints
+                .iter()
+                .find_map(|route_blueprint| self.event_router.route(route_blueprint, event))
+        })
     }
 
     fn refresh_stale_interaction_baseline(
@@ -155,18 +178,27 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         &mut self,
         event: NativeEvent,
     ) -> GuiResult<Option<ActionInvocation>> {
-        let blueprint = self.host.blueprint(event.node).cloned().ok_or_else(|| {
-            GuiError::host(format!("native node {} has no blueprint", event.node.get()))
-        })?;
-        self.handle_event(&blueprint, event)
+        Ok(self.handle_native_event_with_changes(event)?.invocation)
     }
 
     pub fn handle_native_event_with_changes(
         &mut self,
         event: NativeEvent,
     ) -> GuiResult<HandledNativeEvent> {
+        let blueprint = self.host.blueprint(event.node).cloned().ok_or_else(|| {
+            GuiError::host(format!("native node {} has no blueprint", event.node.get()))
+        })?;
+        let route_blueprints = self
+            .renderer
+            .ancestor_ids(event.node)
+            .into_iter()
+            .filter_map(|node| self.host.blueprint(node).cloned())
+            .collect::<Vec<_>>();
+        let event = normalize_event_value(&blueprint, event);
+
         let interaction_start = self.interaction_state.changes().len();
-        let invocation = self.handle_native_event(event.clone())?;
+        let invocation =
+            self.handle_event_with_routes(&blueprint, &route_blueprints, event.clone())?;
         let interaction_changes = self.interaction_state.changes()[interaction_start..].to_vec();
         Ok(HandledNativeEvent {
             event,
@@ -174,6 +206,20 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
             interaction_changes,
         })
     }
+}
+
+fn normalize_event_value(blueprint: &NativeWidgetBlueprint, mut event: NativeEvent) -> NativeEvent {
+    if event.value.is_none() && event.kind == crate::event::NativeEventKind::SelectionChange {
+        event.value = selected_node_value(blueprint);
+    }
+    event
+}
+
+fn selected_node_value(blueprint: &NativeWidgetBlueprint) -> Option<String> {
+    if !is_selectable_native_role(blueprint.role) {
+        return None;
+    }
+    blueprint.value.clone().or_else(|| blueprint.label.clone())
 }
 
 impl<H: NativeHost + AccessibilityTreeHost> GuiRuntime<H> {
@@ -285,6 +331,11 @@ fn apply_latest_child_selection_to_children(
             if child.role == AccessibilityRole::RadioButton {
                 child.checked = Some(selected);
             }
+            if selected {
+                if let Some(value) = selected_accessibility_value(child) {
+                    node.value = Some(value);
+                }
+            }
         }
     }
 }
@@ -354,6 +405,20 @@ fn is_selectable_child(role: AccessibilityRole) -> bool {
             | AccessibilityRole::RadioButton
             | AccessibilityRole::Tab
     )
+}
+
+fn is_selectable_native_role(role: crate::native::NativeRole) -> bool {
+    matches!(
+        role,
+        crate::native::NativeRole::ListBoxItem
+            | crate::native::NativeRole::MenuItem
+            | crate::native::NativeRole::Radio
+            | crate::native::NativeRole::Tab
+    )
+}
+
+fn selected_accessibility_value(child: &AccessibilityNode) -> Option<String> {
+    child.value.clone().or_else(|| child.label.clone())
 }
 
 fn child_matches_selection_value(child: &AccessibilityNode, value: &str) -> bool {
@@ -1008,6 +1073,60 @@ mod tests {
             .unwrap();
 
         let accessibility = runtime.accessibility_tree().unwrap();
+        assert!(!accessibility.children[0].selected);
+        assert_eq!(accessibility.children[0].checked, Some(false));
+        assert!(accessibility.children[1].selected);
+        assert_eq!(accessibility.children[1].checked, Some(true));
+    }
+
+    #[test]
+    fn runtime_bubbles_child_selection_to_parent_action_with_value() {
+        let tree = NativeElement::new("theme", NativeRole::RadioGroup)
+            .with_props(
+                NativeProps::new()
+                    .label("Theme")
+                    .web(WebProps::new().on_selection_change("setTheme")),
+            )
+            .child(
+                NativeElement::new("light", NativeRole::Radio).with_props(
+                    NativeProps::new()
+                        .label("Light")
+                        .value("light")
+                        .selected(true)
+                        .checked(true),
+                ),
+            )
+            .child(
+                NativeElement::new("dark", NativeRole::Radio)
+                    .with_props(NativeProps::new().label("Dark").value("dark")),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setTheme");
+
+        let root_id = runtime.render_native(&tree).unwrap();
+        let radio_id = runtime.host().node(root_id).unwrap().children[1];
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                radio_id,
+                crate::event::NativeEventKind::SelectionChange,
+            ))
+            .unwrap();
+        let invocation = handled.invocation.unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("dark"));
+        assert_eq!(invocation.node, radio_id);
+        assert_eq!(invocation.action, "setTheme");
+        assert_eq!(invocation.value.as_deref(), Some("dark"));
+        assert_eq!(handled.interaction_changes.len(), 1);
+        assert_eq!(handled.interaction_changes[0].node, radio_id);
+        assert_eq!(
+            handled.interaction_changes[0].after.value.as_deref(),
+            Some("dark")
+        );
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert_eq!(accessibility.value.as_deref(), Some("dark"));
         assert!(!accessibility.children[0].selected);
         assert_eq!(accessibility.children[0].checked, Some(false));
         assert!(accessibility.children[1].selected);
