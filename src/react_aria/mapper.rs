@@ -636,6 +636,20 @@ fn native_props_from_aria(props: &AriaProps, label: Option<String>) -> NativePro
     native.rows = props.rows;
     native.cols = props.cols;
     native.size = props.size;
+    native.name = props.name.clone();
+    native.form = props.form.clone();
+    native.input_type = props.input_type.clone();
+    native.accept = props.accept.clone();
+    native.capture = props.capture.clone();
+    native.alt = props.alt.clone();
+    native.src = props.src.clone();
+    native.list = props.list.clone();
+    native.dirname = props.dirname.clone();
+    native.form_action = props.form_action.clone();
+    native.form_enctype = props.form_enctype.clone();
+    native.form_method = props.form_method.clone();
+    native.form_target = props.form_target.clone();
+    native.form_no_validate = props.form_no_validate;
     native.metadata = props.web.metadata();
     native.web = props.web.clone();
     native

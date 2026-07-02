@@ -166,6 +166,188 @@ fn lowers_common_html_form_control_attributes_to_native_state() {
 }
 
 #[test]
+fn lowers_html_form_submission_attributes_to_native_state() {
+    let bridge = ReactCompilerBridge::new();
+    let form = CompiledJsxNode::Element {
+        key: "profile-form".to_string(),
+        tag: "form".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("name".to_string(), "profile".to_string()),
+                ("action".to_string(), "/profiles".to_string()),
+                ("method".to_string(), "post".to_string()),
+                ("encType".to_string(), "multipart/form-data".to_string()),
+                ("target".to_string(), "_self".to_string()),
+                ("noValidate".to_string(), "true".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let file_input = CompiledJsxNode::Element {
+        key: "avatar".to_string(),
+        tag: "input".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("type".to_string(), "file".to_string()),
+                ("name".to_string(), "avatar".to_string()),
+                ("form".to_string(), "profile-form".to_string()),
+                ("accept".to_string(), "image/*".to_string()),
+                ("capture".to_string(), "environment".to_string()),
+                ("list".to_string(), "avatar-presets".to_string()),
+                ("dirname".to_string(), "avatar.dir".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let image_submit = CompiledJsxNode::Element {
+        key: "submit-image".to_string(),
+        tag: "input".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("type".to_string(), "image".to_string()),
+                ("alt".to_string(), "Upload profile".to_string()),
+                ("src".to_string(), "/submit.png".to_string()),
+                ("formAction".to_string(), "/profiles/avatar".to_string()),
+                ("formEncType".to_string(), "multipart/form-data".to_string()),
+                ("formMethod".to_string(), "post".to_string()),
+                ("formTarget".to_string(), "_blank".to_string()),
+                ("formNoValidate".to_string(), String::new()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let textarea = CompiledJsxNode::Element {
+        key: "bio".to_string(),
+        tag: "textarea".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("name".to_string(), "bio".to_string()),
+                ("form".to_string(), "profile-form".to_string()),
+                ("dirname".to_string(), "bio.dir".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let button = CompiledJsxNode::Element {
+        key: "publish".to_string(),
+        tag: "button".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("type".to_string(), "submit".to_string()),
+                ("name".to_string(), "publish".to_string()),
+                ("form".to_string(), "profile-form".to_string()),
+                ("formaction".to_string(), "/profiles/publish".to_string()),
+                (
+                    "formenctype".to_string(),
+                    "application/x-www-form-urlencoded".to_string(),
+                ),
+                ("formmethod".to_string(), "dialog".to_string()),
+                ("formtarget".to_string(), "_top".to_string()),
+                ("formnovalidate".to_string(), String::new()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let plain_button = CompiledJsxNode::Element {
+        key: "preview".to_string(),
+        tag: "button".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("type".to_string(), "button".to_string()),
+                ("formAction".to_string(), "/profiles/preview".to_string()),
+                ("formNoValidate".to_string(), String::new()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+
+    let native_form = bridge.lower_to_native(&form).unwrap();
+    let native_file = bridge.lower_to_native(&file_input).unwrap();
+    let native_image = bridge.lower_to_native(&image_submit).unwrap();
+    let native_textarea = bridge.lower_to_native(&textarea).unwrap();
+    let native_button = bridge.lower_to_native(&button).unwrap();
+    let native_plain_button = bridge.lower_to_native(&plain_button).unwrap();
+
+    assert_eq!(native_form.role, NativeRole::Form);
+    assert_eq!(native_form.props.name.as_deref(), Some("profile"));
+    assert_eq!(native_form.props.form_action.as_deref(), Some("/profiles"));
+    assert_eq!(native_form.props.form_method.as_deref(), Some("post"));
+    assert_eq!(
+        native_form.props.form_enctype.as_deref(),
+        Some("multipart/form-data")
+    );
+    assert_eq!(native_form.props.form_target.as_deref(), Some("_self"));
+    assert!(native_form.props.form_no_validate);
+
+    assert_eq!(native_file.role, NativeRole::TextField);
+    assert_eq!(native_file.props.name.as_deref(), Some("avatar"));
+    assert_eq!(native_file.props.form.as_deref(), Some("profile-form"));
+    assert_eq!(native_file.props.input_type.as_deref(), Some("file"));
+    assert_eq!(native_file.props.accept.as_deref(), Some("image/*"));
+    assert_eq!(native_file.props.capture.as_deref(), Some("environment"));
+    assert_eq!(native_file.props.list.as_deref(), Some("avatar-presets"));
+    assert_eq!(native_file.props.dirname.as_deref(), Some("avatar.dir"));
+
+    assert_eq!(native_image.role, NativeRole::Button);
+    assert_eq!(native_image.props.label.as_deref(), Some("Upload profile"));
+    assert_eq!(native_image.props.input_type.as_deref(), Some("image"));
+    assert_eq!(native_image.props.alt.as_deref(), Some("Upload profile"));
+    assert_eq!(native_image.props.src.as_deref(), Some("/submit.png"));
+    assert_eq!(
+        native_image.props.form_action.as_deref(),
+        Some("/profiles/avatar")
+    );
+    assert_eq!(
+        native_image.props.form_enctype.as_deref(),
+        Some("multipart/form-data")
+    );
+    assert_eq!(native_image.props.form_method.as_deref(), Some("post"));
+    assert_eq!(native_image.props.form_target.as_deref(), Some("_blank"));
+    assert!(native_image.props.form_no_validate);
+
+    assert_eq!(native_textarea.role, NativeRole::TextField);
+    assert_eq!(native_textarea.props.name.as_deref(), Some("bio"));
+    assert_eq!(native_textarea.props.form.as_deref(), Some("profile-form"));
+    assert_eq!(native_textarea.props.dirname.as_deref(), Some("bio.dir"));
+
+    assert_eq!(native_button.role, NativeRole::Button);
+    assert_eq!(native_button.props.name.as_deref(), Some("publish"));
+    assert_eq!(native_button.props.form.as_deref(), Some("profile-form"));
+    assert_eq!(native_button.props.input_type.as_deref(), Some("submit"));
+    assert_eq!(
+        native_button.props.form_action.as_deref(),
+        Some("/profiles/publish")
+    );
+    assert_eq!(
+        native_button.props.form_enctype.as_deref(),
+        Some("application/x-www-form-urlencoded")
+    );
+    assert_eq!(native_button.props.form_method.as_deref(), Some("dialog"));
+    assert_eq!(native_button.props.form_target.as_deref(), Some("_top"));
+    assert!(native_button.props.form_no_validate);
+
+    assert_eq!(native_plain_button.role, NativeRole::Button);
+    assert_eq!(
+        native_plain_button.props.input_type.as_deref(),
+        Some("button")
+    );
+    assert_eq!(native_plain_button.props.form_action, None);
+    assert!(!native_plain_button.props.form_no_validate);
+}
+
+#[test]
 fn preserves_explicit_html_textarea_values_over_child_text() {
     let bridge = ReactCompilerBridge::new();
     let textarea = CompiledJsxNode::Element {

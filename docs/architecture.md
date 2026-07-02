@@ -537,9 +537,10 @@ RGBA tokens when possible. Native CSS color functions such as `hwb(...)`,
 Tailwind color opacity modifiers are preserved for both base and variant
 utilities, including arbitrary color functions.
 Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
-`ring-*`, `inset-ring-*`, `outline-*`, `cursor-*`, `pointer-events-*`,
-`select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`, and `mask-*` project into
-the same declaration model.
+`shadow-(...)`, `shadow-(color:...)`, `inset-shadow-*`, `ring-*`,
+`inset-ring-*`, `outline-*`, `cursor-*`, `pointer-events-*`, `select-*`,
+`aspect-*`, `mix-blend-*`, `bg-blend-*`, and `mask-*` project into the same
+declaration model.
 Tailwind container marker utilities such as `@container`, `@container-size`,
 and named container forms project into container declarations. Container query
 variants such as `@md:` are stored in `variant_declarations`.

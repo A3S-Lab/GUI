@@ -253,7 +253,21 @@ fn widget_config_preserves_html_form_control_hints() {
             .max_length(Some(64))
             .rows(Some(6))
             .cols(Some(40))
-            .size(Some(32)),
+            .size(Some(32))
+            .name("email")
+            .form("profile-form")
+            .input_type("email")
+            .accept("image/*")
+            .capture("environment")
+            .alt("Profile photo")
+            .src("/photo.png")
+            .list("email-options")
+            .dirname("email.dir")
+            .form_action("/profiles")
+            .form_enctype("multipart/form-data")
+            .form_method("post")
+            .form_target("_blank")
+            .form_no_validate(true),
     );
 
     let config = AppKitAdapter.blueprint(&element).config();
@@ -270,6 +284,20 @@ fn widget_config_preserves_html_form_control_hints() {
     assert_eq!(config.rows, Some(6));
     assert_eq!(config.cols, Some(40));
     assert_eq!(config.size, Some(32));
+    assert_eq!(config.name.as_deref(), Some("email"));
+    assert_eq!(config.form.as_deref(), Some("profile-form"));
+    assert_eq!(config.input_type.as_deref(), Some("email"));
+    assert_eq!(config.accept.as_deref(), Some("image/*"));
+    assert_eq!(config.capture.as_deref(), Some("environment"));
+    assert_eq!(config.alt.as_deref(), Some("Profile photo"));
+    assert_eq!(config.src.as_deref(), Some("/photo.png"));
+    assert_eq!(config.list.as_deref(), Some("email-options"));
+    assert_eq!(config.dirname.as_deref(), Some("email.dir"));
+    assert_eq!(config.form_action.as_deref(), Some("/profiles"));
+    assert_eq!(config.form_enctype.as_deref(), Some("multipart/form-data"));
+    assert_eq!(config.form_method.as_deref(), Some("post"));
+    assert_eq!(config.form_target.as_deref(), Some("_blank"));
+    assert!(config.form_no_validate);
     assert!(setters.contains(&NativeWidgetSetter::SetReadOnly(true)));
     assert!(setters.contains(&NativeWidgetSetter::SetMultiple(true)));
     assert!(setters.contains(&NativeWidgetSetter::SetAutoFocus(true)));
@@ -285,6 +313,36 @@ fn widget_config_preserves_html_form_control_hints() {
     assert!(setters.contains(&NativeWidgetSetter::SetRows(Some(6))));
     assert!(setters.contains(&NativeWidgetSetter::SetCols(Some(40))));
     assert!(setters.contains(&NativeWidgetSetter::SetSize(Some(32))));
+    assert!(setters.contains(&NativeWidgetSetter::SetName(Some("email".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetForm(Some(
+        "profile-form".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetInputType(Some("email".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetAccept(Some("image/*".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetCapture(Some(
+        "environment".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetAlt(Some(
+        "Profile photo".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetSrc(Some("/photo.png".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetList(Some(
+        "email-options".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetDirname(Some(
+        "email.dir".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetFormAction(Some(
+        "/profiles".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetFormEnctype(Some(
+        "multipart/form-data".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetFormMethod(Some("post".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetFormTarget(Some(
+        "_blank".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetFormNoValidate(true)));
 }
 
 #[test]
@@ -295,6 +353,8 @@ fn widget_config_diff_reports_changed_native_setters() {
             .value("50")
             .range(Some(0.0), Some(100.0), Some(50.0))
             .step(Some(5.0))
+            .name("volume")
+            .form_action("/volume")
             .web(
                 WebProps::new()
                     .style("display", "flex")
@@ -308,6 +368,9 @@ fn widget_config_diff_reports_changed_native_setters() {
             .disabled(true)
             .range(Some(0.0), Some(100.0), Some(0.0))
             .step(Some(10.0))
+            .name("mute")
+            .form_action("/mute")
+            .form_no_validate(true)
             .web(
                 WebProps::new()
                     .style("display", "none")
@@ -345,6 +408,21 @@ fn widget_config_diff_reports_changed_native_setters() {
         patch.step.as_ref().map(|change| change.after),
         Some(Some(10.0))
     );
+    assert_eq!(
+        patch.name.as_ref().map(|change| change.after.as_deref()),
+        Some(Some("mute"))
+    );
+    assert_eq!(
+        patch
+            .form_action
+            .as_ref()
+            .map(|change| change.after.as_deref()),
+        Some(Some("/mute"))
+    );
+    assert_eq!(
+        patch.form_no_validate.as_ref().map(|change| change.after),
+        Some(true)
+    );
     assert!(patch.min.is_none());
     assert!(patch.max.is_none());
     assert!(patch.events.is_none());
@@ -356,6 +434,11 @@ fn widget_config_diff_reports_changed_native_setters() {
     assert!(setters.contains(&NativeWidgetSetter::SetVisible(false)));
     assert!(setters.contains(&NativeWidgetSetter::SetCurrent(Some(0.0))));
     assert!(setters.contains(&NativeWidgetSetter::SetStep(Some(10.0))));
+    assert!(setters.contains(&NativeWidgetSetter::SetName(Some("mute".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetFormAction(Some(
+        "/mute".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetFormNoValidate(true)));
     assert!(!setters.contains(&NativeWidgetSetter::SetMinimum(Some(0.0))));
     assert!(!setters.contains(&NativeWidgetSetter::SetMaximum(Some(100.0))));
     assert!(!setters

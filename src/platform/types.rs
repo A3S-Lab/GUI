@@ -68,6 +68,20 @@ pub struct NativeControlState {
     pub rows: Option<u32>,
     pub cols: Option<u32>,
     pub size: Option<u32>,
+    pub name: Option<String>,
+    pub form: Option<String>,
+    pub input_type: Option<String>,
+    pub accept: Option<String>,
+    pub capture: Option<String>,
+    pub alt: Option<String>,
+    pub src: Option<String>,
+    pub list: Option<String>,
+    pub dirname: Option<String>,
+    pub form_action: Option<String>,
+    pub form_enctype: Option<String>,
+    pub form_method: Option<String>,
+    pub form_target: Option<String>,
+    pub form_no_validate: bool,
 }
 
 impl NativeControlState {
@@ -96,6 +110,20 @@ impl NativeControlState {
             rows: props.rows,
             cols: props.cols,
             size: props.size,
+            name: props.name.clone(),
+            form: props.form.clone(),
+            input_type: props.input_type.clone(),
+            accept: props.accept.clone(),
+            capture: props.capture.clone(),
+            alt: props.alt.clone(),
+            src: props.src.clone(),
+            list: props.list.clone(),
+            dirname: props.dirname.clone(),
+            form_action: props.form_action.clone(),
+            form_enctype: props.form_enctype.clone(),
+            form_method: props.form_method.clone(),
+            form_target: props.form_target.clone(),
+            form_no_validate: props.form_no_validate,
         }
     }
 }

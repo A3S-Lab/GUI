@@ -49,6 +49,7 @@ impl CompiledProps {
         let html_string_value = html_string_value_state(tag, &web);
         let html_numeric_value = html_numeric_value_state(tag, &web, self.value.as_deref());
         let html_range_step = html_range_step_state(tag, &web);
+        let html_control = HtmlControlAliases::from_tag(tag, &web);
         let semantic = WebSemanticAliases::from_web(&web);
 
         let orientation = self.orientation.map(|orientation| match orientation {
@@ -90,6 +91,20 @@ impl CompiledProps {
         props.rows = semantic.rows;
         props.cols = semantic.cols;
         props.size = semantic.size;
+        props.name = html_control.name;
+        props.form = html_control.form;
+        props.input_type = html_control.input_type;
+        props.accept = html_control.accept;
+        props.capture = html_control.capture;
+        props.alt = html_control.alt;
+        props.src = html_control.src;
+        props.list = html_control.list;
+        props.dirname = html_control.dirname;
+        props.form_action = html_control.form_action;
+        props.form_enctype = html_control.form_enctype;
+        props.form_method = html_control.form_method;
+        props.form_target = html_control.form_target;
+        props.form_no_validate = html_control.form_no_validate;
         props
     }
 }
@@ -198,6 +213,104 @@ fn html_fallback_label(tag: &str, web: &WebProps, value: Option<&str>) -> Option
 }
 
 #[derive(Debug, Default)]
+struct HtmlControlAliases {
+    name: Option<String>,
+    form: Option<String>,
+    input_type: Option<String>,
+    accept: Option<String>,
+    capture: Option<String>,
+    alt: Option<String>,
+    src: Option<String>,
+    list: Option<String>,
+    dirname: Option<String>,
+    form_action: Option<String>,
+    form_enctype: Option<String>,
+    form_method: Option<String>,
+    form_target: Option<String>,
+    form_no_validate: bool,
+}
+
+impl HtmlControlAliases {
+    fn from_tag(tag: &str, web: &WebProps) -> Self {
+        let Some(tag) = canonical_html_tag(tag) else {
+            return Self::default();
+        };
+
+        let attributes = &web.attributes;
+        let mut aliases = Self::default();
+
+        if matches!(
+            tag,
+            "button" | "fieldset" | "input" | "object" | "output" | "select" | "textarea"
+        ) {
+            aliases.name = html_string_attribute(attributes, &["name"]);
+            aliases.form = html_string_attribute(attributes, &["form"]);
+        }
+
+        match tag {
+            "form" => {
+                aliases.name = html_string_attribute(attributes, &["name"]);
+                aliases.form_action = html_string_attribute(attributes, &["action"]);
+                aliases.form_enctype = html_string_attribute(attributes, &["enctype", "encType"]);
+                aliases.form_method = html_string_attribute(attributes, &["method"]);
+                aliases.form_target = html_string_attribute(attributes, &["target"]);
+                aliases.form_no_validate =
+                    bool_attribute(attributes, &["novalidate", "noValidate"]).unwrap_or(false);
+            }
+            "button" => {
+                aliases.input_type = html_string_attribute(attributes, &["type"]);
+                if html_button_is_submit(attributes) {
+                    aliases.read_submit_overrides(attributes);
+                }
+            }
+            "input" => {
+                aliases.input_type = html_string_attribute(attributes, &["type"]);
+                aliases.accept = html_string_attribute(attributes, &["accept"]);
+                aliases.capture = html_present_string_attribute(attributes, &["capture"]);
+                aliases.alt = html_string_attribute(attributes, &["alt"]);
+                aliases.src = html_string_attribute(attributes, &["src"]);
+                aliases.list = html_string_attribute(attributes, &["list"]);
+                aliases.dirname = html_string_attribute(attributes, &["dirname"]);
+                if html_input_is_submit(attributes) {
+                    aliases.read_submit_overrides(attributes);
+                }
+            }
+            "textarea" => {
+                aliases.dirname = html_string_attribute(attributes, &["dirname"]);
+            }
+            _ => {}
+        }
+
+        aliases
+    }
+
+    fn read_submit_overrides(&mut self, attributes: &BTreeMap<String, String>) {
+        self.form_action = html_string_attribute(attributes, &["formaction", "formAction"]);
+        self.form_enctype = html_string_attribute(attributes, &["formenctype", "formEncType"]);
+        self.form_method = html_string_attribute(attributes, &["formmethod", "formMethod"]);
+        self.form_target = html_string_attribute(attributes, &["formtarget", "formTarget"]);
+        self.form_no_validate =
+            bool_attribute(attributes, &["formnovalidate", "formNoValidate"]).unwrap_or(false);
+    }
+}
+
+fn html_button_is_submit(attributes: &BTreeMap<String, String>) -> bool {
+    match string_attribute(attributes, &["type"]) {
+        Some(value) => value.trim().eq_ignore_ascii_case("submit"),
+        None => true,
+    }
+}
+
+fn html_input_is_submit(attributes: &BTreeMap<String, String>) -> bool {
+    string_attribute(attributes, &["type"]).is_some_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "submit" | "image"
+        )
+    })
+}
+
+#[derive(Debug, Default)]
 struct WebSemanticAliases {
     disabled: Option<bool>,
     required: Option<bool>,
@@ -279,6 +392,17 @@ fn non_empty_string_attribute<'a>(
 
 fn non_empty_string_value(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn html_string_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<String> {
+    non_empty_string_attribute(attributes, names).map(str::to_string)
+}
+
+fn html_present_string_attribute(
+    attributes: &BTreeMap<String, String>,
+    names: &[&str],
+) -> Option<String> {
+    string_attribute(attributes, names).map(|value| value.trim().to_string())
 }
 
 fn bool_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<bool> {

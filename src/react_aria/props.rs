@@ -30,6 +30,20 @@ pub struct AriaProps {
     pub rows: Option<u32>,
     pub cols: Option<u32>,
     pub size: Option<u32>,
+    pub name: Option<String>,
+    pub form: Option<String>,
+    pub input_type: Option<String>,
+    pub accept: Option<String>,
+    pub capture: Option<String>,
+    pub alt: Option<String>,
+    pub src: Option<String>,
+    pub list: Option<String>,
+    pub dirname: Option<String>,
+    pub form_action: Option<String>,
+    pub form_enctype: Option<String>,
+    pub form_method: Option<String>,
+    pub form_target: Option<String>,
+    pub form_no_validate: bool,
     pub web: WebProps,
 }
 
@@ -63,6 +77,20 @@ impl Default for AriaProps {
             rows: None,
             cols: None,
             size: None,
+            name: None,
+            form: None,
+            input_type: None,
+            accept: None,
+            capture: None,
+            alt: None,
+            src: None,
+            list: None,
+            dirname: None,
+            form_action: None,
+            form_enctype: None,
+            form_method: None,
+            form_target: None,
+            form_no_validate: false,
             web: WebProps::default(),
         }
     }
@@ -197,6 +225,76 @@ impl AriaProps {
 
     pub fn size(mut self, size: Option<u32>) -> Self {
         self.size = size;
+        self
+    }
+
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    pub fn form(mut self, form: impl Into<String>) -> Self {
+        self.form = Some(form.into());
+        self
+    }
+
+    pub fn input_type(mut self, input_type: impl Into<String>) -> Self {
+        self.input_type = Some(input_type.into());
+        self
+    }
+
+    pub fn accept(mut self, accept: impl Into<String>) -> Self {
+        self.accept = Some(accept.into());
+        self
+    }
+
+    pub fn capture(mut self, capture: impl Into<String>) -> Self {
+        self.capture = Some(capture.into());
+        self
+    }
+
+    pub fn alt(mut self, alt: impl Into<String>) -> Self {
+        self.alt = Some(alt.into());
+        self
+    }
+
+    pub fn src(mut self, src: impl Into<String>) -> Self {
+        self.src = Some(src.into());
+        self
+    }
+
+    pub fn list(mut self, list: impl Into<String>) -> Self {
+        self.list = Some(list.into());
+        self
+    }
+
+    pub fn dirname(mut self, dirname: impl Into<String>) -> Self {
+        self.dirname = Some(dirname.into());
+        self
+    }
+
+    pub fn form_action(mut self, form_action: impl Into<String>) -> Self {
+        self.form_action = Some(form_action.into());
+        self
+    }
+
+    pub fn form_enctype(mut self, form_enctype: impl Into<String>) -> Self {
+        self.form_enctype = Some(form_enctype.into());
+        self
+    }
+
+    pub fn form_method(mut self, form_method: impl Into<String>) -> Self {
+        self.form_method = Some(form_method.into());
+        self
+    }
+
+    pub fn form_target(mut self, form_target: impl Into<String>) -> Self {
+        self.form_target = Some(form_target.into());
+        self
+    }
+
+    pub fn form_no_validate(mut self, form_no_validate: bool) -> Self {
+        self.form_no_validate = form_no_validate;
         self
     }
 

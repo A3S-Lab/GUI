@@ -52,6 +52,20 @@ pub struct NativeWidgetConfigPatch {
     pub rows: Option<NativeConfigValueChange<Option<u32>>>,
     pub cols: Option<NativeConfigValueChange<Option<u32>>>,
     pub size: Option<NativeConfigValueChange<Option<u32>>>,
+    pub name: Option<NativeConfigValueChange<Option<String>>>,
+    pub form: Option<NativeConfigValueChange<Option<String>>>,
+    pub input_type: Option<NativeConfigValueChange<Option<String>>>,
+    pub accept: Option<NativeConfigValueChange<Option<String>>>,
+    pub capture: Option<NativeConfigValueChange<Option<String>>>,
+    pub alt: Option<NativeConfigValueChange<Option<String>>>,
+    pub src: Option<NativeConfigValueChange<Option<String>>>,
+    pub list: Option<NativeConfigValueChange<Option<String>>>,
+    pub dirname: Option<NativeConfigValueChange<Option<String>>>,
+    pub form_action: Option<NativeConfigValueChange<Option<String>>>,
+    pub form_enctype: Option<NativeConfigValueChange<Option<String>>>,
+    pub form_method: Option<NativeConfigValueChange<Option<String>>>,
+    pub form_target: Option<NativeConfigValueChange<Option<String>>>,
+    pub form_no_validate: Option<NativeConfigValueChange<bool>>,
     pub web_style: Option<NativeConfigValueChange<BTreeMap<String, String>>>,
     pub portable_style: Option<NativeConfigValueChange<PortableStyle>>,
     pub events: Option<NativeConfigValueChange<BTreeMap<String, String>>>,
@@ -93,6 +107,20 @@ impl NativeWidgetConfigPatch {
             rows: diff_value(&before.rows, &after.rows),
             cols: diff_value(&before.cols, &after.cols),
             size: diff_value(&before.size, &after.size),
+            name: diff_value(&before.name, &after.name),
+            form: diff_value(&before.form, &after.form),
+            input_type: diff_value(&before.input_type, &after.input_type),
+            accept: diff_value(&before.accept, &after.accept),
+            capture: diff_value(&before.capture, &after.capture),
+            alt: diff_value(&before.alt, &after.alt),
+            src: diff_value(&before.src, &after.src),
+            list: diff_value(&before.list, &after.list),
+            dirname: diff_value(&before.dirname, &after.dirname),
+            form_action: diff_value(&before.form_action, &after.form_action),
+            form_enctype: diff_value(&before.form_enctype, &after.form_enctype),
+            form_method: diff_value(&before.form_method, &after.form_method),
+            form_target: diff_value(&before.form_target, &after.form_target),
+            form_no_validate: diff_value(&before.form_no_validate, &after.form_no_validate),
             web_style: diff_value(&before.web_style, &after.web_style),
             portable_style: diff_value(&before.portable_style, &after.portable_style),
             events: diff_value(&before.events, &after.events),
@@ -191,6 +219,44 @@ impl NativeWidgetConfigPatch {
         push_setter(&mut setters, &self.rows, NativeWidgetSetter::SetRows);
         push_setter(&mut setters, &self.cols, NativeWidgetSetter::SetCols);
         push_setter(&mut setters, &self.size, NativeWidgetSetter::SetSize);
+        push_setter(&mut setters, &self.name, NativeWidgetSetter::SetName);
+        push_setter(&mut setters, &self.form, NativeWidgetSetter::SetForm);
+        push_setter(
+            &mut setters,
+            &self.input_type,
+            NativeWidgetSetter::SetInputType,
+        );
+        push_setter(&mut setters, &self.accept, NativeWidgetSetter::SetAccept);
+        push_setter(&mut setters, &self.capture, NativeWidgetSetter::SetCapture);
+        push_setter(&mut setters, &self.alt, NativeWidgetSetter::SetAlt);
+        push_setter(&mut setters, &self.src, NativeWidgetSetter::SetSrc);
+        push_setter(&mut setters, &self.list, NativeWidgetSetter::SetList);
+        push_setter(&mut setters, &self.dirname, NativeWidgetSetter::SetDirname);
+        push_setter(
+            &mut setters,
+            &self.form_action,
+            NativeWidgetSetter::SetFormAction,
+        );
+        push_setter(
+            &mut setters,
+            &self.form_enctype,
+            NativeWidgetSetter::SetFormEnctype,
+        );
+        push_setter(
+            &mut setters,
+            &self.form_method,
+            NativeWidgetSetter::SetFormMethod,
+        );
+        push_setter(
+            &mut setters,
+            &self.form_target,
+            NativeWidgetSetter::SetFormTarget,
+        );
+        push_setter(
+            &mut setters,
+            &self.form_no_validate,
+            NativeWidgetSetter::SetFormNoValidate,
+        );
         push_setter(
             &mut setters,
             &self.web_style,

@@ -65,6 +65,12 @@ Common form-control attributes such as `readonly`/`readOnly`, `multiple`,
 `pattern`, `minlength`/`minLength`, `maxlength`/`maxLength`, `rows`, `cols`,
 and `size` are projected into native control-state fields and remain available
 as metadata for platform adapters.
+Form submission and media hints such as `name`, `form`, `type`, `accept`,
+`capture`, `alt`, `src`, `list`, `dirname`, `action`, `method`, `enctype`/
+`encType`, `target`, `novalidate`/`noValidate`, `formaction`/`formAction`,
+`formenctype`/`formEncType`, `formmethod`/`formMethod`, `formtarget`/
+`formTarget`, and `formnovalidate`/`formNoValidate` are projected into native
+control-state fields when they apply to the associated HTML form or control tag.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.

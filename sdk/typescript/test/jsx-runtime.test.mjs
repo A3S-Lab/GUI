@@ -250,10 +250,23 @@ test('intrinsic number input normalizes numeric value props', () => {
 test('intrinsic form control attributes preserve Web JSX names', () => {
   const root = jsx('input', {
     type: 'email',
+    name: 'email',
+    form: 'profile-form',
     readOnly: true,
     autoFocus: true,
     autoComplete: 'email',
     inputMode: 'email',
+    accept: 'image/*',
+    capture: 'environment',
+    alt: 'Profile photo',
+    src: '/photo.png',
+    list: 'email-options',
+    dirname: 'email.dir',
+    formAction: '/profiles',
+    formEncType: 'multipart/form-data',
+    formMethod: 'post',
+    formTarget: '_blank',
+    formNoValidate: true,
     pattern: '.+@example\\.com',
     minLength: 3,
     maxLength: 64,
@@ -261,9 +274,22 @@ test('intrinsic form control attributes preserve Web JSX names', () => {
   }, 'email');
 
   assert.equal(root.props.attributes.readOnly, 'true');
+  assert.equal(root.props.attributes.name, 'email');
+  assert.equal(root.props.attributes.form, 'profile-form');
   assert.equal(root.props.attributes.autoFocus, 'true');
   assert.equal(root.props.attributes.autoComplete, 'email');
   assert.equal(root.props.attributes.inputMode, 'email');
+  assert.equal(root.props.attributes.accept, 'image/*');
+  assert.equal(root.props.attributes.capture, 'environment');
+  assert.equal(root.props.attributes.alt, 'Profile photo');
+  assert.equal(root.props.attributes.src, '/photo.png');
+  assert.equal(root.props.attributes.list, 'email-options');
+  assert.equal(root.props.attributes.dirname, 'email.dir');
+  assert.equal(root.props.attributes.formAction, '/profiles');
+  assert.equal(root.props.attributes.formEncType, 'multipart/form-data');
+  assert.equal(root.props.attributes.formMethod, 'post');
+  assert.equal(root.props.attributes.formTarget, '_blank');
+  assert.equal(root.props.attributes.formNoValidate, 'true');
   assert.equal(root.props.attributes.pattern, '.+@example\\.com');
   assert.equal(root.props.attributes.minLength, '3');
   assert.equal(root.props.attributes.maxLength, '64');
