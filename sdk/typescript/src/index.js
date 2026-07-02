@@ -75,6 +75,7 @@ export function createUiFrame(frameId, root, options = {}) {
   if (!isCompiledElement(root)) {
     throw new Error(FRAME_ROOT_ERROR);
   }
+  validateCompiledNode(root);
   const actions = normalizeFrameActions(options.actions ?? collectActions(root));
   const window = options.window == null ? undefined : normalizeWindowOptions(options.window);
   return {
@@ -152,6 +153,46 @@ function isCompiledElement(node) {
     && node.kind === 'element'
     && typeof node.key === 'string'
     && typeof node.tag === 'string';
+}
+
+function validateCompiledNode(node) {
+  if (node == null || typeof node !== 'object' || Array.isArray(node)) {
+    throw new Error('a3s-gui compiled children need element or text nodes');
+  }
+  if (node.kind === 'element') {
+    if (typeof node.key !== 'string' || node.key.length === 0) {
+      throw new Error('a3s-gui compiled elements need non-empty string keys');
+    }
+    if (typeof node.tag !== 'string' || node.tag.length === 0) {
+      throw new Error('a3s-gui compiled elements need non-empty string tags');
+    }
+    validateCompiledChildren(node.children ?? []);
+    return;
+  }
+  if (node.kind === 'text') {
+    if (typeof node.key !== 'string' || node.key.length === 0) {
+      throw new Error('a3s-gui compiled text nodes need non-empty string keys');
+    }
+    if (typeof node.value !== 'string') {
+      throw new Error('a3s-gui compiled text nodes need string values');
+    }
+    return;
+  }
+  throw new Error('a3s-gui compiled children need element or text nodes');
+}
+
+function validateCompiledChildren(children) {
+  if (!Array.isArray(children)) {
+    throw new Error('a3s-gui compiled elements need array children');
+  }
+  const seen = new Set();
+  for (const child of children) {
+    validateCompiledNode(child);
+    if (seen.has(child.key)) {
+      throw new Error(`a3s-gui compiled sibling nodes need unique keys; duplicate key ${child.key}`);
+    }
+    seen.add(child.key);
+  }
 }
 
 export function createHostEvent(frameId, node, kind, value) {

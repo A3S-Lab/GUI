@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -7,7 +7,7 @@ mod props;
 
 use components::component_from_jsx_tag;
 
-use crate::error::GuiResult;
+use crate::error::{GuiError, GuiResult};
 use crate::native::NativeElement;
 use crate::react_aria::{AriaElement, ReactAriaMapper};
 
@@ -28,6 +28,56 @@ pub enum CompiledJsxNode {
         key: String,
         value: String,
     },
+}
+
+impl CompiledJsxNode {
+    pub fn validate(&self) -> GuiResult<()> {
+        match self {
+            CompiledJsxNode::Element {
+                key, tag, children, ..
+            } => {
+                if key.is_empty() {
+                    return Err(GuiError::invalid_tree(
+                        "a3s-gui compiled elements need non-empty keys",
+                    ));
+                }
+                if tag.is_empty() {
+                    return Err(GuiError::invalid_tree(
+                        "a3s-gui compiled elements need non-empty tags",
+                    ));
+                }
+                validate_compiled_children(children)
+            }
+            CompiledJsxNode::Text { key, .. } => {
+                if key.is_empty() {
+                    return Err(GuiError::invalid_tree(
+                        "a3s-gui compiled text nodes need non-empty keys",
+                    ));
+                }
+                Ok(())
+            }
+        }
+    }
+
+    fn key(&self) -> &str {
+        match self {
+            CompiledJsxNode::Element { key, .. } | CompiledJsxNode::Text { key, .. } => key,
+        }
+    }
+}
+
+fn validate_compiled_children(children: &[CompiledJsxNode]) -> GuiResult<()> {
+    let mut sibling_keys = BTreeSet::new();
+    for child in children {
+        child.validate()?;
+        let key = child.key();
+        if !sibling_keys.insert(key) {
+            return Err(GuiError::invalid_tree(format!(
+                "a3s-gui compiled sibling nodes need unique keys; duplicate key {key:?}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -274,6 +324,7 @@ impl ReactCompilerBridge {
     }
 
     pub fn lower_to_aria(&self, node: &CompiledJsxNode) -> GuiResult<AriaElement> {
+        node.validate()?;
         lower_node(node)
     }
 

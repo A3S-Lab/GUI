@@ -42,6 +42,42 @@ fn lowers_compiled_react_aria_button_json_to_native_button() {
 }
 
 #[test]
+fn rejects_unstable_compiled_node_identities() {
+    let duplicate_child_keys: CompiledJsxNode = serde_json::from_str(
+        r#"
+        {
+          "kind": "element",
+          "key": "toolbar",
+          "tag": "Toolbar",
+          "children": [
+            {"kind": "element", "key": "save", "tag": "Button"},
+            {"kind": "text", "key": "save", "value": "Save"}
+          ]
+        }
+        "#,
+    )
+    .unwrap();
+    let empty_tag = CompiledJsxNode::Element {
+        key: "empty-tag".to_string(),
+        tag: String::new(),
+        import_source: None,
+        props: CompiledProps::default(),
+        children: Vec::new(),
+    };
+
+    let bridge = ReactCompilerBridge::new();
+    let duplicate_error = bridge.lower_to_native(&duplicate_child_keys).unwrap_err();
+    let empty_tag_error = bridge.lower_to_native(&empty_tag).unwrap_err();
+
+    assert!(duplicate_error
+        .to_string()
+        .contains("sibling nodes need unique keys"));
+    assert!(empty_tag_error
+        .to_string()
+        .contains("compiled elements need non-empty tags"));
+}
+
+#[test]
 fn lowers_intrinsic_form_text_field_shape_to_native_text_field() {
     let compiled = CompiledJsxNode::Element {
         key: "email-field".to_string(),

@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::error::GuiResult;
+use crate::error::{GuiError, GuiResult};
 use crate::host::{HostNodeId, NativeHost};
 use crate::native::{ElementKey, NativeElement, NativeProps, NativeRole};
 
@@ -28,6 +28,7 @@ impl Renderer {
         element: &NativeElement,
         host: &mut H,
     ) -> GuiResult<HostNodeId> {
+        validate_native_tree(element)?;
         let mounted = match self.root.take() {
             Some(old) => reconcile_node(None, 0, old, element, host)?,
             None => mount_node(None, 0, element, host)?,
@@ -61,6 +62,26 @@ impl Renderer {
         }
         ancestors
     }
+}
+
+fn validate_native_tree(element: &NativeElement) -> GuiResult<()> {
+    if element.key.as_str().is_empty() {
+        return Err(GuiError::invalid_tree(
+            "a3s-gui native elements need non-empty keys",
+        ));
+    }
+
+    let mut sibling_keys = BTreeSet::new();
+    for child in &element.children {
+        validate_native_tree(child)?;
+        let key = child.key.as_str();
+        if !sibling_keys.insert(key) {
+            return Err(GuiError::invalid_tree(format!(
+                "a3s-gui native sibling elements need unique keys; duplicate key {key:?}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn collect_mounted_node_ids(node: &MountedNode, ids: &mut BTreeSet<HostNodeId>) {
@@ -237,6 +258,32 @@ mod tests {
             .map(|id| host.node(*id).unwrap().props.label.as_deref().unwrap())
             .collect();
         assert_eq!(labels, vec!["B", "A"]);
+    }
+
+    #[test]
+    fn renderer_rejects_unstable_native_keys_before_mounting() {
+        let mut renderer = Renderer::new();
+        let mut host = HeadlessHost::default();
+
+        let empty_key = NativeElement::new("", NativeRole::View);
+        let error = renderer.render(&empty_key, &mut host).unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("native elements need non-empty keys"));
+        assert!(host.operations().is_empty());
+
+        let duplicate_child_key = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("item", NativeRole::Button))
+            .child(NativeElement::new("item", NativeRole::Text));
+        let error = renderer
+            .render(&duplicate_child_key, &mut host)
+            .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("native sibling elements need unique keys"));
+        assert!(host.operations().is_empty());
     }
 
     #[test]

@@ -138,6 +138,7 @@ impl UiFrame {
                 "a3s-gui frames need one root element",
             ));
         }
+        self.root.validate()?;
         if self.actions.iter().any(|action| action.id.is_empty()) {
             return Err(GuiError::invalid_tree(
                 "a3s-gui frame actions need non-empty string ids",
@@ -664,6 +665,63 @@ mod tests {
             "#,
         )
         .unwrap();
+        let empty_element_key: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "empty-element-key",
+              "root": {
+                "kind": "element",
+                "key": "",
+                "tag": "Button"
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let empty_element_tag: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "empty-element-tag",
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": ""
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let empty_text_key: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "empty-text-key",
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "children": [{"kind": "text", "key": "", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let duplicate_child_key: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "duplicate-child-key",
+              "root": {
+                "kind": "element",
+                "key": "toolbar",
+                "tag": "Toolbar",
+                "children": [
+                  {"kind": "element", "key": "save", "tag": "Button"},
+                  {"kind": "element", "key": "save", "tag": "Button"}
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
         let negative_width: UiFrame = serde_json::from_str(
             r#"
             {
@@ -744,6 +802,36 @@ mod tests {
 
         let error = session.render_frame(&duplicate_action).unwrap_err();
         assert!(error.to_string().contains("frame actions need unique ids"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&empty_element_key).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("compiled elements need non-empty keys"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&empty_element_tag).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("compiled elements need non-empty tags"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&empty_text_key).unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("compiled text nodes need non-empty keys"));
+        assert_eq!(session.active_frame_id(), Some("valid"));
+        assert_eq!(session.root(), Some(rendered.root));
+        assert!(session.pending_commands().is_empty());
+
+        let error = session.render_frame(&duplicate_child_key).unwrap_err();
+        assert!(error.to_string().contains("sibling nodes need unique keys"));
         assert_eq!(session.active_frame_id(), Some("valid"));
         assert_eq!(session.root(), Some(rendered.root));
         assert!(session.pending_commands().is_empty());

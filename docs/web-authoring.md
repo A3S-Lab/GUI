@@ -331,7 +331,8 @@ id, a supported native event kind, and an optional string `value`.
 
 `frameId` must be a non-empty string, `root` must be a single compiled element,
 and explicit action ids must be non-empty and unique. Text nodes and fragment
-arrays are valid children, but not valid frame roots.
+arrays are valid children, but not valid frame roots. Every compiled node needs
+a non-empty key, element tags must be non-empty, and sibling keys must be unique.
 
 If labels are not needed, the TypeScript SDK can infer `UiFrame.actions` from
 the compiled event props. Explicit `defineAction(...)` calls are still useful

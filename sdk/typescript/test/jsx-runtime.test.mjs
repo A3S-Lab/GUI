@@ -948,6 +948,56 @@ test('frame roots must be a single compiled element', () => {
   );
 });
 
+test('compiled frame nodes must have stable identities', () => {
+  assert.throws(
+    () => createUiFrame('profile', {kind: 'element', key: '', tag: 'Group'}),
+    /elements need non-empty string keys/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {kind: 'element', key: 'profile', tag: ''}),
+    /elements need non-empty string tags/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      children: [{kind: 'text', key: '', value: 'Profile'}],
+    }),
+    /text nodes need non-empty string keys/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      children: [{kind: 'text', key: 'label', value: 42}],
+    }),
+    /text nodes need string values/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      children: {kind: 'text', key: 'label', value: 'Profile'},
+    }),
+    /array children/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', {
+      kind: 'element',
+      key: 'profile',
+      tag: 'Group',
+      children: [
+        {kind: 'element', key: 'save', tag: 'Button'},
+        {kind: 'text', key: 'save', value: 'Save'},
+      ],
+    }),
+    /sibling nodes need unique keys/,
+  );
+});
+
 test('frame actions must have stable ids', () => {
   const root = jsx(Group, {children: 'Profile'}, 'profile');
 
