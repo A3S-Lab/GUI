@@ -25,6 +25,10 @@ pub(super) struct WebSemanticAliases {
     pub(super) step_value: Option<f64>,
     pub(super) autocomplete: Option<String>,
     pub(super) input_mode: Option<String>,
+    pub(super) enter_key_hint: Option<String>,
+    pub(super) auto_capitalize: Option<String>,
+    pub(super) auto_correct: Option<String>,
+    pub(super) virtual_keyboard_policy: Option<String>,
     pub(super) pattern: Option<String>,
     pub(super) min_length: Option<u32>,
     pub(super) max_length: Option<u32>,
@@ -58,6 +62,23 @@ impl WebSemanticAliases {
                 .map(str::to_string),
             input_mode: non_empty_string_attribute(attributes, &["inputmode", "inputMode"])
                 .map(str::to_string),
+            enter_key_hint: non_empty_string_attribute(
+                attributes,
+                &["enterkeyhint", "enterKeyHint"],
+            )
+            .map(str::to_string),
+            auto_capitalize: non_empty_string_attribute(
+                attributes,
+                &["autocapitalize", "autoCapitalize"],
+            )
+            .map(str::to_string),
+            auto_correct: non_empty_string_attribute(attributes, &["autocorrect", "autoCorrect"])
+                .map(str::to_string),
+            virtual_keyboard_policy: non_empty_string_attribute(
+                attributes,
+                &["virtualkeyboardpolicy", "virtualKeyboardPolicy"],
+            )
+            .map(str::to_string),
             pattern: non_empty_string_attribute(attributes, &["pattern"]).map(str::to_string),
             min_length: u32_attribute(attributes, &["minlength", "minLength"]),
             max_length: u32_attribute(attributes, &["maxlength", "maxLength"]),

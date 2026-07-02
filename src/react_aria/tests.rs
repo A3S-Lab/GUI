@@ -8,8 +8,14 @@ use crate::renderer::Renderer;
 
 #[test]
 fn maps_button_to_native_button_with_accessibility_label() {
-    let aria = AriaElement::new("save", AriaComponent::Button)
-        .with_props(AriaProps::new().label("Save").action("save"));
+    let aria = AriaElement::new("save", AriaComponent::Button).with_props(
+        AriaProps::new()
+            .label("Save")
+            .action("save")
+            .labelled_by("save-label")
+            .pressed("false")
+            .has_popup("menu"),
+    );
 
     let native = ReactAriaMapper::new().map(&aria).unwrap();
 
@@ -20,6 +26,12 @@ fn maps_button_to_native_button_with_accessibility_label() {
     let accessibility = AccessibilityNode::from_native(&native);
     assert_eq!(accessibility.role, AccessibilityRole::Button);
     assert_eq!(accessibility.label.as_deref(), Some("Save"));
+    assert_eq!(
+        accessibility.relationships.labelled_by.as_deref(),
+        Some("save-label")
+    );
+    assert_eq!(accessibility.state.pressed.as_deref(), Some("false"));
+    assert_eq!(accessibility.state.has_popup.as_deref(), Some("menu"));
 }
 
 #[test]

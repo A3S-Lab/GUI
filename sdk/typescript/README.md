@@ -38,12 +38,26 @@ id.
 The runtime accepts React Aria-style state props such as `isDisabled` and HTML
 or ARIA aliases such as `disabled`, `required`, `aria-expanded`,
 `aria-selected`, `min`, `max`, `step`, and `aria-valuenow`; these normalize to
-the same native control-state fields consumed by the Rust renderer. Intrinsic
-global and form-control props such as `title`, `hidden`, `lang`, `dir`,
+the same native control-state fields consumed by the Rust renderer. ARIA
+relationship props such as `aria-labelledby`, `aria-describedby`, and
+`aria-controls` are preserved and projected into native accessibility
+relationship hints. ARIA description and value props such as `aria-description`,
+`aria-roledescription`, `aria-keyshortcuts`, and `aria-valuetext` are projected
+into native accessibility description hints. ARIA structure props such as
+`aria-level`, `aria-posinset`, `aria-setsize`, `aria-rowindex`, and
+`aria-colindex`, plus `aria-sort`, are projected into native accessibility
+structure hints. ARIA state and live-region props such as `aria-hidden`,
+`aria-autocomplete`, `aria-multiline`, `aria-current`, `aria-pressed`,
+`aria-haspopup`, `aria-live`, and `aria-busy` are preserved and projected into
+native accessibility state hints.
+Intrinsic global and form-control props such as `title`, `hidden`, `lang`, `dir`,
 `tabIndex`, `role`, `accessKey`, `contentEditable`, `draggable`, `spellCheck`,
-`translate`, `inert`, `popover`, `readOnly`, `multiple`, `autoFocus`,
-`autoComplete`, `inputMode`, `pattern`, `minLength`, `maxLength`, `rows`,
-`cols`, `size`, `formAction`, `formEncType`, `formMethod`, `formTarget`,
+`translate`, `inert`, `popover`, `anchor`, `is`, `nonce`, `readOnly`, `multiple`, `autoFocus`,
+`slot`, `part`, `exportParts`, `itemScope`, `itemProp`, `itemType`, `itemID`,
+`itemRef`, `autoComplete`, `inputMode`, `enterKeyHint`, `autoCapitalize`,
+`autoCorrect`, `virtualKeyboardPolicy`, `pattern`, `minLength`, `maxLength`,
+`rows`, `cols`, `size`, dialog `open`, `formAction`, `formEncType`,
+`formMethod`, `formTarget`,
 `formNoValidate`, `accept`, `capture`, `alt`, `href`, `src`, `srcSet`, `sizes`,
 `loading`, `decoding`, `fetchPriority`, `crossOrigin`, `referrerPolicy`,
 `poster`, `controls`, `autoPlay`, `playsInline`, `preload`, `srcLang`, `list`,
@@ -51,9 +65,12 @@ global and form-control props such as `title`, `hidden`, `lang`, `dir`,
 `reversed`, list `type`, `li value`, `download`, `ping`, `rel`, `hrefLang`,
 link `as`, `integrity`, `blocking`, `nonce`, `imageSrcSet`, `imageSizes`,
 script `async`, `defer`, `noModule`, iframe `allow`, `allowFullScreen`,
-`sandbox`, `srcDoc`, label `htmlFor`, output `for`, and meter `low`, `high`,
-and `optimum` are preserved with their Web JSX names and projected by the Rust
-bridge into native control, form association, and resource policy hints.
+`sandbox`, `srcDoc`, button `command`, `commandFor`, `popoverTarget`,
+`popoverTargetAction`, quote/change `cite`, change `dateTime`, time `dateTime`,
+label `htmlFor`, output `for`, and meter `low`, `high`, and `optimum` are
+preserved with their Web JSX names and projected by the Rust bridge into native
+control, activation, text annotation, form association, and resource policy
+hints.
 Marker
 exports include form and selection components such as `RadioGroup`, `Radio`,
 `Select`, `ListBoxItem`, `Dialog`, `Popover`, `Tabs`, `TabList`, `Tab`,
@@ -82,6 +99,9 @@ The emitted frame is plain JSON:
   }
 }
 ```
+
+The package also exports protocol types for native render responses, host event
+responses, and rendered accessibility trees with host node ids.
 
 ## Test
 

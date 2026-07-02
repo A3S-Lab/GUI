@@ -45,7 +45,10 @@ pub mod winui;
 #[cfg(all(feature = "winui-native", target_os = "windows"))]
 pub mod winui_native;
 
-pub use accessibility::{AccessibilityNode, AccessibilityRole};
+pub use accessibility::{
+    AccessibilityDescriptionProps, AccessibilityNode, AccessibilityRelationshipProps,
+    AccessibilityRole, AccessibilityStateProps, AccessibilityStructureProps, AccessibilityTreeHost,
+};
 #[cfg(all(feature = "appkit", target_os = "macos"))]
 pub use appkit::{
     AppKitCommandExecutor, AppKitHandleAdapter, AppKitHandleCommandExecutor, AppKitHandleDriver,
@@ -81,7 +84,8 @@ pub use gtk4_native::{
 };
 pub use host::{HeadlessHost, HostNodeId, HostOperation, NativeHost};
 pub use html::{
-    HtmlCollectionProps, HtmlFormAssociationProps, HtmlResourcePolicyProps,
+    HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
+    HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
     HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS, HTML_TAG_METADATA_KEY,
 };
 pub use interaction::{InteractionChange, InteractionNodeState, InteractionState};
@@ -93,8 +97,8 @@ pub use platform::{
     PlatformPlannedNode, PlatformPlanningHost, WinUiAdapter,
 };
 pub use protocol::{
-    HostEvent, HostEventResponse, NativeProtocolSession, NativeRenderResponse, RenderedFrame,
-    UiAction, UiFrame, WindowOptions,
+    HostEvent, HostEventResponse, NativeHostEventResponse, NativeProtocolSession,
+    NativeRenderResponse, RenderedFrame, UiAction, UiFrame, WindowOptions,
 };
 pub use react_aria::{AriaComponent, AriaElement, AriaProps, ReactAriaMapper};
 pub use renderer::Renderer;

@@ -2,9 +2,15 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::accessibility::AccessibilityRole;
+use crate::accessibility::{
+    AccessibilityDescriptionProps, AccessibilityRelationshipProps, AccessibilityRole,
+    AccessibilityStateProps, AccessibilityStructureProps,
+};
 use crate::geometry::Orientation;
-use crate::html::{HtmlCollectionProps, HtmlFormAssociationProps, HtmlResourcePolicyProps};
+use crate::html::{
+    HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
+    HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
+};
 use crate::native::NativeRole;
 use crate::platform::types::NativeBackendKind;
 use crate::style::PortableStyle;
@@ -47,6 +53,10 @@ pub struct NativeWidgetConfigPatch {
     pub step: Option<NativeConfigValueChange<Option<f64>>>,
     pub autocomplete: Option<NativeConfigValueChange<Option<String>>>,
     pub input_mode: Option<NativeConfigValueChange<Option<String>>>,
+    pub enter_key_hint: Option<NativeConfigValueChange<Option<String>>>,
+    pub auto_capitalize: Option<NativeConfigValueChange<Option<String>>>,
+    pub auto_correct: Option<NativeConfigValueChange<Option<String>>>,
+    pub virtual_keyboard_policy: Option<NativeConfigValueChange<Option<String>>>,
     pub pattern: Option<NativeConfigValueChange<Option<String>>>,
     pub min_length: Option<NativeConfigValueChange<Option<u32>>>,
     pub max_length: Option<NativeConfigValueChange<Option<u32>>>,
@@ -66,6 +76,9 @@ pub struct NativeWidgetConfigPatch {
     pub translate: Option<NativeConfigValueChange<Option<bool>>>,
     pub inert: Option<NativeConfigValueChange<bool>>,
     pub popover: Option<NativeConfigValueChange<Option<String>>>,
+    pub anchor: Option<NativeConfigValueChange<Option<String>>>,
+    pub custom_element_is: Option<NativeConfigValueChange<Option<String>>>,
+    pub nonce: Option<NativeConfigValueChange<Option<String>>>,
     pub name: Option<NativeConfigValueChange<Option<String>>>,
     pub form: Option<NativeConfigValueChange<Option<String>>>,
     pub input_type: Option<NativeConfigValueChange<Option<String>>>,
@@ -104,8 +117,18 @@ pub struct NativeWidgetConfigPatch {
     pub form_target: Option<NativeConfigValueChange<Option<String>>>,
     pub form_no_validate: Option<NativeConfigValueChange<bool>>,
     pub html_resource_policy: Option<NativeConfigValueChange<HtmlResourcePolicyProps>>,
+    pub html_activation: Option<NativeConfigValueChange<HtmlActivationProps>>,
+    pub html_text_annotation: Option<NativeConfigValueChange<HtmlTextAnnotationProps>>,
+    pub html_dialog: Option<NativeConfigValueChange<HtmlDialogProps>>,
+    pub html_shadow: Option<NativeConfigValueChange<HtmlShadowProps>>,
+    pub html_microdata: Option<NativeConfigValueChange<HtmlMicrodataProps>>,
     pub html_form_association: Option<NativeConfigValueChange<HtmlFormAssociationProps>>,
     pub html_collection: Option<NativeConfigValueChange<HtmlCollectionProps>>,
+    pub accessibility_relationships:
+        Option<NativeConfigValueChange<AccessibilityRelationshipProps>>,
+    pub accessibility_description: Option<NativeConfigValueChange<AccessibilityDescriptionProps>>,
+    pub accessibility_structure: Option<NativeConfigValueChange<AccessibilityStructureProps>>,
+    pub accessibility_state: Option<NativeConfigValueChange<AccessibilityStateProps>>,
     pub web_style: Option<NativeConfigValueChange<BTreeMap<String, String>>>,
     pub portable_style: Option<NativeConfigValueChange<PortableStyle>>,
     pub events: Option<NativeConfigValueChange<BTreeMap<String, String>>>,
@@ -141,6 +164,13 @@ impl NativeWidgetConfigPatch {
             step: diff_value(&before.step, &after.step),
             autocomplete: diff_value(&before.autocomplete, &after.autocomplete),
             input_mode: diff_value(&before.input_mode, &after.input_mode),
+            enter_key_hint: diff_value(&before.enter_key_hint, &after.enter_key_hint),
+            auto_capitalize: diff_value(&before.auto_capitalize, &after.auto_capitalize),
+            auto_correct: diff_value(&before.auto_correct, &after.auto_correct),
+            virtual_keyboard_policy: diff_value(
+                &before.virtual_keyboard_policy,
+                &after.virtual_keyboard_policy,
+            ),
             pattern: diff_value(&before.pattern, &after.pattern),
             min_length: diff_value(&before.min_length, &after.min_length),
             max_length: diff_value(&before.max_length, &after.max_length),
@@ -160,6 +190,9 @@ impl NativeWidgetConfigPatch {
             translate: diff_value(&before.translate, &after.translate),
             inert: diff_value(&before.inert, &after.inert),
             popover: diff_value(&before.popover, &after.popover),
+            anchor: diff_value(&before.anchor, &after.anchor),
+            custom_element_is: diff_value(&before.custom_element_is, &after.custom_element_is),
+            nonce: diff_value(&before.nonce, &after.nonce),
             name: diff_value(&before.name, &after.name),
             form: diff_value(&before.form, &after.form),
             input_type: diff_value(&before.input_type, &after.input_type),
@@ -201,11 +234,35 @@ impl NativeWidgetConfigPatch {
                 &before.html_resource_policy,
                 &after.html_resource_policy,
             ),
+            html_activation: diff_value(&before.html_activation, &after.html_activation),
+            html_text_annotation: diff_value(
+                &before.html_text_annotation,
+                &after.html_text_annotation,
+            ),
+            html_dialog: diff_value(&before.html_dialog, &after.html_dialog),
+            html_shadow: diff_value(&before.html_shadow, &after.html_shadow),
+            html_microdata: diff_value(&before.html_microdata, &after.html_microdata),
             html_form_association: diff_value(
                 &before.html_form_association,
                 &after.html_form_association,
             ),
             html_collection: diff_value(&before.html_collection, &after.html_collection),
+            accessibility_relationships: diff_value(
+                &before.accessibility_relationships,
+                &after.accessibility_relationships,
+            ),
+            accessibility_description: diff_value(
+                &before.accessibility_description,
+                &after.accessibility_description,
+            ),
+            accessibility_structure: diff_value(
+                &before.accessibility_structure,
+                &after.accessibility_structure,
+            ),
+            accessibility_state: diff_value(
+                &before.accessibility_state,
+                &after.accessibility_state,
+            ),
             web_style: diff_value(&before.web_style, &after.web_style),
             portable_style: diff_value(&before.portable_style, &after.portable_style),
             events: diff_value(&before.events, &after.events),
@@ -290,6 +347,26 @@ impl NativeWidgetConfigPatch {
             &self.input_mode,
             NativeWidgetSetter::SetInputMode,
         );
+        push_setter(
+            &mut setters,
+            &self.enter_key_hint,
+            NativeWidgetSetter::SetEnterKeyHint,
+        );
+        push_setter(
+            &mut setters,
+            &self.auto_capitalize,
+            NativeWidgetSetter::SetAutoCapitalize,
+        );
+        push_setter(
+            &mut setters,
+            &self.auto_correct,
+            NativeWidgetSetter::SetAutoCorrect,
+        );
+        push_setter(
+            &mut setters,
+            &self.virtual_keyboard_policy,
+            NativeWidgetSetter::SetVirtualKeyboardPolicy,
+        );
         push_setter(&mut setters, &self.pattern, NativeWidgetSetter::SetPattern);
         push_setter(
             &mut setters,
@@ -345,6 +422,13 @@ impl NativeWidgetConfigPatch {
         );
         push_setter(&mut setters, &self.inert, NativeWidgetSetter::SetInert);
         push_setter(&mut setters, &self.popover, NativeWidgetSetter::SetPopover);
+        push_setter(&mut setters, &self.anchor, NativeWidgetSetter::SetAnchor);
+        push_setter(
+            &mut setters,
+            &self.custom_element_is,
+            NativeWidgetSetter::SetCustomElementIs,
+        );
+        push_setter(&mut setters, &self.nonce, NativeWidgetSetter::SetNonce);
         push_setter(&mut setters, &self.name, NativeWidgetSetter::SetName);
         push_setter(&mut setters, &self.form, NativeWidgetSetter::SetForm);
         push_setter(
@@ -469,6 +553,31 @@ impl NativeWidgetConfigPatch {
         );
         push_setter(
             &mut setters,
+            &self.html_activation,
+            NativeWidgetSetter::SetHtmlActivation,
+        );
+        push_setter(
+            &mut setters,
+            &self.html_text_annotation,
+            NativeWidgetSetter::SetHtmlTextAnnotation,
+        );
+        push_setter(
+            &mut setters,
+            &self.html_dialog,
+            NativeWidgetSetter::SetHtmlDialog,
+        );
+        push_setter(
+            &mut setters,
+            &self.html_shadow,
+            NativeWidgetSetter::SetHtmlShadow,
+        );
+        push_setter(
+            &mut setters,
+            &self.html_microdata,
+            NativeWidgetSetter::SetHtmlMicrodata,
+        );
+        push_setter(
+            &mut setters,
             &self.html_form_association,
             NativeWidgetSetter::SetHtmlFormAssociation,
         );
@@ -476,6 +585,26 @@ impl NativeWidgetConfigPatch {
             &mut setters,
             &self.html_collection,
             NativeWidgetSetter::SetHtmlCollection,
+        );
+        push_setter(
+            &mut setters,
+            &self.accessibility_relationships,
+            NativeWidgetSetter::SetAccessibilityRelationships,
+        );
+        push_setter(
+            &mut setters,
+            &self.accessibility_description,
+            NativeWidgetSetter::SetAccessibilityDescription,
+        );
+        push_setter(
+            &mut setters,
+            &self.accessibility_structure,
+            NativeWidgetSetter::SetAccessibilityStructure,
+        );
+        push_setter(
+            &mut setters,
+            &self.accessibility_state,
+            NativeWidgetSetter::SetAccessibilityState,
         );
         push_setter(
             &mut setters,

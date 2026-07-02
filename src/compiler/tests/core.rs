@@ -106,7 +106,37 @@ fn lowers_web_and_aria_attribute_aliases_to_native_control_state() {
               "aria-orientation": "horizontal",
               "aria-valuemin": "0",
               "aria-valuemax": "100",
-              "aria-valuenow": "50"
+              "aria-valuenow": "50",
+              "aria-labelledby": "volume-label",
+              "aria-describedby": "volume-help",
+              "aria-controls": "volume-output",
+              "aria-description": "Volume in percent",
+              "aria-roledescription": "volume slider",
+              "aria-keyshortcuts": "Alt+ArrowUp",
+              "aria-valuetext": "Half volume",
+              "aria-level": "2",
+              "aria-posinset": "3",
+              "aria-setsize": "10",
+              "aria-rowcount": "20",
+              "aria-rowindex": "4",
+              "aria-rowspan": "2",
+              "aria-colcount": "6",
+              "aria-colindex": "5",
+              "aria-colspan": "3",
+              "aria-rowindextext": "Row four",
+              "aria-colindextext": "Column five",
+              "aria-sort": "ascending",
+              "aria-hidden": "false",
+              "aria-autocomplete": "list",
+              "aria-multiline": "true",
+              "aria-current": "page",
+              "aria-haspopup": "dialog",
+              "aria-pressed": "mixed",
+              "aria-live": "polite",
+              "aria-atomic": "true",
+              "aria-busy": "false",
+              "aria-relevant": "additions text",
+              "aria-modal": "true"
             }
           }
         }
@@ -130,6 +160,115 @@ fn lowers_web_and_aria_attribute_aliases_to_native_control_state() {
     assert_eq!(native.props.min, Some(0.0));
     assert_eq!(native.props.max, Some(100.0));
     assert_eq!(native.props.current, Some(50.0));
+    assert_eq!(
+        native
+            .props
+            .accessibility_relationships
+            .labelled_by
+            .as_deref(),
+        Some("volume-label")
+    );
+    assert_eq!(
+        native
+            .props
+            .accessibility_relationships
+            .described_by
+            .as_deref(),
+        Some("volume-help")
+    );
+    assert_eq!(
+        native.props.accessibility_relationships.controls.as_deref(),
+        Some("volume-output")
+    );
+    assert_eq!(
+        native
+            .props
+            .accessibility_description
+            .description
+            .as_deref(),
+        Some("Volume in percent")
+    );
+    assert_eq!(
+        native
+            .props
+            .accessibility_description
+            .role_description
+            .as_deref(),
+        Some("volume slider")
+    );
+    assert_eq!(
+        native
+            .props
+            .accessibility_description
+            .key_shortcuts
+            .as_deref(),
+        Some("Alt+ArrowUp")
+    );
+    assert_eq!(
+        native.props.accessibility_description.value_text.as_deref(),
+        Some("Half volume")
+    );
+    assert_eq!(native.props.accessibility_structure.level, Some(2));
+    assert_eq!(
+        native.props.accessibility_structure.position_in_set,
+        Some(3)
+    );
+    assert_eq!(native.props.accessibility_structure.set_size, Some(10));
+    assert_eq!(native.props.accessibility_structure.row_count, Some(20));
+    assert_eq!(native.props.accessibility_structure.row_index, Some(4));
+    assert_eq!(native.props.accessibility_structure.row_span, Some(2));
+    assert_eq!(native.props.accessibility_structure.column_count, Some(6));
+    assert_eq!(native.props.accessibility_structure.column_index, Some(5));
+    assert_eq!(native.props.accessibility_structure.column_span, Some(3));
+    assert_eq!(
+        native
+            .props
+            .accessibility_structure
+            .row_index_text
+            .as_deref(),
+        Some("Row four")
+    );
+    assert_eq!(
+        native
+            .props
+            .accessibility_structure
+            .column_index_text
+            .as_deref(),
+        Some("Column five")
+    );
+    assert_eq!(
+        native.props.accessibility_structure.sort.as_deref(),
+        Some("ascending")
+    );
+    assert_eq!(native.props.accessibility_state.hidden, Some(false));
+    assert_eq!(
+        native.props.accessibility_state.autocomplete.as_deref(),
+        Some("list")
+    );
+    assert_eq!(native.props.accessibility_state.multiline, Some(true));
+    assert_eq!(
+        native.props.accessibility_state.current.as_deref(),
+        Some("page")
+    );
+    assert_eq!(
+        native.props.accessibility_state.has_popup.as_deref(),
+        Some("dialog")
+    );
+    assert_eq!(
+        native.props.accessibility_state.pressed.as_deref(),
+        Some("mixed")
+    );
+    assert_eq!(
+        native.props.accessibility_state.live.as_deref(),
+        Some("polite")
+    );
+    assert_eq!(native.props.accessibility_state.atomic, Some(true));
+    assert_eq!(native.props.accessibility_state.busy, Some(false));
+    assert_eq!(
+        native.props.accessibility_state.relevant.as_deref(),
+        Some("additions text")
+    );
+    assert_eq!(native.props.accessibility_state.modal, Some(true));
 }
 
 #[test]

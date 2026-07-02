@@ -1,3 +1,4 @@
+use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
 use crate::error::GuiResult;
 use crate::event::NativeEvent;
 use crate::host::{HostNodeId, NativeHost};
@@ -54,6 +55,14 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor + NativeEventSource> NativeE
 {
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         self.executor.take_native_events()
+    }
+}
+
+impl<A: PlatformAdapter, E: PlatformCommandExecutor> AccessibilityTreeHost
+    for CommandExecutingHost<A, E>
+{
+    fn accessibility_tree(&self) -> Option<AccessibilityNode> {
+        self.planning.accessibility_tree()
     }
 }
 

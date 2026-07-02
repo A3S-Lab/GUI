@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
 use crate::error::{GuiError, GuiResult};
 use crate::host::{HostNodeId, NativeHost};
 use crate::native::{NativeElement, NativeProps};
@@ -92,6 +93,41 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         } else {
             Err(GuiError::host(format!("unknown host node id {}", id.get())))
         }
+    }
+
+    fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
+        let node = self.nodes.get(&id)?;
+        let state = &node.blueprint.control_state;
+        let children = node
+            .children
+            .iter()
+            .map(|child| self.accessibility_subtree(*child))
+            .collect::<Option<Vec<_>>>()?;
+
+        Some(AccessibilityNode {
+            node: Some(id),
+            role: node.blueprint.accessibility_role,
+            label: node.blueprint.label.clone(),
+            value: node.blueprint.value.clone(),
+            relationships: state.accessibility_relationships.clone(),
+            description: state.accessibility_description.clone(),
+            structure: state.accessibility_structure.clone(),
+            state: state.accessibility_state.clone(),
+            disabled: state.disabled,
+            required: state.required,
+            invalid: state.invalid,
+            focused: false,
+            selected: state.selected,
+            checked: state.checked,
+            expanded: state.expanded,
+            children,
+        })
+    }
+}
+
+impl<A: PlatformAdapter> AccessibilityTreeHost for PlatformPlanningHost<A> {
+    fn accessibility_tree(&self) -> Option<AccessibilityNode> {
+        self.root.and_then(|root| self.accessibility_subtree(root))
     }
 }
 

@@ -623,3 +623,47 @@ fn lowers_html_disclosure_figure_and_description_list_tags_to_native_roles() {
         Some("Intermediate representation")
     );
 }
+
+#[test]
+fn lowers_html_dialog_open_attribute_to_native_state() {
+    let bridge = ReactCompilerBridge::new();
+    let open_dialog = CompiledJsxNode::Element {
+        key: "settings-dialog".to_string(),
+        tag: "dialog".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([("open".to_string(), String::new())]),
+            ..CompiledProps::default()
+        },
+        children: vec![CompiledJsxNode::Text {
+            key: "settings-dialog-text".to_string(),
+            value: "Settings".to_string(),
+        }],
+    };
+    let closed_dialog = CompiledJsxNode::Element {
+        key: "help-dialog".to_string(),
+        tag: "dialog".to_string(),
+        import_source: None,
+        props: CompiledProps::default(),
+        children: vec![CompiledJsxNode::Text {
+            key: "help-dialog-text".to_string(),
+            value: "Help".to_string(),
+        }],
+    };
+
+    let native_open = bridge.lower_to_native(&open_dialog).unwrap();
+    let native_closed = bridge.lower_to_native(&closed_dialog).unwrap();
+
+    assert_eq!(native_open.role, NativeRole::Dialog);
+    assert_eq!(native_open.props.html_dialog.open, Some(true));
+    assert_eq!(
+        native_open
+            .props
+            .metadata
+            .get(HTML_TAG_METADATA_KEY)
+            .map(String::as_str),
+        Some("dialog")
+    );
+    assert_eq!(native_closed.role, NativeRole::Dialog);
+    assert_eq!(native_closed.props.html_dialog.open, Some(false));
+}

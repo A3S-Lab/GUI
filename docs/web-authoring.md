@@ -83,18 +83,27 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `style={{...}}` | preserved in `WebProps.style` and parsed into `PortableStyle` |
 | `aria-label` | used as the explicit native accessibility label before descendant text fallback |
 | `aria-*` | preserved as accessibility metadata; supported state attributes also feed native control state |
+| `aria-labelledby` / `aria-describedby` / `aria-details` / `aria-controls` / `aria-owns` / `aria-flowto` / `aria-errormessage` / `aria-activedescendant` | normalized to native accessibility relationship hints and preserved as metadata |
+| `aria-description` / `aria-roledescription` / `aria-keyshortcuts` / `aria-valuetext` | normalized to native accessibility description/value hints and preserved as metadata |
+| `aria-level` / `aria-posinset` / `aria-setsize` / `aria-rowcount` / `aria-rowindex` / `aria-rowspan` / `aria-colcount` / `aria-colindex` / `aria-colspan` / `aria-rowindextext` / `aria-colindextext` / `aria-sort` | normalized to native accessibility structure hints and preserved as metadata |
+| `aria-hidden` / `aria-autocomplete` / `aria-multiline` / `aria-current` / `aria-haspopup` / `aria-pressed` / `aria-live` / `aria-atomic` / `aria-busy` / `aria-relevant` / `aria-modal` | normalized to native accessibility state hints and preserved as metadata; `aria-hidden` does not change visual widget visibility |
 | `data-*` | preserved as metadata for testing, analytics, and automation |
 | `disabled` / `required` / `checked` / `selected` | normalized to React Aria-style native control state |
 | `min` / `max` / `aria-valuenow` | normalized to native ranged control state |
 | `readOnly` / `multiple` / `autoFocus` | normalized to native control state |
-| `autoComplete` / `inputMode` / `pattern` | normalized to native text-entry hints and preserved as metadata |
+| `autoComplete` / `inputMode` / `enterKeyHint` / `autoCapitalize` / `autoCorrect` / `virtualKeyboardPolicy` / `pattern` | normalized to native text-entry hints and preserved as metadata |
 | `minLength` / `maxLength` / `rows` / `cols` / `size` | normalized to native numeric control hints and preserved as metadata |
-| `title` / `hidden` / `lang` / `dir` / `tabIndex` / `role` / `accessKey` / `contentEditable` / `draggable` / `spellCheck` / `translate` / `inert` / `popover` | normalized to native global HTML hints and preserved as metadata; `hidden` also makes the native widget config invisible |
+| dialog `open` | normalized to native dialog visibility state when applicable |
+| `title` / `hidden` / `lang` / `dir` / `tabIndex` / `role` / `accessKey` / `contentEditable` / `draggable` / `spellCheck` / `translate` / `inert` / `popover` / `anchor` / `is` / global `nonce` | normalized to native global HTML hints and preserved as metadata; `hidden` also makes the native widget config invisible |
+| `slot` / `part` / `exportParts` | normalized to native shadow distribution and style-part hints when applicable |
+| `itemScope` / `itemProp` / `itemType` / `itemID` / `itemRef` | normalized to native microdata metadata hints when applicable |
 | `name` / `form` / `type` / `accept` / `capture` / `alt` / `src` / `list` / `dirname` | normalized to native HTML form and media control hints when applicable |
 | `action` / `method` / `encType` / `target` / `noValidate` / `formAction` / `formEncType` / `formMethod` / `formTarget` / `formNoValidate` | normalized to native form submission hints when applicable |
 | `href` / `srcSet` / `sizes` / `media` / `width` / `height` / `loading` / `decoding` / `fetchPriority` / `crossOrigin` / `referrerPolicy` | normalized to native media and resource loading hints when applicable |
 | `poster` / `controls` / `autoPlay` / `loop` / `muted` / `playsInline` / `preload` / `kind` / `srcLang` / `label` / `default` | normalized to native media playback and track hints when applicable |
 | `download` / `ping` / `rel` / `hrefLang` / link `as` / `integrity` / `blocking` / `nonce` / `imageSrcSet` / `imageSizes` / link `disabled` / script `async` / `defer` / `noModule` / iframe `allow` / `allowFullScreen` / `sandbox` / `srcDoc` | normalized to native resource policy hints when applicable |
+| button `command` / `commandFor` / `popoverTarget` / `popoverTargetAction` / input `popoverTarget` / `popoverTargetAction` | normalized to native activation and popover command hints when applicable |
+| quote/change `cite` / change `dateTime` / time `dateTime` | normalized to native text annotation citation and temporal hints when applicable |
 | label `htmlFor` / label `for` / output `for` / meter `low` / `high` / `optimum` | normalized to native form association and meter range metadata when applicable |
 | `colSpan` / `rowSpan` / `headers` / `scope` / `abbr` / `span` / `start` / `reversed` / list `type` / `li value` | normalized to native table and list structure hints when applicable |
 | `onClick` / `onPress` | normalized to the primary native action |

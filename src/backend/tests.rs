@@ -1,4 +1,5 @@
 use super::*;
+use crate::accessibility::AccessibilityRole;
 use crate::compiler::CompiledJsxNode;
 use crate::error::GuiResult;
 use crate::event::{NativeEvent, NativeEventKind};
@@ -521,6 +522,46 @@ fn command_executing_host_dispatches_driver_native_events_to_actions() {
 }
 
 #[test]
+fn command_executing_host_handles_unbound_native_events_without_invocation() {
+    let compiled: CompiledJsxNode = serde_json::from_str(
+        r#"
+            {
+              "kind": "element",
+              "key": "save",
+              "tag": "Button",
+              "props": {"events": {"onPress": "saveProfile"}},
+              "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+            }
+            "#,
+    )
+    .unwrap();
+    let executor = DriverCommandExecutor::new(TestWidgetDriver::default());
+    let host = CommandExecutingHost::new(Gtk4Adapter, executor);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("saveProfile");
+
+    let root_id = runtime.render_compiled(&compiled).unwrap();
+    runtime
+        .host_mut()
+        .executor_mut()
+        .driver_mut()
+        .events
+        .push(NativeEvent::new(root_id, NativeEventKind::Focus));
+    runtime
+        .host_mut()
+        .executor_mut()
+        .driver_mut()
+        .events
+        .push(NativeEvent::new(root_id, NativeEventKind::Press));
+
+    let invocations = runtime.handle_pending_native_events().unwrap();
+
+    assert_eq!(invocations.len(), 1);
+    assert_eq!(invocations[0].action, "saveProfile");
+    assert!(runtime.accessibility_tree().unwrap().focused);
+}
+
+#[test]
 fn command_executing_host_creates_backend_object_tree_from_compiled_jsx() {
     let compiled: CompiledJsxNode = serde_json::from_str(
         r#"
@@ -556,6 +597,45 @@ fn command_executing_host_creates_backend_object_tree_from_compiled_jsx() {
     assert_eq!(child.widget_class, "Microsoft.UI.Xaml.Controls.Button");
     assert_eq!(child.label.as_deref(), Some("Save"));
     assert_eq!(child.action.as_deref(), Some("saveProfile"));
+}
+
+#[test]
+fn command_executing_host_exposes_rendered_accessibility_tree() {
+    let compiled: CompiledJsxNode = serde_json::from_str(
+        r#"
+            {
+              "kind": "element",
+              "key": "save",
+              "tag": "Button",
+              "props": {
+                "attributes": {
+                  "aria-label": "Save profile",
+                  "aria-describedby": "save-help",
+                  "aria-description": "Writes profile changes",
+                  "aria-pressed": "false"
+                }
+              }
+            }
+            "#,
+    )
+    .unwrap();
+    let host = CommandExecutingHost::new(WinUiAdapter, RecordingBackend::default());
+    let mut runtime = GuiRuntime::new(host);
+
+    runtime.render_compiled(&compiled).unwrap();
+
+    let accessibility = runtime.accessibility_tree().unwrap();
+    assert_eq!(accessibility.role, AccessibilityRole::Button);
+    assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
+    assert_eq!(
+        accessibility.relationships.described_by.as_deref(),
+        Some("save-help")
+    );
+    assert_eq!(
+        accessibility.description.description.as_deref(),
+        Some("Writes profile changes")
+    );
+    assert_eq!(accessibility.state.pressed.as_deref(), Some("false"));
 }
 
 #[test]

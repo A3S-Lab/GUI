@@ -45,7 +45,11 @@ impl InteractionState {
         blueprint: &NativeWidgetBlueprint,
         event: &NativeEvent,
     ) -> Option<InteractionChange> {
-        let before = self.nodes.get(&event.node).cloned().unwrap_or_default();
+        let before = self
+            .nodes
+            .get(&event.node)
+            .cloned()
+            .unwrap_or_else(|| initial_state_from_blueprint(blueprint));
         let mut after = before.clone();
 
         match event.kind {
@@ -69,6 +73,16 @@ impl InteractionState {
         };
         self.changes.push(change.clone());
         Some(change)
+    }
+}
+
+fn initial_state_from_blueprint(blueprint: &NativeWidgetBlueprint) -> InteractionNodeState {
+    InteractionNodeState {
+        focused: false,
+        value: blueprint.value.clone(),
+        selected: blueprint.control_state.selected,
+        checked: blueprint.control_state.checked,
+        expanded: blueprint.control_state.expanded,
     }
 }
 
@@ -163,6 +177,24 @@ mod tests {
             )
             .unwrap();
 
+        assert_eq!(change.after.checked, Some(false));
+    }
+
+    #[test]
+    fn toggle_event_starts_from_blueprint_checked_state() {
+        let element = NativeElement::new("enabled", NativeRole::Switch)
+            .with_props(NativeProps::new().checked(true));
+        let blueprint = Gtk4Adapter.blueprint(&element);
+        let mut state = InteractionState::new();
+
+        let change = state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(2), NativeEventKind::Toggle),
+            )
+            .unwrap();
+
+        assert_eq!(change.before.checked, Some(true));
         assert_eq!(change.after.checked, Some(false));
     }
 

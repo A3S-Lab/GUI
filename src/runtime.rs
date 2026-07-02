@@ -1,9 +1,10 @@
+use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
 use crate::backend::NativeEventHost;
 use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
 use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, ActionRegistry, EventRouter, NativeEvent};
 use crate::host::{HostNodeId, NativeHost};
-use crate::interaction::InteractionState;
+use crate::interaction::{InteractionNodeState, InteractionState};
 use crate::native::NativeElement;
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::react_aria::{AriaElement, ReactAriaMapper};
@@ -72,13 +73,21 @@ impl<H: NativeHost> GuiRuntime<H> {
         blueprint: &NativeWidgetBlueprint,
         event: NativeEvent,
     ) -> GuiResult<ActionInvocation> {
+        self.handle_event(blueprint, event)?
+            .ok_or_else(|| GuiError::host("native event has no registered Web action"))
+    }
+
+    pub fn handle_event(
+        &mut self,
+        blueprint: &NativeWidgetBlueprint,
+        event: NativeEvent,
+    ) -> GuiResult<Option<ActionInvocation>> {
         self.interaction_state.apply_event(blueprint, &event);
-        let invocation = self
-            .event_router
-            .route(blueprint, &event)
-            .ok_or_else(|| GuiError::host("native event has no registered Web action"))?;
+        let Some(invocation) = self.event_router.route(blueprint, &event) else {
+            return Ok(None);
+        };
         self.action_registry.invoke(invocation.clone())?;
-        Ok(invocation)
+        Ok(Some(invocation))
     }
 
     pub fn into_host(self) -> H {
@@ -88,10 +97,57 @@ impl<H: NativeHost> GuiRuntime<H> {
 
 impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
     pub fn dispatch_native_event(&mut self, event: NativeEvent) -> GuiResult<ActionInvocation> {
+        self.handle_native_event(event)?
+            .ok_or_else(|| GuiError::host("native event has no registered Web action"))
+    }
+
+    pub fn handle_native_event(
+        &mut self,
+        event: NativeEvent,
+    ) -> GuiResult<Option<ActionInvocation>> {
         let blueprint = self.host.blueprint(event.node).cloned().ok_or_else(|| {
             GuiError::host(format!("native node {} has no blueprint", event.node.get()))
         })?;
-        self.dispatch_event(&blueprint, event)
+        self.handle_event(&blueprint, event)
+    }
+}
+
+impl<H: NativeHost + AccessibilityTreeHost> GuiRuntime<H> {
+    pub fn accessibility_tree(&self) -> Option<AccessibilityNode> {
+        let mut tree = self.host.accessibility_tree()?;
+        apply_interactions_to_accessibility_tree(&mut tree, &self.interaction_state);
+        Some(tree)
+    }
+}
+
+fn apply_interactions_to_accessibility_tree(
+    node: &mut AccessibilityNode,
+    interactions: &InteractionState,
+) {
+    if let Some(id) = node.node {
+        if let Some(state) = interactions.node(id) {
+            apply_interaction_state(node, state);
+        }
+    }
+
+    for child in &mut node.children {
+        apply_interactions_to_accessibility_tree(child, interactions);
+    }
+}
+
+fn apply_interaction_state(node: &mut AccessibilityNode, state: &InteractionNodeState) {
+    node.focused = state.focused;
+    if let Some(value) = &state.value {
+        node.value = Some(value.clone());
+    }
+    if state.selected {
+        node.selected = true;
+    }
+    if let Some(checked) = state.checked {
+        node.checked = Some(checked);
+    }
+    if let Some(expanded) = state.expanded {
+        node.expanded = Some(expanded);
     }
 }
 
@@ -103,12 +159,27 @@ impl<H: NativeHost + BlueprintHost + NativeEventHost> GuiRuntime<H> {
             .map(|event| self.dispatch_native_event(event))
             .collect()
     }
+
+    pub fn handle_pending_native_events(&mut self) -> GuiResult<Vec<ActionInvocation>> {
+        let events = self.host.take_native_events();
+        let mut invocations = Vec::new();
+        for event in events {
+            if let Some(invocation) = self.handle_native_event(event)? {
+                invocations.push(invocation);
+            }
+        }
+        Ok(invocations)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::accessibility::AccessibilityRole;
+    use crate::host::HeadlessHost;
+    use crate::native::{NativeElement, NativeProps, NativeRole};
     use crate::platform::{Gtk4Adapter, PlatformCommand, PlatformPlanningHost, WinUiAdapter};
+    use crate::web::WebProps;
 
     #[test]
     fn runtime_renders_compiled_jsx_to_platform_host() {
@@ -132,6 +203,133 @@ mod tests {
         let root = runtime.host().node(root_id).unwrap();
         assert_eq!(root.blueprint.widget_class, "gtk::Button");
         assert_eq!(root.blueprint.action.as_deref(), Some("saveDocument"));
+    }
+
+    #[test]
+    fn runtime_exports_headless_accessibility_tree() {
+        let root = NativeElement::new("dialog", NativeRole::Dialog)
+            .with_props(
+                NativeProps::new()
+                    .label("Preferences")
+                    .accessibility_description_text("Keyboard and display settings")
+                    .accessibility_level(Some(1))
+                    .modal(Some(true)),
+            )
+            .child(
+                NativeElement::new("close", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Close")
+                        .accessibility_controls("dialog")
+                        .pressed("false"),
+                ),
+            );
+        let mut runtime = GuiRuntime::new(HeadlessHost::default());
+
+        let root_id = runtime.render_native(&root).unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert_eq!(accessibility.node, Some(root_id));
+        assert_eq!(accessibility.role, AccessibilityRole::Dialog);
+        assert_eq!(accessibility.label.as_deref(), Some("Preferences"));
+        assert_eq!(
+            accessibility.description.description.as_deref(),
+            Some("Keyboard and display settings")
+        );
+        assert_eq!(accessibility.structure.level, Some(1));
+        assert_eq!(accessibility.state.modal, Some(true));
+        assert_eq!(accessibility.children.len(), 1);
+        assert!(accessibility.children[0].node.is_some());
+        assert_eq!(accessibility.children[0].role, AccessibilityRole::Button);
+        assert_eq!(accessibility.children[0].label.as_deref(), Some("Close"));
+        assert_eq!(
+            accessibility.children[0].relationships.controls.as_deref(),
+            Some("dialog")
+        );
+        assert_eq!(
+            accessibility.children[0].state.pressed.as_deref(),
+            Some("false")
+        );
+    }
+
+    #[test]
+    fn runtime_exports_platform_accessibility_tree_from_compiled_jsx() {
+        let compiled: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "preferences",
+              "tag": "Dialog",
+              "props": {
+                "attributes": {
+                  "aria-label": "Preferences",
+                  "aria-describedby": "preferences-help",
+                  "aria-description": "Keyboard and display settings",
+                  "aria-roledescription": "settings dialog",
+                  "aria-level": "2",
+                  "aria-posinset": "1",
+                  "aria-setsize": "3",
+                  "aria-hidden": "false",
+                  "aria-modal": "true",
+                  "aria-live": "polite"
+                }
+              },
+              "children": [
+                {
+                  "kind": "element",
+                  "key": "close",
+                  "tag": "Button",
+                  "props": {
+                    "attributes": {
+                      "aria-label": "Close",
+                      "aria-controls": "preferences",
+                      "aria-pressed": "false"
+                    }
+                  }
+                }
+              ]
+            }
+            "#,
+        )
+        .unwrap();
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_compiled(&compiled).unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert_eq!(accessibility.node, Some(root_id));
+        assert_eq!(accessibility.role, AccessibilityRole::Dialog);
+        assert_eq!(accessibility.label.as_deref(), Some("Preferences"));
+        assert_eq!(
+            accessibility.relationships.described_by.as_deref(),
+            Some("preferences-help")
+        );
+        assert_eq!(
+            accessibility.description.description.as_deref(),
+            Some("Keyboard and display settings")
+        );
+        assert_eq!(
+            accessibility.description.role_description.as_deref(),
+            Some("settings dialog")
+        );
+        assert_eq!(accessibility.structure.level, Some(2));
+        assert_eq!(accessibility.structure.position_in_set, Some(1));
+        assert_eq!(accessibility.structure.set_size, Some(3));
+        assert_eq!(accessibility.state.hidden, Some(false));
+        assert_eq!(accessibility.state.modal, Some(true));
+        assert_eq!(accessibility.state.live.as_deref(), Some("polite"));
+        assert_eq!(accessibility.children.len(), 1);
+        assert!(accessibility.children[0].node.is_some());
+        assert_eq!(accessibility.children[0].role, AccessibilityRole::Button);
+        assert_eq!(accessibility.children[0].label.as_deref(), Some("Close"));
+        assert_eq!(
+            accessibility.children[0].relationships.controls.as_deref(),
+            Some("preferences")
+        );
+        assert_eq!(
+            accessibility.children[0].state.pressed.as_deref(),
+            Some("false")
+        );
     }
 
     #[test]
@@ -163,6 +361,26 @@ mod tests {
 
         assert_eq!(invocation.action, "saveDocument");
         assert_eq!(runtime.actions().invocations().len(), 1);
+    }
+
+    #[test]
+    fn runtime_handles_state_event_without_registered_action() {
+        let element = NativeElement::new("save", NativeRole::Button)
+            .with_props(NativeProps::new().label("Save"));
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let invocation = runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+
+        assert!(invocation.is_none());
+        assert!(runtime.interactions().node(root_id).unwrap().focused);
+        assert!(runtime.accessibility_tree().unwrap().focused);
     }
 
     #[test]
@@ -207,6 +425,61 @@ mod tests {
                 .as_deref(),
             Some("a@b.c")
         );
+    }
+
+    #[test]
+    fn runtime_accessibility_tree_reflects_interaction_state() {
+        let tree = NativeElement::new("settings", NativeRole::Form)
+            .child(
+                NativeElement::new("email", NativeRole::TextField).with_props(
+                    NativeProps::new()
+                        .label("Email")
+                        .value("old@example.com")
+                        .web(WebProps::new().on_change("setEmail")),
+                ),
+            )
+            .child(
+                NativeElement::new("notifications", NativeRole::Switch).with_props(
+                    NativeProps::new()
+                        .label("Notifications")
+                        .checked(false)
+                        .web(WebProps::new().on_change("setNotifications")),
+                ),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setEmail");
+        runtime.actions_mut().register("setNotifications");
+
+        let root_id = runtime.render_native(&tree).unwrap();
+        let children = runtime.host().node(root_id).unwrap().children.clone();
+        let email = children[0];
+        let notifications = children[1];
+
+        runtime
+            .dispatch_native_event(
+                crate::event::NativeEvent::new(email, crate::event::NativeEventKind::Change)
+                    .value("new@example.com"),
+            )
+            .unwrap();
+        runtime
+            .dispatch_native_event(
+                crate::event::NativeEvent::new(
+                    notifications,
+                    crate::event::NativeEventKind::Toggle,
+                )
+                .value("true"),
+            )
+            .unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert_eq!(accessibility.children[0].node, Some(email));
+        assert_eq!(
+            accessibility.children[0].value.as_deref(),
+            Some("new@example.com")
+        );
+        assert_eq!(accessibility.children[1].node, Some(notifications));
+        assert_eq!(accessibility.children[1].checked, Some(true));
     }
 
     #[test]

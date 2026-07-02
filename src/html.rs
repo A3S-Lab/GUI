@@ -2,15 +2,25 @@ use std::collections::BTreeMap;
 
 use crate::react_aria::AriaComponent;
 
+mod activation;
 mod collections;
+mod dialog;
 mod form_association;
+mod microdata;
 mod registry;
 mod resource_policy;
+mod shadow;
+mod text_annotation;
 
+pub use activation::HtmlActivationProps;
 pub use collections::HtmlCollectionProps;
+pub use dialog::HtmlDialogProps;
 pub use form_association::HtmlFormAssociationProps;
+pub use microdata::HtmlMicrodataProps;
 pub use registry::{HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS};
 pub use resource_policy::HtmlResourcePolicyProps;
+pub use shadow::HtmlShadowProps;
+pub use text_annotation::HtmlTextAnnotationProps;
 
 pub const HTML_TAG_METADATA_KEY: &str = "data-a3s-html-tag";
 

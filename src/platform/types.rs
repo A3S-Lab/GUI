@@ -2,9 +2,15 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::accessibility::AccessibilityRole;
+use crate::accessibility::{
+    AccessibilityDescriptionProps, AccessibilityRelationshipProps, AccessibilityRole,
+    AccessibilityStateProps, AccessibilityStructureProps,
+};
 use crate::geometry::Orientation;
-use crate::html::{HtmlCollectionProps, HtmlFormAssociationProps, HtmlResourcePolicyProps};
+use crate::html::{
+    HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
+    HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
+};
 use crate::native::{NativeProps, NativeRole};
 use crate::style::PortableStyle;
 
@@ -63,6 +69,10 @@ pub struct NativeControlState {
     pub step: Option<f64>,
     pub autocomplete: Option<String>,
     pub input_mode: Option<String>,
+    pub enter_key_hint: Option<String>,
+    pub auto_capitalize: Option<String>,
+    pub auto_correct: Option<String>,
+    pub virtual_keyboard_policy: Option<String>,
     pub pattern: Option<String>,
     pub min_length: Option<u32>,
     pub max_length: Option<u32>,
@@ -82,6 +92,9 @@ pub struct NativeControlState {
     pub translate: Option<bool>,
     pub inert: bool,
     pub popover: Option<String>,
+    pub anchor: Option<String>,
+    pub custom_element_is: Option<String>,
+    pub nonce: Option<String>,
     pub name: Option<String>,
     pub form: Option<String>,
     pub input_type: Option<String>,
@@ -120,8 +133,17 @@ pub struct NativeControlState {
     pub form_target: Option<String>,
     pub form_no_validate: bool,
     pub html_resource_policy: HtmlResourcePolicyProps,
+    pub html_activation: HtmlActivationProps,
+    pub html_text_annotation: HtmlTextAnnotationProps,
+    pub html_dialog: HtmlDialogProps,
+    pub html_shadow: HtmlShadowProps,
+    pub html_microdata: HtmlMicrodataProps,
     pub html_form_association: HtmlFormAssociationProps,
     pub html_collection: HtmlCollectionProps,
+    pub accessibility_relationships: AccessibilityRelationshipProps,
+    pub accessibility_description: AccessibilityDescriptionProps,
+    pub accessibility_structure: AccessibilityStructureProps,
+    pub accessibility_state: AccessibilityStateProps,
 }
 
 impl NativeControlState {
@@ -144,6 +166,10 @@ impl NativeControlState {
             step: props.step,
             autocomplete: props.autocomplete.clone(),
             input_mode: props.input_mode.clone(),
+            enter_key_hint: props.enter_key_hint.clone(),
+            auto_capitalize: props.auto_capitalize.clone(),
+            auto_correct: props.auto_correct.clone(),
+            virtual_keyboard_policy: props.virtual_keyboard_policy.clone(),
             pattern: props.pattern.clone(),
             min_length: props.min_length,
             max_length: props.max_length,
@@ -163,6 +189,9 @@ impl NativeControlState {
             translate: props.translate,
             inert: props.inert,
             popover: props.popover.clone(),
+            anchor: props.anchor.clone(),
+            custom_element_is: props.custom_element_is.clone(),
+            nonce: props.nonce.clone(),
             name: props.name.clone(),
             form: props.form.clone(),
             input_type: props.input_type.clone(),
@@ -201,8 +230,17 @@ impl NativeControlState {
             form_target: props.form_target.clone(),
             form_no_validate: props.form_no_validate,
             html_resource_policy: props.html_resource_policy.clone(),
+            html_activation: props.html_activation.clone(),
+            html_text_annotation: props.html_text_annotation.clone(),
+            html_dialog: props.html_dialog.clone(),
+            html_shadow: props.html_shadow.clone(),
+            html_microdata: props.html_microdata.clone(),
             html_form_association: props.html_form_association.clone(),
             html_collection: props.html_collection.clone(),
+            accessibility_relationships: props.accessibility_relationships.clone(),
+            accessibility_description: props.accessibility_description.clone(),
+            accessibility_structure: props.accessibility_structure.clone(),
+            accessibility_state: props.accessibility_state.clone(),
         }
     }
 }

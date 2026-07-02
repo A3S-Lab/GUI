@@ -95,6 +95,10 @@ fn lowers_common_html_form_control_attributes_to_native_state() {
                 ("autofocus".to_string(), String::new()),
                 ("autocomplete".to_string(), "email".to_string()),
                 ("inputMode".to_string(), "email".to_string()),
+                ("enterKeyHint".to_string(), "send".to_string()),
+                ("autoCapitalize".to_string(), "sentences".to_string()),
+                ("autoCorrect".to_string(), "on".to_string()),
+                ("virtualKeyboardPolicy".to_string(), "manual".to_string()),
                 ("pattern".to_string(), ".+@example\\.com".to_string()),
                 ("minLength".to_string(), "3".to_string()),
                 ("maxLength".to_string(), "64".to_string()),
@@ -139,6 +143,16 @@ fn lowers_common_html_form_control_attributes_to_native_state() {
     assert!(native_input.props.auto_focus);
     assert_eq!(native_input.props.autocomplete.as_deref(), Some("email"));
     assert_eq!(native_input.props.input_mode.as_deref(), Some("email"));
+    assert_eq!(native_input.props.enter_key_hint.as_deref(), Some("send"));
+    assert_eq!(
+        native_input.props.auto_capitalize.as_deref(),
+        Some("sentences")
+    );
+    assert_eq!(native_input.props.auto_correct.as_deref(), Some("on"));
+    assert_eq!(
+        native_input.props.virtual_keyboard_policy.as_deref(),
+        Some("manual")
+    );
     assert_eq!(
         native_input.props.pattern.as_deref(),
         Some(".+@example\\.com")

@@ -1,3 +1,4 @@
+use crate::host::HostNodeId;
 use crate::native::{NativeElement, NativeRole};
 use serde::{Deserialize, Serialize};
 
@@ -128,28 +129,298 @@ pub enum AccessibilityRole {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AccessibilityRelationshipProps {
+    pub labelled_by: Option<String>,
+    pub described_by: Option<String>,
+    pub details: Option<String>,
+    pub controls: Option<String>,
+    pub owns: Option<String>,
+    pub flow_to: Option<String>,
+    pub error_message: Option<String>,
+    pub active_descendant: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessibilityDescriptionProps {
+    pub description: Option<String>,
+    pub role_description: Option<String>,
+    pub key_shortcuts: Option<String>,
+    pub value_text: Option<String>,
+}
+
+impl AccessibilityDescriptionProps {
+    pub fn description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    pub fn role_description(mut self, role_description: impl Into<String>) -> Self {
+        self.role_description = Some(role_description.into());
+        self
+    }
+
+    pub fn key_shortcuts(mut self, key_shortcuts: impl Into<String>) -> Self {
+        self.key_shortcuts = Some(key_shortcuts.into());
+        self
+    }
+
+    pub fn value_text(mut self, value_text: impl Into<String>) -> Self {
+        self.value_text = Some(value_text.into());
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessibilityStructureProps {
+    pub level: Option<u32>,
+    pub position_in_set: Option<i32>,
+    pub set_size: Option<i32>,
+    pub row_count: Option<i32>,
+    pub row_index: Option<i32>,
+    pub row_span: Option<u32>,
+    pub column_count: Option<i32>,
+    pub column_index: Option<i32>,
+    pub column_span: Option<u32>,
+    pub row_index_text: Option<String>,
+    pub column_index_text: Option<String>,
+    pub sort: Option<String>,
+}
+
+impl AccessibilityStructureProps {
+    pub fn level(mut self, level: Option<u32>) -> Self {
+        self.level = level;
+        self
+    }
+
+    pub fn position_in_set(mut self, position_in_set: Option<i32>) -> Self {
+        self.position_in_set = position_in_set;
+        self
+    }
+
+    pub fn set_size(mut self, set_size: Option<i32>) -> Self {
+        self.set_size = set_size;
+        self
+    }
+
+    pub fn row_count(mut self, row_count: Option<i32>) -> Self {
+        self.row_count = row_count;
+        self
+    }
+
+    pub fn row_index(mut self, row_index: Option<i32>) -> Self {
+        self.row_index = row_index;
+        self
+    }
+
+    pub fn row_span(mut self, row_span: Option<u32>) -> Self {
+        self.row_span = row_span;
+        self
+    }
+
+    pub fn column_count(mut self, column_count: Option<i32>) -> Self {
+        self.column_count = column_count;
+        self
+    }
+
+    pub fn column_index(mut self, column_index: Option<i32>) -> Self {
+        self.column_index = column_index;
+        self
+    }
+
+    pub fn column_span(mut self, column_span: Option<u32>) -> Self {
+        self.column_span = column_span;
+        self
+    }
+
+    pub fn row_index_text(mut self, row_index_text: impl Into<String>) -> Self {
+        self.row_index_text = Some(row_index_text.into());
+        self
+    }
+
+    pub fn column_index_text(mut self, column_index_text: impl Into<String>) -> Self {
+        self.column_index_text = Some(column_index_text.into());
+        self
+    }
+
+    pub fn sort(mut self, sort: impl Into<String>) -> Self {
+        self.sort = Some(sort.into());
+        self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessibilityStateProps {
+    pub hidden: Option<bool>,
+    pub autocomplete: Option<String>,
+    pub multiline: Option<bool>,
+    pub current: Option<String>,
+    pub has_popup: Option<String>,
+    pub pressed: Option<String>,
+    pub live: Option<String>,
+    pub atomic: Option<bool>,
+    pub busy: Option<bool>,
+    pub relevant: Option<String>,
+    pub modal: Option<bool>,
+}
+
+impl AccessibilityStateProps {
+    pub fn hidden(mut self, hidden: Option<bool>) -> Self {
+        self.hidden = hidden;
+        self
+    }
+
+    pub fn autocomplete(mut self, autocomplete: impl Into<String>) -> Self {
+        self.autocomplete = Some(autocomplete.into());
+        self
+    }
+
+    pub fn multiline(mut self, multiline: Option<bool>) -> Self {
+        self.multiline = multiline;
+        self
+    }
+
+    pub fn current(mut self, current: impl Into<String>) -> Self {
+        self.current = Some(current.into());
+        self
+    }
+
+    pub fn has_popup(mut self, has_popup: impl Into<String>) -> Self {
+        self.has_popup = Some(has_popup.into());
+        self
+    }
+
+    pub fn pressed(mut self, pressed: impl Into<String>) -> Self {
+        self.pressed = Some(pressed.into());
+        self
+    }
+
+    pub fn live(mut self, live: impl Into<String>) -> Self {
+        self.live = Some(live.into());
+        self
+    }
+
+    pub fn atomic(mut self, atomic: Option<bool>) -> Self {
+        self.atomic = atomic;
+        self
+    }
+
+    pub fn busy(mut self, busy: Option<bool>) -> Self {
+        self.busy = busy;
+        self
+    }
+
+    pub fn relevant(mut self, relevant: impl Into<String>) -> Self {
+        self.relevant = Some(relevant.into());
+        self
+    }
+
+    pub fn modal(mut self, modal: Option<bool>) -> Self {
+        self.modal = modal;
+        self
+    }
+}
+
+impl AccessibilityRelationshipProps {
+    pub fn labelled_by(mut self, labelled_by: impl Into<String>) -> Self {
+        self.labelled_by = Some(labelled_by.into());
+        self
+    }
+
+    pub fn described_by(mut self, described_by: impl Into<String>) -> Self {
+        self.described_by = Some(described_by.into());
+        self
+    }
+
+    pub fn details(mut self, details: impl Into<String>) -> Self {
+        self.details = Some(details.into());
+        self
+    }
+
+    pub fn controls(mut self, controls: impl Into<String>) -> Self {
+        self.controls = Some(controls.into());
+        self
+    }
+
+    pub fn owns(mut self, owns: impl Into<String>) -> Self {
+        self.owns = Some(owns.into());
+        self
+    }
+
+    pub fn flow_to(mut self, flow_to: impl Into<String>) -> Self {
+        self.flow_to = Some(flow_to.into());
+        self
+    }
+
+    pub fn error_message(mut self, error_message: impl Into<String>) -> Self {
+        self.error_message = Some(error_message.into());
+        self
+    }
+
+    pub fn active_descendant(mut self, active_descendant: impl Into<String>) -> Self {
+        self.active_descendant = Some(active_descendant.into());
+        self
+    }
+}
+
+impl Default for AccessibilityRelationshipProps {
+    fn default() -> Self {
+        Self {
+            labelled_by: None,
+            described_by: None,
+            details: None,
+            controls: None,
+            owns: None,
+            flow_to: None,
+            error_message: None,
+            active_descendant: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AccessibilityNode {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node: Option<HostNodeId>,
     pub role: AccessibilityRole,
     pub label: Option<String>,
     pub value: Option<String>,
+    pub relationships: AccessibilityRelationshipProps,
+    pub description: AccessibilityDescriptionProps,
+    pub structure: AccessibilityStructureProps,
+    pub state: AccessibilityStateProps,
     pub disabled: bool,
     pub required: bool,
     pub invalid: bool,
+    pub focused: bool,
     pub selected: bool,
     pub checked: Option<bool>,
     pub expanded: Option<bool>,
     pub children: Vec<AccessibilityNode>,
 }
 
+pub trait AccessibilityTreeHost {
+    fn accessibility_tree(&self) -> Option<AccessibilityNode>;
+}
+
 impl AccessibilityNode {
     pub fn from_native(element: &NativeElement) -> Self {
         Self {
+            node: None,
             role: accessibility_role(element.role),
             label: element.props.label.clone(),
             value: element.props.value.clone(),
+            relationships: element.props.accessibility_relationships.clone(),
+            description: element.props.accessibility_description.clone(),
+            structure: element.props.accessibility_structure.clone(),
+            state: element.props.accessibility_state.clone(),
             disabled: element.props.disabled,
             required: element.props.required,
             invalid: element.props.invalid,
+            focused: false,
             selected: element.props.selected,
             checked: element.props.checked,
             expanded: element.props.expanded,

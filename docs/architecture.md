@@ -128,19 +128,46 @@ numeric `value` or `defaultValue`, `min`, `max`, and `step` props are preserved
 as native control state. `input[type=button]`, `input[type=submit]`,
 `input[type=reset]`, and `input[type=image]` lower to native button roles with
 HTML fallback labels from `value`, default submit/reset labels, or image `alt`
-text. `input` and `textarea` `placeholder` attributes, plus `aria-placeholder`,
+text. HTML dialog `open` state projects into a structured `HtmlDialogProps`
+value and controls native widget visibility for intrinsic dialog elements.
+`input` and `textarea` `placeholder` attributes, plus `aria-placeholder`,
 project into native placeholder state. `textarea` direct text children project
 into native text-field value state when no explicit value is supplied. HTML
 form-control attributes including `readonly`/`readOnly`, `multiple`,
 `autofocus`/`autoFocus`, `autocomplete`/`autoComplete`,
-`inputmode`/`inputMode`, `pattern`, `minlength`/`minLength`,
-`maxlength`/`maxLength`, `rows`, `cols`, and `size` project into native
-control-state fields and stay available in metadata. HTML global attributes
-including `title`, `hidden`, `lang`, `dir`, `tabindex`/`tabIndex`, `role`,
+`inputmode`/`inputMode`, `enterkeyhint`/`enterKeyHint`,
+`autocapitalize`/`autoCapitalize`, `autocorrect`/`autoCorrect`,
+`virtualkeyboardpolicy`/`virtualKeyboardPolicy`, `pattern`,
+`minlength`/`minLength`, `maxlength`/`maxLength`, `rows`, `cols`, and `size`
+project into native control-state fields and stay available in metadata.
+ARIA relationship attributes including `aria-labelledby`, `aria-describedby`,
+`aria-details`, `aria-controls`, `aria-owns`, `aria-flowto`,
+`aria-errormessage`, and `aria-activedescendant` project into structured
+native accessibility relationship hints and stay available in metadata.
+ARIA description and value attributes including `aria-description`,
+`aria-roledescription`, `aria-keyshortcuts`, and `aria-valuetext` project into
+structured native accessibility description hints and stay available in metadata.
+ARIA structural attributes including `aria-level`, `aria-posinset`,
+`aria-setsize`, `aria-rowcount`, `aria-rowindex`, `aria-rowspan`,
+`aria-colcount`, `aria-colindex`, `aria-colspan`, `aria-rowindextext`, and
+`aria-colindextext`, plus `aria-sort`, project into structured native
+accessibility structure hints and stay available in metadata.
+ARIA state and live-region attributes including `aria-hidden`,
+`aria-autocomplete`, `aria-multiline`, `aria-current`, `aria-haspopup`,
+`aria-pressed`, `aria-live`, `aria-atomic`, `aria-busy`, `aria-relevant`, and
+`aria-modal` project into structured native accessibility state hints and stay
+available in metadata. `aria-hidden` is accessibility-only state and does not
+change native widget visibility.
+HTML global attributes including `title`, `hidden`, `lang`, `dir`, `tabindex`/`tabIndex`, `role`,
 `accesskey`/`accessKey`, `contenteditable`/`contentEditable`, `draggable`,
-`spellcheck`/`spellCheck`, `translate`, `inert`, and `popover` project into
-native fields and stay available in metadata. `hidden` also makes the native
-widget config invisible. Form submission attributes and overrides project into
+`spellcheck`/`spellCheck`, `translate`, `inert`, `popover`, `anchor`, `is`,
+and global `nonce` project into native fields and stay available in metadata. `hidden`
+also makes the native widget config invisible. Shadow DOM distribution and style-part attributes such
+as `slot`, `part`, and `exportparts`/`exportParts` project into a structured
+`HtmlShadowProps` value for native composition and styling adapters. Microdata
+attributes such as `itemscope`/`itemScope`, `itemprop`/`itemProp`,
+`itemtype`/`itemType`, `itemid`/`itemID`, and `itemref`/`itemRef` project into
+a structured `HtmlMicrodataProps` value for native metadata adapters. Form submission attributes and overrides project into
 native fields for matching form and submit-control tags. Media and resource
 attributes including `href`, `src`, `srcset`/`srcSet`,
 `sizes`, `media`, resource `type`, intrinsic `width`/`height`, `loading`,
@@ -159,19 +186,31 @@ into a structured `HtmlResourcePolicyProps` value for native resource loading,
 navigation, and embedding adapters. Form association and range metadata such as
 label `for`/`htmlFor`, output `for`/`htmlFor`, and meter `low`, `high`, and
 `optimum` project into a structured `HtmlFormAssociationProps` value for native
-accessibility and range adapters. HTML `option` and `data` `value`
+accessibility and range adapters. Activation attributes such as button
+`command`, `commandfor`/`commandFor`, `popovertarget`/`popoverTarget`, and
+`popovertargetaction`/`popoverTargetAction`, plus popover target attributes on
+button-like `input` controls, project into a structured `HtmlActivationProps`
+value for native command, popover, and action adapters. Text annotation
+attributes such as quote and change `cite`, change `datetime`/`dateTime`, and
+time `datetime`/`dateTime` project into a structured
+`HtmlTextAnnotationProps` value for native citation, provenance, and temporal
+adapters. HTML `option` and `data` `value`
 attributes project into native value state. Table and list structure attributes including
 `colspan`/`colSpan`, `rowspan`/`rowSpan`, `headers`, `scope`, `abbr`, `span`,
 `start`, `reversed`, list `type`, and list item `value` project into native
 fields for table cells, columns, column groups, ordered lists, and list items.
 The HTML prop lowering implementation is split under `src/compiler/props/` into
 shared attribute parsing, control/form aliases, global attributes,
-resource/media aliases, resource policy aliases, semantic state aliases,
-form association aliases, table/list structure aliases, and tag-specific native
-state rules. Shared resource policy, form association, and table/list hints are
-represented by `HtmlResourcePolicyProps`, `HtmlFormAssociationProps`, and
-`HtmlCollectionProps` under `src/html/`; native and React Aria builder methods
-for those grouped hints are split into dedicated submodules.
+resource/media aliases, activation aliases, text annotation aliases, dialog
+aliases, shadow/style-part aliases, microdata aliases, resource policy aliases,
+semantic state aliases, form association aliases, table/list structure aliases,
+and tag-specific native state rules. Shared activation, text annotation,
+dialog, shadow/style-part, microdata, resource policy, form association, and
+table/list hints are represented by `HtmlActivationProps`,
+`HtmlTextAnnotationProps`, `HtmlDialogProps`, `HtmlShadowProps`,
+`HtmlMicrodataProps`, `HtmlResourcePolicyProps`, `HtmlFormAssociationProps`,
+and `HtmlCollectionProps` under `src/html/`; native and React Aria builder
+methods for those grouped hints are split into dedicated submodules.
 Generic HTML containers lower to `NativeRole::View`; unsupported custom elements
 with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering
@@ -186,7 +225,11 @@ checked, selected, and expanded state from native events before action routing.
 `EventRouter` maps native events such as press, change, focus, and selection
 change back to serialized action identifiers such as `onClick` and `onChange`.
 `ActionRegistry` records and validates those action ids before they are handed
-to the JavaScript state bridge.
+to the JavaScript state bridge. Hosts that implement `AccessibilityTreeHost`
+can expose the rendered tree through `GuiRuntime::accessibility_tree()` for
+tests, protocol inspection, and native accessibility integration. Runtime export
+overlays interaction state, so changed values, checked state, selection, focus,
+and host node ids are visible to protocol consumers.
 
 CSS style attribute text is parsed by `src/css_text.rs` before it enters
 `WebProps`. The parser splits declarations only on top-level CSS separators, so
@@ -199,6 +242,9 @@ For embedded Rust hosts, native backends can expose callbacks through
 `NativeEventSource`. `GuiRuntime::dispatch_pending_native_events()` drains the
 host event queue, applies interaction state updates, and returns the validated
 action invocations. Protocol hosts can still send explicit `HostEvent` records.
+Use the `handle_*` event APIs when an event should update runtime state even
+when no Web action is bound, such as focus and blur events used only for
+accessibility state.
 
 ## Host Protocol
 
@@ -209,7 +255,7 @@ The JS/Rust bridge uses serializable protocol types:
   for a frame.
 - `RenderedFrame`: the native root node produced by rendering a frame.
 - `NativeRenderResponse`: the native root plus the incremental platform
-  commands emitted by a render pass.
+  commands and rendered accessibility tree emitted by a render pass.
 - `HostEvent`: a native event emitted by a platform backend.
 - `HostEventResponse`: the validated action invocation for that event.
 

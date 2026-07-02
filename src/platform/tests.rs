@@ -1,10 +1,16 @@
 use super::*;
 use std::collections::BTreeMap;
 
-use crate::accessibility::AccessibilityRole;
+use crate::accessibility::{
+    AccessibilityDescriptionProps, AccessibilityRelationshipProps, AccessibilityRole,
+    AccessibilityStateProps, AccessibilityStructureProps,
+};
 use crate::geometry::Orientation;
 use crate::host::HostNodeId;
-use crate::html::{HtmlCollectionProps, HtmlFormAssociationProps, HtmlResourcePolicyProps};
+use crate::html::{
+    HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
+    HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
+};
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::renderer::Renderer;
 use crate::web::WebProps;
@@ -79,6 +85,32 @@ fn dialog_blueprint_targets_native_dialog_controls_not_webview() {
         "Microsoft.UI.Xaml.Controls.ContentDialog"
     );
     assert_eq!(Gtk4Adapter.blueprint(&element).widget_class, "gtk::Dialog");
+}
+
+#[test]
+fn widget_config_preserves_html_dialog_hints_and_visibility() {
+    let native_dialog =
+        NativeElement::new("preferences", NativeRole::Dialog).with_props(NativeProps::new());
+    let open_html_dialog = NativeElement::new("settings", NativeRole::Dialog)
+        .with_props(NativeProps::new().html_dialog(HtmlDialogProps::default().open(true)));
+    let closed_html_dialog = NativeElement::new("help", NativeRole::Dialog)
+        .with_props(NativeProps::new().html_dialog(HtmlDialogProps::default().open(false)));
+
+    let native_config = Gtk4Adapter.blueprint(&native_dialog).config();
+    let open_config = Gtk4Adapter.blueprint(&open_html_dialog).config();
+    let closed_config = Gtk4Adapter.blueprint(&closed_html_dialog).config();
+    let closed_setters = closed_config.create_setters();
+
+    assert!(native_config.visible);
+    assert_eq!(native_config.html_dialog.open, None);
+    assert!(open_config.visible);
+    assert_eq!(open_config.html_dialog.open, Some(true));
+    assert!(!closed_config.visible);
+    assert_eq!(closed_config.html_dialog.open, Some(false));
+    assert!(closed_setters.contains(&NativeWidgetSetter::SetVisible(false)));
+    assert!(closed_setters.contains(&NativeWidgetSetter::SetHtmlDialog(
+        HtmlDialogProps::default().open(false)
+    )));
 }
 
 #[test]
@@ -249,6 +281,10 @@ fn widget_config_preserves_html_form_control_hints() {
             .auto_focus(true)
             .autocomplete("email")
             .input_mode("email")
+            .enter_key_hint("send")
+            .auto_capitalize("sentences")
+            .auto_correct("on")
+            .virtual_keyboard_policy("manual")
             .pattern(".+@example\\.com")
             .min_length(Some(3))
             .max_length(Some(64))
@@ -279,6 +315,10 @@ fn widget_config_preserves_html_form_control_hints() {
     assert!(config.auto_focus);
     assert_eq!(config.autocomplete.as_deref(), Some("email"));
     assert_eq!(config.input_mode.as_deref(), Some("email"));
+    assert_eq!(config.enter_key_hint.as_deref(), Some("send"));
+    assert_eq!(config.auto_capitalize.as_deref(), Some("sentences"));
+    assert_eq!(config.auto_correct.as_deref(), Some("on"));
+    assert_eq!(config.virtual_keyboard_policy.as_deref(), Some("manual"));
     assert_eq!(config.pattern.as_deref(), Some(".+@example\\.com"));
     assert_eq!(config.min_length, Some(3));
     assert_eq!(config.max_length, Some(64));
@@ -306,6 +346,20 @@ fn widget_config_preserves_html_form_control_hints() {
         "email".to_string()
     ))));
     assert!(setters.contains(&NativeWidgetSetter::SetInputMode(Some("email".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetEnterKeyHint(Some(
+        "send".to_string()
+    ))));
+    assert!(
+        setters.contains(&NativeWidgetSetter::SetAutoCapitalize(Some(
+            "sentences".to_string()
+        )))
+    );
+    assert!(setters.contains(&NativeWidgetSetter::SetAutoCorrect(Some("on".to_string()))));
+    assert!(
+        setters.contains(&NativeWidgetSetter::SetVirtualKeyboardPolicy(Some(
+            "manual".to_string()
+        )))
+    );
     assert!(setters.contains(&NativeWidgetSetter::SetPattern(Some(
         ".+@example\\.com".to_string()
     ))));
@@ -363,7 +417,24 @@ fn widget_config_preserves_html_global_hints() {
             .spell_check(Some(false))
             .translate(Some(false))
             .inert(true)
-            .popover("auto"),
+            .popover("auto")
+            .anchor("profile-card-anchor")
+            .custom_element_is("profile-card")
+            .nonce("nonce-1")
+            .html_shadow(
+                HtmlShadowProps::default()
+                    .slot_name("summary")
+                    .part("panel header")
+                    .export_parts("header: panel-header"),
+            )
+            .html_microdata(
+                HtmlMicrodataProps::default()
+                    .item_scope(true)
+                    .item_prop("profile")
+                    .item_type("https://schema.org/ProfilePage")
+                    .item_id("https://example.test/profiles/1")
+                    .item_ref("profile-name profile-email"),
+            ),
     );
 
     let config = AppKitAdapter.blueprint(&element).config();
@@ -383,6 +454,29 @@ fn widget_config_preserves_html_global_hints() {
     assert_eq!(config.translate, Some(false));
     assert!(config.inert);
     assert_eq!(config.popover.as_deref(), Some("auto"));
+    assert_eq!(config.anchor.as_deref(), Some("profile-card-anchor"));
+    assert_eq!(config.custom_element_is.as_deref(), Some("profile-card"));
+    assert_eq!(config.nonce.as_deref(), Some("nonce-1"));
+    assert_eq!(config.html_shadow.slot_name.as_deref(), Some("summary"));
+    assert_eq!(config.html_shadow.part.as_deref(), Some("panel header"));
+    assert_eq!(
+        config.html_shadow.export_parts.as_deref(),
+        Some("header: panel-header")
+    );
+    assert!(config.html_microdata.item_scope);
+    assert_eq!(config.html_microdata.item_prop.as_deref(), Some("profile"));
+    assert_eq!(
+        config.html_microdata.item_type.as_deref(),
+        Some("https://schema.org/ProfilePage")
+    );
+    assert_eq!(
+        config.html_microdata.item_id.as_deref(),
+        Some("https://example.test/profiles/1")
+    );
+    assert_eq!(
+        config.html_microdata.item_ref.as_deref(),
+        Some("profile-name profile-email")
+    );
     assert!(setters.contains(&NativeWidgetSetter::SetTitle(Some(
         "Profile summary".to_string()
     ))));
@@ -404,6 +498,146 @@ fn widget_config_preserves_html_global_hints() {
     assert!(setters.contains(&NativeWidgetSetter::SetTranslate(Some(false))));
     assert!(setters.contains(&NativeWidgetSetter::SetInert(true)));
     assert!(setters.contains(&NativeWidgetSetter::SetPopover(Some("auto".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetAnchor(Some(
+        "profile-card-anchor".to_string()
+    ))));
+    assert!(
+        setters.contains(&NativeWidgetSetter::SetCustomElementIs(Some(
+            "profile-card".to_string()
+        )))
+    );
+    assert!(setters.contains(&NativeWidgetSetter::SetNonce(Some("nonce-1".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetHtmlShadow(
+        HtmlShadowProps::default()
+            .slot_name("summary")
+            .part("panel header")
+            .export_parts("header: panel-header")
+    )));
+    assert!(setters.contains(&NativeWidgetSetter::SetHtmlMicrodata(
+        HtmlMicrodataProps::default()
+            .item_scope(true)
+            .item_prop("profile")
+            .item_type("https://schema.org/ProfilePage")
+            .item_id("https://example.test/profiles/1")
+            .item_ref("profile-name profile-email")
+    )));
+}
+
+#[test]
+fn widget_config_preserves_accessibility_relationship_hints() {
+    let relationships = AccessibilityRelationshipProps::default()
+        .labelled_by("profile-title")
+        .described_by("profile-help")
+        .controls("profile-panel")
+        .active_descendant("profile-row-1");
+    let element = NativeElement::new("profile", NativeRole::Section)
+        .with_props(NativeProps::new().accessibility_relationships(relationships.clone()));
+
+    let config = Gtk4Adapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert_eq!(config.accessibility_relationships, relationships);
+    assert!(
+        setters.contains(&NativeWidgetSetter::SetAccessibilityRelationships(
+            relationships
+        ))
+    );
+}
+
+#[test]
+fn widget_config_preserves_accessibility_description_hints() {
+    let description = AccessibilityDescriptionProps::default()
+        .description("Volume in percent")
+        .role_description("volume slider")
+        .key_shortcuts("Alt+ArrowUp")
+        .value_text("Half volume");
+    let element = NativeElement::new("volume", NativeRole::Slider)
+        .with_props(NativeProps::new().accessibility_description(description.clone()));
+
+    let config = WinUiAdapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert_eq!(config.accessibility_description, description);
+    assert!(
+        setters.contains(&NativeWidgetSetter::SetAccessibilityDescription(
+            description
+        ))
+    );
+}
+
+#[test]
+fn widget_config_preserves_accessibility_structure_hints() {
+    let structure = AccessibilityStructureProps::default()
+        .level(Some(2))
+        .position_in_set(Some(3))
+        .set_size(Some(10))
+        .row_count(Some(20))
+        .row_index(Some(4))
+        .row_span(Some(2))
+        .column_count(Some(6))
+        .column_index(Some(5))
+        .column_span(Some(3))
+        .row_index_text("Row four")
+        .column_index_text("Column five")
+        .sort("ascending");
+    let element = NativeElement::new("metric-cell", NativeRole::TableCell).with_props(
+        NativeProps::new()
+            .accessibility_level(Some(2))
+            .accessibility_position_in_set(Some(3))
+            .accessibility_set_size(Some(10))
+            .accessibility_row_count(Some(20))
+            .accessibility_row_index(Some(4))
+            .accessibility_row_span(Some(2))
+            .accessibility_column_count(Some(6))
+            .accessibility_column_index(Some(5))
+            .accessibility_column_span(Some(3))
+            .accessibility_row_index_text("Row four")
+            .accessibility_column_index_text("Column five")
+            .accessibility_sort("ascending"),
+    );
+
+    let config = Gtk4Adapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert_eq!(config.accessibility_structure, structure);
+    assert!(setters.contains(&NativeWidgetSetter::SetAccessibilityStructure(structure)));
+}
+
+#[test]
+fn widget_config_preserves_accessibility_state_hints() {
+    let state = AccessibilityStateProps::default()
+        .hidden(Some(true))
+        .autocomplete("list")
+        .multiline(Some(true))
+        .current("page")
+        .has_popup("dialog")
+        .pressed("mixed")
+        .live("polite")
+        .atomic(Some(true))
+        .busy(Some(false))
+        .relevant("additions text")
+        .modal(Some(true));
+    let element = NativeElement::new("profile", NativeRole::Dialog).with_props(
+        NativeProps::new()
+            .accessibility_hidden(Some(true))
+            .accessibility_autocomplete("list")
+            .accessibility_multiline(Some(true))
+            .current("page")
+            .has_popup("dialog")
+            .pressed("mixed")
+            .live("polite")
+            .atomic(Some(true))
+            .busy(Some(false))
+            .relevant("additions text")
+            .modal(Some(true)),
+    );
+
+    let config = AppKitAdapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert!(config.visible);
+    assert_eq!(config.accessibility_state, state);
+    assert!(setters.contains(&NativeWidgetSetter::SetAccessibilityState(state)));
 }
 
 #[test]
@@ -535,6 +769,38 @@ fn widget_config_preserves_html_collection_hints() {
 }
 
 #[test]
+fn widget_config_preserves_html_activation_hints() {
+    let activation = HtmlActivationProps::default()
+        .command("show-modal")
+        .command_for("settings-dialog")
+        .popover_target("settings-popover")
+        .popover_target_action("show");
+    let element = NativeElement::new("settings", NativeRole::Button)
+        .with_props(NativeProps::new().html_activation(activation.clone()));
+
+    let config = Gtk4Adapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert_eq!(config.html_activation, activation);
+    assert!(setters.contains(&NativeWidgetSetter::SetHtmlActivation(activation)));
+}
+
+#[test]
+fn widget_config_preserves_html_text_annotation_hints() {
+    let text_annotation = HtmlTextAnnotationProps::default()
+        .cite("https://example.test/change")
+        .date_time("2026-07-02T09:00:00Z");
+    let element = NativeElement::new("change", NativeRole::InsertedText)
+        .with_props(NativeProps::new().html_text_annotation(text_annotation.clone()));
+
+    let config = Gtk4Adapter.blueprint(&element).config();
+    let setters = config.create_setters();
+
+    assert_eq!(config.html_text_annotation, text_annotation);
+    assert!(setters.contains(&NativeWidgetSetter::SetHtmlTextAnnotation(text_annotation)));
+}
+
+#[test]
 fn widget_config_preserves_html_form_association_hints() {
     let form_association = HtmlFormAssociationProps::default()
         .label_for("email")
@@ -598,6 +864,8 @@ fn widget_config_diff_reports_changed_native_setters() {
             .range(Some(0.0), Some(100.0), Some(50.0))
             .step(Some(5.0))
             .name("volume")
+            .anchor("volume-anchor")
+            .nonce("nonce-1")
             .form_action("/volume")
             .web(
                 WebProps::new()
@@ -613,6 +881,8 @@ fn widget_config_diff_reports_changed_native_setters() {
             .range(Some(0.0), Some(100.0), Some(0.0))
             .step(Some(10.0))
             .name("mute")
+            .anchor("mute-anchor")
+            .nonce("nonce-2")
             .form_action("/mute")
             .form_no_validate(true)
             .web(
@@ -657,6 +927,14 @@ fn widget_config_diff_reports_changed_native_setters() {
         Some(Some("mute"))
     );
     assert_eq!(
+        patch.anchor.as_ref().map(|change| change.after.as_deref()),
+        Some(Some("mute-anchor"))
+    );
+    assert_eq!(
+        patch.nonce.as_ref().map(|change| change.after.as_deref()),
+        Some(Some("nonce-2"))
+    );
+    assert_eq!(
         patch
             .form_action
             .as_ref()
@@ -679,6 +957,10 @@ fn widget_config_diff_reports_changed_native_setters() {
     assert!(setters.contains(&NativeWidgetSetter::SetCurrent(Some(0.0))));
     assert!(setters.contains(&NativeWidgetSetter::SetStep(Some(10.0))));
     assert!(setters.contains(&NativeWidgetSetter::SetName(Some("mute".to_string()))));
+    assert!(setters.contains(&NativeWidgetSetter::SetAnchor(Some(
+        "mute-anchor".to_string()
+    ))));
+    assert!(setters.contains(&NativeWidgetSetter::SetNonce(Some("nonce-2".to_string()))));
     assert!(setters.contains(&NativeWidgetSetter::SetFormAction(Some(
         "/mute".to_string()
     ))));
@@ -699,6 +981,47 @@ fn native_widget_setters_round_trip_as_json() {
         NativeWidgetSetter::SetCurrent(Some(50.0)),
         NativeWidgetSetter::SetStep(Some(5.0)),
         NativeWidgetSetter::SetAutocomplete(Some("email".to_string())),
+        NativeWidgetSetter::SetEnterKeyHint(Some("send".to_string())),
+        NativeWidgetSetter::SetAccessibilityRelationships(
+            AccessibilityRelationshipProps::default()
+                .labelled_by("save-label")
+                .controls("save-panel"),
+        ),
+        NativeWidgetSetter::SetAccessibilityDescription(
+            AccessibilityDescriptionProps::default()
+                .description("Save changes")
+                .role_description("primary button")
+                .key_shortcuts("Meta+S")
+                .value_text("Ready"),
+        ),
+        NativeWidgetSetter::SetAccessibilityStructure(
+            AccessibilityStructureProps::default()
+                .level(Some(1))
+                .position_in_set(Some(2))
+                .set_size(Some(5))
+                .row_count(Some(20))
+                .row_index(Some(4))
+                .row_span(Some(2))
+                .column_count(Some(6))
+                .column_index(Some(3))
+                .column_span(Some(1))
+                .row_index_text("Row four")
+                .column_index_text("Column three")
+                .sort("descending"),
+        ),
+        NativeWidgetSetter::SetAccessibilityState(
+            AccessibilityStateProps::default()
+                .hidden(Some(false))
+                .autocomplete("inline")
+                .multiline(Some(false))
+                .current("page")
+                .has_popup("menu")
+                .pressed("false")
+                .live("polite"),
+        ),
+        NativeWidgetSetter::SetAnchor(Some("profile-card-anchor".to_string())),
+        NativeWidgetSetter::SetCustomElementIs(Some("profile-card".to_string())),
+        NativeWidgetSetter::SetNonce(Some("nonce-1".to_string())),
         NativeWidgetSetter::SetEvents(BTreeMap::from([(
             "onPress".to_string(),
             "saveProfile".to_string(),
@@ -713,6 +1036,16 @@ fn native_widget_setters_round_trip_as_json() {
     assert!(json.contains(r#""type":"setEnabled""#));
     assert!(json.contains(r#""type":"setCurrent""#));
     assert!(json.contains(r#""type":"setStep""#));
+    assert!(json.contains(r#""type":"setEnterKeyHint""#));
+    assert!(json.contains(r#""type":"setAccessibilityRelationships""#));
+    assert!(json.contains(r#""type":"setAccessibilityDescription""#));
+    assert!(json.contains(r#""type":"setAccessibilityStructure""#));
+    assert!(json.contains(r#""type":"setAccessibilityState""#));
+    assert!(json.contains(r#""autocomplete":"inline""#));
+    assert!(json.contains(r#""multiline":false"#));
+    assert!(json.contains(r#""type":"setAnchor""#));
+    assert!(json.contains(r#""type":"setCustomElementIs""#));
+    assert!(json.contains(r#""type":"setNonce""#));
     assert!(json.contains(r#""onPress":"saveProfile""#));
 }
 
@@ -736,6 +1069,72 @@ fn widget_setters_replay_into_native_config() {
                     .disabled(true)
                     .range(Some(0.0), Some(100.0), Some(0.0))
                     .step(Some(10.0))
+                    .enter_key_hint("done")
+                    .auto_capitalize("words")
+                    .auto_correct("off")
+                    .virtual_keyboard_policy("auto")
+                    .accessibility_relationships(
+                        AccessibilityRelationshipProps::default()
+                            .labelled_by("volume-label")
+                            .described_by("volume-help")
+                            .controls("volume-output"),
+                    )
+                    .accessibility_description(
+                        AccessibilityDescriptionProps::default()
+                            .description("Volume in percent")
+                            .role_description("volume slider")
+                            .key_shortcuts("Alt+ArrowUp")
+                            .value_text("Muted"),
+                    )
+                    .accessibility_structure(
+                        AccessibilityStructureProps::default()
+                            .level(Some(2))
+                            .position_in_set(Some(1))
+                            .set_size(Some(3))
+                            .row_count(Some(20))
+                            .row_index(Some(4))
+                            .row_span(Some(2))
+                            .column_count(Some(6))
+                            .column_index(Some(5))
+                            .column_span(Some(3))
+                            .row_index_text("Row four")
+                            .column_index_text("Column five")
+                            .sort("other"),
+                    )
+                    .accessibility_state(
+                        AccessibilityStateProps::default()
+                            .hidden(Some(true))
+                            .autocomplete("both")
+                            .multiline(Some(true))
+                            .current("step")
+                            .has_popup("listbox")
+                            .pressed("true")
+                            .live("assertive")
+                            .atomic(Some(true))
+                            .busy(Some(false))
+                            .relevant("all")
+                            .modal(Some(true)),
+                    )
+                    .anchor("profile-card-anchor")
+                    .custom_element_is("profile-card")
+                    .nonce("nonce-1")
+                    .html_activation(
+                        HtmlActivationProps::default()
+                            .command("show-modal")
+                            .command_for("settings-dialog"),
+                    )
+                    .html_text_annotation(
+                        HtmlTextAnnotationProps::default()
+                            .cite("https://example.test/change")
+                            .date_time("2026-07-02T09:00:00Z"),
+                    )
+                    .html_dialog(HtmlDialogProps::default().open(true))
+                    .html_shadow(HtmlShadowProps::default().slot_name("summary"))
+                    .html_microdata(
+                        HtmlMicrodataProps::default()
+                            .item_scope(true)
+                            .item_prop("profile"),
+                    )
                     .html_form_association(
                         HtmlFormAssociationProps::default()
                             .meter_low(Some(25.0))
@@ -752,6 +1151,120 @@ fn widget_setters_replay_into_native_config() {
     assert!(!replayed.enabled);
     assert_eq!(replayed.current, Some(0.0));
     assert_eq!(replayed.step, Some(10.0));
+    assert_eq!(replayed.enter_key_hint.as_deref(), Some("done"));
+    assert_eq!(replayed.auto_capitalize.as_deref(), Some("words"));
+    assert_eq!(replayed.auto_correct.as_deref(), Some("off"));
+    assert_eq!(replayed.virtual_keyboard_policy.as_deref(), Some("auto"));
+    assert_eq!(
+        replayed.accessibility_relationships.labelled_by.as_deref(),
+        Some("volume-label")
+    );
+    assert_eq!(
+        replayed.accessibility_relationships.described_by.as_deref(),
+        Some("volume-help")
+    );
+    assert_eq!(
+        replayed.accessibility_relationships.controls.as_deref(),
+        Some("volume-output")
+    );
+    assert_eq!(
+        replayed.accessibility_description.description.as_deref(),
+        Some("Volume in percent")
+    );
+    assert_eq!(
+        replayed
+            .accessibility_description
+            .role_description
+            .as_deref(),
+        Some("volume slider")
+    );
+    assert_eq!(
+        replayed.accessibility_description.key_shortcuts.as_deref(),
+        Some("Alt+ArrowUp")
+    );
+    assert_eq!(
+        replayed.accessibility_description.value_text.as_deref(),
+        Some("Muted")
+    );
+    assert_eq!(replayed.accessibility_structure.level, Some(2));
+    assert_eq!(replayed.accessibility_structure.position_in_set, Some(1));
+    assert_eq!(replayed.accessibility_structure.set_size, Some(3));
+    assert_eq!(replayed.accessibility_structure.row_count, Some(20));
+    assert_eq!(replayed.accessibility_structure.row_index, Some(4));
+    assert_eq!(replayed.accessibility_structure.row_span, Some(2));
+    assert_eq!(replayed.accessibility_structure.column_count, Some(6));
+    assert_eq!(replayed.accessibility_structure.column_index, Some(5));
+    assert_eq!(replayed.accessibility_structure.column_span, Some(3));
+    assert_eq!(
+        replayed.accessibility_structure.row_index_text.as_deref(),
+        Some("Row four")
+    );
+    assert_eq!(
+        replayed
+            .accessibility_structure
+            .column_index_text
+            .as_deref(),
+        Some("Column five")
+    );
+    assert_eq!(
+        replayed.accessibility_structure.sort.as_deref(),
+        Some("other")
+    );
+    assert_eq!(replayed.accessibility_state.hidden, Some(true));
+    assert_eq!(
+        replayed.accessibility_state.autocomplete.as_deref(),
+        Some("both")
+    );
+    assert_eq!(replayed.accessibility_state.multiline, Some(true));
+    assert_eq!(
+        replayed.accessibility_state.current.as_deref(),
+        Some("step")
+    );
+    assert_eq!(
+        replayed.accessibility_state.has_popup.as_deref(),
+        Some("listbox")
+    );
+    assert_eq!(
+        replayed.accessibility_state.pressed.as_deref(),
+        Some("true")
+    );
+    assert_eq!(
+        replayed.accessibility_state.live.as_deref(),
+        Some("assertive")
+    );
+    assert_eq!(replayed.accessibility_state.atomic, Some(true));
+    assert_eq!(replayed.accessibility_state.busy, Some(false));
+    assert_eq!(
+        replayed.accessibility_state.relevant.as_deref(),
+        Some("all")
+    );
+    assert_eq!(replayed.accessibility_state.modal, Some(true));
+    assert_eq!(replayed.anchor.as_deref(), Some("profile-card-anchor"));
+    assert_eq!(replayed.custom_element_is.as_deref(), Some("profile-card"));
+    assert_eq!(replayed.nonce.as_deref(), Some("nonce-1"));
+    assert_eq!(
+        replayed.html_activation.command.as_deref(),
+        Some("show-modal")
+    );
+    assert_eq!(
+        replayed.html_activation.command_for.as_deref(),
+        Some("settings-dialog")
+    );
+    assert_eq!(
+        replayed.html_text_annotation.cite.as_deref(),
+        Some("https://example.test/change")
+    );
+    assert_eq!(
+        replayed.html_text_annotation.date_time.as_deref(),
+        Some("2026-07-02T09:00:00Z")
+    );
+    assert_eq!(replayed.html_dialog.open, Some(true));
+    assert_eq!(replayed.html_shadow.slot_name.as_deref(), Some("summary"));
+    assert!(replayed.html_microdata.item_scope);
+    assert_eq!(
+        replayed.html_microdata.item_prop.as_deref(),
+        Some("profile")
+    );
     assert_eq!(replayed.html_form_association.meter_low, Some(25.0));
     assert_eq!(replayed.html_form_association.meter_high, Some(90.0));
     assert_eq!(replayed, after);

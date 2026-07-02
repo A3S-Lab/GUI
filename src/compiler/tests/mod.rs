@@ -1,4 +1,5 @@
 mod core;
+mod html_activation;
 mod html_collections;
 mod html_form_association;
 mod html_forms;

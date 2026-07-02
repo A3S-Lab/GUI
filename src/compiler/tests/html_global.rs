@@ -22,6 +22,29 @@ fn lowers_html_global_attributes_to_native_state() {
                 ("translate".to_string(), "no".to_string()),
                 ("inert".to_string(), String::new()),
                 ("popover".to_string(), String::new()),
+                ("anchor".to_string(), "profile-card-anchor".to_string()),
+                ("is".to_string(), "profile-card".to_string()),
+                ("nonce".to_string(), "nonce-1".to_string()),
+                ("slot".to_string(), "summary".to_string()),
+                ("part".to_string(), "panel header".to_string()),
+                (
+                    "exportParts".to_string(),
+                    "header: panel-header".to_string(),
+                ),
+                ("itemScope".to_string(), String::new()),
+                ("itemProp".to_string(), "profile".to_string()),
+                (
+                    "itemType".to_string(),
+                    "https://schema.org/ProfilePage".to_string(),
+                ),
+                (
+                    "itemID".to_string(),
+                    "https://example.test/profiles/1".to_string(),
+                ),
+                (
+                    "itemRef".to_string(),
+                    "profile-name profile-email".to_string(),
+                ),
             ]),
             ..CompiledProps::default()
         },
@@ -47,6 +70,41 @@ fn lowers_html_global_attributes_to_native_state() {
     assert_eq!(native.props.translate, Some(false));
     assert!(native.props.inert);
     assert_eq!(native.props.popover.as_deref(), Some("auto"));
+    assert_eq!(native.props.anchor.as_deref(), Some("profile-card-anchor"));
+    assert_eq!(
+        native.props.custom_element_is.as_deref(),
+        Some("profile-card")
+    );
+    assert_eq!(native.props.nonce.as_deref(), Some("nonce-1"));
+    assert_eq!(
+        native.props.html_shadow.slot_name.as_deref(),
+        Some("summary")
+    );
+    assert_eq!(
+        native.props.html_shadow.part.as_deref(),
+        Some("panel header")
+    );
+    assert_eq!(
+        native.props.html_shadow.export_parts.as_deref(),
+        Some("header: panel-header")
+    );
+    assert!(native.props.html_microdata.item_scope);
+    assert_eq!(
+        native.props.html_microdata.item_prop.as_deref(),
+        Some("profile")
+    );
+    assert_eq!(
+        native.props.html_microdata.item_type.as_deref(),
+        Some("https://schema.org/ProfilePage")
+    );
+    assert_eq!(
+        native.props.html_microdata.item_id.as_deref(),
+        Some("https://example.test/profiles/1")
+    );
+    assert_eq!(
+        native.props.html_microdata.item_ref.as_deref(),
+        Some("profile-name profile-email")
+    );
     assert_eq!(
         native
             .props

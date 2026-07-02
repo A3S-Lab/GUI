@@ -2,9 +2,15 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::accessibility::AccessibilityRole;
+use crate::accessibility::{
+    AccessibilityDescriptionProps, AccessibilityRelationshipProps, AccessibilityRole,
+    AccessibilityStateProps, AccessibilityStructureProps,
+};
 use crate::geometry::Orientation;
-use crate::html::{HtmlCollectionProps, HtmlFormAssociationProps, HtmlResourcePolicyProps};
+use crate::html::{
+    HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
+    HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
+};
 use crate::style::PortableStyle;
 
 use super::NativeWidgetConfig;
@@ -35,6 +41,10 @@ pub enum NativeWidgetSetter {
     SetStep(Option<f64>),
     SetAutocomplete(Option<String>),
     SetInputMode(Option<String>),
+    SetEnterKeyHint(Option<String>),
+    SetAutoCapitalize(Option<String>),
+    SetAutoCorrect(Option<String>),
+    SetVirtualKeyboardPolicy(Option<String>),
     SetPattern(Option<String>),
     SetMinLength(Option<u32>),
     SetMaxLength(Option<u32>),
@@ -54,6 +64,9 @@ pub enum NativeWidgetSetter {
     SetTranslate(Option<bool>),
     SetInert(bool),
     SetPopover(Option<String>),
+    SetAnchor(Option<String>),
+    SetCustomElementIs(Option<String>),
+    SetNonce(Option<String>),
     SetName(Option<String>),
     SetForm(Option<String>),
     SetInputType(Option<String>),
@@ -92,8 +105,17 @@ pub enum NativeWidgetSetter {
     SetFormTarget(Option<String>),
     SetFormNoValidate(bool),
     SetHtmlResourcePolicy(HtmlResourcePolicyProps),
+    SetHtmlActivation(HtmlActivationProps),
+    SetHtmlTextAnnotation(HtmlTextAnnotationProps),
+    SetHtmlDialog(HtmlDialogProps),
+    SetHtmlShadow(HtmlShadowProps),
+    SetHtmlMicrodata(HtmlMicrodataProps),
     SetHtmlFormAssociation(HtmlFormAssociationProps),
     SetHtmlCollection(HtmlCollectionProps),
+    SetAccessibilityRelationships(AccessibilityRelationshipProps),
+    SetAccessibilityDescription(AccessibilityDescriptionProps),
+    SetAccessibilityStructure(AccessibilityStructureProps),
+    SetAccessibilityState(AccessibilityStateProps),
     SetWebStyle(BTreeMap<String, String>),
     SetPortableStyle(PortableStyle),
     SetEvents(BTreeMap<String, String>),
@@ -125,6 +147,12 @@ pub fn apply_widget_setter(config: &mut NativeWidgetConfig, setter: &NativeWidge
         NativeWidgetSetter::SetStep(value) => config.step = *value,
         NativeWidgetSetter::SetAutocomplete(value) => config.autocomplete = value.clone(),
         NativeWidgetSetter::SetInputMode(value) => config.input_mode = value.clone(),
+        NativeWidgetSetter::SetEnterKeyHint(value) => config.enter_key_hint = value.clone(),
+        NativeWidgetSetter::SetAutoCapitalize(value) => config.auto_capitalize = value.clone(),
+        NativeWidgetSetter::SetAutoCorrect(value) => config.auto_correct = value.clone(),
+        NativeWidgetSetter::SetVirtualKeyboardPolicy(value) => {
+            config.virtual_keyboard_policy = value.clone();
+        }
         NativeWidgetSetter::SetPattern(value) => config.pattern = value.clone(),
         NativeWidgetSetter::SetMinLength(value) => config.min_length = *value,
         NativeWidgetSetter::SetMaxLength(value) => config.max_length = *value,
@@ -144,6 +172,9 @@ pub fn apply_widget_setter(config: &mut NativeWidgetConfig, setter: &NativeWidge
         NativeWidgetSetter::SetTranslate(value) => config.translate = *value,
         NativeWidgetSetter::SetInert(value) => config.inert = *value,
         NativeWidgetSetter::SetPopover(value) => config.popover = value.clone(),
+        NativeWidgetSetter::SetAnchor(value) => config.anchor = value.clone(),
+        NativeWidgetSetter::SetCustomElementIs(value) => config.custom_element_is = value.clone(),
+        NativeWidgetSetter::SetNonce(value) => config.nonce = value.clone(),
         NativeWidgetSetter::SetName(value) => config.name = value.clone(),
         NativeWidgetSetter::SetForm(value) => config.form = value.clone(),
         NativeWidgetSetter::SetInputType(value) => config.input_type = value.clone(),
@@ -184,10 +215,37 @@ pub fn apply_widget_setter(config: &mut NativeWidgetConfig, setter: &NativeWidge
         NativeWidgetSetter::SetHtmlResourcePolicy(value) => {
             config.html_resource_policy = value.clone();
         }
+        NativeWidgetSetter::SetHtmlActivation(value) => {
+            config.html_activation = value.clone();
+        }
+        NativeWidgetSetter::SetHtmlTextAnnotation(value) => {
+            config.html_text_annotation = value.clone();
+        }
+        NativeWidgetSetter::SetHtmlDialog(value) => {
+            config.html_dialog = value.clone();
+        }
+        NativeWidgetSetter::SetHtmlShadow(value) => {
+            config.html_shadow = value.clone();
+        }
+        NativeWidgetSetter::SetHtmlMicrodata(value) => {
+            config.html_microdata = value.clone();
+        }
         NativeWidgetSetter::SetHtmlFormAssociation(value) => {
             config.html_form_association = value.clone();
         }
         NativeWidgetSetter::SetHtmlCollection(value) => config.html_collection = value.clone(),
+        NativeWidgetSetter::SetAccessibilityRelationships(value) => {
+            config.accessibility_relationships = value.clone();
+        }
+        NativeWidgetSetter::SetAccessibilityDescription(value) => {
+            config.accessibility_description = value.clone();
+        }
+        NativeWidgetSetter::SetAccessibilityStructure(value) => {
+            config.accessibility_structure = value.clone();
+        }
+        NativeWidgetSetter::SetAccessibilityState(value) => {
+            config.accessibility_state = value.clone();
+        }
         NativeWidgetSetter::SetWebStyle(value) => config.web_style = value.clone(),
         NativeWidgetSetter::SetPortableStyle(value) => config.portable_style = value.clone(),
         NativeWidgetSetter::SetEvents(value) => config.events = value.clone(),

@@ -106,6 +106,102 @@ export interface HostEvent {
   };
 }
 
+export interface AccessibilityRelationshipProps {
+  labelledBy?: string | null;
+  describedBy?: string | null;
+  details?: string | null;
+  controls?: string | null;
+  owns?: string | null;
+  flowTo?: string | null;
+  errorMessage?: string | null;
+  activeDescendant?: string | null;
+}
+
+export interface AccessibilityDescriptionProps {
+  description?: string | null;
+  roleDescription?: string | null;
+  keyShortcuts?: string | null;
+  valueText?: string | null;
+}
+
+export interface AccessibilityStructureProps {
+  level?: number | null;
+  positionInSet?: number | null;
+  setSize?: number | null;
+  rowCount?: number | null;
+  rowIndex?: number | null;
+  rowSpan?: number | null;
+  columnCount?: number | null;
+  columnIndex?: number | null;
+  columnSpan?: number | null;
+  rowIndexText?: string | null;
+  columnIndexText?: string | null;
+  sort?: string | null;
+}
+
+export interface AccessibilityStateProps {
+  hidden?: boolean | null;
+  autocomplete?: string | null;
+  multiline?: boolean | null;
+  current?: string | null;
+  hasPopup?: string | null;
+  pressed?: string | null;
+  live?: string | null;
+  atomic?: boolean | null;
+  busy?: boolean | null;
+  relevant?: string | null;
+  modal?: boolean | null;
+}
+
+export interface AccessibilityNode {
+  node?: number | null;
+  role: string;
+  label?: string | null;
+  value?: string | null;
+  relationships: AccessibilityRelationshipProps;
+  description: AccessibilityDescriptionProps;
+  structure: AccessibilityStructureProps;
+  state: AccessibilityStateProps;
+  disabled: boolean;
+  required: boolean;
+  invalid: boolean;
+  focused: boolean;
+  selected: boolean;
+  checked?: boolean | null;
+  expanded?: boolean | null;
+  children: AccessibilityNode[];
+}
+
+export interface NativePlatformCommand {
+  type: string;
+  [key: string]: unknown;
+}
+
+export interface NativeRenderResponse {
+  frameId: string;
+  root: number;
+  commands: NativePlatformCommand[];
+  accessibilityTree?: AccessibilityNode | null;
+}
+
+export interface ActionInvocation {
+  node: number;
+  action: string;
+  event: HostEvent['event']['kind'];
+  value?: string | null;
+}
+
+export interface HostEventResponse {
+  frameId: string;
+  invocation: ActionInvocation;
+}
+
+export interface NativeHostEventResponse {
+  frameId: string;
+  invocation?: ActionInvocation | null;
+  accessibilityTree?: AccessibilityNode | null;
+}
+
 export function createAction(id: string, label?: string): ActionHandler;
 export const action: typeof createAction;
 export function defineAction(id: string, label?: string): UiAction;

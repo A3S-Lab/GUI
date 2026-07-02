@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::accessibility::{accessibility_role, AccessibilityNode, AccessibilityTreeHost};
 use crate::error::{GuiError, GuiResult};
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use serde::{Deserialize, Serialize};
@@ -104,6 +105,40 @@ impl HeadlessHost {
         } else {
             Err(GuiError::host(format!("unknown host node id {}", id.get())))
         }
+    }
+
+    fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
+        let node = self.nodes.get(&id)?;
+        let children = node
+            .children
+            .iter()
+            .map(|child| self.accessibility_subtree(*child))
+            .collect::<Option<Vec<_>>>()?;
+
+        Some(AccessibilityNode {
+            node: Some(id),
+            role: accessibility_role(node.role),
+            label: node.props.label.clone(),
+            value: node.props.value.clone(),
+            relationships: node.props.accessibility_relationships.clone(),
+            description: node.props.accessibility_description.clone(),
+            structure: node.props.accessibility_structure.clone(),
+            state: node.props.accessibility_state.clone(),
+            disabled: node.props.disabled,
+            required: node.props.required,
+            invalid: node.props.invalid,
+            focused: false,
+            selected: node.props.selected,
+            checked: node.props.checked,
+            expanded: node.props.expanded,
+            children,
+        })
+    }
+}
+
+impl AccessibilityTreeHost for HeadlessHost {
+    fn accessibility_tree(&self) -> Option<AccessibilityNode> {
+        self.root.and_then(|root| self.accessibility_subtree(root))
     }
 }
 

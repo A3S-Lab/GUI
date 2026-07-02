@@ -22,6 +22,9 @@ pub(super) struct HtmlGlobalAliases {
     pub(super) translate: Option<bool>,
     pub(super) inert: bool,
     pub(super) popover: Option<String>,
+    pub(super) anchor: Option<String>,
+    pub(super) custom_element_is: Option<String>,
+    pub(super) nonce: Option<String>,
 }
 
 impl HtmlGlobalAliases {
@@ -51,6 +54,9 @@ impl HtmlGlobalAliases {
             translate: translate_attribute(attributes),
             inert: bool_attribute(attributes, &["inert"]).unwrap_or(false),
             popover: popover_attribute(attributes),
+            anchor: html_string_attribute(attributes, &["anchor"]),
+            custom_element_is: html_string_attribute(attributes, &["is"]),
+            nonce: html_string_attribute(attributes, &["nonce"]),
         }
     }
 }

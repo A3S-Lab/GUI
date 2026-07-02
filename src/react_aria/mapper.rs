@@ -630,6 +630,10 @@ fn native_props_from_aria(props: &AriaProps, label: Option<String>) -> NativePro
     native.step = props.step_value;
     native.autocomplete = props.autocomplete.clone();
     native.input_mode = props.input_mode.clone();
+    native.enter_key_hint = props.enter_key_hint.clone();
+    native.auto_capitalize = props.auto_capitalize.clone();
+    native.auto_correct = props.auto_correct.clone();
+    native.virtual_keyboard_policy = props.virtual_keyboard_policy.clone();
     native.pattern = props.pattern.clone();
     native.min_length = props.min_length;
     native.max_length = props.max_length;
@@ -649,6 +653,9 @@ fn native_props_from_aria(props: &AriaProps, label: Option<String>) -> NativePro
     native.translate = props.translate;
     native.inert = props.inert;
     native.popover = props.popover.clone();
+    native.anchor = props.anchor.clone();
+    native.custom_element_is = props.custom_element_is.clone();
+    native.nonce = props.nonce.clone();
     native.name = props.name.clone();
     native.form = props.form.clone();
     native.input_type = props.input_type.clone();
@@ -687,8 +694,17 @@ fn native_props_from_aria(props: &AriaProps, label: Option<String>) -> NativePro
     native.form_target = props.form_target.clone();
     native.form_no_validate = props.form_no_validate;
     native.html_resource_policy = props.html_resource_policy.clone();
+    native.html_activation = props.html_activation.clone();
+    native.html_text_annotation = props.html_text_annotation.clone();
+    native.html_dialog = props.html_dialog.clone();
+    native.html_shadow = props.html_shadow.clone();
+    native.html_microdata = props.html_microdata.clone();
     native.html_form_association = props.html_form_association.clone();
     native.html_collection = props.html_collection.clone();
+    native.accessibility_relationships = props.accessibility_relationships.clone();
+    native.accessibility_description = props.accessibility_description.clone();
+    native.accessibility_structure = props.accessibility_structure.clone();
+    native.accessibility_state = props.accessibility_state.clone();
     native.metadata = props.web.metadata();
     native.web = props.web.clone();
     native

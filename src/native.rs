@@ -1,13 +1,29 @@
 use std::collections::BTreeMap;
 
+use crate::accessibility::{
+    AccessibilityDescriptionProps, AccessibilityRelationshipProps, AccessibilityStateProps,
+    AccessibilityStructureProps,
+};
 use crate::geometry::Orientation;
-use crate::html::{HtmlCollectionProps, HtmlFormAssociationProps, HtmlResourcePolicyProps};
+use crate::html::{
+    HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
+    HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
+};
 use crate::web::WebProps;
 use serde::{Deserialize, Serialize};
 
+mod accessibility_description;
+mod accessibility_relationships;
+mod accessibility_state;
+mod accessibility_structure;
+mod html_activation;
 mod html_collection;
+mod html_dialog;
 mod html_form_association;
+mod html_microdata;
 mod html_resource_policy;
+mod html_shadow;
+mod html_text_annotation;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ElementKey(String);
@@ -182,6 +198,10 @@ pub struct NativeProps {
     pub step: Option<f64>,
     pub autocomplete: Option<String>,
     pub input_mode: Option<String>,
+    pub enter_key_hint: Option<String>,
+    pub auto_capitalize: Option<String>,
+    pub auto_correct: Option<String>,
+    pub virtual_keyboard_policy: Option<String>,
     pub pattern: Option<String>,
     pub min_length: Option<u32>,
     pub max_length: Option<u32>,
@@ -201,6 +221,9 @@ pub struct NativeProps {
     pub translate: Option<bool>,
     pub inert: bool,
     pub popover: Option<String>,
+    pub anchor: Option<String>,
+    pub custom_element_is: Option<String>,
+    pub nonce: Option<String>,
     pub name: Option<String>,
     pub form: Option<String>,
     pub input_type: Option<String>,
@@ -239,8 +262,17 @@ pub struct NativeProps {
     pub form_target: Option<String>,
     pub form_no_validate: bool,
     pub html_resource_policy: HtmlResourcePolicyProps,
+    pub html_activation: HtmlActivationProps,
+    pub html_text_annotation: HtmlTextAnnotationProps,
+    pub html_dialog: HtmlDialogProps,
+    pub html_shadow: HtmlShadowProps,
+    pub html_microdata: HtmlMicrodataProps,
     pub html_form_association: HtmlFormAssociationProps,
     pub html_collection: HtmlCollectionProps,
+    pub accessibility_relationships: AccessibilityRelationshipProps,
+    pub accessibility_description: AccessibilityDescriptionProps,
+    pub accessibility_structure: AccessibilityStructureProps,
+    pub accessibility_state: AccessibilityStateProps,
     pub web: WebProps,
     pub metadata: BTreeMap<String, String>,
 }
@@ -268,6 +300,10 @@ impl Default for NativeProps {
             step: None,
             autocomplete: None,
             input_mode: None,
+            enter_key_hint: None,
+            auto_capitalize: None,
+            auto_correct: None,
+            virtual_keyboard_policy: None,
             pattern: None,
             min_length: None,
             max_length: None,
@@ -287,6 +323,9 @@ impl Default for NativeProps {
             translate: None,
             inert: false,
             popover: None,
+            anchor: None,
+            custom_element_is: None,
+            nonce: None,
             name: None,
             form: None,
             input_type: None,
@@ -325,8 +364,17 @@ impl Default for NativeProps {
             form_target: None,
             form_no_validate: false,
             html_resource_policy: HtmlResourcePolicyProps::default(),
+            html_activation: HtmlActivationProps::default(),
+            html_text_annotation: HtmlTextAnnotationProps::default(),
+            html_dialog: HtmlDialogProps::default(),
+            html_shadow: HtmlShadowProps::default(),
+            html_microdata: HtmlMicrodataProps::default(),
             html_form_association: HtmlFormAssociationProps::default(),
             html_collection: HtmlCollectionProps::default(),
+            accessibility_relationships: AccessibilityRelationshipProps::default(),
+            accessibility_description: AccessibilityDescriptionProps::default(),
+            accessibility_structure: AccessibilityStructureProps::default(),
+            accessibility_state: AccessibilityStateProps::default(),
             web: WebProps::default(),
             metadata: BTreeMap::new(),
         }
@@ -430,6 +478,26 @@ impl NativeProps {
         self
     }
 
+    pub fn enter_key_hint(mut self, enter_key_hint: impl Into<String>) -> Self {
+        self.enter_key_hint = Some(enter_key_hint.into());
+        self
+    }
+
+    pub fn auto_capitalize(mut self, auto_capitalize: impl Into<String>) -> Self {
+        self.auto_capitalize = Some(auto_capitalize.into());
+        self
+    }
+
+    pub fn auto_correct(mut self, auto_correct: impl Into<String>) -> Self {
+        self.auto_correct = Some(auto_correct.into());
+        self
+    }
+
+    pub fn virtual_keyboard_policy(mut self, virtual_keyboard_policy: impl Into<String>) -> Self {
+        self.virtual_keyboard_policy = Some(virtual_keyboard_policy.into());
+        self
+    }
+
     pub fn pattern(mut self, pattern: impl Into<String>) -> Self {
         self.pattern = Some(pattern.into());
         self
@@ -522,6 +590,21 @@ impl NativeProps {
 
     pub fn popover(mut self, popover: impl Into<String>) -> Self {
         self.popover = Some(popover.into());
+        self
+    }
+
+    pub fn anchor(mut self, anchor: impl Into<String>) -> Self {
+        self.anchor = Some(anchor.into());
+        self
+    }
+
+    pub fn custom_element_is(mut self, custom_element_is: impl Into<String>) -> Self {
+        self.custom_element_is = Some(custom_element_is.into());
+        self
+    }
+
+    pub fn nonce(mut self, nonce: impl Into<String>) -> Self {
+        self.nonce = Some(nonce.into());
         self
     }
 

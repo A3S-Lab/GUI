@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
 use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
 use crate::error::GuiResult;
 use crate::event::{ActionInvocation, NativeEvent};
@@ -53,6 +54,8 @@ pub struct NativeRenderResponse {
     pub frame_id: String,
     pub root: HostNodeId,
     pub commands: Vec<PlatformCommand>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accessibility_tree: Option<AccessibilityNode>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -67,6 +70,16 @@ pub struct HostEvent {
 pub struct HostEventResponse {
     pub frame_id: String,
     pub invocation: ActionInvocation,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeHostEventResponse {
+    pub frame_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invocation: Option<ActionInvocation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accessibility_tree: Option<AccessibilityNode>,
 }
 
 impl UiFrame {
@@ -153,19 +166,41 @@ impl<A: PlatformAdapter> NativeProtocolSession<A> {
         self.root
     }
 
+    pub fn accessibility_tree(&self) -> Option<AccessibilityNode> {
+        self.runtime.accessibility_tree()
+    }
+
     pub fn render_frame(&mut self, frame: &UiFrame) -> GuiResult<NativeRenderResponse> {
         let rendered = frame.render_into(&mut self.runtime)?;
         self.active_frame_id = Some(rendered.frame_id.clone());
         self.root = Some(rendered.root);
         let commands = self.pending_commands();
+        let accessibility_tree = self.runtime.accessibility_tree();
         Ok(NativeRenderResponse {
             frame_id: rendered.frame_id,
             root: rendered.root,
             commands,
+            accessibility_tree,
         })
     }
 
     pub fn dispatch_host_event(&mut self, event: &HostEvent) -> GuiResult<HostEventResponse> {
+        self.ensure_active_frame(event)?;
+        event.dispatch_into(&mut self.runtime)
+    }
+
+    pub fn handle_host_event(&mut self, event: &HostEvent) -> GuiResult<NativeHostEventResponse> {
+        self.ensure_active_frame(event)?;
+        event.handle_into(&mut self.runtime)
+    }
+
+    pub fn pending_commands(&mut self) -> Vec<PlatformCommand> {
+        let commands = self.runtime.host().commands()[self.command_cursor..].to_vec();
+        self.command_cursor = self.runtime.host().commands().len();
+        commands
+    }
+
+    fn ensure_active_frame(&self, event: &HostEvent) -> GuiResult<()> {
         let active_frame_id = self
             .active_frame_id
             .as_deref()
@@ -176,13 +211,7 @@ impl<A: PlatformAdapter> NativeProtocolSession<A> {
                 event.frame_id, active_frame_id
             )));
         }
-        event.dispatch_into(&mut self.runtime)
-    }
-
-    pub fn pending_commands(&mut self) -> Vec<PlatformCommand> {
-        let commands = self.runtime.host().commands()[self.command_cursor..].to_vec();
-        self.command_cursor = self.runtime.host().commands().len();
-        commands
+        Ok(())
     }
 }
 
@@ -203,11 +232,25 @@ impl HostEvent {
             invocation,
         })
     }
+
+    pub fn handle_into<H: NativeHost + BlueprintHost + AccessibilityTreeHost>(
+        &self,
+        runtime: &mut GuiRuntime<H>,
+    ) -> GuiResult<NativeHostEventResponse> {
+        let invocation = runtime.handle_native_event(self.event.clone())?;
+        let accessibility_tree = runtime.accessibility_tree();
+        Ok(NativeHostEventResponse {
+            frame_id: self.frame_id.clone(),
+            invocation,
+            accessibility_tree,
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::accessibility::AccessibilityRole;
     use crate::backend::{CommandExecutingHost, RecordingBackend};
     use crate::event::NativeEventKind;
     use crate::platform::Gtk4Adapter;
@@ -322,6 +365,54 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_returns_rendered_accessibility_tree() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {
+                  "attributes": {
+                    "aria-label": "Save profile",
+                    "aria-describedby": "save-help",
+                    "aria-description": "Writes profile changes",
+                    "aria-pressed": "false"
+                  }
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let response = session.render_frame(&frame).unwrap();
+        let accessibility = response.accessibility_tree.as_ref().unwrap();
+
+        assert_eq!(accessibility.node, Some(response.root));
+        assert_eq!(accessibility.role, AccessibilityRole::Button);
+        assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
+        assert!(!accessibility.focused);
+        assert_eq!(
+            accessibility.relationships.described_by.as_deref(),
+            Some("save-help")
+        );
+        assert_eq!(
+            accessibility.description.description.as_deref(),
+            Some("Writes profile changes")
+        );
+        assert_eq!(accessibility.state.pressed.as_deref(), Some("false"));
+        assert_eq!(session.accessibility_tree(), response.accessibility_tree);
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains(r#""accessibilityTree""#));
+        assert!(json.contains(r#""role":"button""#));
+    }
+
+    #[test]
     fn native_protocol_session_dispatches_active_frame_events() {
         let frame: UiFrame = serde_json::from_str(
             r#"
@@ -357,6 +448,39 @@ mod tests {
 
         assert_eq!(response.invocation.action, "saveProfile");
         assert!(error.to_string().contains("active frame profile"));
+    }
+
+    #[test]
+    fn native_protocol_session_handles_state_event_without_action() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"attributes": {"aria-label": "Save profile"}}
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let response = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Focus),
+            })
+            .unwrap();
+        let accessibility = response.accessibility_tree.as_ref().unwrap();
+
+        assert!(response.invocation.is_none());
+        assert_eq!(accessibility.node, Some(rendered.root));
+        assert!(accessibility.focused);
+        assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
     }
 
     #[test]
@@ -416,5 +540,9 @@ mod tests {
         let decoded: HostEvent = serde_json::from_str(&json).unwrap();
 
         assert_eq!(decoded, event);
+
+        let legacy_response: NativeRenderResponse =
+            serde_json::from_str(r#"{"frameId":"legacy","root":1,"commands":[]}"#).unwrap();
+        assert!(legacy_response.accessibility_tree.is_none());
     }
 }

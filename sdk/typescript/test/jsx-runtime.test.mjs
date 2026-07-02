@@ -146,6 +146,36 @@ test('intrinsic global HTML attributes preserve Web JSX names', () => {
     dir: 'rtl',
     tabIndex: -1,
     role: 'region',
+    'aria-labelledby': 'profile-title',
+    'aria-describedby': 'profile-help',
+    'aria-controls': 'profile-panel',
+    'aria-description': 'Profile summary panel',
+    'aria-roledescription': 'profile region',
+    'aria-keyshortcuts': 'Alt+P',
+    'aria-valuetext': 'Complete',
+    'aria-level': 2,
+    'aria-posinset': 3,
+    'aria-setsize': 10,
+    'aria-rowcount': 20,
+    'aria-rowindex': 4,
+    'aria-rowspan': 2,
+    'aria-colcount': 6,
+    'aria-colindex': 5,
+    'aria-colspan': 3,
+    'aria-rowindextext': 'Row four',
+    'aria-colindextext': 'Column five',
+    'aria-sort': 'ascending',
+    'aria-hidden': false,
+    'aria-autocomplete': 'list',
+    'aria-multiline': true,
+    'aria-current': 'page',
+    'aria-haspopup': 'dialog',
+    'aria-pressed': 'mixed',
+    'aria-live': 'polite',
+    'aria-atomic': true,
+    'aria-busy': false,
+    'aria-relevant': 'additions text',
+    'aria-modal': true,
     accessKey: 'p',
     contentEditable: 'plaintext-only',
     draggable: true,
@@ -153,6 +183,17 @@ test('intrinsic global HTML attributes preserve Web JSX names', () => {
     translate: 'no',
     inert: true,
     popover: true,
+    anchor: 'profile-card-anchor',
+    is: 'profile-card',
+    nonce: 'nonce-1',
+    slot: 'summary',
+    part: 'panel header',
+    exportParts: 'header: panel-header',
+    itemScope: true,
+    itemProp: 'profile',
+    itemType: 'https://schema.org/ProfilePage',
+    itemID: 'https://example.test/profiles/1',
+    itemRef: 'profile-name profile-email',
   }, 'profile');
 
   assert.equal(root.props.attributes.title, 'Profile summary');
@@ -161,6 +202,36 @@ test('intrinsic global HTML attributes preserve Web JSX names', () => {
   assert.equal(root.props.attributes.dir, 'rtl');
   assert.equal(root.props.attributes.tabIndex, '-1');
   assert.equal(root.props.attributes.role, 'region');
+  assert.equal(root.props.attributes['aria-labelledby'], 'profile-title');
+  assert.equal(root.props.attributes['aria-describedby'], 'profile-help');
+  assert.equal(root.props.attributes['aria-controls'], 'profile-panel');
+  assert.equal(root.props.attributes['aria-description'], 'Profile summary panel');
+  assert.equal(root.props.attributes['aria-roledescription'], 'profile region');
+  assert.equal(root.props.attributes['aria-keyshortcuts'], 'Alt+P');
+  assert.equal(root.props.attributes['aria-valuetext'], 'Complete');
+  assert.equal(root.props.attributes['aria-level'], '2');
+  assert.equal(root.props.attributes['aria-posinset'], '3');
+  assert.equal(root.props.attributes['aria-setsize'], '10');
+  assert.equal(root.props.attributes['aria-rowcount'], '20');
+  assert.equal(root.props.attributes['aria-rowindex'], '4');
+  assert.equal(root.props.attributes['aria-rowspan'], '2');
+  assert.equal(root.props.attributes['aria-colcount'], '6');
+  assert.equal(root.props.attributes['aria-colindex'], '5');
+  assert.equal(root.props.attributes['aria-colspan'], '3');
+  assert.equal(root.props.attributes['aria-rowindextext'], 'Row four');
+  assert.equal(root.props.attributes['aria-colindextext'], 'Column five');
+  assert.equal(root.props.attributes['aria-sort'], 'ascending');
+  assert.equal(root.props.attributes['aria-hidden'], 'false');
+  assert.equal(root.props.attributes['aria-autocomplete'], 'list');
+  assert.equal(root.props.attributes['aria-multiline'], 'true');
+  assert.equal(root.props.attributes['aria-current'], 'page');
+  assert.equal(root.props.attributes['aria-haspopup'], 'dialog');
+  assert.equal(root.props.attributes['aria-pressed'], 'mixed');
+  assert.equal(root.props.attributes['aria-live'], 'polite');
+  assert.equal(root.props.attributes['aria-atomic'], 'true');
+  assert.equal(root.props.attributes['aria-busy'], 'false');
+  assert.equal(root.props.attributes['aria-relevant'], 'additions text');
+  assert.equal(root.props.attributes['aria-modal'], 'true');
   assert.equal(root.props.attributes.accessKey, 'p');
   assert.equal(root.props.attributes.contentEditable, 'plaintext-only');
   assert.equal(root.props.attributes.draggable, 'true');
@@ -168,6 +239,17 @@ test('intrinsic global HTML attributes preserve Web JSX names', () => {
   assert.equal(root.props.attributes.translate, 'no');
   assert.equal(root.props.attributes.inert, 'true');
   assert.equal(root.props.attributes.popover, 'true');
+  assert.equal(root.props.attributes.anchor, 'profile-card-anchor');
+  assert.equal(root.props.attributes.is, 'profile-card');
+  assert.equal(root.props.attributes.nonce, 'nonce-1');
+  assert.equal(root.props.attributes.slot, 'summary');
+  assert.equal(root.props.attributes.part, 'panel header');
+  assert.equal(root.props.attributes.exportParts, 'header: panel-header');
+  assert.equal(root.props.attributes.itemScope, 'true');
+  assert.equal(root.props.attributes.itemProp, 'profile');
+  assert.equal(root.props.attributes.itemType, 'https://schema.org/ProfilePage');
+  assert.equal(root.props.attributes.itemID, 'https://example.test/profiles/1');
+  assert.equal(root.props.attributes.itemRef, 'profile-name profile-email');
 });
 
 test('intrinsic media and resource attributes preserve Web JSX names', () => {
@@ -371,6 +453,64 @@ test('intrinsic form association and meter attributes preserve Web JSX names', (
   assert.equal(meter.props.attributes.optimum, '75');
 });
 
+test('intrinsic activation attributes preserve Web JSX names', () => {
+  const button = jsx('button', {
+    command: 'show-modal',
+    commandFor: 'settings-dialog',
+    popoverTarget: 'settings-popover',
+    popoverTargetAction: 'show',
+    children: 'Settings',
+  }, 'settings');
+  const input = jsx('input', {
+    type: 'button',
+    value: 'Help',
+    popovertarget: 'help-popover',
+    popovertargetaction: 'toggle',
+  }, 'help');
+
+  assert.equal(button.props.attributes.command, 'show-modal');
+  assert.equal(button.props.attributes.commandFor, 'settings-dialog');
+  assert.equal(button.props.attributes.popoverTarget, 'settings-popover');
+  assert.equal(button.props.attributes.popoverTargetAction, 'show');
+  assert.equal(input.props.attributes.popovertarget, 'help-popover');
+  assert.equal(input.props.attributes.popovertargetaction, 'toggle');
+});
+
+test('intrinsic text annotation attributes preserve Web JSX names', () => {
+  const quote = jsx('blockquote', {
+    cite: 'https://example.test/quote',
+    children: 'Quoted paragraph',
+  }, 'quote');
+  const inserted = jsx('ins', {
+    cite: 'https://example.test/change',
+    dateTime: '2026-07-02T09:00:00Z',
+    children: 'added',
+  }, 'inserted');
+  const removed = jsx('del', {
+    datetime: '2026-07-01T18:00:00Z',
+    children: 'removed',
+  }, 'removed');
+  const time = jsx('time', {
+    dateTime: '2026-07-02',
+    children: 'Today',
+  }, 'today');
+
+  assert.equal(quote.props.attributes.cite, 'https://example.test/quote');
+  assert.equal(inserted.props.attributes.cite, 'https://example.test/change');
+  assert.equal(inserted.props.attributes.dateTime, '2026-07-02T09:00:00Z');
+  assert.equal(removed.props.attributes.datetime, '2026-07-01T18:00:00Z');
+  assert.equal(time.props.attributes.dateTime, '2026-07-02');
+});
+
+test('intrinsic dialog attributes preserve Web JSX names', () => {
+  const dialog = jsx('dialog', {
+    open: true,
+    children: 'Settings',
+  }, 'settings');
+
+  assert.equal(dialog.props.attributes.open, 'true');
+});
+
 test('CSS text parser preserves delimiters inside functions and strings', () => {
   const root = jsxs('div', {
     style: `
@@ -489,6 +629,10 @@ test('intrinsic form control attributes preserve Web JSX names', () => {
     autoFocus: true,
     autoComplete: 'email',
     inputMode: 'email',
+    enterKeyHint: 'send',
+    autoCapitalize: 'sentences',
+    autoCorrect: 'on',
+    virtualKeyboardPolicy: 'manual',
     accept: 'image/*',
     capture: 'environment',
     alt: 'Profile photo',
@@ -512,6 +656,10 @@ test('intrinsic form control attributes preserve Web JSX names', () => {
   assert.equal(root.props.attributes.autoFocus, 'true');
   assert.equal(root.props.attributes.autoComplete, 'email');
   assert.equal(root.props.attributes.inputMode, 'email');
+  assert.equal(root.props.attributes.enterKeyHint, 'send');
+  assert.equal(root.props.attributes.autoCapitalize, 'sentences');
+  assert.equal(root.props.attributes.autoCorrect, 'on');
+  assert.equal(root.props.attributes.virtualKeyboardPolicy, 'manual');
   assert.equal(root.props.attributes.accept, 'image/*');
   assert.equal(root.props.attributes.capture, 'environment');
   assert.equal(root.props.attributes.alt, 'Profile photo');

@@ -355,8 +355,44 @@ fn lowers_html_text_annotation_tags_to_native_roles() {
                     value: "Answer".to_string(),
                 }],
             },
-            text_annotation("ins", "ins", "added"),
-            text_annotation("del", "del", "removed"),
+            CompiledJsxNode::Element {
+                key: "ins".to_string(),
+                tag: "ins".to_string(),
+                import_source: None,
+                props: CompiledProps {
+                    attributes: BTreeMap::from([
+                        (
+                            "cite".to_string(),
+                            "https://example.test/changes#added".to_string(),
+                        ),
+                        ("dateTime".to_string(), "2026-07-02T09:00:00Z".to_string()),
+                    ]),
+                    ..CompiledProps::default()
+                },
+                children: vec![CompiledJsxNode::Text {
+                    key: "ins-text".to_string(),
+                    value: "added".to_string(),
+                }],
+            },
+            CompiledJsxNode::Element {
+                key: "del".to_string(),
+                tag: "del".to_string(),
+                import_source: None,
+                props: CompiledProps {
+                    attributes: BTreeMap::from([
+                        (
+                            "cite".to_string(),
+                            "https://example.test/changes#removed".to_string(),
+                        ),
+                        ("datetime".to_string(), "2026-07-01T18:00:00Z".to_string()),
+                    ]),
+                    ..CompiledProps::default()
+                },
+                children: vec![CompiledJsxNode::Text {
+                    key: "del-text".to_string(),
+                    value: "removed".to_string(),
+                }],
+            },
             text_annotation("mark", "mark", "highlight"),
             CompiledJsxNode::Element {
                 key: "time".to_string(),
@@ -411,6 +447,46 @@ fn lowers_html_text_annotation_tags_to_native_roles() {
             .get("value")
             .map(String::as_str),
         Some("42")
+    );
+    assert_eq!(
+        native.children[7]
+            .props
+            .html_text_annotation
+            .date_time
+            .as_deref(),
+        Some("2026-07-02")
+    );
+    assert_eq!(
+        native.children[4]
+            .props
+            .html_text_annotation
+            .cite
+            .as_deref(),
+        Some("https://example.test/changes#added")
+    );
+    assert_eq!(
+        native.children[4]
+            .props
+            .html_text_annotation
+            .date_time
+            .as_deref(),
+        Some("2026-07-02T09:00:00Z")
+    );
+    assert_eq!(
+        native.children[5]
+            .props
+            .html_text_annotation
+            .cite
+            .as_deref(),
+        Some("https://example.test/changes#removed")
+    );
+    assert_eq!(
+        native.children[5]
+            .props
+            .html_text_annotation
+            .date_time
+            .as_deref(),
+        Some("2026-07-01T18:00:00Z")
     );
     assert_eq!(
         native.children[7]
@@ -515,6 +591,14 @@ fn lowers_html_phrasing_text_tags_to_native_roles() {
         assert_eq!(native.children[index].role, *role);
         assert_eq!(native.children[index].props.label.as_deref(), Some(*label));
     }
+    assert_eq!(
+        native.children[6]
+            .props
+            .html_text_annotation
+            .cite
+            .as_deref(),
+        Some("https://example.test/spec")
+    );
     assert_eq!(
         native.children[6]
             .props
@@ -664,6 +748,14 @@ fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
             assert_eq!(native.children[index].props.label.as_deref(), Some(*label));
         }
     }
+    assert_eq!(
+        native.children[2]
+            .props
+            .html_text_annotation
+            .cite
+            .as_deref(),
+        Some("https://example.test/quote")
+    );
     assert_eq!(
         native.children[2]
             .props

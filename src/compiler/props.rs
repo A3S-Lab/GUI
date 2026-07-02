@@ -6,28 +6,43 @@ use crate::web::WebProps;
 
 use super::{CompiledJsxNode, CompiledOrientation, CompiledProps};
 
+mod accessibility;
+mod activation;
 mod attributes;
 mod controls;
+mod dialog;
 mod form_association;
 mod global;
+mod microdata;
 mod resource_policy;
 mod resources;
 mod semantic;
+mod shadow;
 mod states;
 mod structure;
+mod text_annotation;
 
+use accessibility::{
+    accessibility_description_props_from_web, accessibility_relationship_props_from_web,
+    accessibility_state_props_from_web, accessibility_structure_props_from_web,
+};
+use activation::html_activation_props_from_tag;
 use controls::HtmlControlAliases;
+use dialog::html_dialog_props_from_tag;
 use form_association::html_form_association_props_from_tag;
 use global::HtmlGlobalAliases;
+use microdata::html_microdata_props_from_tag;
 use resource_policy::html_resource_policy_props_from_tag;
 use resources::HtmlResourceAliases;
 use semantic::WebSemanticAliases;
+use shadow::html_shadow_props_from_tag;
 use states::{
     has_explicit_textarea_value, html_details_open_state, html_fallback_label,
     html_numeric_value_state, html_placeholder_state, html_range_step_state,
     html_string_value_state, html_textarea_child_value,
 };
 use structure::html_collection_props_from_tag;
+use text_annotation::html_text_annotation_props_from_tag;
 
 impl CompiledProps {
     pub(super) fn into_aria_props_for_tag(
@@ -74,8 +89,17 @@ impl CompiledProps {
         let html_global = HtmlGlobalAliases::from_web(&web);
         let html_resource = HtmlResourceAliases::from_tag(tag, &web);
         let html_resource_policy = html_resource_policy_props_from_tag(tag, &web);
+        let html_activation = html_activation_props_from_tag(tag, &web);
+        let html_text_annotation = html_text_annotation_props_from_tag(tag, &web);
+        let html_dialog = html_dialog_props_from_tag(tag, &web);
+        let html_shadow = html_shadow_props_from_tag(tag, &web);
+        let html_microdata = html_microdata_props_from_tag(tag, &web);
         let html_form_association = html_form_association_props_from_tag(tag, &web);
         let html_collection = html_collection_props_from_tag(tag, &web, self.value.as_deref());
+        let accessibility_relationships = accessibility_relationship_props_from_web(&web);
+        let accessibility_description = accessibility_description_props_from_web(&web);
+        let accessibility_structure = accessibility_structure_props_from_web(&web);
+        let accessibility_state = accessibility_state_props_from_web(&web);
         let semantic = WebSemanticAliases::from_web(&web);
 
         let orientation = self.orientation.map(|orientation| match orientation {
@@ -111,6 +135,10 @@ impl CompiledProps {
         props.step_value = self.step_value.or(semantic.step_value).or(html_range_step);
         props.autocomplete = semantic.autocomplete;
         props.input_mode = semantic.input_mode;
+        props.enter_key_hint = semantic.enter_key_hint;
+        props.auto_capitalize = semantic.auto_capitalize;
+        props.auto_correct = semantic.auto_correct;
+        props.virtual_keyboard_policy = semantic.virtual_keyboard_policy;
         props.pattern = semantic.pattern;
         props.min_length = semantic.min_length;
         props.max_length = semantic.max_length;
@@ -130,6 +158,9 @@ impl CompiledProps {
         props.translate = html_global.translate;
         props.inert = html_global.inert;
         props.popover = html_global.popover;
+        props.anchor = html_global.anchor;
+        props.custom_element_is = html_global.custom_element_is;
+        props.nonce = html_global.nonce;
         props.name = html_control.name;
         props.form = html_control.form;
         props.input_type = html_control.input_type;
@@ -168,8 +199,17 @@ impl CompiledProps {
         props.form_target = html_control.form_target;
         props.form_no_validate = html_control.form_no_validate;
         props.html_resource_policy = html_resource_policy;
+        props.html_activation = html_activation;
+        props.html_text_annotation = html_text_annotation;
+        props.html_dialog = html_dialog;
+        props.html_shadow = html_shadow;
+        props.html_microdata = html_microdata;
         props.html_form_association = html_form_association;
         props.html_collection = html_collection;
+        props.accessibility_relationships = accessibility_relationships;
+        props.accessibility_description = accessibility_description;
+        props.accessibility_structure = accessibility_structure;
+        props.accessibility_state = accessibility_state;
         props
     }
 }
