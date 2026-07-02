@@ -348,7 +348,7 @@ impl CompiledProps {
         }
         let html_fallback_label = html_fallback_label(tag, &web);
         let html_details_open = html_details_open_state(tag, &web);
-        let html_range_value = html_range_value_state(tag, &web);
+        let html_range_value = html_range_value_state(tag, &web, self.value.as_deref());
         let semantic = WebSemanticAliases::from_web(&web);
 
         let orientation = self.orientation.map(|orientation| match orientation {
@@ -386,11 +386,22 @@ fn html_details_open_state(tag: &str, web: &WebProps) -> Option<bool> {
     }
 }
 
-fn html_range_value_state(tag: &str, web: &WebProps) -> Option<f64> {
+fn html_range_value_state(tag: &str, web: &WebProps, value: Option<&str>) -> Option<f64> {
     match canonical_html_tag(tag)? {
-        "meter" | "progress" => number_attribute(&web.attributes, &["value"]),
+        "meter" | "progress" => value
+            .and_then(parse_number_attribute)
+            .or_else(|| number_attribute(&web.attributes, &["value"])),
+        "input" if html_input_type_is(web, "range") => value
+            .and_then(parse_number_attribute)
+            .or_else(|| number_attribute(&web.attributes, &["value"])),
         _ => None,
     }
+}
+
+fn html_input_type_is(web: &WebProps, expected: &str) -> bool {
+    web.attributes
+        .get("type")
+        .is_some_and(|value| value.trim().eq_ignore_ascii_case(expected))
 }
 
 fn html_fallback_label(tag: &str, web: &WebProps) -> Option<String> {
@@ -465,7 +476,11 @@ fn invalid_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> O
 }
 
 fn number_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<f64> {
-    string_attribute(attributes, names).and_then(|value| value.parse::<f64>().ok())
+    string_attribute(attributes, names).and_then(parse_number_attribute)
+}
+
+fn parse_number_attribute(value: &str) -> Option<f64> {
+    value.trim().parse::<f64>().ok()
 }
 
 fn parse_bool_attribute(value: &str) -> Option<bool> {
@@ -2324,6 +2339,30 @@ mod tests {
         assert_eq!(
             bridge.lower_to_native(&input("email")).unwrap().role,
             NativeRole::TextField
+        );
+
+        let range = CompiledJsxNode::Element {
+            key: "volume".to_string(),
+            tag: "input".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                value: Some("42".to_string()),
+                min_value: Some(0.0),
+                max_value: Some(100.0),
+                attributes: BTreeMap::from([("type".to_string(), "range".to_string())]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+        let native_range = bridge.lower_to_native(&range).unwrap();
+
+        assert_eq!(native_range.role, NativeRole::Slider);
+        assert_eq!(native_range.props.current, Some(42.0));
+        assert_eq!(native_range.props.min, Some(0.0));
+        assert_eq!(native_range.props.max, Some(100.0));
+        assert_eq!(
+            native_range.props.metadata.get("type").map(String::as_str),
+            Some("range")
         );
     }
 }

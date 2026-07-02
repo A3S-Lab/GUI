@@ -21,6 +21,7 @@ import {
   createHostEvent,
   createUiFrame,
   defineAction,
+  jsx,
   jsxs,
 } from '../src/index.js';
 
@@ -203,6 +204,24 @@ test('web and aria state attributes normalize to native control props', () => {
   assert.equal(root.props.maxValue, 100);
   assert.equal(root.props.orientation, 'horizontal');
   assert.equal(root.props.attributes['aria-label'], 'Volume');
+  assert.equal(root.props.events.onChange, 'setVolume');
+});
+
+test('intrinsic range input normalizes numeric value props', () => {
+  const root = jsx('input', {
+    type: 'range',
+    value: 42,
+    min: 0,
+    max: 100,
+    onChange: 'setVolume',
+  }, 'volume');
+
+  assert.equal(root.tag, 'input');
+  assert.equal(root.props.valueNumber, 42);
+  assert.equal(root.props.value, undefined);
+  assert.equal(root.props.minValue, 0);
+  assert.equal(root.props.maxValue, 100);
+  assert.equal(root.props.attributes.type, 'range');
   assert.equal(root.props.events.onChange, 'setVolume');
 });
 

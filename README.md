@@ -40,6 +40,8 @@ heading, heading-group, ruby annotation, landmark, sectioning, disclosure,
 figure, description-list, form, form-grouping, option-group, output, meter,
 list, dialog, menu, media, embedded-content, link, image-map, and
 table-structure tags lower to dedicated native roles.
+`input[type=range]` lowers to a native slider role and numeric `value` or
+`defaultValue` props are projected as the ranged current value.
 Elements without a dedicated native role are represented as generic native
 views or text nodes, and the original tag is preserved in metadata under
 `data-a3s-html-tag` or `data-a3s-svg-tag`.
@@ -305,7 +307,8 @@ nodes, browser CSS layout, or browser focus APIs as runtime primitives.
 
 Accepted input fields include `className`, inline `style`, `aria-*`,
 `data-*`, HTML state props such as `disabled` and `required`, ranged attributes
-such as `min`/`max`/`aria-valuenow`, stable keys, and DOM-style event props.
+such as `min`/`max`/`aria-valuenow`, `input[type=range]` numeric values, stable
+keys, and DOM-style event props.
 Those values are normalized into native props and portable style tokens.
 Platform adapters decide how to apply the resulting setters and how to expose
 the matching platform accessibility metadata.
@@ -544,6 +547,7 @@ registered action ids.
 | `figure` / `figcaption` | native figure roles |
 | `dl` / `dt` / `dd` | native description-list roles |
 | `form` / `fieldset` / `legend` | native form and fieldset roles |
+| `input[type=range]` | native slider role with numeric current value |
 | `select` / `optgroup` / `option` | native select option-group and option roles |
 | `output` | native output role |
 | `meter` / `progress` | native ranged indicator roles |
