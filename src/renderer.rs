@@ -236,6 +236,7 @@ fn reconcile_children<H: NativeHost>(
     host: &mut H,
 ) -> GuiResult<Vec<MountedNode>> {
     let mut mounted_children = Vec::with_capacity(new_children.len());
+    let mut new_mounts = Vec::new();
     let mut old_by_key: BTreeMap<ElementKey, (usize, MountedNode)> = old_children
         .into_iter()
         .enumerate()
@@ -246,21 +247,50 @@ fn reconcile_children<H: NativeHost>(
         match old_by_key.remove(&new_child.key) {
             Some((old_index, old_child)) => {
                 let old_id = old_child.id;
-                let mounted = reconcile_node(Some(parent), index, old_child, new_child, host)?;
+                let mounted = match reconcile_node(Some(parent), index, old_child, new_child, host)
+                {
+                    Ok(mounted) => mounted,
+                    Err(error) => {
+                        cleanup_new_mounts(new_mounts, host);
+                        return Err(error);
+                    }
+                };
                 if mounted.id == old_id && old_index != index {
-                    host.insert_child(parent, mounted.id, index)?;
+                    if let Err(error) = host.insert_child(parent, mounted.id, index) {
+                        cleanup_new_mounts(new_mounts, host);
+                        return Err(error);
+                    }
                 }
                 mounted_children.push(mounted);
             }
-            None => mounted_children.push(mount_node(Some(parent), index, new_child, host)?),
+            None => {
+                let mounted = match mount_node(Some(parent), index, new_child, host) {
+                    Ok(mounted) => mounted,
+                    Err(error) => {
+                        cleanup_new_mounts(new_mounts, host);
+                        return Err(error);
+                    }
+                };
+                new_mounts.push(mounted.clone());
+                mounted_children.push(mounted);
+            }
         }
     }
 
     for (_, old_child) in old_by_key.into_values() {
-        unmount_node(old_child, host)?;
+        if let Err(error) = unmount_node(old_child, host) {
+            cleanup_new_mounts(new_mounts, host);
+            return Err(error);
+        }
     }
 
     Ok(mounted_children)
+}
+
+fn cleanup_new_mounts<H: NativeHost>(new_mounts: Vec<MountedNode>, host: &mut H) {
+    for mounted in new_mounts.into_iter().rev() {
+        best_effort_unmount_node(mounted, host);
+    }
 }
 
 fn unmount_node<H: NativeHost>(node: MountedNode, host: &mut H) -> GuiResult<()> {
@@ -500,6 +530,32 @@ mod tests {
         assert!(renderer.mounted_node_ids().is_empty());
         assert!(host.nodes().is_empty());
         assert!(host.root().is_none());
+    }
+
+    #[test]
+    fn renderer_cleans_up_incremental_child_mount_after_later_create_failure() {
+        let first = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("a", NativeRole::Button));
+        let second = NativeElement::new("root", NativeRole::View)
+            .child(NativeElement::new("a", NativeRole::Button))
+            .child(NativeElement::new("b", NativeRole::Button))
+            .child(NativeElement::new("c", NativeRole::Button));
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost::default();
+
+        let root_id = renderer.render(&first, &mut host).unwrap();
+        let first_child = host.node(root_id).unwrap().children[0];
+        host.fail_create_call = Some(host.create_calls + 2);
+        let error = renderer.render(&second, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host create failure"));
+        assert_eq!(renderer.mounted_node_ids().len(), 2);
+        assert!(renderer.mounted_node_ids().contains(&root_id));
+        assert!(renderer.mounted_node_ids().contains(&first_child));
+        assert_eq!(host.nodes().len(), 2);
+        assert_eq!(host.root(), Some(root_id));
+        assert_eq!(host.node(root_id).unwrap().children, vec![first_child]);
+        assert_eq!(host.node(first_child).unwrap().role, NativeRole::Button);
     }
 
     #[test]
