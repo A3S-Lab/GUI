@@ -121,6 +121,13 @@ impl<H: NativeHost> GuiRuntime<H> {
         event: NativeEvent,
     ) -> GuiResult<HandledNativeEvent> {
         self.refresh_stale_interaction_baseline(event.node, blueprint);
+        if is_hidden_or_inert_event(blueprint, route_blueprints) {
+            return Ok(HandledNativeEvent {
+                event,
+                invocation: None,
+                interaction_changes: Vec::new(),
+            });
+        }
         if is_disabled_user_event(blueprint, event.kind) {
             return Ok(HandledNativeEvent {
                 event,
@@ -387,6 +394,17 @@ fn has_explicit_key_down_handler(
         || route_blueprints
             .iter()
             .any(|route_blueprint| route_blueprint.events.contains_key("onKeyDown"))
+}
+
+fn is_hidden_or_inert_event(
+    blueprint: &NativeWidgetBlueprint,
+    route_blueprints: &[NativeWidgetBlueprint],
+) -> bool {
+    is_hidden_or_inert(blueprint) || route_blueprints.iter().any(is_hidden_or_inert)
+}
+
+fn is_hidden_or_inert(blueprint: &NativeWidgetBlueprint) -> bool {
+    blueprint.control_state.hidden || blueprint.control_state.inert
 }
 
 fn is_disabled_user_event(
@@ -1073,6 +1091,71 @@ mod tests {
         assert_eq!(handled.interaction_changes.len(), 1);
         assert!(runtime.interactions().node(root_id).unwrap().focused);
         assert_eq!(runtime.actions().invocations().len(), 1);
+    }
+
+    #[test]
+    fn runtime_suppresses_hidden_focus_and_actions() {
+        let element = NativeElement::new("save", NativeRole::Button).with_props(
+            NativeProps::new().label("Save").hidden(true).web(
+                WebProps::new()
+                    .on_focus("inspectSave")
+                    .on_press("saveDocument"),
+            ),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("inspectSave");
+        runtime.actions_mut().register("saveDocument");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let focus = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+        let press = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Press,
+            ))
+            .unwrap();
+
+        assert!(focus.invocation.is_none());
+        assert!(focus.interaction_changes.is_empty());
+        assert!(press.invocation.is_none());
+        assert!(press.interaction_changes.is_empty());
+        assert!(!runtime.accessibility_tree().unwrap().focused);
+        assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
+    fn runtime_suppresses_inert_subtree_actions() {
+        let element = NativeElement::new("tools", NativeRole::Toolbar)
+            .with_props(NativeProps::new().inert(true))
+            .child(
+                NativeElement::new("save", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Save")
+                        .web(WebProps::new().on_press("saveDocument")),
+                ),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("saveDocument");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let child = runtime.host().node(root_id).unwrap().children[0];
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                child,
+                crate::event::NativeEventKind::Press,
+            ))
+            .unwrap();
+
+        assert!(handled.invocation.is_none());
+        assert!(handled.interaction_changes.is_empty());
+        assert!(runtime.actions().invocations().is_empty());
     }
 
     #[test]

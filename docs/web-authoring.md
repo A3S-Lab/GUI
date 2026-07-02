@@ -94,7 +94,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `autoComplete` / `inputMode` / `enterKeyHint` / `autoCapitalize` / `autoCorrect` / `virtualKeyboardPolicy` / `pattern` | normalized to native text-entry hints and preserved as metadata |
 | `minLength` / `maxLength` / `rows` / `cols` / `size` | normalized to native numeric control hints and preserved as metadata |
 | dialog `open` | normalized to native dialog visibility state when applicable |
-| `title` / `hidden` / `lang` / `dir` / `tabIndex` / `role` / `accessKey` / `contentEditable` / `draggable` / `spellCheck` / `translate` / `inert` / `popover` / `anchor` / `is` / global `nonce` | normalized to native global HTML hints and preserved as metadata; `hidden` also makes the native widget config invisible |
+| `title` / `hidden` / `lang` / `dir` / `tabIndex` / `role` / `accessKey` / `contentEditable` / `draggable` / `spellCheck` / `translate` / `inert` / `popover` / `anchor` / `is` / global `nonce` | normalized to native global HTML hints and preserved as metadata; `hidden` also makes the native widget config invisible, and `hidden` or `inert` suppress native events for the subtree |
 | `slot` / `part` / `exportParts` | normalized to native shadow distribution and style-part hints when applicable |
 | `itemScope` / `itemProp` / `itemType` / `itemID` / `itemRef` | normalized to native microdata metadata hints when applicable |
 | `name` / `form` / `type` / `accept` / `capture` / `alt` / `src` / `list` / `dirname` | normalized to native HTML form and media control hints when applicable |
@@ -395,9 +395,10 @@ items. Keyboard activation is also normalized into `Toggle` or
 `SelectionChange` events for checkboxes, switches, expanded controls, radios,
 listbox items, and tabs, so interaction state and action payloads stay
 semantic.
-Disabled controls suppress user activation and input events. Read-only controls
-still allow focus, blur, press, and explicit keyboard routing, but suppress
-value, selection, and toggle events before state changes or action dispatch.
+Hidden and inert controls suppress native events for their subtree. Disabled
+controls suppress user activation and input events. Read-only controls still
+allow focus, blur, press, and explicit keyboard routing, but suppress value,
+selection, and toggle events before state changes or action dispatch.
 
 For folded controls, event ownership follows the source element structure. For
 example, `TextField` receives the visible label, while `Input` can own
