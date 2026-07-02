@@ -189,7 +189,11 @@ pub struct PortableStyle {
     pub column_rule_color: Option<StyleColor>,
     pub column_span: Option<String>,
     pub column_fill: Option<String>,
+    pub page_size: Option<String>,
     pub page: Option<String>,
+    pub page_orientation: Option<String>,
+    pub bleed: Option<String>,
+    pub marks: Option<String>,
     pub orphans: Option<String>,
     pub widows: Option<String>,
     pub bookmark_label: Option<String>,
@@ -997,7 +1001,11 @@ impl PortableStyle {
             "column-rule-color" => self.column_rule_color = parse_color(value_ref),
             "column-span" => self.column_span = parse_css_string_token(value_ref),
             "column-fill" => self.column_fill = parse_css_string_token(value_ref),
+            "size" => self.page_size = parse_css_string_token(value_ref),
             "page" => self.page = parse_css_string_token(value_ref),
+            "page-orientation" => self.page_orientation = parse_css_string_token(value_ref),
+            "bleed" => self.bleed = parse_css_string_token(value_ref),
+            "marks" => self.marks = parse_css_string_token(value_ref),
             "orphans" => self.orphans = parse_css_string_token(value_ref),
             "widows" => self.widows = parse_css_string_token(value_ref),
             "bookmark-label" => self.bookmark_label = parse_css_string_token(value_ref),
@@ -11335,7 +11343,11 @@ mod tests {
             .style("columnRuleColor", "rgb(10 20 30)")
             .style("columnSpan", "all")
             .style("columnFill", "balance")
+            .style("size", "A4 landscape")
             .style("page", "chapter")
+            .style("pageOrientation", "rotate-left")
+            .style("bleed", "6pt")
+            .style("marks", "crop cross")
             .style("orphans", "3")
             .style("widows", "4")
             .style("bookmarkLabel", "content(text)")
@@ -11395,7 +11407,11 @@ mod tests {
         );
         assert_eq!(style.column_span.as_deref(), Some("all"));
         assert_eq!(style.column_fill.as_deref(), Some("balance"));
+        assert_eq!(style.page_size.as_deref(), Some("A4 landscape"));
         assert_eq!(style.page.as_deref(), Some("chapter"));
+        assert_eq!(style.page_orientation.as_deref(), Some("rotate-left"));
+        assert_eq!(style.bleed.as_deref(), Some("6pt"));
+        assert_eq!(style.marks.as_deref(), Some("crop cross"));
         assert_eq!(style.orphans.as_deref(), Some("3"));
         assert_eq!(style.widows.as_deref(), Some("4"));
         assert_eq!(style.bookmark_label.as_deref(), Some("content(text)"));
@@ -11418,7 +11434,11 @@ mod tests {
         assert!(!style.unsupported.contains_key("list-style-image"));
         assert!(!style.unsupported.contains_key("marker-side"));
         assert!(!style.unsupported.contains_key("column-rule"));
+        assert!(!style.unsupported.contains_key("size"));
         assert!(!style.unsupported.contains_key("page"));
+        assert!(!style.unsupported.contains_key("page-orientation"));
+        assert!(!style.unsupported.contains_key("bleed"));
+        assert!(!style.unsupported.contains_key("marks"));
         assert!(!style.unsupported.contains_key("orphans"));
         assert!(!style.unsupported.contains_key("widows"));
         assert!(!style.unsupported.contains_key("bookmark-label"));
@@ -11439,7 +11459,8 @@ mod tests {
              [shape-margin:2rem] [shape-image-threshold:65%] \
              list-inside list-disc list-image-[url('/marker.svg')] [marker-side:match-parent] \
              columns-3 \
-             [page:chapter] [orphans:3] [widows:4] \
+             [size:A4_landscape] [page:chapter] [page-orientation:rotate-left] \
+             [bleed:6pt] [marks:crop_cross] [orphans:3] [widows:4] \
              [bookmark-label:content(text)] [bookmark-level:2] [bookmark-state:open] \
              [footnote-display:block] [footnote-policy:line] [float:footnote] \
              break-before-page break-after-avoid-column \
@@ -11449,7 +11470,8 @@ mod tests {
              hover:[image-rendering:crisp-edges] md:[image-resolution:from-image] \
              focus:[shape-outside:inset(10px)] active:[shape-margin:calc(1rem_+_2px)] \
              before:[shape-image-threshold:0.25] hover:[page:appendix] \
-             focus:[orphans:2] active:[widows:5] marker:[marker-side:list-item] \
+             focus:[size:letter] active:[page-orientation:upright] marker:[bleed:3mm] \
+             print:[marks:none] focus:[orphans:2] active:[widows:5] marker:[marker-side:list-item] \
              hover:[bookmark-label:attr(title)] focus:[bookmark-state:closed] \
              active:[footnote-policy:block] before:[float:inline-start]",
         );
@@ -11485,7 +11507,11 @@ mod tests {
         );
         assert_eq!(style.marker_side.as_deref(), Some("match-parent"));
         assert_eq!(style.columns.as_deref(), Some("3"));
+        assert_eq!(style.page_size.as_deref(), Some("A4 landscape"));
         assert_eq!(style.page.as_deref(), Some("chapter"));
+        assert_eq!(style.page_orientation.as_deref(), Some("rotate-left"));
+        assert_eq!(style.bleed.as_deref(), Some("6pt"));
+        assert_eq!(style.marks.as_deref(), Some("crop cross"));
         assert_eq!(style.orphans.as_deref(), Some("3"));
         assert_eq!(style.widows.as_deref(), Some("4"));
         assert_eq!(style.bookmark_label.as_deref(), Some("content(text)"));
@@ -11622,6 +11648,10 @@ mod tests {
         assert!(!style.unsupported.contains_key("shape-outside"));
         assert!(!style.unsupported.contains_key("shape-margin"));
         assert!(!style.unsupported.contains_key("shape-image-threshold"));
+        assert!(!style.unsupported.contains_key("size"));
+        assert!(!style.unsupported.contains_key("page-orientation"));
+        assert!(!style.unsupported.contains_key("bleed"));
+        assert!(!style.unsupported.contains_key("marks"));
         assert!(!style.unsupported.contains_key("page"));
         assert!(!style.unsupported.contains_key("orphans"));
         assert!(!style.unsupported.contains_key("widows"));
@@ -11648,6 +11678,38 @@ mod tests {
                 .and_then(|styles| styles.get("page"))
                 .map(String::as_str),
             Some("appendix")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("size"))
+                .map(String::as_str),
+            Some("letter")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("page-orientation"))
+                .map(String::as_str),
+            Some("upright")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("marker")
+                .and_then(|styles| styles.get("bleed"))
+                .map(String::as_str),
+            Some("3mm")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("print")
+                .and_then(|styles| styles.get("marks"))
+                .map(String::as_str),
+            Some("none")
         );
         assert_eq!(
             style

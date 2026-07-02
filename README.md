@@ -70,7 +70,7 @@ CSS image rendering/orientation/resolution, object fit/position,
 CSS Shapes shape-outside/margin/threshold, list style type/position/image and
 marker side metadata,
 columns, column rule/span/fill,
-CSS page selection, orphans/widows, bookmark and footnote metadata,
+CSS page size/orientation/selection, bleed/marks, orphans/widows, bookmark and footnote metadata,
 fragmentation breaks, font shorthand, font size and font size adjustment,
 font weight, font family, font style, font stretch, font palette,
 font language override, font kerning, font optical sizing, font smoothing hints,
@@ -183,8 +183,9 @@ Background, object, list, columns, and fragmentation utilities such as `bg-*`,
 `object-*`, `list-*`, `list-image-*`, `columns-*`, `break-before-*`,
 `break-after-*`, and `break-inside-*`, plus arbitrary CSS image and shape
 properties such as `image-rendering` and `shape-outside`, and arbitrary paged
-media, background shorthand, and list properties such as `page`, `orphans`,
-`widows`, and `marker-side`, plus bookmark and footnote properties, are
+media, background shorthand, and list properties such as `size`, `page`,
+`page-orientation`, `bleed`, `marks`, `orphans`, `widows`, and `marker-side`,
+plus bookmark and footnote properties, are
 projected into portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, arbitrary scroll-driven animation

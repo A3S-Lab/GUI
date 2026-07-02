@@ -399,8 +399,9 @@ deterministically:
   `objectPosition`, `shapeOutside`, `shapeMargin`, `shapeImageThreshold`,
   `listStyleType`, `listStylePosition`, `listStyleImage`, `markerSide`,
   `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
-  `columnFill`, `page`, `orphans`, `widows`, `bookmark*`, `footnote*`,
-  `breakBefore`, `breakAfter`, `breakInside`
+  `columnFill`, `size`, `page`, `pageOrientation`, `bleed`, `marks`,
+  `orphans`, `widows`, `bookmark*`, `footnote*`, `breakBefore`, `breakAfter`,
+  `breakInside`
 - `font`, `fontFamily`, `fontStyle`, `fontSize`, `fontSizeAdjust`,
   `fontWeight`, `fontStretch`, `fontPalette`, `fontLanguageOverride`,
   `fontKerning`, `fontOpticalSizing`, `WebkitFontSmoothing`,
@@ -548,7 +549,8 @@ such as `bg-*`, `object-*`, `list-*`, `list-image-*`, `columns-*`,
 background shorthand, image, and shape properties such as `background`,
 `image-rendering`, and `shape-outside`, and arbitrary paged media and list
 properties such as `page`, `orphans`, `widows`, and `marker-side`, plus bookmark
-and footnote properties, project into the same declaration model.
+and footnote properties, plus paged media `size`, `page-orientation`, `bleed`,
+and `marks`, project into the same declaration model.
 Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,
 `rounded-r-*`, `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`,
 `rounded-tr-*`, `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`,
