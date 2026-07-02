@@ -18,6 +18,31 @@ pub struct Renderer {
     root: Option<MountedNode>,
 }
 
+#[derive(Debug, Default)]
+struct ReconcileRollback {
+    new_mounts: Vec<MountedNode>,
+    updated_props: Vec<(HostNodeId, NativeProps)>,
+}
+
+impl ReconcileRollback {
+    fn record_new_mount(&mut self, mounted: MountedNode) {
+        self.new_mounts.push(mounted);
+    }
+
+    fn record_update(&mut self, id: HostNodeId, previous_props: NativeProps) {
+        self.updated_props.push((id, previous_props));
+    }
+
+    fn rollback<H: NativeHost>(&mut self, host: &mut H) {
+        for mounted in std::mem::take(&mut self.new_mounts).into_iter().rev() {
+            best_effort_unmount_node(mounted, host);
+        }
+        for (id, props) in std::mem::take(&mut self.updated_props).into_iter().rev() {
+            let _ = host.update(id, &props);
+        }
+    }
+}
+
 impl Renderer {
     pub fn new() -> Self {
         Self::default()
@@ -30,6 +55,7 @@ impl Renderer {
     ) -> GuiResult<HostNodeId> {
         validate_native_tree(element)?;
         let previous_root = self.root.clone();
+        let mut rollback = ReconcileRollback::default();
         let mounted = match self.root.take() {
             Some(old) if needs_replacement(&old, element) => {
                 let mounted = match mount_node(None, 0, element, host) {
@@ -49,9 +75,10 @@ impl Renderer {
                 unmount_node(old, host)?;
                 return Ok(root_id);
             }
-            Some(old) => match reconcile_node(None, 0, old, element, host) {
+            Some(old) => match reconcile_node(None, 0, old, element, host, &mut rollback) {
                 Ok(mounted) => mounted,
                 Err(error) => {
+                    rollback.rollback(host);
                     self.root = previous_root;
                     return Err(error);
                 }
@@ -61,6 +88,8 @@ impl Renderer {
         if let Err(error) = host.set_root(mounted.id) {
             if previous_root.is_none() {
                 best_effort_unmount_node(mounted, host);
+            } else {
+                rollback.rollback(host);
             }
             self.root = previous_root;
             return Err(error);
@@ -208,6 +237,7 @@ fn reconcile_node<H: NativeHost>(
     old: MountedNode,
     new: &NativeElement,
     host: &mut H,
+    rollback: &mut ReconcileRollback,
 ) -> GuiResult<MountedNode> {
     if needs_replacement(&old, new) {
         let mounted = mount_node(parent, index, new, host)?;
@@ -216,10 +246,12 @@ fn reconcile_node<H: NativeHost>(
     }
 
     if old.props != new.props {
+        let previous_props = old.props.clone();
         host.update(old.id, &new.props)?;
+        rollback.record_update(old.id, previous_props);
     }
 
-    let children = reconcile_children(old.id, old.children, &new.children, host)?;
+    let children = reconcile_children(old.id, old.children, &new.children, host, rollback)?;
     Ok(MountedNode {
         id: old.id,
         key: old.key,
@@ -234,9 +266,9 @@ fn reconcile_children<H: NativeHost>(
     old_children: Vec<MountedNode>,
     new_children: &[NativeElement],
     host: &mut H,
+    rollback: &mut ReconcileRollback,
 ) -> GuiResult<Vec<MountedNode>> {
     let mut mounted_children = Vec::with_capacity(new_children.len());
-    let mut new_mounts = Vec::new();
     let mut old_by_key: BTreeMap<ElementKey, (usize, MountedNode)> = old_children
         .into_iter()
         .enumerate()
@@ -247,50 +279,28 @@ fn reconcile_children<H: NativeHost>(
         match old_by_key.remove(&new_child.key) {
             Some((old_index, old_child)) => {
                 let old_id = old_child.id;
-                let mounted = match reconcile_node(Some(parent), index, old_child, new_child, host)
-                {
-                    Ok(mounted) => mounted,
-                    Err(error) => {
-                        cleanup_new_mounts(new_mounts, host);
-                        return Err(error);
-                    }
-                };
+                let mounted =
+                    reconcile_node(Some(parent), index, old_child, new_child, host, rollback)?;
                 if mounted.id == old_id && old_index != index {
-                    if let Err(error) = host.insert_child(parent, mounted.id, index) {
-                        cleanup_new_mounts(new_mounts, host);
-                        return Err(error);
-                    }
+                    host.insert_child(parent, mounted.id, index)?;
                 }
                 mounted_children.push(mounted);
             }
-            None => {
-                let mounted = match mount_node(Some(parent), index, new_child, host) {
-                    Ok(mounted) => mounted,
-                    Err(error) => {
-                        cleanup_new_mounts(new_mounts, host);
-                        return Err(error);
-                    }
-                };
-                new_mounts.push(mounted.clone());
-                mounted_children.push(mounted);
-            }
+            None => match mount_node(Some(parent), index, new_child, host) {
+                Ok(mounted) => {
+                    rollback.record_new_mount(mounted.clone());
+                    mounted_children.push(mounted);
+                }
+                Err(error) => return Err(error),
+            },
         }
     }
 
     for (_, old_child) in old_by_key.into_values() {
-        if let Err(error) = unmount_node(old_child, host) {
-            cleanup_new_mounts(new_mounts, host);
-            return Err(error);
-        }
+        unmount_node(old_child, host)?;
     }
 
     Ok(mounted_children)
-}
-
-fn cleanup_new_mounts<H: NativeHost>(new_mounts: Vec<MountedNode>, host: &mut H) {
-    for mounted in new_mounts.into_iter().rev() {
-        best_effort_unmount_node(mounted, host);
-    }
 }
 
 fn unmount_node<H: NativeHost>(node: MountedNode, host: &mut H) -> GuiResult<()> {
@@ -556,6 +566,67 @@ mod tests {
         assert_eq!(host.root(), Some(root_id));
         assert_eq!(host.node(root_id).unwrap().children, vec![first_child]);
         assert_eq!(host.node(first_child).unwrap().role, NativeRole::Button);
+    }
+
+    #[test]
+    fn renderer_rolls_back_incremental_updates_after_later_create_failure() {
+        let first = NativeElement::new("root", NativeRole::View).child(
+            NativeElement::new("a", NativeRole::Button).with_props(NativeProps::new().label("Old")),
+        );
+        let second = NativeElement::new("root", NativeRole::View)
+            .child(
+                NativeElement::new("a", NativeRole::Button)
+                    .with_props(NativeProps::new().label("New")),
+            )
+            .child(NativeElement::new("b", NativeRole::Button))
+            .child(NativeElement::new("c", NativeRole::Button));
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost::default();
+
+        let root_id = renderer.render(&first, &mut host).unwrap();
+        let first_child = host.node(root_id).unwrap().children[0];
+        host.fail_create_call = Some(host.create_calls + 2);
+        let error = renderer.render(&second, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host create failure"));
+        assert_eq!(renderer.mounted_node_ids().len(), 2);
+        assert_eq!(host.nodes().len(), 2);
+        assert_eq!(host.root(), Some(root_id));
+        assert_eq!(host.node(root_id).unwrap().children, vec![first_child]);
+        assert_eq!(
+            host.node(first_child).unwrap().props.label.as_deref(),
+            Some("Old")
+        );
+    }
+
+    #[test]
+    fn renderer_rolls_back_incremental_changes_after_set_root_failure() {
+        let first = NativeElement::new("root", NativeRole::View).child(
+            NativeElement::new("a", NativeRole::Button).with_props(NativeProps::new().label("Old")),
+        );
+        let second = NativeElement::new("root", NativeRole::View)
+            .child(
+                NativeElement::new("a", NativeRole::Button)
+                    .with_props(NativeProps::new().label("New")),
+            )
+            .child(NativeElement::new("b", NativeRole::Button));
+        let mut renderer = Renderer::new();
+        let mut host = FailingUpdateHost::default();
+
+        let root_id = renderer.render(&first, &mut host).unwrap();
+        let first_child = host.node(root_id).unwrap().children[0];
+        host.fail_set_root = true;
+        let error = renderer.render(&second, &mut host).unwrap_err();
+
+        assert!(error.to_string().contains("forced host set_root failure"));
+        assert_eq!(renderer.mounted_node_ids().len(), 2);
+        assert_eq!(host.nodes().len(), 2);
+        assert_eq!(host.root(), Some(root_id));
+        assert_eq!(host.node(root_id).unwrap().children, vec![first_child]);
+        assert_eq!(
+            host.node(first_child).unwrap().props.label.as_deref(),
+            Some("Old")
+        );
     }
 
     #[test]
