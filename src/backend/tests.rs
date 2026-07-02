@@ -34,6 +34,7 @@ struct SurfaceHandle {
 #[derive(Debug, Default)]
 struct ThreadBoundHandleAdapter {
     calls: Rc<RefCell<Vec<String>>>,
+    fail_removes: bool,
 }
 
 #[derive(Debug, Default)]
@@ -237,6 +238,14 @@ impl NativeHandleAdapter for ThreadBoundHandleAdapter {
     }
 
     fn remove_handle(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
+        if self.fail_removes {
+            self.calls.borrow_mut().push(format!(
+                "remove:{}:{}:failed",
+                id.get(),
+                handle.widget_class
+            ));
+            return Err(GuiError::host("forced handle remove failure"));
+        }
         self.calls
             .borrow_mut()
             .push(format!("remove:{}:{}", id.get(), handle.widget_class));
@@ -432,6 +441,46 @@ fn handle_widget_driver_passes_config_patch_to_native_adapter() {
     let config = executor.driver().config(HostNodeId::new(1)).unwrap();
     assert_eq!(config.label.as_deref(), Some("Saved"));
     assert!(!config.enabled);
+}
+
+#[test]
+fn handle_widget_driver_preserves_state_when_remove_handle_fails() {
+    let adapter = ThreadBoundHandleAdapter {
+        fail_removes: true,
+        ..Default::default()
+    };
+    let calls = adapter.calls.clone();
+    let driver = HandleWidgetDriver::new(adapter);
+    let mut executor = DriverCommandExecutor::new(driver);
+    let id = HostNodeId::new(1);
+    let root = Gtk4Adapter.blueprint(&NativeElement::new("root", NativeRole::View));
+
+    executor
+        .execute(&PlatformCommand::Create {
+            id,
+            blueprint: root,
+        })
+        .unwrap();
+    executor.execute(&PlatformCommand::SetRoot { id }).unwrap();
+    let command_count = executor.commands().len();
+
+    let error = executor
+        .execute(&PlatformCommand::Remove { id })
+        .unwrap_err();
+
+    assert!(error.to_string().contains("forced handle remove failure"));
+    assert_eq!(executor.commands().len(), command_count);
+    assert_eq!(executor.driver().root(), Some(id));
+    assert!(executor.driver().handle(id).is_some());
+    assert!(executor.driver().config(id).is_some());
+    assert_eq!(
+        calls.borrow().as_slice(),
+        [
+            "create:1:gtk::Box",
+            "root:1:gtk::Box",
+            "remove:1:gtk::Box:failed",
+        ]
+    );
 }
 
 #[test]

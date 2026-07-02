@@ -133,11 +133,9 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
     }
 
     fn remove_widget(&mut self, id: HostNodeId) -> GuiResult<()> {
-        let handle = self
-            .handles
-            .remove(&id)
-            .ok_or_else(|| GuiError::host(format!("native handle {} missing", id.get())))?;
+        let handle = self.cloned_handle(id)?;
         self.adapter.remove_handle(id, handle)?;
+        self.handles.remove(&id);
         self.configs.remove(&id);
         if self.root == Some(id) {
             self.root = None;

@@ -406,6 +406,8 @@ For platform bindings that already expose clonable native handle wrappers,
 implements `NativeHandleAdapter`, returning handles from `create_handle` and
 applying updates, child attachment, removal, and root assignment to those
 handles. This path supports `NSView`, WinUI object, and GTK object wrappers.
+Stored handles, configs, and root state are changed only after the adapter
+operation succeeds, so backend failures do not desynchronize the shared driver.
 Adapters can implement `update_handle_config` to receive the
 typed config patch for native setter updates, or use the default full-blueprint
 update method while bootstrapping. The feature modules expose `AppKitHandleAdapter`,
