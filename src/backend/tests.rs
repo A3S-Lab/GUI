@@ -742,6 +742,85 @@ fn handle_widget_driver_preserves_state_when_descendant_remove_fails() {
 }
 
 #[test]
+fn handle_widget_driver_forgets_successful_descendant_removes_before_later_failure() {
+    let child = HostNodeId::new(2);
+    let grandchild = HostNodeId::new(3);
+    let adapter = ThreadBoundHandleAdapter {
+        fail_remove_id: Some(child),
+        ..Default::default()
+    };
+    let calls = adapter.calls.clone();
+    let driver = HandleWidgetDriver::new(adapter);
+    let mut executor = DriverCommandExecutor::new(driver);
+    let root = HostNodeId::new(1);
+    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = Gtk4Adapter.blueprint(&NativeElement::new("button", NativeRole::Button));
+
+    executor
+        .execute(&PlatformCommand::Create {
+            id: root,
+            blueprint: container.clone(),
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: child,
+            blueprint: container,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: grandchild,
+            blueprint: button,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: root,
+            child,
+            index: 0,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: child,
+            child: grandchild,
+            index: 0,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::SetRoot { id: root })
+        .unwrap();
+    let command_count = executor.commands().len();
+
+    let error = executor
+        .execute(&PlatformCommand::Remove { id: root })
+        .unwrap_err();
+
+    assert!(error.to_string().contains("forced handle remove failure"));
+    assert_eq!(executor.commands().len(), command_count);
+    assert_eq!(executor.driver().root(), Some(root));
+    assert!(executor.driver().handle(root).is_some());
+    assert!(executor.driver().handle(child).is_some());
+    assert!(executor.driver().handle(grandchild).is_none());
+    assert_eq!(executor.driver().children(root), Some([child].as_slice()));
+    assert_eq!(executor.driver().children(child), Some([].as_slice()));
+    assert_eq!(
+        calls.borrow().as_slice(),
+        [
+            "create:1:gtk::Box",
+            "create:2:gtk::Box",
+            "create:3:gtk::Button",
+            "insert:1:gtk::Box:2:gtk::Box:0",
+            "insert:2:gtk::Box:3:gtk::Button:0",
+            "root:1:gtk::Box",
+            "remove:3:gtk::Button",
+            "remove:2:gtk::Box:failed",
+        ]
+    );
+}
+
+#[test]
 fn surface_handle_adapter_applies_native_setters_to_surface() {
     let surface = TestNativeSurface::default();
     let calls = surface.calls.clone();

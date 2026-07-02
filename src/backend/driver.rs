@@ -130,6 +130,27 @@ impl<A: NativeHandleAdapter> HandleWidgetDriver<A> {
         visit(&self.children, root, &mut visited, &mut ordered);
         ordered
     }
+
+    fn forget_removed_handles(&mut self, removed_ids: &BTreeSet<HostNodeId>) {
+        if removed_ids.is_empty() {
+            return;
+        }
+        for children in self.children.values_mut() {
+            children.retain(|child| !removed_ids.contains(child));
+        }
+        for removed_id in removed_ids {
+            self.handles.remove(removed_id);
+            self.configs.remove(removed_id);
+            self.children.remove(removed_id);
+        }
+        if self
+            .root
+            .map(|root| removed_ids.contains(&root))
+            .unwrap_or(false)
+        {
+            self.root = None;
+        }
+    }
 }
 
 impl<A: NativeHandleAdapter + Default> Default for HandleWidgetDriver<A> {
@@ -233,26 +254,22 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
 
     fn remove_widget(&mut self, id: HostNodeId) -> GuiResult<()> {
         let removed = self.subtree_postorder(id);
+        let mut removed_ids = BTreeSet::new();
         for removed_id in &removed {
-            let handle = self.cloned_handle(*removed_id)?;
-            self.adapter.remove_handle(*removed_id, handle)?;
+            let handle = match self.cloned_handle(*removed_id) {
+                Ok(handle) => handle,
+                Err(error) => {
+                    self.forget_removed_handles(&removed_ids);
+                    return Err(error);
+                }
+            };
+            if let Err(error) = self.adapter.remove_handle(*removed_id, handle) {
+                self.forget_removed_handles(&removed_ids);
+                return Err(error);
+            }
+            removed_ids.insert(*removed_id);
         }
-        let removed_ids = removed.into_iter().collect::<BTreeSet<_>>();
-        for children in self.children.values_mut() {
-            children.retain(|child| !removed_ids.contains(child));
-        }
-        for removed_id in &removed_ids {
-            self.handles.remove(removed_id);
-            self.configs.remove(removed_id);
-            self.children.remove(removed_id);
-        }
-        if self
-            .root
-            .map(|root| removed_ids.contains(&root))
-            .unwrap_or(false)
-        {
-            self.root = None;
-        }
+        self.forget_removed_handles(&removed_ids);
         Ok(())
     }
 
