@@ -402,15 +402,7 @@ export function createHostEvent(frameId, node, kind, value) {
   if (typeof frameId !== 'string' || frameId.length === 0) {
     throw new Error('a3s-gui host events need a non-empty frame id');
   }
-  if (!Number.isSafeInteger(node) || node <= 0) {
-    throw new Error('a3s-gui host events need a positive integer node id');
-  }
-  if (!HOST_EVENT_KINDS.has(kind)) {
-    throw new Error('a3s-gui host events need a supported native event kind');
-  }
-  if (value != null && typeof value !== 'string') {
-    throw new Error('a3s-gui host event values need to be strings');
-  }
+  validateNativeEvent({node, kind, ...(value == null ? {} : {value})}, 'host events');
   return {
     frameId,
     event: {
@@ -422,11 +414,127 @@ export function createHostEvent(frameId, node, kind, value) {
 }
 
 export function createHandledNativeEvent(event, options = {}) {
+  validateNativeEvent(event, 'native events');
+  validateHandledNativeEventOptions(options);
   return {
     event,
     invocation: options.invocation ?? null,
     interactionChanges: options.interactionChanges ?? [],
   };
+}
+
+function validateNativeEvent(event, context) {
+  if (event == null || typeof event !== 'object' || Array.isArray(event)) {
+    throw new Error(`a3s-gui ${context} need an event object`);
+  }
+  if (!Number.isSafeInteger(event.node) || event.node <= 0) {
+    throw new Error(`a3s-gui ${context} need a positive integer node id`);
+  }
+  if (!HOST_EVENT_KINDS.has(event.kind)) {
+    throw new Error(`a3s-gui ${context} need a supported native event kind`);
+  }
+  if (event.value != null && typeof event.value !== 'string') {
+    if (context === 'host events') {
+      throw new Error('a3s-gui host event values need to be strings');
+    }
+    throw new Error(`a3s-gui ${context} native event values need strings`);
+  }
+}
+
+function validateHandledNativeEventOptions(options) {
+  if (options == null || typeof options !== 'object' || Array.isArray(options)) {
+    throw new Error('a3s-gui handled native event options need an object');
+  }
+  if (options.invocation != null) {
+    validateActionInvocation(options.invocation);
+  }
+  const interactionChanges = options.interactionChanges ?? [];
+  if (!Array.isArray(interactionChanges)) {
+    throw new Error(
+      'a3s-gui handled native event interaction changes need an array',
+    );
+  }
+  for (const change of interactionChanges) {
+    validateInteractionChange(change);
+  }
+}
+
+function validateActionInvocation(invocation) {
+  if (
+    invocation == null
+    || typeof invocation !== 'object'
+    || Array.isArray(invocation)
+  ) {
+    throw new Error('a3s-gui handled native event invocations need an object');
+  }
+  if (!Number.isSafeInteger(invocation.node) || invocation.node <= 0) {
+    throw new Error(
+      'a3s-gui handled native event invocations need positive integer node ids',
+    );
+  }
+  if (typeof invocation.action !== 'string' || invocation.action.length === 0) {
+    throw new Error(
+      'a3s-gui handled native event invocations need non-empty string action ids',
+    );
+  }
+  if (!HOST_EVENT_KINDS.has(invocation.event)) {
+    throw new Error(
+      'a3s-gui handled native event invocations need supported native event kinds',
+    );
+  }
+  if (invocation.value != null && typeof invocation.value !== 'string') {
+    throw new Error(
+      'a3s-gui handled native event invocation values need strings',
+    );
+  }
+}
+
+function validateInteractionChange(change) {
+  if (change == null || typeof change !== 'object' || Array.isArray(change)) {
+    throw new Error(
+      'a3s-gui handled native event interaction changes need objects',
+    );
+  }
+  if (!Number.isSafeInteger(change.node) || change.node <= 0) {
+    throw new Error(
+      'a3s-gui handled native event interaction changes need positive integer node ids',
+    );
+  }
+  validateInteractionState(change.before, 'before');
+  validateInteractionState(change.after, 'after');
+}
+
+function validateInteractionState(state, name) {
+  if (state == null || typeof state !== 'object' || Array.isArray(state)) {
+    throw new Error(
+      `a3s-gui handled native event interaction change ${name} state needs an object`,
+    );
+  }
+  if (typeof state.focused !== 'boolean') {
+    throw new Error(
+      'a3s-gui handled native event interaction state.focused values need booleans',
+    );
+  }
+  if (state.value != null && typeof state.value !== 'string') {
+    throw new Error(
+      'a3s-gui handled native event interaction state.value values need strings or null',
+    );
+  }
+  if (typeof state.selected !== 'boolean') {
+    throw new Error(
+      'a3s-gui handled native event interaction state.selected values need booleans',
+    );
+  }
+  if (state.checked != null && typeof state.checked !== 'boolean') {
+    throw new Error(
+      'a3s-gui handled native event interaction state.checked values need booleans or null',
+    );
+  }
+  if (state.expanded != null && typeof state.expanded !== 'boolean') {
+    throw new Error(
+      'a3s-gui handled native event interaction state.expanded values need booleans or null',
+    );
+  }
 }
 
 function actionId(actionOrId) {

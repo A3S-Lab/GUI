@@ -151,6 +151,75 @@ test('handled native event helper mirrors Rust protocol shape', () => {
   assert.equal(changed.interactionChanges[0].after.value, 'saved');
 });
 
+test('handled native event helper rejects invalid protocol shapes', () => {
+  assert.throws(
+    () => createHandledNativeEvent(null),
+    /event object/,
+  );
+  assert.throws(
+    () => createHandledNativeEvent({node: 0, kind: 'focus'}),
+    /positive integer node id/,
+  );
+  assert.throws(
+    () => createHandledNativeEvent({node: 7, kind: 'submit'}),
+    /supported native event kind/,
+  );
+  assert.throws(
+    () => createHandledNativeEvent({node: 7, kind: 'change', value: 42}),
+    /native event values need strings/,
+  );
+  assert.throws(
+    () => createHandledNativeEvent({node: 7, kind: 'focus'}, null),
+    /options need an object/,
+  );
+  assert.throws(
+    () => createHandledNativeEvent({node: 7, kind: 'focus'}, {invocation: {}}),
+    /invocations need positive integer node ids/,
+  );
+  assert.throws(
+    () => createHandledNativeEvent({node: 7, kind: 'focus'}, {
+      invocation: {
+        node: 7,
+        action: '',
+        event: 'focus',
+      },
+    }),
+    /invocations need non-empty string action ids/,
+  );
+  assert.throws(
+    () => createHandledNativeEvent({node: 7, kind: 'focus'}, {
+      invocation: {
+        node: 7,
+        action: 'saveProfile',
+        event: 'submit',
+      },
+    }),
+    /invocations need supported native event kinds/,
+  );
+  assert.throws(
+    () => createHandledNativeEvent({node: 7, kind: 'focus'}, {interactionChanges: {}}),
+    /interaction changes need an array/,
+  );
+  assert.throws(
+    () => createHandledNativeEvent({node: 7, kind: 'focus'}, {
+      interactionChanges: [{node: 7, before: {}, after: {}}],
+    }),
+    /interaction state\.focused values need booleans/,
+  );
+  assert.throws(
+    () => createHandledNativeEvent({node: 7, kind: 'focus'}, {
+      interactionChanges: [
+        {
+          node: 7,
+          before: {focused: false, selected: false},
+          after: {focused: true, selected: false, checked: 'true'},
+        },
+      ],
+    }),
+    /interaction state\.checked values need booleans or null/,
+  );
+});
+
 test('button marker creates stable compiled element', () => {
   const root = jsxs(Button, {
     className: 'primary',

@@ -263,7 +263,7 @@ export function createHostEvent(
   frameId: string,
   node: number,
   kind: HostEvent['event']['kind'],
-  value?: string,
+  value?: string | null,
 ): HostEvent;
 export function createHandledNativeEvent(
   event: NativeEvent,
