@@ -351,6 +351,7 @@ impl CompiledProps {
         }
         let html_fallback_label = html_fallback_label(tag, &web, self.value.as_deref());
         let html_details_open = html_details_open_state(tag, &web);
+        let html_placeholder = html_placeholder_state(tag, &web);
         let html_numeric_value = html_numeric_value_state(tag, &web, self.value.as_deref());
         let html_range_step = html_range_step_state(tag, &web);
         let semantic = WebSemanticAliases::from_web(&web);
@@ -364,7 +365,10 @@ impl CompiledProps {
         props.label = self.label.or(html_fallback_label);
         props.text_value = self.text_value;
         props.value = self.value;
-        props.placeholder = self.placeholder;
+        props.placeholder = self
+            .placeholder
+            .or(semantic.placeholder)
+            .or(html_placeholder);
         props.action = self.action;
         props.is_disabled = self.is_disabled || semantic.disabled.unwrap_or(false);
         props.is_required = self.is_required || semantic.required.unwrap_or(false);
@@ -387,6 +391,15 @@ impl CompiledProps {
 fn html_details_open_state(tag: &str, web: &WebProps) -> Option<bool> {
     match canonical_html_tag(tag)? {
         "details" => bool_attribute(&web.attributes, &["open"]),
+        _ => None,
+    }
+}
+
+fn html_placeholder_state(tag: &str, web: &WebProps) -> Option<String> {
+    match canonical_html_tag(tag)? {
+        "input" | "textarea" => {
+            non_empty_string_attribute(&web.attributes, &["placeholder"]).map(str::to_string)
+        }
         _ => None,
     }
 }
@@ -457,6 +470,7 @@ struct WebSemanticAliases {
     selected: Option<bool>,
     checked: Option<bool>,
     expanded: Option<bool>,
+    placeholder: Option<String>,
     orientation: Option<Orientation>,
     min_value: Option<f64>,
     max_value: Option<f64>,
@@ -474,6 +488,8 @@ impl WebSemanticAliases {
             selected: bool_attribute(attributes, &["selected", "aria-selected"]),
             checked: bool_attribute(attributes, &["checked", "aria-checked"]),
             expanded: bool_attribute(attributes, &["expanded", "aria-expanded"]),
+            placeholder: non_empty_string_attribute(attributes, &["aria-placeholder"])
+                .map(str::to_string),
             orientation: string_attribute(attributes, &["orientation", "aria-orientation"])
                 .and_then(parse_orientation),
             min_value: number_attribute(attributes, &["min", "aria-valuemin"]),
@@ -640,6 +656,51 @@ mod tests {
     }
 
     #[test]
+    fn lowers_html_placeholder_attributes_to_native_text_fields() {
+        let bridge = ReactCompilerBridge::new();
+        let input = CompiledJsxNode::Element {
+            key: "email".to_string(),
+            tag: "input".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([
+                    ("type".to_string(), "email".to_string()),
+                    ("placeholder".to_string(), "you@example.com".to_string()),
+                ]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+        let textarea = CompiledJsxNode::Element {
+            key: "message".to_string(),
+            tag: "textarea".to_string(),
+            import_source: None,
+            props: CompiledProps {
+                attributes: BTreeMap::from([(
+                    "placeholder".to_string(),
+                    "Write a message".to_string(),
+                )]),
+                ..CompiledProps::default()
+            },
+            children: Vec::new(),
+        };
+
+        let native_input = bridge.lower_to_native(&input).unwrap();
+        let native_textarea = bridge.lower_to_native(&textarea).unwrap();
+
+        assert_eq!(native_input.role, NativeRole::TextField);
+        assert_eq!(
+            native_input.props.placeholder.as_deref(),
+            Some("you@example.com")
+        );
+        assert_eq!(native_textarea.role, NativeRole::TextField);
+        assert_eq!(
+            native_textarea.props.placeholder.as_deref(),
+            Some("Write a message")
+        );
+    }
+
+    #[test]
     fn lowers_web_and_aria_attribute_aliases_to_native_control_state() {
         let compiled: CompiledJsxNode = serde_json::from_str(
             r#"
@@ -655,6 +716,7 @@ mod tests {
                   "aria-invalid": "spelling",
                   "aria-selected": "true",
                   "aria-expanded": "true",
+                  "aria-placeholder": "Volume",
                   "aria-orientation": "horizontal",
                   "aria-valuemin": "0",
                   "aria-valuemax": "100",
@@ -677,6 +739,7 @@ mod tests {
         assert!(native.props.invalid);
         assert!(native.props.selected);
         assert_eq!(native.props.expanded, Some(true));
+        assert_eq!(native.props.placeholder.as_deref(), Some("Volume"));
         assert_eq!(native.props.orientation, Some(Orientation::Horizontal));
         assert_eq!(native.props.min, Some(0.0));
         assert_eq!(native.props.max, Some(100.0));

@@ -315,7 +315,8 @@ nodes, browser CSS layout, or browser focus APIs as runtime primitives.
 Accepted input fields include `className`, inline `style`, `aria-*`,
 `data-*`, HTML state props such as `disabled` and `required`, ranged attributes
 such as `min`/`max`/`step`/`aria-valuenow`, `input[type=range]` and
-`input[type=number]` numeric values, stable keys, and DOM-style event props.
+`input[type=number]` numeric values, `placeholder`/`aria-placeholder`, stable
+keys, and DOM-style event props.
 Those values are normalized into native props and portable style tokens.
 Platform adapters decide how to apply the resulting setters and how to expose
 the matching platform accessibility metadata.
