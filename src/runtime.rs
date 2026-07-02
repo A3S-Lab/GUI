@@ -1130,7 +1130,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_accessibility_tree_prunes_hidden_and_inert_subtrees() {
+    fn runtime_accessibility_tree_prunes_hidden_inert_and_aria_hidden_subtrees() {
         let element = NativeElement::new("tools", NativeRole::Toolbar)
             .child(
                 NativeElement::new("save", NativeRole::Button)
@@ -1143,6 +1143,13 @@ mod tests {
             .child(
                 NativeElement::new("delete", NativeRole::Button)
                     .with_props(NativeProps::new().label("Delete").inert(true)),
+            )
+            .child(
+                NativeElement::new("preview", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Preview")
+                        .accessibility_hidden(Some(true)),
+                ),
             );
         let host = PlatformPlanningHost::new(Gtk4Adapter);
         let mut runtime = GuiRuntime::new(host);
@@ -1152,6 +1159,37 @@ mod tests {
         let accessibility = runtime.accessibility_tree().unwrap();
         assert_eq!(accessibility.children.len(), 1);
         assert_eq!(accessibility.children[0].label.as_deref(), Some("Save"));
+    }
+
+    #[test]
+    fn runtime_routes_aria_hidden_actions() {
+        let element = NativeElement::new("save", NativeRole::Button).with_props(
+            NativeProps::new()
+                .label("Save")
+                .accessibility_hidden(Some(true))
+                .web(WebProps::new().on_press("saveDocument")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("saveDocument");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::Press,
+            ))
+            .unwrap();
+
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .map(|invocation| invocation.action.as_str()),
+            Some("saveDocument")
+        );
+        assert!(runtime.accessibility_tree().is_none());
+        assert_eq!(runtime.actions().invocations().len(), 1);
     }
 
     #[test]

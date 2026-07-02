@@ -158,7 +158,8 @@ ARIA state and live-region attributes including `aria-hidden`,
 `aria-pressed`, `aria-live`, `aria-atomic`, `aria-busy`, `aria-relevant`, and
 `aria-modal` project into structured native accessibility state hints and stay
 available in metadata. `aria-hidden` is accessibility-only state and does not
-change native widget visibility.
+change native widget visibility, but `aria-hidden="true"` omits the subtree
+from rendered accessibility tree projection.
 HTML global attributes including `title`, `hidden`, `lang`, `dir`, `tabindex`/`tabIndex`, `role`,
 `accesskey`/`accessKey`, `contenteditable`/`contentEditable`, `draggable`,
 `spellcheck`/`spellCheck`, `translate`, `inert`, `popover`, `anchor`, `is`,

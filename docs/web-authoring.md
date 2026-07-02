@@ -86,7 +86,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `aria-labelledby` / `aria-describedby` / `aria-details` / `aria-controls` / `aria-owns` / `aria-flowto` / `aria-errormessage` / `aria-activedescendant` | normalized to native accessibility relationship hints and preserved as metadata |
 | `aria-description` / `aria-roledescription` / `aria-keyshortcuts` / `aria-valuetext` | normalized to native accessibility description/value hints and preserved as metadata |
 | `aria-level` / `aria-posinset` / `aria-setsize` / `aria-rowcount` / `aria-rowindex` / `aria-rowspan` / `aria-colcount` / `aria-colindex` / `aria-colspan` / `aria-rowindextext` / `aria-colindextext` / `aria-sort` | normalized to native accessibility structure hints and preserved as metadata |
-| `aria-hidden` / `aria-autocomplete` / `aria-multiline` / `aria-current` / `aria-haspopup` / `aria-pressed` / `aria-live` / `aria-atomic` / `aria-busy` / `aria-relevant` / `aria-modal` | normalized to native accessibility state hints and preserved as metadata; `aria-hidden` does not change visual widget visibility |
+| `aria-hidden` / `aria-autocomplete` / `aria-multiline` / `aria-current` / `aria-haspopup` / `aria-pressed` / `aria-live` / `aria-atomic` / `aria-busy` / `aria-relevant` / `aria-modal` | normalized to native accessibility state hints and preserved as metadata; `aria-hidden` does not change visual widget visibility, and `aria-hidden="true"` omits the subtree from rendered accessibility trees |
 | `data-*` | preserved as metadata for testing, analytics, and automation |
 | `disabled` / `required` / `checked` / `selected` | normalized to React Aria-style native control state |
 | `min` / `max` / `aria-valuenow` | normalized to native ranged control state |

@@ -454,6 +454,15 @@ mod tests {
                       "label": "Archive",
                       "attributes": {"hidden": "true"}
                     }
+                  },
+                  {
+                    "kind": "element",
+                    "key": "preview",
+                    "tag": "Button",
+                    "props": {
+                      "label": "Preview",
+                      "attributes": {"aria-hidden": "true"}
+                    }
                   }
                 ]
               }
