@@ -80,6 +80,7 @@ pub struct PortableStyle {
     pub counter_increment: Option<String>,
     pub counter_set: Option<String>,
     pub quotes: Option<String>,
+    pub string_set: Option<String>,
     pub content_visibility: Option<ContentVisibility>,
     pub contain_intrinsic_size: Option<String>,
     pub contain_intrinsic_width: Option<String>,
@@ -181,6 +182,11 @@ pub struct PortableStyle {
     pub page: Option<String>,
     pub orphans: Option<String>,
     pub widows: Option<String>,
+    pub bookmark_label: Option<String>,
+    pub bookmark_level: Option<String>,
+    pub bookmark_state: Option<String>,
+    pub footnote_display: Option<String>,
+    pub footnote_policy: Option<String>,
     pub break_before: Option<String>,
     pub break_after: Option<String>,
     pub break_inside: Option<String>,
@@ -544,6 +550,7 @@ impl PortableStyle {
             "counter-increment" => self.counter_increment = parse_css_string_token(value_ref),
             "counter-set" => self.counter_set = parse_css_string_token(value_ref),
             "quotes" => self.quotes = parse_css_string_token(value_ref),
+            "string-set" => self.string_set = parse_css_string_token(value_ref),
             "content-visibility" => {
                 self.content_visibility = parse_content_visibility(value_ref);
             }
@@ -958,6 +965,11 @@ impl PortableStyle {
             "page" => self.page = parse_css_string_token(value_ref),
             "orphans" => self.orphans = parse_css_string_token(value_ref),
             "widows" => self.widows = parse_css_string_token(value_ref),
+            "bookmark-label" => self.bookmark_label = parse_css_string_token(value_ref),
+            "bookmark-level" => self.bookmark_level = parse_css_string_token(value_ref),
+            "bookmark-state" => self.bookmark_state = parse_css_string_token(value_ref),
+            "footnote-display" => self.footnote_display = parse_css_string_token(value_ref),
+            "footnote-policy" => self.footnote_policy = parse_css_string_token(value_ref),
             "break-before" | "page-break-before" => {
                 self.break_before = parse_css_string_token(value_ref);
             }
@@ -2363,6 +2375,7 @@ pub enum FloatMode {
     Right,
     InlineStart,
     InlineEnd,
+    Footnote,
     None,
 }
 
@@ -3360,6 +3373,7 @@ fn parse_float(value: &str) -> Option<FloatMode> {
         "right" => Some(FloatMode::Right),
         "inline-start" => Some(FloatMode::InlineStart),
         "inline-end" => Some(FloatMode::InlineEnd),
+        "footnote" => Some(FloatMode::Footnote),
         "none" => Some(FloatMode::None),
         _ => None,
     }
@@ -9485,6 +9499,7 @@ mod tests {
             .style("counterIncrement", "section 1")
             .style("counterSet", "chapter 2")
             .style("quotes", "\"\\201C\" \"\\201D\" \"\\2018\" \"\\2019\"")
+            .style("stringSet", "chapter content(text)")
             .style("contentVisibility", "auto")
             .style("containIntrinsicSize", "auto 320px")
             .style("containIntrinsicWidth", "240px")
@@ -9506,6 +9521,7 @@ mod tests {
             style.quotes.as_deref(),
             Some("\"\\201C\" \"\\201D\" \"\\2018\" \"\\2019\"")
         );
+        assert_eq!(style.string_set.as_deref(), Some("chapter content(text)"));
         assert_eq!(style.content_visibility, Some(ContentVisibility::Auto));
         assert_eq!(style.contain_intrinsic_size.as_deref(), Some("auto 320px"));
         assert_eq!(style.contain_intrinsic_width.as_deref(), Some("240px"));
@@ -9519,6 +9535,7 @@ mod tests {
         assert!(!style.unsupported.contains_key("counter-increment"));
         assert!(!style.unsupported.contains_key("counter-set"));
         assert!(!style.unsupported.contains_key("quotes"));
+        assert!(!style.unsupported.contains_key("string-set"));
         assert!(!style.unsupported.contains_key("content-visibility"));
     }
 
@@ -9527,8 +9544,10 @@ mod tests {
         let web = WebProps::new().class_name(
             "[counter-reset:section_0] [counter-increment:section_1] \
              [counter-set:chapter_2] [quotes:\"\\201C\"_\"\\201D\"] \
+             [string-set:chapter_content(text)] \
              hover:[counter-reset:item_4] focus:[counter-increment:item_-1] \
-             active:[counter-set:chapter_3] before:[quotes:none]",
+             active:[counter-set:chapter_3] before:[quotes:none] \
+             after:[string-set:section_content(before)]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -9537,6 +9556,7 @@ mod tests {
         assert_eq!(style.counter_increment.as_deref(), Some("section 1"));
         assert_eq!(style.counter_set.as_deref(), Some("chapter 2"));
         assert_eq!(style.quotes.as_deref(), Some("\"\\201C\" \"\\201D\""));
+        assert_eq!(style.string_set.as_deref(), Some("chapter content(text)"));
         assert_eq!(
             style
                 .variant_declarations
@@ -9568,6 +9588,14 @@ mod tests {
                 .and_then(|styles| styles.get("quotes"))
                 .map(String::as_str),
             Some("none")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("after")
+                .and_then(|styles| styles.get("string-set"))
+                .map(String::as_str),
+            Some("section content(before)")
         );
     }
 
@@ -10806,9 +10834,15 @@ mod tests {
             .style("page", "chapter")
             .style("orphans", "3")
             .style("widows", "4")
+            .style("bookmarkLabel", "content(text)")
+            .style("bookmarkLevel", "2")
+            .style("bookmarkState", "open")
+            .style("footnoteDisplay", "block")
+            .style("footnotePolicy", "line")
             .style("breakBefore", "page")
             .style("breakAfter", "avoid-column")
-            .style("pageBreakInside", "avoid");
+            .style("pageBreakInside", "avoid")
+            .style("float", "footnote");
 
         let style = PortableStyle::from_web(&web);
 
@@ -10860,9 +10894,15 @@ mod tests {
         assert_eq!(style.page.as_deref(), Some("chapter"));
         assert_eq!(style.orphans.as_deref(), Some("3"));
         assert_eq!(style.widows.as_deref(), Some("4"));
+        assert_eq!(style.bookmark_label.as_deref(), Some("content(text)"));
+        assert_eq!(style.bookmark_level.as_deref(), Some("2"));
+        assert_eq!(style.bookmark_state.as_deref(), Some("open"));
+        assert_eq!(style.footnote_display.as_deref(), Some("block"));
+        assert_eq!(style.footnote_policy.as_deref(), Some("line"));
         assert_eq!(style.break_before.as_deref(), Some("page"));
         assert_eq!(style.break_after.as_deref(), Some("avoid-column"));
         assert_eq!(style.break_inside.as_deref(), Some("avoid"));
+        assert_eq!(style.float, Some(FloatMode::Footnote));
         assert!(!style.unsupported.contains_key("background-image"));
         assert!(!style.unsupported.contains_key("image-rendering"));
         assert!(!style.unsupported.contains_key("image-orientation"));
@@ -10877,6 +10917,11 @@ mod tests {
         assert!(!style.unsupported.contains_key("page"));
         assert!(!style.unsupported.contains_key("orphans"));
         assert!(!style.unsupported.contains_key("widows"));
+        assert!(!style.unsupported.contains_key("bookmark-label"));
+        assert!(!style.unsupported.contains_key("bookmark-level"));
+        assert!(!style.unsupported.contains_key("bookmark-state"));
+        assert!(!style.unsupported.contains_key("footnote-display"));
+        assert!(!style.unsupported.contains_key("footnote-policy"));
         assert!(!style.unsupported.contains_key("page-break-inside"));
     }
 
@@ -10891,6 +10936,8 @@ mod tests {
              list-inside list-disc list-image-[url('/marker.svg')] [marker-side:match-parent] \
              columns-3 \
              [page:chapter] [orphans:3] [widows:4] \
+             [bookmark-label:content(text)] [bookmark-level:2] [bookmark-state:open] \
+             [footnote-display:block] [footnote-policy:line] [float:footnote] \
              break-before-page break-after-avoid-column \
              break-inside-avoid md:bg-[length:50%_auto] hover:object-[25%_75%] \
              md:list-image-(--marker-image) hover:list-image-none \
@@ -10898,7 +10945,9 @@ mod tests {
              hover:[image-rendering:crisp-edges] md:[image-resolution:from-image] \
              focus:[shape-outside:inset(10px)] active:[shape-margin:calc(1rem_+_2px)] \
              before:[shape-image-threshold:0.25] hover:[page:appendix] \
-             focus:[orphans:2] active:[widows:5] marker:[marker-side:list-item]",
+             focus:[orphans:2] active:[widows:5] marker:[marker-side:list-item] \
+             hover:[bookmark-label:attr(title)] focus:[bookmark-state:closed] \
+             active:[footnote-policy:block] before:[float:inline-start]",
         );
 
         let style = PortableStyle::from_web(&web);
@@ -10935,9 +10984,15 @@ mod tests {
         assert_eq!(style.page.as_deref(), Some("chapter"));
         assert_eq!(style.orphans.as_deref(), Some("3"));
         assert_eq!(style.widows.as_deref(), Some("4"));
+        assert_eq!(style.bookmark_label.as_deref(), Some("content(text)"));
+        assert_eq!(style.bookmark_level.as_deref(), Some("2"));
+        assert_eq!(style.bookmark_state.as_deref(), Some("open"));
+        assert_eq!(style.footnote_display.as_deref(), Some("block"));
+        assert_eq!(style.footnote_policy.as_deref(), Some("line"));
         assert_eq!(style.break_before.as_deref(), Some("page"));
         assert_eq!(style.break_after.as_deref(), Some("avoid-column"));
         assert_eq!(style.break_inside.as_deref(), Some("avoid"));
+        assert_eq!(style.float, Some(FloatMode::Footnote));
         assert_eq!(
             style
                 .declarations
@@ -10968,6 +11023,38 @@ mod tests {
                 .and_then(|styles| styles.get("marker-side"))
                 .map(String::as_str),
             Some("list-item")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("bookmark-label"))
+                .map(String::as_str),
+            Some("attr(title)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("focus")
+                .and_then(|styles| styles.get("bookmark-state"))
+                .map(String::as_str),
+            Some("closed")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("active")
+                .and_then(|styles| styles.get("footnote-policy"))
+                .map(String::as_str),
+            Some("block")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("before")
+                .and_then(|styles| styles.get("float"))
+                .map(String::as_str),
+            Some("inline-start")
         );
         assert_eq!(
             style

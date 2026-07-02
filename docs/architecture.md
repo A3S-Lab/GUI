@@ -374,7 +374,8 @@ deterministically:
 - `grid`, `gridTemplate*`, `gridAutoColumns`, `gridAutoRows`, `gridAutoFlow`,
   `gridColumn*`, `gridRow*`, `gridArea`
 - `contain`, `container*`, `content`, `counterReset`, `counterIncrement`,
-  `counterSet`, `quotes`, `contentVisibility`, and `containIntrinsic*`
+  `counterSet`, `quotes`, `stringSet`, `contentVisibility`, and
+  `containIntrinsic*`
 - `width`, `height`, `inlineSize`, `blockSize`, and physical/logical min/max
   sizes
 - `gap`, `rowGap`, `columnGap`, physical and logical `padding*`, `margin*`,
@@ -389,8 +390,8 @@ deterministically:
   `objectPosition`, `shapeOutside`, `shapeMargin`, `shapeImageThreshold`,
   `listStyleType`, `listStylePosition`, `listStyleImage`, `markerSide`,
   `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
-  `columnFill`, `page`, `orphans`, `widows`, `breakBefore`, `breakAfter`,
-  `breakInside`
+  `columnFill`, `page`, `orphans`, `widows`, `bookmark*`, `footnote*`,
+  `breakBefore`, `breakAfter`, `breakInside`
 - `font`, `fontFamily`, `fontStyle`, `fontSize`, `fontSizeAdjust`,
   `fontWeight`, `fontStretch`, `fontPalette`, `fontLanguageOverride`,
   `fontKerning`, `fontOpticalSizing`, `WebkitFontSmoothing`,
@@ -520,8 +521,8 @@ properties, `truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`
 `text-shadow-*`, `text-wrap`, `text-nowrap`,
 `text-balance`, `text-pretty`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, generated-content utilities such as `content-[...]`,
-`content-(...)`, and `content-none`, and arbitrary `counter-*` and `quotes`
-properties project into the same declaration model.
+`content-(...)`, and `content-none`, and arbitrary `counter-*`, `quotes`, and
+`string-set` properties project into the same declaration model.
 CSS writing-mode arbitrary property utilities, CSS Anchor Positioning arbitrary
 properties such as `anchor-name` and `position-area`, and `ltr:`/`rtl:`
 variants are stored in the same declaration model.
@@ -530,7 +531,8 @@ such as `bg-*`, `object-*`, `list-*`, `list-image-*`, `columns-*`,
 `break-before-*`, `break-after-*`, and `break-inside-*`, plus arbitrary CSS
 image and shape properties such as `image-rendering` and `shape-outside`, and
 arbitrary paged media and list properties such as `page`, `orphans`, `widows`,
-and `marker-side`, project into the same declaration model.
+and `marker-side`, plus bookmark and footnote properties, project into the same
+declaration model.
 Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,
 `rounded-r-*`, `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`,
 `rounded-tr-*`, `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`,

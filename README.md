@@ -51,7 +51,7 @@ sizing/grow/shrink/order, reading flow/order metadata, alignment,
 justification, place alignment, CSS Grid
 shorthand/templates/auto tracks/auto flow/placement, physical and logical
 sizing, gap/row-gap/column-gap, CSS containment, generated content,
-CSS counters, quotes, and container query metadata, physical, logical, and child spacing, uniform,
+CSS counters, quotes, string sets, and container query metadata, physical, logical, and child spacing, uniform,
 physical-edge, and logical-edge border width/style/color, uniform,
 physical-corner, and logical-corner border radius,
 text color, background
@@ -61,7 +61,8 @@ CSS image rendering/orientation/resolution, object fit/position,
 CSS Shapes shape-outside/margin/threshold, list style type/position/image and
 marker side metadata,
 columns, column rule/span/fill,
-CSS page selection, orphans/widows, fragmentation breaks, font shorthand, font size and font size adjustment,
+CSS page selection, orphans/widows, bookmark and footnote metadata,
+fragmentation breaks, font shorthand, font size and font size adjustment,
 font weight, font family, font style, font stretch, font palette,
 font language override, font kerning, font optical sizing, font smoothing hints,
 font feature and variation settings, font variant and
@@ -158,8 +159,8 @@ properties, `indent-*`, `line-clamp-*`, `text-shadow-*`, `text-wrap`, `text-nowr
 `text-balance`, `text-pretty`, `truncate`,
 `text-ellipsis`, `text-clip`, `whitespace-*`, `wrap-*`, word-break utilities,
 `hyphens-*`, generated-content utilities such as `content-[...]`,
-`content-(...)`, and `content-none`, and arbitrary `counter-*` and `quotes`
-properties are projected into portable style tokens.
+`content-(...)`, and `content-none`, and arbitrary `counter-*`, `quotes`, and
+`string-set` properties are projected into portable style tokens.
 Arbitrary property utilities for CSS writing modes, CSS Anchor Positioning
 properties such as `anchor-name` and `position-area`, and `ltr:`/`rtl:`
 variants are preserved in the same declaration model.
@@ -168,7 +169,8 @@ Background, object, list, columns, and fragmentation utilities such as `bg-*`,
 `break-after-*`, and `break-inside-*`, plus arbitrary CSS image and shape
 properties such as `image-rendering` and `shape-outside`, and arbitrary paged
 media and list properties such as `page`, `orphans`, `widows`, and
-`marker-side`, are projected into portable style tokens.
+`marker-side`, plus bookmark and footnote properties, are projected into
+portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, arbitrary scroll-driven animation
 properties such as `animation-timeline`, `scroll-timeline`, and
