@@ -9,6 +9,12 @@ mod tailwind;
 mod value_parsing;
 
 use color_parsing::{parse_background_shorthand_color, parse_color};
+use tailwind::{
+    arbitrary_or_custom_var as tailwind_arbitrary_or_custom_var, custom_var as tailwind_custom_var,
+    decode_arbitrary_content_value as tailwind_arbitrary_content_value,
+    decode_arbitrary_value as tailwind_arbitrary_value,
+    typed_custom_var as tailwind_typed_custom_var,
+};
 use value_parsing::{parse_length, parse_time};
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -4749,18 +4755,6 @@ fn tailwind_radius_value(value: &str) -> Option<StyleLength> {
     }
 }
 
-fn tailwind_typed_custom_var(value: &str, expected_type: &str) -> Option<String> {
-    let value = value
-        .strip_prefix('(')
-        .and_then(|value| value.strip_suffix(')'))?;
-    let (value_type, variable) = value.split_once(':')?;
-    if value_type == expected_type && !variable.trim().is_empty() {
-        Some(format!("var({})", variable.trim()))
-    } else {
-        None
-    }
-}
-
 fn tailwind_formatting_declarations(class: &str) -> Option<BTreeMap<String, String>> {
     let mut declarations = BTreeMap::new();
     let declaration = match class {
@@ -6676,28 +6670,6 @@ fn tailwind_grid_line(value: &str) -> Option<String> {
     value.parse::<u16>().ok().map(|value| value.to_string())
 }
 
-fn tailwind_arbitrary_or_custom_var(value: &str) -> Option<String> {
-    if let Some(arbitrary) = value
-        .strip_prefix('[')
-        .and_then(|value| value.strip_suffix(']'))
-    {
-        return Some(tailwind_arbitrary_value(arbitrary));
-    }
-    tailwind_custom_var(value)
-}
-
-fn tailwind_custom_var(value: &str) -> Option<String> {
-    let variable = value
-        .strip_prefix('(')
-        .and_then(|value| value.strip_suffix(')'))?
-        .trim();
-    if variable.is_empty() {
-        None
-    } else {
-        Some(format!("var({variable})"))
-    }
-}
-
 fn insert_edge_declarations(
     declarations: &mut BTreeMap<String, String>,
     prefix: &str,
@@ -6985,26 +6957,6 @@ fn trim_float(value: f64) -> String {
     } else {
         value.to_string()
     }
-}
-
-fn tailwind_arbitrary_value(value: &str) -> String {
-    value.replace('_', " ")
-}
-
-fn tailwind_arbitrary_content_value(value: &str) -> String {
-    let mut output = String::new();
-    let mut chars = value.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch == '\\' && chars.peek().is_some_and(|next| *next == '_') {
-            output.push('_');
-            chars.next();
-        } else if ch == '_' {
-            output.push(' ');
-        } else {
-            output.push(ch);
-        }
-    }
-    output
 }
 
 fn is_tailwind_identifier(value: &str) -> bool {
@@ -11728,6 +11680,38 @@ mod tests {
                 .and_then(|styles| styles.get("interpolate-size"))
                 .map(String::as_str),
             Some("numeric-only")
+        );
+    }
+
+    #[test]
+    fn preserves_tailwind_arbitrary_escaped_and_url_underscores() {
+        let web = WebProps::new().class_name(
+            "w-[var(--space\\_lg)] bg-[url('/what_a_rush.png')] \
+             list-image-[url('/marker_icon.svg')] \
+             hover:bg-[image:linear-gradient(to_right,red,blue)]",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.width,
+            Some(StyleLength::Css("var(--space_lg)".to_string()))
+        );
+        assert_eq!(
+            style.background_image.as_deref(),
+            Some("url('/what_a_rush.png')")
+        );
+        assert_eq!(
+            style.list_style_image.as_deref(),
+            Some("url('/marker_icon.svg')")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("background-image"))
+                .map(String::as_str),
+            Some("linear-gradient(to right,red,blue)")
         );
     }
 

@@ -123,9 +123,11 @@ utilities are projected into supported native style tokens; variant utilities su
 as `hover:`, `focus:`, and responsive prefixes are preserved in
 `variant_declarations`. Within a `className` value, Tailwind important utilities
 using the `!` modifier are applied after normal utilities while preserving
-relative order inside each priority group. Tailwind color opacity modifiers such
-as `/50` are preserved in the generated declarations and portable color tokens,
-including arbitrary color functions. Display
+relative order inside each priority group. Tailwind arbitrary values decode `_`
+as a space, preserve escaped `\_` as an underscore, and keep underscores inside
+`url(...)` values. Tailwind color opacity modifiers such as `/50` are preserved
+in the generated declarations and portable color tokens, including arbitrary
+color functions. Display
 utilities such as `inline`, `inline-block`, `flow-root`, `contents`,
 `list-item`, `table-*`, `inline-table`, `flex`, `inline-flex`, `grid`,
 `inline-grid`, and `hidden` are projected into portable display tokens.
