@@ -1160,6 +1160,31 @@ test('compiled frame nodes must have stable identities', () => {
   );
 });
 
+test('frame options must be explicit protocol objects', () => {
+  const root = jsx(Group, {children: 'Profile'}, 'profile');
+
+  assert.throws(
+    () => createUiFrame('profile', root, null),
+    /frame options need an object/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, 'saveProfile'),
+    /frame options need an object/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, []),
+    /frame options need an object/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {actions: null}),
+    /actions need an array/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {window: null}),
+    /window options need an object/,
+  );
+});
+
 test('frame actions must have stable ids', () => {
   const root = jsx(Group, {children: 'Profile'}, 'profile');
 

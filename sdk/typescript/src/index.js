@@ -143,14 +143,26 @@ export function createUiFrame(frameId, root, options = {}) {
     throw new Error(FRAME_ROOT_ERROR);
   }
   validateCompiledNode(root);
-  const actions = normalizeFrameActions(options.actions ?? collectActions(root));
-  const window = options.window == null ? undefined : normalizeWindowOptions(options.window);
+  const frameOptions = normalizeFrameOptions(options);
+  const actions = normalizeFrameActions(
+    frameOptions.actions === undefined ? collectActions(root) : frameOptions.actions,
+  );
+  const window = frameOptions.window === undefined
+    ? undefined
+    : normalizeWindowOptions(frameOptions.window);
   return {
     frameId,
     root,
     actions,
     ...(window ? {window} : {}),
   };
+}
+
+function normalizeFrameOptions(options) {
+  if (options == null || typeof options !== 'object' || Array.isArray(options)) {
+    throw new Error('a3s-gui frame options need an object');
+  }
+  return options;
 }
 
 function normalizeWindowOptions(window) {
