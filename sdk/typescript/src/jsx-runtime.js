@@ -1,4 +1,5 @@
 const COMPONENT_NAME = Symbol.for('a3s.gui.component');
+const KEY_SOURCE = Symbol('a3s.gui.keySource');
 
 export const Fragment = Symbol.for('a3s.gui.fragment');
 
@@ -146,15 +147,15 @@ function createNode(type, props, key) {
   }
 
   const tag = tagName(type);
-  const normalizedKey = key ?? props.key ?? stableKey(tag, props);
+  const normalizedKey = nodeKey(tag, props, key);
   const {children, ...rest} = props;
-  return {
+  return withKeySource({
     kind: 'element',
-    key: String(normalizedKey),
+    key: normalizedKey.key,
     tag,
     props: normalizeProps(rest, tag),
     children: normalizeChildren(children),
-  };
+  }, normalizedKey.source);
 }
 
 function tagName(type) {
@@ -171,20 +172,85 @@ function stableKey(tag, props) {
   return props.id ?? props.name ?? props['data-testid'] ?? tag;
 }
 
+function nodeKey(tag, props, explicitKey) {
+  if (explicitKey != null) {
+    return {key: String(explicitKey), source: 'explicit'};
+  }
+  if (props.key != null) {
+    return {key: String(props.key), source: 'explicit'};
+  }
+  if (props.id != null || props.name != null || props['data-testid'] != null) {
+    return {key: String(stableKey(tag, props)), source: 'identity'};
+  }
+  return {key: String(stableKey(tag, props)), source: 'generated'};
+}
+
 function normalizeChildren(children) {
   if (children == null || children === false || children === true) {
     return [];
   }
   const values = Array.isArray(children) ? children.flat(Infinity) : [children];
-  return values
+  const normalized = values
     .filter((child) => child != null && child !== false && child !== true)
     .flatMap((child, index) => {
       if (Array.isArray(child)) return normalizeChildren(child);
       if (typeof child === 'string' || typeof child === 'number') {
-        return [{kind: 'text', key: `text-${index}`, value: String(child)}];
+        return [withKeySource(
+          {kind: 'text', key: `text-${index}`, value: String(child)},
+          'generated',
+        )];
       }
       return [child];
     });
+  return uniqueGeneratedSiblingKeys(normalized);
+}
+
+function uniqueGeneratedSiblingKeys(children) {
+  const seen = new Set();
+  return children.map((child) => {
+    if (!isCompiledChildWithKey(child)) {
+      return child;
+    }
+
+    const key = String(child.key);
+    if (!seen.has(key)) {
+      seen.add(key);
+      return child;
+    }
+    if (child[KEY_SOURCE] !== 'generated') {
+      return child;
+    }
+
+    const uniqueKey = nextGeneratedSiblingKey(key, seen);
+    seen.add(uniqueKey);
+    return withKeySource({...child, key: uniqueKey}, 'generated');
+  });
+}
+
+function nextGeneratedSiblingKey(key, seen) {
+  let index = 1;
+  let candidate = `${key}-${index}`;
+  while (seen.has(candidate)) {
+    index += 1;
+    candidate = `${key}-${index}`;
+  }
+  return candidate;
+}
+
+function isCompiledChildWithKey(child) {
+  return child != null &&
+    typeof child === 'object' &&
+    !Array.isArray(child) &&
+    (child.kind === 'element' || child.kind === 'text') &&
+    child.key != null;
+}
+
+function withKeySource(node, source) {
+  Object.defineProperty(node, KEY_SOURCE, {
+    value: source,
+    enumerable: false,
+  });
+  return node;
 }
 
 function normalizeProps(props, tag) {

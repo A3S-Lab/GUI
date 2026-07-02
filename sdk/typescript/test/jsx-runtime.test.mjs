@@ -6,6 +6,7 @@ import * as Gui from '../src/index.js';
 import {
   Button,
   Dialog,
+  Fragment,
   Group,
   Input,
   Label,
@@ -379,6 +380,42 @@ test('link marker creates stable compiled element', () => {
   assert.equal(root.tag, 'Link');
   assert.equal(root.props.attributes.href, '/docs');
   assert.equal(root.children[0].value, 'Docs');
+});
+
+test('jsx runtime assigns unique fallback keys to unkeyed siblings', () => {
+  const root = jsxs(Group, {
+    children: [
+      jsx(Button, {children: 'Save'}),
+      jsx(Button, {children: 'Cancel'}),
+      jsx(Fragment, {
+        children: [
+          jsx('span', {children: 'Status'}),
+          jsx('span', {children: 'Ready'}),
+        ],
+      }),
+    ],
+  }, 'toolbar');
+
+  assert.deepEqual(
+    root.children.map((child) => child.key),
+    ['Button', 'Button-1', 'span', 'span-1'],
+  );
+  assert.doesNotThrow(() => createUiFrame('toolbar', root));
+});
+
+test('jsx runtime preserves explicit duplicate keys for frame validation', () => {
+  const root = jsxs(Group, {
+    children: [
+      jsx(Button, {children: 'Save'}, 'action'),
+      jsx(Button, {children: 'Cancel'}, 'action'),
+    ],
+  }, 'toolbar');
+
+  assert.deepEqual(root.children.map((child) => child.key), ['action', 'action']);
+  assert.throws(
+    () => createUiFrame('toolbar', root),
+    /sibling nodes need unique keys/,
+  );
 });
 
 test('SDK exports markers for the Rust-supported component surface', () => {
