@@ -189,8 +189,8 @@ projected into portable style tokens.
 Motion, interaction, and scroll utilities such as `transition-*`, `duration-*`,
 `delay-*`, `ease-*`, `animate-*`, arbitrary scroll-driven animation
 properties such as `animation-composition`, `animation-timeline`,
-`scroll-timeline`, and `view-timeline`, arbitrary CSS View Transitions properties,
-`will-change-*`, `appearance-*`,
+`scroll-timeline`, and `view-timeline`, top-layer `overlay` metadata,
+arbitrary CSS View Transitions properties, `will-change-*`, `appearance-*`,
 `scheme-*`, `forced-color-adjust-*`, arbitrary `print-color-adjust`,
 `field-sizing-*`, `accent-*`,
 `caret-*`, arbitrary `caret`, `caret-animation`, and `caret-shape`

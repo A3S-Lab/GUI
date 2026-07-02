@@ -563,8 +563,8 @@ Common Tailwind motion, interaction, and scroll utilities such as
 `transition-*`, `duration-*`, `delay-*`, `ease-*`, `animate-*`,
 arbitrary animation and scroll-driven animation properties such as
 `animation-composition`, `animation-timeline`, `scroll-timeline`, and
-`view-timeline`, arbitrary CSS View Transitions properties, `will-change-*`,
-`appearance-*`,
+`view-timeline`, top-layer `overlay` metadata, arbitrary CSS View Transitions
+properties, `will-change-*`, `appearance-*`,
 `accent-*`, `caret-*`, arbitrary `caret`, `caret-animation`, and
 `caret-shape` properties, `resize-*`,
 `scheme-*`, `forced-color-adjust-*`, arbitrary `print-color-adjust`,

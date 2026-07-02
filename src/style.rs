@@ -395,6 +395,7 @@ pub struct PortableStyle {
     pub transition_timing_function: Option<String>,
     pub transition_delay: Option<StyleTime>,
     pub transition_behavior: Option<String>,
+    pub overlay: Option<String>,
     pub animation: Option<String>,
     pub animation_name: Option<String>,
     pub animation_duration: Option<StyleTime>,
@@ -1296,6 +1297,7 @@ impl PortableStyle {
             }
             "transition-delay" => self.transition_delay = parse_time(value_ref),
             "transition-behavior" => self.transition_behavior = parse_css_string_token(value_ref),
+            "overlay" => self.overlay = parse_css_string_token(value_ref),
             "animation" => self.animation = parse_css_string_token(value_ref),
             "animation-name" => self.animation_name = parse_css_string_token(value_ref),
             "animation-duration" => self.animation_duration = parse_time(value_ref),
@@ -12480,6 +12482,7 @@ mod tests {
             .style("transitionTimingFunction", "ease-in")
             .style("transitionDelay", "0.25s")
             .style("transitionBehavior", "allow-discrete")
+            .style("overlay", "auto")
             .style("animation", "fade 1.5s ease-out both")
             .style("animationName", "fade")
             .style("animationDuration", "1.5s")
@@ -12564,6 +12567,7 @@ mod tests {
         assert_eq!(style.transition_timing_function.as_deref(), Some("ease-in"));
         assert_eq!(style.transition_delay, Some(StyleTime::Milliseconds(250.0)));
         assert_eq!(style.transition_behavior.as_deref(), Some("allow-discrete"));
+        assert_eq!(style.overlay.as_deref(), Some("auto"));
         assert_eq!(style.animation.as_deref(), Some("fade 1.5s ease-out both"));
         assert_eq!(style.animation_name.as_deref(), Some("fade"));
         assert_eq!(
@@ -12671,6 +12675,7 @@ mod tests {
         assert_eq!(style.spatial_navigation_function.as_deref(), Some("grid"));
         assert_eq!(style.interactivity.as_deref(), Some("inert"));
         assert!(!style.unsupported.contains_key("transition-duration"));
+        assert!(!style.unsupported.contains_key("overlay"));
         assert!(!style.unsupported.contains_key("animation-composition"));
         assert!(!style.unsupported.contains_key("animation-timeline"));
         assert!(!style.unsupported.contains_key("animation-range"));
@@ -12725,6 +12730,7 @@ mod tests {
             "transition-opacity duration-300 delay-75 ease-in-out transition-discrete \
              animate-spin will-change-transform appearance-none accent-[#663399]/50 \
              caret-white resize-y scroll-smooth scroll-mt-4 scroll-px-2 \
+             [overlay:auto] \
              [animation-timeline:--gallery] [animation-range:entry_10%_cover_80%] \
              [animation-range-start:entry_10%] [animation-range-end:cover_80%] \
              [animation-composition:add] \
@@ -12746,7 +12752,7 @@ mod tests {
              hover:animate-[wiggle_1s_ease-in-out_infinite] hover:scrollbar-thumb-blue-500 \
              focus:will-change-[opacity] md:[animation-timeline:view()] \
              hover:[animation-range:cover_0%_contain_100%] \
-             focus:[animation-composition:accumulate] \
+             focus:[animation-composition:accumulate] hover:[overlay:none] \
              md:[view-transition-name:avatar] hover:[view-transition-class:active_card] \
              focus:[print-color-adjust:economy] active:[caret-shape:underscore] \
              focus:[scroll-timeline-axis:block] active:[view-timeline-inset:auto] \
@@ -12778,6 +12784,7 @@ mod tests {
             Some("cubic-bezier(0.4, 0, 0.2, 1)")
         );
         assert_eq!(style.transition_behavior.as_deref(), Some("allow-discrete"));
+        assert_eq!(style.overlay.as_deref(), Some("auto"));
         assert_eq!(style.animation.as_deref(), Some("spin 1s linear infinite"));
         assert_eq!(style.animation_composition.as_deref(), Some("add"));
         assert_eq!(style.animation_timeline.as_deref(), Some("--gallery"));
@@ -12938,6 +12945,14 @@ mod tests {
                 .and_then(|styles| styles.get("animation-composition"))
                 .map(String::as_str),
             Some("accumulate")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("overlay"))
+                .map(String::as_str),
+            Some("none")
         );
         assert_eq!(
             style
