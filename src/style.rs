@@ -2554,6 +2554,7 @@ pub enum StyleColor {
         blue: u8,
         alpha: u8,
     },
+    Function(String),
     Keyword(String),
 }
 
@@ -4060,6 +4061,9 @@ fn parse_color(value: &str) -> Option<StyleColor> {
     if let Some(color) = parse_hsl_function(value) {
         return Some(color);
     }
+    if is_css_color_function(value) {
+        return Some(StyleColor::Function(value.to_string()));
+    }
     if value.is_empty() {
         None
     } else {
@@ -4071,6 +4075,7 @@ fn parse_background_shorthand_color(value: &str) -> Option<StyleColor> {
     let color = parse_color(value)?;
     match &color {
         StyleColor::Rgba { .. } => Some(color),
+        StyleColor::Function(_) => Some(color),
         StyleColor::Keyword(keyword) if is_background_color_keyword_candidate(keyword) => {
             Some(color)
         }
@@ -4163,10 +4168,7 @@ fn expand_hex_digit(hex: &str) -> Option<u8> {
 }
 
 fn parse_rgb_function(value: &str) -> Option<StyleColor> {
-    let content = value
-        .strip_prefix("rgb(")
-        .or_else(|| value.strip_prefix("rgba("))?
-        .strip_suffix(')')?;
+    let content = css_function_content(value, &["rgb", "rgba"])?;
     let (channels, alpha) = parse_color_function_parts(content);
     if channels.len() < 3 {
         return None;
@@ -4196,10 +4198,7 @@ fn parse_rgb_channel(value: &str) -> Option<u8> {
 }
 
 fn parse_hsl_function(value: &str) -> Option<StyleColor> {
-    let content = value
-        .strip_prefix("hsl(")
-        .or_else(|| value.strip_prefix("hsla("))?
-        .strip_suffix(')')?;
+    let content = css_function_content(value, &["hsl", "hsla"])?;
     let (channels, alpha) = parse_color_function_parts(content);
     if channels.len() < 3 {
         return None;
@@ -4218,6 +4217,57 @@ fn parse_hsl_function(value: &str) -> Option<StyleColor> {
         blue,
         alpha,
     })
+}
+
+fn is_css_color_function(value: &str) -> bool {
+    css_function_name(value).is_some_and(|name| {
+        matches!(
+            name.as_str(),
+            "rgb"
+                | "rgba"
+                | "hsl"
+                | "hsla"
+                | "hwb"
+                | "lab"
+                | "lch"
+                | "oklab"
+                | "oklch"
+                | "color"
+                | "color-mix"
+                | "light-dark"
+                | "contrast-color"
+                | "device-cmyk"
+        )
+    })
+}
+
+fn css_function_content<'a>(value: &'a str, names: &[&str]) -> Option<&'a str> {
+    let value = value.trim();
+    let open = value.find('(')?;
+    if !value.ends_with(')') {
+        return None;
+    }
+    let name = value[..open].trim();
+    if !names
+        .iter()
+        .any(|expected| name.eq_ignore_ascii_case(expected))
+    {
+        return None;
+    }
+    Some(&value[open + 1..value.len() - 1])
+}
+
+fn css_function_name(value: &str) -> Option<String> {
+    let value = value.trim();
+    let open = value.find('(')?;
+    if open == 0 || !value.ends_with(')') {
+        return None;
+    }
+    let name = value[..open].trim();
+    if !name.chars().all(|ch| ch.is_ascii_alphabetic() || ch == '-') {
+        return None;
+    }
+    Some(name.to_ascii_lowercase())
 }
 
 fn parse_color_function_parts(content: &str) -> (Vec<String>, Option<String>) {
@@ -7790,10 +7840,20 @@ fn apply_tailwind_color_opacity(color: StyleColor, opacity: Option<&str>) -> Sty
             blue,
             alpha,
         },
+        StyleColor::Function(value) => {
+            StyleColor::Function(apply_tailwind_function_opacity(value, opacity))
+        }
         StyleColor::Keyword(value) => {
             StyleColor::Keyword(apply_tailwind_keyword_opacity(value, opacity))
         }
     }
+}
+
+fn apply_tailwind_function_opacity(value: String, opacity: Option<&str>) -> String {
+    let Some(percent) = opacity.and_then(tailwind_opacity_percent) else {
+        return value;
+    };
+    format!("color-mix(in srgb, {value} {percent}, transparent)")
 }
 
 fn apply_tailwind_keyword_opacity(value: String, opacity: Option<&str>) -> String {
@@ -7837,6 +7897,7 @@ fn style_color_css(color: &StyleColor) -> String {
             blue,
             alpha: _,
         } => format!("rgb({red}, {green}, {blue})"),
+        StyleColor::Function(value) => value.clone(),
         StyleColor::Keyword(value) => value.clone(),
     }
 }
@@ -11654,7 +11715,7 @@ mod tests {
         let web = WebProps::new()
             .style("color", "hsl(210 50% 40% / 50%)")
             .style("backgroundColor", "rgb(10 20 30 / 25%)")
-            .style("borderColor", "hsla(120, 100%, 25%, 0.75)");
+            .style("borderColor", "HSLA(120, 100%, 25%, 0.75)");
 
         let style = PortableStyle::from_web(&web);
 
@@ -11684,6 +11745,47 @@ mod tests {
                 blue: 0,
                 alpha: 191,
             })
+        );
+    }
+
+    #[test]
+    fn preserves_modern_css_color_functions() {
+        let web = WebProps::new()
+            .style("color", "oklch(70% 0.2 260)")
+            .style("background", "color-mix(in srgb, red 40%, blue)")
+            .style("outlineColor", "light-dark(#111, #eee)")
+            .style("caretColor", "lab(50% 20 30)")
+            .style("textDecorationColor", "device-cmyk(0% 81% 81% 30%)");
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.color,
+            Some(StyleColor::Function("oklch(70% 0.2 260)".to_string()))
+        );
+        assert_eq!(
+            style.background_color,
+            Some(StyleColor::Function(
+                "color-mix(in srgb, red 40%, blue)".to_string()
+            ))
+        );
+        assert_eq!(
+            style.outline_color,
+            Some(StyleColor::Function("light-dark(#111, #eee)".to_string()))
+        );
+        assert_eq!(
+            style.caret_color,
+            Some(StyleColor::Function("lab(50% 20 30)".to_string()))
+        );
+        assert_eq!(
+            style.text_decoration_color,
+            Some(StyleColor::Function(
+                "device-cmyk(0% 81% 81% 30%)".to_string()
+            ))
+        );
+        assert_eq!(
+            style.declarations.get("background").map(String::as_str),
+            Some("color-mix(in srgb, red 40%, blue)")
         );
     }
 
@@ -11730,6 +11832,48 @@ mod tests {
                 .and_then(|styles| styles.get("background-color"))
                 .map(String::as_str),
             Some("rgba(0, 0, 0, 0.4)")
+        );
+    }
+
+    #[test]
+    fn preserves_tailwind_arbitrary_color_functions() {
+        let web = WebProps::new().class_name(
+            "bg-[oklch(70%_0.2_260)]/50 text-[color-mix(in_srgb,red_40%,blue)] \
+             caret-[light-dark(#111,#eee)] hover:border-[lab(50%_20_30)]/25",
+        );
+
+        let style = PortableStyle::from_web(&web);
+
+        assert_eq!(
+            style.background_color,
+            Some(StyleColor::Function(
+                "color-mix(in srgb, oklch(70% 0.2 260) 50%, transparent)".to_string()
+            ))
+        );
+        assert_eq!(
+            style.color,
+            Some(StyleColor::Function(
+                "color-mix(in srgb,red 40%,blue)".to_string()
+            ))
+        );
+        assert_eq!(
+            style.caret_color,
+            Some(StyleColor::Function("light-dark(#111,#eee)".to_string()))
+        );
+        assert_eq!(
+            style
+                .declarations
+                .get("background-color")
+                .map(String::as_str),
+            Some("color-mix(in srgb, oklch(70% 0.2 260) 50%, transparent)")
+        );
+        assert_eq!(
+            style
+                .variant_declarations
+                .get("hover")
+                .and_then(|styles| styles.get("border-color"))
+                .map(String::as_str),
+            Some("color-mix(in srgb, lab(50% 20 30) 25%, transparent)")
         );
     }
 

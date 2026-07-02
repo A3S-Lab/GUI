@@ -470,8 +470,12 @@ kept as `StyleLength::Css`, including `calc(...)`, `var(...)`, `clamp(...)`,
 `anchor(...)`, `anchor-size(...)`, viewport/container units, and sizing
 keywords such as `min-content`.
 CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
-RGBA tokens when possible. Tailwind color opacity modifiers are preserved for
-both base and variant utilities.
+RGBA tokens when possible. Native CSS color functions such as `hwb(...)`,
+`lab(...)`, `lch(...)`, `oklab(...)`, `oklch(...)`, `color(...)`,
+`color-mix(...)`, `light-dark(...)`, `contrast-color(...)`, and
+`device-cmyk(...)` are preserved as function color tokens. Tailwind color
+opacity modifiers are preserved for both base and variant utilities, including
+arbitrary color functions.
 Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
 `ring-*`, `inset-ring-*`, `outline-*`, `cursor-*`, `pointer-events-*`,
 `select-*`, `aspect-*`, `mix-blend-*`, `bg-blend-*`, and `mask-*` project into
