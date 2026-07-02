@@ -1,5 +1,5 @@
 use std::cell::{Ref, RefCell};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use crate::backend::{
@@ -249,6 +249,44 @@ impl AppKitWidgetDriver {
             )))
         }
     }
+
+    fn subtree_contains(&self, root: HostNodeId, target: HostNodeId) -> bool {
+        let Some(root) = self.objects.get(&root) else {
+            return false;
+        };
+        let mut stack = root.children.clone();
+        let mut visited = BTreeSet::new();
+
+        while let Some(id) = stack.pop() {
+            if id == target {
+                return true;
+            }
+            if !visited.insert(id) {
+                continue;
+            }
+            if let Some(object) = self.objects.get(&id) {
+                stack.extend(object.children.iter().copied());
+            }
+        }
+
+        false
+    }
+
+    fn subtree_ids(&self, root: HostNodeId) -> BTreeSet<HostNodeId> {
+        let mut ids = BTreeSet::new();
+        let mut stack = vec![root];
+
+        while let Some(id) = stack.pop() {
+            if !ids.insert(id) {
+                continue;
+            }
+            if let Some(object) = self.objects.get(&id) {
+                stack.extend(object.children.iter().copied());
+            }
+        }
+
+        ids
+    }
 }
 
 impl NativeEventSource for AppKitWidgetDriver {
@@ -401,11 +439,28 @@ impl NativeWidgetDriver for AppKitWidgetDriver {
         child: HostNodeId,
         index: usize,
     ) -> GuiResult<()> {
+        self.ensure_object(parent)?;
         self.ensure_object(child)?;
+        if parent == child {
+            return Err(GuiError::host(format!(
+                "cannot insert AppKit object {} into itself",
+                child.get()
+            )));
+        }
+        if self.subtree_contains(child, parent) {
+            return Err(GuiError::host(format!(
+                "inserting AppKit object {} under {} would create a cycle",
+                child.get(),
+                parent.get()
+            )));
+        }
+
+        for object in self.objects.values_mut() {
+            object.children.retain(|existing| *existing != child);
+        }
         let parent_object = self.objects.get_mut(&parent).ok_or_else(|| {
             GuiError::host(format!("AppKit parent object {} missing", parent.get()))
         })?;
-        parent_object.children.retain(|existing| *existing != child);
         let index = index.min(parent_object.children.len());
         parent_object.children.insert(index, child);
         Ok(())
@@ -413,11 +468,18 @@ impl NativeWidgetDriver for AppKitWidgetDriver {
 
     fn remove_widget(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.ensure_object(id)?;
+        let removed_ids = self.subtree_ids(id);
         for object in self.objects.values_mut() {
-            object.children.retain(|child| *child != id);
+            object.children.retain(|child| !removed_ids.contains(child));
         }
-        self.objects.remove(&id);
-        if self.root == Some(id) {
+        for removed_id in &removed_ids {
+            self.objects.remove(removed_id);
+        }
+        if self
+            .root
+            .map(|root| removed_ids.contains(&root))
+            .unwrap_or(false)
+        {
             self.root = None;
         }
         Ok(())
@@ -435,8 +497,43 @@ mod tests {
     use super::*;
     use crate::backend::CommandExecutingHost;
     use crate::compiler::CompiledJsxNode;
-    use crate::platform::AppKitAdapter;
+    use crate::native::{NativeElement, NativeRole};
+    use crate::platform::{AppKitAdapter, PlatformAdapter};
     use crate::runtime::GuiRuntime;
+
+    #[test]
+    fn appkit_widget_driver_reparents_children_and_removes_subtrees() {
+        let mut driver = AppKitWidgetDriver::default();
+        let root = HostNodeId::new(1);
+        let child = HostNodeId::new(2);
+        let grandchild = HostNodeId::new(3);
+        let second = HostNodeId::new(4);
+        let container = AppKitAdapter.blueprint(&NativeElement::new("container", NativeRole::View));
+        let button = AppKitAdapter.blueprint(&NativeElement::new("button", NativeRole::Button));
+
+        driver.create_widget(root, &container).unwrap();
+        driver.create_widget(child, &container).unwrap();
+        driver.create_widget(grandchild, &button).unwrap();
+        driver.create_widget(second, &container).unwrap();
+        driver.insert_child(root, child, 0).unwrap();
+        driver.insert_child(child, grandchild, 0).unwrap();
+        driver.insert_child(second, child, 0).unwrap();
+
+        assert!(driver.object(root).unwrap().children.is_empty());
+        assert_eq!(driver.object(second).unwrap().children, vec![child]);
+        let error = driver.insert_child(child, second, 0).unwrap_err();
+        assert!(error.to_string().contains("would create a cycle"));
+
+        driver.set_root_widget(second).unwrap();
+        driver.remove_widget(second).unwrap();
+
+        assert!(driver.root().is_none());
+        assert!(driver.object(root).is_some());
+        assert!(driver.object(second).is_none());
+        assert!(driver.object(child).is_none());
+        assert!(driver.object(grandchild).is_none());
+        assert_eq!(driver.objects().len(), 1);
+    }
 
     #[test]
     fn appkit_executor_consumes_compiled_react_aria_commands() {

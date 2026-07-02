@@ -446,6 +446,66 @@ fn handle_widget_driver_rejects_duplicate_creates_without_replacing_handle() {
 }
 
 #[test]
+fn handle_widget_driver_reparents_children_and_rejects_cycles() {
+    let adapter = ThreadBoundHandleAdapter::default();
+    let driver = HandleWidgetDriver::new(adapter);
+    let mut executor = DriverCommandExecutor::new(driver);
+    let first = HostNodeId::new(1);
+    let second = HostNodeId::new(2);
+    let child = HostNodeId::new(3);
+    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+
+    executor
+        .execute(&PlatformCommand::Create {
+            id: first,
+            blueprint: container.clone(),
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: second,
+            blueprint: container,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: child,
+            blueprint: button,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: first,
+            child,
+            index: 0,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: second,
+            child,
+            index: 0,
+        })
+        .unwrap();
+
+    assert_eq!(executor.driver().children(first), Some([].as_slice()));
+    assert_eq!(executor.driver().children(second), Some([child].as_slice()));
+    let command_count = executor.commands().len();
+    let error = executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: child,
+            child: second,
+            index: 0,
+        })
+        .unwrap_err();
+
+    assert!(error.to_string().contains("would create a cycle"));
+    assert_eq!(executor.commands().len(), command_count);
+    assert_eq!(executor.driver().children(second), Some([child].as_slice()));
+}
+
+#[test]
 fn handle_widget_driver_passes_config_patch_to_native_adapter() {
     let adapter = ThreadBoundHandleAdapter::default();
     let calls = adapter.calls.clone();
@@ -518,6 +578,74 @@ fn handle_widget_driver_preserves_state_when_remove_handle_fails() {
             "create:1:gtk::Box",
             "root:1:gtk::Box",
             "remove:1:gtk::Box:failed",
+        ]
+    );
+}
+
+#[test]
+fn handle_widget_driver_remove_deletes_entire_subtree() {
+    let adapter = ThreadBoundHandleAdapter::default();
+    let calls = adapter.calls.clone();
+    let driver = HandleWidgetDriver::new(adapter);
+    let mut executor = DriverCommandExecutor::new(driver);
+    let root = HostNodeId::new(1);
+    let child = HostNodeId::new(2);
+    let grandchild = HostNodeId::new(3);
+    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+
+    executor
+        .execute(&PlatformCommand::Create {
+            id: root,
+            blueprint: container.clone(),
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: child,
+            blueprint: container,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Create {
+            id: grandchild,
+            blueprint: button,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: root,
+            child,
+            index: 0,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::InsertChild {
+            parent: child,
+            child: grandchild,
+            index: 0,
+        })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::SetRoot { id: root })
+        .unwrap();
+    executor
+        .execute(&PlatformCommand::Remove { id: root })
+        .unwrap();
+
+    assert!(executor.driver().root().is_none());
+    assert!(executor.driver().handles().is_empty());
+    assert!(executor.driver().configs().is_empty());
+    assert_eq!(
+        calls.borrow().as_slice(),
+        [
+            "create:1:gtk::Box",
+            "create:2:gtk::Box",
+            "create:3:gtk::Button",
+            "insert:1:gtk::Box:2:gtk::Box:0",
+            "insert:2:gtk::Box:3:gtk::Button:0",
+            "root:1:gtk::Box",
+            "remove:1:gtk::Box",
         ]
     );
 }

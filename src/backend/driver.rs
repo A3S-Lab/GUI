@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
@@ -12,6 +13,7 @@ pub struct HandleWidgetDriver<A: NativeHandleAdapter> {
     adapter: A,
     handles: BTreeMap<HostNodeId, A::Handle>,
     configs: BTreeMap<HostNodeId, NativeWidgetConfig>,
+    children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     root: Option<HostNodeId>,
     events: Vec<NativeEvent>,
 }
@@ -22,6 +24,7 @@ impl<A: NativeHandleAdapter> HandleWidgetDriver<A> {
             adapter,
             handles: BTreeMap::new(),
             configs: BTreeMap::new(),
+            children: BTreeMap::new(),
             root: None,
             events: Vec::new(),
         }
@@ -55,6 +58,10 @@ impl<A: NativeHandleAdapter> HandleWidgetDriver<A> {
         &self.configs
     }
 
+    pub fn children(&self, id: HostNodeId) -> Option<&[HostNodeId]> {
+        self.children.get(&id).map(Vec::as_slice)
+    }
+
     pub fn push_native_event(&mut self, event: NativeEvent) {
         self.events.push(event);
     }
@@ -79,6 +86,41 @@ impl<A: NativeHandleAdapter> HandleWidgetDriver<A> {
         } else {
             Ok(())
         }
+    }
+
+    fn subtree_contains(&self, root: HostNodeId, target: HostNodeId) -> bool {
+        let mut stack = self.children.get(&root).cloned().unwrap_or_default();
+        let mut visited = BTreeSet::new();
+
+        while let Some(id) = stack.pop() {
+            if id == target {
+                return true;
+            }
+            if !visited.insert(id) {
+                continue;
+            }
+            if let Some(children) = self.children.get(&id) {
+                stack.extend(children.iter().copied());
+            }
+        }
+
+        false
+    }
+
+    fn subtree_ids(&self, root: HostNodeId) -> BTreeSet<HostNodeId> {
+        let mut ids = BTreeSet::new();
+        let mut stack = vec![root];
+
+        while let Some(id) = stack.pop() {
+            if !ids.insert(id) {
+                continue;
+            }
+            if let Some(children) = self.children.get(&id) {
+                stack.extend(children.iter().copied());
+            }
+        }
+
+        ids
     }
 }
 
@@ -110,6 +152,7 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
         let handle = self.adapter.create_handle(id, blueprint)?;
         self.handles.insert(id, handle);
         self.configs.insert(id, blueprint.config());
+        self.children.insert(id, Vec::new());
         Ok(())
     }
 
@@ -138,18 +181,52 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
         child: HostNodeId,
         index: usize,
     ) -> GuiResult<()> {
+        if parent == child {
+            return Err(GuiError::host(format!(
+                "cannot insert native handle {} into itself",
+                child.get()
+            )));
+        }
+        if self.subtree_contains(child, parent) {
+            return Err(GuiError::host(format!(
+                "inserting native handle {} under {} would create a cycle",
+                child.get(),
+                parent.get()
+            )));
+        }
+
         let parent_handle = self.cloned_handle(parent)?;
         let child_handle = self.cloned_handle(child)?;
         self.adapter
-            .insert_child_handle(parent, &parent_handle, child, &child_handle, index)
+            .insert_child_handle(parent, &parent_handle, child, &child_handle, index)?;
+        for children in self.children.values_mut() {
+            children.retain(|existing| *existing != child);
+        }
+        let children = self.children.get_mut(&parent).ok_or_else(|| {
+            GuiError::host(format!("native handle {} does not exist", parent.get()))
+        })?;
+        let index = index.min(children.len());
+        children.insert(index, child);
+        Ok(())
     }
 
     fn remove_widget(&mut self, id: HostNodeId) -> GuiResult<()> {
         let handle = self.cloned_handle(id)?;
+        let removed_ids = self.subtree_ids(id);
         self.adapter.remove_handle(id, handle)?;
-        self.handles.remove(&id);
-        self.configs.remove(&id);
-        if self.root == Some(id) {
+        for children in self.children.values_mut() {
+            children.retain(|child| !removed_ids.contains(child));
+        }
+        for removed_id in &removed_ids {
+            self.handles.remove(removed_id);
+            self.configs.remove(removed_id);
+            self.children.remove(removed_id);
+        }
+        if self
+            .root
+            .map(|root| removed_ids.contains(&root))
+            .unwrap_or(false)
+        {
             self.root = None;
         }
         Ok(())
