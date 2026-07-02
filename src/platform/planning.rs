@@ -98,11 +98,14 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
     fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
         let node = self.nodes.get(&id)?;
         let state = &node.blueprint.control_state;
+        if state.hidden || state.inert {
+            return None;
+        }
         let children = node
             .children
             .iter()
-            .map(|child| self.accessibility_subtree(*child))
-            .collect::<Option<Vec<_>>>()?;
+            .filter_map(|child| self.accessibility_subtree(*child))
+            .collect::<Vec<_>>();
 
         Some(AccessibilityNode {
             node: Some(id),

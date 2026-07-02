@@ -109,11 +109,14 @@ impl HeadlessHost {
 
     fn accessibility_subtree(&self, id: HostNodeId) -> Option<AccessibilityNode> {
         let node = self.nodes.get(&id)?;
+        if node.props.hidden || node.props.inert {
+            return None;
+        }
         let children = node
             .children
             .iter()
-            .map(|child| self.accessibility_subtree(*child))
-            .collect::<Option<Vec<_>>>()?;
+            .filter_map(|child| self.accessibility_subtree(*child))
+            .collect::<Vec<_>>();
 
         Some(AccessibilityNode {
             node: Some(id),

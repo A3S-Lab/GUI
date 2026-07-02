@@ -430,6 +430,47 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_omits_hidden_accessibility_subtrees() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "tools",
+                "tag": "Toolbar",
+                "children": [
+                  {
+                    "kind": "element",
+                    "key": "save",
+                    "tag": "Button",
+                    "props": {"label": "Save"}
+                  },
+                  {
+                    "kind": "element",
+                    "key": "archive",
+                    "tag": "Button",
+                    "props": {
+                      "label": "Archive",
+                      "attributes": {"hidden": "true"}
+                    }
+                  }
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let response = session.render_frame(&frame).unwrap();
+        let accessibility = response.accessibility_tree.as_ref().unwrap();
+
+        assert_eq!(accessibility.children.len(), 1);
+        assert_eq!(accessibility.children[0].label.as_deref(), Some("Save"));
+    }
+
+    #[test]
     fn native_protocol_session_dispatches_active_frame_events() {
         let frame: UiFrame = serde_json::from_str(
             r#"

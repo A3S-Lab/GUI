@@ -1125,8 +1125,33 @@ mod tests {
         assert!(focus.interaction_changes.is_empty());
         assert!(press.invocation.is_none());
         assert!(press.interaction_changes.is_empty());
-        assert!(!runtime.accessibility_tree().unwrap().focused);
+        assert!(runtime.accessibility_tree().is_none());
         assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
+    fn runtime_accessibility_tree_prunes_hidden_and_inert_subtrees() {
+        let element = NativeElement::new("tools", NativeRole::Toolbar)
+            .child(
+                NativeElement::new("save", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Save")),
+            )
+            .child(
+                NativeElement::new("archive", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Archive").hidden(true)),
+            )
+            .child(
+                NativeElement::new("delete", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Delete").inert(true)),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        runtime.render_native(&element).unwrap();
+
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert_eq!(accessibility.children.len(), 1);
+        assert_eq!(accessibility.children[0].label.as_deref(), Some("Save"));
     }
 
     #[test]
