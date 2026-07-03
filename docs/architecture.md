@@ -560,7 +560,9 @@ Feature-gated platform executor surfaces:
   development libraries and `pkg-config`.
   GTK callbacks enqueue press, text change, focus, blur, toggle, and
   selection-change events through the same `NativeEventSource` and action
-  routing path as AppKit.
+  routing path as AppKit. GTK widgets also attach `EventControllerKey`
+  controllers so native key-down and key-up events carry normalized key values
+  through that same queue.
 
 Menu-specific native backend code lives under `src/native_backends/`:
 `native_backends/appkit/menu.rs` owns AppKit menu parent/child tracking,

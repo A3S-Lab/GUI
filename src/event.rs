@@ -200,6 +200,28 @@ pub(crate) fn non_empty_action(action: Option<&String>) -> Option<&str> {
         .filter(|action| !action.is_empty())
 }
 
+pub(crate) fn native_key_value(raw: &str) -> String {
+    if raw == " " {
+        return " ".to_string();
+    }
+    let trimmed = raw.trim();
+    match trimmed {
+        "Return" | "KP_Enter" | "ISO_Enter" => "Enter".to_string(),
+        "space" | "Space" | "Spacebar" => " ".to_string(),
+        "BackSpace" => "Backspace".to_string(),
+        "Esc" => "Escape".to_string(),
+        "ISO_Left_Tab" => "Tab".to_string(),
+        "Left" => "ArrowLeft".to_string(),
+        "Right" => "ArrowRight".to_string(),
+        "Up" => "ArrowUp".to_string(),
+        "Down" => "ArrowDown".to_string(),
+        "Page_Up" => "PageUp".to_string(),
+        "Page_Down" => "PageDown".to_string(),
+        "" => String::new(),
+        value => value.to_string(),
+    }
+}
+
 fn activation_key_action<'a>(
     blueprint: &'a NativeWidgetBlueprint,
     event: &NativeEvent,
@@ -225,9 +247,9 @@ pub(crate) fn is_activation_key(value: Option<&str>) -> bool {
     let Some(value) = value else {
         return false;
     };
-    let normalized = value.trim();
+    let normalized = native_key_value(value);
     normalized.eq_ignore_ascii_case("enter")
-        || value == " "
+        || normalized == " "
         || normalized.eq_ignore_ascii_case("space")
         || normalized.eq_ignore_ascii_case("spacebar")
 }
@@ -474,6 +496,19 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_common_native_key_values() {
+        assert_eq!(native_key_value("Return"), "Enter");
+        assert_eq!(native_key_value("KP_Enter"), "Enter");
+        assert_eq!(native_key_value(" "), " ");
+        assert_eq!(native_key_value("space"), " ");
+        assert_eq!(native_key_value("BackSpace"), "Backspace");
+        assert_eq!(native_key_value("Esc"), "Escape");
+        assert_eq!(native_key_value("Left"), "ArrowLeft");
+        assert_eq!(native_key_value("Page_Down"), "PageDown");
+        assert_eq!(native_key_value("a"), "a");
+    }
+
+    #[test]
     fn routes_button_activation_keys_to_primary_action() {
         let element = NativeElement::new("save", NativeRole::Button)
             .with_props(NativeProps::new().web(WebProps::new().on_press("saveDocument")));
@@ -497,6 +532,29 @@ mod tests {
         assert_eq!(enter.value.as_deref(), Some("Enter"));
         assert_eq!(space.action, "saveDocument");
         assert_eq!(space.value.as_deref(), Some(" "));
+    }
+
+    #[test]
+    fn routes_native_platform_activation_key_names_to_primary_action() {
+        let element = NativeElement::new("save", NativeRole::Button)
+            .with_props(NativeProps::new().web(WebProps::new().on_press("saveDocument")));
+        let blueprint = AppKitAdapter.blueprint(&element);
+
+        let return_key = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(22), NativeEventKind::KeyDown).value("Return"),
+            )
+            .unwrap();
+        let gtk_space = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(22), NativeEventKind::KeyDown).value("space"),
+            )
+            .unwrap();
+
+        assert_eq!(return_key.action, "saveDocument");
+        assert_eq!(gtk_space.action, "saveDocument");
     }
 
     #[test]

@@ -81,6 +81,13 @@ through the GTK4 planning adapter:
 cargo run --example protocol_session
 ```
 
+Run the state loop example to see action dispatch, application state updates,
+and frame rerendering in one host-side cycle:
+
+```bash
+cargo run --example state_loop
+```
+
 ## Features
 
 - **Semantic input**: React Aria-style component names, intrinsic HTML/SVG

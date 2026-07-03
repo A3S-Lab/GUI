@@ -480,6 +480,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
 
         let handle = Gtk4OsHandle { id, kind, widget };
         set_widget_title(&handle.widget, config.title.as_deref());
+        self.install_key_events(id, &handle.widget);
         if let Some(widget) = handle.widget.as_widget() {
             self.widgets.insert(id, widget);
         }

@@ -298,7 +298,7 @@ windows, boxes, labels, buttons, entries, check buttons, switches, drop-downs,
 list boxes, rows, notebook tabs, separators, scales, and progress bars. React
 Aria `Tabs` trees become native `gtk::Notebook` pages with `TabPanel` content
 attached as native GTK widgets. GTK signals enqueue native press, change, focus,
-blur, toggle, and selection-change events; programmatic setter updates are
+blur, toggle, selection-change, key-down, and key-up events; programmatic setter updates are
 suppressed so render diffs do not trigger serialized actions. The feature is
 Linux-only and requires GTK4 development libraries plus `pkg-config`.
 
@@ -372,6 +372,10 @@ let response = session.dispatch_host_event(&HostEvent {
     event: NativeEvent::new(rendered.root, NativeEventKind::Press),
 })?;
 ```
+
+The `state_loop` example shows the next host layer: render a frame, dispatch
+native events, apply the returned action invocations to application state, and
+render the next frame from that state.
 
 ## Event Flow
 

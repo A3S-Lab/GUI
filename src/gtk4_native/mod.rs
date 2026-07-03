@@ -10,7 +10,7 @@ use crate::backend::{
     SurfaceHandleAdapter,
 };
 use crate::error::{GuiError, GuiResult};
-use crate::event::{NativeEvent, NativeEventKind};
+use crate::event::{native_key_value, NativeEvent, NativeEventKind};
 use crate::geometry::Orientation;
 use crate::gtk4::Gtk4WidgetKind;
 use crate::host::HostNodeId;
@@ -208,6 +208,36 @@ impl Gtk4NativeSurface {
         let result = apply();
         self.events_suppressed.replace(previous);
         result
+    }
+
+    fn install_key_events(&self, id: HostNodeId, widget: &Gtk4OsWidget) {
+        let Some(widget) = widget.as_widget() else {
+            return;
+        };
+
+        let controller = gtk::EventControllerKey::new();
+        let events = self.events.clone();
+        let events_suppressed = self.events_suppressed.clone();
+        controller.connect_key_pressed(move |_, key, keycode, _| {
+            push_event(
+                &events,
+                &events_suppressed,
+                NativeEvent::new(id, NativeEventKind::KeyDown).value(gtk_key_value(key, keycode)),
+            );
+            gtk::glib::Propagation::Proceed
+        });
+
+        let events = self.events.clone();
+        let events_suppressed = self.events_suppressed.clone();
+        controller.connect_key_released(move |_, key, keycode, _| {
+            push_event(
+                &events,
+                &events_suppressed,
+                NativeEvent::new(id, NativeEventKind::KeyUp).value(gtk_key_value(key, keycode)),
+            );
+        });
+
+        widget.add_controller(controller);
     }
 
     fn update_drop_down_item_label(
@@ -740,6 +770,14 @@ fn push_event(
     if !*events_suppressed.borrow() {
         events.borrow_mut().push(event);
     }
+}
+
+fn gtk_key_value(key: gtk::gdk::Key, keycode: u32) -> String {
+    key.name()
+        .map(|name| native_key_value(name.as_str()))
+        .filter(|value| !value.is_empty())
+        .or_else(|| key.to_unicode().map(|value| value.to_string()))
+        .unwrap_or_else(|| keycode.to_string())
 }
 
 fn config_orientation(config: &NativeWidgetConfig) -> Option<gtk::Orientation> {
