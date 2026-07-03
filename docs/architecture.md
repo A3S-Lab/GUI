@@ -325,7 +325,9 @@ reducer, and renders the next `UiFrame` back into the same host after
 state-changing events. `handle_pending_native_events_while` stops draining the
 current native event batch as soon as the supplied state predicate returns
 false, which keeps queued follow-up events from mutating state after an app-level
-close action. Platform-native app specializations such as
+close action. When the predicate is already false before the drain starts, the
+host event queue is left untouched so callers can pause and resume later.
+Platform-native app specializations such as
 `AppKitRuntimeApp`, `WinUiRuntimeApp`, and `Gtk4RuntimeApp` add the OS event
 pump and use the same bounded drain while stopping their `run_*_while` loops
 when the root window closes or the state predicate exits.

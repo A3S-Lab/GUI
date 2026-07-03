@@ -169,6 +169,9 @@ where
         &mut self,
         mut should_continue: impl FnMut(&S) -> bool,
     ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        if !should_continue(&self.state) {
+            return Ok(Vec::new());
+        }
         let events = self.runtime.host_mut().take_native_events();
         let mut responses = Vec::with_capacity(events.len());
         for event in events {
@@ -186,7 +189,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::backend::{CommandExecutingHost, RecordingBackend};
+    use crate::backend::{CommandExecutingHost, NativeEventSource, RecordingBackend};
     use crate::event::NativeEventKind;
     use crate::platform::Gtk4Adapter;
 
@@ -359,6 +362,33 @@ mod tests {
                 .as_ref()
                 .map(|invocation| invocation.action.as_str()),
             Some("close")
+        );
+    }
+
+    #[test]
+    fn native_runtime_app_keeps_pending_events_when_predicate_starts_false() {
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut app =
+            NativeRuntimeApp::new(host, CounterState::default(), counter_frame, counter_reduce);
+        let rendered = app.render().unwrap();
+
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(rendered.root, NativeEventKind::Press));
+
+        let responses = app.handle_pending_native_events_while(|_| false).unwrap();
+
+        assert!(responses.is_empty());
+        assert_eq!(app.state().count, 0);
+        let pending = app
+            .runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .take_native_events();
+        assert_eq!(
+            pending,
+            vec![NativeEvent::new(rendered.root, NativeEventKind::Press)]
         );
     }
 }

@@ -411,7 +411,8 @@ the OS event pump for real native surfaces: `AppKitRuntimeApp` on macOS,
 Use `handle_pending_native_events_while` or the platform `run_*_while` methods
 when reducer state can request app shutdown. The drain stops before the next
 queued native event once the predicate returns false, so a Close window command
-cannot be followed by stale input from the same event batch.
+cannot be followed by stale input from the same event batch. If the predicate is
+already false before draining starts, the host event queue is left untouched.
 
 ## Event Flow
 
