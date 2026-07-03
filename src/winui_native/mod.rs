@@ -5,10 +5,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use windows::Foundation::PropertyValue;
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{GetLastError, SetLastError, ERROR_SUCCESS, HWND};
 use windows::Win32::UI::WindowsAndMessaging::{
-    DispatchMessageW, GetMessageW, IsWindow, PeekMessageW, TranslateMessage, MSG, PM_REMOVE,
-    WM_KEYDOWN, WM_KEYUP, WM_QUIT, WM_SYSKEYDOWN, WM_SYSKEYUP,
+    DispatchMessageW, GetMessageW, GetWindowLongPtrW, IsWindow, PeekMessageW, SetWindowLongPtrW,
+    SetWindowPos, TranslateMessage, GWL_STYLE, MSG, PM_REMOVE, SWP_FRAMECHANGED, SWP_NOMOVE,
+    SWP_NOSIZE, SWP_NOZORDER, WM_KEYDOWN, WM_KEYUP, WM_QUIT, WM_SYSKEYDOWN, WM_SYSKEYUP,
+    WS_MAXIMIZEBOX, WS_THICKFRAME,
 };
 use windows_core::{Interface, HSTRING};
 use winui3::bootstrap::PackageDependency;
@@ -858,6 +860,47 @@ fn winui_window_is_open(window: &xaml::Window) -> GuiResult<bool> {
     Ok(!hwnd.is_invalid() && unsafe { IsWindow(Some(hwnd)).as_bool() })
 }
 
+fn set_winui_window_resizable(window: &xaml::Window, value: Option<bool>) -> GuiResult<()> {
+    let hwnd = winui_window_hwnd(window)?;
+    let style =
+        winui_resizable_window_style(unsafe { GetWindowLongPtrW(hwnd, GWL_STYLE) } as u32, value);
+
+    unsafe {
+        SetLastError(ERROR_SUCCESS);
+        let previous = SetWindowLongPtrW(hwnd, GWL_STYLE, style as isize);
+        if previous == 0 {
+            let error = GetLastError();
+            if error != ERROR_SUCCESS {
+                return Err(GuiError::host(format!(
+                    "failed to set WinUI window resizable style: Win32 error {}",
+                    error.0
+                )));
+            }
+        }
+    }
+
+    map_winui("failed to refresh WinUI window resizable style", unsafe {
+        SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
+        )
+    })
+}
+
+fn winui_resizable_window_style(style: u32, value: Option<bool>) -> u32 {
+    let resize_style = WS_THICKFRAME.0 | WS_MAXIMIZEBOX.0;
+    if value.unwrap_or(true) {
+        style | resize_style
+    } else {
+        style & !resize_style
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct WinUiOsHandle {
     pub id: HostNodeId,
@@ -1220,5 +1263,20 @@ mod tests {
         assert_eq!(winui_key_value_from_virtual_key(0x31), "1");
         assert_eq!(winui_key_value_from_virtual_key(0x70), "F1");
         assert_eq!(winui_key_value_from_virtual_key(0xFF), "VirtualKey:255");
+    }
+
+    #[test]
+    fn winui_resizable_window_style_toggles_resize_bits() {
+        let fixed = winui_resizable_window_style(WS_THICKFRAME.0 | WS_MAXIMIZEBOX.0, Some(false));
+        assert_eq!(fixed & WS_THICKFRAME.0, 0);
+        assert_eq!(fixed & WS_MAXIMIZEBOX.0, 0);
+
+        let resizable = winui_resizable_window_style(0, Some(true));
+        assert_ne!(resizable & WS_THICKFRAME.0, 0);
+        assert_ne!(resizable & WS_MAXIMIZEBOX.0, 0);
+
+        let defaulted = winui_resizable_window_style(0, None);
+        assert_ne!(defaulted & WS_THICKFRAME.0, 0);
+        assert_ne!(defaulted & WS_MAXIMIZEBOX.0, 0);
     }
 }

@@ -444,6 +444,11 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             | NativeWidgetSetter::SetSpellCheck(_) => {
                 self.apply_text_input_hints(id, &handle.widget)?;
             }
+            NativeWidgetSetter::SetWindowResizable(value) => {
+                if let WinUiOsWidget::Window(window) = &handle.widget {
+                    set_winui_window_resizable(window, *value)?;
+                }
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetClassName(_)
@@ -460,7 +465,6 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             | NativeWidgetSetter::SetCapture(_)
             | NativeWidgetSetter::SetEnterKeyHint(_)
             | NativeWidgetSetter::SetAutoCapitalize(_)
-            | NativeWidgetSetter::SetWindowResizable(_)
             | NativeWidgetSetter::SetHidden(_)
             | NativeWidgetSetter::SetLang(_)
             | NativeWidgetSetter::SetDir(_)
