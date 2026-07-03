@@ -122,6 +122,16 @@ cargo run --example appkit_controls --features appkit-native
 The AppKit loop exits when the root window or panel closes, or when the app
 state predicate passed to `run_appkit_while` returns false.
 
+On Windows, run the WinUI counter example to open a native WinUI 3 window and
+pump Windows messages through the same reducer loop:
+
+```bash
+cargo run --example winui_counter --features winui-native
+```
+
+The WinUI loop exits when the root window closes, or when the app state
+predicate passed to `run_winui_while` returns false.
+
 On Linux, run the GTK4 counter example to open a native GTK window and pump
 GTK events through the same reducer loop:
 

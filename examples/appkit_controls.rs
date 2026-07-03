@@ -1,40 +1,42 @@
-use a3s_gui::{ActionInvocation, AppKitRuntimeApp, UiFrame};
-use serde_json::{json, Value};
+#[cfg(target_os = "macos")]
+mod appkit_controls {
+    use a3s_gui::{ActionInvocation, AppKitRuntimeApp, UiFrame};
+    use serde_json::{json, Value};
 
-#[derive(Debug, Clone, PartialEq)]
-struct ControlsState {
-    name: String,
-    notifications: bool,
-    volume: f64,
-    theme: String,
-    tab: String,
-    saves: u32,
-}
+    #[derive(Debug, Clone, PartialEq)]
+    struct ControlsState {
+        name: String,
+        notifications: bool,
+        volume: f64,
+        theme: String,
+        tab: String,
+        saves: u32,
+    }
 
-impl Default for ControlsState {
-    fn default() -> Self {
-        Self {
-            name: "Ada".to_string(),
-            notifications: true,
-            volume: 35.0,
-            theme: "Compact".to_string(),
-            tab: "Profile".to_string(),
-            saves: 0,
+    impl Default for ControlsState {
+        fn default() -> Self {
+            Self {
+                name: "Ada".to_string(),
+                notifications: true,
+                volume: 35.0,
+                theme: "Compact".to_string(),
+                tab: "Profile".to_string(),
+                saves: 0,
+            }
         }
     }
-}
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut app =
-        AppKitRuntimeApp::appkit(ControlsState::default(), controls_frame, controls_reduce)?;
-    app.render()?;
-    app.run_appkit()?;
-    println!("controls smoke closed with state: {:?}", app.state());
-    Ok(())
-}
+    pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+        let mut app =
+            AppKitRuntimeApp::appkit(ControlsState::default(), controls_frame, controls_reduce)?;
+        app.render()?;
+        app.run_appkit()?;
+        println!("controls smoke closed with state: {:?}", app.state());
+        Ok(())
+    }
 
-fn controls_frame(state: &ControlsState) -> a3s_gui::GuiResult<UiFrame> {
-    serde_json::from_value(json!({
+    fn controls_frame(state: &ControlsState) -> a3s_gui::GuiResult<UiFrame> {
+        serde_json::from_value(json!({
         "frameId": "appkit-controls",
         "window": {
             "title": "A3S AppKit Controls",
@@ -200,56 +202,67 @@ fn controls_frame(state: &ControlsState) -> a3s_gui::GuiResult<UiFrame> {
         }
     }))
     .map_err(|error| a3s_gui::GuiError::invalid_tree(format!("invalid controls frame: {error}")))
-}
-
-fn text(key: &str, label: impl Into<String>) -> Value {
-    json!({
-        "kind": "element",
-        "key": key,
-        "tag": "Text",
-        "props": {"label": label.into()}
-    })
-}
-
-fn controls_reduce(
-    state: &mut ControlsState,
-    invocation: &ActionInvocation,
-) -> a3s_gui::GuiResult<()> {
-    match invocation.action.as_str() {
-        "setName" => {
-            state.name = invocation.value.clone().unwrap_or_default();
-        }
-        "setNotifications" => {
-            state.notifications = invocation.value.as_deref() == Some("true");
-        }
-        "setVolume" => {
-            state.volume = invocation
-                .value
-                .as_deref()
-                .unwrap_or("0")
-                .parse()
-                .map_err(|error| a3s_gui::GuiError::host(format!("invalid volume: {error}")))?;
-        }
-        "setTheme" => {
-            state.theme = invocation
-                .value
-                .clone()
-                .unwrap_or_else(|| "Compact".to_string());
-        }
-        "setTab" => {
-            state.tab = invocation
-                .value
-                .clone()
-                .unwrap_or_else(|| "Profile".to_string());
-        }
-        "saveProfile" => {
-            state.saves += 1;
-        }
-        other => {
-            return Err(a3s_gui::GuiError::host(format!(
-                "unexpected action {other}"
-            )));
-        }
     }
-    Ok(())
+
+    fn text(key: &str, label: impl Into<String>) -> Value {
+        json!({
+            "kind": "element",
+            "key": key,
+            "tag": "Text",
+            "props": {"label": label.into()}
+        })
+    }
+
+    fn controls_reduce(
+        state: &mut ControlsState,
+        invocation: &ActionInvocation,
+    ) -> a3s_gui::GuiResult<()> {
+        match invocation.action.as_str() {
+            "setName" => {
+                state.name = invocation.value.clone().unwrap_or_default();
+            }
+            "setNotifications" => {
+                state.notifications = invocation.value.as_deref() == Some("true");
+            }
+            "setVolume" => {
+                state.volume = invocation
+                    .value
+                    .as_deref()
+                    .unwrap_or("0")
+                    .parse()
+                    .map_err(|error| a3s_gui::GuiError::host(format!("invalid volume: {error}")))?;
+            }
+            "setTheme" => {
+                state.theme = invocation
+                    .value
+                    .clone()
+                    .unwrap_or_else(|| "Compact".to_string());
+            }
+            "setTab" => {
+                state.tab = invocation
+                    .value
+                    .clone()
+                    .unwrap_or_else(|| "Profile".to_string());
+            }
+            "saveProfile" => {
+                state.saves += 1;
+            }
+            other => {
+                return Err(a3s_gui::GuiError::host(format!(
+                    "unexpected action {other}"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    appkit_controls::run()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn main() {
+    eprintln!("appkit_controls requires macOS.");
 }

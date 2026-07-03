@@ -305,8 +305,8 @@ accessibility state.
 `NativeEventHost`, applies action invocations to application state through a
 reducer, and renders the next `UiFrame` back into the same host after
 state-changing events. Platform-native app specializations such as
-`AppKitRuntimeApp` and `Gtk4RuntimeApp` add the OS event pump and stop their
-`run_*_while` loops when the root window closes.
+`AppKitRuntimeApp`, `WinUiRuntimeApp`, and `Gtk4RuntimeApp` add the OS event
+pump and stop their `run_*_while` loops when the root window closes.
 
 ## Host Protocol
 
@@ -544,6 +544,11 @@ Feature-gated platform executor surfaces:
   its native `Switch` semantic in the IR; with `winio-winui3` 0.4.2, the native
   surface temporarily backs that state with a WinUI `CheckBox` because the
   generated bindings do not expose `ToggleSwitch` yet.
+  `WinUiRuntimeApp` provides the embedded app loop for this backend: it renders
+  into `WinUiNativeSurface`, pumps the Windows message queue, drains queued A3S
+  native events, runs the application reducer, rerenders the next frame, and
+  observes the root WinUI window handle so `run_winui_while` can stop when the
+  user closes the surface.
 - `gtk4`: maps classes such as `gtk::Button`, `gtk::Entry`,
   `gtk::SearchEntry`, `gtk::PasswordEntry`, `gtk::SpinButton`, and
   `gtk::TextView` into GTK object kinds behind `Gtk4WidgetDriver` and replays

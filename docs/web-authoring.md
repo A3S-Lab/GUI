@@ -313,7 +313,9 @@ controls, with `TabPanel` content attached as native XAML content. WinUI events
 are queued as native events and routed back to serialized action ids. The React
 Aria `Switch` semantic remains in the IR, while `winio-winui3` 0.4.2 is bridged
 through a native CheckBox-backed toggle until the generated WinUI bindings
-expose `ToggleSwitch`.
+expose `ToggleSwitch`. `WinUiRuntimeApp` can own the WinUI surface directly,
+pump the Windows message queue, rerender after reducer updates, and exit when
+the root WinUI window closes.
 
 At runtime the compiled tree crosses the host boundary as a `UiFrame`:
 
@@ -382,7 +384,9 @@ Hosts can use `NativeProtocolApp` for that loop directly by supplying an
 initial state value, a state-to-`UiFrame` builder, and an action reducer.
 Rust-owned native hosts can use `NativeRuntimeApp` for the embedded form of the
 same loop: drain pending native events, reduce action invocations, and rerender
-the next frame into the existing `GuiRuntime`.
+the next frame into the existing `GuiRuntime`. Platform runtime app aliases add
+the OS event pump for real native surfaces: `AppKitRuntimeApp` on macOS,
+`WinUiRuntimeApp` on Windows, and `Gtk4RuntimeApp` on Linux.
 
 ## Event Flow
 

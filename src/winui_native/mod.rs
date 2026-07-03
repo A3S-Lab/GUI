@@ -1,14 +1,22 @@
+#![allow(unsafe_code)]
+
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use windows::Foundation::PropertyValue;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::{
+    DispatchMessageW, GetMessageW, IsWindow, PeekMessageW, TranslateMessage, MSG, PM_REMOVE,
+    WM_QUIT,
+};
 use windows_core::{Interface, HSTRING};
 use winui3::bootstrap::PackageDependency;
 use winui3::Microsoft::UI::Xaml as xaml;
 use xaml::Controls::{self, Primitives};
 use xaml::{Markup, RoutedEventHandler, Visibility};
 
+use crate::app::{NativeRuntimeApp, NativeRuntimeEventResponse};
 use crate::backend::{
     CommandExecutingHost, DriverCommandExecutor, HandleWidgetDriver, NativeWidgetSurface,
     SurfaceHandleAdapter,
@@ -23,6 +31,7 @@ use crate::platform::{
     apply_widget_setter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig,
     NativeWidgetSetter, WinUiAdapter,
 };
+use crate::protocol::UiFrame;
 use crate::style::{PortableStyle, StyleLength};
 use crate::winui::{winui_text_input_hints, WinUiWidgetKind};
 use helpers::{child_position, map_winui, set_combo_box_item_content, to_u32};
@@ -40,6 +49,14 @@ type WinUiEventQueue = Arc<Mutex<Vec<NativeEvent>>>;
 pub type WinUiNativeSurfaceAdapter = SurfaceHandleAdapter<WinUiNativeSurface>;
 pub type WinUiNativeSurfaceDriver = HandleWidgetDriver<WinUiNativeSurfaceAdapter>;
 pub type WinUiNativeSurfaceCommandExecutor = DriverCommandExecutor<WinUiNativeSurfaceDriver>;
+pub type WinUiRuntimeHost = CommandExecutingHost<WinUiAdapter, WinUiNativeSurfaceCommandExecutor>;
+pub type WinUiRuntimeApp<S, F, R> = NativeRuntimeApp<WinUiRuntimeHost, S, F, R>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WinUiEventWait {
+    Poll,
+    Wait,
+}
 
 #[derive(Debug)]
 pub struct WinUiNativeSurface {
@@ -109,6 +126,21 @@ impl WinUiNativeSurface {
         self.root
     }
 
+    pub fn root_window_open(&self) -> bool {
+        let Some(root) = self.root else {
+            return false;
+        };
+        let Some(widget) = self.widgets.get(&root) else {
+            return false;
+        };
+        match widget {
+            WinUiOsWidget::Window(window) => {
+                winui_window_is_open(window).unwrap_or_else(|_| window.Visible().unwrap_or(false))
+            }
+            _ => true,
+        }
+    }
+
     pub fn into_driver(self) -> WinUiNativeSurfaceDriver {
         HandleWidgetDriver::new(SurfaceHandleAdapter::new(self))
     }
@@ -117,9 +149,7 @@ impl WinUiNativeSurface {
         DriverCommandExecutor::new(self.into_driver())
     }
 
-    pub fn into_host(
-        self,
-    ) -> CommandExecutingHost<WinUiAdapter, WinUiNativeSurfaceCommandExecutor> {
+    pub fn into_host(self) -> WinUiRuntimeHost {
         CommandExecutingHost::new(WinUiAdapter, self.into_executor())
     }
 
@@ -658,6 +688,100 @@ impl WinUiNativeSurface {
         }
         Ok(())
     }
+}
+
+impl<S, F, R> NativeRuntimeApp<WinUiRuntimeHost, S, F, R>
+where
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &crate::event::ActionInvocation) -> GuiResult<()>,
+{
+    pub fn winui(state: S, frame_builder: F, action_reducer: R) -> GuiResult<Self> {
+        Ok(Self::new(
+            WinUiNativeSurface::new()?.into_host(),
+            state,
+            frame_builder,
+            action_reducer,
+        ))
+    }
+
+    pub fn pump_winui_event(
+        &mut self,
+        wait: WinUiEventWait,
+    ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        let mut responses = self.handle_pending_native_events()?;
+        if pump_winui_message(wait)? {
+            responses.extend(self.handle_pending_native_events()?);
+        }
+        Ok(responses)
+    }
+
+    pub fn run_winui(&mut self) -> GuiResult<()> {
+        self.run_winui_while(|_| true)
+    }
+
+    pub fn winui_root_window_open(&self) -> bool {
+        self.runtime()
+            .host()
+            .executor()
+            .driver()
+            .adapter()
+            .surface()
+            .root_window_open()
+    }
+
+    pub fn run_winui_while(
+        &mut self,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<()> {
+        if self.root().is_none() {
+            self.render()?;
+        }
+        while self.winui_root_window_open() && should_continue(self.state()) {
+            self.pump_winui_event(WinUiEventWait::Wait)?;
+        }
+        Ok(())
+    }
+}
+
+fn pump_winui_message(wait: WinUiEventWait) -> GuiResult<bool> {
+    let mut message = MSG::default();
+    let received = match wait {
+        WinUiEventWait::Poll => unsafe {
+            PeekMessageW(&mut message, None, 0, 0, PM_REMOVE).as_bool()
+        },
+        WinUiEventWait::Wait => {
+            let result = unsafe { GetMessageW(&mut message, None, 0, 0) };
+            if result.0 == -1 {
+                return Err(GuiError::host("failed to read WinUI window message"));
+            }
+            result.as_bool()
+        }
+    };
+    if !received {
+        return Ok(false);
+    }
+    if message.message != WM_QUIT {
+        unsafe {
+            let _ = TranslateMessage(&message);
+            DispatchMessageW(&message);
+        }
+    }
+    Ok(true)
+}
+
+fn winui_window_hwnd(window: &xaml::Window) -> GuiResult<HWND> {
+    let native: winui3::IWindowNative = map_winui(
+        "failed to read WinUI window native interface",
+        window.cast(),
+    )?;
+    map_winui("failed to read WinUI window handle", unsafe {
+        native.WindowHandle()
+    })
+}
+
+fn winui_window_is_open(window: &xaml::Window) -> GuiResult<bool> {
+    let hwnd = winui_window_hwnd(window)?;
+    Ok(!hwnd.is_invalid() && unsafe { IsWindow(Some(hwnd)).as_bool() })
 }
 
 #[derive(Debug, Clone)]

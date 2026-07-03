@@ -1,6 +1,6 @@
-#[cfg(target_os = "macos")]
-mod appkit_counter {
-    use a3s_gui::{ActionInvocation, AppKitRuntimeApp, UiFrame};
+#[cfg(target_os = "windows")]
+mod winui_counter {
+    use a3s_gui::{ActionInvocation, UiFrame, WinUiRuntimeApp};
     use serde_json::json;
 
     #[derive(Debug, Clone, PartialEq, Default)]
@@ -10,16 +10,16 @@ mod appkit_counter {
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let mut app =
-            AppKitRuntimeApp::appkit(CounterState::default(), counter_frame, counter_reduce)?;
+            WinUiRuntimeApp::winui(CounterState::default(), counter_frame, counter_reduce)?;
         app.render()?;
-        app.run_appkit_while(|state| state.count < 5)?;
+        app.run_winui_while(|state| state.count < 5)?;
         println!("counter finished at {}", app.state().count);
         Ok(())
     }
 
     fn counter_frame(state: &CounterState) -> a3s_gui::GuiResult<UiFrame> {
         serde_json::from_value(json!({
-            "frameId": "appkit-counter",
+            "frameId": "winui-counter",
             "window": {"title": "A3S Counter", "width": 320, "height": 180},
             "actions": [{"id": "increment", "label": "Increment counter"}],
             "root": {
@@ -51,12 +51,12 @@ mod appkit_counter {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(target_os = "windows")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    appkit_counter::run()
+    winui_counter::run()
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(target_os = "windows"))]
 fn main() {
-    eprintln!("appkit_counter requires macOS.");
+    eprintln!("winui_counter requires Windows.");
 }
