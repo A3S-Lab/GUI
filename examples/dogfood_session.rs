@@ -29,7 +29,7 @@ fn dogfood_session_frame(state: &DogfoodState) -> a3s_gui::GuiResult<a3s_gui::Ui
 #[cfg(test)]
 mod tests {
     use super::*;
-    use a3s_gui::{HostNodeId, NativeEvent, NativeEventKind, NativeWidgetBlueprint};
+    use a3s_gui::{HostNodeId, NativeEvent, NativeEventKind, NativeRole, NativeWidgetBlueprint};
 
     type DogfoodTestApp = NativeRuntimeApp<
         CommandExecutingHost<Gtk4Adapter, RecordingBackend>,
@@ -65,6 +65,15 @@ mod tests {
             "Normal",
         );
         assert_eq!(app.state().priority, "Normal");
+
+        dispatch(
+            &mut app,
+            "onSelectionChange",
+            "setAssignee",
+            NativeEventKind::SelectionChange,
+            "Grace",
+        );
+        assert_eq!(app.state().assignee, "Grace");
 
         dispatch(
             &mut app,
@@ -105,6 +114,15 @@ mod tests {
         );
         assert_eq!(app.state().saves, 2);
         assert_eq!(app.state().last_event, "Saved from shortcut");
+
+        dispatch(
+            &mut app,
+            "onKeyUp",
+            "handleShortcutRelease",
+            NativeEventKind::KeyUp,
+            "Enter",
+        );
+        assert_eq!(app.state().last_event, "Released Enter");
     }
 
     #[test]
@@ -114,17 +132,113 @@ mod tests {
 
         let root = find_event_blueprint(&app, "onKeyDown", "handleShortcut").1;
         let size = root.portable_style.native_size_constraints();
-        assert_eq!(size.width, Some(680.0));
-        assert_eq!(size.height, Some(500.0));
+        assert_eq!(size.width, Some(700.0));
+        assert_eq!(size.height, Some(620.0));
         assert_eq!(size.min_width, Some(480.0));
-        assert_eq!(size.min_height, Some(360.0));
+        assert_eq!(size.min_height, Some(420.0));
 
         let title = find_event_blueprint(&app, "onInput", "updateTitle").1;
         assert!(title.control_state.auto_focus);
+        assert!(title.control_state.required);
+        assert!(!title.control_state.invalid);
         assert_eq!(
             title.portable_style.native_size_constraints().width,
-            Some(620.0)
+            Some(640.0)
         );
+
+        dispatch(
+            &mut app,
+            "onInput",
+            "updateTitle",
+            NativeEventKind::Change,
+            "",
+        );
+        let title = find_event_blueprint(&app, "onInput", "updateTitle").1;
+        assert!(title.control_state.invalid);
+    }
+
+    #[test]
+    fn dogfood_review_workflow_projects_menu_dialog_and_gates_completion() {
+        let mut app = new_app();
+        app.render().unwrap();
+
+        let request_review = find_event_blueprint(&app, "onPress", "requestReview").1;
+        assert_eq!(request_review.role, NativeRole::MenuItem);
+
+        let review_dialog = find_blueprint_by_label(&app, NativeRole::Dialog, "Review gate");
+        assert!(!review_dialog.config().visible);
+        assert_eq!(review_dialog.control_state.html_dialog.open, Some(false));
+
+        let review_status = find_blueprint_by_label(&app, NativeRole::TextField, "Review status");
+        assert!(review_status.control_state.read_only);
+        assert_eq!(
+            review_status.value.as_deref(),
+            Some("0/3 review checks complete")
+        );
+
+        let complete_review = find_blueprint_by_label(&app, NativeRole::Button, "Complete review");
+        assert!(complete_review.control_state.disabled);
+
+        dispatch(
+            &mut app,
+            "onPress",
+            "requestReview",
+            NativeEventKind::Press,
+            "",
+        );
+        assert!(app.state().review_open);
+        assert_eq!(app.state().stage, "Review");
+        let review_dialog = find_blueprint_by_label(&app, NativeRole::Dialog, "Review gate");
+        assert!(review_dialog.config().visible);
+        assert_eq!(review_dialog.control_state.html_dialog.open, Some(true));
+
+        dispatch(
+            &mut app,
+            "onChange",
+            "setDesignReviewed",
+            NativeEventKind::Toggle,
+            "true",
+        );
+        dispatch(
+            &mut app,
+            "onChange",
+            "setTestsReviewed",
+            NativeEventKind::Toggle,
+            "true",
+        );
+        dispatch(
+            &mut app,
+            "onChange",
+            "setDocsUpdated",
+            NativeEventKind::Toggle,
+            "true",
+        );
+        assert!(app.state().review_ready());
+
+        let complete_review = find_blueprint_by_label(&app, NativeRole::Button, "Complete review");
+        assert!(!complete_review.control_state.disabled);
+        dispatch(
+            &mut app,
+            "onPress",
+            "finishReview",
+            NativeEventKind::Press,
+            "",
+        );
+        assert_eq!(app.state().stage, "Done");
+        assert!(app.state().completed);
+        assert!(!app.state().review_open);
+
+        dispatch(
+            &mut app,
+            "onPress",
+            "reopenWork",
+            NativeEventKind::Press,
+            "",
+        );
+        assert_eq!(app.state().stage, "Build");
+        assert!(!app.state().completed);
+        assert!(!app.state().design_reviewed);
+        assert!(!app.state().review_ready());
     }
 
     fn new_app() -> DogfoodTestApp {
@@ -176,5 +290,22 @@ mod tests {
                     .then_some((*id, &node.blueprint))
             })
             .unwrap_or_else(|| panic!("missing node for {event_name} -> {action}"))
+    }
+
+    fn find_blueprint_by_label<'a>(
+        app: &'a DogfoodTestApp,
+        role: NativeRole,
+        label: &str,
+    ) -> &'a NativeWidgetBlueprint {
+        app.runtime()
+            .host()
+            .planning()
+            .nodes()
+            .values()
+            .find_map(|node| {
+                (node.blueprint.role == role && node.blueprint.label.as_deref() == Some(label))
+                    .then_some(&node.blueprint)
+            })
+            .unwrap_or_else(|| panic!("missing {role:?} blueprint labeled {label:?}"))
     }
 }

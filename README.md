@@ -130,9 +130,11 @@ cargo run --example gtk4_dogfood --features gtk4-native
 
 The `*_controls` examples exercise text input, toggles, sliders, selects, tabs,
 actions, rerendering, and root-window close handling through the same reducer
-loop. The `*_dogfood` examples run one shared task editor frame across the
-native surfaces. `NativeProtocolApp` is the reusable host-side protocol loop;
-`NativeRuntimeApp` is the embedded loop for Rust-owned native hosts.
+loop. The `*_dogfood` examples run one shared task editor and review workflow
+across the native surfaces, including menus, a dialog gate, assignment,
+checklists, keyboard shortcuts, and disabled/read-only state. `NativeProtocolApp`
+is the reusable host-side protocol loop; `NativeRuntimeApp` is the embedded loop
+for Rust-owned native hosts.
 
 ## Feature Flags
 

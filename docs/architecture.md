@@ -518,6 +518,9 @@ Feature-gated platform executor surfaces:
   The `appkit_controls` example is the AppKit instance of the shared native
   controls smoke harness for text input, toggles, sliders, selects, tabs,
   actions, rerenders, and root-window close exit.
+  The `appkit_dogfood` example runs the shared task editor and review workflow
+  with menu commands, dialog visibility, checklists, disabled gates, read-only
+  status, keyboard shortcuts, and reducer-driven rerenders.
   These event paths flow through the existing `NativeEventSource` boundary.
 - `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button`,
   `Microsoft.UI.Xaml.Controls.TextBox`,
@@ -575,6 +578,8 @@ Feature-gated platform executor surfaces:
   user closes the surface.
   The `winui_controls` example runs the same shared native controls smoke
   frame against real WinUI widgets.
+  The `winui_dogfood` example runs the shared task editor and review workflow
+  through the same reducer loop and WinUI event queue.
 - `gtk4`: maps classes such as `gtk::Button`, `gtk::Entry`,
   `gtk::SearchEntry`, `gtk::PasswordEntry`, `gtk::SpinButton`, and
   `gtk::TextView` into GTK object kinds behind `Gtk4WidgetDriver` and replays
@@ -623,6 +628,8 @@ Feature-gated platform executor surfaces:
   so `run_gtk4_while` can stop when the user closes the surface.
   The `gtk4_controls` example runs the same shared native controls smoke frame
   against real GTK4 widgets.
+  The `gtk4_dogfood` example runs the shared task editor and review workflow
+  through the same reducer loop and GTK event queue.
 
 Menu-specific native backend code lives under `src/native_backends/`:
 `native_backends/appkit/menu.rs` owns AppKit menu parent/child tracking,
