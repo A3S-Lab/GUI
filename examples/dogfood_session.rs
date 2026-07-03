@@ -313,6 +313,50 @@ mod tests {
     }
 
     #[test]
+    fn dogfood_disabled_review_completion_actions_are_suppressed() {
+        let mut app = new_app();
+        app.render().unwrap();
+        let before = app.state().clone();
+        let finish_nodes = app
+            .runtime()
+            .host()
+            .planning()
+            .nodes()
+            .iter()
+            .filter_map(|(id, node)| {
+                (node.blueprint.events.get("onPress").map(String::as_str) == Some("finishReview"))
+                    .then_some((
+                        *id,
+                        node.blueprint.role,
+                        node.blueprint.label.clone(),
+                        node.blueprint.control_state.disabled,
+                    ))
+            })
+            .collect::<Vec<_>>();
+
+        assert!(finish_nodes
+            .iter()
+            .any(|(_, role, label, disabled)| *role == NativeRole::MenuItem
+                && label.as_deref() == Some("Complete review")
+                && *disabled));
+        assert!(finish_nodes
+            .iter()
+            .any(|(_, role, label, disabled)| *role == NativeRole::Button
+                && label.as_deref() == Some("Complete review")
+                && *disabled));
+
+        for (node, _, _, _) in finish_nodes {
+            let response = app
+                .handle_native_event(NativeEvent::new(node, NativeEventKind::Press))
+                .unwrap();
+
+            assert!(response.invocation.is_none());
+            assert!(response.render.is_none());
+            assert_eq!(app.state(), &before);
+        }
+    }
+
+    #[test]
     fn dogfood_protocol_app_replays_host_boundary_workflow() {
         let mut app = new_protocol_app();
         let rendered = app.render().unwrap();

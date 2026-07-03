@@ -264,9 +264,10 @@ CSS `display: none`, `visibility: hidden` / `collapse`,
 `content-visibility: hidden`, and closed intrinsic dialogs. Inert widgets use
 the same subtree event and accessibility suppression; both the HTML `inert`
 attribute and CSS `interactivity: inert` feed that native inert state.
-Disabled target widgets suppress user activation, value, selection, toggle, and
-keyboard events before interaction state or action routing, while focus and blur
-events can still update inspection state when a host reports them.
+Disabled target widgets, and descendants of disabled widgets, suppress user
+activation, value, selection, toggle, and keyboard events before interaction
+state or action routing, while focus and blur events can still update
+inspection state when a host reports them.
 Read-only target widgets suppress value, selection, and toggle events after
 keyboard activation normalization, while focus, blur, press, and explicit
 keyboard events can still route to actions.

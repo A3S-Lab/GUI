@@ -1924,6 +1924,65 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_suppresses_disabled_subtree_user_events() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "saveProfile"}],
+              "root": {
+                "kind": "element",
+                "key": "review-gate",
+                "tag": "FieldSet",
+                "props": {"isDisabled": true, "label": "Review gate"},
+                "children": [
+                  {
+                    "kind": "element",
+                    "key": "save",
+                    "tag": "Button",
+                    "props": {"events": {"onPress": "saveProfile"}},
+                    "children": [{"kind": "text", "key": "label", "value": "Save"}]
+                  }
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+        let save = session
+            .runtime()
+            .host()
+            .node(rendered.root)
+            .unwrap()
+            .children[0];
+
+        let press = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(save, NativeEventKind::Press),
+            })
+            .unwrap();
+        let key = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(save, NativeEventKind::KeyDown).value("Enter"),
+            })
+            .unwrap();
+
+        assert!(press.invocation.is_none());
+        assert!(press.interaction_changes.is_empty());
+        assert!(key.invocation.is_none());
+        assert!(key.interaction_changes.is_empty());
+        assert_eq!(
+            press.accessibility_tree.as_ref().map(|tree| tree.disabled),
+            Some(true)
+        );
+        assert!(session.runtime().actions().invocations().is_empty());
+    }
+
+    #[test]
     fn native_protocol_session_suppresses_inert_subtree_events() {
         let frame: UiFrame = serde_json::from_str(
             r#"

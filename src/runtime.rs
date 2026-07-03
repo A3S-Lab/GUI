@@ -130,7 +130,7 @@ impl<H: NativeHost> GuiRuntime<H> {
                 interaction_changes: Vec::new(),
             });
         }
-        if is_disabled_user_event(blueprint, event.kind) {
+        if is_disabled_user_event(blueprint, route_blueprints, event.kind) {
             return Ok(HandledNativeEvent {
                 event,
                 invocation: None,
@@ -509,15 +509,22 @@ fn can_retain_interactions(props: &NativeProps) -> bool {
 
 fn is_disabled_user_event(
     blueprint: &NativeWidgetBlueprint,
+    route_blueprints: &[NativeWidgetBlueprint],
     event: crate::event::NativeEventKind,
 ) -> bool {
+    if matches!(
+        event,
+        crate::event::NativeEventKind::Focus
+            | crate::event::NativeEventKind::Blur
+            | crate::event::NativeEventKind::Close
+    ) {
+        return false;
+    }
+
     blueprint.control_state.disabled
-        && !matches!(
-            event,
-            crate::event::NativeEventKind::Focus
-                | crate::event::NativeEventKind::Blur
-                | crate::event::NativeEventKind::Close
-        )
+        || route_blueprints
+            .iter()
+            .any(|route_blueprint| route_blueprint.control_state.disabled)
 }
 
 fn is_read_only_value_event(
@@ -1363,6 +1370,53 @@ mod tests {
         assert_eq!(key.event.kind, crate::event::NativeEventKind::KeyDown);
         assert!(key.interaction_changes.is_empty());
         assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(false));
+        assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
+    fn runtime_suppresses_disabled_ancestor_user_events() {
+        let element = NativeElement::new("review-gate", NativeRole::FieldSet)
+            .with_props(NativeProps::new().label("Review gate").disabled(true))
+            .child(
+                NativeElement::new("finish-review", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Complete review")
+                        .web(WebProps::new().on_press("finishReview")),
+                ),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("finishReview");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let button_id = runtime.host().node(root_id).unwrap().children[0];
+        let press = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                button_id,
+                crate::event::NativeEventKind::Press,
+            ))
+            .unwrap();
+        let key = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(button_id, crate::event::NativeEventKind::KeyDown)
+                    .value("Enter"),
+            )
+            .unwrap();
+        let focus = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                button_id,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+
+        assert!(press.invocation.is_none());
+        assert!(press.interaction_changes.is_empty());
+        assert!(key.invocation.is_none());
+        assert_eq!(key.event.kind, crate::event::NativeEventKind::KeyDown);
+        assert!(key.interaction_changes.is_empty());
+        assert!(focus.invocation.is_none());
+        assert_eq!(focus.interaction_changes.len(), 1);
+        assert!(runtime.interactions().node(button_id).unwrap().focused);
         assert!(runtime.actions().invocations().is_empty());
     }
 
