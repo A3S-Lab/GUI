@@ -2187,6 +2187,83 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_suppresses_read_only_selection_events() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "setTheme"}],
+              "root": {
+                "kind": "element",
+                "key": "theme",
+                "tag": "Select",
+                "props": {
+                  "label": "Theme",
+                  "isReadOnly": true,
+                  "events": {"onSelectionChange": "setTheme"}
+                },
+                "children": [
+                  {
+                    "kind": "element",
+                    "key": "compact",
+                    "tag": "ListBoxItem",
+                    "props": {"label": "Compact", "value": "compact"}
+                  },
+                  {
+                    "kind": "element",
+                    "key": "comfortable",
+                    "tag": "ListBoxItem",
+                    "props": {
+                      "label": "Comfortable",
+                      "value": "comfortable",
+                      "isSelected": true
+                    }
+                  }
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let inferred = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::SelectionChange),
+            })
+            .unwrap();
+        let explicit = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::SelectionChange)
+                    .value("compact"),
+            })
+            .unwrap();
+
+        assert!(inferred.invocation.is_none());
+        assert!(inferred.interaction_changes.is_empty());
+        assert_eq!(
+            inferred
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("comfortable")
+        );
+        assert!(explicit.invocation.is_none());
+        assert!(explicit.interaction_changes.is_empty());
+        assert_eq!(
+            explicit
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("comfortable")
+        );
+        assert!(session.runtime().actions().invocations().is_empty());
+    }
+
+    #[test]
     fn native_protocol_session_infers_container_selection_value_from_selected_child() {
         let frame: UiFrame = serde_json::from_str(
             r#"

@@ -264,6 +264,9 @@ handed to the JavaScript state bridge. Hosts that implement
 accessibility integration. Runtime export overlays interaction state, so changed
 values, checked state, selection, focus, read-only state, multiple-selection
 mode, and host node ids are visible to protocol consumers.
+Single-selection containers with no explicit value derive their rendered
+accessibility value from the selected or checked child, keeping initial
+selection state and later native selection callbacks on the same value shape.
 Invisible target widgets, and descendants of invisible widgets, suppress native
 events before interaction state or action routing and are omitted from rendered
 accessibility tree projection. Invisibility currently includes HTML `hidden`,

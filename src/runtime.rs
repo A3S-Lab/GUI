@@ -703,6 +703,7 @@ fn apply_interactions_to_accessibility_tree(
         );
     }
 
+    apply_selected_child_value_to_container(node);
     apply_selection_value_to_children(node);
     apply_latest_child_selection_to_children(
         node,
@@ -733,6 +734,20 @@ fn apply_interaction_state(
     if let Some(expanded) = state.expanded {
         node.expanded = Some(expanded);
     }
+}
+
+fn apply_selected_child_value_to_container(node: &mut AccessibilityNode) {
+    if node.value.is_some() || !is_exclusive_child_selection_container(node) {
+        return;
+    }
+
+    node.value = node
+        .children
+        .iter()
+        .find(|child| {
+            is_selectable_child(child.role) && (child.selected || child.checked == Some(true))
+        })
+        .and_then(selected_accessibility_value);
 }
 
 fn apply_selection_value_to_children(node: &mut AccessibilityNode) {
@@ -1902,6 +1917,61 @@ mod tests {
         assert_eq!(
             runtime.accessibility_tree().unwrap().value.as_deref(),
             Some("Ada")
+        );
+        assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
+    fn runtime_suppresses_read_only_selection_actions() {
+        let element = NativeElement::new("theme", NativeRole::Select)
+            .with_props(
+                NativeProps::new()
+                    .label("Theme")
+                    .read_only(true)
+                    .web(WebProps::new().on_selection_change("setTheme")),
+            )
+            .child(
+                NativeElement::new("compact", NativeRole::ListBoxItem)
+                    .with_props(NativeProps::new().label("Compact").value("compact")),
+            )
+            .child(
+                NativeElement::new("comfortable", NativeRole::ListBoxItem).with_props(
+                    NativeProps::new()
+                        .label("Comfortable")
+                        .value("comfortable")
+                        .selected(true),
+                ),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setTheme");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let inferred = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::SelectionChange,
+            ))
+            .unwrap();
+        let explicit = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(
+                    root_id,
+                    crate::event::NativeEventKind::SelectionChange,
+                )
+                .value("compact"),
+            )
+            .unwrap();
+
+        assert_eq!(inferred.event.value.as_deref(), Some("comfortable"));
+        assert!(inferred.invocation.is_none());
+        assert!(inferred.interaction_changes.is_empty());
+        assert_eq!(explicit.event.value.as_deref(), Some("compact"));
+        assert!(explicit.invocation.is_none());
+        assert!(explicit.interaction_changes.is_empty());
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("comfortable")
         );
         assert!(runtime.actions().invocations().is_empty());
     }
