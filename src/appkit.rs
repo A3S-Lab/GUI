@@ -1038,6 +1038,45 @@ mod tests {
     }
 
     #[test]
+    fn appkit_handle_adapter_clears_removed_textarea_sizing_on_rerender() {
+        let mut driver = AppKitHandleDriver::default();
+        let id = HostNodeId::new(1);
+        let limited = AppKitAdapter.blueprint(
+            &NativeElement::new("notes", NativeRole::TextField).with_props(
+                NativeProps::new()
+                    .metadata(crate::html::HTML_TAG_METADATA_KEY, "textarea")
+                    .rows(Some(6))
+                    .cols(Some(48)),
+            ),
+        );
+        let unlimited = AppKitAdapter.blueprint(
+            &NativeElement::new("notes", NativeRole::TextField).with_props(
+                NativeProps::new().metadata(crate::html::HTML_TAG_METADATA_KEY, "textarea"),
+            ),
+        );
+
+        driver.create_widget(id, &limited).unwrap();
+        let initial_setter_count = {
+            let handle = driver.handle(id).unwrap();
+            let state = handle.state();
+            assert_eq!(state.config.rows, Some(6));
+            assert_eq!(state.config.cols, Some(48));
+            state.applied_setters.len()
+        };
+
+        driver.update_widget(id, &unlimited).unwrap();
+
+        let handle = driver.handle(id).unwrap();
+        let state = handle.state();
+        let update_setters = &state.applied_setters[initial_setter_count..];
+
+        assert_eq!(state.config.rows, None);
+        assert_eq!(state.config.cols, None);
+        assert!(update_setters.contains(&NativeWidgetSetter::SetRows(None)));
+        assert!(update_setters.contains(&NativeWidgetSetter::SetCols(None)));
+    }
+
+    #[test]
     fn appkit_scroll_handle_adapter_applies_rerender_style_setters() {
         let first: CompiledJsxNode = serde_json::from_str(
             r#"

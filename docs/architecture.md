@@ -493,9 +493,11 @@ Feature-gated platform executor surfaces:
   target/action callbacks that enqueue `NativeEventKind::Press` records, and
   editable `NSTextField` controls, including native `NSSearchField` search
   inputs and textarea-shaped fields, use an `NSTextFieldDelegate` to apply
-  max-length hints and enqueue focus, change, and blur records, with change
-  events carrying the current native string value. AppKit text fields also map
-  portable text-entry hints into native spell-checking, correction, completion,
+  max-length hints and textarea sizing hints, including rerenders that remove
+  `rows`/`cols` and return to the native default size. They enqueue focus,
+  change, and blur records, with change events carrying the current native
+  string value. AppKit text fields also map portable text-entry hints into
+  native spell-checking, correction, completion,
   inline prediction, automatic text completion, and character-picker settings
   when the control responds to the matching selector. `NSButton(checkbox)` and
   `NSSwitch` controls apply native
@@ -631,8 +633,10 @@ Feature-gated platform executor surfaces:
   widgets, and selection-change events carrying the selected tab value when
   available. GTK text entries, search entries, password entries, spin buttons,
   and textarea-shaped `TextView` controls apply the relevant read-only and
-  sizing setters. Search/password/text entries and `TextView` controls also
-  apply placeholder and max-length where GTK exposes that behavior. GTK spin
+  sizing setters. `TextView` sizing rerenders clear removed `rows`/`cols` hints
+  while preserving axes that are explicitly sized by portable style.
+  Search/password/text entries and `TextView` controls also apply placeholder
+  and max-length where GTK exposes that behavior. GTK spin
   buttons preserve numeric range, current, and step state and emit change
   events with the current numeric value. GTK `Entry` and `TextView` controls
   also map portable text-entry hints such as `inputMode`, `input type`,

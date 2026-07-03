@@ -174,8 +174,6 @@ impl AppKitNativeSurface {
             current.height
         } else if let Some(height) = sizing.hinted_height() {
             height
-        } else if current.height > 0.0 {
-            current.height
         } else {
             APPKIT_TEXT_INPUT_DEFAULT_HEIGHT
         };
@@ -1361,6 +1359,7 @@ fn appkit_key_value_from_parts(key_code: u16, characters: Option<&str>) -> Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::platform::PlatformAdapter;
 
     #[test]
     fn truncate_to_max_length_limits_unicode_scalar_values() {
@@ -1387,6 +1386,35 @@ mod tests {
         assert_eq!(appkit_key_value_from_parts(125, None), "ArrowDown");
         assert_eq!(appkit_key_value_from_parts(126, None), "ArrowUp");
         assert_eq!(appkit_key_value_from_parts(0, Some("a")), "a");
+    }
+
+    #[test]
+    fn appkit_text_input_sizing_resets_removed_rows_to_default_height() {
+        let sizing = AppKitTextInputSizing {
+            rows: None,
+            cols: Some(48),
+            size: None,
+            explicit_width: None,
+            explicit_height: None,
+        };
+
+        assert_eq!(sizing.hinted_width(), Some(412.0));
+        assert_eq!(sizing.hinted_height(), None);
+
+        let config = NativeWidgetConfig {
+            rows: None,
+            cols: Some(48),
+            ..AppKitAdapter
+                .blueprint(&crate::native::NativeElement::new(
+                    "notes",
+                    crate::native::NativeRole::TextField,
+                ))
+                .config()
+        };
+        let size = config_text_input_size(&config);
+
+        assert_eq!(size.width, 412.0);
+        assert_eq!(size.height, APPKIT_TEXT_INPUT_DEFAULT_HEIGHT);
     }
 }
 

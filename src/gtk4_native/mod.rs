@@ -196,19 +196,9 @@ impl Gtk4NativeSurface {
         let Some(sizing) = self.text_inputs.get(&id).copied() else {
             return;
         };
-        let width = if sizing.has_explicit_width {
-            -1
-        } else {
-            sizing.hinted_width_points().unwrap_or(-1)
-        };
-        let height = if sizing.has_explicit_height {
-            -1
-        } else {
-            sizing.hinted_height_points().unwrap_or(-1)
-        };
-        if width >= 0 || height >= 0 {
-            text_view.set_size_request(width, height);
-        }
+        let (width, height) =
+            sizing.text_view_size_request(text_view.width_request(), text_view.height_request());
+        text_view.set_size_request(width, height);
     }
 
     fn apply_text_input_hints(&self, id: HostNodeId, widget: &Gtk4OsWidget) {
@@ -770,6 +760,20 @@ impl Gtk4TextInputSizing {
             .map(|rows| (rows as f64 * 20.0 + 18.0).max(64.0))
             .map(points_to_i32)
     }
+
+    fn text_view_size_request(self, current_width: i32, current_height: i32) -> (i32, i32) {
+        let width = if self.has_explicit_width {
+            current_width
+        } else {
+            self.hinted_width_points().unwrap_or(-1)
+        };
+        let height = if self.has_explicit_height {
+            current_height
+        } else {
+            self.hinted_height_points().unwrap_or(-1)
+        };
+        (width, height)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1087,6 +1091,34 @@ mod tests {
         assert_eq!(truncate_to_max_length("aé日b", Some(3)), "aé日");
         assert_eq!(truncate_to_max_length("abc", None), "abc");
         assert_eq!(truncate_to_max_length("abc", Some(0)), "");
+    }
+
+    #[test]
+    fn gtk4_text_input_sizing_resets_removed_text_view_hints() {
+        let sizing = Gtk4TextInputSizing {
+            rows: None,
+            cols: None,
+            size: None,
+            has_explicit_width: false,
+            has_explicit_height: false,
+        };
+
+        assert_eq!(sizing.hinted_width_points(), None);
+        assert_eq!(sizing.hinted_height_points(), None);
+        assert_eq!(sizing.text_view_size_request(412, 138), (-1, -1));
+    }
+
+    #[test]
+    fn gtk4_text_view_sizing_preserves_explicit_axis_requests() {
+        let sizing = Gtk4TextInputSizing {
+            rows: Some(6),
+            cols: None,
+            size: None,
+            has_explicit_width: true,
+            has_explicit_height: false,
+        };
+
+        assert_eq!(sizing.text_view_size_request(320, -1), (320, 138));
     }
 }
 
