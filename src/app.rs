@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use serde::{Deserialize, Serialize};
 
 use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
@@ -33,6 +35,7 @@ pub struct NativeRuntimeApp<H: NativeHost, S, F, R> {
     action_reducer: R,
     active_frame_id: Option<String>,
     root: Option<HostNodeId>,
+    pending_native_events: VecDeque<NativeEvent>,
 }
 
 impl<H, S, F, R> NativeRuntimeApp<H, S, F, R>
@@ -58,6 +61,7 @@ where
             action_reducer,
             active_frame_id: None,
             root: None,
+            pending_native_events: VecDeque::new(),
         }
     }
 
@@ -157,9 +161,10 @@ where
     R: FnMut(&mut S, &ActionInvocation) -> GuiResult<()>,
 {
     pub fn handle_pending_native_events(&mut self) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
-        let events = self.runtime.host_mut().take_native_events();
-        let mut responses = Vec::with_capacity(events.len());
-        for event in events {
+        self.pending_native_events
+            .extend(self.runtime.host_mut().take_native_events());
+        let mut responses = Vec::with_capacity(self.pending_native_events.len());
+        while let Some(event) = self.pending_native_events.pop_front() {
             responses.push(self.handle_native_event(event)?);
         }
         Ok(responses)
@@ -172,13 +177,14 @@ where
         if !should_continue(&self.state) {
             return Ok(Vec::new());
         }
-        let events = self.runtime.host_mut().take_native_events();
-        let mut responses = Vec::with_capacity(events.len());
-        for event in events {
+        self.pending_native_events
+            .extend(self.runtime.host_mut().take_native_events());
+        let mut responses = Vec::with_capacity(self.pending_native_events.len());
+        while let Some(event) = self.pending_native_events.pop_front() {
+            responses.push(self.handle_native_event(event)?);
             if !should_continue(&self.state) {
                 break;
             }
-            responses.push(self.handle_native_event(event)?);
         }
         Ok(responses)
     }
@@ -362,6 +368,41 @@ mod tests {
                 .as_ref()
                 .map(|invocation| invocation.action.as_str()),
             Some("close")
+        );
+    }
+
+    #[test]
+    fn native_runtime_app_buffers_events_after_predicate_stops() {
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut app =
+            NativeRuntimeApp::new(host, CounterState::default(), counter_frame, counter_reduce);
+        let rendered = app.render().unwrap();
+
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(rendered.root, NativeEventKind::Press));
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(rendered.root, NativeEventKind::Press));
+
+        let first = app
+            .handle_pending_native_events_while(|state| state.count < 1)
+            .unwrap();
+        assert_eq!(app.state().count, 1);
+        assert_eq!(first.len(), 1);
+
+        let second = app.handle_pending_native_events().unwrap();
+
+        assert_eq!(app.state().count, 2);
+        assert_eq!(second.len(), 1);
+        assert_eq!(
+            second[0]
+                .invocation
+                .as_ref()
+                .map(|invocation| invocation.action.as_str()),
+            Some("increment")
         );
     }
 
