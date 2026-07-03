@@ -1,28 +1,39 @@
-# a3s-gui
+# A3S GUI
 
-Native GUI runtime for structured A3S UI frames.
+**Native GUI runtime for structured UI protocol frames**
 
-`a3s-gui` turns Rust-native trees or serialized JSX frames into a portable
-native UI IR, reconciles keyed updates, routes host events back to stable action
-ids, and plans or drives platform widgets for AppKit, WinUI, GTK4, and headless
-tests.
+A3S GUI is a Rust library for rendering A3S UI frames without embedding a
+browser. It lowers Rust-native trees or serialized JSX frames into a portable
+native UI IR, reconciles keyed updates, routes host events to stable action
+ids, and targets AppKit, WinUI, GTK4, or a headless test host.
 
-It is not a WebView runtime. There is no DOM, CSSOM, browser layout engine, or
-JavaScript object graph at the host boundary. Web-like input is accepted when it
-can be lowered to native roles, control state, accessibility hints, metadata,
-events, or portable style tokens.
+---
 
-## Install
+## Overview
+
+A3S GUI owns the native UI boundary for A3S applications:
+
+- **Portable native IR**: Typed roles, props, style tokens, metadata, and
+  accessibility hints that are independent of any one platform.
+- **Keyed renderer**: Incremental create, update, insert, remove, and set-root
+  commands for native hosts.
+- **Protocol frames**: `UiFrame` input from the TypeScript JSX SDK or any
+  producer that emits the same serializable shape.
+- **Native adapters**: Planning adapters for AppKit, WinUI, and GTK4, plus
+  native surface features for target operating systems.
+- **Headless host**: Pure Rust validation for tests, protocol fixtures, and
+  integration harnesses.
+
+## Quick Start
+
+Add the Rust crate:
 
 ```toml
 [dependencies]
 a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ```
 
-The TypeScript protocol package lives in `sdk/typescript` and exports
-`@a3s-lab/gui` for JSX frame generation.
-
-## Rust
+Render a native tree:
 
 ```rust
 use a3s_gui::{
@@ -38,12 +49,11 @@ fn main() -> GuiResult<()> {
 
     let mut runtime = GuiRuntime::new(HeadlessHost::default());
     runtime.render_native(&root)?;
-
     Ok(())
 }
 ```
 
-## JSX Frames
+Generate a JSX frame:
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
@@ -61,36 +71,56 @@ export const frame = createUiFrame(
 );
 ```
 
-The SDK emits JSON-safe `UiFrame` data. Rust consumes that data through
-`ReactCompilerBridge`, `UiFrame`, `NativeProtocolSession`, or `GuiRuntime`.
+The TypeScript protocol package lives in `sdk/typescript` and exports
+`@a3s-lab/gui`.
 
-## What Is Supported
+## Features
 
-- Semantic component names, intrinsic HTML/SVG tags, React Aria-style props, and
-  stable keyed children.
-- Native roles for text, forms, buttons, links, menus, tabs, dialogs, tables,
-  media, ranges, and common HTML form controls.
-- Portable control state, accessibility relationships and state, `aria-*`,
-  `data-*`, selected HTML attributes, inline style objects, CSS text, and
-  Tailwind-like utility classes.
-- Event routing for press, change, focus, blur, toggle, selection, keyboard, and
-  platform host events.
-- Headless validation plus platform planning adapters for macOS AppKit,
-  Windows WinUI, and Linux GTK4.
+- **Semantic input**: React Aria-style component names, intrinsic HTML/SVG
+  tags, stable keys, text children, and DOM-style event props.
+- **Native controls**: Text fields, buttons, links, forms, menus, tabs,
+  dialogs, tables, media, ranges, and common HTML form controls.
+- **Accessibility**: Labels, relationships, descriptions, structure, state,
+  live-region hints, and accessibility tree projection.
+- **Portable styling**: Inline style objects, CSS text, Tailwind-like utility
+  classes, and native visibility/interactivity state.
+- **Event routing**: Press, change, focus, blur, toggle, selection, keyboard,
+  and host-native events resolved to registered action ids.
+
+## Boundaries
+
+A3S GUI is not a WebView runtime. It does not provide a DOM, CSSOM, browser
+layout engine, or JavaScript object graph at the host boundary.
+
+| Concern | Status |
+|---------|--------|
+| Native widget rendering | In scope |
+| Serializable UI protocol frames | In scope |
+| AppKit, WinUI, GTK4 planning | In scope |
+| Browser DOM APIs | Out of scope |
+| Arbitrary CSS selector/layout behavior | Out of scope |
+| Treating `HTMLElement` objects as app state | Out of scope |
+
+Web-like input is accepted when it can be lowered to native roles, control
+state, accessibility hints, metadata, events, or portable style tokens.
 
 ## Feature Flags
 
 The default feature is `headless`.
 
-| Feature | Purpose |
-| --- | --- |
-| `headless` | Pure Rust host for tests and protocol validation. |
-| `appkit`, `winui`, `gtk4` | Platform planning adapters and handle types. |
-| `appkit-native`, `winui-native`, `gtk4-native` | Real native surfaces on each target OS. |
+| Feature | Description |
+|---------|-------------|
+| `headless` | Pure Rust host for tests and protocol validation |
+| `appkit` | AppKit planning adapter and handle types |
+| `winui` | WinUI planning adapter and handle types |
+| `gtk4` | GTK4 planning adapter and handle types |
+| `appkit-native` | Native AppKit surface on macOS |
+| `winui-native` | Native WinUI surface on Windows |
+| `gtk4-native` | Native GTK4 surface on Linux |
 
 `gtk4-native` requires GTK4 development libraries and `pkg-config`.
 
-## Checks
+## Development
 
 Run checks from this crate directory:
 
@@ -116,4 +146,6 @@ cargo check --features gtk4-native
 - [Web authoring](docs/web-authoring.md)
 - [TypeScript SDK](sdk/typescript/README.md)
 
-MIT licensed. See [LICENSE](LICENSE).
+## License
+
+MIT. See [LICENSE](LICENSE).
