@@ -30,10 +30,19 @@ fn dogfood_session_frame(state: &DogfoodState) -> a3s_gui::GuiResult<a3s_gui::Ui
 #[cfg(test)]
 mod tests {
     use super::*;
-    use a3s_gui::{HostNodeId, NativeEvent, NativeEventKind, NativeRole, NativeWidgetBlueprint};
+    use a3s_gui::{
+        HostEvent, HostNodeId, NativeEvent, NativeEventKind, NativeProtocolApp, NativeRole,
+        NativeWidgetBlueprint, PlatformCommand,
+    };
 
     type DogfoodTestApp = NativeRuntimeApp<
         CommandExecutingHost<Gtk4Adapter, RecordingBackend>,
+        DogfoodState,
+        fn(&DogfoodState) -> a3s_gui::GuiResult<a3s_gui::UiFrame>,
+        fn(&mut DogfoodState, &a3s_gui::ActionInvocation) -> a3s_gui::GuiResult<()>,
+    >;
+    type DogfoodProtocolApp = NativeProtocolApp<
+        Gtk4Adapter,
         DogfoodState,
         fn(&DogfoodState) -> a3s_gui::GuiResult<a3s_gui::UiFrame>,
         fn(&mut DogfoodState, &a3s_gui::ActionInvocation) -> a3s_gui::GuiResult<()>,
@@ -303,10 +312,89 @@ mod tests {
         assert!(!app.state().review_ready());
     }
 
+    #[test]
+    fn dogfood_protocol_app_replays_host_boundary_workflow() {
+        let mut app = new_protocol_app();
+        let rendered = app.render().unwrap();
+
+        assert_eq!(rendered.frame_id, "dogfood-session");
+        assert!(rendered.commands.iter().any(|command| matches!(
+            command,
+            PlatformCommand::Create { blueprint, .. } if blueprint.role == NativeRole::Window
+        )));
+
+        let response = dispatch_host(
+            &mut app,
+            "onPress",
+            "requestReview",
+            NativeEventKind::Press,
+            "",
+        );
+        assert!(app.state().review_open);
+        assert_eq!(app.state().stage, "Review");
+        assert_render_updated_dialog(&response, true);
+
+        dispatch_host(
+            &mut app,
+            "onChange",
+            "setDesignReviewed",
+            NativeEventKind::Toggle,
+            "true",
+        );
+        dispatch_host(
+            &mut app,
+            "onChange",
+            "setTestsReviewed",
+            NativeEventKind::Toggle,
+            "true",
+        );
+        dispatch_host(
+            &mut app,
+            "onChange",
+            "setDocsUpdated",
+            NativeEventKind::Toggle,
+            "true",
+        );
+        assert!(app.state().review_ready());
+
+        let response = dispatch_host(
+            &mut app,
+            "onPress",
+            "finishReview",
+            NativeEventKind::Press,
+            "",
+        );
+        assert_eq!(app.state().stage, "Done");
+        assert!(app.state().completed);
+        assert!(!app.state().review_open);
+        assert_render_updated_dialog(&response, false);
+
+        let response = dispatch_host(
+            &mut app,
+            "onClose",
+            "closeDogfood",
+            NativeEventKind::Close,
+            "",
+        );
+        assert!(app.state().close_requested);
+        assert!(!dogfood_should_continue(app.state()));
+        assert_eq!(app.state().last_event, "Window close requested");
+        assert!(response.render.is_some());
+    }
+
     fn new_app() -> DogfoodTestApp {
         let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
         NativeRuntimeApp::new(
             host,
+            DogfoodState::default(),
+            dogfood_session_frame,
+            dogfood_reduce,
+        )
+    }
+
+    fn new_protocol_app() -> DogfoodProtocolApp {
+        NativeProtocolApp::new(
+            Gtk4Adapter,
             DogfoodState::default(),
             dogfood_session_frame,
             dogfood_reduce,
@@ -337,6 +425,36 @@ mod tests {
         assert!(response.render.is_some());
     }
 
+    fn dispatch_host(
+        app: &mut DogfoodProtocolApp,
+        event_name: &str,
+        action: &str,
+        kind: NativeEventKind,
+        value: &str,
+    ) -> a3s_gui::NativeAppEventResponse {
+        let node = find_protocol_event_blueprint(app, event_name, action).0;
+        let event = if value.is_empty() {
+            NativeEvent::new(node, kind)
+        } else {
+            NativeEvent::new(node, kind).value(value)
+        };
+        let response = app
+            .handle_host_event(&HostEvent {
+                frame_id: "dogfood-session".to_string(),
+                event,
+            })
+            .unwrap();
+        assert_eq!(
+            response
+                .invocation
+                .as_ref()
+                .map(|invocation| invocation.action.as_str()),
+            Some(action)
+        );
+        assert!(response.render.is_some());
+        response
+    }
+
     fn find_event_blueprint<'a>(
         app: &'a DogfoodTestApp,
         event_name: &str,
@@ -352,6 +470,36 @@ mod tests {
                     .then_some((*id, &node.blueprint))
             })
             .unwrap_or_else(|| panic!("missing node for {event_name} -> {action}"))
+    }
+
+    fn find_protocol_event_blueprint<'a>(
+        app: &'a DogfoodProtocolApp,
+        event_name: &str,
+        action: &str,
+    ) -> (HostNodeId, &'a NativeWidgetBlueprint) {
+        app.session()
+            .runtime()
+            .host()
+            .nodes()
+            .iter()
+            .find_map(|(id, node)| {
+                (node.blueprint.events.get(event_name).map(String::as_str) == Some(action))
+                    .then_some((*id, &node.blueprint))
+            })
+            .unwrap_or_else(|| panic!("missing protocol node for {event_name} -> {action}"))
+    }
+
+    fn assert_render_updated_dialog(response: &a3s_gui::NativeAppEventResponse, open: bool) {
+        let render = response
+            .render
+            .as_ref()
+            .expect("state action should render a follow-up frame");
+        assert!(render.commands.iter().any(|command| matches!(
+            command,
+            PlatformCommand::Update { blueprint, .. }
+                if blueprint.role == NativeRole::Dialog
+                    && blueprint.control_state.html_dialog.open == Some(open)
+        )));
     }
 
     fn find_blueprint_by_label<'a>(

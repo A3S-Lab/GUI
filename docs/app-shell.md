@@ -57,6 +57,13 @@ logic:
 just dogfood
 ```
 
+Run the dogfood regression tests when changing app-shell event flow, menus,
+dialogs, keyboard routing, or close behavior:
+
+```bash
+just dogfood-regression
+```
+
 Use the native dogfood app when changing platform behavior:
 
 ```bash
@@ -92,9 +99,9 @@ before A3S GUI is considered generally usable:
 - review gates that disable completion until state is valid
 - state-driven app loop exit after close actions
 
-Headless tests assert the same reducer behavior without a platform dependency.
-Native checks ensure the matching backend compiles and can host the dogfood
-surface.
+Headless dogfood tests cover both embedded `NativeRuntimeApp` handling and the
+host/process boundary exposed by `NativeProtocolApp`. Native checks ensure the
+matching backend compiles and can host the dogfood surface.
 
 ## Current Hardening Gaps
 
@@ -103,6 +110,7 @@ a stable production surface, keep hardening these areas:
 
 - package metadata and release bundles for each native platform
 - resize, focus, and text input edge cases under longer real-world forms
-- a broader dogfood regression path for menu, dialog, and keyboard interactions
+- native-platform automation for dogfood menu, dialog, and keyboard interaction
+  flows beyond compile-time checks
 - platform-specific documentation for signing, installation, and distribution
 - WinUI programmatic focus once the underlying safe API is available

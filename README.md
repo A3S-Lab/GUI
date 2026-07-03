@@ -178,9 +178,10 @@ npm test --prefix sdk/typescript
 git diff --check
 ```
 
-Native surface checks are platform-specific:
+Dogfood and native surface checks are available as focused recipes:
 
 ```bash
+just dogfood-regression
 just check-native
 just dogfood-native
 just check-winui
