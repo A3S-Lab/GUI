@@ -112,6 +112,9 @@ AppKit events through the same reducer loop:
 cargo run --example appkit_counter --features appkit-native
 ```
 
+The AppKit loop exits when the root window or panel closes, or when the app
+state predicate passed to `run_appkit_while` returns false.
+
 ## Features
 
 - **Semantic input**: React Aria-style component names, intrinsic HTML/SVG

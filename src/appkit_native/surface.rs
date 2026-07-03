@@ -54,6 +54,11 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         false,
                     )
                 };
+                let delegate = AppKitWindowDelegate::new(id, self.closed_windows.clone(), self.mtm);
+                let delegate_ref: &ProtocolObject<dyn NSWindowDelegate> =
+                    ProtocolObject::from_ref(&*delegate);
+                window.setDelegate(Some(delegate_ref));
+                self.window_delegates.insert(id, delegate);
                 AppKitOsWidget::Window(window)
             }
             AppKitWidgetKind::Panel => {
@@ -69,6 +74,11 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     false,
                 );
                 panel.setTitle(&ns_string(config.label.as_deref().unwrap_or("")));
+                let delegate = AppKitWindowDelegate::new(id, self.closed_windows.clone(), self.mtm);
+                let delegate_ref: &ProtocolObject<dyn NSWindowDelegate> =
+                    ProtocolObject::from_ref(&*delegate);
+                panel.as_super().setDelegate(Some(delegate_ref));
+                self.window_delegates.insert(id, delegate);
                 AppKitOsWidget::Panel(panel)
             }
             AppKitWidgetKind::Popover => {
@@ -1132,6 +1142,16 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         self.ranges.remove(&id);
         self.text_inputs.remove(&id);
         self.text_input_configs.remove(&id);
+        self.closed_windows.borrow_mut().remove(&id);
+        if let AppKitOsWidget::Window(window) = &handle.widget {
+            window.setDelegate(None);
+            self.window_delegates.remove(&id);
+            window.close();
+        }
+        if let AppKitOsWidget::Panel(panel) = &handle.widget {
+            panel.as_super().setDelegate(None);
+            self.window_delegates.remove(&id);
+        }
         if let AppKitOsWidget::ComboBox(_) = &handle.widget {
             self.combo_boxes.remove(&id);
             if let Some(children) = self.combo_children.remove(&id) {
@@ -1192,8 +1212,14 @@ impl NativeWidgetSurface for AppKitNativeSurface {
     fn set_native_root(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
         self.root = Some(id);
         match &handle.widget {
-            AppKitOsWidget::Window(window) => window.makeKeyAndOrderFront(None),
-            AppKitOsWidget::Panel(panel) => panel.as_super().makeKeyAndOrderFront(None),
+            AppKitOsWidget::Window(window) => {
+                self.closed_windows.borrow_mut().remove(&id);
+                window.makeKeyAndOrderFront(None);
+            }
+            AppKitOsWidget::Panel(panel) => {
+                self.closed_windows.borrow_mut().remove(&id);
+                panel.as_super().makeKeyAndOrderFront(None);
+            }
             AppKitOsWidget::Menu(menu) => self._application.setMainMenu(Some(menu)),
             _ => {}
         }

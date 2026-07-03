@@ -500,6 +500,8 @@ Feature-gated platform executor surfaces:
   `AppKitRuntimeApp` provides the embedded app loop for this backend: it
   renders into an `AppKitNativeSurface`, pumps AppKit events, drains queued A3S
   native events, runs the application reducer, and rerenders the next frame.
+  The loop also observes root AppKit window and panel close notifications so
+  `run_appkit_while` can stop when the user closes the surface.
   These event paths flow through the existing `NativeEventSource` boundary.
 - `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button`,
   `Microsoft.UI.Xaml.Controls.TextBox`,

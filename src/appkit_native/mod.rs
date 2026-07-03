@@ -1,7 +1,7 @@
 #![allow(unsafe_code)]
 
 use std::cell::{Cell, RefCell};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use objc2::rc::Retained;
@@ -18,7 +18,7 @@ use objc2_app_kit::{
     NSSearchField, NSSearchFieldDelegate, NSSecureTextField, NSSlider, NSStackView,
     NSStackViewDistribution, NSSwitch, NSTabView, NSTabViewDelegate, NSTabViewItem, NSTextField,
     NSTextFieldDelegate, NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow,
-    NSWindowStyleMask,
+    NSWindowDelegate, NSWindowStyleMask,
 };
 use objc2_foundation::{
     NSDate, NSDefaultRunLoopMode, NSInteger, NSNotification, NSObject, NSObjectProtocol, NSPoint,
@@ -66,7 +66,9 @@ pub struct AppKitNativeSurface {
     _application: Retained<NSApplication>,
     root: Option<HostNodeId>,
     events: Rc<RefCell<Vec<NativeEvent>>>,
+    closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
     action_targets: BTreeMap<HostNodeId, Retained<AppKitActionTarget>>,
+    window_delegates: BTreeMap<HostNodeId, Retained<AppKitWindowDelegate>>,
     combo_boxes: BTreeMap<HostNodeId, Retained<NSComboBox>>,
     combo_items: BTreeMap<HostNodeId, AppKitComboBoxItem>,
     combo_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
@@ -98,7 +100,9 @@ impl AppKitNativeSurface {
             _application: application,
             root: None,
             events: Rc::new(RefCell::new(Vec::new())),
+            closed_windows: Rc::new(RefCell::new(BTreeSet::new())),
             action_targets: BTreeMap::new(),
+            window_delegates: BTreeMap::new(),
             combo_boxes: BTreeMap::new(),
             combo_items: BTreeMap::new(),
             combo_children: BTreeMap::new(),
@@ -119,6 +123,12 @@ impl AppKitNativeSurface {
 
     pub fn application(&self) -> &NSApplication {
         &self._application
+    }
+
+    pub fn root_window_open(&self) -> bool {
+        self.root
+            .map(|root| !self.closed_windows.borrow().contains(&root))
+            .unwrap_or(false)
     }
 
     pub fn into_driver(self) -> AppKitNativeSurfaceDriver {
@@ -305,6 +315,51 @@ impl AppKitNativeSurface {
     }
 }
 
+#[derive(Debug, Clone)]
+struct AppKitWindowDelegateIvars {
+    node: HostNodeId,
+    closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
+}
+
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = AppKitWindowDelegateIvars]
+    #[derive(Debug)]
+    struct AppKitWindowDelegate;
+
+    unsafe impl NSObjectProtocol for AppKitWindowDelegate {}
+
+    unsafe impl NSWindowDelegate for AppKitWindowDelegate {
+        #[unsafe(method(windowShouldClose:))]
+        fn window_should_close(&self, _sender: &NSWindow) -> bool {
+            true
+        }
+
+        #[unsafe(method(windowWillClose:))]
+        fn window_will_close(&self, _notification: &NSNotification) {
+            self.ivars()
+                .closed_windows
+                .borrow_mut()
+                .insert(self.ivars().node);
+        }
+    }
+);
+
+impl AppKitWindowDelegate {
+    fn new(
+        node: HostNodeId,
+        closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
+        mtm: MainThreadMarker,
+    ) -> Retained<Self> {
+        let this = Self::alloc(mtm).set_ivars(AppKitWindowDelegateIvars {
+            node,
+            closed_windows,
+        });
+        unsafe { msg_send![super(this), init] }
+    }
+}
+
 impl AppKitEventWait {
     fn expiration(self) -> objc2::rc::Retained<NSDate> {
         match self {
@@ -370,6 +425,16 @@ where
         self.run_appkit_while(|_| true)
     }
 
+    pub fn appkit_root_window_open(&self) -> bool {
+        self.runtime()
+            .host()
+            .executor()
+            .driver()
+            .adapter()
+            .surface()
+            .root_window_open()
+    }
+
     pub fn run_appkit_while(
         &mut self,
         mut should_continue: impl FnMut(&S) -> bool,
@@ -377,7 +442,7 @@ where
         if self.root().is_none() {
             self.render()?;
         }
-        while should_continue(self.state()) {
+        while self.appkit_root_window_open() && should_continue(self.state()) {
             self.pump_appkit_event(AppKitEventWait::Wait)?;
         }
         Ok(())
