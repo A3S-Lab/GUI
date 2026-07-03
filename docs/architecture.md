@@ -129,8 +129,9 @@ slider role, numeric `value` or `defaultValue` props are projected as the
 ranged current value, and numeric `step` is projected as native ranged-control
 step state. `input[type=number]` lowers to the native text-field role while
 numeric `value` or `defaultValue`, `min`, `max`, and `step` props are preserved
-as native control state; GTK planning maps that number-shaped text field to
-`gtk::SpinButton`. `input[type=button]`, `input[type=submit]`,
+as native control state; the text value is also retained for text-field
+backends. GTK planning maps that number-shaped text field to `gtk::SpinButton`.
+`input[type=button]`, `input[type=submit]`,
 `input[type=reset]`, and `input[type=image]` lower to native button roles with
 HTML fallback labels from `value`, default submit/reset labels, or image `alt`
 text. HTML dialog `open` state projects into a structured `HtmlDialogProps`

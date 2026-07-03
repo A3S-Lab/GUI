@@ -483,6 +483,7 @@ function normalizeProps(props, tag) {
       const numericValue = isNumericValueTag(tag, props) ? numberValue(value) : undefined;
       if (numericValue !== undefined) {
         out.valueNumber = numericValue;
+        if (isNumberInputTag(tag, props)) out.value = String(value);
       } else {
         out.value = String(value);
       }
@@ -767,6 +768,10 @@ function isNumericValueTag(tag, props = {}) {
     tag === 'meter' ||
     (tag === 'input' && (inputType === 'range' || inputType === 'number'))
   );
+}
+
+function isNumberInputTag(tag, props = {}) {
+  return tag === 'input' && String(props.type ?? '').trim().toLowerCase() === 'number';
 }
 
 function isInputTypeTag(tag) {

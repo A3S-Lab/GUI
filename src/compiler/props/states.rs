@@ -77,6 +77,17 @@ pub(super) fn html_range_step_state(tag: &str, web: &WebProps) -> Option<f64> {
     }
 }
 
+pub(super) fn html_number_text_value_state(
+    tag: &str,
+    web: &WebProps,
+    value_number: Option<f64>,
+) -> Option<String> {
+    match canonical_html_tag(tag)? {
+        "input" if html_input_type_is(web, "number") => value_number.map(|value| value.to_string()),
+        _ => None,
+    }
+}
+
 fn html_input_type_is(web: &WebProps, expected: &str) -> bool {
     web.attributes
         .get("type")

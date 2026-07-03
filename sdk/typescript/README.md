@@ -96,8 +96,10 @@ Marker exports cover the same semantic component names accepted by the Rust
 compiler bridge, including document, text, landmark, disclosure, figure,
 description-list, media, form, selection, overlay, tab, menu, toolbar, and
 table structures. The emitted frame contains semantic JSX element names.
-For intrinsic `input` tags, `type="range"` and `type="number"` normalize
-numeric `value` and `defaultValue` props to `valueNumber`.
+For intrinsic `input` tags, `type="range"` normalizes numeric `value` and
+`defaultValue` props to `valueNumber`. `type="number"` also fills
+`valueNumber`, while preserving the text `value` needed by native text-field
+backends.
 For intrinsic `textarea` tags, direct text children remain in the compiled
 children list and are projected by the Rust bridge as the native text-field
 value when no explicit value is supplied.

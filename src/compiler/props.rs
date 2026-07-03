@@ -38,8 +38,8 @@ use semantic::WebSemanticAliases;
 use shadow::html_shadow_props_from_tag;
 use states::{
     has_explicit_textarea_value, html_details_open_state, html_fallback_label,
-    html_numeric_value_state, html_placeholder_state, html_range_step_state,
-    html_string_value_state, html_textarea_child_value,
+    html_number_text_value_state, html_numeric_value_state, html_placeholder_state,
+    html_range_step_state, html_string_value_state, html_textarea_child_value,
 };
 use structure::html_collection_props_from_tag;
 use text_annotation::html_text_annotation_props_from_tag;
@@ -102,6 +102,13 @@ impl CompiledProps {
         let accessibility_structure = accessibility_structure_props_from_web(&web);
         let accessibility_state = accessibility_state_props_from_web(&web);
         let semantic = WebSemanticAliases::from_web(&web);
+        let html_number_text_value = html_number_text_value_state(
+            tag,
+            &web,
+            self.value_number
+                .or(semantic.value_number)
+                .or(html_numeric_value),
+        );
 
         let orientation = self.orientation.map(|orientation| match orientation {
             CompiledOrientation::Horizontal => Orientation::Horizontal,
@@ -111,7 +118,7 @@ impl CompiledProps {
         let mut props = AriaProps::new().web(web);
         props.label = self.label.or(html_fallback_label);
         props.text_value = self.text_value;
-        props.value = self.value.or(html_string_value);
+        props.value = self.value.or(html_string_value).or(html_number_text_value);
         props.placeholder = self
             .placeholder
             .or(semantic.placeholder)

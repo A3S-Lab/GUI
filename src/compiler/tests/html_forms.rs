@@ -738,6 +738,23 @@ fn lowers_html_input_types_to_native_form_roles() {
         Some("number")
     );
 
+    let protocol_number = CompiledJsxNode::Element {
+        key: "quantity-protocol".to_string(),
+        tag: "input".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            value_number: Some(7.0),
+            attributes: BTreeMap::from([("type".to_string(), "number".to_string())]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let native_protocol_number = bridge.lower_to_native(&protocol_number).unwrap();
+
+    assert_eq!(native_protocol_number.role, NativeRole::TextField);
+    assert_eq!(native_protocol_number.props.value.as_deref(), Some("7"));
+    assert_eq!(native_protocol_number.props.current, Some(7.0));
+
     let range = CompiledJsxNode::Element {
         key: "volume".to_string(),
         tag: "input".to_string(),

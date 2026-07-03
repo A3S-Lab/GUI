@@ -554,7 +554,7 @@ test('intrinsic number input normalizes numeric value props', () => {
 
   assert.equal(root.tag, 'input');
   assert.equal(root.props.valueNumber, 7);
-  assert.equal(root.props.value, undefined);
+  assert.equal(root.props.value, '7');
   assert.equal(root.props.minValue, 1);
   assert.equal(root.props.maxValue, 10);
   assert.equal(root.props.stepValue, 0.5);
