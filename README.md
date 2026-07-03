@@ -1,22 +1,16 @@
 # a3s-gui
 
-Native UI runtime for A3S frames.
+Native GUI runtime for structured A3S UI frames.
 
-`a3s-gui` compiles Rust, JSX, or React Aria-style UI trees into a portable
-native IR, diffs keyed updates, routes host events, and drives AppKit, WinUI,
-GTK4, or a headless test host.
+`a3s-gui` turns Rust-native trees or serialized JSX frames into a portable
+native UI IR, reconciles keyed updates, routes host events back to stable action
+ids, and plans or drives platform widgets for AppKit, WinUI, GTK4, and headless
+tests.
 
-It is not a browser wrapper. There is no DOM, CSSOM, WebView, or browser layout
-contract. HTML-like input is accepted only when it can lower to native roles,
-state, accessibility data, action ids, metadata, or portable style tokens.
-
-## What It Covers
-
-- Native planning for AppKit, WinUI, GTK4, and headless tests.
-- A keyed runtime that turns render diffs into host commands.
-- React Aria and JSX bridges for serializable `UiFrame` data.
-- Native control state for text fields, buttons, menus, dialogs, tabs, ranges,
-  tables, media, and common HTML form controls.
+It is not a WebView runtime. There is no DOM, CSSOM, browser layout engine, or
+JavaScript object graph at the host boundary. Web-like input is accepted when it
+can be lowered to native roles, control state, accessibility hints, metadata,
+events, or portable style tokens.
 
 ## Install
 
@@ -25,11 +19,14 @@ state, accessibility data, action ids, metadata, or portable style tokens.
 a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ```
 
-## Rust Quick Start
+The TypeScript protocol package lives in `sdk/typescript` and exports
+`@a3s-lab/gui` for JSX frame generation.
+
+## Rust
 
 ```rust
 use a3s_gui::{
-    GuiRuntime, GuiResult, HeadlessHost, NativeElement, NativeProps, NativeRole, WebProps,
+    GuiResult, GuiRuntime, HeadlessHost, NativeElement, NativeProps, NativeRole, WebProps,
 };
 
 fn main() -> GuiResult<()> {
@@ -41,6 +38,7 @@ fn main() -> GuiResult<()> {
 
     let mut runtime = GuiRuntime::new(HeadlessHost::default());
     runtime.render_native(&root)?;
+
     Ok(())
 }
 ```
@@ -63,22 +61,38 @@ export const frame = createUiFrame(
 );
 ```
 
-The TypeScript SDK emits JSON-safe frame data. Rust consumes it through
-`ReactCompilerBridge` and `GuiRuntime`.
+The SDK emits JSON-safe `UiFrame` data. Rust consumes that data through
+`ReactCompilerBridge`, `UiFrame`, `NativeProtocolSession`, or `GuiRuntime`.
 
-## Features
+## What Is Supported
+
+- Semantic component names, intrinsic HTML/SVG tags, React Aria-style props, and
+  stable keyed children.
+- Native roles for text, forms, buttons, links, menus, tabs, dialogs, tables,
+  media, ranges, and common HTML form controls.
+- Portable control state, accessibility relationships and state, `aria-*`,
+  `data-*`, selected HTML attributes, inline style objects, CSS text, and
+  Tailwind-like utility classes.
+- Event routing for press, change, focus, blur, toggle, selection, keyboard, and
+  platform host events.
+- Headless validation plus platform planning adapters for macOS AppKit,
+  Windows WinUI, and Linux GTK4.
+
+## Feature Flags
 
 The default feature is `headless`.
 
-| Feature | Enables |
+| Feature | Purpose |
 | --- | --- |
 | `headless` | Pure Rust host for tests and protocol validation. |
 | `appkit`, `winui`, `gtk4` | Platform planning adapters and handle types. |
-| `appkit-native`, `winui-native`, `gtk4-native` | Real native surfaces for each OS. |
+| `appkit-native`, `winui-native`, `gtk4-native` | Real native surfaces on each target OS. |
 
 `gtk4-native` requires GTK4 development libraries and `pkg-config`.
 
 ## Checks
+
+Run checks from this crate directory:
 
 ```bash
 cargo fmt --all
@@ -88,7 +102,7 @@ npm test --prefix sdk/typescript
 git diff --check
 ```
 
-Platform-native checks depend on the target OS:
+Native surface checks are OS-specific:
 
 ```bash
 cargo check --features appkit-native
@@ -96,10 +110,10 @@ cargo check --target x86_64-pc-windows-msvc --features winui-native
 cargo check --features gtk4-native
 ```
 
-## Docs
+## Documentation
 
 - [Architecture](docs/architecture.md)
 - [Web authoring](docs/web-authoring.md)
 - [TypeScript SDK](sdk/typescript/README.md)
 
-MIT licensed; see [LICENSE](LICENSE).
+MIT licensed. See [LICENSE](LICENSE).
