@@ -274,11 +274,16 @@ ListBox selection projection uses that multiple-selection flag to keep existing
 selected children in multi-select lists while single-select lists follow the
 latest selected child. On the first render without prior focus history, the
 first renderable `autoFocus` control initializes runtime focus state for
-accessibility projection. Non-focus interaction state is revision-scoped: after
-a successful rerender, controlled values from the new blueprint supersede stale
-local event state while focus remains preserved until a blur or another focus
-event arrives. Later native events on that node also rebase their interaction
-baseline from the latest blueprint before applying local changes.
+accessibility projection. Real native surfaces also receive the same
+`autoFocus` setter: AppKit and GTK request platform focus after the target is
+attached to a root window, while the current WinUI binding records the target
+and continues to rely on WinUI focus callbacks because `winio-winui3` 0.4.2
+does not expose a safe programmatic focus method. Non-focus interaction state is
+revision-scoped: after a successful rerender, controlled values from the new
+blueprint supersede stale local event state while focus remains preserved until
+a blur or another focus event arrives. Later native events on that node also
+rebase their interaction baseline from the latest blueprint before applying
+local changes.
 
 CSS style attribute text is parsed by `src/css_text.rs` before it enters
 `WebProps`. The parser splits declarations only on top-level CSS separators, so
@@ -499,6 +504,9 @@ Feature-gated platform executor surfaces:
   native orientation and step hints and enqueue ranged `NativeEventKind::Change`
   records with the current double value, while `NSProgressIndicator` is updated
   by setter-driven ranged state.
+  `autoFocus` requests are deferred until the target view is attached to a
+  window, then applied with `makeFirstResponder` so the opened window starts on
+  the intended native control when AppKit accepts the responder.
   The AppKit event pump also maps key-down and key-up `NSEvent` records to the
   focused native node, normalizes common AppKit key codes, and falls back to the
   root node for window-level keyboard routes.
@@ -555,7 +563,9 @@ Feature-gated platform executor surfaces:
   `winio-winui3` 0.4.2 does not expose strong `KeyRoutedEvent` registration
   methods, keyboard events target the currently focused A3S node tracked from
   WinUI focus callbacks, falling back to the root surface for window-level
-  routes.
+  routes. The same binding version also leaves programmatic `Focus` unwrapped,
+  so `autoFocus` is tracked as a pending target and cleared only when WinUI
+  reports matching native focus.
   `WinUiRuntimeApp` provides the embedded app loop for this backend: it renders
   into `WinUiNativeSurface`, pumps the Windows message queue, drains queued A3S
   native events, runs the application reducer, rerenders the next frame, and
@@ -601,7 +611,9 @@ Feature-gated platform executor surfaces:
   selection-change events through the same `NativeEventSource` and action
   routing path as AppKit. GTK widgets also attach `EventControllerKey`
   controllers so native key-down and key-up events carry normalized key values
-  through that same queue.
+  through that same queue. `autoFocus` requests are deferred until the target
+  widget is attached, then applied with `grab_focus` when GTK accepts the focus
+  change.
   `Gtk4RuntimeApp` provides the embedded app loop for this backend: it registers
   a GTK application, renders into `Gtk4NativeSurface`, pumps the default GLib
   main context, drains queued A3S native events, runs the application reducer,

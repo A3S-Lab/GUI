@@ -66,9 +66,11 @@ pub struct AppKitNativeSurface {
     mtm: MainThreadMarker,
     _application: Retained<NSApplication>,
     root: Option<HostNodeId>,
+    pending_auto_focus: Option<HostNodeId>,
     events: Rc<RefCell<Vec<NativeEvent>>>,
     focused_node: Rc<Cell<Option<HostNodeId>>>,
     closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
+    widgets: BTreeMap<HostNodeId, AppKitOsWidget>,
     action_targets: BTreeMap<HostNodeId, Retained<AppKitActionTarget>>,
     window_delegates: BTreeMap<HostNodeId, Retained<AppKitWindowDelegate>>,
     responder_nodes: BTreeMap<usize, HostNodeId>,
@@ -102,9 +104,11 @@ impl AppKitNativeSurface {
             mtm,
             _application: application,
             root: None,
+            pending_auto_focus: None,
             events: Rc::new(RefCell::new(Vec::new())),
             focused_node: Rc::new(Cell::new(None)),
             closed_windows: Rc::new(RefCell::new(BTreeSet::new())),
+            widgets: BTreeMap::new(),
             action_targets: BTreeMap::new(),
             window_delegates: BTreeMap::new(),
             responder_nodes: BTreeMap::new(),
@@ -214,6 +218,31 @@ impl AppKitNativeSurface {
 
     fn unregister_view_responder(&mut self, view: &NSView) {
         self.responder_nodes.remove(&responder_key(view.as_super()));
+    }
+
+    fn request_auto_focus(&mut self, id: HostNodeId, widget: &AppKitOsWidget) {
+        if self.pending_auto_focus.is_none() {
+            self.pending_auto_focus = Some(id);
+        }
+        self.focus_auto_focus_widget(id, widget);
+    }
+
+    fn focus_pending_auto_focus(&mut self) {
+        let Some(id) = self.pending_auto_focus else {
+            return;
+        };
+        let Some(widget) = self.widgets.get(&id).cloned() else {
+            return;
+        };
+        self.focus_auto_focus_widget(id, &widget);
+    }
+
+    fn focus_auto_focus_widget(&mut self, id: HostNodeId, widget: &AppKitOsWidget) {
+        if self.pending_auto_focus != Some(id) || !focus_appkit_widget(widget) {
+            return;
+        }
+        self.pending_auto_focus = None;
+        self.focused_node.set(Some(id));
     }
 
     fn node_for_key_event(&self, event: &NSEvent) -> Option<HostNodeId> {
@@ -869,6 +898,24 @@ impl AppKitOsWidget {
             | AppKitOsWidget::Box(_)
             | AppKitOsWidget::ProgressIndicator(_) => None,
         }
+    }
+}
+
+fn focus_appkit_widget(widget: &AppKitOsWidget) -> bool {
+    let Some(responder) = widget.as_responder() else {
+        return false;
+    };
+
+    if let Some(view) = widget.as_view() {
+        return view
+            .window()
+            .is_some_and(|window| window.makeFirstResponder(Some(responder)));
+    }
+
+    match widget {
+        AppKitOsWidget::Window(window) => window.makeFirstResponder(Some(responder)),
+        AppKitOsWidget::Panel(panel) => panel.as_super().makeFirstResponder(Some(responder)),
+        _ => false,
     }
 }
 

@@ -65,6 +65,7 @@ pub enum WinUiEventWait {
 pub struct WinUiNativeSurface {
     _package_dependency: PackageDependency,
     root: Option<HostNodeId>,
+    pending_auto_focus: Option<HostNodeId>,
     events: WinUiEventQueue,
     events_suppressed: Arc<AtomicBool>,
     focused_node: WinUiFocusedNode,
@@ -105,6 +106,7 @@ impl WinUiNativeSurface {
         Self {
             _package_dependency: package_dependency,
             root: None,
+            pending_auto_focus: None,
             events: Arc::new(Mutex::new(Vec::new())),
             events_suppressed: Arc::new(AtomicBool::new(false)),
             focused_node: Arc::new(Mutex::new(None)),
@@ -153,6 +155,23 @@ impl WinUiNativeSurface {
             .and_then(|focused| *focused)
             .filter(|node| self.widgets.contains_key(node))
             .or(self.root)
+    }
+
+    fn request_auto_focus(&mut self, id: HostNodeId) {
+        if self.pending_auto_focus.is_none() {
+            self.pending_auto_focus = Some(id);
+        }
+        self.clear_satisfied_auto_focus();
+    }
+
+    fn clear_satisfied_auto_focus(&mut self) {
+        let Some(id) = self.pending_auto_focus else {
+            return;
+        };
+        let is_focused = self.focused_node.lock().ok().and_then(|focused| *focused) == Some(id);
+        if is_focused {
+            self.pending_auto_focus = None;
+        }
     }
 
     pub(crate) fn enqueue_key_message(&self, message: &MSG) {

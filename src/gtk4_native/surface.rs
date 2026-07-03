@@ -986,12 +986,15 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             | NativeWidgetSetter::SetSpellCheck(_) => {
                 self.apply_text_input_hints(id, &handle.widget);
             }
+            NativeWidgetSetter::SetAutoFocus(true) => {
+                self.request_auto_focus(id, &handle.widget);
+            }
+            NativeWidgetSetter::SetAutoFocus(false) => {}
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetRequired(_)
             | NativeWidgetSetter::SetInvalid(_)
             | NativeWidgetSetter::SetMultiple(_)
-            | NativeWidgetSetter::SetAutoFocus(_)
             | NativeWidgetSetter::SetExpanded(_)
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
@@ -1090,6 +1093,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             let index = index.min(children.len());
             children.insert(index, child);
             self.rebuild_drop_down(parent)?;
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
@@ -1110,11 +1114,13 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 children.insert(index, child);
             }
             self.rebuild_notebook(parent)?;
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
         if self.notebook_tabs.contains_key(&parent) {
             self.update_notebook_tab_panel(parent, Some(child))?;
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
@@ -1122,6 +1128,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             (&parent_handle.widget, &child_handle.widget)
         {
             self.menus.insert_item(parent, child, item, index);
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
@@ -1129,6 +1136,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             (&parent_handle.widget, &child_handle.widget)
         {
             item.item.set_submenu(Some(&menu.model));
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
@@ -1175,12 +1183,16 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             | Gtk4OsWidget::Scale(_)
             | Gtk4OsWidget::ProgressBar(_) => {}
         }
+        self.focus_pending_auto_focus();
         Ok(())
     }
 
     fn remove_native_widget(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
         if self.root == Some(id) {
             self.root = None;
+        }
+        if self.pending_auto_focus == Some(id) {
+            self.pending_auto_focus = None;
         }
         self.closed_windows.borrow_mut().remove(&id);
         self.widgets.remove(&id);
@@ -1266,6 +1278,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 }
             }
         }
+        self.focus_pending_auto_focus();
         Ok(())
     }
 
@@ -1287,6 +1300,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 }
             }
         }
+        self.focus_pending_auto_focus();
         Ok(())
     }
 

@@ -41,6 +41,7 @@ pub enum Gtk4EventWait {
 pub struct Gtk4NativeSurface {
     application: gtk::Application,
     root: Option<HostNodeId>,
+    pending_auto_focus: Option<HostNodeId>,
     events: Rc<RefCell<Vec<NativeEvent>>>,
     events_suppressed: Rc<RefCell<bool>>,
     closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
@@ -91,6 +92,7 @@ impl Gtk4NativeSurface {
         Self {
             application,
             root: None,
+            pending_auto_focus: None,
             events: Rc::new(RefCell::new(Vec::new())),
             events_suppressed: Rc::new(RefCell::new(false)),
             closed_windows: Rc::new(RefCell::new(BTreeSet::new())),
@@ -263,6 +265,34 @@ impl Gtk4NativeSurface {
         });
 
         widget.add_controller(controller);
+    }
+
+    fn request_auto_focus(&mut self, id: HostNodeId, widget: &Gtk4OsWidget) {
+        if self.pending_auto_focus.is_none() {
+            self.pending_auto_focus = Some(id);
+        }
+        self.focus_auto_focus_widget(id, widget);
+    }
+
+    fn focus_pending_auto_focus(&mut self) {
+        let Some(id) = self.pending_auto_focus else {
+            return;
+        };
+        let Some(widget) = self.widgets.get(&id).cloned() else {
+            return;
+        };
+        if widget.grab_focus() {
+            self.pending_auto_focus = None;
+        }
+    }
+
+    fn focus_auto_focus_widget(&mut self, id: HostNodeId, widget: &Gtk4OsWidget) {
+        if self.pending_auto_focus != Some(id) {
+            return;
+        }
+        if widget.as_widget().is_some_and(|widget| widget.grab_focus()) {
+            self.pending_auto_focus = None;
+        }
     }
 
     fn update_drop_down_item_label(

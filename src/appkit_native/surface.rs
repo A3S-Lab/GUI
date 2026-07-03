@@ -488,6 +488,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         self.apply_text_input_hints(id, &handle.widget);
         set_widget_title(&handle.widget, config.title.as_deref());
         self.register_responder(id, &handle.widget);
+        self.widgets.insert(id, handle.widget.clone());
         Ok(handle)
     }
 
@@ -967,13 +968,16 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             | NativeWidgetSetter::SetSpellCheck(_) => {
                 self.apply_text_input_hints(id, &handle.widget);
             }
+            NativeWidgetSetter::SetAutoFocus(true) => {
+                self.request_auto_focus(id, &handle.widget);
+            }
+            NativeWidgetSetter::SetAutoFocus(false) => {}
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetClassName(_)
             | NativeWidgetSetter::SetRequired(_)
             | NativeWidgetSetter::SetInvalid(_)
             | NativeWidgetSetter::SetMultiple(_)
-            | NativeWidgetSetter::SetAutoFocus(_)
             | NativeWidgetSetter::SetExpanded(_)
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
@@ -1079,6 +1083,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             let index = index.min(children.len());
             children.insert(index, child);
             self.rebuild_combo_box(parent)?;
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
@@ -1105,6 +1110,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             let index = index.min(children.len());
             children.insert(index, child);
             self.rebuild_list_view(parent)?;
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
@@ -1120,6 +1126,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             if child_handle.selected {
                 tab_view.selectTabViewItem(Some(tab_item));
             }
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
@@ -1128,6 +1135,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 GuiError::host("AppKit tab item insertion requires an NSView child")
             })?;
             tab_item.setView(Some(child));
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
@@ -1136,6 +1144,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         {
             self.menus
                 .insert_item(parent, menu, child, menu_item, index)?;
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
@@ -1143,6 +1152,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             (&parent_handle.widget, &child_handle.widget)
         {
             menu_item.setSubmenu(Some(menu));
+            self.focus_pending_auto_focus();
             return Ok(());
         }
 
@@ -1186,6 +1196,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 .as_super()
                 .addSubview(child),
         }
+        self.focus_pending_auto_focus();
         Ok(())
     }
 
@@ -1194,6 +1205,10 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         if was_root {
             self.root = None;
         }
+        if self.pending_auto_focus == Some(id) {
+            self.pending_auto_focus = None;
+        }
+        self.widgets.remove(&id);
         self.action_targets.remove(&id);
         if self.focused_node.get() == Some(id) {
             self.focused_node.set(None);
@@ -1270,6 +1285,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         if let AppKitOsWidget::Popover(state) = &handle.widget {
             state.popover.close();
         }
+        self.focus_pending_auto_focus();
         Ok(())
     }
 
@@ -1287,6 +1303,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             AppKitOsWidget::Menu(menu) => self._application.setMainMenu(Some(menu)),
             _ => {}
         }
+        self.focus_pending_auto_focus();
         Ok(())
     }
 

@@ -449,13 +449,16 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     set_winui_window_resizable(window, *value)?;
                 }
             }
+            NativeWidgetSetter::SetAutoFocus(true) => {
+                self.request_auto_focus(id);
+            }
+            NativeWidgetSetter::SetAutoFocus(false) => {}
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetClassName(_)
             | NativeWidgetSetter::SetRequired(_)
             | NativeWidgetSetter::SetInvalid(_)
             | NativeWidgetSetter::SetMultiple(_)
-            | NativeWidgetSetter::SetAutoFocus(_)
             | NativeWidgetSetter::SetExpanded(_)
             | NativeWidgetSetter::SetPattern(_)
             | NativeWidgetSetter::SetMinLength(_)
@@ -707,11 +710,15 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             | WinUiOsWidget::Slider(_)
             | WinUiOsWidget::ProgressBar(_) => {}
         }
+        self.clear_satisfied_auto_focus();
         Ok(())
     }
 
     fn remove_native_widget(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
         self.detach_child(id)?;
+        if self.pending_auto_focus == Some(id) {
+            self.pending_auto_focus = None;
+        }
         match &handle.widget {
             WinUiOsWidget::Window(window) => {
                 map_winui("failed to close WinUI window", window.Close())?;
@@ -768,6 +775,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                 tool_tip.SetIsOpen(true),
             )?;
         }
+        self.clear_satisfied_auto_focus();
         Ok(())
     }
 
