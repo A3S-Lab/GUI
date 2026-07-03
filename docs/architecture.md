@@ -504,8 +504,9 @@ Feature-gated platform executor surfaces:
   native events, runs the application reducer, and rerenders the next frame.
   The loop also observes root AppKit window and panel close notifications so
   `run_appkit_while` can stop when the user closes the surface.
-  The `appkit_controls` example is a manual smoke harness for the same path
-  across text input, toggles, sliders, selects, tabs, actions, and rerenders.
+  The `appkit_controls` example is the AppKit instance of the shared native
+  controls smoke harness for text input, toggles, sliders, selects, tabs,
+  actions, rerenders, and root-window close exit.
   These event paths flow through the existing `NativeEventSource` boundary.
 - `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button`,
   `Microsoft.UI.Xaml.Controls.TextBox`,
@@ -549,6 +550,8 @@ Feature-gated platform executor surfaces:
   native events, runs the application reducer, rerenders the next frame, and
   observes the root WinUI window handle so `run_winui_while` can stop when the
   user closes the surface.
+  The `winui_controls` example runs the same shared native controls smoke
+  frame against real WinUI widgets.
 - `gtk4`: maps classes such as `gtk::Button`, `gtk::Entry`,
   `gtk::SearchEntry`, `gtk::PasswordEntry`, `gtk::SpinButton`, and
   `gtk::TextView` into GTK object kinds behind `Gtk4WidgetDriver` and replays
@@ -593,6 +596,8 @@ Feature-gated platform executor surfaces:
   main context, drains queued A3S native events, runs the application reducer,
   rerenders the next frame, and observes root window/dialog close notifications
   so `run_gtk4_while` can stop when the user closes the surface.
+  The `gtk4_controls` example runs the same shared native controls smoke frame
+  against real GTK4 widgets.
 
 Menu-specific native backend code lives under `src/native_backends/`:
 `native_backends/appkit/menu.rs` owns AppKit menu parent/child tracking,

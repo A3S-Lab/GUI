@@ -129,6 +129,13 @@ pump Windows messages through the same reducer loop:
 cargo run --example winui_counter --features winui-native
 ```
 
+Run the WinUI controls smoke example to exercise the same control and rerender
+path against real WinUI 3 widgets:
+
+```bash
+cargo run --example winui_controls --features winui-native
+```
+
 The WinUI loop exits when the root window closes, or when the app state
 predicate passed to `run_winui_while` returns false.
 
@@ -137,6 +144,13 @@ GTK events through the same reducer loop:
 
 ```bash
 cargo run --example gtk4_counter --features gtk4-native
+```
+
+Run the GTK4 controls smoke example to exercise the same control and rerender
+path against real GTK4 widgets:
+
+```bash
+cargo run --example gtk4_controls --features gtk4-native
 ```
 
 The GTK4 loop exits when the root window or dialog closes, or when the app

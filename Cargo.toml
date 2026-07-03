@@ -26,7 +26,15 @@ name = "gtk4_counter"
 required-features = ["gtk4-native"]
 
 [[example]]
+name = "gtk4_controls"
+required-features = ["gtk4-native"]
+
+[[example]]
 name = "winui_counter"
+required-features = ["winui-native"]
+
+[[example]]
+name = "winui_controls"
 required-features = ["winui-native"]
 
 [features]

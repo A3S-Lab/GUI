@@ -291,6 +291,10 @@ content, and tab selection changes emit native selection-change events. Sliders
 apply native orientation and step hints, emit ranged change events with the
 current double value, and progress indicators consume the same min/max/current
 setter state.
+The `appkit_controls`, `winui_controls`, and `gtk4_controls` examples share one
+controls smoke frame so text input, toggles, sliders, selects, tabs, actions,
+rerenders, and root-window close behavior are exercised through the same
+protocol shape on each native surface.
 
 The Linux `gtk4-native` feature exercises the same path with `gtk4-rs`.
 `Gtk4NativeSurface` maps the native command stream to real GTK4 widgets for
@@ -298,9 +302,9 @@ windows, boxes, labels, buttons, entries, check buttons, switches, drop-downs,
 list boxes, rows, notebook tabs, separators, scales, and progress bars. React
 Aria `Tabs` trees become native `gtk::Notebook` pages with `TabPanel` content
 attached as native GTK widgets. GTK signals enqueue native press, change, focus,
-blur, toggle, selection-change, key-down, and key-up events; programmatic setter updates are
-suppressed so render diffs do not trigger serialized actions. The feature is
-Linux-only and requires GTK4 development libraries plus `pkg-config`.
+blur, toggle, selection-change, key-down, and key-up events; programmatic setter
+updates are suppressed so render diffs do not trigger serialized actions. The
+feature is Linux-only and requires GTK4 development libraries plus `pkg-config`.
 `Gtk4RuntimeApp` can own the GTK surface directly, pump the GLib main context,
 rerender after reducer updates, and exit when the root GTK window closes.
 
