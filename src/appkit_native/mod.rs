@@ -428,14 +428,11 @@ define_class!(
 
         #[unsafe(method(windowWillClose:))]
         fn window_will_close(&self, _notification: &NSNotification) {
-            self.ivars()
-                .events
-                .borrow_mut()
-                .push(NativeEvent::new(self.ivars().node, NativeEventKind::Close));
-            self.ivars()
-                .closed_windows
-                .borrow_mut()
-                .insert(self.ivars().node);
+            push_window_close_event_once(
+                self.ivars().node,
+                &self.ivars().events,
+                &self.ivars().closed_windows,
+            );
         }
     }
 );
@@ -453,6 +450,18 @@ impl AppKitWindowDelegate {
             closed_windows,
         });
         unsafe { msg_send![super(this), init] }
+    }
+}
+
+fn push_window_close_event_once(
+    node: HostNodeId,
+    events: &Rc<RefCell<Vec<NativeEvent>>>,
+    closed_windows: &Rc<RefCell<BTreeSet<HostNodeId>>>,
+) {
+    if closed_windows.borrow_mut().insert(node) {
+        events
+            .borrow_mut()
+            .push(NativeEvent::new(node, NativeEventKind::Close));
     }
 }
 
@@ -1386,6 +1395,28 @@ mod tests {
         assert_eq!(appkit_key_value_from_parts(125, None), "ArrowDown");
         assert_eq!(appkit_key_value_from_parts(126, None), "ArrowUp");
         assert_eq!(appkit_key_value_from_parts(0, Some("a")), "a");
+    }
+
+    #[test]
+    fn appkit_window_close_events_are_queued_once_per_window() {
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let closed_windows = Rc::new(RefCell::new(BTreeSet::new()));
+        let first = HostNodeId::new(7);
+        let second = HostNodeId::new(9);
+
+        push_window_close_event_once(first, &events, &closed_windows);
+        push_window_close_event_once(first, &events, &closed_windows);
+        push_window_close_event_once(second, &events, &closed_windows);
+
+        assert_eq!(
+            *events.borrow(),
+            vec![
+                NativeEvent::new(first, NativeEventKind::Close),
+                NativeEvent::new(second, NativeEventKind::Close)
+            ]
+        );
+        assert!(closed_windows.borrow().contains(&first));
+        assert!(closed_windows.borrow().contains(&second));
     }
 
     #[test]
