@@ -97,8 +97,9 @@ pub use platform::{
     PlatformPlannedNode, PlatformPlanningHost, WinUiAdapter,
 };
 pub use protocol::{
-    HostEvent, HostEventResponse, NativeHostEventResponse, NativeProtocolSession,
-    NativeRenderResponse, RenderedFrame, UiAction, UiFrame, WindowOptions,
+    HostEvent, HostEventResponse, NativeAppEventResponse, NativeHostEventResponse,
+    NativeProtocolApp, NativeProtocolSession, NativeRenderResponse, RenderedFrame, UiAction,
+    UiFrame, WindowOptions,
 };
 pub use react_aria::{AriaComponent, AriaElement, AriaProps, ReactAriaMapper};
 pub use renderer::Renderer;

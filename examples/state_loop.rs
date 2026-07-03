@@ -1,6 +1,6 @@
 use a3s_gui::{
     ActionInvocation, Gtk4Adapter, HostEvent, HostNodeId, NativeEvent, NativeEventKind,
-    NativeProtocolSession, UiFrame,
+    NativeProtocolApp, NativeProtocolSession, UiFrame,
 };
 use serde_json::json;
 
@@ -24,49 +24,42 @@ impl Default for ProfileState {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut state = ProfileState::default();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut app = NativeProtocolApp::new(
+        Gtk4Adapter,
+        ProfileState::default(),
+        profile_frame,
+        apply_action,
+    );
 
-    let rendered = session.render_frame(&profile_frame(&state)?)?;
-    let mut controls = control_nodes(&session, rendered.root)?;
+    let rendered = app.render()?;
+    let mut controls = control_nodes(app.session(), rendered.root)?;
 
-    let invocation = dispatch(
-        &mut session,
+    let response = app.dispatch_host_event(&host_event(
         controls.name,
         NativeEventKind::Change,
         Some("Grace"),
-    )?;
-    apply_action(&mut state, &invocation)?;
-    let rendered = session.render_frame(&profile_frame(&state)?)?;
-    controls = control_nodes(&session, rendered.root)?;
+    ))?;
+    controls = control_nodes(app.session(), response_render_root(&response)?)?;
 
-    let invocation = dispatch(
-        &mut session,
+    let response = app.dispatch_host_event(&host_event(
         controls.notifications,
         NativeEventKind::Toggle,
         Some("true"),
-    )?;
-    apply_action(&mut state, &invocation)?;
-    let rendered = session.render_frame(&profile_frame(&state)?)?;
-    controls = control_nodes(&session, rendered.root)?;
+    ))?;
+    controls = control_nodes(app.session(), response_render_root(&response)?)?;
 
-    let invocation = dispatch(
-        &mut session,
+    let response = app.dispatch_host_event(&host_event(
         controls.volume,
         NativeEventKind::Change,
         Some("80"),
-    )?;
-    apply_action(&mut state, &invocation)?;
-    let rendered = session.render_frame(&profile_frame(&state)?)?;
-    controls = control_nodes(&session, rendered.root)?;
+    ))?;
+    controls = control_nodes(app.session(), response_render_root(&response)?)?;
 
-    let invocation = dispatch(&mut session, controls.save, NativeEventKind::Press, None)?;
-    apply_action(&mut state, &invocation)?;
-    session.render_frame(&profile_frame(&state)?)?;
+    app.dispatch_host_event(&host_event(controls.save, NativeEventKind::Press, None))?;
 
     assert_eq!(
-        state,
-        ProfileState {
+        app.state(),
+        &ProfileState {
             name: "Grace".to_string(),
             notifications: true,
             volume: 80.0,
@@ -75,12 +68,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!(
         "profile saved for {} with notifications={} volume={}",
-        state.name, state.notifications, state.volume
+        app.state().name,
+        app.state().notifications,
+        app.state().volume
     );
     Ok(())
 }
 
-fn profile_frame(state: &ProfileState) -> serde_json::Result<UiFrame> {
+fn profile_frame(state: &ProfileState) -> a3s_gui::GuiResult<UiFrame> {
     serde_json::from_value(json!({
         "frameId": "profile",
         "actions": [
@@ -136,30 +131,31 @@ fn profile_frame(state: &ProfileState) -> serde_json::Result<UiFrame> {
             ]
         }
     }))
+    .map_err(|error| a3s_gui::GuiError::invalid_tree(format!("invalid profile frame: {error}")))
 }
 
-fn dispatch(
-    session: &mut NativeProtocolSession<Gtk4Adapter>,
-    node: HostNodeId,
-    kind: NativeEventKind,
-    value: Option<&str>,
-) -> a3s_gui::GuiResult<ActionInvocation> {
+fn host_event(node: HostNodeId, kind: NativeEventKind, value: Option<&str>) -> HostEvent {
     let mut event = NativeEvent::new(node, kind);
     if let Some(value) = value {
         event = event.value(value);
     }
-    session
-        .dispatch_host_event(&HostEvent {
-            frame_id: "profile".to_string(),
-            event,
-        })
-        .map(|response| response.invocation)
+    HostEvent {
+        frame_id: "profile".to_string(),
+        event,
+    }
 }
 
-fn apply_action(
-    state: &mut ProfileState,
-    invocation: &ActionInvocation,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn response_render_root(
+    response: &a3s_gui::NativeAppEventResponse,
+) -> a3s_gui::GuiResult<HostNodeId> {
+    response
+        .render
+        .as_ref()
+        .map(|render| render.root)
+        .ok_or_else(|| a3s_gui::GuiError::host("state action did not render a follow-up frame"))
+}
+
+fn apply_action(state: &mut ProfileState, invocation: &ActionInvocation) -> a3s_gui::GuiResult<()> {
     match invocation.action.as_str() {
         "setName" => {
             state.name = invocation.value.clone().unwrap_or_default();
@@ -168,13 +164,20 @@ fn apply_action(
             state.notifications = invocation.value.as_deref() == Some("true");
         }
         "setVolume" => {
-            state.volume = invocation.value.as_deref().unwrap_or("0").parse()?;
+            state.volume = invocation
+                .value
+                .as_deref()
+                .unwrap_or("0")
+                .parse()
+                .map_err(|error| a3s_gui::GuiError::host(format!("invalid volume: {error}")))?;
         }
         "saveProfile" => {
             state.saved = true;
         }
         other => {
-            return Err(format!("unexpected action {other}").into());
+            return Err(a3s_gui::GuiError::host(format!(
+                "unexpected action {other}"
+            )));
         }
     }
     Ok(())

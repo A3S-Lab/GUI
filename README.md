@@ -88,6 +88,11 @@ and frame rerendering in one host-side cycle:
 cargo run --example state_loop
 ```
 
+Use `NativeProtocolApp` when the host wants a reusable state loop: it owns a
+`NativeProtocolSession`, calls a frame builder from the current state, applies
+action invocations through a reducer, and returns the follow-up native render
+commands.
+
 ## Features
 
 - **Semantic input**: React Aria-style component names, intrinsic HTML/SVG

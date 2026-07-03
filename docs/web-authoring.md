@@ -376,6 +376,8 @@ let response = session.dispatch_host_event(&HostEvent {
 The `state_loop` example shows the next host layer: render a frame, dispatch
 native events, apply the returned action invocations to application state, and
 render the next frame from that state.
+Hosts can use `NativeProtocolApp` for that loop directly by supplying an
+initial state value, a state-to-`UiFrame` builder, and an action reducer.
 
 ## Event Flow
 

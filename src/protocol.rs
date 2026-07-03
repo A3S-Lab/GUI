@@ -126,6 +126,20 @@ pub struct NativeHostEventResponse {
     pub interaction_changes: Vec<InteractionChange>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeAppEventResponse {
+    pub frame_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invocation: Option<ActionInvocation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accessibility_tree: Option<AccessibilityNode>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub interaction_changes: Vec<InteractionChange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub render: Option<NativeRenderResponse>,
+}
+
 impl UiFrame {
     pub fn validate(&self) -> GuiResult<()> {
         if self.frame_id.is_empty() {
@@ -464,6 +478,86 @@ impl<A: PlatformAdapter + Default> Default for NativeProtocolSession<A> {
     }
 }
 
+#[derive(Debug)]
+pub struct NativeProtocolApp<A: PlatformAdapter, S, F, R> {
+    session: NativeProtocolSession<A>,
+    state: S,
+    frame_builder: F,
+    action_reducer: R,
+}
+
+impl<A, S, F, R> NativeProtocolApp<A, S, F, R>
+where
+    A: PlatformAdapter,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<()>,
+{
+    pub fn new(adapter: A, state: S, frame_builder: F, action_reducer: R) -> Self {
+        Self {
+            session: NativeProtocolSession::new(adapter),
+            state,
+            frame_builder,
+            action_reducer,
+        }
+    }
+
+    pub fn session(&self) -> &NativeProtocolSession<A> {
+        &self.session
+    }
+
+    pub fn session_mut(&mut self) -> &mut NativeProtocolSession<A> {
+        &mut self.session
+    }
+
+    pub fn state(&self) -> &S {
+        &self.state
+    }
+
+    pub fn state_mut(&mut self) -> &mut S {
+        &mut self.state
+    }
+
+    pub fn render(&mut self) -> GuiResult<NativeRenderResponse> {
+        let frame = (self.frame_builder)(&self.state)?;
+        self.session.render_frame(&frame)
+    }
+
+    pub fn dispatch_host_event(&mut self, event: &HostEvent) -> GuiResult<NativeAppEventResponse> {
+        let response = self.session.dispatch_host_event(event)?;
+        (self.action_reducer)(&mut self.state, &response.invocation)?;
+        let render = self.render()?;
+        let accessibility_tree = render.accessibility_tree.clone();
+        Ok(NativeAppEventResponse {
+            frame_id: response.frame_id,
+            invocation: Some(response.invocation),
+            accessibility_tree,
+            interaction_changes: response.interaction_changes,
+            render: Some(render),
+        })
+    }
+
+    pub fn handle_host_event(&mut self, event: &HostEvent) -> GuiResult<NativeAppEventResponse> {
+        let response = self.session.handle_host_event(event)?;
+        let mut render = None;
+        let mut accessibility_tree = response.accessibility_tree;
+
+        if let Some(invocation) = response.invocation.as_ref() {
+            (self.action_reducer)(&mut self.state, invocation)?;
+            let rendered = self.render()?;
+            accessibility_tree = rendered.accessibility_tree.clone();
+            render = Some(rendered);
+        }
+
+        Ok(NativeAppEventResponse {
+            frame_id: response.frame_id,
+            invocation: response.invocation,
+            accessibility_tree,
+            interaction_changes: response.interaction_changes,
+            render,
+        })
+    }
+}
+
 impl HostEvent {
     pub fn validate(&self) -> GuiResult<()> {
         if self.frame_id.is_empty() {
@@ -549,6 +643,95 @@ mod tests {
         fn set_root(&mut self, id: HostNodeId) -> GuiResult<()> {
             self.inner.set_root(id)
         }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Default)]
+    struct CounterState {
+        count: u32,
+    }
+
+    fn counter_frame(state: &CounterState) -> GuiResult<UiFrame> {
+        serde_json::from_value(serde_json::json!({
+            "frameId": "counter",
+            "actions": [{"id": "increment"}],
+            "root": {
+                "kind": "element",
+                "key": "increment",
+                "tag": "Button",
+                "props": {"events": {"onPress": "increment"}},
+                "children": [
+                    {
+                        "kind": "text",
+                        "key": "label",
+                        "value": format!("Count {}", state.count)
+                    }
+                ]
+            }
+        }))
+        .map_err(|error| GuiError::invalid_tree(format!("invalid counter frame: {error}")))
+    }
+
+    fn counter_reduce(state: &mut CounterState, invocation: &ActionInvocation) -> GuiResult<()> {
+        match invocation.action.as_str() {
+            "increment" => {
+                state.count += 1;
+                Ok(())
+            }
+            other => Err(GuiError::host(format!("unexpected action {other}"))),
+        }
+    }
+
+    #[test]
+    fn native_protocol_app_reduces_actions_and_renders_next_frame() {
+        let mut app = NativeProtocolApp::new(
+            Gtk4Adapter,
+            CounterState::default(),
+            counter_frame,
+            counter_reduce,
+        );
+        let rendered = app.render().unwrap();
+
+        let response = app
+            .dispatch_host_event(&HostEvent {
+                frame_id: "counter".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
+            })
+            .unwrap();
+
+        assert_eq!(app.state().count, 1);
+        assert_eq!(
+            response
+                .invocation
+                .as_ref()
+                .map(|action| action.action.as_str()),
+            Some("increment")
+        );
+        assert!(response.render.is_some());
+        assert_eq!(response.render.as_ref().unwrap().root, rendered.root);
+    }
+
+    #[test]
+    fn native_protocol_app_handles_state_only_events_without_rerendering() {
+        let mut app = NativeProtocolApp::new(
+            Gtk4Adapter,
+            CounterState::default(),
+            counter_frame,
+            counter_reduce,
+        );
+        let rendered = app.render().unwrap();
+
+        let response = app
+            .handle_host_event(&HostEvent {
+                frame_id: "counter".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Focus),
+            })
+            .unwrap();
+
+        assert_eq!(app.state().count, 0);
+        assert!(response.invocation.is_none());
+        assert!(response.render.is_none());
+        assert_eq!(response.interaction_changes.len(), 1);
+        assert!(response.accessibility_tree.unwrap().focused);
     }
 
     #[test]

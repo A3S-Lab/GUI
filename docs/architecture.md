@@ -317,6 +317,9 @@ The JS/Rust bridge uses serializable protocol types:
 - `NativeHostEventResponse`: the optional action invocation, rendered
   accessibility tree, and interaction changes for host events that may only
   update runtime state.
+- `NativeProtocolApp`: a reusable host-side state loop that builds `UiFrame`
+  values from application state, applies action invocations through a reducer,
+  and returns follow-up render responses after state-changing events.
 
 The protocol decouples input generation from platform backend execution.
 JavaScript does not see native widget handles; native backends receive
