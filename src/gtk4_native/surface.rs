@@ -1057,7 +1057,9 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             NativeWidgetSetter::SetAutoFocus(true) => {
                 self.request_auto_focus(id, &handle.widget);
             }
-            NativeWidgetSetter::SetAutoFocus(false) => {}
+            NativeWidgetSetter::SetAutoFocus(false) => {
+                clear_pending_auto_focus(&mut self.pending_auto_focus, id);
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetRequired(_)
@@ -1262,9 +1264,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         if self.root == Some(id) {
             self.root = None;
         }
-        if self.pending_auto_focus == Some(id) {
-            self.pending_auto_focus = None;
-        }
+        clear_pending_auto_focus(&mut self.pending_auto_focus, id);
         self.closed_windows.borrow_mut().remove(&id);
         self.widgets.remove(&id);
         for children in self.container_children.values_mut() {

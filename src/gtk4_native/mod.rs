@@ -1081,6 +1081,12 @@ fn set_progress_bar_fraction(progress_bar: &gtk::ProgressBar, range: Gtk4RangeSt
     progress_bar.set_fraction(fraction);
 }
 
+fn clear_pending_auto_focus(pending_auto_focus: &mut Option<HostNodeId>, id: HostNodeId) {
+    if *pending_auto_focus == Some(id) {
+        *pending_auto_focus = None;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1119,6 +1125,19 @@ mod tests {
         };
 
         assert_eq!(sizing.text_view_size_request(320, -1), (320, 138));
+    }
+
+    #[test]
+    fn gtk4_pending_auto_focus_only_clears_matching_node() {
+        let first = HostNodeId::new(3);
+        let second = HostNodeId::new(4);
+        let mut pending = Some(first);
+
+        clear_pending_auto_focus(&mut pending, second);
+        assert_eq!(pending, Some(first));
+
+        clear_pending_auto_focus(&mut pending, first);
+        assert_eq!(pending, None);
     }
 }
 

@@ -520,7 +520,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             NativeWidgetSetter::SetAutoFocus(true) => {
                 self.request_auto_focus(id);
             }
-            NativeWidgetSetter::SetAutoFocus(false) => {}
+            NativeWidgetSetter::SetAutoFocus(false) => {
+                clear_pending_auto_focus(&mut self.pending_auto_focus, id);
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetClassName(_)
@@ -799,9 +801,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
 
     fn remove_native_widget(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
         self.detach_child(id)?;
-        if self.pending_auto_focus == Some(id) {
-            self.pending_auto_focus = None;
-        }
+        clear_pending_auto_focus(&mut self.pending_auto_focus, id);
         match &handle.widget {
             WinUiOsWidget::Window(window) => {
                 map_winui("failed to close WinUI window", window.Close())?;

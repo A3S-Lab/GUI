@@ -814,6 +814,12 @@ where
     }
 }
 
+fn clear_pending_auto_focus(pending_auto_focus: &mut Option<HostNodeId>, id: HostNodeId) {
+    if *pending_auto_focus == Some(id) {
+        *pending_auto_focus = None;
+    }
+}
+
 fn pump_winui_message(surface: &WinUiNativeSurface, wait: WinUiEventWait) -> GuiResult<bool> {
     let mut message = MSG::default();
     let received = match wait {
@@ -918,5 +924,18 @@ mod tests {
         assert_eq!(winui_key_value_from_virtual_key(0x31), "1");
         assert_eq!(winui_key_value_from_virtual_key(0x70), "F1");
         assert_eq!(winui_key_value_from_virtual_key(0xFF), "VirtualKey:255");
+    }
+
+    #[test]
+    fn winui_pending_auto_focus_only_clears_matching_node() {
+        let first = HostNodeId::new(3);
+        let second = HostNodeId::new(4);
+        let mut pending = Some(first);
+
+        clear_pending_auto_focus(&mut pending, second);
+        assert_eq!(pending, Some(first));
+
+        clear_pending_auto_focus(&mut pending, first);
+        assert_eq!(pending, None);
     }
 }
