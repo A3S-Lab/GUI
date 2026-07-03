@@ -108,7 +108,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | label `htmlFor` / label `for` / output `for` / meter `low` / `high` / `optimum` | normalized to native form association and meter range metadata when applicable |
 | `colSpan` / `rowSpan` / `headers` / `scope` / `abbr` / `span` / `start` / `reversed` / list `type` / `li value` | normalized to native table and list structure hints when applicable |
 | `onClick` / `onPress` | normalized to the primary native action |
-| `onChange` / `onInput` | normalized to the primary action for change, selection, and value-toggle controls; text-field change values are clamped to `maxLength`, number-input and slider change values are clamped to min/max range bounds and snapped to step hints, and `onChange` wins when both are present |
+| `onChange` / `onInput` | normalized to the primary action for change, selection, and value-toggle controls; text-field change values are clamped to `maxLength`, number-input and slider change values are clamped to min/max range bounds and snapped to step hints, selection-container events without payloads infer the current selected child, and `onChange` wins when both are present |
 | `onFocus` / `onBlur` / `onFocusChange` | routed from native focus and blur events; `onFocusChange` receives boolean string payloads |
 | `onToggle` / `onExpandedChange` | routed from native toggle events; expanded controls receive boolean string payloads |
 | `onKeyDown` / `onKeyUp` | routed from native keyboard events; `NativeEvent.value` carries the key or shortcut token when the host supplies one |
@@ -462,6 +462,10 @@ Number-input and ranged-control current values are normalized against min/max
 range bounds and step hints on initial render, rerender, and event dispatch,
 before the reducer sees an action payload. This matches native AppKit, GTK4,
 and WinUI control limit behavior.
+Selection-container events that arrive without a native value payload infer the
+current selected child before reducer dispatch, so container-level native
+callbacks and child-targeted selection events share the same action payload
+shape.
 `createUiFrame` also accepts `window.onClose` as an action-like value. Rust
 wraps the root in a native window with an `onClose` event binding, infers that
 action when frame actions are omitted, and dispatches it from

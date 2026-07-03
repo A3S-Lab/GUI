@@ -2187,6 +2187,76 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_infers_container_selection_value_from_selected_child() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "setTheme"}],
+              "root": {
+                "kind": "element",
+                "key": "theme",
+                "tag": "Select",
+                "props": {
+                  "label": "Theme",
+                  "events": {"onSelectionChange": "setTheme"}
+                },
+                "children": [
+                  {
+                    "kind": "element",
+                    "key": "compact",
+                    "tag": "ListBoxItem",
+                    "props": {"label": "Compact", "value": "compact"}
+                  },
+                  {
+                    "kind": "element",
+                    "key": "comfortable",
+                    "tag": "ListBoxItem",
+                    "props": {
+                      "label": "Comfortable",
+                      "value": "comfortable",
+                      "isSelected": true
+                    }
+                  }
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let response = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::SelectionChange),
+            })
+            .unwrap();
+
+        assert_eq!(
+            response
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("comfortable")
+        );
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("comfortable")
+        );
+        assert_eq!(
+            session.runtime().actions().invocations()[0]
+                .value
+                .as_deref(),
+            Some("comfortable")
+        );
+    }
+
+    #[test]
     fn native_protocol_session_clamps_text_change_values_to_max_length() {
         let frame: UiFrame = serde_json::from_str(
             r#"

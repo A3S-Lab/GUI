@@ -156,6 +156,14 @@ impl Renderer {
         }
         ancestors
     }
+
+    pub fn child_ids(&self, node: HostNodeId) -> Vec<HostNodeId> {
+        self.root
+            .as_ref()
+            .and_then(|root| find_mounted_node(root, node))
+            .map(|mounted| mounted.children.iter().map(|child| child.id).collect())
+            .unwrap_or_default()
+    }
 }
 
 fn normalize_native_element(element: &NativeElement) -> NativeElement {
@@ -252,6 +260,15 @@ fn collect_mounted_node_props(node: &MountedNode, props: &mut Vec<(HostNodeId, N
     for child in &node.children {
         collect_mounted_node_props(child, props);
     }
+}
+
+fn find_mounted_node(node: &MountedNode, target: HostNodeId) -> Option<&MountedNode> {
+    if node.id == target {
+        return Some(node);
+    }
+    node.children
+        .iter()
+        .find_map(|child| find_mounted_node(child, target))
 }
 
 fn collect_ancestor_ids(

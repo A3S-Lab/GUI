@@ -443,7 +443,7 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
 
     pub fn handle_native_event_with_changes(
         &mut self,
-        event: NativeEvent,
+        mut event: NativeEvent,
     ) -> GuiResult<HandledNativeEvent> {
         event.validate()?;
         let blueprint = self.host.blueprint(event.node).cloned().ok_or_else(|| {
@@ -455,7 +455,30 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
             .into_iter()
             .filter_map(|node| self.host.blueprint(node).cloned())
             .collect::<Vec<_>>();
+        event = self.infer_container_selection_value(&blueprint, event);
         self.handle_event_with_route_results(&blueprint, &route_blueprints, event)
+    }
+
+    fn infer_container_selection_value(
+        &self,
+        blueprint: &NativeWidgetBlueprint,
+        mut event: NativeEvent,
+    ) -> NativeEvent {
+        if event.kind != crate::event::NativeEventKind::SelectionChange
+            || event.value.is_some()
+            || !is_selection_container_native_role(blueprint.role)
+        {
+            return event;
+        }
+
+        event.value = selected_child_value(
+            self.renderer
+                .child_ids(event.node)
+                .into_iter()
+                .filter_map(|child| self.host.blueprint(child)),
+        )
+        .or_else(|| blueprint.value.clone());
+        event
     }
 }
 
@@ -464,6 +487,19 @@ fn selected_node_value(blueprint: &NativeWidgetBlueprint) -> Option<String> {
         return None;
     }
     blueprint.value.clone().or_else(|| blueprint.label.clone())
+}
+
+fn selected_child_value<'a>(
+    blueprints: impl IntoIterator<Item = &'a NativeWidgetBlueprint>,
+) -> Option<String> {
+    blueprints
+        .into_iter()
+        .find(|blueprint| {
+            is_selectable_native_role(blueprint.role)
+                && (blueprint.control_state.selected
+                    || blueprint.control_state.checked == Some(true))
+        })
+        .and_then(selected_node_value)
 }
 
 fn normalize_change_value(blueprint: &NativeWidgetBlueprint, event: NativeEvent) -> NativeEvent {
@@ -824,6 +860,19 @@ fn is_selectable_native_role(role: crate::native::NativeRole) -> bool {
             | crate::native::NativeRole::MenuItem
             | crate::native::NativeRole::Radio
             | crate::native::NativeRole::Tab
+    )
+}
+
+fn is_selection_container_native_role(role: crate::native::NativeRole) -> bool {
+    matches!(
+        role,
+        crate::native::NativeRole::Select
+            | crate::native::NativeRole::ComboBox
+            | crate::native::NativeRole::ListBox
+            | crate::native::NativeRole::Menu
+            | crate::native::NativeRole::RadioGroup
+            | crate::native::NativeRole::Tabs
+            | crate::native::NativeRole::TabList
     )
 }
 
@@ -2552,6 +2601,56 @@ mod tests {
         );
         assert_eq!(handled.interaction_changes[0].after.checked, Some(true));
         assert!(handled.interaction_changes[0].after.selected);
+    }
+
+    #[test]
+    fn runtime_infers_container_selection_value_from_selected_child() {
+        let element = NativeElement::new("theme", NativeRole::Select)
+            .with_props(
+                NativeProps::new()
+                    .label("Theme")
+                    .web(WebProps::new().on_selection_change("setTheme")),
+            )
+            .child(
+                NativeElement::new("compact", NativeRole::ListBoxItem)
+                    .with_props(NativeProps::new().label("Compact").value("compact")),
+            )
+            .child(
+                NativeElement::new("comfortable", NativeRole::ListBoxItem).with_props(
+                    NativeProps::new()
+                        .label("Comfortable")
+                        .value("comfortable")
+                        .selected(true),
+                ),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setTheme");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                root_id,
+                crate::event::NativeEventKind::SelectionChange,
+            ))
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("comfortable"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("comfortable")
+        );
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("comfortable")
+        );
+        assert_eq!(
+            runtime.actions().invocations()[0].value.as_deref(),
+            Some("comfortable")
+        );
     }
 
     #[test]
