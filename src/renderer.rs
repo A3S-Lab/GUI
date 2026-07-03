@@ -184,6 +184,7 @@ fn needs_replacement(old: &MountedNode, new: &NativeElement) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NativeWidgetShape {
     Default,
+    Number,
     Password,
     Search,
     TextArea,
@@ -204,6 +205,13 @@ fn native_widget_shape(role: NativeRole, props: &NativeProps) -> NativeWidgetSha
             .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("search"))
     {
         NativeWidgetShape::Search
+    } else if role == NativeRole::TextField
+        && props
+            .input_type
+            .as_deref()
+            .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("number"))
+    {
+        NativeWidgetShape::Number
     } else if role == NativeRole::TextField
         && props
             .input_type
@@ -577,6 +585,30 @@ mod tests {
         let first_id = renderer.render(&text, &mut host).unwrap();
         host.clear_operations();
         let second_id = renderer.render(&search, &mut host).unwrap();
+
+        assert_ne!(first_id, second_id);
+        assert!(host.operations().iter().any(|operation| matches!(
+            operation,
+            HostOperation::Create { id, .. } if *id == second_id
+        )));
+        assert!(host.operations().iter().any(|operation| matches!(
+            operation,
+            HostOperation::Remove { id } if *id == first_id
+        )));
+    }
+
+    #[test]
+    fn text_field_number_shape_changes_remount_same_key_role() {
+        let text = NativeElement::new("quantity", NativeRole::TextField)
+            .with_props(NativeProps::new().input_type("text"));
+        let number = NativeElement::new("quantity", NativeRole::TextField)
+            .with_props(NativeProps::new().input_type("number"));
+        let mut renderer = Renderer::new();
+        let mut host = HeadlessHost::default();
+
+        let first_id = renderer.render(&text, &mut host).unwrap();
+        host.clear_operations();
+        let second_id = renderer.render(&number, &mut host).unwrap();
 
         assert_ne!(first_id, second_id);
         assert!(host.operations().iter().any(|operation| matches!(
