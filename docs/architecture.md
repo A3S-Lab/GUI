@@ -309,9 +309,13 @@ accessibility state.
 `GuiRuntime<H>`, drains pending native events from hosts that implement
 `NativeEventHost`, applies action invocations to application state through a
 reducer, and renders the next `UiFrame` back into the same host after
-state-changing events. Platform-native app specializations such as
+state-changing events. `handle_pending_native_events_while` stops draining the
+current native event batch as soon as the supplied state predicate returns
+false, which keeps queued follow-up events from mutating state after an app-level
+close action. Platform-native app specializations such as
 `AppKitRuntimeApp`, `WinUiRuntimeApp`, and `Gtk4RuntimeApp` add the OS event
-pump and stop their `run_*_while` loops when the root window closes.
+pump and use the same bounded drain while stopping their `run_*_while` loops
+when the root window closes or the state predicate exits.
 Window close lifecycle events use the same action path. `UiFrame.window.onClose`
 wraps the rendered root in a native window with an `onClose` event binding, and
 `NativeEventKind::Close` dispatches that action id. AppKit and GTK native

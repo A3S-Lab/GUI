@@ -401,6 +401,10 @@ same loop: drain pending native events, reduce action invocations, and rerender
 the next frame into the existing `GuiRuntime`. Platform runtime app aliases add
 the OS event pump for real native surfaces: `AppKitRuntimeApp` on macOS,
 `WinUiRuntimeApp` on Windows, and `Gtk4RuntimeApp` on Linux.
+Use `handle_pending_native_events_while` or the platform `run_*_while` methods
+when reducer state can request app shutdown. The drain stops before the next
+queued native event once the predicate returns false, so a Close window command
+cannot be followed by stale input from the same event batch.
 
 ## Event Flow
 

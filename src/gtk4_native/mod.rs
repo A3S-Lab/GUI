@@ -612,11 +612,22 @@ where
         &mut self,
         wait: Gtk4EventWait,
     ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
-        let mut responses = self.handle_pending_native_events()?;
+        self.pump_gtk4_event_while(wait, |_| true)
+    }
+
+    pub fn pump_gtk4_event_while(
+        &mut self,
+        wait: Gtk4EventWait,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        let mut responses = self.handle_pending_native_events_while(&mut should_continue)?;
+        if !should_continue(self.state()) {
+            return Ok(responses);
+        }
         let context = gtk::glib::MainContext::default();
         if wait.may_block() || context.pending() {
             context.iteration(wait.may_block());
-            responses.extend(self.handle_pending_native_events()?);
+            responses.extend(self.handle_pending_native_events_while(&mut should_continue)?);
         }
         Ok(responses)
     }
@@ -640,7 +651,7 @@ where
             self.render()?;
         }
         while self.gtk4_root_window_open() && should_continue(self.state()) {
-            self.pump_gtk4_event(Gtk4EventWait::Wait)?;
+            self.pump_gtk4_event_while(Gtk4EventWait::Wait, &mut should_continue)?;
         }
         Ok(())
     }

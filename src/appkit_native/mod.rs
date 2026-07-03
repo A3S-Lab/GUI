@@ -484,7 +484,18 @@ where
         &mut self,
         wait: AppKitEventWait,
     ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
-        let mut responses = self.handle_pending_native_events()?;
+        self.pump_appkit_event_while(wait, |_| true)
+    }
+
+    pub fn pump_appkit_event_while(
+        &mut self,
+        wait: AppKitEventWait,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        let mut responses = self.handle_pending_native_events_while(&mut should_continue)?;
+        if !should_continue(self.state()) {
+            return Ok(responses);
+        }
         let expiration = wait.expiration();
         let event = self
             .runtime()
@@ -512,7 +523,7 @@ where
             surface.enqueue_key_event(&event);
             surface.application().sendEvent(&event);
             surface.application().updateWindows();
-            responses.extend(self.handle_pending_native_events()?);
+            responses.extend(self.handle_pending_native_events_while(&mut should_continue)?);
         }
 
         Ok(responses)
@@ -540,7 +551,7 @@ where
             self.render()?;
         }
         while self.appkit_root_window_open() && should_continue(self.state()) {
-            self.pump_appkit_event(AppKitEventWait::Wait)?;
+            self.pump_appkit_event_while(AppKitEventWait::Wait, &mut should_continue)?;
         }
         Ok(())
     }

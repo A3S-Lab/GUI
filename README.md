@@ -136,7 +136,8 @@ across the native surfaces, including menus, a dialog gate, assignment,
 checklists, keyboard shortcuts, window close lifecycle actions, and
 state-driven app loop exit. `NativeProtocolApp` is the reusable host-side
 protocol loop; `NativeRuntimeApp` is the embedded loop for Rust-owned native
-hosts.
+hosts. Platform `run_*_while` loops stop draining queued native events as soon
+as their state predicate returns false.
 
 ## Feature Flags
 

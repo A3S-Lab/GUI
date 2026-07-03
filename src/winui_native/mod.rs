@@ -758,7 +758,18 @@ where
         &mut self,
         wait: WinUiEventWait,
     ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
-        let mut responses = self.handle_pending_native_events()?;
+        self.pump_winui_event_while(wait, |_| true)
+    }
+
+    pub fn pump_winui_event_while(
+        &mut self,
+        wait: WinUiEventWait,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        let mut responses = self.handle_pending_native_events_while(&mut should_continue)?;
+        if !should_continue(self.state()) {
+            return Ok(responses);
+        }
         let pumped = {
             let surface = self
                 .runtime_mut()
@@ -770,7 +781,7 @@ where
             pump_winui_message(surface, wait)?
         };
         if pumped {
-            responses.extend(self.handle_pending_native_events()?);
+            responses.extend(self.handle_pending_native_events_while(&mut should_continue)?);
         }
         Ok(responses)
     }
@@ -797,7 +808,7 @@ where
             self.render()?;
         }
         while self.winui_root_window_open() && should_continue(self.state()) {
-            self.pump_winui_event(WinUiEventWait::Wait)?;
+            self.pump_winui_event_while(WinUiEventWait::Wait, &mut should_continue)?;
         }
         Ok(())
     }

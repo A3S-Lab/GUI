@@ -164,6 +164,21 @@ where
         }
         Ok(responses)
     }
+
+    pub fn handle_pending_native_events_while(
+        &mut self,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        let events = self.runtime.host_mut().take_native_events();
+        let mut responses = Vec::with_capacity(events.len());
+        for event in events {
+            if !should_continue(&self.state) {
+                break;
+            }
+            responses.push(self.handle_native_event(event)?);
+        }
+        Ok(responses)
+    }
 }
 
 #[cfg(test)]
@@ -178,6 +193,12 @@ mod tests {
     #[derive(Debug, Clone, PartialEq, Default)]
     struct CounterState {
         count: u32,
+    }
+
+    #[derive(Debug, Clone, PartialEq, Default)]
+    struct ClosingState {
+        closed: bool,
+        increments: u32,
     }
 
     fn counter_frame(state: &CounterState) -> GuiResult<UiFrame> {
@@ -201,6 +222,38 @@ mod tests {
         match invocation.action.as_str() {
             "increment" => {
                 state.count += 1;
+                Ok(())
+            }
+            other => Err(GuiError::host(format!("unexpected action {other}"))),
+        }
+    }
+
+    fn closing_frame(state: &ClosingState) -> GuiResult<UiFrame> {
+        serde_json::from_value(json!({
+            "frameId": "closing",
+            "window": {"title": "Closing", "onClose": "close"},
+            "actions": [{"id": "close"}, {"id": "increment"}],
+            "root": {
+                "kind": "element",
+                "key": "increment-button",
+                "tag": "Button",
+                "props": {
+                    "label": format!("Increments {}", state.increments),
+                    "events": {"onPress": "increment"}
+                }
+            }
+        }))
+        .map_err(|error| GuiError::invalid_tree(format!("invalid closing frame: {error}")))
+    }
+
+    fn closing_reduce(state: &mut ClosingState, invocation: &ActionInvocation) -> GuiResult<()> {
+        match invocation.action.as_str() {
+            "close" => {
+                state.closed = true;
+                Ok(())
+            }
+            "increment" => {
+                state.increments += 1;
                 Ok(())
             }
             other => Err(GuiError::host(format!("unexpected action {other}"))),
@@ -264,5 +317,48 @@ mod tests {
         assert!(responses[0].render.is_none());
         assert_eq!(responses[0].interaction_changes.len(), 1);
         assert!(responses[0].accessibility_tree.as_ref().unwrap().focused);
+    }
+
+    #[test]
+    fn native_runtime_app_stops_draining_pending_events_when_predicate_fails() {
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut app =
+            NativeRuntimeApp::new(host, ClosingState::default(), closing_frame, closing_reduce);
+        let rendered = app.render().unwrap();
+        let increment = app
+            .runtime()
+            .host()
+            .planning()
+            .nodes()
+            .iter()
+            .find_map(|(id, node)| {
+                (node.blueprint.events.get("onPress").map(String::as_str) == Some("increment"))
+                    .then_some(*id)
+            })
+            .unwrap();
+
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(rendered.root, NativeEventKind::Close));
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(increment, NativeEventKind::Press));
+
+        let responses = app
+            .handle_pending_native_events_while(|state| !state.closed)
+            .unwrap();
+
+        assert!(app.state().closed);
+        assert_eq!(app.state().increments, 0);
+        assert_eq!(responses.len(), 1);
+        assert_eq!(
+            responses[0]
+                .invocation
+                .as_ref()
+                .map(|invocation| invocation.action.as_str()),
+            Some("close")
+        );
     }
 }
