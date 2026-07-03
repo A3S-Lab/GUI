@@ -165,6 +165,7 @@ fn action_for_event<'a>(
             .or_else(|| non_empty_action(blueprint.action.as_ref())),
         NativeEventKind::SelectionChange => non_empty_action(events.get("onSelectionChange"))
             .or_else(|| non_empty_action(events.get("onChange")))
+            .or_else(|| non_empty_action(events.get("onInput")))
             .or_else(|| non_empty_action(blueprint.action.as_ref())),
         NativeEventKind::Toggle if is_expansion_toggle(blueprint) => {
             non_empty_action(events.get("onExpandedChange"))
@@ -173,6 +174,7 @@ fn action_for_event<'a>(
                 .or_else(|| non_empty_action(blueprint.action.as_ref()))
         }
         NativeEventKind::Toggle => non_empty_action(events.get("onChange"))
+            .or_else(|| non_empty_action(events.get("onInput")))
             .or_else(|| non_empty_action(events.get("onToggle")))
             .or_else(|| non_empty_action(events.get("onClick")))
             .or_else(|| non_empty_action(blueprint.action.as_ref())),
@@ -332,6 +334,31 @@ mod tests {
     }
 
     #[test]
+    fn routes_native_toggle_to_input_event_alias_for_value_toggles() {
+        let input_only = NativeElement::new("notifications", NativeRole::Switch)
+            .with_props(NativeProps::new().web(WebProps::new().on_input("setNotificationsInput")));
+        let change_wins = NativeElement::new("accepted", NativeRole::Checkbox).with_props(
+            NativeProps::new().web(
+                WebProps::new()
+                    .on_input("setAcceptedInput")
+                    .on_change("setAccepted"),
+            ),
+        );
+        let event = NativeEvent::new(HostNodeId::new(20), NativeEventKind::Toggle).value("true");
+
+        let input_invocation = EventRouter::new()
+            .route(&AppKitAdapter.blueprint(&input_only), &event)
+            .unwrap();
+        let change_invocation = EventRouter::new()
+            .route(&AppKitAdapter.blueprint(&change_wins), &event)
+            .unwrap();
+
+        assert_eq!(input_invocation.action, "setNotificationsInput");
+        assert_eq!(input_invocation.value.as_deref(), Some("true"));
+        assert_eq!(change_invocation.action, "setAccepted");
+    }
+
+    #[test]
     fn routes_native_toggle_to_expanded_change_for_disclosure_controls() {
         let element = NativeElement::new("summary", NativeRole::DisclosureSummary).with_props(
             NativeProps::new()
@@ -386,6 +413,32 @@ mod tests {
         assert_eq!(invocation.action, "setProject");
         assert_eq!(invocation.event, NativeEventKind::SelectionChange);
         assert_eq!(invocation.value.as_deref(), Some("A3S"));
+    }
+
+    #[test]
+    fn routes_native_selection_change_to_input_event_alias() {
+        let input_only = NativeElement::new("project", NativeRole::Select)
+            .with_props(NativeProps::new().web(WebProps::new().on_input("setProjectInput")));
+        let change_wins = NativeElement::new("assignee", NativeRole::Select).with_props(
+            NativeProps::new().web(
+                WebProps::new()
+                    .on_input("setAssigneeInput")
+                    .on_change("setAssignee"),
+            ),
+        );
+        let event =
+            NativeEvent::new(HostNodeId::new(21), NativeEventKind::SelectionChange).value("A3S");
+
+        let input_invocation = EventRouter::new()
+            .route(&AppKitAdapter.blueprint(&input_only), &event)
+            .unwrap();
+        let change_invocation = EventRouter::new()
+            .route(&AppKitAdapter.blueprint(&change_wins), &event)
+            .unwrap();
+
+        assert_eq!(input_invocation.action, "setProjectInput");
+        assert_eq!(input_invocation.value.as_deref(), Some("A3S"));
+        assert_eq!(change_invocation.action, "setAssignee");
     }
 
     #[test]
