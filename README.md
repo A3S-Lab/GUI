@@ -36,7 +36,7 @@ layout engine, or JavaScript object graph at the host boundary.
 | AppKit native surface | Usable for small macOS smoke apps with windows, text input, buttons, toggles, sliders, selects, tabs, menus, keyboard events, `window.onClose` actions, and native `autoFocus`. |
 | GTK4 native surface | Usable for small Linux smoke apps with the same core controls plus window/dialog `window.onClose` actions; requires GTK4 development libraries and `pkg-config`. |
 | WinUI native surface | Usable for Windows smoke apps with core controls, HWND initial size, min/max resize bounds, resizable state, focus callbacks, keyboard message routing, `window.onClose` actions, and root-window close exit. Programmatic `autoFocus` is tracked but limited by `winio-winui3` 0.4.2 not exposing a safe focus method. |
-| Production app shell | In progress. Crate-local `just` recipes cover local verification and native dogfood entrypoints, and overflow-aware container scroll shells are available for longer forms. Layout polish, packaging guidance, broader dogfood coverage, and platform-specific edge cases still need hardening. |
+| Production app shell | In progress. Crate-local `just` recipes cover local verification, native dogfood entrypoints, host-native release builds, and staged dogfood bundles. Overflow-aware container scroll shells are available for longer forms. Signed installers, layout polish, broader native automation, and platform-specific edge cases still need hardening. |
 
 Known boundaries:
 
@@ -187,10 +187,19 @@ just dogfood-native
 just check-winui
 ```
 
+Build and stage native dogfood release artifacts on the matching operating
+system:
+
+```bash
+just release-native
+just bundle-native
+```
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)
 - [Native app shell](docs/app-shell.md)
+- [Native packaging](docs/packaging.md)
 - [Web authoring](docs/web-authoring.md)
 - [TypeScript SDK](sdk/typescript/README.md)
 

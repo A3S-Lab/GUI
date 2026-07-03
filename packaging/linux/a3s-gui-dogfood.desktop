@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=A3S GUI Dogfood
+GenericName=Native GUI Dogfood
+Comment=Dogfood shell for the A3S native GUI runtime
+Exec=a3s-gui-dogfood
+Terminal=false
+Categories=Development;Utility;
+StartupNotify=true

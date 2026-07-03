@@ -84,6 +84,17 @@ For cross-target Windows checks from a configured non-Windows host:
 just check-winui
 ```
 
+Before handing a native dogfood build to another developer, build and stage a
+host-native release artifact:
+
+```bash
+just release-native
+just bundle-native
+```
+
+The staged artifacts and platform prerequisites are documented in
+[`packaging.md`](packaging.md).
+
 ## Dogfood Coverage
 
 The shared dogfood app exercises the shell features that need to keep working
@@ -108,9 +119,8 @@ matching backend compiles and can host the dogfood surface.
 The app shell is usable for dogfood and smoke applications. Before treating it as
 a stable production surface, keep hardening these areas:
 
-- package metadata and release bundles for each native platform
+- signed installers and automated app package generation for each product
 - resize, focus, and text input edge cases under longer real-world forms
 - native-platform automation for dogfood menu, dialog, and keyboard interaction
   flows beyond compile-time checks
-- platform-specific documentation for signing, installation, and distribution
 - WinUI programmatic focus once the underlying safe API is available
