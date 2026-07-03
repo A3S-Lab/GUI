@@ -222,6 +222,30 @@ fn search_text_fields_target_native_search_controls() {
 }
 
 #[test]
+fn number_text_fields_target_gtk_spin_button() {
+    let element = NativeElement::new("quantity", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .input_type("number")
+            .value("7")
+            .range(Some(1.0), Some(10.0), Some(7.0))
+            .step(Some(0.5)),
+    );
+
+    assert_eq!(
+        AppKitAdapter.blueprint(&element).widget_class,
+        "NSTextField(input)"
+    );
+    assert_eq!(
+        WinUiAdapter.blueprint(&element).widget_class,
+        "Microsoft.UI.Xaml.Controls.TextBox"
+    );
+    assert_eq!(
+        Gtk4Adapter.blueprint(&element).widget_class,
+        "gtk::SpinButton"
+    );
+}
+
+#[test]
 fn blueprint_preserves_react_aria_control_state_for_native_adapters() {
     let element = NativeElement::new("volume", NativeRole::Slider).with_props(
         NativeProps::new()

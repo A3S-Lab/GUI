@@ -1,21 +1,22 @@
 # a3s-gui
 
-Native GUI runtime for A3S protocol frames.
+Native UI runtime for A3S frames.
 
-`a3s-gui` turns structured Rust or JSX UI trees into a portable native UI IR,
-diffs keyed updates, routes events, and drives AppKit, WinUI, GTK4, or a
-headless test host.
+`a3s-gui` compiles Rust, JSX, or React Aria-style UI trees into a portable
+native IR, diffs keyed updates, routes host events, and drives AppKit, WinUI,
+GTK4, or a headless test host.
 
-This is not a browser shell. There is no DOM, CSSOM, WebView, or browser layout
-contract. Web-style input is accepted only when it can lower into native roles,
-state, style tokens, metadata, accessibility hints, or action ids.
+It is not a browser wrapper. There is no DOM, CSSOM, WebView, or browser layout
+contract. HTML-like input is accepted only when it can lower to native roles,
+state, accessibility data, action ids, metadata, or portable style tokens.
 
-## Use It For
+## What It Covers
 
-- Rendering `UiFrame` protocol data into native widgets.
-- Testing UI protocol and reconciliation logic without a platform GUI.
-- Bridging JSX and React Aria-style component trees into A3S native UI.
-- Building or validating AppKit, WinUI, and GTK4 native surface adapters.
+- Native planning for AppKit, WinUI, GTK4, and headless tests.
+- A keyed runtime that turns render diffs into host commands.
+- React Aria and JSX bridges for serializable `UiFrame` data.
+- Native control state for text fields, buttons, menus, dialogs, tabs, ranges,
+  tables, media, and common HTML form controls.
 
 ## Install
 
@@ -24,7 +25,7 @@ state, style tokens, metadata, accessibility hints, or action ids.
 a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ```
 
-## Rust
+## Rust Quick Start
 
 ```rust
 use a3s_gui::{
@@ -39,13 +40,12 @@ fn main() -> GuiResult<()> {
     );
 
     let mut runtime = GuiRuntime::new(HeadlessHost::default());
-    let _rendered = runtime.render_native(&root)?;
-
+    runtime.render_native(&root)?;
     Ok(())
 }
 ```
 
-## JSX
+## JSX Frames
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
@@ -63,9 +63,8 @@ export const frame = createUiFrame(
 );
 ```
 
-The TypeScript SDK emits plain serializable frame data. The Rust side consumes
-that data with `ReactCompilerBridge`, renders it with `GuiRuntime`, and returns
-native commands, routed events, and accessibility trees.
+The TypeScript SDK emits JSON-safe frame data. Rust consumes it through
+`ReactCompilerBridge` and `GuiRuntime`.
 
 ## Features
 
@@ -75,13 +74,11 @@ The default feature is `headless`.
 | --- | --- |
 | `headless` | Pure Rust host for tests and protocol validation. |
 | `appkit`, `winui`, `gtk4` | Platform planning adapters and handle types. |
-| `appkit-native`, `winui-native`, `gtk4-native` | Real native surfaces for the matching OS. |
+| `appkit-native`, `winui-native`, `gtk4-native` | Real native surfaces for each OS. |
 
-`gtk4-native` needs GTK4 development libraries and `pkg-config`.
+`gtk4-native` requires GTK4 development libraries and `pkg-config`.
 
-## Validate
-
-Run the common checks from this directory:
+## Checks
 
 ```bash
 cargo fmt --all
@@ -91,7 +88,7 @@ npm test --prefix sdk/typescript
 git diff --check
 ```
 
-Native-surface checks are platform-specific:
+Platform-native checks depend on the target OS:
 
 ```bash
 cargo check --features appkit-native
@@ -99,7 +96,7 @@ cargo check --target x86_64-pc-windows-msvc --features winui-native
 cargo check --features gtk4-native
 ```
 
-## More
+## Docs
 
 - [Architecture](docs/architecture.md)
 - [Web authoring](docs/web-authoring.md)

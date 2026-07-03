@@ -21,6 +21,7 @@ pub enum Gtk4WidgetKind {
     Label,
     Button,
     Entry,
+    SpinButton,
     TextView,
     CheckButton,
     Switch,
@@ -143,6 +144,7 @@ impl Gtk4WidgetKind {
             | "gtk::LinkButton(image-map-area)"
             | "gtk::Button(disclosure-summary)" => Ok(Gtk4WidgetKind::Button),
             "gtk::Entry" | "gtk::SearchEntry" | "gtk::PasswordEntry" => Ok(Gtk4WidgetKind::Entry),
+            "gtk::SpinButton" => Ok(Gtk4WidgetKind::SpinButton),
             "gtk::TextView" => Ok(Gtk4WidgetKind::TextView),
             "gtk::CheckButton" | "gtk::CheckButton(radio)" => Ok(Gtk4WidgetKind::CheckButton),
             "gtk::Switch" => Ok(Gtk4WidgetKind::Switch),

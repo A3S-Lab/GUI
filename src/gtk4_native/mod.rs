@@ -153,6 +153,18 @@ impl Gtk4NativeSurface {
         entry.set_width_chars(width_chars);
     }
 
+    fn apply_spin_button_width_hint(&self, id: HostNodeId, spin_button: &gtk::SpinButton) {
+        let Some(sizing) = self.text_inputs.get(&id).copied() else {
+            return;
+        };
+        let width_chars = if sizing.has_explicit_width {
+            -1
+        } else {
+            sizing.hinted_width_chars().unwrap_or(-1)
+        };
+        spin_button.set_width_chars(width_chars);
+    }
+
     fn apply_text_view_size_hint(&self, id: HostNodeId, text_view: &gtk::TextView) {
         let Some(sizing) = self.text_inputs.get(&id).copied() else {
             return;
@@ -521,6 +533,38 @@ impl Gtk4RangeState {
     fn step(self) -> f64 {
         self.step.filter(|value| *value > 0.0).unwrap_or(1.0)
     }
+
+    fn spin_button_digits(self) -> u32 {
+        [self.min, self.max, self.current, self.step]
+            .into_iter()
+            .flatten()
+            .map(gtk_number_digits)
+            .max()
+            .unwrap_or(0)
+    }
+}
+
+fn gtk_number_digits(value: f64) -> u32 {
+    if !value.is_finite() || value.fract().abs() < f64::EPSILON {
+        return 0;
+    }
+
+    let mut scaled = value.abs();
+    for digits in 1..=6 {
+        scaled *= 10.0;
+        if (scaled - scaled.round()).abs() < 1e-9 {
+            return digits;
+        }
+    }
+    6
+}
+
+fn parse_gtk_number_value(value: Option<&str>) -> Option<f64> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .and_then(|value| value.parse::<f64>().ok())
+        .filter(|value| value.is_finite())
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -639,6 +683,7 @@ pub enum Gtk4OsWidget {
     Entry(gtk::Entry),
     SearchEntry(gtk::SearchEntry),
     PasswordEntry(gtk::PasswordEntry),
+    SpinButton(gtk::SpinButton),
     TextView(gtk::TextView),
     CheckButton(gtk::CheckButton),
     Switch(gtk::Switch),
@@ -669,6 +714,7 @@ impl Gtk4OsWidget {
             Gtk4OsWidget::Entry(entry) => Some(entry.clone().upcast()),
             Gtk4OsWidget::SearchEntry(entry) => Some(entry.clone().upcast()),
             Gtk4OsWidget::PasswordEntry(entry) => Some(entry.clone().upcast()),
+            Gtk4OsWidget::SpinButton(spin_button) => Some(spin_button.clone().upcast()),
             Gtk4OsWidget::TextView(text_view) => Some(text_view.clone().upcast()),
             Gtk4OsWidget::CheckButton(check_button) => Some(check_button.clone().upcast()),
             Gtk4OsWidget::Switch(switch) => Some(switch.clone().upcast()),

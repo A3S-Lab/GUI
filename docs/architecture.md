@@ -129,7 +129,8 @@ slider role, numeric `value` or `defaultValue` props are projected as the
 ranged current value, and numeric `step` is projected as native ranged-control
 step state. `input[type=number]` lowers to the native text-field role while
 numeric `value` or `defaultValue`, `min`, `max`, and `step` props are preserved
-as native control state. `input[type=button]`, `input[type=submit]`,
+as native control state; GTK planning maps that number-shaped text field to
+`gtk::SpinButton`. `input[type=button]`, `input[type=submit]`,
 `input[type=reset]`, and `input[type=image]` lower to native button roles with
 HTML fallback labels from `value`, default submit/reset labels, or image `alt`
 text. HTML dialog `open` state projects into a structured `HtmlDialogProps`
@@ -519,16 +520,17 @@ Feature-gated platform executor surfaces:
   surface temporarily backs that state with a WinUI `CheckBox` because the
   generated bindings do not expose `ToggleSwitch` yet.
 - `gtk4`: maps classes such as `gtk::Button`, `gtk::Entry`,
-  `gtk::SearchEntry`, `gtk::PasswordEntry`, and `gtk::TextView` into GTK object
-  kinds behind `Gtk4WidgetDriver` and replays native setter operations through
-  `Gtk4HandleAdapter`.
+  `gtk::SearchEntry`, `gtk::PasswordEntry`, `gtk::SpinButton`, and
+  `gtk::TextView` into GTK object kinds behind `Gtk4WidgetDriver` and replays
+  native setter operations through `Gtk4HandleAdapter`.
 - `gtk4-native`: uses `gtk4-rs` on Linux to create real
   `gtk::ApplicationWindow`, `gtk::Box`, `gtk::Label`, `gtk::Button`,
-  `gtk::Entry`, `gtk::SearchEntry`, `gtk::TextView`, `gtk::CheckButton`,
-  `gtk::Switch`, `gtk::DropDown`, `gtk::ListBox`, `gtk::ListBoxRow`,
-  `gtk::Dialog`, `gtk::Popover`, `gtk::PopoverMenuBar`, `gio::Menu`,
-  `gio::MenuItem`, `gtk::Notebook`, `gtk::Separator`, `gtk::Scale`, and
-  `gtk::ProgressBar` objects through `Gtk4NativeSurface`.
+  `gtk::Entry`, `gtk::SearchEntry`, `gtk::PasswordEntry`, `gtk::SpinButton`,
+  `gtk::TextView`, `gtk::CheckButton`, `gtk::Switch`, `gtk::DropDown`,
+  `gtk::ListBox`, `gtk::ListBoxRow`, `gtk::Dialog`, `gtk::Popover`,
+  `gtk::PopoverMenuBar`, `gio::Menu`, `gio::MenuItem`, `gtk::Notebook`,
+  `gtk::Separator`, `gtk::Scale`, and `gtk::ProgressBar` objects through
+  `Gtk4NativeSurface`.
   Semantic `Toolbar` trees use native `gtk::Box(toolbar)` containers.
   Semantic `Dialog` trees use native `gtk::Dialog` windows and content areas.
   Semantic `Popover` trees use native `gtk::Popover` overlays with native
@@ -539,10 +541,14 @@ Feature-gated platform executor surfaces:
   Semantic `Tabs`
   trees become native notebook pages with source tab labels, native panel
   widgets, and selection-change events carrying the selected tab value when
-  available. GTK text entries, search entries, and textarea-shaped `TextView`
-  controls apply placeholder, read-only, max-length, and sizing setters. GTK
-  `Entry` and `TextView` controls also map portable text-entry hints such as
-  `inputMode`, `input type`, `autoCapitalize`, `autoCorrect`,
+  available. GTK text entries, search entries, password entries, spin buttons,
+  and textarea-shaped `TextView` controls apply the relevant read-only and
+  sizing setters. Search/password/text entries and `TextView` controls also
+  apply placeholder and max-length where GTK exposes that behavior. GTK spin
+  buttons preserve numeric range, current, and step state and emit change
+  events with the current numeric value. GTK `Entry` and `TextView` controls
+  also map portable text-entry hints such as `inputMode`, `input type`,
+  `autoCapitalize`, `autoCorrect`,
   `virtualKeyboardPolicy`, and `spellCheck` into GTK input purpose and input
   hint flags. It is a Linux-only feature so macOS and Windows builds can enable
   all portable features without linking GTK. Linux builds require GTK4

@@ -207,6 +207,45 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     Gtk4OsWidget::Entry(entry)
                 }
             }
+            Gtk4WidgetKind::SpinButton => {
+                let range = Gtk4RangeState::from_config(&config);
+                let spin_button =
+                    gtk::SpinButton::with_range(range.lower(), range.upper(), range.step());
+                spin_button.set_numeric(true);
+                spin_button.set_update_policy(gtk::SpinButtonUpdatePolicy::IfValid);
+                spin_button.set_digits(range.spin_button_digits());
+                spin_button.set_increments(range.step(), range.step() * 10.0);
+                spin_button.set_value(range.current());
+                spin_button.set_editable(!config.read_only);
+                self.ranges.insert(id, range);
+                self.text_inputs
+                    .insert(id, Gtk4TextInputSizing::from_config(&config));
+                self.apply_spin_button_width_hint(id, &spin_button);
+
+                let events = self.events.clone();
+                let events_suppressed = self.events_suppressed.clone();
+                spin_button.connect_value_changed(move |spin_button| {
+                    push_event(
+                        &events,
+                        &events_suppressed,
+                        NativeEvent::new(id, NativeEventKind::Change)
+                            .value(spin_button.value().to_string()),
+                    );
+                });
+
+                let events = self.events.clone();
+                let events_suppressed = self.events_suppressed.clone();
+                spin_button.connect_has_focus_notify(move |spin_button| {
+                    let kind = if spin_button.has_focus() {
+                        NativeEventKind::Focus
+                    } else {
+                        NativeEventKind::Blur
+                    };
+                    push_event(&events, &events_suppressed, NativeEvent::new(id, kind));
+                });
+
+                Gtk4OsWidget::SpinButton(spin_button)
+            }
             Gtk4WidgetKind::TextView => {
                 let text_view = gtk::TextView::new();
                 text_view.set_wrap_mode(gtk::WrapMode::WordChar);
@@ -490,6 +529,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     Gtk4OsWidget::Entry(_)
                     | Gtk4OsWidget::SearchEntry(_)
                     | Gtk4OsWidget::PasswordEntry(_)
+                    | Gtk4OsWidget::SpinButton(_)
                     | Gtk4OsWidget::TextView(_)
                     | Gtk4OsWidget::Dialog(_)
                     | Gtk4OsWidget::Popover(_)
@@ -540,6 +580,14 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                             max_length,
                         ));
                     });
+                }
+                Gtk4OsWidget::SpinButton(spin_button) => {
+                    if let Some(value) = parse_gtk_number_value(value.as_deref()) {
+                        let range = self.ranges.entry(id).or_default();
+                        range.current = Some(value);
+                        spin_button.set_digits(range.spin_button_digits());
+                        self.suppress_events(|| spin_button.set_value(value));
+                    }
                 }
                 Gtk4OsWidget::TextView(text_view) => {
                     let buffer = text_view.buffer();
@@ -628,6 +676,9 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 Gtk4OsWidget::SearchEntry(entry) => {
                     entry.set_editable(!*value);
                 }
+                Gtk4OsWidget::SpinButton(spin_button) => {
+                    spin_button.set_editable(!*value);
+                }
                 Gtk4OsWidget::TextView(text_view) => {
                     text_view.set_editable(!*value);
                 }
@@ -656,6 +707,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Entry(_)
                 | Gtk4OsWidget::SearchEntry(_)
                 | Gtk4OsWidget::PasswordEntry(_)
+                | Gtk4OsWidget::SpinButton(_)
                 | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::DropDown(_)
                 | Gtk4OsWidget::ListBox(_)
@@ -702,6 +754,11 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                         style_sets_gtk_width(style);
                     self.apply_password_entry_width_hint(id, entry);
                 }
+                if let Gtk4OsWidget::SpinButton(spin_button) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().has_explicit_width =
+                        style_sets_gtk_width(style);
+                    self.apply_spin_button_width_hint(id, spin_button);
+                }
                 if let Gtk4OsWidget::TextView(text_view) = &handle.widget {
                     let sizing = self.text_inputs.entry(id).or_default();
                     sizing.has_explicit_width = style_sets_gtk_width(style);
@@ -743,6 +800,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Entry(_)
                 | Gtk4OsWidget::SearchEntry(_)
                 | Gtk4OsWidget::PasswordEntry(_)
+                | Gtk4OsWidget::SpinButton(_)
                 | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::CheckButton(_)
                 | Gtk4OsWidget::Switch(_)
@@ -759,6 +817,10 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     Gtk4OsWidget::Scale(scale) => {
                         scale.set_range(range.lower(), range.upper());
                     }
+                    Gtk4OsWidget::SpinButton(spin_button) => {
+                        spin_button.set_range(range.lower(), range.upper());
+                        spin_button.set_digits(range.spin_button_digits());
+                    }
                     Gtk4OsWidget::ProgressBar(progress_bar) => {
                         set_progress_bar_fraction(progress_bar, *range);
                     }
@@ -772,6 +834,10 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     Gtk4OsWidget::Scale(scale) => {
                         scale.set_range(range.lower(), range.upper());
                     }
+                    Gtk4OsWidget::SpinButton(spin_button) => {
+                        spin_button.set_range(range.lower(), range.upper());
+                        spin_button.set_digits(range.spin_button_digits());
+                    }
                     Gtk4OsWidget::ProgressBar(progress_bar) => {
                         set_progress_bar_fraction(progress_bar, *range);
                     }
@@ -783,6 +849,12 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     let range = self.ranges.entry(id).or_default();
                     range.current = *value;
                     scale.set_value(range.current());
+                }
+                Gtk4OsWidget::SpinButton(spin_button) => {
+                    let range = self.ranges.entry(id).or_default();
+                    range.current = *value;
+                    spin_button.set_digits(range.spin_button_digits());
+                    self.suppress_events(|| spin_button.set_value(range.current()));
                 }
                 Gtk4OsWidget::ProgressBar(progress_bar) => {
                     let range = self.ranges.entry(id).or_default();
@@ -814,6 +886,10 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 range.step = *value;
                 if let Gtk4OsWidget::Scale(scale) = &handle.widget {
                     scale.set_increments(range.step(), range.step() * 10.0);
+                }
+                if let Gtk4OsWidget::SpinButton(spin_button) = &handle.widget {
+                    spin_button.set_increments(range.step(), range.step() * 10.0);
+                    spin_button.set_digits(range.spin_button_digits());
                 }
             }
             NativeWidgetSetter::SetMaxLength(value) => match &handle.widget {
@@ -857,6 +933,10 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     self.text_inputs.entry(id).or_default().cols = *value;
                     self.apply_password_entry_width_hint(id, entry);
                 }
+                if let Gtk4OsWidget::SpinButton(spin_button) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().cols = *value;
+                    self.apply_spin_button_width_hint(id, spin_button);
+                }
                 if let Gtk4OsWidget::TextView(text_view) = &handle.widget {
                     self.text_inputs.entry(id).or_default().cols = *value;
                     self.apply_text_view_size_hint(id, text_view);
@@ -874,6 +954,10 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 if let Gtk4OsWidget::PasswordEntry(entry) = &handle.widget {
                     self.text_inputs.entry(id).or_default().size = *value;
                     self.apply_password_entry_width_hint(id, entry);
+                }
+                if let Gtk4OsWidget::SpinButton(spin_button) = &handle.widget {
+                    self.text_inputs.entry(id).or_default().size = *value;
+                    self.apply_spin_button_width_hint(id, spin_button);
                 }
             }
             NativeWidgetSetter::SetRows(value) => {
@@ -1072,6 +1156,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             | Gtk4OsWidget::Entry(_)
             | Gtk4OsWidget::SearchEntry(_)
             | Gtk4OsWidget::PasswordEntry(_)
+            | Gtk4OsWidget::SpinButton(_)
             | Gtk4OsWidget::TextView(_)
             | Gtk4OsWidget::CheckButton(_)
             | Gtk4OsWidget::Switch(_)
