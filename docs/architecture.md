@@ -300,6 +300,11 @@ can still send explicit `HostEvent` records. Keyboard event values can carry the
 platform key or shortcut token. Use the `handle_*` event APIs when the caller
 needs per-event results, including events that only update runtime or
 accessibility state.
+`NativeRuntimeApp` builds on that embedded runtime path: it owns
+`GuiRuntime<H>`, drains pending native events from hosts that implement
+`NativeEventHost`, applies action invocations to application state through a
+reducer, and renders the next `UiFrame` back into the same host after
+state-changing events.
 
 ## Host Protocol
 
@@ -320,6 +325,9 @@ The JS/Rust bridge uses serializable protocol types:
 - `NativeProtocolApp`: a reusable host-side state loop that builds `UiFrame`
   values from application state, applies action invocations through a reducer,
   and returns follow-up render responses after state-changing events.
+- `NativeRuntimeApp`: the embedded equivalent for Rust-owned native hosts; it
+  handles queued native events, applies reducer updates, and rerenders directly
+  into the owned `GuiRuntime`.
 
 The protocol decouples input generation from platform backend execution.
 JavaScript does not see native widget handles; native backends receive

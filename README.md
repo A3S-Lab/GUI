@@ -93,6 +93,18 @@ Use `NativeProtocolApp` when the host wants a reusable state loop: it owns a
 action invocations through a reducer, and returns the follow-up native render
 commands.
 
+Run the native runtime app example to see the same reducer loop attached to an
+embedded native host event queue:
+
+```bash
+cargo run --example native_runtime_app
+```
+
+Use `NativeRuntimeApp` when Rust owns the native host directly: it owns a
+`GuiRuntime`, drains pending native events from `NativeEventSource`, applies
+action invocations through a reducer, and rerenders the next frame into the
+same host.
+
 ## Features
 
 - **Semantic input**: React Aria-style component names, intrinsic HTML/SVG
@@ -105,6 +117,8 @@ commands.
   classes, and native visibility/interactivity state.
 - **Event routing**: Press, change, focus, blur, toggle, selection, keyboard,
   and host-native events resolved to registered action ids.
+- **App state loops**: Reusable protocol and embedded-runtime loops for
+  reducer-driven rerendering after native actions.
 
 ## Boundaries
 

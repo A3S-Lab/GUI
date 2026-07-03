@@ -8,6 +8,7 @@
 #![deny(unsafe_code)]
 
 pub mod accessibility;
+pub mod app;
 #[cfg(all(feature = "appkit", target_os = "macos"))]
 pub mod appkit;
 #[cfg(all(feature = "appkit-native", target_os = "macos"))]
@@ -49,6 +50,7 @@ pub use accessibility::{
     AccessibilityDescriptionProps, AccessibilityNode, AccessibilityRelationshipProps,
     AccessibilityRole, AccessibilityStateProps, AccessibilityStructureProps, AccessibilityTreeHost,
 };
+pub use app::{NativeRuntimeApp, NativeRuntimeEventResponse};
 #[cfg(all(feature = "appkit", target_os = "macos"))]
 pub use appkit::{
     AppKitCommandExecutor, AppKitHandleAdapter, AppKitHandleCommandExecutor, AppKitHandleDriver,

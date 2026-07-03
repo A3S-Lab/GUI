@@ -1,10 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::error::{GuiError, GuiResult};
+use crate::event::NativeEvent;
 use crate::host::HostNodeId;
 use crate::platform::{NativeControlState, PlatformCommand};
 
-use super::traits::PlatformCommandExecutor;
+use super::traits::{NativeEventSource, PlatformCommandExecutor};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RecordedNativeObject {
@@ -22,6 +23,7 @@ pub struct RecordingBackend {
     root: Option<HostNodeId>,
     objects: BTreeMap<HostNodeId, RecordedNativeObject>,
     commands: Vec<PlatformCommand>,
+    events: Vec<NativeEvent>,
 }
 
 impl RecordingBackend {
@@ -39,6 +41,14 @@ impl RecordingBackend {
 
     pub fn commands(&self) -> &[PlatformCommand] {
         &self.commands
+    }
+
+    pub fn push_native_event(&mut self, event: NativeEvent) {
+        self.events.push(event);
+    }
+
+    pub fn extend_native_events(&mut self, events: impl IntoIterator<Item = NativeEvent>) {
+        self.events.extend(events);
     }
 
     fn ensure_object(&self, id: HostNodeId) -> GuiResult<()> {
@@ -178,5 +188,11 @@ impl PlatformCommandExecutor for RecordingBackend {
         }
         self.commands.push(command.clone());
         Ok(())
+    }
+}
+
+impl NativeEventSource for RecordingBackend {
+    fn take_native_events(&mut self) -> Vec<NativeEvent> {
+        std::mem::take(&mut self.events)
     }
 }

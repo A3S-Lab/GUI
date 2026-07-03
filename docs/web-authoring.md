@@ -378,6 +378,9 @@ native events, apply the returned action invocations to application state, and
 render the next frame from that state.
 Hosts can use `NativeProtocolApp` for that loop directly by supplying an
 initial state value, a state-to-`UiFrame` builder, and an action reducer.
+Rust-owned native hosts can use `NativeRuntimeApp` for the embedded form of the
+same loop: drain pending native events, reduce action invocations, and rerender
+the next frame into the existing `GuiRuntime`.
 
 ## Event Flow
 
