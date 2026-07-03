@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -6,6 +7,11 @@ import {
   jsx,
   jsxs,
 } from '../src/index.js';
+
+const JSX_RUNTIME_TYPES = readFileSync(
+  new URL('../src/jsx-runtime.d.ts', import.meta.url),
+  'utf8',
+);
 
 test('intrinsic HTML elements preserve CSS text and Tailwind class names', () => {
   const root = jsxs('article', {
@@ -668,4 +674,22 @@ test('boolean-like intrinsic props parse string false without truthiness leaks',
   assert.equal(root.props.attributes.selected, 'false');
   assert.equal(root.props.attributes.checked, 'false');
   assert.equal(root.props.attributes.expanded, 'false');
+});
+
+test('JSX runtime types allow string-backed booleanish input props', () => {
+  assert.match(JSX_RUNTIME_TYPES, /export type Booleanish = boolean \| string;/);
+  for (const prop of [
+    'disabled',
+    'required',
+    'readOnly',
+    'multiple',
+    'autoFocus',
+    'checked',
+    'isDisabled',
+    'isReadOnly',
+    'controls',
+    'formNoValidate',
+  ]) {
+    assert.match(JSX_RUNTIME_TYPES, new RegExp(`${prop}\\?: Booleanish;`));
+  }
 });
