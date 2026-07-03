@@ -1,28 +1,52 @@
 # A3S GUI
 
-**Native GUI runtime for structured UI protocol frames**
+**Native GUI runtime for A3S UI frames**
 
-A3S GUI is a Rust library for rendering A3S UI frames without embedding a
-browser. It lowers Rust-native trees or serialized JSX frames into a portable
-native UI IR, reconciles keyed updates, routes host events to stable action
+A3S GUI renders structured UI protocol frames without embedding a browser. It
+accepts Rust-native trees or serialized JSX frames, lowers them into a portable
+native UI IR, reconciles keyed updates, routes native events to stable action
 ids, and targets AppKit, WinUI, GTK4, or a headless test host.
 
 ---
 
 ## Overview
 
-A3S GUI owns the native UI boundary for A3S applications:
+The crate owns the native UI boundary for A3S applications:
 
-- **Portable native IR**: Typed roles, props, style tokens, metadata, and
-  accessibility hints that are independent of any one platform.
-- **Keyed renderer**: Incremental create, update, insert, remove, and set-root
-  commands for native hosts.
-- **Protocol frames**: `UiFrame` input from the TypeScript JSX SDK or any
+- **Protocol input**: `UiFrame` records from the TypeScript JSX SDK or any
   producer that emits the same serializable shape.
-- **Native adapters**: Planning adapters for AppKit, WinUI, and GTK4, plus
-  native surface features for target operating systems.
-- **Headless host**: Pure Rust validation for tests, protocol fixtures, and
-  integration harnesses.
+- **Native IR**: typed roles, props, metadata, style tokens, event bindings, and
+  accessibility hints shared by all platform backends.
+- **Incremental renderer**: keyed create, update, insert-child, remove, and
+  set-root commands for native hosts.
+- **Platform backends**: AppKit, WinUI, GTK4 planning adapters plus feature-gated
+  native surfaces for the matching operating systems.
+- **State loops**: reusable protocol and embedded-runtime loops for reducer
+  driven rerendering after native actions.
+
+A3S GUI is not a WebView runtime. It does not provide a DOM, CSSOM, browser
+layout engine, or JavaScript object graph at the host boundary.
+
+## Current Status
+
+| Area | Status |
+|------|--------|
+| Headless runtime | Usable for protocol tests, command inspection, and accessibility snapshots. |
+| TypeScript JSX protocol SDK | Usable for emitting `UiFrame` JSON with semantic components, HTML/SVG tags, style, metadata, and event props. |
+| AppKit native surface | Usable for small macOS smoke apps with windows, text input, buttons, toggles, sliders, selects, tabs, menus, keyboard events, close handling, and native `autoFocus`. |
+| GTK4 native surface | Usable for small Linux smoke apps with the same core controls; requires GTK4 development libraries and `pkg-config`. |
+| WinUI native surface | Usable for Windows smoke apps with core controls, HWND window sizing/resizable state, focus callbacks, keyboard message routing, and close handling. Programmatic `autoFocus` is tracked but limited by `winio-winui3` 0.4.2 not exposing a safe focus method. |
+| Production app shell | In progress. Layout polish, packaging guidance, dogfood coverage, and platform-specific edge cases still need hardening. |
+
+Known boundaries:
+
+- Web-like input is accepted only when it can be lowered to native roles,
+  control state, accessibility hints, metadata, events, or portable style
+  tokens.
+- Arbitrary CSS selectors, browser layout behavior, Web APIs, and treating
+  `HTMLElement` objects as application state are out of scope.
+- Media, resource, table, and rich document roles are represented in the native
+  IR; native platform controls for every browser feature are not implied.
 
 ## Quick Start
 
@@ -33,7 +57,7 @@ Add the Rust crate:
 a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ```
 
-Render a native tree:
+Render a native tree into the headless host:
 
 ```rust
 use a3s_gui::{
@@ -53,7 +77,7 @@ fn main() -> GuiResult<()> {
 }
 ```
 
-Generate a JSX frame:
+Generate the same protocol shape from JSX:
 
 ```tsx
 /** @jsxImportSource @a3s-lab/gui */
@@ -71,122 +95,39 @@ export const frame = createUiFrame(
 );
 ```
 
-The TypeScript protocol package lives in `sdk/typescript` and exports
+The TypeScript package lives in [`sdk/typescript`](sdk/typescript/) and exports
 `@a3s-lab/gui`.
 
-Run the protocol session example to see frame rendering and event dispatch
-through the GTK4 planning adapter:
+## Examples
+
+Run the protocol examples from this crate directory:
 
 ```bash
 cargo run --example protocol_session
-```
-
-Run the state loop example to see action dispatch, application state updates,
-and frame rerendering in one host-side cycle:
-
-```bash
 cargo run --example state_loop
-```
-
-Use `NativeProtocolApp` when the host wants a reusable state loop: it owns a
-`NativeProtocolSession`, calls a frame builder from the current state, applies
-action invocations through a reducer, and returns the follow-up native render
-commands.
-
-Run the native runtime app example to see the same reducer loop attached to an
-embedded native host event queue:
-
-```bash
 cargo run --example native_runtime_app
 ```
 
-Use `NativeRuntimeApp` when Rust owns the native host directly: it owns a
-`GuiRuntime`, drains pending native events from `NativeEventSource`, applies
-action invocations through a reducer, and rerenders the next frame into the
-same host.
-
-On macOS, run the AppKit counter example to open a native window and pump real
-AppKit events through the same reducer loop:
+Run native smoke examples on the matching operating system:
 
 ```bash
+# macOS
 cargo run --example appkit_counter --features appkit-native
-```
-
-Run the AppKit controls smoke example to exercise text input, toggles, sliders,
-selects, tabs, actions, rerendering, and window-close exit in one window:
-
-```bash
 cargo run --example appkit_controls --features appkit-native
-```
 
-The AppKit loop exits when the root window or panel closes, or when the app
-state predicate passed to `run_appkit_while` returns false.
-
-On Windows, run the WinUI counter example to open a native WinUI 3 window and
-pump Windows messages through the same reducer loop:
-
-```bash
+# Windows
 cargo run --example winui_counter --features winui-native
-```
-
-Run the WinUI controls smoke example to exercise the same control and rerender
-path against real WinUI 3 widgets:
-
-```bash
 cargo run --example winui_controls --features winui-native
-```
 
-The WinUI loop exits when the root window closes, or when the app state
-predicate passed to `run_winui_while` returns false.
-
-On Linux, run the GTK4 counter example to open a native GTK window and pump
-GTK events through the same reducer loop:
-
-```bash
+# Linux
 cargo run --example gtk4_counter --features gtk4-native
-```
-
-Run the GTK4 controls smoke example to exercise the same control and rerender
-path against real GTK4 widgets:
-
-```bash
 cargo run --example gtk4_controls --features gtk4-native
 ```
 
-The GTK4 loop exits when the root window or dialog closes, or when the app
-state predicate passed to `run_gtk4_while` returns false.
-
-## Features
-
-- **Semantic input**: React Aria-style component names, intrinsic HTML/SVG
-  tags, stable keys, text children, and DOM-style event props.
-- **Native controls**: Text fields, buttons, links, forms, menus, tabs,
-  dialogs, tables, media, ranges, and common HTML form controls.
-- **Accessibility**: Labels, relationships, descriptions, structure, state,
-  live-region hints, and accessibility tree projection.
-- **Portable styling**: Inline style objects, CSS text, Tailwind-like utility
-  classes, and native visibility/interactivity state.
-- **Event routing**: Press, change, focus, blur, toggle, selection, keyboard,
-  and host-native events resolved to registered action ids.
-- **App state loops**: Reusable protocol and embedded-runtime loops for
-  reducer-driven rerendering after native actions.
-
-## Boundaries
-
-A3S GUI is not a WebView runtime. It does not provide a DOM, CSSOM, browser
-layout engine, or JavaScript object graph at the host boundary.
-
-| Concern | Status |
-|---------|--------|
-| Native widget rendering | In scope |
-| Serializable UI protocol frames | In scope |
-| AppKit, WinUI, GTK4 planning | In scope |
-| Browser DOM APIs | Out of scope |
-| Arbitrary CSS selector/layout behavior | Out of scope |
-| Treating `HTMLElement` objects as app state | Out of scope |
-
-Web-like input is accepted when it can be lowered to native roles, control
-state, accessibility hints, metadata, events, or portable style tokens.
+The `*_controls` examples exercise text input, toggles, sliders, selects, tabs,
+actions, rerendering, and root-window close handling through the same reducer
+loop. `NativeProtocolApp` is the reusable host-side protocol loop;
+`NativeRuntimeApp` is the embedded loop for Rust-owned native hosts.
 
 ## Feature Flags
 
@@ -206,17 +147,18 @@ The default feature is `headless`.
 
 ## Development
 
-Run checks from this crate directory:
+Run the common checks from this crate directory:
 
 ```bash
 cargo fmt --all
 cargo test
 cargo test --features appkit,winui,gtk4
+cargo test --examples
 npm test --prefix sdk/typescript
 git diff --check
 ```
 
-Native surface checks are OS-specific:
+Native surface checks are platform-specific:
 
 ```bash
 cargo check --features appkit-native
