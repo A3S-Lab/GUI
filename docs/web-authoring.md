@@ -108,7 +108,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | label `htmlFor` / label `for` / output `for` / meter `low` / `high` / `optimum` | normalized to native form association and meter range metadata when applicable |
 | `colSpan` / `rowSpan` / `headers` / `scope` / `abbr` / `span` / `start` / `reversed` / list `type` / `li value` | normalized to native table and list structure hints when applicable |
 | `onClick` / `onPress` | normalized to the primary native action |
-| `onChange` / `onInput` | normalized to the primary action for change, selection, and value-toggle controls; text-field change values are clamped to `maxLength`, and `onChange` wins when both are present |
+| `onChange` / `onInput` | normalized to the primary action for change, selection, and value-toggle controls; text-field change values are clamped to `maxLength`, slider change values are clamped to min/max range bounds, and `onChange` wins when both are present |
 | `onFocus` / `onBlur` / `onFocusChange` | routed from native focus and blur events; `onFocusChange` receives boolean string payloads |
 | `onToggle` / `onExpandedChange` | routed from native toggle events; expanded controls receive boolean string payloads |
 | `onKeyDown` / `onKeyUp` | routed from native keyboard events; `NativeEvent.value` carries the key or shortcut token when the host supplies one |
@@ -457,9 +457,10 @@ primary press action for activatable controls such as buttons, links, and menu
 items. Keyboard activation is also normalized into `Toggle` or
 `SelectionChange` events for checkboxes, switches, expanded controls, radios,
 listbox items, and tabs, so interaction state and action payloads stay
-semantic. Text-field change values are normalized against `maxLength` before
-the reducer sees the action payload, matching the native AppKit, GTK4, and
-WinUI text-entry limit behavior.
+semantic. Text-field change values are normalized against `maxLength`, and
+slider change values are normalized against min/max range bounds, before the
+reducer sees the action payload. This matches native AppKit, GTK4, and WinUI
+control limit behavior.
 `createUiFrame` also accepts `window.onClose` as an action-like value. Rust
 wraps the root in a native window with an `onClose` event binding, infers that
 action when frame actions are omitted, and dispatches it from

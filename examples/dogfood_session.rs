@@ -102,6 +102,14 @@ mod tests {
             "9",
         );
         assert_eq!(app.state().estimate, 9.0);
+        dispatch(
+            &mut app,
+            "onChange",
+            "setEstimate",
+            NativeEventKind::Change,
+            "99",
+        );
+        assert_eq!(app.state().estimate, 12.0);
 
         dispatch(
             &mut app,

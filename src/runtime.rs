@@ -196,7 +196,7 @@ impl<H: NativeHost> GuiRuntime<H> {
     ) -> NativeEvent {
         event = self.normalize_keyboard_activation(blueprint, route_blueprints, event);
         if event.value.is_some() {
-            return normalize_text_change_value(blueprint, event);
+            return normalize_change_value(blueprint, event);
         }
 
         match event.kind {
@@ -223,7 +223,7 @@ impl<H: NativeHost> GuiRuntime<H> {
             }
             _ => {}
         }
-        normalize_text_change_value(blueprint, event)
+        normalize_change_value(blueprint, event)
     }
 
     fn normalize_keyboard_activation(
@@ -463,25 +463,69 @@ fn selected_node_value(blueprint: &NativeWidgetBlueprint) -> Option<String> {
     blueprint.value.clone().or_else(|| blueprint.label.clone())
 }
 
+fn normalize_change_value(blueprint: &NativeWidgetBlueprint, event: NativeEvent) -> NativeEvent {
+    if event.kind != crate::event::NativeEventKind::Change {
+        return event;
+    }
+
+    match blueprint.role {
+        crate::native::NativeRole::TextField => normalize_text_change_value(blueprint, event),
+        crate::native::NativeRole::Slider => normalize_ranged_change_value(blueprint, event),
+        _ => event,
+    }
+}
+
 fn normalize_text_change_value(
     blueprint: &NativeWidgetBlueprint,
     mut event: NativeEvent,
 ) -> NativeEvent {
-    if blueprint.role != crate::native::NativeRole::TextField
-        || event.kind != crate::event::NativeEventKind::Change
+    if let (Some(max_length), Some(value)) =
+        (blueprint.control_state.max_length, event.value.as_deref())
     {
+        event.value = Some(truncate_to_max_length(value, max_length));
+    }
+    event
+}
+
+fn normalize_ranged_change_value(
+    blueprint: &NativeWidgetBlueprint,
+    mut event: NativeEvent,
+) -> NativeEvent {
+    let Some(value) = event
+        .value
+        .as_deref()
+        .and_then(|value| value.parse::<f64>().ok())
+    else {
+        return event;
+    };
+    if !value.is_finite() {
         return event;
     }
+    let min = blueprint.control_state.min;
+    let max = blueprint.control_state.max;
+    let value = clamp_range_value(value, min, max);
 
-    let Some(max_length) = blueprint.control_state.max_length else {
-        return event;
-    };
-    let Some(value) = event.value.as_deref() else {
-        return event;
-    };
-
-    event.value = Some(truncate_to_max_length(value, max_length));
+    event.value = Some(format_normalized_number(value));
     event
+}
+
+fn clamp_range_value(value: f64, min: Option<f64>, max: Option<f64>) -> f64 {
+    let mut value = value;
+    if let Some(min) = min {
+        value = value.max(min);
+    }
+    if let Some(max) = max {
+        value = value.min(max);
+    }
+    value
+}
+
+fn format_normalized_number(value: f64) -> String {
+    if value.fract() == 0.0 {
+        format!("{value:.0}")
+    } else {
+        value.to_string()
+    }
 }
 
 fn truncate_to_max_length(value: &str, max_length: u32) -> String {
@@ -1846,6 +1890,68 @@ mod tests {
         assert_eq!(
             runtime.actions().invocations()[0].value.as_deref(),
             Some("aé日")
+        );
+    }
+
+    #[test]
+    fn runtime_clamps_slider_change_values_to_range_bounds() {
+        let element = NativeElement::new("estimate", NativeRole::Slider).with_props(
+            NativeProps::new()
+                .label("Estimate")
+                .range(Some(1.0), Some(12.0), Some(6.0))
+                .web(WebProps::new().on_change("setEstimate")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setEstimate");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("99"),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("12"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("12")
+        );
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("12")
+        );
+        assert_eq!(
+            runtime.actions().invocations()[0].value.as_deref(),
+            Some("12")
+        );
+
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("0"),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("1"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("1")
+        );
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("1")
+        );
+        assert_eq!(
+            runtime.actions().invocations()[1].value.as_deref(),
+            Some("1")
         );
     }
 

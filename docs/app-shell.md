@@ -102,8 +102,8 @@ before A3S GUI is considered generally usable:
 
 - root window metadata, size hints, resize bounds, and `window.onClose`
 - menus and menu item actions
-- text input and textarea length/sizing hints, select, slider, tabs, switches,
-  and checkboxes
+- text input and textarea length/sizing hints, select, slider range bounds,
+  tabs, switches, and checkboxes
 - overflow-aware root containers that become native scroll viewports
 - reducer-driven rerendering after native events
 - dialog open and close state
