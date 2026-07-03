@@ -2187,6 +2187,59 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_clamps_text_change_values_to_max_length() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "setName"}],
+              "root": {
+                "kind": "element",
+                "key": "name",
+                "tag": "TextField",
+                "props": {
+                  "value": "Ada",
+                  "attributes": {"maxLength": "3"},
+                  "events": {"onChange": "setName"}
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let response = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("aé日b"),
+            })
+            .unwrap();
+
+        assert_eq!(
+            response
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("aé日")
+        );
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("aé日")
+        );
+        assert_eq!(
+            session.runtime().actions().invocations()[0]
+                .value
+                .as_deref(),
+            Some("aé日")
+        );
+    }
+
+    #[test]
     fn protocol_window_options_wrap_root_in_native_window() {
         let frame: UiFrame = serde_json::from_str(
             r#"

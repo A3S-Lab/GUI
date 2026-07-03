@@ -141,9 +141,11 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
                         "placeholder": "Task title",
                         "isRequired": true,
                         "isInvalid": state.title.trim().is_empty(),
-                        "attributes": {"autoFocus": "true"},
-                        "size": 48,
-                        "maxLength": 96,
+                        "attributes": {
+                            "autoFocus": "true",
+                            "size": "48",
+                            "maxLength": "96"
+                        },
                         "events": {
                             "onInput": "updateTitle",
                             "onChange": "updateTitle",
@@ -160,9 +162,7 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
                     "props": {
                         "value": state.notes,
                         "placeholder": "Notes",
-                        "rows": 4,
-                        "cols": 54,
-                        "maxLength": 240,
+                        "attributes": {"rows": "4", "cols": "54", "maxLength": "240"},
                         "events": {"onInput": "updateNotes", "onChange": "updateNotes"},
                         "style": {"inlineSize": 640, "blockSize": 96}
                     }

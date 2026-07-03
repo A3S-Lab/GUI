@@ -212,10 +212,16 @@ mod tests {
         assert!(title.control_state.auto_focus);
         assert!(title.control_state.required);
         assert!(!title.control_state.invalid);
+        assert_eq!(title.control_state.size, Some(48));
+        assert_eq!(title.control_state.max_length, Some(96));
         assert_eq!(
             title.portable_style.native_size_constraints().width,
             Some(640.0)
         );
+        let notes = find_event_blueprint(&app, "onInput", "updateNotes").1;
+        assert_eq!(notes.control_state.rows, Some(4));
+        assert_eq!(notes.control_state.cols, Some(54));
+        assert_eq!(notes.control_state.max_length, Some(240));
 
         dispatch(
             &mut app,

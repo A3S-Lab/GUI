@@ -249,6 +249,9 @@ listbox items or tabs.
 Native event routing tries the target widget first, then mounted ancestors, so
 child widget callbacks can reach container-level handlers. Selection events
 without a value are normalized from the selected child's value or label.
+Text-field change values are clamped to `maxLength` before interaction state or
+action dispatch, so protocol hosts and native backends share the same length
+contract.
 Empty event action ids are ignored rather than dispatched.
 `ActionRegistry` records and validates non-empty action ids before they are
 handed to the JavaScript state bridge. Hosts that implement

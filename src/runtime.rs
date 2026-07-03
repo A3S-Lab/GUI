@@ -196,7 +196,7 @@ impl<H: NativeHost> GuiRuntime<H> {
     ) -> NativeEvent {
         event = self.normalize_keyboard_activation(blueprint, route_blueprints, event);
         if event.value.is_some() {
-            return event;
+            return normalize_text_change_value(blueprint, event);
         }
 
         match event.kind {
@@ -223,7 +223,7 @@ impl<H: NativeHost> GuiRuntime<H> {
             }
             _ => {}
         }
-        event
+        normalize_text_change_value(blueprint, event)
     }
 
     fn normalize_keyboard_activation(
@@ -461,6 +461,36 @@ fn selected_node_value(blueprint: &NativeWidgetBlueprint) -> Option<String> {
         return None;
     }
     blueprint.value.clone().or_else(|| blueprint.label.clone())
+}
+
+fn normalize_text_change_value(
+    blueprint: &NativeWidgetBlueprint,
+    mut event: NativeEvent,
+) -> NativeEvent {
+    if blueprint.role != crate::native::NativeRole::TextField
+        || event.kind != crate::event::NativeEventKind::Change
+    {
+        return event;
+    }
+
+    let Some(max_length) = blueprint.control_state.max_length else {
+        return event;
+    };
+    let Some(value) = event.value.as_deref() else {
+        return event;
+    };
+
+    event.value = Some(truncate_to_max_length(value, max_length));
+    event
+}
+
+fn truncate_to_max_length(value: &str, max_length: u32) -> String {
+    let max_length = max_length as usize;
+    if value.chars().count() <= max_length {
+        value.to_string()
+    } else {
+        value.chars().take(max_length).collect()
+    }
 }
 
 fn has_explicit_key_down_handler(
@@ -1778,6 +1808,45 @@ mod tests {
             Some("Ada")
         );
         assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
+    fn runtime_clamps_text_change_values_to_max_length() {
+        let element = NativeElement::new("name", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Name")
+                .value("Ada")
+                .max_length(Some(3))
+                .web(WebProps::new().on_change("setName")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setName");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("aé日b"),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("aé日"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("aé日")
+        );
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("aé日")
+        );
+        assert_eq!(
+            runtime.actions().invocations()[0].value.as_deref(),
+            Some("aé日")
+        );
     }
 
     #[test]
