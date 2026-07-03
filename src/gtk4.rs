@@ -513,9 +513,11 @@ mod tests {
     use super::*;
     use crate::backend::CommandExecutingHost;
     use crate::compiler::CompiledJsxNode;
+    use crate::geometry::Orientation;
     use crate::native::{NativeElement, NativeRole};
     use crate::platform::{Gtk4Adapter, PlatformAdapter};
     use crate::runtime::GuiRuntime;
+    use crate::style::{OverflowMode, StyleLength};
 
     #[test]
     fn gtk4_widget_driver_reparents_children_and_removes_subtrees() {
@@ -837,5 +839,67 @@ mod tests {
         assert!(state
             .applied_setters
             .contains(&NativeWidgetSetter::SetEnabled(false)));
+    }
+
+    #[test]
+    fn gtk4_scroll_handle_adapter_applies_rerender_style_setters() {
+        let first: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "shell",
+              "tag": "Toolbar",
+              "props": {
+                "orientation": "vertical",
+                "style": {"overflowY": "auto", "gap": 8, "inlineSize": 320}
+              },
+              "children": [{"kind": "text", "key": "summary", "value": "Ready"}]
+            }
+            "#,
+        )
+        .unwrap();
+        let second: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "shell",
+              "tag": "Toolbar",
+              "props": {
+                "orientation": "horizontal",
+                "style": {"overflowX": "scroll", "overflowY": "auto", "gap": 12, "inlineSize": 420}
+              },
+              "children": [{"kind": "text", "key": "summary", "value": "Ready"}]
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(Gtk4Adapter, Gtk4HandleCommandExecutor::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_compiled(&first).unwrap();
+        let initial_setter_count = {
+            let handle = runtime.host().executor().driver().handle(root_id).unwrap();
+            let state = handle.state();
+            assert_eq!(state.kind, Gtk4WidgetKind::ScrolledWindow);
+            state.applied_setters.len()
+        };
+
+        runtime.render_compiled(&second).unwrap();
+        let handle = runtime.host().executor().driver().handle(root_id).unwrap();
+        let state = handle.state();
+        let update_setters = &state.applied_setters[initial_setter_count..];
+
+        assert_eq!(state.kind, Gtk4WidgetKind::ScrolledWindow);
+        assert!(
+            update_setters.contains(&NativeWidgetSetter::SetOrientation(Some(
+                Orientation::Horizontal
+            )))
+        );
+        assert!(update_setters.iter().any(|setter| matches!(
+            setter,
+            NativeWidgetSetter::SetPortableStyle(style)
+                if style.overflow_x == Some(OverflowMode::Scroll)
+                    && style.gap.as_ref().and_then(StyleLength::points) == Some(12.0)
+        )));
     }
 }

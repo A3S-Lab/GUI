@@ -403,7 +403,9 @@ scroll shells. AppKit uses `NSScrollView` with an internal `NSStackView`, WinUI
 uses `ScrollViewer` with an internal `StackPanel`, and GTK4 uses
 `gtk::ScrolledWindow` with an internal `gtk::Box`. Children continue to mount
 inside the internal container, while the outer scroll widget is what the parent
-native view owns.
+native view owns. Native surface update paths keep the scroll policy, inner
+container orientation, spacing, and explicit viewport size in sync across
+rerenders.
 Native bindings can call `blueprint.config()` to derive a `NativeWidgetConfig`
 with setter-oriented values such as `enabled`, `visible`, `placeholder`,
 range bounds, range step state, selected/checked state, read-only state,

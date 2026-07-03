@@ -586,6 +586,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     | Gtk4OsWidget::Switch(_)
                     | Gtk4OsWidget::DropDown(_)
                     | Gtk4OsWidget::ListBox(_)
+                    | Gtk4OsWidget::ScrolledWindow { .. }
                     | Gtk4OsWidget::Notebook(_)
                     | Gtk4OsWidget::Separator(_)
                     | Gtk4OsWidget::Scale(_)
@@ -684,6 +685,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Popover(_)
                 | Gtk4OsWidget::Menu(_)
                 | Gtk4OsWidget::Box(_)
+                | Gtk4OsWidget::ScrolledWindow { .. }
                 | Gtk4OsWidget::Button(_)
                 | Gtk4OsWidget::CheckButton(_)
                 | Gtk4OsWidget::Switch(_)
@@ -760,6 +762,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::TextView(_)
                 | Gtk4OsWidget::DropDown(_)
                 | Gtk4OsWidget::ListBox(_)
+                | Gtk4OsWidget::ScrolledWindow { .. }
                 | Gtk4OsWidget::ListBoxRow { .. }
                 | Gtk4OsWidget::Notebook(_)
                 | Gtk4OsWidget::Separator(_)
@@ -818,15 +821,42 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     if let Some(orientation) = style.flex_direction {
                         box_.set_orientation(gtk_orientation(orientation));
                     }
-                    if let Some(gap) = style.gap.as_ref().and_then(StyleLength::points) {
-                        box_.set_spacing(points_to_i32(gap));
+                    let gap = style
+                        .gap
+                        .as_ref()
+                        .and_then(StyleLength::points)
+                        .unwrap_or(0.0);
+                    box_.set_spacing(points_to_i32(gap));
+                }
+                if let Gtk4OsWidget::ScrolledWindow {
+                    scrolled_window,
+                    content,
+                } = &handle.widget
+                {
+                    scrolled_window.set_policy(
+                        gtk4_scroll_policy(style.overflow_x),
+                        gtk4_scroll_policy(style.overflow_y),
+                    );
+                    if let Some(orientation) = style.flex_direction {
+                        content.set_orientation(gtk_orientation(orientation));
                     }
+                    let gap = style
+                        .gap
+                        .as_ref()
+                        .and_then(StyleLength::points)
+                        .unwrap_or(0.0);
+                    content.set_spacing(points_to_i32(gap));
                 }
             }
             NativeWidgetSetter::SetOrientation(value) => match &handle.widget {
                 Gtk4OsWidget::Box(box_) => {
                     if let Some(value) = value {
                         box_.set_orientation(gtk_orientation(*value));
+                    }
+                }
+                Gtk4OsWidget::ScrolledWindow { content, .. } => {
+                    if let Some(value) = value {
+                        content.set_orientation(gtk_orientation(*value));
                     }
                 }
                 Gtk4OsWidget::Separator(separator) => {

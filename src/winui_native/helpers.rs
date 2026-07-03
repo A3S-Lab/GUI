@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::style::PortableStyle;
+use crate::style::{PortableStyle, StyleLength};
 
 pub(super) fn set_label(widget: &WinUiOsWidget, value: Option<&str>) -> GuiResult<()> {
     let value = value.unwrap_or_default();
@@ -267,6 +267,19 @@ pub(super) fn set_orientation(
     Ok(())
 }
 
+pub(super) fn apply_stack_panel_spacing(
+    panel: &Controls::StackPanel,
+    style: &PortableStyle,
+    context: &'static str,
+) -> GuiResult<()> {
+    let spacing = style
+        .gap
+        .as_ref()
+        .and_then(StyleLength::points)
+        .unwrap_or(0.0);
+    map_winui(context, panel.SetSpacing(spacing))
+}
+
 pub(super) fn create_winui_separator(
     orientation: Option<A3sOrientation>,
 ) -> GuiResult<xaml::FrameworkElement> {
@@ -365,6 +378,22 @@ pub(super) fn apply_portable_style(widget: &WinUiOsWidget, style: &PortableStyle
             "failed to set WinUI element maximum height",
             element.SetMaxHeight(value),
         )?;
+    }
+    if style.flex_direction.is_some() {
+        set_orientation(widget, style.flex_direction)?;
+    }
+    match widget {
+        WinUiOsWidget::StackPanel(panel) => {
+            apply_stack_panel_spacing(panel, style, "failed to set WinUI stack panel spacing")?;
+        }
+        WinUiOsWidget::ScrollViewer { content, .. } => {
+            apply_stack_panel_spacing(
+                content,
+                style,
+                "failed to set WinUI scroll viewer content spacing",
+            )?;
+        }
+        _ => {}
     }
     Ok(())
 }

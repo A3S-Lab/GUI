@@ -48,6 +48,11 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                         panel.SetOrientation(orientation),
                     )?;
                 }
+                apply_stack_panel_spacing(
+                    &panel,
+                    &config.portable_style,
+                    "failed to set WinUI stack panel spacing",
+                )?;
                 WinUiOsWidget::StackPanel(panel)
             }
             WinUiWidgetKind::TextBlock => {
@@ -200,6 +205,11 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                         content.SetOrientation(orientation),
                     )?;
                 }
+                apply_stack_panel_spacing(
+                    &content,
+                    &config.portable_style,
+                    "failed to set WinUI scroll viewer content spacing",
+                )?;
                 let content_object = map_winui(
                     "failed to inspect WinUI scroll viewer content panel",
                     content.cast::<windows_core::IInspectable>(),
@@ -418,6 +428,20 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             }
             NativeWidgetSetter::SetPortableStyle(style) => {
                 apply_portable_style(&handle.widget, style)?;
+                if let WinUiOsWidget::ScrollViewer { viewer, .. } = &handle.widget {
+                    map_winui(
+                        "failed to set WinUI scroll viewer horizontal policy",
+                        viewer.SetHorizontalScrollBarVisibility(winui_scroll_visibility(
+                            style.overflow_x,
+                        )),
+                    )?;
+                    map_winui(
+                        "failed to set WinUI scroll viewer vertical policy",
+                        viewer.SetVerticalScrollBarVisibility(winui_scroll_visibility(
+                            style.overflow_y,
+                        )),
+                    )?;
+                }
                 if let WinUiOsWidget::Window(window) = &handle.widget {
                     apply_winui_window_portable_style(window, style)?;
                 }

@@ -646,9 +646,11 @@ mod tests {
     use super::*;
     use crate::backend::CommandExecutingHost;
     use crate::compiler::CompiledJsxNode;
+    use crate::geometry::Orientation;
     use crate::native::{NativeElement, NativeProps, NativeRole};
     use crate::platform::{AppKitAdapter, PlatformAdapter};
     use crate::runtime::GuiRuntime;
+    use crate::style::{OverflowMode, StyleLength};
 
     #[test]
     fn appkit_text_input_hints_disable_completion_for_structured_fields() {
@@ -1033,5 +1035,67 @@ mod tests {
         assert!(state
             .applied_setters
             .contains(&NativeWidgetSetter::SetLabel(Some("Save".to_string()))));
+    }
+
+    #[test]
+    fn appkit_scroll_handle_adapter_applies_rerender_style_setters() {
+        let first: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "shell",
+              "tag": "Toolbar",
+              "props": {
+                "orientation": "vertical",
+                "style": {"overflowY": "auto", "gap": 8, "inlineSize": 320}
+              },
+              "children": [{"kind": "text", "key": "summary", "value": "Ready"}]
+            }
+            "#,
+        )
+        .unwrap();
+        let second: CompiledJsxNode = serde_json::from_str(
+            r#"
+            {
+              "kind": "element",
+              "key": "shell",
+              "tag": "Toolbar",
+              "props": {
+                "orientation": "horizontal",
+                "style": {"overflowX": "scroll", "overflowY": "auto", "gap": 12, "inlineSize": 420}
+              },
+              "children": [{"kind": "text", "key": "summary", "value": "Ready"}]
+            }
+            "#,
+        )
+        .unwrap();
+        let host = CommandExecutingHost::new(AppKitAdapter, AppKitHandleCommandExecutor::default());
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_compiled(&first).unwrap();
+        let initial_setter_count = {
+            let handle = runtime.host().executor().driver().handle(root_id).unwrap();
+            let state = handle.state();
+            assert_eq!(state.kind, AppKitWidgetKind::ScrollView);
+            state.applied_setters.len()
+        };
+
+        runtime.render_compiled(&second).unwrap();
+        let handle = runtime.host().executor().driver().handle(root_id).unwrap();
+        let state = handle.state();
+        let update_setters = &state.applied_setters[initial_setter_count..];
+
+        assert_eq!(state.kind, AppKitWidgetKind::ScrollView);
+        assert!(
+            update_setters.contains(&NativeWidgetSetter::SetOrientation(Some(
+                Orientation::Horizontal
+            )))
+        );
+        assert!(update_setters.iter().any(|setter| matches!(
+            setter,
+            NativeWidgetSetter::SetPortableStyle(style)
+                if style.overflow_x == Some(OverflowMode::Scroll)
+                    && style.gap.as_ref().and_then(StyleLength::points) == Some(12.0)
+        )));
     }
 }

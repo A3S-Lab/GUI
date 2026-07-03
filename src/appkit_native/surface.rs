@@ -222,9 +222,10 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     config_rect(&config, 180.0, 96.0),
                 );
                 stack_view.setDistribution(NSStackViewDistribution::GravityAreas);
-                stack_view.setOrientation(appkit_stack_orientation(
-                    config.orientation.unwrap_or(Orientation::Vertical),
-                ));
+                apply_stack_view_layout(&stack_view, &config.portable_style, config.orientation);
+                if config.orientation.is_none() && config.portable_style.flex_direction.is_none() {
+                    stack_view.setOrientation(appkit_stack_orientation(Orientation::Vertical));
+                }
                 AppKitOsWidget::StackView(stack_view)
             }
             AppKitWidgetKind::Toolbar => {
@@ -233,9 +234,10 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     config_rect(&config, 320.0, 44.0),
                 );
                 stack_view.setDistribution(NSStackViewDistribution::GravityAreas);
-                stack_view.setOrientation(appkit_stack_orientation(
-                    config.orientation.unwrap_or(Orientation::Horizontal),
-                ));
+                apply_stack_view_layout(&stack_view, &config.portable_style, config.orientation);
+                if config.orientation.is_none() && config.portable_style.flex_direction.is_none() {
+                    stack_view.setOrientation(appkit_stack_orientation(Orientation::Horizontal));
+                }
                 AppKitOsWidget::StackView(stack_view)
             }
             AppKitWidgetKind::Radio => {
@@ -353,9 +355,10 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     NSRect::new(NSPoint::new(0.0, 0.0), rect.size),
                 );
                 stack_view.setDistribution(NSStackViewDistribution::GravityAreas);
-                stack_view.setOrientation(appkit_stack_orientation(
-                    config.orientation.unwrap_or(Orientation::Vertical),
-                ));
+                apply_stack_view_layout(&stack_view, &config.portable_style, config.orientation);
+                if config.orientation.is_none() && config.portable_style.flex_direction.is_none() {
+                    stack_view.setOrientation(appkit_stack_orientation(Orientation::Vertical));
+                }
                 scroll_view.setDocumentView(Some(stack_view.as_super()));
 
                 AppKitOsWidget::ScrollView(AppKitScrollViewState {
@@ -815,6 +818,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         self.apply_text_input_size(id, text_field.as_super());
                     }
                 }
+                if let AppKitOsWidget::StackView(stack_view) = &handle.widget {
+                    apply_stack_view_layout(stack_view, style, None);
+                }
+                if let AppKitOsWidget::ScrollView(state) = &handle.widget {
+                    apply_scroll_view_layout(state, style);
+                }
             }
             NativeWidgetSetter::SetChecked(value) => match &handle.widget {
                 AppKitOsWidget::Button(button) => {
@@ -998,6 +1007,13 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 if let (AppKitOsWidget::Slider(slider), Some(orientation)) = (&handle.widget, value)
                 {
                     apply_slider_orientation(slider, *orientation);
+                }
+                if let (AppKitOsWidget::ScrollView(state), Some(orientation)) =
+                    (&handle.widget, value)
+                {
+                    state
+                        .stack_view
+                        .setOrientation(appkit_stack_orientation(*orientation));
                 }
             }
             NativeWidgetSetter::SetAutocomplete(_)

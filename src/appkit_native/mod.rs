@@ -45,6 +45,7 @@ use crate::platform::{
     NativeWidgetConfig, NativeWidgetSetter,
 };
 use crate::protocol::UiFrame;
+use crate::style::{OverflowMode, PortableStyle, StyleLength};
 
 mod surface;
 
@@ -1095,6 +1096,57 @@ fn apply_window_portable_style(window: &NSWindow, style: &crate::style::Portable
             size.max_height.unwrap_or(current.height),
         ));
     }
+}
+
+fn apply_scroll_view_layout(state: &AppKitScrollViewState, style: &PortableStyle) {
+    state
+        .scroll_view
+        .setHasVerticalScroller(appkit_vertical_scroll_enabled_for_style(style));
+    state
+        .scroll_view
+        .setHasHorizontalScroller(appkit_horizontal_scroll_enabled_for_style(style));
+    apply_stack_view_layout(&state.stack_view, style, None);
+
+    let size = style.native_size_constraints();
+    if size.width.is_some() || size.height.is_some() {
+        let current = state.stack_view.frame().size;
+        state.stack_view.setFrameSize(NSSize::new(
+            size.width.unwrap_or(current.width.max(120.0)),
+            size.height.unwrap_or(current.height.max(32.0)),
+        ));
+    }
+}
+
+fn apply_stack_view_layout(
+    stack_view: &NSStackView,
+    style: &PortableStyle,
+    orientation: Option<Orientation>,
+) {
+    if let Some(orientation) = orientation.or(style.flex_direction) {
+        stack_view.setOrientation(appkit_stack_orientation(orientation));
+    }
+    let gap = style
+        .gap
+        .as_ref()
+        .and_then(StyleLength::points)
+        .unwrap_or(0.0);
+    unsafe {
+        let _: () = msg_send![stack_view, setSpacing: gap];
+    }
+}
+
+fn appkit_vertical_scroll_enabled_for_style(style: &PortableStyle) -> bool {
+    scroll_enabled(style.overflow_y)
+        || scroll_enabled(style.overflow_block)
+        || (!scroll_enabled(style.overflow_x) && !scroll_enabled(style.overflow_inline))
+}
+
+fn appkit_horizontal_scroll_enabled_for_style(style: &PortableStyle) -> bool {
+    scroll_enabled(style.overflow_x) || scroll_enabled(style.overflow_inline)
+}
+
+fn scroll_enabled(value: Option<OverflowMode>) -> bool {
+    matches!(value, Some(OverflowMode::Auto | OverflowMode::Scroll))
 }
 
 fn appkit_stack_orientation(orientation: Orientation) -> NSUserInterfaceLayoutOrientation {
