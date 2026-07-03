@@ -88,6 +88,11 @@ impl CompiledProps {
         let html_range_step = html_range_step_state(tag, &web);
         let html_control = HtmlControlAliases::from_tag(tag, &web);
         let html_global = HtmlGlobalAliases::from_web(&web);
+        let html_hidden_input = canonical_html_tag(tag).is_some_and(|tag| tag == "input")
+            && html_control
+                .input_type
+                .as_deref()
+                .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("hidden"));
         let html_resource = HtmlResourceAliases::from_tag(tag, &web);
         let html_resource_policy = html_resource_policy_props_from_tag(tag, &web);
         let html_activation = html_activation_props_from_tag(tag, &web);
@@ -154,7 +159,7 @@ impl CompiledProps {
         props.cols = semantic.cols;
         props.size = semantic.size;
         props.title = html_global.title;
-        props.hidden = html_global.hidden;
+        props.hidden = html_global.hidden || html_hidden_input;
         props.lang = html_global.lang;
         props.dir = html_global.dir;
         props.tab_index = html_global.tab_index;

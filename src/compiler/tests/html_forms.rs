@@ -691,6 +691,28 @@ fn lowers_html_input_types_to_native_form_roles() {
     assert_eq!(native_button.role, NativeRole::Button);
     assert_eq!(native_button.props.label.as_deref(), Some("Open panel"));
 
+    let hidden = CompiledJsxNode::Element {
+        key: "csrf".to_string(),
+        tag: "input".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            value: Some("csrf-token".to_string()),
+            attributes: BTreeMap::from([
+                ("type".to_string(), "hidden".to_string()),
+                ("name".to_string(), "csrf".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let native_hidden = bridge.lower_to_native(&hidden).unwrap();
+
+    assert_eq!(native_hidden.role, NativeRole::TextField);
+    assert!(native_hidden.props.hidden);
+    assert_eq!(native_hidden.props.name.as_deref(), Some("csrf"));
+    assert_eq!(native_hidden.props.value.as_deref(), Some("csrf-token"));
+    assert_eq!(native_hidden.props.input_type.as_deref(), Some("hidden"));
+
     let image_button = CompiledJsxNode::Element {
         key: "image-submit".to_string(),
         tag: "input".to_string(),
