@@ -105,6 +105,13 @@ Use `NativeRuntimeApp` when Rust owns the native host directly: it owns a
 action invocations through a reducer, and rerenders the next frame into the
 same host.
 
+On macOS, run the AppKit counter example to open a native window and pump real
+AppKit events through the same reducer loop:
+
+```bash
+cargo run --example appkit_counter --features appkit-native
+```
+
 ## Features
 
 - **Semantic input**: React Aria-style component names, intrinsic HTML/SVG

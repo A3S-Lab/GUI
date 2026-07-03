@@ -13,6 +13,10 @@ categories = ["gui", "rendering", "accessibility"]
 name = "a3s_gui"
 path = "src/lib.rs"
 
+[[example]]
+name = "appkit_counter"
+required-features = ["appkit-native"]
+
 [features]
 default = ["headless"]
 headless = []
@@ -46,6 +50,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSCell",
     "NSComboBox",
     "NSControl",
+    "NSEvent",
     "NSGraphics",
     "NSMenu",
     "NSMenuItem",
@@ -69,8 +74,10 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
 ], optional = true }
 objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "std",
+    "NSDate",
     "NSGeometry",
     "NSObject",
+    "NSRunLoop",
     "NSString",
 ], optional = true }
 

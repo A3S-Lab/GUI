@@ -13,16 +13,19 @@ use objc2::{
 use objc2_app_kit::{
     NSApplication, NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSButton, NSComboBox,
     NSComboBoxDelegate, NSControl, NSControlStateValue, NSControlStateValueOff,
-    NSControlStateValueOn, NSControlTextEditingDelegate, NSMenu, NSMenuItem, NSPanel, NSPopover,
-    NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView, NSSearchField,
-    NSSearchFieldDelegate, NSSecureTextField, NSSlider, NSStackView, NSStackViewDistribution,
-    NSSwitch, NSTabView, NSTabViewDelegate, NSTabViewItem, NSTextField, NSTextFieldDelegate,
-    NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow, NSWindowStyleMask,
+    NSControlStateValueOn, NSControlTextEditingDelegate, NSEventMask, NSMenu, NSMenuItem, NSPanel,
+    NSPopover, NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView,
+    NSSearchField, NSSearchFieldDelegate, NSSecureTextField, NSSlider, NSStackView,
+    NSStackViewDistribution, NSSwitch, NSTabView, NSTabViewDelegate, NSTabViewItem, NSTextField,
+    NSTextFieldDelegate, NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow,
+    NSWindowStyleMask,
 };
 use objc2_foundation::{
-    NSInteger, NSNotification, NSObject, NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
+    NSDate, NSDefaultRunLoopMode, NSInteger, NSNotification, NSObject, NSObjectProtocol, NSPoint,
+    NSRect, NSSize, NSString,
 };
 
+use crate::app::{NativeRuntimeApp, NativeRuntimeEventResponse};
 use crate::appkit::{
     appkit_text_input_hints, AppKitTextInputHints, AppKitTextInputTrait, AppKitWidgetKind,
 };
@@ -40,6 +43,7 @@ use crate::platform::{
     apply_widget_setter, AppKitAdapter, NativeBackendKind, NativeWidgetBlueprint,
     NativeWidgetConfig, NativeWidgetSetter,
 };
+use crate::protocol::UiFrame;
 use crate::style::StyleLength;
 
 mod surface;
@@ -47,6 +51,9 @@ mod surface;
 pub type AppKitNativeSurfaceAdapter = SurfaceHandleAdapter<AppKitNativeSurface>;
 pub type AppKitNativeSurfaceDriver = HandleWidgetDriver<AppKitNativeSurfaceAdapter>;
 pub type AppKitNativeSurfaceCommandExecutor = DriverCommandExecutor<AppKitNativeSurfaceDriver>;
+pub type AppKitRuntimeHost =
+    CommandExecutingHost<AppKitAdapter, AppKitNativeSurfaceCommandExecutor>;
+pub type AppKitRuntimeApp<S, F, R> = NativeRuntimeApp<AppKitRuntimeHost, S, F, R>;
 
 const MAX_APPKIT_SLIDER_TICK_MARKS: NSInteger = 101;
 const APPKIT_TEXT_INPUT_DEFAULT_WIDTH: f64 = 120.0;
@@ -71,6 +78,12 @@ pub struct AppKitNativeSurface {
     text_inputs: BTreeMap<HostNodeId, AppKitTextInputSizing>,
     text_input_configs: BTreeMap<HostNodeId, NativeWidgetConfig>,
     menus: AppKitMenuRegistry,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppKitEventWait {
+    Poll,
+    Wait,
 }
 
 impl AppKitNativeSurface {
@@ -102,6 +115,10 @@ impl AppKitNativeSurface {
 
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn application(&self) -> &NSApplication {
+        &self._application
     }
 
     pub fn into_driver(self) -> AppKitNativeSurfaceDriver {
@@ -284,6 +301,85 @@ impl AppKitNativeSurface {
             rows.push(row);
         }
         *state.rows.borrow_mut() = rows;
+        Ok(())
+    }
+}
+
+impl AppKitEventWait {
+    fn expiration(self) -> objc2::rc::Retained<NSDate> {
+        match self {
+            Self::Poll => NSDate::distantPast(),
+            Self::Wait => NSDate::distantFuture(),
+        }
+    }
+}
+
+impl<S, F, R> NativeRuntimeApp<AppKitRuntimeHost, S, F, R>
+where
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &crate::event::ActionInvocation) -> GuiResult<()>,
+{
+    pub fn appkit(state: S, frame_builder: F, action_reducer: R) -> GuiResult<Self> {
+        Ok(Self::new(
+            AppKitNativeSurface::new()?.into_host(),
+            state,
+            frame_builder,
+            action_reducer,
+        ))
+    }
+
+    pub fn pump_appkit_event(
+        &mut self,
+        wait: AppKitEventWait,
+    ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        let mut responses = self.handle_pending_native_events()?;
+        let expiration = wait.expiration();
+        let event = self
+            .runtime()
+            .host()
+            .executor()
+            .driver()
+            .adapter()
+            .surface()
+            .application()
+            .nextEventMatchingMask_untilDate_inMode_dequeue(
+                NSEventMask::Any,
+                Some(&expiration),
+                unsafe { NSDefaultRunLoopMode },
+                true,
+            );
+
+        if let Some(event) = event {
+            let application = self
+                .runtime()
+                .host()
+                .executor()
+                .driver()
+                .adapter()
+                .surface()
+                .application();
+            application.sendEvent(&event);
+            application.updateWindows();
+            responses.extend(self.handle_pending_native_events()?);
+        }
+
+        Ok(responses)
+    }
+
+    pub fn run_appkit(&mut self) -> GuiResult<()> {
+        self.run_appkit_while(|_| true)
+    }
+
+    pub fn run_appkit_while(
+        &mut self,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<()> {
+        if self.root().is_none() {
+            self.render()?;
+        }
+        while should_continue(self.state()) {
+            self.pump_appkit_event(AppKitEventWait::Wait)?;
+        }
         Ok(())
     }
 }

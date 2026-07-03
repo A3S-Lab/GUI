@@ -497,6 +497,9 @@ Feature-gated platform executor surfaces:
   native orientation and step hints and enqueue ranged `NativeEventKind::Change`
   records with the current double value, while `NSProgressIndicator` is updated
   by setter-driven ranged state.
+  `AppKitRuntimeApp` provides the embedded app loop for this backend: it
+  renders into an `AppKitNativeSurface`, pumps AppKit events, drains queued A3S
+  native events, runs the application reducer, and rerenders the next frame.
   These event paths flow through the existing `NativeEventSource` boundary.
 - `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button`,
   `Microsoft.UI.Xaml.Controls.TextBox`,

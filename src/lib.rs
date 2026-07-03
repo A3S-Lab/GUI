@@ -59,8 +59,9 @@ pub use appkit::{
 };
 #[cfg(all(feature = "appkit-native", target_os = "macos"))]
 pub use appkit_native::{
-    AppKitComboBoxItem, AppKitNativeSurface, AppKitNativeSurfaceAdapter,
+    AppKitComboBoxItem, AppKitEventWait, AppKitNativeSurface, AppKitNativeSurfaceAdapter,
     AppKitNativeSurfaceCommandExecutor, AppKitNativeSurfaceDriver, AppKitOsHandle, AppKitOsWidget,
+    AppKitRuntimeApp, AppKitRuntimeHost,
 };
 pub use backend::{
     CommandExecutingHost, DriverCommandExecutor, HandleWidgetDriver, NativeEventHost,
