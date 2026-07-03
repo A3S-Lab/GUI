@@ -90,7 +90,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `data-*` | preserved as metadata for testing, analytics, and automation |
 | `disabled` / `required` / `checked` / `selected` | normalized to React Aria-style native control state |
 | `min` / `max` / `step` / `aria-valuenow` | normalized to native ranged control state |
-| `readOnly` / `multiple` / `autoFocus` | normalized to native control state; `autoFocus` seeds initial runtime focus for rendered accessibility trees and lets real native surfaces request platform focus where their bindings expose it, `readOnly` suppresses value-changing events, and `readOnly` plus `multiple` are exposed in rendered accessibility trees |
+| `readOnly` / `multiple` / `autoFocus` | normalized to native control state; `autoFocus` seeds initial runtime focus for rendered accessibility trees only in renderable, non-disabled subtrees and lets real native surfaces request platform focus where their bindings expose it, `readOnly` suppresses value-changing events, and `readOnly` plus `multiple` are exposed in rendered accessibility trees |
 | `autoComplete` / `inputMode` / `enterKeyHint` / `autoCapitalize` / `autoCorrect` / `virtualKeyboardPolicy` / `pattern` | normalized to native text-entry hints and preserved as metadata |
 | `minLength` / `maxLength` / `rows` / `cols` / `size` | normalized to native numeric control hints and preserved as metadata |
 | `input type="hidden"` | preserves form `name`, `form`, `type`, and `value` state but marks the native widget config invisible and suppresses rendered accessibility and native event projection |
@@ -473,12 +473,12 @@ controls suppress user activation and input events. Read-only controls still
 allow focus, blur, press, and explicit keyboard routing, but suppress value,
 selection, and toggle events before state changes or action dispatch.
 On the first render without prior focus history, the first renderable
-`autoFocus` control seeds runtime focus for accessibility projection. AppKit
-and GTK native surfaces also defer the request until the target is mounted and
-then ask the platform to focus it; WinUI records the pending target but waits
-for native focus callbacks because the current `winio-winui3` binding does not
-wrap programmatic focus. Later native focus and blur events take ownership of
-focus state.
+`autoFocus` control outside hidden, inert, and disabled ancestor subtrees seeds
+runtime focus for accessibility projection. AppKit and GTK native surfaces also
+defer the request until the target is mounted and then ask the platform to focus
+it; WinUI records the pending target but waits for native focus callbacks
+because the current `winio-winui3` binding does not wrap programmatic focus.
+Later native focus and blur events take ownership of focus state.
 
 For folded controls, event ownership follows the source element structure. For
 example, `TextField` receives the visible label, while `Input` can own

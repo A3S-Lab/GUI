@@ -1382,6 +1382,72 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_skips_disabled_subtree_auto_focus() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "tools",
+                "tag": "Toolbar",
+                "children": [
+                  {
+                    "kind": "element",
+                    "key": "review-gate",
+                    "tag": "FieldSet",
+                    "props": {"isDisabled": true, "label": "Review gate"},
+                    "children": [
+                      {
+                        "kind": "element",
+                        "key": "finish-review",
+                        "tag": "Button",
+                        "props": {
+                          "attributes": {
+                            "aria-label": "Complete review",
+                            "autoFocus": "true"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "kind": "element",
+                    "key": "title",
+                    "tag": "TextField",
+                    "props": {
+                      "attributes": {
+                        "aria-label": "Task title",
+                        "autoFocus": "true"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let response = session.render_frame(&frame).unwrap();
+        let accessibility = response.accessibility_tree.as_ref().unwrap();
+
+        assert_eq!(accessibility.children.len(), 2);
+        assert_eq!(
+            accessibility.children[0].children[0].label.as_deref(),
+            Some("Complete review")
+        );
+        assert!(!accessibility.children[0].children[0].focused);
+        assert_eq!(
+            accessibility.children[1].label.as_deref(),
+            Some("Task title")
+        );
+        assert!(accessibility.children[1].focused);
+        assert!(session.runtime().interactions().changes().is_empty());
+    }
+
+    #[test]
     fn native_protocol_session_omits_hidden_accessibility_subtrees() {
         let frame: UiFrame = serde_json::from_str(
             r#"

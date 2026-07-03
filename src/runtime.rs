@@ -407,7 +407,7 @@ impl<H: NativeHost> GuiRuntime<H> {
                     .all(|ancestor| {
                         props_by_node
                             .get(&ancestor)
-                            .map(|props| can_retain_interactions(props))
+                            .map(|props| can_auto_focus_through(props))
                             .unwrap_or(true)
                     })
         }) else {
@@ -495,7 +495,11 @@ fn is_inert_blueprint(blueprint: &NativeWidgetBlueprint) -> bool {
 }
 
 fn can_auto_focus(props: &NativeProps) -> bool {
-    props.auto_focus && !props.disabled && can_retain_interactions(props)
+    props.auto_focus && can_auto_focus_through(props)
+}
+
+fn can_auto_focus_through(props: &NativeProps) -> bool {
+    !props.disabled && can_retain_interactions(props)
 }
 
 fn can_retain_interactions(props: &NativeProps) -> bool {
@@ -1109,6 +1113,45 @@ mod tests {
         assert_eq!(accessibility.children.len(), 1);
         assert_eq!(accessibility.children[0].label.as_deref(), Some("Save"));
         assert!(accessibility.children[0].focused);
+    }
+
+    #[test]
+    fn runtime_auto_focus_skips_disabled_ancestor_subtrees() {
+        let element = NativeElement::new("tools", NativeRole::Toolbar)
+            .child(
+                NativeElement::new("review-gate", NativeRole::FieldSet)
+                    .with_props(NativeProps::new().label("Review gate").disabled(true))
+                    .child(
+                        NativeElement::new("finish-review", NativeRole::Button).with_props(
+                            NativeProps::new().label("Complete review").auto_focus(true),
+                        ),
+                    ),
+            )
+            .child(
+                NativeElement::new("title", NativeRole::TextField)
+                    .with_props(NativeProps::new().label("Task title").auto_focus(true)),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let children = runtime.host().node(root_id).unwrap().children.clone();
+        let finish_review = runtime.host().node(children[0]).unwrap().children[0];
+        let title = children[1];
+        let accessibility = runtime.accessibility_tree().unwrap();
+
+        assert!(runtime.interactions().node(finish_review).is_none());
+        assert!(runtime.interactions().node(title).unwrap().focused);
+        assert_eq!(
+            accessibility.children[0].children[0].label.as_deref(),
+            Some("Complete review")
+        );
+        assert!(!accessibility.children[0].children[0].focused);
+        assert_eq!(
+            accessibility.children[1].label.as_deref(),
+            Some("Task title")
+        );
+        assert!(accessibility.children[1].focused);
     }
 
     #[test]

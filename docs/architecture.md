@@ -274,12 +274,13 @@ keyboard events can still route to actions.
 ListBox selection projection uses that multiple-selection flag to keep existing
 selected children in multi-select lists while single-select lists follow the
 latest selected child. On the first render without prior focus history, the
-first renderable `autoFocus` control initializes runtime focus state for
-accessibility projection. Real native surfaces also receive the same
-`autoFocus` setter: AppKit and GTK request platform focus after the target is
-attached to a root window, while the current WinUI binding records the target
-and continues to rely on WinUI focus callbacks because `winio-winui3` 0.4.2
-does not expose a safe programmatic focus method. Non-focus interaction state is
+first `autoFocus` control in a renderable, non-disabled subtree initializes
+runtime focus state for accessibility projection. Real native surfaces also
+receive the same `autoFocus` setter: AppKit and GTK request platform focus after
+the target is attached to a root window, while the current WinUI binding records
+the target and continues to rely on WinUI focus callbacks because
+`winio-winui3` 0.4.2 does not expose a safe programmatic focus method.
+Non-focus interaction state is
 revision-scoped: after a successful rerender, controlled values from the new
 blueprint supersede stale local event state while focus remains preserved until
 a blur or another focus event arrives. Later native events on that node also
