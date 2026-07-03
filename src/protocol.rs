@@ -2405,6 +2405,89 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_snaps_ranged_change_values_to_step() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "setVolume"}],
+              "root": {
+                "kind": "element",
+                "key": "volume",
+                "tag": "Slider",
+                "props": {
+                  "minValue": 0,
+                  "maxValue": 100,
+                  "valueNumber": 50,
+                  "stepValue": 5,
+                  "events": {"onChange": "setVolume"}
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let response = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("43"),
+            })
+            .unwrap();
+
+        assert_eq!(
+            response
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("45")
+        );
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("45")
+        );
+        assert_eq!(
+            session.runtime().actions().invocations()[0]
+                .value
+                .as_deref(),
+            Some("45")
+        );
+
+        let response = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("42"),
+            })
+            .unwrap();
+
+        assert_eq!(
+            response
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("40")
+        );
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("40")
+        );
+        assert_eq!(
+            session.runtime().actions().invocations()[1]
+                .value
+                .as_deref(),
+            Some("40")
+        );
+    }
+
+    #[test]
     fn protocol_window_options_wrap_root_in_native_window() {
         let frame: UiFrame = serde_json::from_str(
             r#"

@@ -128,9 +128,11 @@ cargo run --example gtk4_controls --features gtk4-native
 cargo run --example gtk4_dogfood --features gtk4-native
 ```
 
-The `*_controls` examples exercise text input, toggles, sliders, selects, tabs,
-actions, rerendering, and root-window close handling through the same reducer
-loop. Native window close requests route through `window.onClose` action ids.
+The `*_controls` examples exercise text input, number input, toggles, sliders,
+selects, tabs, actions, rerendering, and root-window close handling through the
+same reducer loop. Ranged control changes are normalized against bounds and step
+hints before they reach reducers. Native window close requests route through
+`window.onClose` action ids.
 The `*_dogfood` examples run one shared task editor and review workflow
 across the native surfaces, including menus, a dialog gate, assignment,
 checklists, keyboard shortcuts, window close lifecycle actions, and

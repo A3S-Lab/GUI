@@ -523,18 +523,39 @@ fn normalize_ranged_change_value(
     }
     let min = blueprint.control_state.min;
     let max = blueprint.control_state.max;
-    let value = clamp_range_value(value, min, max);
+    let step = blueprint.control_state.step;
+    let value = normalize_range_value(value, min, max, step);
 
     event.value = Some(format_normalized_number(value));
     event
 }
 
+fn normalize_range_value(value: f64, min: Option<f64>, max: Option<f64>, step: Option<f64>) -> f64 {
+    let value = clamp_range_value(value, min, max);
+    let value = snap_range_step_value(value, min, step);
+    clamp_range_value(value, min, max)
+}
+
+fn snap_range_step_value(value: f64, min: Option<f64>, step: Option<f64>) -> f64 {
+    let Some(step) = step.filter(|step| step.is_finite() && *step > 0.0) else {
+        return value;
+    };
+    let base = min.filter(|min| min.is_finite()).unwrap_or(0.0);
+    let step_count = ((value - base) / step).round();
+    let snapped = base + step_count * step;
+    if snapped.is_finite() {
+        snapped
+    } else {
+        value
+    }
+}
+
 fn clamp_range_value(value: f64, min: Option<f64>, max: Option<f64>) -> f64 {
     let mut value = value;
-    if let Some(min) = min {
+    if let Some(min) = min.filter(|min| min.is_finite()) {
         value = value.max(min);
     }
-    if let Some(max) = max {
+    if let Some(max) = max.filter(|max| max.is_finite()) {
         value = value.min(max);
     }
     value
@@ -2035,6 +2056,69 @@ mod tests {
         assert_eq!(
             runtime.actions().invocations()[1].value.as_deref(),
             Some("1")
+        );
+    }
+
+    #[test]
+    fn runtime_snaps_ranged_change_values_to_step() {
+        let element = NativeElement::new("volume", NativeRole::Slider).with_props(
+            NativeProps::new()
+                .label("Volume")
+                .range(Some(0.0), Some(100.0), Some(50.0))
+                .step(Some(5.0))
+                .web(WebProps::new().on_change("setVolume")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setVolume");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("43"),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("45"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("45")
+        );
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("45")
+        );
+        assert_eq!(
+            runtime.actions().invocations()[0].value.as_deref(),
+            Some("45")
+        );
+
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("42"),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("40"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("40")
+        );
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("40")
+        );
+        assert_eq!(
+            runtime.actions().invocations()[1].value.as_deref(),
+            Some("40")
         );
     }
 
