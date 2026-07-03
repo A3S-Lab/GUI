@@ -502,6 +502,8 @@ Feature-gated platform executor surfaces:
   native events, runs the application reducer, and rerenders the next frame.
   The loop also observes root AppKit window and panel close notifications so
   `run_appkit_while` can stop when the user closes the surface.
+  The `appkit_controls` example is a manual smoke harness for the same path
+  across text input, toggles, sliders, selects, tabs, actions, and rerenders.
   These event paths flow through the existing `NativeEventSource` boundary.
 - `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button`,
   `Microsoft.UI.Xaml.Controls.TextBox`,

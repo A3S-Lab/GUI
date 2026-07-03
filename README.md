@@ -112,6 +112,13 @@ AppKit events through the same reducer loop:
 cargo run --example appkit_counter --features appkit-native
 ```
 
+Run the AppKit controls smoke example to exercise text input, toggles, sliders,
+selects, tabs, actions, rerendering, and window-close exit in one window:
+
+```bash
+cargo run --example appkit_controls --features appkit-native
+```
+
 The AppKit loop exits when the root window or panel closes, or when the app
 state predicate passed to `run_appkit_while` returns false.
 

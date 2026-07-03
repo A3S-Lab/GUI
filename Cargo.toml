@@ -17,6 +17,10 @@ path = "src/lib.rs"
 name = "appkit_counter"
 required-features = ["appkit-native"]
 
+[[example]]
+name = "appkit_controls"
+required-features = ["appkit-native"]
+
 [features]
 default = ["headless"]
 headless = []
