@@ -363,9 +363,9 @@ native style. Window dimensions must be positive finite numbers; min/max
 constraints must not conflict with each other or with the explicit width/height.
 `window.resizable` defaults to `true` and is projected into typed native
 config/setter state while remaining available as protocol metadata for
-compatibility. AppKit applies window min/max constraints today; WinUI applies
-initial width/height and resizability, with min/max enforcement reserved for the
-native message hook that handles Windows resize bounds.
+compatibility. AppKit applies min/max constraints directly to the window frame;
+WinUI enforces the same bounds through the native `WM_GETMINMAXINFO` resize
+message.
 
 Native platform hosts can use `NativeProtocolSession` as the frame boundary:
 

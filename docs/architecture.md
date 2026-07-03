@@ -532,10 +532,10 @@ Feature-gated platform executor surfaces:
   `Grid`, `TabView`, `TabViewItem`, `Border(separator)`, `Slider`, and
   `ProgressBar` objects through
   `WinUiNativeSurface`. The backend creates WinUI controls directly. WinUI
-  windows apply initial `UiFrame.window.width`/`height` with `SetWindowPos` and
-  `UiFrame.window.resizable` through HWND style updates so fixed and resizable
-  windows match AppKit and GTK behavior. WinUI window min/max constraints remain
-  protocol/style data until the native surface owns `WM_GETMINMAXINFO`.
+  windows apply initial `UiFrame.window.width`/`height` with `SetWindowPos`,
+  min/max resize bounds through `WM_GETMINMAXINFO`, and
+  `UiFrame.window.resizable` through HWND style updates so fixed and bounded
+  windows match AppKit and GTK behavior.
   textarea-shaped text boxes enable return input and wrapping. WinUI text boxes
   map portable text-entry hints into native spell-check, text-prediction,
   programmatic keyboard display, and color-font settings where the current

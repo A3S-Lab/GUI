@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::style::PortableStyle;
+
 pub(super) fn set_label(widget: &WinUiOsWidget, value: Option<&str>) -> GuiResult<()> {
     let value = value.unwrap_or_default();
     match widget {
