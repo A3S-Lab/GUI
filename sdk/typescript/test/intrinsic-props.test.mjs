@@ -635,3 +635,37 @@ test('intrinsic form control attributes preserve Web JSX names', () => {
   assert.equal(root.props.formTarget, '_blank');
   assert.equal(root.props.formNoValidate, true);
 });
+
+test('boolean-like intrinsic props parse string false without truthiness leaks', () => {
+  const root = jsx('input', {
+    disabled: 'false',
+    required: 'false',
+    readOnly: 'false',
+    invalid: 'false',
+    selected: 'false',
+    checked: 'false',
+    expanded: 'false',
+    isDisabled: 'false',
+    isRequired: 'false',
+    isInvalid: 'false',
+    isReadOnly: 'false',
+    isSelected: 'false',
+    isChecked: 'false',
+    isExpanded: 'false',
+  }, 'boolean-input');
+
+  assert.equal(root.props.isDisabled, false);
+  assert.equal(root.props.isRequired, false);
+  assert.equal(root.props.isInvalid, false);
+  assert.equal(root.props.isReadOnly, false);
+  assert.equal(root.props.isSelected, false);
+  assert.equal(root.props.isChecked, false);
+  assert.equal(root.props.isExpanded, false);
+  assert.equal(root.props.attributes.disabled, 'false');
+  assert.equal(root.props.attributes.required, 'false');
+  assert.equal(root.props.attributes.readOnly, 'false');
+  assert.equal(root.props.attributes.invalid, 'false');
+  assert.equal(root.props.attributes.selected, 'false');
+  assert.equal(root.props.attributes.checked, 'false');
+  assert.equal(root.props.attributes.expanded, 'false');
+});

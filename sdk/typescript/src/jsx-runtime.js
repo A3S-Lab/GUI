@@ -287,43 +287,43 @@ function normalizeProps(props, tag) {
     } else if (name === 'disabled' && isAttributeDisabledTag(tag)) {
       attributes[name] = String(value);
     } else if (name === 'disabled') {
-      out.isDisabled = Boolean(value);
+      out.isDisabled = coerceBoolean(value);
       attributes[name] = String(value);
     } else if (name === 'required') {
-      out.isRequired = Boolean(value);
+      out.isRequired = coerceBoolean(value);
       attributes[name] = String(value);
     } else if (name === 'readOnly') {
-      out.isReadOnly = Boolean(value);
+      out.isReadOnly = coerceBoolean(value);
       attributes[name] = String(value);
     } else if (name === 'invalid') {
-      out.isInvalid = Boolean(value);
+      out.isInvalid = coerceBoolean(value);
       attributes[name] = String(value);
     } else if (name === 'selected') {
-      out.isSelected = Boolean(value);
+      out.isSelected = coerceBoolean(value);
       attributes[name] = String(value);
     } else if (name === 'checked') {
-      out.isChecked = Boolean(value);
+      out.isChecked = coerceBoolean(value);
       attributes[name] = String(value);
     } else if (name === 'defaultChecked') {
-      out.isChecked = Boolean(value);
+      out.isChecked = coerceBoolean(value);
       attributes[name] = String(value);
     } else if (name === 'expanded') {
-      out.isExpanded = Boolean(value);
+      out.isExpanded = coerceBoolean(value);
       attributes[name] = String(value);
     } else if (name === 'isDisabled') {
-      out.isDisabled = Boolean(value);
+      out.isDisabled = coerceBoolean(value);
     } else if (name === 'isRequired') {
-      out.isRequired = Boolean(value);
+      out.isRequired = coerceBoolean(value);
     } else if (name === 'isInvalid') {
-      out.isInvalid = Boolean(value);
+      out.isInvalid = coerceBoolean(value);
     } else if (name === 'isReadOnly') {
-      out.isReadOnly = Boolean(value);
+      out.isReadOnly = coerceBoolean(value);
     } else if (name === 'isSelected') {
-      out.isSelected = Boolean(value);
+      out.isSelected = coerceBoolean(value);
     } else if (name === 'isChecked') {
-      out.isChecked = Boolean(value);
+      out.isChecked = coerceBoolean(value);
     } else if (name === 'isExpanded') {
-      out.isExpanded = Boolean(value);
+      out.isExpanded = coerceBoolean(value);
     } else if (name === 'textValue') {
       out.textValue = String(value);
     } else if (name === 'label') {
@@ -708,6 +708,10 @@ function setBoolean(out, field, value) {
   if (parsed !== undefined) {
     out[field] = parsed;
   }
+}
+
+function coerceBoolean(value) {
+  return booleanValue(value) ?? Boolean(value);
 }
 
 function setInvalid(out, value) {
