@@ -480,11 +480,13 @@ function normalizeProps(props, tag) {
     } else if (name === 'value' && isAttributeValueTag(tag)) {
       attributes[name] = String(value);
     } else if (name === 'value' || name === 'defaultValue') {
-      const numericValue = isNumericValueTag(tag, props) ? numberValue(value) : undefined;
+      const numericTag = isNumericValueTag(tag, props);
+      const numberInput = isNumberInputTag(tag, props);
+      const numericValue = numericTag ? numberValue(value) : undefined;
       if (numericValue !== undefined) {
         out.valueNumber = numericValue;
-        if (isNumberInputTag(tag, props)) out.value = String(value);
-      } else {
+        if (numberInput) out.value = String(value);
+      } else if (!numericTag || numberInput) {
         out.value = String(value);
       }
     } else if (name === 'min') {
@@ -747,8 +749,16 @@ function setNumber(out, field, value) {
 }
 
 function numberValue(value) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 function setU32(out, field, value) {

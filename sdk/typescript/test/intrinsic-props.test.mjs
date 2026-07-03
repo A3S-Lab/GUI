@@ -568,6 +568,47 @@ test('intrinsic number input normalizes numeric value props', () => {
   assert.equal(root.props.events.onChange, 'setQuantity');
 });
 
+test('numeric prop normalization ignores empty strings and booleans', () => {
+  const emptyNumber = jsx('input', {
+    type: 'number',
+    value: '',
+    min: '',
+    max: ' ',
+    step: false,
+  }, 'quantity');
+  const emptyRange = jsx('input', {
+    type: 'range',
+    value: '',
+  }, 'volume-range');
+  const booleanSlider = jsx(Slider, {
+    value: true,
+    minValue: false,
+    maxValue: true,
+  }, 'volume');
+  const ariaRange = jsx('div', {
+    role: 'slider',
+    'aria-valuemin': '',
+    'aria-valuemax': ' ',
+    'aria-valuenow': true,
+  }, 'range');
+
+  assert.equal(emptyNumber.props.value, '');
+  assert.equal(emptyNumber.props.valueNumber, undefined);
+  assert.equal(emptyNumber.props.minValue, undefined);
+  assert.equal(emptyNumber.props.maxValue, undefined);
+  assert.equal(emptyNumber.props.stepValue, undefined);
+  assert.equal(emptyRange.props.value, undefined);
+  assert.equal(emptyRange.props.valueNumber, undefined);
+  assert.equal(booleanSlider.props.value, undefined);
+  assert.equal(booleanSlider.props.valueNumber, undefined);
+  assert.equal(booleanSlider.props.minValue, undefined);
+  assert.equal(booleanSlider.props.maxValue, undefined);
+  assert.equal(ariaRange.props.valueNumber, undefined);
+  assert.equal(ariaRange.props.minValue, undefined);
+  assert.equal(ariaRange.props.maxValue, undefined);
+  assert.equal(ariaRange.props.attributes['aria-valuenow'], 'true');
+});
+
 test('intrinsic form control attributes preserve Web JSX names', () => {
   const root = jsx('input', {
     type: 'email',

@@ -109,6 +109,9 @@ For intrinsic `input` tags, `type="range"` normalizes numeric `value` and
 `defaultValue` props to `valueNumber`. `type="number"` also fills
 `valueNumber`, while preserving the text `value` needed by native text-field
 backends.
+Numeric control props accept finite numbers and non-empty numeric strings.
+Empty strings, whitespace, booleans, and other non-numeric values are ignored
+for native numeric fields so transient form state does not become `0` or `1`.
 For intrinsic `textarea` tags, direct text children remain in the compiled
 children list and are projected by the Rust bridge as the native text-field
 value when no explicit value is supplied.
