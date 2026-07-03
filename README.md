@@ -74,6 +74,13 @@ export const frame = createUiFrame(
 The TypeScript protocol package lives in `sdk/typescript` and exports
 `@a3s-lab/gui`.
 
+Run the protocol session example to see frame rendering and event dispatch
+through the GTK4 planning adapter:
+
+```bash
+cargo run --example protocol_session
+```
+
 ## Features
 
 - **Semantic input**: React Aria-style component names, intrinsic HTML/SVG
