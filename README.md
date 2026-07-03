@@ -36,7 +36,7 @@ layout engine, or JavaScript object graph at the host boundary.
 | AppKit native surface | Usable for small macOS smoke apps with windows, text input, buttons, toggles, sliders, selects, tabs, menus, keyboard events, `window.onClose` actions, and native `autoFocus`. |
 | GTK4 native surface | Usable for small Linux smoke apps with the same core controls plus window/dialog `window.onClose` actions; requires GTK4 development libraries and `pkg-config`. |
 | WinUI native surface | Usable for Windows smoke apps with core controls, HWND initial size, min/max resize bounds, resizable state, focus callbacks, keyboard message routing, `window.onClose` actions, and root-window close exit. Programmatic `autoFocus` is tracked but limited by `winio-winui3` 0.4.2 not exposing a safe focus method. |
-| Production app shell | In progress. Layout polish, packaging guidance, dogfood coverage, and platform-specific edge cases still need hardening. |
+| Production app shell | In progress. Crate-local `just` recipes now cover local verification and native dogfood entrypoints. Layout polish, packaging guidance, broader dogfood coverage, and platform-specific edge cases still need hardening. |
 
 Known boundaries:
 
@@ -160,6 +160,14 @@ The default feature is `headless`.
 Run the common checks from this crate directory:
 
 ```bash
+just verify
+```
+
+The `just verify` recipe runs formatting, Rust tests, example tests, platform
+planning tests, TypeScript SDK tests, and whitespace checks. The underlying
+commands are:
+
+```bash
 cargo fmt --all
 cargo test
 cargo test --features appkit,winui,gtk4
@@ -171,14 +179,15 @@ git diff --check
 Native surface checks are platform-specific:
 
 ```bash
-cargo check --features appkit-native
-cargo check --target x86_64-pc-windows-msvc --features winui-native
-cargo check --features gtk4-native
+just check-native
+just dogfood-native
+just check-winui
 ```
 
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Native app shell](docs/app-shell.md)
 - [Web authoring](docs/web-authoring.md)
 - [TypeScript SDK](sdk/typescript/README.md)
 
