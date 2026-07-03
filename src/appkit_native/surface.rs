@@ -1027,7 +1027,9 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             NativeWidgetSetter::SetAutoFocus(true) => {
                 self.request_auto_focus(id, &handle.widget);
             }
-            NativeWidgetSetter::SetAutoFocus(false) => {}
+            NativeWidgetSetter::SetAutoFocus(false) => {
+                clear_pending_auto_focus(&mut self.pending_auto_focus, id);
+            }
             NativeWidgetSetter::SetAccessibilityRole(_)
             | NativeWidgetSetter::SetAction(_)
             | NativeWidgetSetter::SetClassName(_)
@@ -1267,9 +1269,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         if was_root {
             self.root = None;
         }
-        if self.pending_auto_focus == Some(id) {
-            self.pending_auto_focus = None;
-        }
+        clear_pending_auto_focus(&mut self.pending_auto_focus, id);
         self.widgets.remove(&id);
         self.action_targets.remove(&id);
         if self.focused_node.get() == Some(id) {

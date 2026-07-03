@@ -404,6 +404,12 @@ impl AppKitNativeSurface {
     }
 }
 
+fn clear_pending_auto_focus(pending_auto_focus: &mut Option<HostNodeId>, id: HostNodeId) {
+    if *pending_auto_focus == Some(id) {
+        *pending_auto_focus = None;
+    }
+}
+
 #[derive(Debug, Clone)]
 struct AppKitWindowDelegateIvars {
     node: HostNodeId,
@@ -1417,6 +1423,19 @@ mod tests {
         );
         assert!(closed_windows.borrow().contains(&first));
         assert!(closed_windows.borrow().contains(&second));
+    }
+
+    #[test]
+    fn appkit_pending_auto_focus_only_clears_matching_node() {
+        let first = HostNodeId::new(3);
+        let second = HostNodeId::new(4);
+        let mut pending = Some(first);
+
+        clear_pending_auto_focus(&mut pending, second);
+        assert_eq!(pending, Some(first));
+
+        clear_pending_auto_focus(&mut pending, first);
+        assert_eq!(pending, None);
     }
 
     #[test]
