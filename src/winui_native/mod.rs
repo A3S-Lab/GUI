@@ -8,7 +8,7 @@ use windows::Foundation::PropertyValue;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, GetMessageW, IsWindow, PeekMessageW, TranslateMessage, MSG, PM_REMOVE,
-    WM_QUIT,
+    WM_KEYDOWN, WM_KEYUP, WM_QUIT, WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 use windows_core::{Interface, HSTRING};
 use winui3::bootstrap::PackageDependency;
@@ -34,7 +34,7 @@ use crate::platform::{
 use crate::protocol::UiFrame;
 use crate::style::{PortableStyle, StyleLength};
 use crate::winui::{winui_text_input_hints, WinUiWidgetKind};
-use helpers::{child_position, map_winui, set_combo_box_item_content, to_u32};
+use helpers::{child_position, map_winui, push_event, set_combo_box_item_content, to_u32};
 
 mod helpers;
 mod surface;
@@ -45,6 +45,7 @@ const WINUI_TEXT_INPUT_MIN_WIDTH: f64 = 80.0;
 const WINUI_TEXT_INPUT_MIN_HEIGHT: f64 = 64.0;
 
 type WinUiEventQueue = Arc<Mutex<Vec<NativeEvent>>>;
+type WinUiFocusedNode = Arc<Mutex<Option<HostNodeId>>>;
 
 pub type WinUiNativeSurfaceAdapter = SurfaceHandleAdapter<WinUiNativeSurface>;
 pub type WinUiNativeSurfaceDriver = HandleWidgetDriver<WinUiNativeSurfaceAdapter>;
@@ -64,6 +65,7 @@ pub struct WinUiNativeSurface {
     root: Option<HostNodeId>,
     events: WinUiEventQueue,
     events_suppressed: Arc<AtomicBool>,
+    focused_node: WinUiFocusedNode,
     widgets: BTreeMap<HostNodeId, WinUiOsWidget>,
     container_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     combo_boxes: BTreeMap<HostNodeId, ControlsComboBox>,
@@ -103,6 +105,7 @@ impl WinUiNativeSurface {
             root: None,
             events: Arc::new(Mutex::new(Vec::new())),
             events_suppressed: Arc::new(AtomicBool::new(false)),
+            focused_node: Arc::new(Mutex::new(None)),
             widgets: BTreeMap::new(),
             container_children: BTreeMap::new(),
             combo_boxes: BTreeMap::new(),
@@ -139,6 +142,28 @@ impl WinUiNativeSurface {
             }
             _ => true,
         }
+    }
+
+    fn key_event_target(&self) -> Option<HostNodeId> {
+        self.focused_node
+            .lock()
+            .ok()
+            .and_then(|focused| *focused)
+            .filter(|node| self.widgets.contains_key(node))
+            .or(self.root)
+    }
+
+    pub(crate) fn enqueue_key_message(&self, message: &MSG) {
+        let Some(kind) = winui_key_event_kind(message.message) else {
+            return;
+        };
+        let Some(node) = self.key_event_target() else {
+            return;
+        };
+        push_event(
+            &self.events,
+            NativeEvent::new(node, kind).value(winui_key_value_from_virtual_key(message.wParam.0)),
+        );
     }
 
     pub fn into_driver(self) -> WinUiNativeSurfaceDriver {
@@ -709,7 +734,17 @@ where
         wait: WinUiEventWait,
     ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
         let mut responses = self.handle_pending_native_events()?;
-        if pump_winui_message(wait)? {
+        let pumped = {
+            let surface = self
+                .runtime_mut()
+                .host_mut()
+                .executor_mut()
+                .driver_mut()
+                .adapter_mut()
+                .surface_mut();
+            pump_winui_message(surface, wait)?
+        };
+        if pumped {
             responses.extend(self.handle_pending_native_events()?);
         }
         Ok(responses)
@@ -743,7 +778,7 @@ where
     }
 }
 
-fn pump_winui_message(wait: WinUiEventWait) -> GuiResult<bool> {
+fn pump_winui_message(surface: &WinUiNativeSurface, wait: WinUiEventWait) -> GuiResult<bool> {
     let mut message = MSG::default();
     let received = match wait {
         WinUiEventWait::Poll => unsafe {
@@ -761,12 +796,51 @@ fn pump_winui_message(wait: WinUiEventWait) -> GuiResult<bool> {
         return Ok(false);
     }
     if message.message != WM_QUIT {
+        surface.enqueue_key_message(&message);
         unsafe {
             let _ = TranslateMessage(&message);
             DispatchMessageW(&message);
         }
     }
     Ok(true)
+}
+
+fn winui_key_event_kind(message: u32) -> Option<NativeEventKind> {
+    match message {
+        WM_KEYDOWN | WM_SYSKEYDOWN => Some(NativeEventKind::KeyDown),
+        WM_KEYUP | WM_SYSKEYUP => Some(NativeEventKind::KeyUp),
+        _ => None,
+    }
+}
+
+fn winui_key_value_from_virtual_key(virtual_key: usize) -> String {
+    match virtual_key {
+        0x08 => "Backspace".to_string(),
+        0x09 => "Tab".to_string(),
+        0x0D => "Enter".to_string(),
+        0x10 => "Shift".to_string(),
+        0x11 => "Control".to_string(),
+        0x12 => "Alt".to_string(),
+        0x1B => "Escape".to_string(),
+        0x20 => " ".to_string(),
+        0x21 => "PageUp".to_string(),
+        0x22 => "PageDown".to_string(),
+        0x23 => "End".to_string(),
+        0x24 => "Home".to_string(),
+        0x25 => "ArrowLeft".to_string(),
+        0x26 => "ArrowUp".to_string(),
+        0x27 => "ArrowRight".to_string(),
+        0x28 => "ArrowDown".to_string(),
+        0x2D => "Insert".to_string(),
+        0x2E => "Delete".to_string(),
+        0x30..=0x39 | 0x41..=0x5A => char::from_u32(virtual_key as u32)
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| format!("VirtualKey:{virtual_key}")),
+        0x5B | 0x5C => "Meta".to_string(),
+        0x60..=0x69 => (virtual_key - 0x60).to_string(),
+        0x70..=0x87 => format!("F{}", virtual_key - 0x6F),
+        _ => format!("VirtualKey:{virtual_key}"),
+    }
 }
 
 fn winui_window_hwnd(window: &xaml::Window) -> GuiResult<HWND> {
@@ -1105,4 +1179,46 @@ fn config_is_password(config: &NativeWidgetConfig) -> bool {
         .input_type
         .as_deref()
         .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn winui_key_event_kind_maps_key_messages() {
+        assert_eq!(
+            winui_key_event_kind(WM_KEYDOWN),
+            Some(NativeEventKind::KeyDown)
+        );
+        assert_eq!(winui_key_event_kind(WM_KEYUP), Some(NativeEventKind::KeyUp));
+        assert_eq!(
+            winui_key_event_kind(WM_SYSKEYDOWN),
+            Some(NativeEventKind::KeyDown)
+        );
+        assert_eq!(
+            winui_key_event_kind(WM_SYSKEYUP),
+            Some(NativeEventKind::KeyUp)
+        );
+        assert_eq!(winui_key_event_kind(WM_QUIT), None);
+    }
+
+    #[test]
+    fn winui_key_value_normalizes_common_virtual_keys() {
+        assert_eq!(winui_key_value_from_virtual_key(0x0D), "Enter");
+        assert_eq!(winui_key_value_from_virtual_key(0x09), "Tab");
+        assert_eq!(winui_key_value_from_virtual_key(0x20), " ");
+        assert_eq!(winui_key_value_from_virtual_key(0x08), "Backspace");
+        assert_eq!(winui_key_value_from_virtual_key(0x1B), "Escape");
+        assert_eq!(winui_key_value_from_virtual_key(0x24), "Home");
+        assert_eq!(winui_key_value_from_virtual_key(0x23), "End");
+        assert_eq!(winui_key_value_from_virtual_key(0x25), "ArrowLeft");
+        assert_eq!(winui_key_value_from_virtual_key(0x26), "ArrowUp");
+        assert_eq!(winui_key_value_from_virtual_key(0x27), "ArrowRight");
+        assert_eq!(winui_key_value_from_virtual_key(0x28), "ArrowDown");
+        assert_eq!(winui_key_value_from_virtual_key(0x41), "A");
+        assert_eq!(winui_key_value_from_virtual_key(0x31), "1");
+        assert_eq!(winui_key_value_from_virtual_key(0x70), "F1");
+        assert_eq!(winui_key_value_from_virtual_key(0xFF), "VirtualKey:255");
+    }
 }

@@ -260,7 +260,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             set_title(&widget, config.title.as_deref())?;
         }
         self.apply_text_input_hints(id, &widget)?;
-        register_focus_events(id, &widget, &self.events)?;
+        register_focus_events(id, &widget, &self.events, Arc::clone(&self.focused_node))?;
         self.widgets.insert(id, widget.clone());
         Ok(WinUiOsHandle { id, kind, widget })
     }
@@ -742,6 +742,11 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         self.ranges.remove(&id);
         self.text_inputs.remove(&id);
         self.text_input_configs.remove(&id);
+        if let Ok(mut focused_node) = self.focused_node.lock() {
+            if *focused_node == Some(id) {
+                *focused_node = None;
+            }
+        }
         if self.root == Some(id) {
             self.root = None;
         }

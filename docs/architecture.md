@@ -548,6 +548,12 @@ Feature-gated platform executor surfaces:
   its native `Switch` semantic in the IR; with `winio-winui3` 0.4.2, the native
   surface temporarily backs that state with a WinUI `CheckBox` because the
   generated bindings do not expose `ToggleSwitch` yet.
+  The WinUI message pump also maps `WM_KEYDOWN`, `WM_KEYUP`,
+  `WM_SYSKEYDOWN`, and `WM_SYSKEYUP` records into A3S keyboard events. Since
+  `winio-winui3` 0.4.2 does not expose strong `KeyRoutedEvent` registration
+  methods, keyboard events target the currently focused A3S node tracked from
+  WinUI focus callbacks, falling back to the root surface for window-level
+  routes.
   `WinUiRuntimeApp` provides the embedded app loop for this backend: it renders
   into `WinUiNativeSurface`, pumps the Windows message queue, drains queued A3S
   native events, runs the application reducer, rerenders the next frame, and

@@ -614,12 +614,17 @@ pub(super) fn register_focus_events(
     id: HostNodeId,
     widget: &WinUiOsWidget,
     events: &WinUiEventQueue,
+    focused_node: WinUiFocusedNode,
 ) -> GuiResult<()> {
     let Some(element) = widget.ui_element() else {
         return Ok(());
     };
     let focus_events = Arc::clone(events);
+    let focus_node = Arc::clone(&focused_node);
     let focus_handler = RoutedEventHandler::new(move |_, _| {
+        if let Ok(mut focused_node) = focus_node.lock() {
+            *focused_node = Some(id);
+        }
         push_event(&focus_events, NativeEvent::new(id, NativeEventKind::Focus));
         Ok(())
     });
@@ -629,7 +634,13 @@ pub(super) fn register_focus_events(
     )?;
 
     let blur_events = Arc::clone(events);
+    let blur_node = Arc::clone(&focused_node);
     let blur_handler = RoutedEventHandler::new(move |_, _| {
+        if let Ok(mut focused_node) = blur_node.lock() {
+            if *focused_node == Some(id) {
+                *focused_node = None;
+            }
+        }
         push_event(&blur_events, NativeEvent::new(id, NativeEventKind::Blur));
         Ok(())
     });
