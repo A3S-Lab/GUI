@@ -134,11 +134,15 @@ backends. GTK planning maps that number-shaped text field to `gtk::SpinButton`.
 `input[type=button]`, `input[type=submit]`,
 `input[type=reset]`, and `input[type=image]` lower to native button roles with
 HTML fallback labels from `value`, default submit/reset labels, or image `alt`
-text. HTML dialog `open` state projects into a structured `HtmlDialogProps`
-value and controls native widget visibility for intrinsic dialog elements.
-`input` and `textarea` `placeholder` attributes, plus `aria-placeholder`,
-project into native placeholder state. `textarea` direct text children project
-into native text-field value state when no explicit value is supplied. HTML
+text. `input[type=hidden]` keeps its form `name`, `form`, `type`, and `value`
+state in the native IR but is marked hidden so platform widget config,
+rendered accessibility projection, and native event routing treat it as
+invisible. HTML dialog `open` state projects into a structured
+`HtmlDialogProps` value and controls native widget visibility for intrinsic
+dialog elements. `input` and `textarea` `placeholder` attributes, plus
+`aria-placeholder`, project into native placeholder state. `textarea` direct
+text children project into native text-field value state when no explicit value
+is supplied. HTML
 form-control attributes including `readonly`/`readOnly`, `multiple`,
 `autofocus`/`autoFocus`, `autocomplete`/`autoComplete`,
 `inputmode`/`inputMode`, `enterkeyhint`/`enterKeyHint`,

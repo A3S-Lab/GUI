@@ -809,6 +809,24 @@ fn widget_config_preserves_html_global_hints() {
 }
 
 #[test]
+fn hidden_input_widget_config_is_not_visible() {
+    let element = NativeElement::new("csrf", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .hidden(true)
+            .input_type("hidden")
+            .name("csrf")
+            .value("csrf-token"),
+    );
+
+    let config = Gtk4Adapter.blueprint(&element).config();
+
+    assert!(config.hidden);
+    assert!(!config.visible);
+    assert_eq!(config.input_type.as_deref(), Some("hidden"));
+    assert_eq!(config.value.as_deref(), Some("csrf-token"));
+}
+
+#[test]
 fn widget_config_preserves_accessibility_relationship_hints() {
     let relationships = AccessibilityRelationshipProps::default()
         .labelled_by("profile-title")
