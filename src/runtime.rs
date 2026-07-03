@@ -469,9 +469,21 @@ fn normalize_change_value(blueprint: &NativeWidgetBlueprint, event: NativeEvent)
     }
 
     match blueprint.role {
-        crate::native::NativeRole::TextField => normalize_text_change_value(blueprint, event),
+        crate::native::NativeRole::TextField => normalize_text_field_change_value(blueprint, event),
         crate::native::NativeRole::Slider => normalize_ranged_change_value(blueprint, event),
         _ => event,
+    }
+}
+
+fn normalize_text_field_change_value(
+    blueprint: &NativeWidgetBlueprint,
+    event: NativeEvent,
+) -> NativeEvent {
+    let event = normalize_text_change_value(blueprint, event);
+    if is_number_text_input(blueprint) {
+        normalize_ranged_change_value(blueprint, event)
+    } else {
+        event
     }
 }
 
@@ -485,6 +497,14 @@ fn normalize_text_change_value(
         event.value = Some(truncate_to_max_length(value, max_length));
     }
     event
+}
+
+fn is_number_text_input(blueprint: &NativeWidgetBlueprint) -> bool {
+    blueprint
+        .control_state
+        .input_type
+        .as_deref()
+        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("number"))
 }
 
 fn normalize_ranged_change_value(
@@ -1898,6 +1918,69 @@ mod tests {
         let element = NativeElement::new("estimate", NativeRole::Slider).with_props(
             NativeProps::new()
                 .label("Estimate")
+                .range(Some(1.0), Some(12.0), Some(6.0))
+                .web(WebProps::new().on_change("setEstimate")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setEstimate");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("99"),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("12"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("12")
+        );
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("12")
+        );
+        assert_eq!(
+            runtime.actions().invocations()[0].value.as_deref(),
+            Some("12")
+        );
+
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("0"),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("1"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("1")
+        );
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("1")
+        );
+        assert_eq!(
+            runtime.actions().invocations()[1].value.as_deref(),
+            Some("1")
+        );
+    }
+
+    #[test]
+    fn runtime_clamps_number_input_change_values_to_range_bounds() {
+        let element = NativeElement::new("estimate", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Estimate")
+                .input_type("number")
                 .range(Some(1.0), Some(12.0), Some(6.0))
                 .web(WebProps::new().on_change("setEstimate")),
         );
