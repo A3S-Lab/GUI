@@ -189,6 +189,13 @@ impl WinUiWidgetKind {
 }
 
 #[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
+pub(crate) fn winui_max_length_value(max_length: Option<u32>) -> i32 {
+    max_length
+        .map(|value| value.min(i32::MAX as u32) as i32)
+        .unwrap_or(0)
+}
+
+#[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct WinUiTextInputHints {
     pub spellcheck_enabled: Option<bool>,
@@ -619,6 +626,14 @@ mod tests {
     use crate::style::{OverflowMode, StyleLength};
 
     #[test]
+    fn winui_max_length_value_maps_protocol_limits_to_winui_contract() {
+        assert_eq!(winui_max_length_value(None), 0);
+        assert_eq!(winui_max_length_value(Some(64)), 64);
+        assert_eq!(winui_max_length_value(Some(i32::MAX as u32)), i32::MAX);
+        assert_eq!(winui_max_length_value(Some(u32::MAX)), i32::MAX);
+    }
+
+    #[test]
     fn winui_text_input_hints_disable_prediction_for_structured_fields() {
         let config = WinUiAdapter
             .blueprint(
@@ -982,6 +997,40 @@ mod tests {
             .contains(&NativeWidgetSetter::SetPlaceholder(Some(
                 "you@example.com".to_string()
             ))));
+    }
+
+    #[test]
+    fn winui_handle_adapter_clears_removed_text_max_length_on_rerender() {
+        let mut driver = WinUiHandleDriver::default();
+        let id = HostNodeId::new(1);
+        let limited = WinUiAdapter.blueprint(
+            &NativeElement::new("notes", NativeRole::TextField)
+                .with_props(NativeProps::new().label("Notes").max_length(Some(8))),
+        );
+        let unlimited = WinUiAdapter.blueprint(
+            &NativeElement::new("notes", NativeRole::TextField)
+                .with_props(NativeProps::new().label("Notes")),
+        );
+
+        driver.create_widget(id, &limited).unwrap();
+        let initial_setter_count = {
+            let handle = driver.handle(id).unwrap();
+            let state = handle.state();
+            assert_eq!(state.config.max_length, Some(8));
+            assert!(state
+                .applied_setters
+                .contains(&NativeWidgetSetter::SetMaxLength(Some(8))));
+            state.applied_setters.len()
+        };
+
+        driver.update_widget(id, &unlimited).unwrap();
+
+        let handle = driver.handle(id).unwrap();
+        let state = handle.state();
+        let update_setters = &state.applied_setters[initial_setter_count..];
+
+        assert_eq!(state.config.max_length, None);
+        assert_eq!(update_setters, [NativeWidgetSetter::SetMaxLength(None)]);
     }
 
     #[test]

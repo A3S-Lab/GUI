@@ -31,7 +31,7 @@ use crate::platform::{
     NativeWidgetSetter, WinUiAdapter,
 };
 use crate::protocol::UiFrame;
-use crate::winui::{winui_text_input_hints, WinUiWidgetKind};
+use crate::winui::{winui_max_length_value, winui_text_input_hints, WinUiWidgetKind};
 use helpers::{child_position, map_winui, push_event, set_combo_box_item_content, to_u32};
 use types::{config_is_password, config_is_textarea, WinUiRangeState, WinUiTextInputSizing};
 pub use types::{WinUiComboBoxItem, WinUiOsHandle, WinUiOsWidget, WinUiTabItem};

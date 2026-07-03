@@ -461,20 +461,16 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                 }
             }
             NativeWidgetSetter::SetMaxLength(max_length) => {
-                if let (WinUiOsWidget::TextBox(text_box), Some(max_length)) =
-                    (&handle.widget, max_length)
-                {
+                if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
                     map_winui(
                         "failed to set WinUI text box max length",
-                        text_box.SetMaxLength(*max_length as i32),
+                        text_box.SetMaxLength(winui_max_length_value(*max_length)),
                     )?;
                 }
-                if let (WinUiOsWidget::PasswordBox(password_box), Some(max_length)) =
-                    (&handle.widget, max_length)
-                {
+                if let WinUiOsWidget::PasswordBox(password_box) = &handle.widget {
                     map_winui(
                         "failed to set WinUI password box max length",
-                        password_box.SetMaxLength(*max_length as i32),
+                        password_box.SetMaxLength(winui_max_length_value(*max_length)),
                     )?;
                 }
             }
