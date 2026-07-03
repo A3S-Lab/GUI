@@ -373,6 +373,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             }
             NativeWidgetSetter::SetPortableStyle(style) => {
                 apply_portable_style(&handle.widget, style)?;
+                if let WinUiOsWidget::Window(window) = &handle.widget {
+                    apply_winui_window_portable_style(window, style)?;
+                }
                 if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
                     let size = style.native_size_constraints();
                     let sizing = self.text_inputs.entry(id).or_default();

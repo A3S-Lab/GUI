@@ -5,12 +5,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use windows::Foundation::PropertyValue;
-use windows::Win32::Foundation::{GetLastError, SetLastError, ERROR_SUCCESS, HWND};
+use windows::Win32::Foundation::{GetLastError, SetLastError, ERROR_SUCCESS, HWND, RECT};
 use windows::Win32::UI::WindowsAndMessaging::{
-    DispatchMessageW, GetMessageW, GetWindowLongPtrW, IsWindow, PeekMessageW, SetWindowLongPtrW,
-    SetWindowPos, TranslateMessage, GWL_STYLE, MSG, PM_REMOVE, SWP_FRAMECHANGED, SWP_NOMOVE,
-    SWP_NOSIZE, SWP_NOZORDER, WM_KEYDOWN, WM_KEYUP, WM_QUIT, WM_SYSKEYDOWN, WM_SYSKEYUP,
-    WS_MAXIMIZEBOX, WS_THICKFRAME,
+    DispatchMessageW, GetMessageW, GetWindowLongPtrW, GetWindowRect, IsWindow, PeekMessageW,
+    SetWindowLongPtrW, SetWindowPos, TranslateMessage, GWL_STYLE, MSG, PM_REMOVE, SWP_FRAMECHANGED,
+    SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WM_KEYDOWN, WM_KEYUP, WM_QUIT, WM_SYSKEYDOWN,
+    WM_SYSKEYUP, WS_MAXIMIZEBOX, WS_THICKFRAME,
 };
 use windows_core::{Interface, HSTRING};
 use winui3::bootstrap::PackageDependency;
@@ -879,6 +879,62 @@ fn winui_window_is_open(window: &xaml::Window) -> GuiResult<bool> {
     Ok(!hwnd.is_invalid() && unsafe { IsWindow(Some(hwnd)).as_bool() })
 }
 
+fn apply_winui_window_portable_style(
+    window: &xaml::Window,
+    style: &PortableStyle,
+) -> GuiResult<()> {
+    let size = style.native_size_constraints();
+    if size.width.is_none() && size.height.is_none() {
+        return Ok(());
+    }
+
+    let hwnd = winui_window_hwnd(window)?;
+    let current = if size.width.is_none() || size.height.is_none() {
+        Some(winui_window_rect_size(hwnd)?)
+    } else {
+        None
+    };
+    let width = winui_window_dimension(size.width, current.map(|size| size.width));
+    let height = winui_window_dimension(size.height, current.map(|size| size.height));
+
+    map_winui("failed to resize WinUI window", unsafe {
+        SetWindowPos(hwnd, None, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER)
+    })
+}
+
+fn winui_window_rect_size(hwnd: HWND) -> GuiResult<WinUiWindowSize> {
+    let mut rect = RECT::default();
+    map_winui("failed to read WinUI window rectangle", unsafe {
+        GetWindowRect(hwnd, &mut rect)
+    })?;
+    Ok(winui_rect_size(rect))
+}
+
+fn winui_rect_size(rect: RECT) -> WinUiWindowSize {
+    WinUiWindowSize {
+        width: rect.right.saturating_sub(rect.left).max(1),
+        height: rect.bottom.saturating_sub(rect.top).max(1),
+    }
+}
+
+fn winui_window_dimension(value: Option<f64>, current: Option<i32>) -> i32 {
+    value
+        .map(winui_window_points_to_i32)
+        .or(current)
+        .unwrap_or(1)
+        .max(1)
+}
+
+fn winui_window_points_to_i32(value: f64) -> i32 {
+    if !value.is_finite() || value <= 0.0 {
+        return 1;
+    }
+    if value >= i32::MAX as f64 {
+        return i32::MAX;
+    }
+    value.round().max(1.0) as i32
+}
+
 fn set_winui_window_resizable(window: &xaml::Window, value: Option<bool>) -> GuiResult<()> {
     let hwnd = winui_window_hwnd(window)?;
     let style =
@@ -918,6 +974,12 @@ fn winui_resizable_window_style(style: u32, value: Option<bool>) -> u32 {
     } else {
         style & !resize_style
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct WinUiWindowSize {
+    width: i32,
+    height: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -1290,5 +1352,51 @@ mod tests {
         let defaulted = winui_resizable_window_style(0, None);
         assert_ne!(defaulted & WS_THICKFRAME.0, 0);
         assert_ne!(defaulted & WS_MAXIMIZEBOX.0, 0);
+    }
+
+    #[test]
+    fn winui_window_points_to_i32_rounds_and_clamps() {
+        assert_eq!(winui_window_points_to_i32(0.1), 1);
+        assert_eq!(winui_window_points_to_i32(10.4), 10);
+        assert_eq!(winui_window_points_to_i32(10.5), 11);
+        assert_eq!(winui_window_points_to_i32(f64::NAN), 1);
+        assert_eq!(winui_window_points_to_i32(f64::INFINITY), 1);
+        assert_eq!(winui_window_points_to_i32(i32::MAX as f64 * 2.0), i32::MAX);
+    }
+
+    #[test]
+    fn winui_window_dimension_keeps_current_when_missing() {
+        assert_eq!(winui_window_dimension(None, Some(640)), 640);
+        assert_eq!(winui_window_dimension(None, Some(0)), 1);
+        assert_eq!(winui_window_dimension(None, None), 1);
+        assert_eq!(winui_window_dimension(Some(320.0), Some(640)), 320);
+    }
+
+    #[test]
+    fn winui_rect_size_clamps_empty_or_inverted_rects() {
+        assert_eq!(
+            winui_rect_size(RECT {
+                left: 10,
+                top: 20,
+                right: 110,
+                bottom: 220,
+            }),
+            WinUiWindowSize {
+                width: 100,
+                height: 200,
+            }
+        );
+        assert_eq!(
+            winui_rect_size(RECT {
+                left: 10,
+                top: 20,
+                right: 10,
+                bottom: 10,
+            }),
+            WinUiWindowSize {
+                width: 1,
+                height: 1,
+            }
+        );
     }
 }

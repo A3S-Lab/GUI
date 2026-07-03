@@ -35,7 +35,7 @@ layout engine, or JavaScript object graph at the host boundary.
 | TypeScript JSX protocol SDK | Usable for emitting `UiFrame` JSON with semantic components, HTML/SVG tags, style, metadata, and event props. |
 | AppKit native surface | Usable for small macOS smoke apps with windows, text input, buttons, toggles, sliders, selects, tabs, menus, keyboard events, close handling, and native `autoFocus`. |
 | GTK4 native surface | Usable for small Linux smoke apps with the same core controls; requires GTK4 development libraries and `pkg-config`. |
-| WinUI native surface | Usable for Windows smoke apps with core controls, HWND window sizing/resizable state, focus callbacks, keyboard message routing, and close handling. Programmatic `autoFocus` is tracked but limited by `winio-winui3` 0.4.2 not exposing a safe focus method. |
+| WinUI native surface | Usable for Windows smoke apps with core controls, initial HWND width/height and resizable state, focus callbacks, keyboard message routing, and close handling. Programmatic `autoFocus` is tracked but limited by `winio-winui3` 0.4.2 not exposing a safe focus method. |
 | Production app shell | In progress. Layout polish, packaging guidance, dogfood coverage, and platform-specific edge cases still need hardening. |
 
 Known boundaries:
