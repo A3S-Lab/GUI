@@ -1,61 +1,37 @@
 # A3S GUI
 
-**Native GUI runtime for A3S UI frames**
+Native GUI runtime for structured A3S UI frames.
 
-A3S GUI renders structured UI protocol frames without embedding a browser. It
-accepts Rust-native trees or serialized JSX frames, lowers them into a portable
-native UI IR, reconciles keyed updates, routes native events to stable action
-ids, and targets AppKit, WinUI, GTK4, or a headless test host.
+A3S GUI renders reducer-driven UI frames into native AppKit, WinUI, GTK4, or a
+headless test host without embedding a browser. It accepts Rust-native trees or
+serialized JSX frames, lowers them into a portable native IR, reconciles keyed
+updates, and routes native events back to stable action ids.
 
----
+It is not a WebView runtime. There is no DOM, CSSOM, browser layout engine, or
+JavaScript object graph at the host boundary.
 
-## Overview
+## Status
 
-The crate owns the native UI boundary for A3S applications:
+| Area | Readiness |
+| --- | --- |
+| Headless runtime | Usable for protocol tests, command inspection, reducer loops, and accessibility snapshots. |
+| TypeScript JSX SDK | Usable for emitting `UiFrame` JSON with semantic components, intrinsic HTML/SVG tags, style, metadata, and event props. |
+| AppKit native surface | Usable for macOS smoke apps with windows, core controls, menus, keyboard events, close actions, and native `autoFocus`. |
+| GTK4 native surface | Usable for Linux smoke apps with the same core controls, menus, dialogs, close actions, and scroll containers. |
+| WinUI native surface | Usable for Windows smoke apps with core controls, size hints, resize bounds, focus callbacks, keyboard routing, close actions, and root-window exit. Programmatic `autoFocus` is tracked but limited by the current `winio-winui3` safe API. |
+| Product app shell | Dogfood-ready. Production distribution still needs signed installers, broader native automation, and longer real-world focus/input hardening. |
 
-- **Protocol input**: `UiFrame` records from the TypeScript JSX SDK or any
-  producer that emits the same serializable shape.
-- **Native IR**: typed roles, props, metadata, style tokens, event bindings, and
-  accessibility hints shared by all platform backends.
-- **Incremental renderer**: keyed create, update, insert-child, remove, and
-  set-root commands for native hosts.
-- **Platform backends**: AppKit, WinUI, GTK4 planning adapters plus feature-gated
-  native surfaces for the matching operating systems.
-- **State loops**: reusable protocol and embedded-runtime loops for reducer
-  driven rerendering after native actions.
-
-A3S GUI is not a WebView runtime. It does not provide a DOM, CSSOM, browser
-layout engine, or JavaScript object graph at the host boundary.
-
-## Current Status
-
-| Area | Status |
-|------|--------|
-| Headless runtime | Usable for protocol tests, command inspection, and accessibility snapshots. |
-| TypeScript JSX protocol SDK | Usable for emitting `UiFrame` JSON with semantic components, HTML/SVG tags, style, metadata, and event props. |
-| AppKit native surface | Usable for small macOS smoke apps with windows, text and number input, buttons, toggles, sliders, selects, tabs, menus, keyboard events, `window.onClose` actions, and native `autoFocus`. |
-| GTK4 native surface | Usable for small Linux smoke apps with the same core controls plus window/dialog `window.onClose` actions; requires GTK4 development libraries and `pkg-config`. |
-| WinUI native surface | Usable for Windows smoke apps with core controls, HWND initial size, min/max resize bounds, resizable state, focus callbacks, keyboard message routing, `window.onClose` actions, and root-window close exit. Programmatic `autoFocus` is tracked but limited by `winio-winui3` 0.4.2 not exposing a safe focus method. |
-| Production app shell | In progress. Crate-local `just` recipes cover local verification, native dogfood entrypoints, host-native release builds, and staged dogfood bundles. Overflow-aware container scroll shells are available for longer forms. Signed installers, layout polish, broader native automation, and platform-specific edge cases still need hardening. |
-
-Known boundaries:
-
-- Web-like input is accepted only when it can be lowered to native roles,
-  control state, accessibility hints, metadata, events, or portable style
-  tokens.
-- Arbitrary CSS selectors, browser layout behavior, Web APIs, and treating
-  `HTMLElement` objects as application state are out of scope.
-- Media, resource, table, and rich document roles are represented in the native
-  IR; native platform controls for every browser feature are not implied.
-
-## Quick Start
-
-Add the Rust crate:
+## Install
 
 ```toml
 [dependencies]
 a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ```
+
+The TypeScript protocol package lives in [`sdk/typescript`](sdk/typescript/) and
+exports `@a3s-lab/gui`.
+
+## Rust Usage
 
 Render a native tree into the headless host:
 
@@ -77,6 +53,8 @@ fn main() -> GuiResult<()> {
 }
 ```
 
+## JSX Usage
+
 Generate the same protocol shape from JSX:
 
 ```tsx
@@ -95,12 +73,14 @@ export const frame = createUiFrame(
 );
 ```
 
-The TypeScript package lives in [`sdk/typescript`](sdk/typescript/) and exports
-`@a3s-lab/gui`.
+JSX frames preserve semantic component names, intrinsic HTML/SVG tags, event
+props, ARIA metadata, portable style tokens, and window metadata. Native hosts
+lower only the parts that make sense for native UI; browser-only behavior is out
+of scope.
 
 ## Examples
 
-Run the protocol examples from this crate directory:
+Run protocol and reducer examples from this crate directory:
 
 ```bash
 cargo run --example protocol_session
@@ -109,93 +89,64 @@ cargo run --example native_runtime_app
 cargo run --example dogfood_session
 ```
 
-Run native smoke examples on the matching operating system:
+Run native smoke apps on the matching operating system:
 
 ```bash
 # macOS
-cargo run --example appkit_counter --features appkit-native
-cargo run --example appkit_controls --features appkit-native
-cargo run --example appkit_dogfood --features appkit-native
-
-# Windows
-cargo run --example winui_counter --features winui-native
-cargo run --example winui_controls --features winui-native
-cargo run --example winui_dogfood --features winui-native
+cargo run --features appkit-native --example appkit_controls
+cargo run --features appkit-native --example appkit_dogfood
 
 # Linux
-cargo run --example gtk4_counter --features gtk4-native
-cargo run --example gtk4_controls --features gtk4-native
-cargo run --example gtk4_dogfood --features gtk4-native
+cargo run --features gtk4-native --example gtk4_controls
+cargo run --features gtk4-native --example gtk4_dogfood
+
+# Windows
+cargo run --features winui-native --example winui_controls
+cargo run --features winui-native --example winui_dogfood
 ```
 
-The `*_controls` examples exercise text input, number input, toggles, sliders,
-selects, tabs, actions, rerendering, and root-window close handling through the
-same reducer loop. Ranged control values are normalized against bounds and step
-hints on render and before they reach reducers. Native window close requests
-route through `window.onClose` action ids.
-The `*_dogfood` examples run one shared task editor and review workflow
-across the native surfaces, including menus, a dialog gate, assignment,
-checklists, keyboard shortcuts, window close lifecycle actions, and
-state-driven app loop exit. The dogfood shell uses an overflow-aware root
-container so longer native forms get a platform scroll viewport instead of
-growing past the window. `NativeProtocolApp` is the reusable host-side
-protocol loop; `NativeRuntimeApp` is the embedded loop for Rust-owned native
-hosts. Platform `run_*_while` loops stop draining queued native events as soon
-as their state predicate returns false.
+The shared dogfood app exercises windows, menus, dialogs, text input, number
+input, toggles, sliders, selects, tabs, keyboard routing, scroll containers,
+close actions, reducer-driven rerendering, and state-driven app loop exit.
 
-## Feature Flags
-
-The default feature is `headless`.
+## Features
 
 | Feature | Description |
-|---------|-------------|
-| `headless` | Pure Rust host for tests and protocol validation |
-| `appkit` | AppKit planning adapter and handle types |
-| `winui` | WinUI planning adapter and handle types |
-| `gtk4` | GTK4 planning adapter and handle types |
-| `appkit-native` | Native AppKit surface on macOS |
-| `winui-native` | Native WinUI surface on Windows |
-| `gtk4-native` | Native GTK4 surface on Linux |
-
-`gtk4-native` requires GTK4 development libraries and `pkg-config`.
+| --- | --- |
+| `headless` | Pure Rust host for tests and protocol validation. Enabled by default. |
+| `appkit` | AppKit planning adapter and handle types. |
+| `winui` | WinUI planning adapter and handle types. |
+| `gtk4` | GTK4 planning adapter and handle types. |
+| `appkit-native` | Native AppKit surface on macOS. |
+| `winui-native` | Native WinUI surface on Windows. |
+| `gtk4-native` | Native GTK4 surface on Linux. Requires GTK4 development libraries and `pkg-config`. |
 
 ## Development
 
-Run the common checks from this crate directory:
+Run the full local verification suite from `crates/gui`:
 
 ```bash
 just verify
 ```
 
-The `just verify` recipe runs formatting, Rust tests, example tests, platform
-planning tests, TypeScript SDK tests, and whitespace checks. The underlying
-commands are:
-
-```bash
-cargo fmt --all
-cargo test
-cargo test --features appkit,winui,gtk4
-cargo test --examples
-npm test --prefix sdk/typescript
-git diff --check
-```
-
-Dogfood and native surface checks are available as focused recipes:
+Focused native and dogfood checks:
 
 ```bash
 just dogfood-regression
 just check-native
 just dogfood-native
-just check-winui
 ```
 
-Build and stage native dogfood release artifacts on the matching operating
-system:
+Build and stage host-native dogfood release artifacts:
 
 ```bash
 just release-native
 just bundle-native
 ```
+
+The staged bundles are unsigned smoke artifacts. Product repositories still own
+bundle identifiers, icons, signing, notarization, installers, update metadata,
+and target-platform QA.
 
 ## Documentation
 
