@@ -118,7 +118,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         .or(config.value.as_deref())
                         .unwrap_or(""),
                 );
-                let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                let target = AppKitActionTarget::new(
+                    id,
+                    self.events.clone(),
+                    self.focused_node.clone(),
+                    self.mtm,
+                );
                 let menu_item = unsafe {
                     NSMenuItem::initWithTitle_action_keyEquivalent(
                         NSMenuItem::alloc(self.mtm),
@@ -144,7 +149,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
             AppKitWidgetKind::Button => {
                 let title = ns_string(config.label.as_deref().unwrap_or(""));
-                let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                let target = AppKitActionTarget::new(
+                    id,
+                    self.events.clone(),
+                    self.focused_node.clone(),
+                    self.mtm,
+                );
                 let button = unsafe {
                     NSButton::buttonWithTitle_target_action(
                         &title,
@@ -158,7 +168,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
             AppKitWidgetKind::Checkbox => {
                 let title = ns_string(config.label.as_deref().unwrap_or(""));
-                let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                let target = AppKitActionTarget::new(
+                    id,
+                    self.events.clone(),
+                    self.focused_node.clone(),
+                    self.mtm,
+                );
                 let checkbox = unsafe {
                     NSButton::checkboxWithTitle_target_action(
                         &title,
@@ -172,7 +187,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 AppKitOsWidget::Button(checkbox)
             }
             AppKitWidgetKind::Switch => {
-                let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                let target = AppKitActionTarget::new(
+                    id,
+                    self.events.clone(),
+                    self.focused_node.clone(),
+                    self.mtm,
+                );
                 let switch = NSSwitch::initWithFrame(
                     NSSwitch::alloc(self.mtm),
                     config_rect(&config, 48.0, 28.0),
@@ -209,7 +229,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
             AppKitWidgetKind::Radio => {
                 let title = ns_string(config.label.as_deref().unwrap_or(""));
-                let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                let target = AppKitActionTarget::new(
+                    id,
+                    self.events.clone(),
+                    self.focused_node.clone(),
+                    self.mtm,
+                );
                 let radio = unsafe {
                     NSButton::radioButtonWithTitle_target_action(
                         &title,
@@ -223,7 +248,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 AppKitOsWidget::Button(radio)
             }
             AppKitWidgetKind::Tabs => {
-                let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                let target = AppKitActionTarget::new(
+                    id,
+                    self.events.clone(),
+                    self.focused_node.clone(),
+                    self.mtm,
+                );
                 let tab_view = NSTabView::initWithFrame(
                     NSTabView::alloc(self.mtm),
                     config_rect(&config, 320.0, 240.0),
@@ -248,7 +278,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 AppKitOsWidget::TabViewItem(tab_item)
             }
             AppKitWidgetKind::ComboBox => {
-                let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                let target = AppKitActionTarget::new(
+                    id,
+                    self.events.clone(),
+                    self.focused_node.clone(),
+                    self.mtm,
+                );
                 let combo_box = NSComboBox::initWithFrame(
                     NSComboBox::alloc(self.mtm),
                     config_rect(&config, 180.0, 32.0),
@@ -301,7 +336,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 AppKitOsWidget::ComboBoxItem(item)
             }
             AppKitWidgetKind::Slider => {
-                let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                let target = AppKitActionTarget::new(
+                    id,
+                    self.events.clone(),
+                    self.focused_node.clone(),
+                    self.mtm,
+                );
                 let range = AppKitRangeState::from_config(&config);
                 let orientation = config.orientation.unwrap_or(Orientation::Horizontal);
                 let slider = unsafe {
@@ -371,7 +411,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     self.text_inputs
                         .insert(id, AppKitTextInputSizing::from_config(&config));
                     self.text_input_configs.insert(id, config.clone());
-                    let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                    let target = AppKitActionTarget::new(
+                        id,
+                        self.events.clone(),
+                        self.focused_node.clone(),
+                        self.mtm,
+                    );
                     let delegate: &ProtocolObject<dyn NSSearchFieldDelegate> =
                         ProtocolObject::from_ref(&*target);
                     unsafe {
@@ -390,7 +435,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     self.text_inputs
                         .insert(id, AppKitTextInputSizing::from_config(&config));
                     self.text_input_configs.insert(id, config.clone());
-                    let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                    let target = AppKitActionTarget::new(
+                        id,
+                        self.events.clone(),
+                        self.focused_node.clone(),
+                        self.mtm,
+                    );
                     let delegate: &ProtocolObject<dyn NSTextFieldDelegate> =
                         ProtocolObject::from_ref(&*target);
                     unsafe {
@@ -413,7 +463,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     self.text_inputs
                         .insert(id, AppKitTextInputSizing::from_config(&config));
                     self.text_input_configs.insert(id, config.clone());
-                    let target = AppKitActionTarget::new(id, self.events.clone(), self.mtm);
+                    let target = AppKitActionTarget::new(
+                        id,
+                        self.events.clone(),
+                        self.focused_node.clone(),
+                        self.mtm,
+                    );
                     let delegate: &ProtocolObject<dyn NSTextFieldDelegate> =
                         ProtocolObject::from_ref(&*target);
                     unsafe {
@@ -432,6 +487,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         };
         self.apply_text_input_hints(id, &handle.widget);
         set_widget_title(&handle.widget, config.title.as_deref());
+        self.register_responder(id, &handle.widget);
         Ok(handle)
     }
 
@@ -1139,6 +1195,10 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             self.root = None;
         }
         self.action_targets.remove(&id);
+        if self.focused_node.get() == Some(id) {
+            self.focused_node.set(None);
+        }
+        self.unregister_responder(&handle.widget);
         self.ranges.remove(&id);
         self.text_inputs.remove(&id);
         self.text_input_configs.remove(&id);
@@ -1161,7 +1221,11 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
         }
         if let AppKitOsWidget::ListView(_) = &handle.widget {
-            self.list_views.remove(&id);
+            if let Some(state) = self.list_views.remove(&id) {
+                for row in state.rows.borrow().iter() {
+                    self.unregister_view_responder(row.button_view());
+                }
+            }
             if let Some(children) = self.list_children.remove(&id) {
                 for child in children {
                     self.list_item_parents.remove(&child);

@@ -13,12 +13,13 @@ use objc2::{
 use objc2_app_kit::{
     NSApplication, NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSButton, NSComboBox,
     NSComboBoxDelegate, NSControl, NSControlStateValue, NSControlStateValueOff,
-    NSControlStateValueOn, NSControlTextEditingDelegate, NSEventMask, NSMenu, NSMenuItem, NSPanel,
-    NSPopover, NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSScrollView,
-    NSSearchField, NSSearchFieldDelegate, NSSecureTextField, NSSlider, NSStackView,
-    NSStackViewDistribution, NSSwitch, NSTabView, NSTabViewDelegate, NSTabViewItem, NSTextField,
-    NSTextFieldDelegate, NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow,
-    NSWindowDelegate, NSWindowStyleMask,
+    NSControlStateValueOn, NSControlTextEditingDelegate, NSEvent, NSEventMask, NSEventType, NSMenu,
+    NSMenuItem, NSPanel, NSPopover, NSPopoverBehavior, NSProgressIndicator,
+    NSProgressIndicatorStyle, NSResponder, NSScrollView, NSSearchField, NSSearchFieldDelegate,
+    NSSecureTextField, NSSlider, NSStackView, NSStackViewDistribution, NSSwitch, NSTabView,
+    NSTabViewDelegate, NSTabViewItem, NSTextField, NSTextFieldDelegate,
+    NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow, NSWindowDelegate,
+    NSWindowStyleMask,
 };
 use objc2_foundation::{
     NSDate, NSDefaultRunLoopMode, NSInteger, NSNotification, NSObject, NSObjectProtocol, NSPoint,
@@ -66,9 +67,11 @@ pub struct AppKitNativeSurface {
     _application: Retained<NSApplication>,
     root: Option<HostNodeId>,
     events: Rc<RefCell<Vec<NativeEvent>>>,
+    focused_node: Rc<Cell<Option<HostNodeId>>>,
     closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
     action_targets: BTreeMap<HostNodeId, Retained<AppKitActionTarget>>,
     window_delegates: BTreeMap<HostNodeId, Retained<AppKitWindowDelegate>>,
+    responder_nodes: BTreeMap<usize, HostNodeId>,
     combo_boxes: BTreeMap<HostNodeId, Retained<NSComboBox>>,
     combo_items: BTreeMap<HostNodeId, AppKitComboBoxItem>,
     combo_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
@@ -100,9 +103,11 @@ impl AppKitNativeSurface {
             _application: application,
             root: None,
             events: Rc::new(RefCell::new(Vec::new())),
+            focused_node: Rc::new(Cell::new(None)),
             closed_windows: Rc::new(RefCell::new(BTreeSet::new())),
             action_targets: BTreeMap::new(),
             window_delegates: BTreeMap::new(),
+            responder_nodes: BTreeMap::new(),
             combo_boxes: BTreeMap::new(),
             combo_items: BTreeMap::new(),
             combo_children: BTreeMap::new(),
@@ -187,6 +192,54 @@ impl AppKitNativeSurface {
                 apply_text_field_hints(text_field.as_super(), hints);
             }
             _ => {}
+        }
+    }
+
+    fn register_responder(&mut self, id: HostNodeId, widget: &AppKitOsWidget) {
+        if let Some(responder) = widget.as_responder() {
+            self.responder_nodes.insert(responder_key(responder), id);
+        }
+    }
+
+    fn unregister_responder(&mut self, widget: &AppKitOsWidget) {
+        if let Some(responder) = widget.as_responder() {
+            self.responder_nodes.remove(&responder_key(responder));
+        }
+    }
+
+    fn register_view_responder(&mut self, id: HostNodeId, view: &NSView) {
+        self.responder_nodes
+            .insert(responder_key(view.as_super()), id);
+    }
+
+    fn unregister_view_responder(&mut self, view: &NSView) {
+        self.responder_nodes.remove(&responder_key(view.as_super()));
+    }
+
+    fn node_for_key_event(&self, event: &NSEvent) -> Option<HostNodeId> {
+        event
+            .window(self.mtm)
+            .and_then(|window| window.firstResponder())
+            .and_then(|responder| {
+                self.responder_nodes
+                    .get(&responder_key(&responder))
+                    .copied()
+            })
+            .or_else(|| self.focused_node.get())
+            .or(self.root)
+    }
+
+    fn enqueue_key_event(&self, event: &NSEvent) {
+        let kind = match event.r#type() {
+            event_type if event_type == NSEventType::KeyDown => NativeEventKind::KeyDown,
+            event_type if event_type == NSEventType::KeyUp => NativeEventKind::KeyUp,
+            _ => return,
+        };
+
+        if let Some(node) = self.node_for_key_event(event) {
+            self.events
+                .borrow_mut()
+                .push(NativeEvent::new(node, kind).value(appkit_key_value(event)));
         }
     }
 
@@ -290,6 +343,7 @@ impl AppKitNativeSurface {
 
         for row in state.rows.borrow_mut().drain(..) {
             state.stack_view.removeArrangedSubview(row.button_view());
+            self.unregister_view_responder(row.button_view());
             row.button_view().removeFromSuperview();
         }
 
@@ -300,7 +354,14 @@ impl AppKitNativeSurface {
             };
             let selected =
                 item.selected || (!previous_value.is_empty() && item.value == previous_value);
-            let row = AppKitListRow::new(id, item, selected, self.events.clone(), self.mtm);
+            let row = AppKitListRow::new(
+                id,
+                item,
+                selected,
+                self.events.clone(),
+                self.focused_node.clone(),
+                self.mtm,
+            );
             let index = rows
                 .len()
                 .try_into()
@@ -308,6 +369,7 @@ impl AppKitNativeSurface {
             state
                 .stack_view
                 .insertArrangedSubview_atIndex(row.button_view(), index);
+            self.register_view_responder(id, row.button_view());
             rows.push(row);
         }
         *state.rows.borrow_mut() = rows;
@@ -405,16 +467,16 @@ where
             );
 
         if let Some(event) = event {
-            let application = self
+            let surface = self
                 .runtime()
                 .host()
                 .executor()
                 .driver()
                 .adapter()
-                .surface()
-                .application();
-            application.sendEvent(&event);
-            application.updateWindows();
+                .surface();
+            surface.enqueue_key_event(&event);
+            surface.application().sendEvent(&event);
+            surface.application().updateWindows();
             responses.extend(self.handle_pending_native_events()?);
         }
 
@@ -469,6 +531,7 @@ impl AppKitComboBoxItem {
 struct AppKitActionTargetIvars {
     node: HostNodeId,
     events: Rc<RefCell<Vec<NativeEvent>>>,
+    focused_node: Rc<Cell<Option<HostNodeId>>>,
     selection_value: Option<String>,
     max_length: Cell<Option<u32>>,
     suppress_text_change: Cell<bool>,
@@ -518,6 +581,7 @@ define_class!(
     unsafe impl NSControlTextEditingDelegate for AppKitActionTarget {
         #[unsafe(method(controlTextDidBeginEditing:))]
         fn control_text_did_begin_editing(&self, _notification: &NSNotification) {
+            self.ivars().focused_node.set(Some(self.ivars().node));
             self.ivars()
                 .events
                 .borrow_mut()
@@ -551,6 +615,9 @@ define_class!(
 
         #[unsafe(method(controlTextDidEndEditing:))]
         fn control_text_did_end_editing(&self, _notification: &NSNotification) {
+            if self.ivars().focused_node.get() == Some(self.ivars().node) {
+                self.ivars().focused_node.set(None);
+            }
             self.ivars()
                 .events
                 .borrow_mut()
@@ -599,11 +666,13 @@ impl AppKitActionTarget {
     fn new(
         node: HostNodeId,
         events: Rc<RefCell<Vec<NativeEvent>>>,
+        focused_node: Rc<Cell<Option<HostNodeId>>>,
         mtm: MainThreadMarker,
     ) -> Retained<Self> {
         let this = Self::alloc(mtm).set_ivars(AppKitActionTargetIvars {
             node,
             events,
+            focused_node,
             selection_value: None,
             max_length: Cell::new(None),
             suppress_text_change: Cell::new(false),
@@ -614,12 +683,14 @@ impl AppKitActionTarget {
     fn new_selection(
         node: HostNodeId,
         events: Rc<RefCell<Vec<NativeEvent>>>,
+        focused_node: Rc<Cell<Option<HostNodeId>>>,
         selection_value: String,
         mtm: MainThreadMarker,
     ) -> Retained<Self> {
         let this = Self::alloc(mtm).set_ivars(AppKitActionTargetIvars {
             node,
             events,
+            focused_node,
             selection_value: Some(selection_value),
             max_length: Cell::new(None),
             suppress_text_change: Cell::new(false),
@@ -674,10 +745,17 @@ impl AppKitListRow {
         item: AppKitComboBoxItem,
         selected: bool,
         events: Rc<RefCell<Vec<NativeEvent>>>,
+        focused_node: Rc<Cell<Option<HostNodeId>>>,
         mtm: MainThreadMarker,
     ) -> Self {
         let title = ns_string(&item.label);
-        let target = AppKitActionTarget::new_selection(parent, events, item.value.clone(), mtm);
+        let target = AppKitActionTarget::new_selection(
+            parent,
+            events,
+            focused_node,
+            item.value.clone(),
+            mtm,
+        );
         let button = unsafe {
             NSButton::buttonWithTitle_target_action(
                 &title,
@@ -732,6 +810,14 @@ pub enum AppKitOsWidget {
 }
 
 impl AppKitOsWidget {
+    fn as_responder(&self) -> Option<&NSResponder> {
+        match self {
+            AppKitOsWidget::Window(window) => Some(window.as_super()),
+            AppKitOsWidget::Panel(panel) => Some(panel.as_super().as_super()),
+            _ => self.as_view().map(NSView::as_super),
+        }
+    }
+
     fn as_view(&self) -> Option<&NSView> {
         match self {
             AppKitOsWidget::Window(_)
@@ -1126,6 +1212,48 @@ fn ns_string_as_any(value: &NSString) -> &AnyObject {
     value.as_super().as_super()
 }
 
+fn responder_key(responder: &NSResponder) -> usize {
+    responder as *const NSResponder as usize
+}
+
+fn appkit_key_value(event: &NSEvent) -> String {
+    let characters = event
+        .charactersIgnoringModifiers()
+        .or_else(|| event.characters())
+        .map(|characters| characters.to_string());
+    appkit_key_value_from_parts(event.keyCode(), characters.as_deref())
+}
+
+fn appkit_key_value_from_parts(key_code: u16, characters: Option<&str>) -> String {
+    match key_code {
+        36 | 76 => return "Enter".to_string(),
+        48 => return "Tab".to_string(),
+        49 => return " ".to_string(),
+        51 => return "Backspace".to_string(),
+        53 => return "Escape".to_string(),
+        115 => return "Home".to_string(),
+        116 => return "PageUp".to_string(),
+        117 => return "Delete".to_string(),
+        119 => return "End".to_string(),
+        121 => return "PageDown".to_string(),
+        123 => return "ArrowLeft".to_string(),
+        124 => return "ArrowRight".to_string(),
+        125 => return "ArrowDown".to_string(),
+        126 => return "ArrowUp".to_string(),
+        _ => {}
+    }
+
+    let raw = characters.unwrap_or_default();
+    match raw {
+        "\r" | "\n" => "Enter".to_string(),
+        "\t" | "\u{19}" => "Tab".to_string(),
+        "\u{1b}" => "Escape".to_string(),
+        "\u{7f}" | "\u{8}" => "Backspace".to_string(),
+        " " => " ".to_string(),
+        value => crate::event::native_key_value(value),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1141,6 +1269,20 @@ mod tests {
         );
         assert_eq!(truncate_to_max_length("abc", None), "abc");
         assert_eq!(truncate_to_max_length("abc", Some(0)), "");
+    }
+
+    #[test]
+    fn appkit_key_value_normalizes_special_keys() {
+        assert_eq!(appkit_key_value_from_parts(36, Some("\r")), "Enter");
+        assert_eq!(appkit_key_value_from_parts(48, Some("\t")), "Tab");
+        assert_eq!(appkit_key_value_from_parts(49, Some(" ")), " ");
+        assert_eq!(appkit_key_value_from_parts(51, Some("\u{7f}")), "Backspace");
+        assert_eq!(appkit_key_value_from_parts(53, Some("\u{1b}")), "Escape");
+        assert_eq!(appkit_key_value_from_parts(123, None), "ArrowLeft");
+        assert_eq!(appkit_key_value_from_parts(124, None), "ArrowRight");
+        assert_eq!(appkit_key_value_from_parts(125, None), "ArrowDown");
+        assert_eq!(appkit_key_value_from_parts(126, None), "ArrowUp");
+        assert_eq!(appkit_key_value_from_parts(0, Some("a")), "a");
     }
 }
 

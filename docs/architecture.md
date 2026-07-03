@@ -499,6 +499,9 @@ Feature-gated platform executor surfaces:
   native orientation and step hints and enqueue ranged `NativeEventKind::Change`
   records with the current double value, while `NSProgressIndicator` is updated
   by setter-driven ranged state.
+  The AppKit event pump also maps key-down and key-up `NSEvent` records to the
+  focused native node, normalizes common AppKit key codes, and falls back to the
+  root node for window-level keyboard routes.
   `AppKitRuntimeApp` provides the embedded app loop for this backend: it
   renders into an `AppKitNativeSurface`, pumps AppKit events, drains queued A3S
   native events, runs the application reducer, and rerenders the next frame.
