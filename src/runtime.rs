@@ -514,7 +514,9 @@ fn is_disabled_user_event(
     blueprint.control_state.disabled
         && !matches!(
             event,
-            crate::event::NativeEventKind::Focus | crate::event::NativeEventKind::Blur
+            crate::event::NativeEventKind::Focus
+                | crate::event::NativeEventKind::Blur
+                | crate::event::NativeEventKind::Close
         )
 }
 

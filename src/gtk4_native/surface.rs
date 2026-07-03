@@ -24,8 +24,15 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     .default_height(config_dimension(size.height, 480))
                     .resizable(config.window_resizable.unwrap_or(true))
                     .build();
+                let events = self.events.clone();
+                let events_suppressed = self.events_suppressed.clone();
                 let closed_windows = self.closed_windows.clone();
                 window.connect_close_request(move |_| {
+                    push_event(
+                        &events,
+                        &events_suppressed,
+                        NativeEvent::new(id, NativeEventKind::Close),
+                    );
                     closed_windows.borrow_mut().insert(id);
                     gtk::glib::Propagation::Proceed
                 });
@@ -390,8 +397,15 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     .default_width(config_dimension(config.portable_style.width, 420))
                     .default_height(config_dimension(config.portable_style.height, 280))
                     .build();
+                let events = self.events.clone();
+                let events_suppressed = self.events_suppressed.clone();
                 let closed_windows = self.closed_windows.clone();
                 dialog.connect_close_request(move |_| {
+                    push_event(
+                        &events,
+                        &events_suppressed,
+                        NativeEvent::new(id, NativeEventKind::Close),
+                    );
                     closed_windows.borrow_mut().insert(id);
                     gtk::glib::Propagation::Proceed
                 });

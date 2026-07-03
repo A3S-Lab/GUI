@@ -93,7 +93,10 @@ impl InteractionState {
             NativeEventKind::Change => apply_change(blueprint.role, event, &mut after),
             NativeEventKind::SelectionChange => apply_selection(blueprint.role, event, &mut after),
             NativeEventKind::Toggle => apply_toggle(blueprint.role, event, &mut after),
-            NativeEventKind::Press | NativeEventKind::KeyDown | NativeEventKind::KeyUp => {}
+            NativeEventKind::Press
+            | NativeEventKind::KeyDown
+            | NativeEventKind::KeyUp
+            | NativeEventKind::Close => {}
         }
 
         if before == after {

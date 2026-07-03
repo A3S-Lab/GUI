@@ -43,7 +43,7 @@ impl<'de> Deserialize<'de> for UiFrame {
         let wire = UiFrameWire::deserialize(deserializer)?;
         let actions = wire
             .actions
-            .unwrap_or_else(|| collect_actions_from_node(&wire.root));
+            .unwrap_or_else(|| collect_actions_from_frame(&wire.root, wire.window.as_ref()));
         Ok(Self {
             frame_id: wire.frame_id,
             root: wire.root,
@@ -65,6 +65,8 @@ pub struct UiAction {
 #[serde(rename_all = "camelCase")]
 pub struct WindowOptions {
     pub title: String,
+    #[serde(default)]
+    pub on_close: Option<String>,
     #[serde(default)]
     pub width: Option<f64>,
     #[serde(default)]
@@ -263,9 +265,16 @@ impl WindowOptions {
                 NativeProps::new()
                     .label(self.title.clone())
                     .metadata("data-a3s-window-resizable", resizable)
-                    .web(web),
+                    .web(window_web_props(web, self.on_close.as_deref())),
             )
             .child(content)
+    }
+}
+
+fn window_web_props(web: WebProps, on_close: Option<&str>) -> WebProps {
+    match on_close.filter(|action| !action.is_empty()) {
+        Some(action) => web.event("onClose", action),
+        None => web,
     }
 }
 
@@ -342,10 +351,16 @@ fn validate_dimension_bounds(
     Ok(())
 }
 
-fn collect_actions_from_node(root: &CompiledJsxNode) -> Vec<UiAction> {
+fn collect_actions_from_frame(
+    root: &CompiledJsxNode,
+    window: Option<&WindowOptions>,
+) -> Vec<UiAction> {
     let mut actions = Vec::new();
     let mut indexes = BTreeMap::new();
     collect_actions_into(root, &mut actions, &mut indexes);
+    if let Some(on_close) = window.and_then(|window| window.on_close.as_ref()) {
+        collect_action_id(on_close, None, &mut actions, &mut indexes);
+    }
     actions
 }
 
@@ -367,23 +382,35 @@ fn collect_actions_into(
             .get(id)
             .filter(|label| !label.is_empty())
             .cloned();
-        match indexes.get(id).copied() {
-            Some(index) if actions[index].label.is_none() && label.is_some() => {
-                actions[index].label = label;
-            }
-            Some(_) => {}
-            None => {
-                indexes.insert(id.clone(), actions.len());
-                actions.push(UiAction {
-                    id: id.clone(),
-                    label,
-                });
-            }
-        }
+        collect_action_id(id, label, actions, indexes);
     }
 
     for child in children {
         collect_actions_into(child, actions, indexes);
+    }
+}
+
+fn collect_action_id(
+    id: &str,
+    label: Option<String>,
+    actions: &mut Vec<UiAction>,
+    indexes: &mut BTreeMap<String, usize>,
+) {
+    if id.is_empty() {
+        return;
+    }
+    match indexes.get(id).copied() {
+        Some(index) if actions[index].label.is_none() && label.is_some() => {
+            actions[index].label = label;
+        }
+        Some(_) => {}
+        None => {
+            indexes.insert(id.to_string(), actions.len());
+            actions.push(UiAction {
+                id: id.to_string(),
+                label,
+            });
+        }
     }
 }
 
@@ -1058,6 +1085,7 @@ mod tests {
         non_finite_window.frame_id = "non-finite-window".to_string();
         non_finite_window.window = Some(WindowOptions {
             title: "Profile".to_string(),
+            on_close: None,
             width: Some(f64::NAN),
             height: None,
             min_width: None,
@@ -2041,6 +2069,7 @@ mod tests {
               "frameId": "frame-window",
               "window": {
                 "title": "A3S Profile",
+                "onClose": "closeWindow",
                 "width": 640,
                 "height": 480,
                 "minWidth": 480,
@@ -2061,11 +2090,26 @@ mod tests {
         let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
         let mut runtime = GuiRuntime::new(host);
 
+        assert_eq!(
+            frame
+                .window
+                .as_ref()
+                .and_then(|window| window.on_close.as_deref()),
+            Some("closeWindow")
+        );
+        assert!(frame
+            .actions
+            .iter()
+            .any(|action| action.id == "closeWindow"));
         let rendered = frame.render_into(&mut runtime).unwrap();
         let window = runtime.host().planning().node(rendered.root).unwrap();
 
         assert_eq!(window.blueprint.widget_class, "gtk::ApplicationWindow");
         assert_eq!(window.blueprint.label.as_deref(), Some("A3S Profile"));
+        assert_eq!(
+            window.blueprint.events.get("onClose").map(String::as_str),
+            Some("closeWindow")
+        );
         assert_eq!(
             window
                 .blueprint
@@ -2130,6 +2174,11 @@ mod tests {
             Some(960.0)
         );
         assert_eq!(window.children.len(), 1);
+        let close = runtime
+            .dispatch_native_event(NativeEvent::new(rendered.root, NativeEventKind::Close))
+            .unwrap();
+        assert_eq!(close.action, "closeWindow");
+        assert_eq!(close.event, NativeEventKind::Close);
 
         let fixed_frame: UiFrame = serde_json::from_str(
             r#"

@@ -408,6 +408,7 @@ impl AppKitNativeSurface {
 #[derive(Debug, Clone)]
 struct AppKitWindowDelegateIvars {
     node: HostNodeId,
+    events: Rc<RefCell<Vec<NativeEvent>>>,
     closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
 }
 
@@ -429,6 +430,10 @@ define_class!(
         #[unsafe(method(windowWillClose:))]
         fn window_will_close(&self, _notification: &NSNotification) {
             self.ivars()
+                .events
+                .borrow_mut()
+                .push(NativeEvent::new(self.ivars().node, NativeEventKind::Close));
+            self.ivars()
                 .closed_windows
                 .borrow_mut()
                 .insert(self.ivars().node);
@@ -439,11 +444,13 @@ define_class!(
 impl AppKitWindowDelegate {
     fn new(
         node: HostNodeId,
+        events: Rc<RefCell<Vec<NativeEvent>>>,
         closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
         mtm: MainThreadMarker,
     ) -> Retained<Self> {
         let this = Self::alloc(mtm).set_ivars(AppKitWindowDelegateIvars {
             node,
+            events,
             closed_windows,
         });
         unsafe { msg_send![super(this), init] }

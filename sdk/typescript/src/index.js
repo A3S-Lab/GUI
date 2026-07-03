@@ -154,6 +154,7 @@ const HOST_EVENT_KINDS = new Set([
   'blur',
   'keyDown',
   'keyUp',
+  'close',
 ]);
 const COMPILED_STRING_PROPS = [
   'label',
@@ -307,12 +308,14 @@ export function createUiFrame(frameId, root, options = {}) {
   }
   validateCompiledNode(root);
   const frameOptions = normalizeFrameOptions(options);
-  const actions = normalizeFrameActions(
-    frameOptions.actions === undefined ? collectActions(root) : frameOptions.actions,
-  );
   const window = frameOptions.window === undefined
     ? undefined
     : normalizeWindowOptions(frameOptions.window);
+  const actions = normalizeFrameActions(
+    frameOptions.actions === undefined
+      ? collectActions(root, frameOptions.window)
+      : frameOptions.actions,
+  );
   return {
     frameId,
     root,
@@ -337,6 +340,9 @@ function normalizeWindowOptions(window) {
   }
 
   const normalized = {title: window.title};
+  if (window.onClose != null) {
+    normalized.onClose = actionId(window.onClose);
+  }
   for (const property of ['width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight']) {
     if (window[property] == null) continue;
     const value = window[property];
@@ -1031,15 +1037,22 @@ function actionId(actionOrId) {
   );
 }
 
-function collectActions(root) {
+function collectActions(root, window) {
   const actions = new Map();
   for (const action of walkActions(root)) {
-    const existing = actions.get(action.id);
-    if (existing == null || (existing.label == null && action.label != null)) {
-      actions.set(action.id, action);
-    }
+    collectAction(actions, action);
+  }
+  if (window?.onClose != null) {
+    collectAction(actions, defineAction(window.onClose));
   }
   return [...actions.values()];
+}
+
+function collectAction(actions, action) {
+  const existing = actions.get(action.id);
+  if (existing == null || (existing.label == null && action.label != null)) {
+    actions.set(action.id, action);
+  }
 }
 
 function* walkActions(node) {

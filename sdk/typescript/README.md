@@ -18,6 +18,7 @@ CSS text parsing preserves delimiters inside strings, functions, and URLs.
 import {Button, createAction, createUiFrame, defineAction} from '@a3s-lab/gui';
 
 const saveProfile = createAction('saveProfile', 'Save profile');
+const closeProfile = createAction('closeProfile', 'Close profile');
 
 const root = (
   <Button className="primary" onPress={saveProfile}>
@@ -26,8 +27,14 @@ const root = (
 );
 
 export const frame = createUiFrame('profile', root, {
-  window: {title: 'Profile', width: 640, height: 480, minWidth: 480},
-  actions: [defineAction(saveProfile)],
+  window: {
+    title: 'Profile',
+    onClose: closeProfile,
+    width: 640,
+    height: 480,
+    minWidth: 480,
+  },
+  actions: [defineAction(saveProfile), defineAction(closeProfile)],
 });
 ```
 
@@ -42,6 +49,8 @@ Inferred actions preserve labels from `createAction(id, label)` handlers. Empty
 event action ids are ignored by Rust routing instead of being dispatched.
 Window dimensions must be positive finite numbers, and explicit width/height
 values must stay within any declared min/max constraints.
+`window.onClose` accepts the same action-like values as JSX events and is routed
+from native close events on supported surfaces.
 Focus, value, and toggle aliases such as `onFocusChange`, `onInput`,
 `onToggle`, and `onExpandedChange` are preserved in the emitted protocol
 alongside press, change, selection, and keyboard events.
@@ -109,8 +118,17 @@ The emitted frame is plain JSON:
 ```json
 {
   "frameId": "profile",
-  "window": {"title": "Profile", "width": 640, "height": 480, "minWidth": 480},
-  "actions": [{"id": "saveProfile", "label": "Save profile"}],
+  "window": {
+    "title": "Profile",
+    "onClose": "closeProfile",
+    "width": 640,
+    "height": 480,
+    "minWidth": 480
+  },
+  "actions": [
+    {"id": "saveProfile", "label": "Save profile"},
+    {"id": "closeProfile", "label": "Close profile"}
+  ],
   "root": {
     "kind": "element",
     "key": "Button",

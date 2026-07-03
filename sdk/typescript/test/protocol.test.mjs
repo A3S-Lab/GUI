@@ -12,6 +12,7 @@ import {
   createHostEventResponse,
   createNativeHostEventResponse,
   createNativeRenderResponse,
+  createAction,
   createUiFrame,
   defineAction,
   jsx,
@@ -72,6 +73,10 @@ test('event helper creates HostEvent protocol shape', () => {
   assert.deepEqual(createHostEvent('profile', 7, 'change', null), {
     frameId: 'profile',
     event: {node: 7, kind: 'change'},
+  });
+  assert.deepEqual(createHostEvent('profile', 7, 'close'), {
+    frameId: 'profile',
+    event: {node: 7, kind: 'close'},
   });
 });
 
@@ -678,9 +683,11 @@ test('frame actions must have stable ids', () => {
 
 test('window options must be valid native dimensions', () => {
   const root = jsx(Group, {children: 'Profile'}, 'profile');
+  const closeProfile = createAction('closeProfile', 'Close profile');
   const frame = createUiFrame('profile', root, {
     window: {
       title: '',
+      onClose: closeProfile,
       width: 640,
       height: 480,
       minWidth: 320,
@@ -691,12 +698,14 @@ test('window options must be valid native dimensions', () => {
 
   assert.deepEqual(frame.window, {
     title: '',
+    onClose: 'closeProfile',
     width: 640,
     height: 480,
     minWidth: 320,
     maxWidth: 1280,
     resizable: false,
   });
+  assert.deepEqual(frame.actions, [{id: 'closeProfile', label: 'Close profile'}]);
   assert.throws(
     () => createUiFrame('profile', root, {window: {width: 640}}),
     /string title/,
@@ -716,6 +725,12 @@ test('window options must be valid native dimensions', () => {
       window: {title: 'Profile', width: 320, minWidth: 640},
     }),
     /width.*smaller than.*minWidth/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {
+      window: {title: 'Profile', onClose: ''},
+    }),
+    /stable id/,
   );
   assert.throws(
     () => createUiFrame('profile', root, {

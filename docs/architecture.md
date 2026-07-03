@@ -312,14 +312,21 @@ reducer, and renders the next `UiFrame` back into the same host after
 state-changing events. Platform-native app specializations such as
 `AppKitRuntimeApp`, `WinUiRuntimeApp`, and `Gtk4RuntimeApp` add the OS event
 pump and stop their `run_*_while` loops when the root window closes.
+Window close lifecycle events use the same action path. `UiFrame.window.onClose`
+wraps the rendered root in a native window with an `onClose` event binding, and
+`NativeEventKind::Close` dispatches that action id. AppKit and GTK native
+surfaces enqueue close events from native window, panel, and dialog callbacks.
+WinUI still observes the root window handle for app-loop shutdown, but native
+`window.onClose` callback delivery is pending stronger `winio-winui3` close
+event binding coverage.
 
 ## Host Protocol
 
 The JS/Rust bridge uses serializable protocol types:
 
 - `UiFrame`: a compiled React tree plus action ids.
-- `WindowOptions`: optional native window title, initial dimensions, min/max
-  dimensions, and resizable flag for a frame.
+- `WindowOptions`: optional native window title, close action id, initial
+  dimensions, min/max dimensions, and resizable flag for a frame.
 - `RenderedFrame`: the native root node produced by rendering a frame.
 - `NativeRenderResponse`: the native root plus the incremental platform
   commands and rendered accessibility tree emitted by a render pass.
@@ -513,8 +520,9 @@ Feature-gated platform executor surfaces:
   `AppKitRuntimeApp` provides the embedded app loop for this backend: it
   renders into an `AppKitNativeSurface`, pumps AppKit events, drains queued A3S
   native events, runs the application reducer, and rerenders the next frame.
-  The loop also observes root AppKit window and panel close notifications so
-  `run_appkit_while` can stop when the user closes the surface.
+  The loop also observes root AppKit window and panel close notifications,
+  enqueues `NativeEventKind::Close` for `window.onClose` actions, and lets
+  `run_appkit_while` stop when the user closes the surface.
   The `appkit_controls` example is the AppKit instance of the shared native
   controls smoke harness for text input, toggles, sliders, selects, tabs,
   actions, rerenders, and root-window close exit.
@@ -575,7 +583,9 @@ Feature-gated platform executor surfaces:
   into `WinUiNativeSurface`, pumps the Windows message queue, drains queued A3S
   native events, runs the application reducer, rerenders the next frame, and
   observes the root WinUI window handle so `run_winui_while` can stop when the
-  user closes the surface.
+  user closes the surface. Native `window.onClose` callback dispatch remains
+  pending while `winio-winui3` 0.4.2 lacks a strong close-event registration
+  path.
   The `winui_controls` example runs the same shared native controls smoke
   frame against real WinUI widgets.
   The `winui_dogfood` example runs the shared task editor and review workflow
@@ -624,8 +634,9 @@ Feature-gated platform executor surfaces:
   `Gtk4RuntimeApp` provides the embedded app loop for this backend: it registers
   a GTK application, renders into `Gtk4NativeSurface`, pumps the default GLib
   main context, drains queued A3S native events, runs the application reducer,
-  rerenders the next frame, and observes root window/dialog close notifications
-  so `run_gtk4_while` can stop when the user closes the surface.
+  rerenders the next frame, and observes root window/dialog close notifications.
+  Those close callbacks enqueue `NativeEventKind::Close` for `window.onClose`
+  actions and let `run_gtk4_while` stop when the user closes the surface.
   The `gtk4_controls` example runs the same shared native controls smoke frame
   against real GTK4 widgets.
   The `gtk4_dogfood` example runs the shared task editor and review workflow

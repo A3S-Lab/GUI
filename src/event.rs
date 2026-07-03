@@ -16,6 +16,7 @@ pub enum NativeEventKind {
     Blur,
     KeyDown,
     KeyUp,
+    Close,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -185,6 +186,8 @@ fn action_for_event<'a>(
         NativeEventKind::KeyDown => non_empty_action(events.get("onKeyDown"))
             .or_else(|| activation_key_action(blueprint, event)),
         NativeEventKind::KeyUp => non_empty_action(events.get("onKeyUp")),
+        NativeEventKind::Close => non_empty_action(events.get("onClose"))
+            .or_else(|| non_empty_action(events.get("onCloseRequest"))),
     }
 }
 
@@ -493,6 +496,24 @@ mod tests {
         assert_eq!(key_up.action, "handleKeyUp");
         assert_eq!(key_up.event, NativeEventKind::KeyUp);
         assert_eq!(key_up.value.as_deref(), Some("Enter"));
+    }
+
+    #[test]
+    fn routes_native_close_to_window_close_action() {
+        let element = NativeElement::new("window", NativeRole::Window)
+            .with_props(NativeProps::new().web(WebProps::new().event("onClose", "closeApp")));
+        let blueprint = AppKitAdapter.blueprint(&element);
+
+        let invocation = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(23), NativeEventKind::Close),
+            )
+            .unwrap();
+
+        assert_eq!(invocation.node, HostNodeId::new(23));
+        assert_eq!(invocation.action, "closeApp");
+        assert_eq!(invocation.event, NativeEventKind::Close);
     }
 
     #[test]

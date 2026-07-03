@@ -95,6 +95,7 @@ export type ActionLike = string | ActionHandler | ((...args: unknown[]) => void)
 
 export interface WindowOptions {
   title: string;
+  onClose?: ActionLike;
   width?: number;
   height?: number;
   minWidth?: number;
@@ -121,7 +122,8 @@ export interface NativeEvent {
     | 'focus'
     | 'blur'
     | 'keyDown'
-    | 'keyUp';
+    | 'keyUp'
+    | 'close';
   value?: string | null;
 }
 

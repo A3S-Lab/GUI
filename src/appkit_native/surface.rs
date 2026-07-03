@@ -54,7 +54,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         false,
                     )
                 };
-                let delegate = AppKitWindowDelegate::new(id, self.closed_windows.clone(), self.mtm);
+                let delegate = AppKitWindowDelegate::new(
+                    id,
+                    self.events.clone(),
+                    self.closed_windows.clone(),
+                    self.mtm,
+                );
                 let delegate_ref: &ProtocolObject<dyn NSWindowDelegate> =
                     ProtocolObject::from_ref(&*delegate);
                 window.setDelegate(Some(delegate_ref));
@@ -74,7 +79,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     false,
                 );
                 panel.setTitle(&ns_string(config.label.as_deref().unwrap_or("")));
-                let delegate = AppKitWindowDelegate::new(id, self.closed_windows.clone(), self.mtm);
+                let delegate = AppKitWindowDelegate::new(
+                    id,
+                    self.events.clone(),
+                    self.closed_windows.clone(),
+                    self.mtm,
+                );
                 let delegate_ref: &ProtocolObject<dyn NSWindowDelegate> =
                     ProtocolObject::from_ref(&*delegate);
                 panel.as_super().setDelegate(Some(delegate_ref));
