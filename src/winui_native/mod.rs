@@ -35,7 +35,10 @@ use crate::winui::{winui_text_input_hints, WinUiWidgetKind};
 use helpers::{child_position, map_winui, push_event, set_combo_box_item_content, to_u32};
 use types::{config_is_password, config_is_textarea, WinUiRangeState, WinUiTextInputSizing};
 pub use types::{WinUiComboBoxItem, WinUiOsHandle, WinUiOsWidget, WinUiTabItem};
-use window::{apply_winui_window_portable_style, set_winui_window_resizable, winui_window_is_open};
+use window::{
+    apply_winui_window_portable_style, install_winui_window_close_event,
+    set_winui_window_resizable, winui_window_is_open,
+};
 
 mod helpers;
 mod surface;

@@ -6,18 +6,22 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowLongPtrW, GetWindowRect, IsWindow, SetWindowLongPtrW, SetWindowPos, GWL_STYLE,
-    MINMAXINFO, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WM_GETMINMAXINFO,
+    MINMAXINFO, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WM_CLOSE, WM_GETMINMAXINFO,
     WM_NCDESTROY, WS_MAXIMIZEBOX, WS_THICKFRAME,
 };
 use windows_core::Interface;
 use winui3::Microsoft::UI::Xaml as xaml;
 
 use crate::error::{GuiError, GuiResult};
+use crate::event::{NativeEvent, NativeEventKind};
+use crate::host::HostNodeId;
 use crate::style::{NativeSizeConstraints, PortableStyle};
 
-use super::helpers::map_winui;
+use super::helpers::{map_winui, push_event};
+use super::WinUiEventQueue;
 
 const WINUI_RESIZE_BOUNDS_SUBCLASS_ID: usize = 0xA35;
+const WINUI_CLOSE_EVENT_SUBCLASS_ID: usize = 0xA36;
 
 fn winui_window_hwnd(window: &xaml::Window) -> GuiResult<HWND> {
     let native: winui3::IWindowNative = map_winui(
@@ -64,6 +68,78 @@ pub(super) fn apply_winui_window_portable_style(
     map_winui("failed to resize WinUI window", unsafe {
         SetWindowPos(hwnd, None, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER)
     })
+}
+
+pub(super) fn install_winui_window_close_event(
+    window: &xaml::Window,
+    node: HostNodeId,
+    events: WinUiEventQueue,
+) -> GuiResult<()> {
+    let hwnd = winui_window_hwnd(window)?;
+    let (installed, ref_data) = winui_window_close_event_subclass(hwnd);
+    if installed && ref_data != 0 {
+        unsafe {
+            *(ref_data as *mut WinUiWindowCloseEvent) = WinUiWindowCloseEvent::new(node, events);
+        }
+        return Ok(());
+    }
+
+    let event_ptr = Box::into_raw(Box::new(WinUiWindowCloseEvent::new(node, events))) as usize;
+    unsafe {
+        SetLastError(ERROR_SUCCESS);
+        if !SetWindowSubclass(
+            hwnd,
+            Some(winui_window_close_event_proc),
+            WINUI_CLOSE_EVENT_SUBCLASS_ID,
+            event_ptr,
+        )
+        .as_bool()
+        {
+            let error = GetLastError();
+            drop(Box::from_raw(event_ptr as *mut WinUiWindowCloseEvent));
+            return Err(GuiError::host(format!(
+                "failed to install WinUI window close event: Win32 error {}",
+                error.0
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn winui_window_close_event_subclass(hwnd: HWND) -> (bool, usize) {
+    let mut ref_data = 0usize;
+    let installed = unsafe {
+        GetWindowSubclass(
+            hwnd,
+            Some(winui_window_close_event_proc),
+            WINUI_CLOSE_EVENT_SUBCLASS_ID,
+            Some(&mut ref_data),
+        )
+        .as_bool()
+    };
+    (installed, ref_data)
+}
+
+unsafe extern "system" fn winui_window_close_event_proc(
+    hwnd: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    subclass_id: usize,
+    ref_data: usize,
+) -> LRESULT {
+    if message == WM_CLOSE && ref_data != 0 {
+        (*(ref_data as *mut WinUiWindowCloseEvent)).push_close_event();
+    }
+
+    if message == WM_NCDESTROY {
+        let _ = RemoveWindowSubclass(hwnd, Some(winui_window_close_event_proc), subclass_id);
+        if ref_data != 0 {
+            drop(Box::from_raw(ref_data as *mut WinUiWindowCloseEvent));
+        }
+    }
+
+    DefSubclassProc(hwnd, message, wparam, lparam)
 }
 
 fn apply_winui_window_resize_bounds(hwnd: HWND, bounds: WinUiWindowResizeBounds) -> GuiResult<()> {
@@ -257,6 +333,34 @@ struct WinUiWindowResizeBounds {
     min_height: Option<i32>,
     max_width: Option<i32>,
     max_height: Option<i32>,
+}
+
+#[derive(Debug)]
+struct WinUiWindowCloseEvent {
+    node: HostNodeId,
+    events: WinUiEventQueue,
+    queued: bool,
+}
+
+impl WinUiWindowCloseEvent {
+    fn new(node: HostNodeId, events: WinUiEventQueue) -> Self {
+        Self {
+            node,
+            events,
+            queued: false,
+        }
+    }
+
+    fn push_close_event(&mut self) {
+        if self.queued {
+            return;
+        }
+        push_event(
+            &self.events,
+            NativeEvent::new(self.node, NativeEventKind::Close),
+        );
+        self.queued = true;
+    }
 }
 
 impl WinUiWindowResizeBounds {
@@ -480,5 +584,21 @@ mod tests {
         apply_winui_window_track_axis(Some(640), Some(320), &mut min_track, &mut max_track);
         assert_eq!(min_track, 640);
         assert_eq!(max_track, 640);
+    }
+
+    #[test]
+    fn winui_window_close_event_queues_close_once() {
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut close_event = WinUiWindowCloseEvent::new(HostNodeId::new(42), events.clone());
+
+        close_event.push_close_event();
+        close_event.push_close_event();
+
+        let events = events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0],
+            NativeEvent::new(HostNodeId::new(42), NativeEventKind::Close)
+        );
     }
 }

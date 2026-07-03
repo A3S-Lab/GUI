@@ -50,7 +50,7 @@ event action ids are ignored by Rust routing instead of being dispatched.
 Window dimensions must be positive finite numbers, and explicit width/height
 values must stay within any declared min/max constraints.
 `window.onClose` accepts the same action-like values as JSX events and is routed
-from native close events on supported surfaces.
+from native close events.
 Focus, value, and toggle aliases such as `onFocusChange`, `onInput`,
 `onToggle`, and `onExpandedChange` are preserved in the emitted protocol
 alongside press, change, selection, and keyboard events.

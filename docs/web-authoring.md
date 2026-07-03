@@ -294,12 +294,12 @@ setter state.
 The `appkit_controls`, `winui_controls`, and `gtk4_controls` examples share one
 controls smoke frame so text input, toggles, sliders, selects, tabs, actions,
 rerenders, and root-window close behavior are exercised through the same
-protocol shape on each native surface. AppKit and GTK also route native close
-requests through `window.onClose` action ids. The `appkit_dogfood`,
-`winui_dogfood`, and `gtk4_dogfood` examples share a task editor frame that
-adds realistic app state, menu commands, a review dialog, checklist gates,
-keyboard shortcuts, logical sizing, and repeated reducer-driven rerenders on
-top of the same native event path.
+protocol shape on each native surface. Native close requests route through
+`window.onClose` action ids. The `appkit_dogfood`, `winui_dogfood`, and
+`gtk4_dogfood` examples share a task editor frame that adds realistic app
+state, menu commands, a review dialog, checklist gates, keyboard shortcuts,
+logical sizing, and repeated reducer-driven rerenders on top of the same native
+event path.
 
 The Linux `gtk4-native` feature exercises the same path with `gtk4-rs`.
 `Gtk4NativeSurface` maps the native command stream to real GTK4 widgets for
@@ -324,9 +324,9 @@ are queued as native events and routed back to serialized action ids. The React
 Aria `Switch` semantic remains in the IR, while `winio-winui3` 0.4.2 is bridged
 through a native CheckBox-backed toggle until the generated WinUI bindings
 expose `ToggleSwitch`. `WinUiRuntimeApp` can own the WinUI surface directly,
-pump the Windows message queue, rerender after reducer updates, and exit when
-the root WinUI window closes. Native `window.onClose` callback dispatch remains
-pending while `winio-winui3` 0.4.2 lacks a strong close-event registration path.
+pump the Windows message queue, emit `window.onClose` actions from HWND
+`WM_CLOSE` messages, rerender after reducer updates, and exit when the root
+WinUI window closes.
 
 At runtime the compiled tree crosses the host boundary as a `UiFrame`:
 
@@ -450,9 +450,8 @@ semantic.
 wraps the root in a native window with an `onClose` event binding, infers that
 action when frame actions are omitted, and dispatches it from
 `NativeEventKind::Close`. AppKit and GTK native surfaces emit close events from
-their real window, panel, and dialog callbacks. WinUI currently exits the app
-loop when the root window closes, but native `window.onClose` callback dispatch
-is still blocked on stronger `winio-winui3` close-event bindings.
+their real window, panel, and dialog callbacks. WinUI emits the same event from
+the HWND `WM_CLOSE` message path.
 Invisible and inert controls suppress native events and rendered accessibility
 projection for their subtree. Invisibility includes HTML `hidden`, CSS
 `display: none`, `visibility: hidden` / `collapse`,

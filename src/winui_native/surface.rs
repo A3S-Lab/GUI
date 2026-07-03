@@ -24,6 +24,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                         window.SetTitle(&hstr(label)),
                     )?;
                 }
+                install_winui_window_close_event(&window, id, self.events.clone())?;
                 WinUiOsWidget::Window(window)
             }
             WinUiWidgetKind::StackPanel

@@ -316,9 +316,8 @@ Window close lifecycle events use the same action path. `UiFrame.window.onClose`
 wraps the rendered root in a native window with an `onClose` event binding, and
 `NativeEventKind::Close` dispatches that action id. AppKit and GTK native
 surfaces enqueue close events from native window, panel, and dialog callbacks.
-WinUI still observes the root window handle for app-loop shutdown, but native
-`window.onClose` callback delivery is pending stronger `winio-winui3` close
-event binding coverage.
+WinUI installs a small HWND subclass and enqueues the same event from
+`WM_CLOSE`, while still observing the root window handle for app-loop shutdown.
 
 ## Host Protocol
 
@@ -579,13 +578,14 @@ Feature-gated platform executor surfaces:
   routes. The same binding version also leaves programmatic `Focus` unwrapped,
   so `autoFocus` is tracked as a pending target and cleared only when WinUI
   reports matching native focus.
+  Window close requests are observed through the HWND message path: the surface
+  installs a close-event subclass on each WinUI window and enqueues
+  `NativeEventKind::Close` when `WM_CLOSE` arrives.
   `WinUiRuntimeApp` provides the embedded app loop for this backend: it renders
   into `WinUiNativeSurface`, pumps the Windows message queue, drains queued A3S
   native events, runs the application reducer, rerenders the next frame, and
   observes the root WinUI window handle so `run_winui_while` can stop when the
-  user closes the surface. Native `window.onClose` callback dispatch remains
-  pending while `winio-winui3` 0.4.2 lacks a strong close-event registration
-  path.
+  user closes the surface.
   The `winui_controls` example runs the same shared native controls smoke
   frame against real WinUI widgets.
   The `winui_dogfood` example runs the shared task editor and review workflow

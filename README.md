@@ -35,7 +35,7 @@ layout engine, or JavaScript object graph at the host boundary.
 | TypeScript JSX protocol SDK | Usable for emitting `UiFrame` JSON with semantic components, HTML/SVG tags, style, metadata, and event props. |
 | AppKit native surface | Usable for small macOS smoke apps with windows, text input, buttons, toggles, sliders, selects, tabs, menus, keyboard events, `window.onClose` actions, and native `autoFocus`. |
 | GTK4 native surface | Usable for small Linux smoke apps with the same core controls plus window/dialog `window.onClose` actions; requires GTK4 development libraries and `pkg-config`. |
-| WinUI native surface | Usable for Windows smoke apps with core controls, HWND initial size, min/max resize bounds, resizable state, focus callbacks, keyboard message routing, and root-window close exit. Programmatic `autoFocus` and native `window.onClose` callbacks are limited by `winio-winui3` 0.4.2 binding coverage. |
+| WinUI native surface | Usable for Windows smoke apps with core controls, HWND initial size, min/max resize bounds, resizable state, focus callbacks, keyboard message routing, `window.onClose` actions, and root-window close exit. Programmatic `autoFocus` is tracked but limited by `winio-winui3` 0.4.2 not exposing a safe focus method. |
 | Production app shell | In progress. Layout polish, packaging guidance, dogfood coverage, and platform-specific edge cases still need hardening. |
 
 Known boundaries:
@@ -130,9 +130,8 @@ cargo run --example gtk4_dogfood --features gtk4-native
 
 The `*_controls` examples exercise text input, toggles, sliders, selects, tabs,
 actions, rerendering, and root-window close handling through the same reducer
-loop. AppKit and GTK also route native window close requests through
-`window.onClose` action ids. The `*_dogfood` examples run one shared task
-editor and review workflow
+loop. Native window close requests route through `window.onClose` action ids.
+The `*_dogfood` examples run one shared task editor and review workflow
 across the native surfaces, including menus, a dialog gate, assignment,
 checklists, keyboard shortcuts, and disabled/read-only state. `NativeProtocolApp`
 is the reusable host-side protocol loop; `NativeRuntimeApp` is the embedded loop
