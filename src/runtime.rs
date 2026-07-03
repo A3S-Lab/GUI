@@ -676,7 +676,7 @@ fn read_only_ancestor_suppresses_event(
     event: crate::event::NativeEventKind,
 ) -> bool {
     route_blueprint.control_state.read_only
-        && event == crate::event::NativeEventKind::SelectionChange
+        && is_value_mutation_event(event)
         && is_selection_container_native_role(route_blueprint.role)
         && is_selectable_native_role(blueprint.role)
 }
@@ -2001,7 +2001,7 @@ mod tests {
     }
 
     #[test]
-    fn runtime_suppresses_read_only_ancestor_selection_actions() {
+    fn runtime_suppresses_read_only_ancestor_selection_value_events() {
         let element = NativeElement::new("theme", NativeRole::RadioGroup)
             .with_props(
                 NativeProps::new()
@@ -2028,16 +2028,25 @@ mod tests {
 
         let root_id = runtime.render_native(&element).unwrap();
         let dark_id = runtime.host().node(root_id).unwrap().children[1];
-        let handled = runtime
+        let selection = runtime
             .handle_native_event_with_changes(crate::event::NativeEvent::new(
                 dark_id,
                 crate::event::NativeEventKind::SelectionChange,
             ))
             .unwrap();
+        let toggle = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                dark_id,
+                crate::event::NativeEventKind::Toggle,
+            ))
+            .unwrap();
 
-        assert_eq!(handled.event.value.as_deref(), Some("dark"));
-        assert!(handled.invocation.is_none());
-        assert!(handled.interaction_changes.is_empty());
+        assert_eq!(selection.event.value.as_deref(), Some("dark"));
+        assert!(selection.invocation.is_none());
+        assert!(selection.interaction_changes.is_empty());
+        assert_eq!(toggle.event.value.as_deref(), None);
+        assert!(toggle.invocation.is_none());
+        assert!(toggle.interaction_changes.is_empty());
         let accessibility = runtime.accessibility_tree().unwrap();
         assert_eq!(accessibility.value.as_deref(), Some("light"));
         assert!(accessibility.children[0].selected);

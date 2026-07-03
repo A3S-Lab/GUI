@@ -2264,7 +2264,7 @@ mod tests {
     }
 
     #[test]
-    fn native_protocol_session_suppresses_read_only_ancestor_selection_events() {
+    fn native_protocol_session_suppresses_read_only_ancestor_selection_value_events() {
         let frame: UiFrame = serde_json::from_str(
             r#"
             {
@@ -2312,16 +2312,24 @@ mod tests {
             .unwrap()
             .children[1];
 
-        let response = session
+        let selection = session
             .handle_host_event(&HostEvent {
                 frame_id: "profile".to_string(),
                 event: NativeEvent::new(dark, NativeEventKind::SelectionChange),
             })
             .unwrap();
+        let toggle = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(dark, NativeEventKind::Toggle),
+            })
+            .unwrap();
 
-        assert!(response.invocation.is_none());
-        assert!(response.interaction_changes.is_empty());
-        let accessibility = response.accessibility_tree.as_ref().unwrap();
+        assert!(selection.invocation.is_none());
+        assert!(selection.interaction_changes.is_empty());
+        assert!(toggle.invocation.is_none());
+        assert!(toggle.interaction_changes.is_empty());
+        let accessibility = toggle.accessibility_tree.as_ref().unwrap();
         assert_eq!(accessibility.value.as_deref(), Some("light"));
         assert!(accessibility.children[0].selected);
         assert_eq!(accessibility.children[0].checked, Some(true));
