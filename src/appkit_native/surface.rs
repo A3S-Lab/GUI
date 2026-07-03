@@ -731,48 +731,51 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     _ => {}
                 }
                 if let Some(view) = handle.widget.as_view() {
-                    let width = style.width.as_ref().and_then(StyleLength::points);
-                    let height = style.height.as_ref().and_then(StyleLength::points);
-                    if width.is_some() || height.is_some() {
+                    let size = style.native_size_constraints();
+                    if size.width.is_some() || size.height.is_some() {
+                        let current = view.frame().size;
                         view.setFrameSize(NSSize::new(
-                            width.unwrap_or(120.0),
-                            height.unwrap_or(32.0),
+                            size.width.unwrap_or(current.width.max(120.0)),
+                            size.height.unwrap_or(current.height.max(32.0)),
                         ));
                     }
                 }
                 if let AppKitOsWidget::Popover(state) = &handle.widget {
-                    let width = style.width.as_ref().and_then(StyleLength::points);
-                    let height = style.height.as_ref().and_then(StyleLength::points);
-                    if width.is_some() || height.is_some() {
-                        let size = NSSize::new(width.unwrap_or(320.0), height.unwrap_or(220.0));
-                        state.popover.setContentSize(size);
-                        state.content_view.setFrameSize(size);
+                    let constraints = style.native_size_constraints();
+                    if constraints.width.is_some() || constraints.height.is_some() {
+                        let current = state.content_view.frame().size;
+                        let content_size = NSSize::new(
+                            constraints.width.unwrap_or(current.width.max(320.0)),
+                            constraints.height.unwrap_or(current.height.max(220.0)),
+                        );
+                        state.popover.setContentSize(content_size);
+                        state.content_view.setFrameSize(content_size);
                     }
                 }
                 if let AppKitOsWidget::TextField(text_field) = &handle.widget {
                     if handle.kind == AppKitWidgetKind::TextField {
                         let sizing = self.text_inputs.entry(id).or_default();
-                        sizing.explicit_width = style.width.as_ref().and_then(StyleLength::points);
-                        sizing.explicit_height =
-                            style.height.as_ref().and_then(StyleLength::points);
+                        let size = style.native_size_constraints();
+                        sizing.explicit_width = size.width;
+                        sizing.explicit_height = size.height;
                         self.apply_text_input_size(id, text_field);
                     }
                 }
                 if let AppKitOsWidget::SecureTextField(text_field) = &handle.widget {
                     if handle.kind == AppKitWidgetKind::TextField {
                         let sizing = self.text_inputs.entry(id).or_default();
-                        sizing.explicit_width = style.width.as_ref().and_then(StyleLength::points);
-                        sizing.explicit_height =
-                            style.height.as_ref().and_then(StyleLength::points);
+                        let size = style.native_size_constraints();
+                        sizing.explicit_width = size.width;
+                        sizing.explicit_height = size.height;
                         self.apply_text_input_size(id, text_field.as_super());
                     }
                 }
                 if let AppKitOsWidget::SearchField(text_field) = &handle.widget {
                     if handle.kind == AppKitWidgetKind::TextField {
                         let sizing = self.text_inputs.entry(id).or_default();
-                        sizing.explicit_width = style.width.as_ref().and_then(StyleLength::points);
-                        sizing.explicit_height =
-                            style.height.as_ref().and_then(StyleLength::points);
+                        let size = style.native_size_constraints();
+                        sizing.explicit_width = size.width;
+                        sizing.explicit_height = size.height;
                         self.apply_text_input_size(id, text_field.as_super());
                     }
                 }

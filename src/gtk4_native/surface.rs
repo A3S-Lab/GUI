@@ -16,11 +16,12 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         let config = blueprint.config();
         let widget = match kind {
             Gtk4WidgetKind::ApplicationWindow => {
+                let size = config.portable_style.native_size_constraints();
                 let window = gtk::ApplicationWindow::builder()
                     .application(&self.application)
                     .title(config.label.as_deref().unwrap_or(""))
-                    .default_width(config_dimension(config.portable_style.width, 640))
-                    .default_height(config_dimension(config.portable_style.height, 480))
+                    .default_width(config_dimension(size.width, 640))
+                    .default_height(config_dimension(size.height, 480))
                     .resizable(config.window_resizable.unwrap_or(true))
                     .build();
                 let closed_windows = self.closed_windows.clone();

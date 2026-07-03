@@ -410,6 +410,79 @@ fn parses_css_logical_size_properties_into_portable_tokens() {
 }
 
 #[test]
+fn native_size_constraints_map_logical_size_points_by_writing_mode() {
+    let horizontal = PortableStyle::from_web(
+        &WebProps::new()
+            .style("inlineSize", "160px")
+            .style("blockSize", "80px")
+            .style("minInlineSize", "120px")
+            .style("minBlockSize", "48px")
+            .style("maxInlineSize", "320px")
+            .style("maxBlockSize", "180px"),
+    );
+
+    assert_eq!(
+        horizontal.native_size_constraints(),
+        NativeSizeConstraints {
+            width: Some(160.0),
+            height: Some(80.0),
+            min_width: Some(120.0),
+            min_height: Some(48.0),
+            max_width: Some(320.0),
+            max_height: Some(180.0),
+        }
+    );
+
+    let vertical = PortableStyle::from_web(
+        &WebProps::new()
+            .style("writingMode", "vertical-rl")
+            .style("inlineSize", "160px")
+            .style("blockSize", "80px")
+            .style("minInlineSize", "120px")
+            .style("minBlockSize", "48px")
+            .style("maxInlineSize", "320px")
+            .style("maxBlockSize", "180px"),
+    );
+
+    assert_eq!(
+        vertical.native_size_constraints(),
+        NativeSizeConstraints {
+            width: Some(80.0),
+            height: Some(160.0),
+            min_width: Some(48.0),
+            min_height: Some(120.0),
+            max_width: Some(180.0),
+            max_height: Some(320.0),
+        }
+    );
+}
+
+#[test]
+fn native_size_constraints_keep_physical_sizes_first_and_ignore_negative_points() {
+    let style = PortableStyle::from_web(
+        &WebProps::new()
+            .style("width", "240px")
+            .style("height", "-20px")
+            .style("inlineSize", "160px")
+            .style("blockSize", "80px")
+            .style("minWidth", "-10px")
+            .style("minInlineSize", "32px"),
+    );
+
+    assert_eq!(
+        style.native_size_constraints(),
+        NativeSizeConstraints {
+            width: Some(240.0),
+            height: Some(80.0),
+            min_width: Some(32.0),
+            min_height: None,
+            max_width: None,
+            max_height: None,
+        }
+    );
+}
+
+#[test]
 fn parses_tailwind_logical_spacing_and_inset_utilities() {
     let web = WebProps::new().class_name(
         "[anchor-name:--trigger] [anchor-scope:--trigger] \

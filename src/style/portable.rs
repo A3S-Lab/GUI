@@ -516,6 +516,17 @@ pub struct PortableStyle {
     pub unsupported: BTreeMap<String, String>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeSizeConstraints {
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+    pub min_width: Option<f64>,
+    pub min_height: Option<f64>,
+    pub max_width: Option<f64>,
+    pub max_height: Option<f64>,
+}
+
 impl PortableStyle {
     pub fn from_web(web: &WebProps) -> Self {
         let mut style = PortableStyle::default();
@@ -544,4 +555,75 @@ impl PortableStyle {
             .as_deref()
             .is_some_and(|value| value.trim().eq_ignore_ascii_case("inert"))
     }
+
+    pub fn native_size_constraints(&self) -> NativeSizeConstraints {
+        let mut constraints = NativeSizeConstraints {
+            width: native_size_points(self.width.as_ref()),
+            height: native_size_points(self.height.as_ref()),
+            min_width: native_size_points(self.min_width.as_ref()),
+            min_height: native_size_points(self.min_height.as_ref()),
+            max_width: native_size_points(self.max_width.as_ref()),
+            max_height: native_size_points(self.max_height.as_ref()),
+        };
+
+        if self.uses_vertical_inline_axis() {
+            constraints.width = constraints
+                .width
+                .or_else(|| native_size_points(self.block_size.as_ref()));
+            constraints.height = constraints
+                .height
+                .or_else(|| native_size_points(self.inline_size.as_ref()));
+            constraints.min_width = constraints
+                .min_width
+                .or_else(|| native_size_points(self.min_block_size.as_ref()));
+            constraints.min_height = constraints
+                .min_height
+                .or_else(|| native_size_points(self.min_inline_size.as_ref()));
+            constraints.max_width = constraints
+                .max_width
+                .or_else(|| native_size_points(self.max_block_size.as_ref()));
+            constraints.max_height = constraints
+                .max_height
+                .or_else(|| native_size_points(self.max_inline_size.as_ref()));
+        } else {
+            constraints.width = constraints
+                .width
+                .or_else(|| native_size_points(self.inline_size.as_ref()));
+            constraints.height = constraints
+                .height
+                .or_else(|| native_size_points(self.block_size.as_ref()));
+            constraints.min_width = constraints
+                .min_width
+                .or_else(|| native_size_points(self.min_inline_size.as_ref()));
+            constraints.min_height = constraints
+                .min_height
+                .or_else(|| native_size_points(self.min_block_size.as_ref()));
+            constraints.max_width = constraints
+                .max_width
+                .or_else(|| native_size_points(self.max_inline_size.as_ref()));
+            constraints.max_height = constraints
+                .max_height
+                .or_else(|| native_size_points(self.max_block_size.as_ref()));
+        }
+
+        constraints
+    }
+
+    fn uses_vertical_inline_axis(&self) -> bool {
+        matches!(
+            self.writing_mode,
+            Some(
+                WritingMode::VerticalRl
+                    | WritingMode::VerticalLr
+                    | WritingMode::SidewaysRl
+                    | WritingMode::SidewaysLr
+            )
+        )
+    }
+}
+
+fn native_size_points(value: Option<&StyleLength>) -> Option<f64> {
+    value
+        .and_then(StyleLength::points)
+        .filter(|value| value.is_finite() && *value >= 0.0)
 }

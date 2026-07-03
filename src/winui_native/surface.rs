@@ -374,17 +374,17 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             NativeWidgetSetter::SetPortableStyle(style) => {
                 apply_portable_style(&handle.widget, style)?;
                 if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
-                    self.text_inputs.entry(id).or_default().explicit_width =
-                        style.width.as_ref().and_then(StyleLength::points);
-                    self.text_inputs.entry(id).or_default().explicit_height =
-                        style.height.as_ref().and_then(StyleLength::points);
+                    let size = style.native_size_constraints();
+                    let sizing = self.text_inputs.entry(id).or_default();
+                    sizing.explicit_width = size.width;
+                    sizing.explicit_height = size.height;
                     self.apply_text_box_size_hint(id, text_box)?;
                 }
                 if let WinUiOsWidget::PasswordBox(password_box) = &handle.widget {
-                    self.text_inputs.entry(id).or_default().explicit_width =
-                        style.width.as_ref().and_then(StyleLength::points);
-                    self.text_inputs.entry(id).or_default().explicit_height =
-                        style.height.as_ref().and_then(StyleLength::points);
+                    let size = style.native_size_constraints();
+                    let sizing = self.text_inputs.entry(id).or_default();
+                    sizing.explicit_width = size.width;
+                    sizing.explicit_height = size.height;
                     self.apply_password_box_size_hint(id, password_box)?;
                 }
             }

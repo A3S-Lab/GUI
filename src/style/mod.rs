@@ -17,7 +17,7 @@ mod tests;
 mod types;
 mod value_parsing;
 
-pub use portable::PortableStyle;
+pub use portable::{NativeSizeConstraints, PortableStyle};
 pub use types::*;
 
 use color_parsing::{parse_background_shorthand_color, parse_color};

@@ -45,7 +45,6 @@ use crate::platform::{
     NativeWidgetConfig, NativeWidgetSetter,
 };
 use crate::protocol::UiFrame;
-use crate::style::StyleLength;
 
 mod surface;
 
@@ -957,18 +956,9 @@ fn apply_slider_orientation(slider: &NSSlider, orientation: Orientation) {
 }
 
 fn config_size(config: &NativeWidgetConfig, default_width: f64, default_height: f64) -> NSSize {
-    let width = config
-        .portable_style
-        .width
-        .as_ref()
-        .and_then(StyleLength::points)
-        .unwrap_or(default_width);
-    let height = config
-        .portable_style
-        .height
-        .as_ref()
-        .and_then(StyleLength::points)
-        .unwrap_or(default_height);
+    let size = config.portable_style.native_size_constraints();
+    let width = size.width.unwrap_or(default_width);
+    let height = size.height.unwrap_or(default_height);
     NSSize::new(width, height)
 }
 
@@ -1051,36 +1041,31 @@ fn appkit_text_input_trait_value(value: AppKitTextInputTrait) -> NSInteger {
 }
 
 fn apply_window_portable_style(window: &NSWindow, style: &crate::style::PortableStyle) {
-    let width = style.width.as_ref().and_then(StyleLength::points);
-    let height = style.height.as_ref().and_then(StyleLength::points);
-    if width.is_some() || height.is_some() {
+    let size = style.native_size_constraints();
+    if size.width.is_some() || size.height.is_some() {
         let current = window
             .contentView()
             .map(|view| view.frame().size)
             .unwrap_or_else(|| window.contentLayoutRect().size);
         window.setContentSize(NSSize::new(
-            width.unwrap_or(current.width),
-            height.unwrap_or(current.height),
+            size.width.unwrap_or(current.width),
+            size.height.unwrap_or(current.height),
         ));
     }
 
-    let min_width = style.min_width.as_ref().and_then(StyleLength::points);
-    let min_height = style.min_height.as_ref().and_then(StyleLength::points);
-    if min_width.is_some() || min_height.is_some() {
+    if size.min_width.is_some() || size.min_height.is_some() {
         let current = window.minSize();
         window.setMinSize(NSSize::new(
-            min_width.unwrap_or(current.width),
-            min_height.unwrap_or(current.height),
+            size.min_width.unwrap_or(current.width),
+            size.min_height.unwrap_or(current.height),
         ));
     }
 
-    let max_width = style.max_width.as_ref().and_then(StyleLength::points);
-    let max_height = style.max_height.as_ref().and_then(StyleLength::points);
-    if max_width.is_some() || max_height.is_some() {
+    if size.max_width.is_some() || size.max_height.is_some() {
         let current = window.maxSize();
         window.setMaxSize(NSSize::new(
-            max_width.unwrap_or(current.width),
-            max_height.unwrap_or(current.height),
+            size.max_width.unwrap_or(current.width),
+            size.max_height.unwrap_or(current.height),
         ));
     }
 }
@@ -1138,20 +1123,13 @@ struct AppKitTextInputSizing {
 
 impl AppKitTextInputSizing {
     fn from_config(config: &NativeWidgetConfig) -> Self {
+        let size = config.portable_style.native_size_constraints();
         Self {
             rows: config.rows,
             cols: config.cols,
             size: config.size,
-            explicit_width: config
-                .portable_style
-                .width
-                .as_ref()
-                .and_then(StyleLength::points),
-            explicit_height: config
-                .portable_style
-                .height
-                .as_ref()
-                .and_then(StyleLength::points),
+            explicit_width: size.width,
+            explicit_height: size.height,
         }
     }
 

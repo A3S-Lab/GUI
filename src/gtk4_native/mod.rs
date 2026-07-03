@@ -968,27 +968,20 @@ fn gtk_input_hints(hints: NativeTextInputHints) -> gtk::InputHints {
     gtk_hints
 }
 
-fn config_dimension(value: Option<StyleLength>, default: i32) -> i32 {
-    value
-        .as_ref()
-        .and_then(StyleLength::points)
-        .map(points_to_i32)
-        .unwrap_or(default)
+fn config_dimension(value: Option<f64>, default: i32) -> i32 {
+    value.map(points_to_i32).unwrap_or(default)
 }
 
 fn apply_widget_size(widget: &gtk::Widget, style: &crate::style::PortableStyle) {
-    let width = style
+    let size = style.native_size_constraints();
+    let width = size
         .width
-        .as_ref()
-        .or(style.min_width.as_ref())
-        .and_then(StyleLength::points)
+        .or(size.min_width)
         .map(points_to_i32)
         .unwrap_or(-1);
-    let height = style
+    let height = size
         .height
-        .as_ref()
-        .or(style.min_height.as_ref())
-        .and_then(StyleLength::points)
+        .or(size.min_height)
         .map(points_to_i32)
         .unwrap_or(-1);
     if width >= 0 || height >= 0 {
@@ -997,21 +990,13 @@ fn apply_widget_size(widget: &gtk::Widget, style: &crate::style::PortableStyle) 
 }
 
 fn style_sets_gtk_width(style: &crate::style::PortableStyle) -> bool {
-    style
-        .width
-        .as_ref()
-        .or(style.min_width.as_ref())
-        .and_then(StyleLength::points)
-        .is_some()
+    let size = style.native_size_constraints();
+    size.width.or(size.min_width).is_some()
 }
 
 fn style_sets_gtk_height(style: &crate::style::PortableStyle) -> bool {
-    style
-        .height
-        .as_ref()
-        .or(style.min_height.as_ref())
-        .and_then(StyleLength::points)
-        .is_some()
+    let size = style.native_size_constraints();
+    size.height.or(size.min_height).is_some()
 }
 
 fn config_is_password(config: &NativeWidgetConfig) -> bool {

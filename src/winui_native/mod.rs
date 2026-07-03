@@ -34,7 +34,7 @@ use crate::platform::{
     NativeWidgetSetter, WinUiAdapter,
 };
 use crate::protocol::UiFrame;
-use crate::style::{PortableStyle, StyleLength};
+use crate::style::PortableStyle;
 use crate::winui::{winui_text_input_hints, WinUiWidgetKind};
 use helpers::{child_position, map_winui, push_event, set_combo_box_item_content, to_u32};
 
@@ -1192,20 +1192,13 @@ struct WinUiTextInputSizing {
 
 impl WinUiTextInputSizing {
     fn from_config(config: &NativeWidgetConfig) -> Self {
+        let size = config.portable_style.native_size_constraints();
         Self {
             rows: config.rows,
             cols: config.cols,
             size: config.size,
-            explicit_width: config
-                .portable_style
-                .width
-                .as_ref()
-                .and_then(StyleLength::points),
-            explicit_height: config
-                .portable_style
-                .height
-                .as_ref()
-                .and_then(StyleLength::points),
+            explicit_width: size.width,
+            explicit_height: size.height,
         }
     }
 

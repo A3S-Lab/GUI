@@ -323,34 +323,35 @@ pub(super) fn apply_portable_style(widget: &WinUiOsWidget, style: &PortableStyle
     let Some(element) = widget.framework_element() else {
         return Ok(());
     };
-    if let Some(value) = style.width.as_ref().and_then(StyleLength::points) {
+    let size = style.native_size_constraints();
+    if let Some(value) = size.width {
         map_winui("failed to set WinUI element width", element.SetWidth(value))?;
     }
-    if let Some(value) = style.height.as_ref().and_then(StyleLength::points) {
+    if let Some(value) = size.height {
         map_winui(
             "failed to set WinUI element height",
             element.SetHeight(value),
         )?;
     }
-    if let Some(value) = style.min_width.as_ref().and_then(StyleLength::points) {
+    if let Some(value) = size.min_width {
         map_winui(
             "failed to set WinUI element minimum width",
             element.SetMinWidth(value),
         )?;
     }
-    if let Some(value) = style.min_height.as_ref().and_then(StyleLength::points) {
+    if let Some(value) = size.min_height {
         map_winui(
             "failed to set WinUI element minimum height",
             element.SetMinHeight(value),
         )?;
     }
-    if let Some(value) = style.max_width.as_ref().and_then(StyleLength::points) {
+    if let Some(value) = size.max_width {
         map_winui(
             "failed to set WinUI element maximum width",
             element.SetMaxWidth(value),
         )?;
     }
-    if let Some(value) = style.max_height.as_ref().and_then(StyleLength::points) {
+    if let Some(value) = size.max_height {
         map_winui(
             "failed to set WinUI element maximum height",
             element.SetMaxHeight(value),
