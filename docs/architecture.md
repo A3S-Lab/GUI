@@ -279,8 +279,9 @@ activation, value, selection, toggle, and keyboard events before interaction
 state or action routing, while focus and blur events can still update
 inspection state when a host reports them.
 Read-only target widgets suppress value, selection, and toggle events after
-keyboard activation normalization, while focus, blur, press, and explicit
-keyboard events can still route to actions.
+keyboard activation normalization. Read-only selection containers also suppress
+selection events from selectable descendants they own, while focus, blur, press,
+and explicit keyboard events can still route to actions.
 ListBox selection projection uses that multiple-selection flag to keep existing
 selected children in multi-select lists while single-select lists follow the
 latest selected child. On the first render without prior focus history, the

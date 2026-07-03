@@ -479,7 +479,8 @@ projection for their subtree. Invisibility includes HTML `hidden`, CSS
 include the HTML `inert` attribute and CSS `interactivity: inert`. Disabled
 controls suppress user activation and input events. Read-only controls still
 allow focus, blur, press, and explicit keyboard routing, but suppress value,
-selection, and toggle events before state changes or action dispatch.
+selection, and toggle events before state changes or action dispatch; read-only
+selection containers also suppress selection events from selectable descendants.
 On the first render without prior focus history, the first renderable
 `autoFocus` control outside hidden, inert, and disabled ancestor subtrees seeds
 runtime focus for accessibility projection. AppKit and GTK native surfaces also

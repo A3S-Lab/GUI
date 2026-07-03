@@ -141,7 +141,7 @@ impl<H: NativeHost> GuiRuntime<H> {
             });
         }
         let event = self.normalize_event_value(blueprint, route_blueprints, event);
-        if is_read_only_value_event(blueprint, event.kind) {
+        if is_read_only_value_event(blueprint, route_blueprints, event.kind) {
             return Ok(HandledNativeEvent {
                 event,
                 invocation: None,
@@ -646,15 +646,39 @@ fn is_disabled_user_event(
 
 fn is_read_only_value_event(
     blueprint: &NativeWidgetBlueprint,
+    route_blueprints: &[NativeWidgetBlueprint],
     event: crate::event::NativeEventKind,
 ) -> bool {
-    blueprint.control_state.read_only
-        && matches!(
-            event,
-            crate::event::NativeEventKind::Change
-                | crate::event::NativeEventKind::SelectionChange
-                | crate::event::NativeEventKind::Toggle
-        )
+    if !is_value_mutation_event(event) {
+        return false;
+    }
+    if blueprint.control_state.read_only {
+        return true;
+    }
+
+    route_blueprints.iter().any(|route_blueprint| {
+        read_only_ancestor_suppresses_event(route_blueprint, blueprint, event)
+    })
+}
+
+fn is_value_mutation_event(event: crate::event::NativeEventKind) -> bool {
+    matches!(
+        event,
+        crate::event::NativeEventKind::Change
+            | crate::event::NativeEventKind::SelectionChange
+            | crate::event::NativeEventKind::Toggle
+    )
+}
+
+fn read_only_ancestor_suppresses_event(
+    route_blueprint: &NativeWidgetBlueprint,
+    blueprint: &NativeWidgetBlueprint,
+    event: crate::event::NativeEventKind,
+) -> bool {
+    route_blueprint.control_state.read_only
+        && event == crate::event::NativeEventKind::SelectionChange
+        && is_selection_container_native_role(route_blueprint.role)
+        && is_selectable_native_role(blueprint.role)
 }
 
 fn is_space_key(value: Option<&str>) -> bool {
@@ -1973,6 +1997,53 @@ mod tests {
             runtime.accessibility_tree().unwrap().value.as_deref(),
             Some("comfortable")
         );
+        assert!(runtime.actions().invocations().is_empty());
+    }
+
+    #[test]
+    fn runtime_suppresses_read_only_ancestor_selection_actions() {
+        let element = NativeElement::new("theme", NativeRole::RadioGroup)
+            .with_props(
+                NativeProps::new()
+                    .label("Theme")
+                    .read_only(true)
+                    .web(WebProps::new().on_selection_change("setTheme")),
+            )
+            .child(
+                NativeElement::new("light", NativeRole::Radio).with_props(
+                    NativeProps::new()
+                        .label("Light")
+                        .value("light")
+                        .selected(true)
+                        .checked(true),
+                ),
+            )
+            .child(
+                NativeElement::new("dark", NativeRole::Radio)
+                    .with_props(NativeProps::new().label("Dark").value("dark")),
+            );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setTheme");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let dark_id = runtime.host().node(root_id).unwrap().children[1];
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                dark_id,
+                crate::event::NativeEventKind::SelectionChange,
+            ))
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("dark"));
+        assert!(handled.invocation.is_none());
+        assert!(handled.interaction_changes.is_empty());
+        let accessibility = runtime.accessibility_tree().unwrap();
+        assert_eq!(accessibility.value.as_deref(), Some("light"));
+        assert!(accessibility.children[0].selected);
+        assert_eq!(accessibility.children[0].checked, Some(true));
+        assert!(!accessibility.children[1].selected);
+        assert_eq!(accessibility.children[1].checked, Some(false));
         assert!(runtime.actions().invocations().is_empty());
     }
 

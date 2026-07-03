@@ -2264,6 +2264,73 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_suppresses_read_only_ancestor_selection_events() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "setTheme"}],
+              "root": {
+                "kind": "element",
+                "key": "theme",
+                "tag": "RadioGroup",
+                "props": {
+                  "label": "Theme",
+                  "isReadOnly": true,
+                  "events": {"onSelectionChange": "setTheme"}
+                },
+                "children": [
+                  {
+                    "kind": "element",
+                    "key": "light",
+                    "tag": "Radio",
+                    "props": {
+                      "label": "Light",
+                      "value": "light",
+                      "isSelected": true,
+                      "isChecked": true
+                    }
+                  },
+                  {
+                    "kind": "element",
+                    "key": "dark",
+                    "tag": "Radio",
+                    "props": {"label": "Dark", "value": "dark"}
+                  }
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+        let dark = session
+            .runtime()
+            .host()
+            .node(rendered.root)
+            .unwrap()
+            .children[1];
+
+        let response = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(dark, NativeEventKind::SelectionChange),
+            })
+            .unwrap();
+
+        assert!(response.invocation.is_none());
+        assert!(response.interaction_changes.is_empty());
+        let accessibility = response.accessibility_tree.as_ref().unwrap();
+        assert_eq!(accessibility.value.as_deref(), Some("light"));
+        assert!(accessibility.children[0].selected);
+        assert_eq!(accessibility.children[0].checked, Some(true));
+        assert!(!accessibility.children[1].selected);
+        assert_eq!(accessibility.children[1].checked, Some(false));
+        assert!(session.runtime().actions().invocations().is_empty());
+    }
+
+    #[test]
     fn native_protocol_session_infers_container_selection_value_from_selected_child() {
         let frame: UiFrame = serde_json::from_str(
             r#"
