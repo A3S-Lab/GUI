@@ -42,9 +42,9 @@ Inferred actions preserve labels from `createAction(id, label)` handlers. Empty
 event action ids are ignored by Rust routing instead of being dispatched.
 Window dimensions must be positive finite numbers, and explicit width/height
 values must stay within any declared min/max constraints.
-Focus and toggle aliases such as `onFocusChange`, `onToggle`, and
-`onExpandedChange` are preserved in the emitted protocol alongside press,
-change, selection, and keyboard events.
+Focus, value, and toggle aliases such as `onFocusChange`, `onInput`,
+`onToggle`, and `onExpandedChange` are preserved in the emitted protocol
+alongside press, change, selection, and keyboard events.
 Rust hosts route explicit `onKeyDown` handlers on the target or its ancestors
 first; otherwise Enter and Space key-down events can activate press actions on
 buttons, links, and menu items.

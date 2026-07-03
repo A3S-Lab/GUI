@@ -684,6 +684,11 @@ impl AriaProps {
         self
     }
 
+    pub fn on_input(mut self, action: impl Into<String>) -> Self {
+        self.web = self.web.on_input(action);
+        self
+    }
+
     pub fn on_selection_change(mut self, action: impl Into<String>) -> Self {
         self.web = self.web.on_selection_change(action);
         self

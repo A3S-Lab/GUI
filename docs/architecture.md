@@ -79,9 +79,9 @@ Allowed data:
 - `className`, Tailwind utility classes, inline `style` objects, and CSS text
   style strings as portable style input
 - `aria-*`, `data-*`, and HTML attributes as metadata
-- common JSX event prop names such as `onClick`, `onChange`, `onFocusChange`,
-  `onExpandedChange`, `onKeyDown`, and `onKeyUp` with named callback
-  functions, normalized into native actions
+- common JSX event prop names such as `onClick`, `onChange`, `onInput`,
+  `onFocusChange`, `onExpandedChange`, `onKeyDown`, and `onKeyUp` with named
+  callback functions, normalized into native actions
 
 Non-portable runtime assumptions:
 
@@ -237,8 +237,8 @@ supported semantic component trees, or native IR trees and renders them into any
 checked, selected, and expanded state from native events before action routing.
 `EventRouter` maps native events such as press, change, focus, toggle,
 selection change, key down, and key up back to serialized action identifiers
-such as `onClick`, `onChange`, `onFocusChange`, `onExpandedChange`,
-`onKeyDown`, and `onKeyUp`.
+such as `onClick`, `onChange`, `onInput`, `onFocusChange`,
+`onExpandedChange`, `onKeyDown`, and `onKeyUp`.
 When a key-down event has no explicit `onKeyDown` binding on the target or its
 route ancestors, Enter and Space fall back to the primary press action for
 activatable controls such as buttons, links, and menu items. For stateful

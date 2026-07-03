@@ -138,6 +138,7 @@ export interface WebCompatibleProps {
   onClick?: ActionLike;
   onPress?: ActionLike;
   onChange?: ActionLike;
+  onInput?: ActionLike;
   onSelectionChange?: ActionLike;
   onFocus?: ActionLike;
   onBlur?: ActionLike;

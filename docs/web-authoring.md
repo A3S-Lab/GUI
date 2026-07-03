@@ -108,7 +108,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | label `htmlFor` / label `for` / output `for` / meter `low` / `high` / `optimum` | normalized to native form association and meter range metadata when applicable |
 | `colSpan` / `rowSpan` / `headers` / `scope` / `abbr` / `span` / `start` / `reversed` / list `type` / `li value` | normalized to native table and list structure hints when applicable |
 | `onClick` / `onPress` | normalized to the primary native action |
-| `onChange` | normalized to the primary action for value controls |
+| `onChange` / `onInput` | normalized to the primary action for value controls; `onChange` wins when both are present |
 | `onFocus` / `onBlur` / `onFocusChange` | routed from native focus and blur events; `onFocusChange` receives boolean string payloads |
 | `onToggle` / `onExpandedChange` | routed from native toggle events; expanded controls receive boolean string payloads |
 | `onKeyDown` / `onKeyUp` | routed from native keyboard events; `NativeEvent.value` carries the key or shortcut token when the host supplies one |

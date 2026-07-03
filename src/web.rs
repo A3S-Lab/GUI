@@ -79,6 +79,10 @@ impl WebProps {
         self.event("onChange", action)
     }
 
+    pub fn on_input(self, action: impl Into<String>) -> Self {
+        self.event("onInput", action)
+    }
+
     pub fn on_selection_change(self, action: impl Into<String>) -> Self {
         self.event("onSelectionChange", action)
     }
@@ -115,6 +119,7 @@ impl WebProps {
         non_empty_action(self.events.get("onPress"))
             .or_else(|| non_empty_action(self.events.get("onClick")))
             .or_else(|| non_empty_action(self.events.get("onChange")))
+            .or_else(|| non_empty_action(self.events.get("onInput")))
     }
 
     pub fn metadata(&self) -> BTreeMap<String, String> {
@@ -150,6 +155,13 @@ mod tests {
         let props = WebProps::new().on_press("").on_click("fallbackClick");
 
         assert_eq!(props.primary_action(), Some("fallbackClick"));
+    }
+
+    #[test]
+    fn primary_action_uses_input_event_as_value_fallback() {
+        let props = WebProps::new().on_input("setQuery");
+
+        assert_eq!(props.primary_action(), Some("setQuery"));
     }
 
     #[test]

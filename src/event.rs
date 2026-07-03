@@ -161,6 +161,7 @@ fn action_for_event<'a>(
     match event.kind {
         NativeEventKind::Press => press_action(blueprint),
         NativeEventKind::Change => non_empty_action(events.get("onChange"))
+            .or_else(|| non_empty_action(events.get("onInput")))
             .or_else(|| non_empty_action(blueprint.action.as_ref())),
         NativeEventKind::SelectionChange => non_empty_action(events.get("onSelectionChange"))
             .or_else(|| non_empty_action(events.get("onChange")))
@@ -289,6 +290,31 @@ mod tests {
 
         assert_eq!(invocation.action, "setEmail");
         assert_eq!(invocation.value.as_deref(), Some("a@b.c"));
+    }
+
+    #[test]
+    fn routes_native_change_to_input_event_alias() {
+        let input_only = NativeElement::new("email", NativeRole::TextField)
+            .with_props(NativeProps::new().web(WebProps::new().on_input("setEmailInput")));
+        let change_wins = NativeElement::new("name", NativeRole::TextField).with_props(
+            NativeProps::new().web(
+                WebProps::new()
+                    .on_input("setNameInput")
+                    .on_change("setName"),
+            ),
+        );
+        let event = NativeEvent::new(HostNodeId::new(19), NativeEventKind::Change).value("Ada");
+
+        let input_invocation = EventRouter::new()
+            .route(&AppKitAdapter.blueprint(&input_only), &event)
+            .unwrap();
+        let change_invocation = EventRouter::new()
+            .route(&AppKitAdapter.blueprint(&change_wins), &event)
+            .unwrap();
+
+        assert_eq!(input_invocation.action, "setEmailInput");
+        assert_eq!(input_invocation.value.as_deref(), Some("Ada"));
+        assert_eq!(change_invocation.action, "setName");
     }
 
     #[test]

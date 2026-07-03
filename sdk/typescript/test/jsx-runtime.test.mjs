@@ -135,6 +135,17 @@ test('keyboard event props compile to stable action ids', () => {
   ]);
 });
 
+test('input event props compile to stable action ids', () => {
+  const setQuery = createAction('setQuery', 'Set query');
+  const root = jsx(Input, {
+    onInput: setQuery,
+  }, 'query');
+  const frame = createUiFrame('search', root);
+
+  assert.equal(root.props.events.onInput, 'setQuery');
+  assert.deepEqual(frame.actions, [{id: 'setQuery', label: 'Set query'}]);
+});
+
 test('radio group markers lower to structured compiled nodes', () => {
   const setTheme = createAction('setTheme', 'Set theme');
   const root = jsxs(RadioGroup, {
