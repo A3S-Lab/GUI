@@ -106,6 +106,7 @@ Run the protocol examples from this crate directory:
 cargo run --example protocol_session
 cargo run --example state_loop
 cargo run --example native_runtime_app
+cargo run --example dogfood_session
 ```
 
 Run native smoke examples on the matching operating system:
@@ -114,19 +115,23 @@ Run native smoke examples on the matching operating system:
 # macOS
 cargo run --example appkit_counter --features appkit-native
 cargo run --example appkit_controls --features appkit-native
+cargo run --example appkit_dogfood --features appkit-native
 
 # Windows
 cargo run --example winui_counter --features winui-native
 cargo run --example winui_controls --features winui-native
+cargo run --example winui_dogfood --features winui-native
 
 # Linux
 cargo run --example gtk4_counter --features gtk4-native
 cargo run --example gtk4_controls --features gtk4-native
+cargo run --example gtk4_dogfood --features gtk4-native
 ```
 
 The `*_controls` examples exercise text input, toggles, sliders, selects, tabs,
 actions, rerendering, and root-window close handling through the same reducer
-loop. `NativeProtocolApp` is the reusable host-side protocol loop;
+loop. The `*_dogfood` examples run one shared task editor frame across the
+native surfaces. `NativeProtocolApp` is the reusable host-side protocol loop;
 `NativeRuntimeApp` is the embedded loop for Rust-owned native hosts.
 
 ## Feature Flags
