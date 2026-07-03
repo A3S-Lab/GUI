@@ -23,6 +23,11 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     .default_height(config_dimension(config.portable_style.height, 480))
                     .resizable(config.window_resizable.unwrap_or(true))
                     .build();
+                let closed_windows = self.closed_windows.clone();
+                window.connect_close_request(move |_| {
+                    closed_windows.borrow_mut().insert(id);
+                    gtk::glib::Propagation::Proceed
+                });
                 Gtk4OsWidget::ApplicationWindow(window)
             }
             Gtk4WidgetKind::Box | Gtk4WidgetKind::ToolbarBox => {
@@ -384,6 +389,11 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     .default_width(config_dimension(config.portable_style.width, 420))
                     .default_height(config_dimension(config.portable_style.height, 280))
                     .build();
+                let closed_windows = self.closed_windows.clone();
+                dialog.connect_close_request(move |_| {
+                    closed_windows.borrow_mut().insert(id);
+                    gtk::glib::Propagation::Proceed
+                });
                 Gtk4OsWidget::Dialog(dialog)
             }
             Gtk4WidgetKind::Popover => {
@@ -1172,6 +1182,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         if self.root == Some(id) {
             self.root = None;
         }
+        self.closed_windows.borrow_mut().remove(&id);
         self.widgets.remove(&id);
         for children in self.container_children.values_mut() {
             children.retain(|child| *child != id);
@@ -1238,8 +1249,14 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         self.text_input_configs.remove(&id);
         self.text_input_max_lengths.borrow_mut().remove(&id);
         match &handle.widget {
-            Gtk4OsWidget::ApplicationWindow(window) => window.close(),
-            Gtk4OsWidget::Dialog(dialog) => dialog.close(),
+            Gtk4OsWidget::ApplicationWindow(window) => {
+                window.close();
+                self.closed_windows.borrow_mut().remove(&id);
+            }
+            Gtk4OsWidget::Dialog(dialog) => {
+                dialog.close();
+                self.closed_windows.borrow_mut().remove(&id);
+            }
             Gtk4OsWidget::Popover(popover) => popover.popdown(),
             other => {
                 if let Some(widget) = other.as_widget() {
@@ -1255,8 +1272,14 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
     fn set_native_root(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
         self.root = Some(id);
         match &handle.widget {
-            Gtk4OsWidget::ApplicationWindow(window) => window.present(),
-            Gtk4OsWidget::Dialog(dialog) => dialog.present(),
+            Gtk4OsWidget::ApplicationWindow(window) => {
+                self.closed_windows.borrow_mut().remove(&id);
+                window.present();
+            }
+            Gtk4OsWidget::Dialog(dialog) => {
+                self.closed_windows.borrow_mut().remove(&id);
+                dialog.present();
+            }
             Gtk4OsWidget::Popover(popover) => popover.popup(),
             other => {
                 if let Some(widget) = other.as_widget() {

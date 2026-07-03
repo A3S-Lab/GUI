@@ -122,6 +122,16 @@ cargo run --example appkit_controls --features appkit-native
 The AppKit loop exits when the root window or panel closes, or when the app
 state predicate passed to `run_appkit_while` returns false.
 
+On Linux, run the GTK4 counter example to open a native GTK window and pump
+GTK events through the same reducer loop:
+
+```bash
+cargo run --example gtk4_counter --features gtk4-native
+```
+
+The GTK4 loop exits when the root window or dialog closes, or when the app
+state predicate passed to `run_gtk4_while` returns false.
+
 ## Features
 
 - **Semantic input**: React Aria-style component names, intrinsic HTML/SVG

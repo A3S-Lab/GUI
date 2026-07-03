@@ -1,10 +1,11 @@
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use gtk::prelude::*;
 use gtk4_crate as gtk;
 
+use crate::app::{NativeRuntimeApp, NativeRuntimeEventResponse};
 use crate::backend::{
     CommandExecutingHost, DriverCommandExecutor, HandleWidgetDriver, NativeWidgetSurface,
     SurfaceHandleAdapter,
@@ -19,6 +20,7 @@ use crate::platform::{
     apply_widget_setter, Gtk4Adapter, NativeBackendKind, NativeTextInputHints,
     NativeTextInputPurpose, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter,
 };
+use crate::protocol::UiFrame;
 use crate::style::StyleLength;
 
 mod surface;
@@ -26,6 +28,14 @@ mod surface;
 pub type Gtk4NativeSurfaceAdapter = SurfaceHandleAdapter<Gtk4NativeSurface>;
 pub type Gtk4NativeSurfaceDriver = HandleWidgetDriver<Gtk4NativeSurfaceAdapter>;
 pub type Gtk4NativeSurfaceCommandExecutor = DriverCommandExecutor<Gtk4NativeSurfaceDriver>;
+pub type Gtk4RuntimeHost = CommandExecutingHost<Gtk4Adapter, Gtk4NativeSurfaceCommandExecutor>;
+pub type Gtk4RuntimeApp<S, F, R> = NativeRuntimeApp<Gtk4RuntimeHost, S, F, R>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Gtk4EventWait {
+    Poll,
+    Wait,
+}
 
 #[derive(Debug)]
 pub struct Gtk4NativeSurface {
@@ -33,6 +43,7 @@ pub struct Gtk4NativeSurface {
     root: Option<HostNodeId>,
     events: Rc<RefCell<Vec<NativeEvent>>>,
     events_suppressed: Rc<RefCell<bool>>,
+    closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
     widgets: BTreeMap<HostNodeId, gtk::Widget>,
     container_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     drop_downs: BTreeMap<HostNodeId, Gtk4DropDownState>,
@@ -66,6 +77,13 @@ impl Gtk4NativeSurface {
         let application = gtk::Application::builder()
             .application_id(application_id)
             .build();
+        if !application.is_registered() {
+            application
+                .register(None::<&gtk::gio::Cancellable>)
+                .map_err(|error| {
+                    GuiError::host(format!("failed to register GTK4 application: {error}"))
+                })?;
+        }
         Ok(Self::with_application(application))
     }
 
@@ -75,6 +93,7 @@ impl Gtk4NativeSurface {
             root: None,
             events: Rc::new(RefCell::new(Vec::new())),
             events_suppressed: Rc::new(RefCell::new(false)),
+            closed_windows: Rc::new(RefCell::new(BTreeSet::new())),
             widgets: BTreeMap::new(),
             container_children: BTreeMap::new(),
             drop_downs: BTreeMap::new(),
@@ -103,6 +122,12 @@ impl Gtk4NativeSurface {
 
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn root_window_open(&self) -> bool {
+        self.root
+            .map(|root| !self.closed_windows.borrow().contains(&root))
+            .unwrap_or(false)
     }
 
     pub fn into_driver(self) -> Gtk4NativeSurfaceDriver {
@@ -521,6 +546,73 @@ impl Gtk4NativeSurface {
             .and_then(|previous_child| self.widgets.get(previous_child));
         box_.insert_child_after(child_widget, previous_sibling);
         children.insert(index, child);
+    }
+}
+
+impl Gtk4EventWait {
+    fn may_block(self) -> bool {
+        matches!(self, Self::Wait)
+    }
+}
+
+impl<S, F, R> NativeRuntimeApp<Gtk4RuntimeHost, S, F, R>
+where
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &crate::event::ActionInvocation) -> GuiResult<()>,
+{
+    pub fn gtk4(state: S, frame_builder: F, action_reducer: R) -> GuiResult<Self> {
+        Self::gtk4_with_application_id("lab.a3s.gui", state, frame_builder, action_reducer)
+    }
+
+    pub fn gtk4_with_application_id(
+        application_id: &str,
+        state: S,
+        frame_builder: F,
+        action_reducer: R,
+    ) -> GuiResult<Self> {
+        Ok(Self::new(
+            Gtk4NativeSurface::with_application_id(application_id)?.into_host(),
+            state,
+            frame_builder,
+            action_reducer,
+        ))
+    }
+
+    pub fn pump_gtk4_event(
+        &mut self,
+        wait: Gtk4EventWait,
+    ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        let mut responses = self.handle_pending_native_events()?;
+        let context = gtk::glib::MainContext::default();
+        if wait.may_block() || context.pending() {
+            context.iteration(wait.may_block());
+            responses.extend(self.handle_pending_native_events()?);
+        }
+        Ok(responses)
+    }
+
+    pub fn run_gtk4(&mut self) -> GuiResult<()> {
+        self.run_gtk4_while(|_| true)
+    }
+
+    pub fn gtk4_root_window_open(&self) -> bool {
+        self.runtime()
+            .host()
+            .executor()
+            .driver()
+            .adapter()
+            .surface()
+            .root_window_open()
+    }
+
+    pub fn run_gtk4_while(&mut self, mut should_continue: impl FnMut(&S) -> bool) -> GuiResult<()> {
+        if self.root().is_none() {
+            self.render()?;
+        }
+        while self.gtk4_root_window_open() && should_continue(self.state()) {
+            self.pump_gtk4_event(Gtk4EventWait::Wait)?;
+        }
+        Ok(())
     }
 }
 

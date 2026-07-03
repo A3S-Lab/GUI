@@ -304,7 +304,9 @@ accessibility state.
 `GuiRuntime<H>`, drains pending native events from hosts that implement
 `NativeEventHost`, applies action invocations to application state through a
 reducer, and renders the next `UiFrame` back into the same host after
-state-changing events.
+state-changing events. Platform-native app specializations such as
+`AppKitRuntimeApp` and `Gtk4RuntimeApp` add the OS event pump and stop their
+`run_*_while` loops when the root window closes.
 
 ## Host Protocol
 
@@ -581,6 +583,11 @@ Feature-gated platform executor surfaces:
   routing path as AppKit. GTK widgets also attach `EventControllerKey`
   controllers so native key-down and key-up events carry normalized key values
   through that same queue.
+  `Gtk4RuntimeApp` provides the embedded app loop for this backend: it registers
+  a GTK application, renders into `Gtk4NativeSurface`, pumps the default GLib
+  main context, drains queued A3S native events, runs the application reducer,
+  rerenders the next frame, and observes root window/dialog close notifications
+  so `run_gtk4_while` can stop when the user closes the surface.
 
 Menu-specific native backend code lives under `src/native_backends/`:
 `native_backends/appkit/menu.rs` owns AppKit menu parent/child tracking,

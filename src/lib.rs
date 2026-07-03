@@ -81,9 +81,9 @@ pub use gtk4::{
 };
 #[cfg(all(feature = "gtk4-native", target_os = "linux"))]
 pub use gtk4_native::{
-    Gtk4DropDownItem, Gtk4NativeSurface, Gtk4NativeSurfaceAdapter,
+    Gtk4DropDownItem, Gtk4EventWait, Gtk4NativeSurface, Gtk4NativeSurfaceAdapter,
     Gtk4NativeSurfaceCommandExecutor, Gtk4NativeSurfaceDriver, Gtk4NotebookTab, Gtk4OsHandle,
-    Gtk4OsWidget,
+    Gtk4OsWidget, Gtk4RuntimeApp, Gtk4RuntimeHost,
 };
 pub use host::{HeadlessHost, HostNodeId, HostOperation, NativeHost};
 pub use html::{

@@ -301,6 +301,8 @@ attached as native GTK widgets. GTK signals enqueue native press, change, focus,
 blur, toggle, selection-change, key-down, and key-up events; programmatic setter updates are
 suppressed so render diffs do not trigger serialized actions. The feature is
 Linux-only and requires GTK4 development libraries plus `pkg-config`.
+`Gtk4RuntimeApp` can own the GTK surface directly, pump the GLib main context,
+rerender after reducer updates, and exit when the root GTK window closes.
 
 The Windows `winui-native` feature follows the same contract with WinUI 3 and
 the Windows App SDK. `WinUiNativeSurface` creates real XAML windows, panels,

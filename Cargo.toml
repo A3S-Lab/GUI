@@ -21,6 +21,10 @@ required-features = ["appkit-native"]
 name = "appkit_controls"
 required-features = ["appkit-native"]
 
+[[example]]
+name = "gtk4_counter"
+required-features = ["gtk4-native"]
+
 [features]
 default = ["headless"]
 headless = []
