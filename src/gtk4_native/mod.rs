@@ -21,7 +21,7 @@ use crate::platform::{
     NativeTextInputPurpose, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter,
 };
 use crate::protocol::UiFrame;
-use crate::style::StyleLength;
+use crate::style::{OverflowMode, StyleLength};
 
 mod surface;
 
@@ -852,6 +852,10 @@ pub enum Gtk4OsWidget {
     Switch(gtk::Switch),
     DropDown(gtk::DropDown),
     ListBox(gtk::ListBox),
+    ScrolledWindow {
+        scrolled_window: gtk::ScrolledWindow,
+        content: gtk::Box,
+    },
     ListBoxRow {
         row: gtk::ListBoxRow,
         label: gtk::Label,
@@ -883,6 +887,9 @@ impl Gtk4OsWidget {
             Gtk4OsWidget::Switch(switch) => Some(switch.clone().upcast()),
             Gtk4OsWidget::DropDown(drop_down) => Some(drop_down.clone().upcast()),
             Gtk4OsWidget::ListBox(list_box) => Some(list_box.clone().upcast()),
+            Gtk4OsWidget::ScrolledWindow {
+                scrolled_window, ..
+            } => Some(scrolled_window.clone().upcast()),
             Gtk4OsWidget::ListBoxRow { row, .. } => Some(row.clone().upcast()),
             Gtk4OsWidget::Dialog(dialog) => Some(dialog.clone().upcast()),
             Gtk4OsWidget::Popover(popover) => Some(popover.clone().upcast()),
@@ -981,6 +988,14 @@ fn gtk_input_hints(hints: NativeTextInputHints) -> gtk::InputHints {
 
 fn config_dimension(value: Option<f64>, default: i32) -> i32 {
     value.map(points_to_i32).unwrap_or(default)
+}
+
+fn gtk4_scroll_policy(value: Option<OverflowMode>) -> gtk::PolicyType {
+    match value {
+        Some(OverflowMode::Scroll) => gtk::PolicyType::Always,
+        Some(OverflowMode::Hidden | OverflowMode::Clip) => gtk::PolicyType::Never,
+        Some(OverflowMode::Visible | OverflowMode::Auto) | None => gtk::PolicyType::Automatic,
+    }
 }
 
 fn apply_widget_size(widget: &gtk::Widget, style: &crate::style::PortableStyle) {

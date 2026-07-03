@@ -397,6 +397,13 @@ into native style tokens. Recognized Tailwind utility classes are applied first
 and inline style declarations second, preserving inline style precedence.
 Unmapped CSS declarations are retained in `PortableStyle::unsupported` and in
 the raw blueprint style map.
+Container roles with `overflow`, `overflow-x`, `overflow-y`, logical overflow,
+or Tailwind overflow utilities set to `auto` or `scroll` are planned as native
+scroll shells. AppKit uses `NSScrollView` with an internal `NSStackView`, WinUI
+uses `ScrollViewer` with an internal `StackPanel`, and GTK4 uses
+`gtk::ScrolledWindow` with an internal `gtk::Box`. Children continue to mount
+inside the internal container, while the outer scroll widget is what the parent
+native view owns.
 Native bindings can call `blueprint.config()` to derive a `NativeWidgetConfig`
 with setter-oriented values such as `enabled`, `visible`, `placeholder`,
 range bounds, range step state, selected/checked state, read-only state,

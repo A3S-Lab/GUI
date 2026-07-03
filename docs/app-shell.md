@@ -85,6 +85,7 @@ before A3S GUI is considered generally usable:
 - root window metadata, size hints, resize bounds, and `window.onClose`
 - menus and menu item actions
 - text input, textarea, select, slider, tabs, switches, and checkboxes
+- overflow-aware root containers that become native scroll viewports
 - reducer-driven rerendering after native events
 - dialog open and close state
 - keyboard down and key release routing
@@ -101,7 +102,7 @@ The app shell is usable for dogfood and smoke applications. Before treating it a
 a stable production surface, keep hardening these areas:
 
 - package metadata and release bundles for each native platform
-- resize, scroll, focus, and text input edge cases under longer real-world forms
+- resize, focus, and text input edge cases under longer real-world forms
 - a broader dogfood regression path for menu, dialog, and keyboard interactions
 - platform-specific documentation for signing, installation, and distribution
 - WinUI programmatic focus once the underlying safe API is available

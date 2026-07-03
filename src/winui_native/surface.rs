@@ -1,5 +1,6 @@
 use super::helpers::*;
 use super::*;
+use crate::style::OverflowMode;
 
 impl NativeWidgetSurface for WinUiNativeSurface {
     type Handle = WinUiOsHandle;
@@ -165,6 +166,49 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     map_winui("failed to create WinUI list box", Controls::ListBox::new())?;
                 register_list_selection(id, &list_box, &self.events)?;
                 WinUiOsWidget::ListBox(list_box)
+            }
+            WinUiWidgetKind::ScrollViewer => {
+                let viewer = map_winui(
+                    "failed to create WinUI scroll viewer",
+                    Controls::ScrollViewer::new(),
+                )?;
+                map_winui(
+                    "failed to set WinUI scroll viewer horizontal policy",
+                    viewer.SetHorizontalScrollBarVisibility(winui_scroll_visibility(
+                        config.portable_style.overflow_x,
+                    )),
+                )?;
+                map_winui(
+                    "failed to set WinUI scroll viewer vertical policy",
+                    viewer.SetVerticalScrollBarVisibility(winui_scroll_visibility(
+                        config.portable_style.overflow_y,
+                    )),
+                )?;
+                let content = map_winui(
+                    "failed to create WinUI scroll viewer content panel",
+                    Controls::StackPanel::new(),
+                )?;
+                if let Some(orientation) =
+                    winui_menu::stack_panel_orientation(kind, config.orientation)
+                {
+                    let orientation = match orientation {
+                        A3sOrientation::Horizontal => Controls::Orientation::Horizontal,
+                        A3sOrientation::Vertical => Controls::Orientation::Vertical,
+                    };
+                    map_winui(
+                        "failed to set WinUI scroll viewer content orientation",
+                        content.SetOrientation(orientation),
+                    )?;
+                }
+                let content_object = map_winui(
+                    "failed to inspect WinUI scroll viewer content panel",
+                    content.cast::<windows_core::IInspectable>(),
+                )?;
+                map_winui(
+                    "failed to set WinUI scroll viewer content",
+                    viewer.SetContent(&content_object),
+                )?;
+                WinUiOsWidget::ScrollViewer { viewer, content }
             }
             WinUiWidgetKind::TabView => {
                 let tab_view =
@@ -582,6 +626,21 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     index,
                 )?;
             }
+            WinUiOsWidget::ScrollViewer { content, .. } => {
+                let child_element = child_handle.widget.ui_element().ok_or_else(|| {
+                    GuiError::host("WinUI scroll viewer child must be a UIElement-backed widget")
+                })?;
+                self.insert_panel_child(
+                    parent,
+                    map_winui(
+                        "failed to read WinUI scroll viewer content children",
+                        content.Children(),
+                    )?,
+                    child,
+                    child_element,
+                    index,
+                )?;
+            }
             WinUiOsWidget::ContentDialog(dialog) => {
                 let child = child_handle.widget.inspectable().ok_or_else(|| {
                     GuiError::host("WinUI content dialog child must be an inspectable widget")
@@ -788,5 +847,15 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             .lock()
             .map(|mut events| std::mem::take(&mut *events))
             .unwrap_or_default()
+    }
+}
+
+fn winui_scroll_visibility(value: Option<OverflowMode>) -> Controls::ScrollBarVisibility {
+    match value {
+        Some(OverflowMode::Scroll) => Controls::ScrollBarVisibility::Visible,
+        Some(OverflowMode::Hidden | OverflowMode::Clip) => Controls::ScrollBarVisibility::Disabled,
+        Some(OverflowMode::Visible | OverflowMode::Auto) | None => {
+            Controls::ScrollBarVisibility::Auto
+        }
     }
 }

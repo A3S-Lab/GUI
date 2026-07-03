@@ -832,6 +832,12 @@ pub struct AppKitPopoverState {
 }
 
 #[derive(Debug, Clone)]
+pub struct AppKitScrollViewState {
+    scroll_view: Retained<NSScrollView>,
+    stack_view: Retained<NSStackView>,
+}
+
+#[derive(Debug, Clone)]
 pub enum AppKitOsWidget {
     Window(Retained<NSWindow>),
     Panel(Retained<NSPanel>),
@@ -845,6 +851,7 @@ pub enum AppKitOsWidget {
     ComboBox(Retained<NSComboBox>),
     ComboBoxItem(AppKitComboBoxItem),
     ListView(Retained<NSScrollView>),
+    ScrollView(AppKitScrollViewState),
     Slider(Retained<NSSlider>),
     ProgressIndicator(Retained<NSProgressIndicator>),
     TabView(Retained<NSTabView>),
@@ -877,6 +884,7 @@ impl AppKitOsWidget {
             AppKitOsWidget::Switch(switch) => Some(switch.as_super().as_super()),
             AppKitOsWidget::ComboBox(combo_box) => Some(combo_box.as_super().as_super().as_super()),
             AppKitOsWidget::ListView(scroll_view) => Some(scroll_view.as_super()),
+            AppKitOsWidget::ScrollView(state) => Some(state.scroll_view.as_super()),
             AppKitOsWidget::Slider(slider) => Some(slider.as_super().as_super()),
             AppKitOsWidget::ProgressIndicator(progress) => Some(progress.as_super()),
             AppKitOsWidget::TabView(tab_view) => Some(tab_view.as_super()),
@@ -910,6 +918,7 @@ impl AppKitOsWidget {
             | AppKitOsWidget::StackView(_)
             | AppKitOsWidget::ComboBoxItem(_)
             | AppKitOsWidget::ListView(_)
+            | AppKitOsWidget::ScrollView(_)
             | AppKitOsWidget::TabView(_)
             | AppKitOsWidget::TabViewItem(_)
             | AppKitOsWidget::Box(_)

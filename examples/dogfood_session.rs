@@ -192,6 +192,7 @@ mod tests {
         assert_eq!(window.role, NativeRole::Window);
 
         let root = find_event_blueprint(&app, "onKeyDown", "handleShortcut").1;
+        assert_eq!(root.widget_class, "gtk::ScrolledWindow+Box");
         let size = root.portable_style.native_size_constraints();
         assert_eq!(size.width, Some(700.0));
         assert_eq!(size.height, Some(620.0));

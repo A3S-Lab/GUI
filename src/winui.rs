@@ -30,6 +30,7 @@ pub enum WinUiWidgetKind {
     ComboBox,
     ListView,
     ListViewItem,
+    ScrollViewer,
     ContentDialog,
     ToolTip,
     TabView,
@@ -153,6 +154,9 @@ impl WinUiWidgetKind {
             "Microsoft.UI.Xaml.Controls.ComboBox" => Ok(WinUiWidgetKind::ComboBox),
             "Microsoft.UI.Xaml.Controls.ListView" => Ok(WinUiWidgetKind::ListView),
             "Microsoft.UI.Xaml.Controls.ListViewItem" => Ok(WinUiWidgetKind::ListViewItem),
+            "Microsoft.UI.Xaml.Controls.ScrollViewer+StackPanel" => {
+                Ok(WinUiWidgetKind::ScrollViewer)
+            }
             "Microsoft.UI.Xaml.Controls.ContentDialog" => Ok(WinUiWidgetKind::ContentDialog),
             "Microsoft.UI.Xaml.Controls.ToolTip" => Ok(WinUiWidgetKind::ToolTip),
             "Microsoft.UI.Xaml.Controls.TabView" => Ok(WinUiWidgetKind::TabView),

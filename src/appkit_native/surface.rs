@@ -1,4 +1,5 @@
 use super::*;
+use crate::style::OverflowMode;
 
 impl AppKitNativeSurface {
     fn apply_range(&mut self, id: HostNodeId, widget: &AppKitOsWidget) {
@@ -340,6 +341,28 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 self.list_children.entry(id).or_default();
                 AppKitOsWidget::ListView(scroll_view)
             }
+            AppKitWidgetKind::ScrollView => {
+                let rect = config_rect(&config, 320.0, 240.0);
+                let scroll_view = NSScrollView::initWithFrame(NSScrollView::alloc(self.mtm), rect);
+                scroll_view.setHasVerticalScroller(appkit_vertical_scroll_enabled(&config));
+                scroll_view.setHasHorizontalScroller(appkit_horizontal_scroll_enabled(&config));
+                scroll_view.setAutohidesScrollers(true);
+
+                let stack_view = NSStackView::initWithFrame(
+                    NSStackView::alloc(self.mtm),
+                    NSRect::new(NSPoint::new(0.0, 0.0), rect.size),
+                );
+                stack_view.setDistribution(NSStackViewDistribution::GravityAreas);
+                stack_view.setOrientation(appkit_stack_orientation(
+                    config.orientation.unwrap_or(Orientation::Vertical),
+                ));
+                scroll_view.setDocumentView(Some(stack_view.as_super()));
+
+                AppKitOsWidget::ScrollView(AppKitScrollViewState {
+                    scroll_view,
+                    stack_view,
+                })
+            }
             AppKitWidgetKind::ListItem => {
                 let item = AppKitComboBoxItem::from_config(&config);
                 self.combo_items.insert(id, item.clone());
@@ -545,6 +568,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     AppKitOsWidget::Switch(_)
                     | AppKitOsWidget::ComboBox(_)
                     | AppKitOsWidget::ListView(_)
+                    | AppKitOsWidget::ScrollView(_)
                     | AppKitOsWidget::Slider(_)
                     | AppKitOsWidget::ProgressIndicator(_)
                     | AppKitOsWidget::TabView(_)
@@ -636,6 +660,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 | AppKitOsWidget::View(_)
                 | AppKitOsWidget::StackView(_)
                 | AppKitOsWidget::ListView(_)
+                | AppKitOsWidget::ScrollView(_)
                 | AppKitOsWidget::TabView(_)
                 | AppKitOsWidget::TabViewItem(_)
                 | AppKitOsWidget::Button(_)
@@ -681,6 +706,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     | AppKitOsWidget::Button(_)
                     | AppKitOsWidget::Switch(_)
                     | AppKitOsWidget::ListView(_)
+                    | AppKitOsWidget::ScrollView(_)
                     | AppKitOsWidget::Slider(_)
                     | AppKitOsWidget::ProgressIndicator(_)
                     | AppKitOsWidget::TabView(_)
@@ -809,6 +835,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 | AppKitOsWidget::ComboBox(_)
                 | AppKitOsWidget::ComboBoxItem(_)
                 | AppKitOsWidget::ListView(_)
+                | AppKitOsWidget::ScrollView(_)
                 | AppKitOsWidget::Slider(_)
                 | AppKitOsWidget::ProgressIndicator(_)
                 | AppKitOsWidget::TabView(_)
@@ -1183,6 +1210,12 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     GuiError::host("AppKit stack view child insertion index overflow")
                 })?,
             ),
+            AppKitOsWidget::ScrollView(state) => state.stack_view.insertArrangedSubview_atIndex(
+                child,
+                index.try_into().map_err(|_| {
+                    GuiError::host("AppKit scroll view child insertion index overflow")
+                })?,
+            ),
             AppKitOsWidget::Button(button) => button.as_super().as_super().addSubview(child),
             AppKitOsWidget::Switch(switch) => switch.as_super().as_super().addSubview(child),
             AppKitOsWidget::Slider(slider) => slider.as_super().as_super().addSubview(child),
@@ -1349,4 +1382,20 @@ fn set_widget_title(widget: &AppKitOsWidget, title: Option<&str>) {
             }
         }
     }
+}
+
+fn appkit_vertical_scroll_enabled(config: &NativeWidgetConfig) -> bool {
+    scroll_enabled(config.portable_style.overflow_y)
+        || scroll_enabled(config.portable_style.overflow_block)
+        || (!scroll_enabled(config.portable_style.overflow_x)
+            && !scroll_enabled(config.portable_style.overflow_inline))
+}
+
+fn appkit_horizontal_scroll_enabled(config: &NativeWidgetConfig) -> bool {
+    scroll_enabled(config.portable_style.overflow_x)
+        || scroll_enabled(config.portable_style.overflow_inline)
+}
+
+fn scroll_enabled(value: Option<OverflowMode>) -> bool {
+    matches!(value, Some(OverflowMode::Auto | OverflowMode::Scroll))
 }

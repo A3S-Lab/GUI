@@ -23,6 +23,10 @@ pub enum WinUiOsWidget {
     ComboBoxItem(Controls::ComboBoxItem),
     ListBox(Controls::ListBox),
     ListBoxItem(Controls::ListBoxItem),
+    ScrollViewer {
+        viewer: Controls::ScrollViewer,
+        content: Controls::StackPanel,
+    },
     ContentDialog(Controls::ContentDialog),
     ToolTip(Controls::ToolTip),
     TabView(Controls::TabView),
@@ -50,6 +54,7 @@ impl WinUiOsWidget {
             WinUiOsWidget::ComboBoxItem(widget) => widget.cast().ok(),
             WinUiOsWidget::ListBox(widget) => widget.cast().ok(),
             WinUiOsWidget::ListBoxItem(widget) => widget.cast().ok(),
+            WinUiOsWidget::ScrollViewer { viewer, .. } => viewer.cast().ok(),
             WinUiOsWidget::ContentDialog(widget) => widget.cast().ok(),
             WinUiOsWidget::ToolTip(widget) => widget.cast().ok(),
             WinUiOsWidget::TabView(widget) => widget.cast().ok(),
@@ -77,6 +82,7 @@ impl WinUiOsWidget {
             WinUiOsWidget::ComboBoxItem(widget) => widget.cast().ok(),
             WinUiOsWidget::ListBox(widget) => widget.cast().ok(),
             WinUiOsWidget::ListBoxItem(widget) => widget.cast().ok(),
+            WinUiOsWidget::ScrollViewer { viewer, .. } => viewer.cast().ok(),
             WinUiOsWidget::ContentDialog(widget) => widget.cast().ok(),
             WinUiOsWidget::ToolTip(widget) => widget.cast().ok(),
             WinUiOsWidget::TabView(widget) => widget.cast().ok(),
@@ -104,6 +110,7 @@ impl WinUiOsWidget {
             WinUiOsWidget::ComboBoxItem(widget) => widget.cast().ok(),
             WinUiOsWidget::ListBox(widget) => widget.cast().ok(),
             WinUiOsWidget::ListBoxItem(widget) => widget.cast().ok(),
+            WinUiOsWidget::ScrollViewer { viewer, .. } => viewer.cast().ok(),
             WinUiOsWidget::ContentDialog(widget) => widget.cast().ok(),
             WinUiOsWidget::ToolTip(widget) => widget.cast().ok(),
             WinUiOsWidget::TabView(widget) => widget.cast().ok(),
@@ -120,7 +127,8 @@ impl WinUiOsWidget {
             | WinUiOsWidget::StackPanel(_)
             | WinUiOsWidget::TextBlock(_)
             | WinUiOsWidget::Separator(_)
-            | WinUiOsWidget::Grid(_) => None,
+            | WinUiOsWidget::Grid(_)
+            | WinUiOsWidget::ScrollViewer { .. } => None,
             WinUiOsWidget::Button(widget) => widget.cast().ok(),
             WinUiOsWidget::TextBox(widget) => widget.cast().ok(),
             WinUiOsWidget::PasswordBox(widget) => widget.cast().ok(),
@@ -150,6 +158,10 @@ impl WinUiOsWidget {
             WinUiOsWidget::Grid(widget) => Ok(Some(map_winui(
                 "failed to read WinUI grid children",
                 widget.Children(),
+            )?)),
+            WinUiOsWidget::ScrollViewer { content, .. } => Ok(Some(map_winui(
+                "failed to read WinUI scroll viewer content children",
+                content.Children(),
             )?)),
             _ => Ok(None),
         }

@@ -36,7 +36,7 @@ layout engine, or JavaScript object graph at the host boundary.
 | AppKit native surface | Usable for small macOS smoke apps with windows, text input, buttons, toggles, sliders, selects, tabs, menus, keyboard events, `window.onClose` actions, and native `autoFocus`. |
 | GTK4 native surface | Usable for small Linux smoke apps with the same core controls plus window/dialog `window.onClose` actions; requires GTK4 development libraries and `pkg-config`. |
 | WinUI native surface | Usable for Windows smoke apps with core controls, HWND initial size, min/max resize bounds, resizable state, focus callbacks, keyboard message routing, `window.onClose` actions, and root-window close exit. Programmatic `autoFocus` is tracked but limited by `winio-winui3` 0.4.2 not exposing a safe focus method. |
-| Production app shell | In progress. Crate-local `just` recipes now cover local verification and native dogfood entrypoints. Layout polish, packaging guidance, broader dogfood coverage, and platform-specific edge cases still need hardening. |
+| Production app shell | In progress. Crate-local `just` recipes cover local verification and native dogfood entrypoints, and overflow-aware container scroll shells are available for longer forms. Layout polish, packaging guidance, broader dogfood coverage, and platform-specific edge cases still need hardening. |
 
 Known boundaries:
 
@@ -134,7 +134,9 @@ loop. Native window close requests route through `window.onClose` action ids.
 The `*_dogfood` examples run one shared task editor and review workflow
 across the native surfaces, including menus, a dialog gate, assignment,
 checklists, keyboard shortcuts, window close lifecycle actions, and
-state-driven app loop exit. `NativeProtocolApp` is the reusable host-side
+state-driven app loop exit. The dogfood shell uses an overflow-aware root
+container so longer native forms get a platform scroll viewport instead of
+growing past the window. `NativeProtocolApp` is the reusable host-side
 protocol loop; `NativeRuntimeApp` is the embedded loop for Rust-owned native
 hosts. Platform `run_*_while` loops stop draining queued native events as soon
 as their state predicate returns false.

@@ -1,7 +1,7 @@
 use crate::accessibility::accessibility_role;
 use crate::html::HTML_TAG_METADATA_KEY;
 use crate::native::{NativeElement, NativeRole};
-use crate::style::PortableStyle;
+use crate::style::{OverflowMode, PortableStyle};
 
 use super::types::{NativeBackendKind, NativeControlState, NativeWidgetBlueprint};
 
@@ -43,6 +43,15 @@ fn native_widget_name_for_element(
     backend: NativeBackendKind,
     element: &NativeElement,
 ) -> &'static str {
+    if scrollable_container(element) {
+        return match backend {
+            NativeBackendKind::AppKit => "NSScrollView+NSStackView(scroll)",
+            NativeBackendKind::WinUI => "Microsoft.UI.Xaml.Controls.ScrollViewer+StackPanel",
+            NativeBackendKind::Gtk4 => "gtk::ScrolledWindow+Box",
+            NativeBackendKind::Headless => "a3s_gui::HeadlessNode",
+        };
+    }
+
     if element.role == NativeRole::TextField
         && element
             .props
@@ -104,6 +113,50 @@ fn native_widget_name_for_element(
     }
 
     native_widget_name(backend, element.role)
+}
+
+fn scrollable_container(element: &NativeElement) -> bool {
+    if !scrollable_container_role(element.role) {
+        return false;
+    }
+    let style = PortableStyle::from_web(&element.props.web);
+    scrollable_overflow(style.overflow_y)
+        || scrollable_overflow(style.overflow_x)
+        || scrollable_overflow(style.overflow_block)
+        || scrollable_overflow(style.overflow_inline)
+}
+
+fn scrollable_container_role(role: NativeRole) -> bool {
+    matches!(
+        role,
+        NativeRole::View
+            | NativeRole::Document
+            | NativeRole::DocumentBody
+            | NativeRole::Paragraph
+            | NativeRole::PreformattedText
+            | NativeRole::BlockQuote
+            | NativeRole::Main
+            | NativeRole::Navigation
+            | NativeRole::Header
+            | NativeRole::Footer
+            | NativeRole::Article
+            | NativeRole::Section
+            | NativeRole::Aside
+            | NativeRole::Search
+            | NativeRole::Disclosure
+            | NativeRole::Figure
+            | NativeRole::DescriptionList
+            | NativeRole::Form
+            | NativeRole::FieldSet
+            | NativeRole::OptionGroup
+            | NativeRole::TabPanel
+            | NativeRole::Toolbar
+            | NativeRole::TableSection
+    )
+}
+
+fn scrollable_overflow(value: Option<OverflowMode>) -> bool {
+    matches!(value, Some(OverflowMode::Auto | OverflowMode::Scroll))
 }
 
 fn appkit_widget_name(role: NativeRole) -> &'static str {

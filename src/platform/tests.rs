@@ -76,6 +76,28 @@ fn toolbar_blueprint_targets_native_container_controls_not_webview() {
 }
 
 #[test]
+fn scrollable_container_blueprint_targets_native_scroll_containers() {
+    let element = NativeElement::new("task-form", NativeRole::Toolbar).with_props(
+        NativeProps::new()
+            .orientation(Orientation::Vertical)
+            .web(WebProps::new().style("overflowY", "auto")),
+    );
+
+    assert_eq!(
+        AppKitAdapter.blueprint(&element).widget_class,
+        "NSScrollView+NSStackView(scroll)"
+    );
+    assert_eq!(
+        WinUiAdapter.blueprint(&element).widget_class,
+        "Microsoft.UI.Xaml.Controls.ScrollViewer+StackPanel"
+    );
+    assert_eq!(
+        Gtk4Adapter.blueprint(&element).widget_class,
+        "gtk::ScrolledWindow+Box"
+    );
+}
+
+#[test]
 fn dialog_blueprint_targets_native_dialog_controls_not_webview() {
     let element =
         NativeElement::new("preferences", NativeRole::Dialog).with_props(NativeProps::new());

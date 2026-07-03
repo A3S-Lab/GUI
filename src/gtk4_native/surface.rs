@@ -51,6 +51,29 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 );
                 Gtk4OsWidget::Box(box_)
             }
+            Gtk4WidgetKind::ScrolledWindow => {
+                let scrolled_window = gtk::ScrolledWindow::new();
+                scrolled_window.set_policy(
+                    gtk4_scroll_policy(config.portable_style.overflow_x),
+                    gtk4_scroll_policy(config.portable_style.overflow_y),
+                );
+                let box_ = gtk::Box::new(
+                    config_orientation(&config).unwrap_or(gtk::Orientation::Vertical),
+                    config
+                        .portable_style
+                        .gap
+                        .as_ref()
+                        .and_then(StyleLength::points)
+                        .map(points_to_i32)
+                        .unwrap_or(0),
+                );
+                scrolled_window.set_child(Some(&box_));
+                apply_widget_size(scrolled_window.as_ref(), &config.portable_style);
+                Gtk4OsWidget::ScrolledWindow {
+                    scrolled_window,
+                    content: box_,
+                }
+            }
             Gtk4WidgetKind::Label => Gtk4OsWidget::Label(gtk::Label::new(Some(
                 config
                     .label
@@ -1165,6 +1188,9 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             }
             Gtk4OsWidget::Box(box_) => {
                 self.insert_box_child(parent, box_, child, &child_widget, index);
+            }
+            Gtk4OsWidget::ScrolledWindow { content, .. } => {
+                self.insert_box_child(parent, content, child, &child_widget, index);
             }
             Gtk4OsWidget::Button(button) => {
                 button.set_child(Some(&child_widget));

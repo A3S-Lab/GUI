@@ -116,6 +116,13 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `textarea` direct text children | projected as native text-field value when no explicit value is supplied |
 | `Select` + `ListBoxItem` | folded into a native select with native options |
 
+Container roles such as `View`, `Section`, `Form`, `Toolbar`, and `TabPanel`
+become native scroll shells when inline style or Tailwind classes set
+`overflow`, `overflowX`, `overflowY`, logical overflow, or equivalent utilities
+to `auto` or `scroll`. Children still mount into an internal native stack, so
+the authored tree stays the same while the platform surface provides the
+viewport.
+
 ## Native Adapter Contract
 
 The current platform planning adapters map the same native IR to target widget

@@ -90,6 +90,7 @@ pub(super) fn set_label(widget: &WinUiOsWidget, value: Option<&str>) -> GuiResul
         | WinUiOsWidget::ListBox(_)
         | WinUiOsWidget::TabView(_)
         | WinUiOsWidget::Grid(_)
+        | WinUiOsWidget::ScrollViewer { .. }
         | WinUiOsWidget::Slider(_)
         | WinUiOsWidget::ProgressBar(_) => {}
     }
@@ -247,6 +248,12 @@ pub(super) fn set_orientation(
             map_winui(
                 "failed to set WinUI stack panel orientation",
                 panel.SetOrientation(orientation),
+            )?;
+        }
+        WinUiOsWidget::ScrollViewer { content, .. } => {
+            map_winui(
+                "failed to set WinUI scroll viewer content orientation",
+                content.SetOrientation(orientation),
             )?;
         }
         WinUiOsWidget::Slider(slider) => {

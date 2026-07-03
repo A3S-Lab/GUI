@@ -108,6 +108,7 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
                     "blockSize": 620,
                     "minInlineSize": 480,
                     "minBlockSize": 420,
+                    "overflowY": "auto",
                     "gap": 10
                 }
             },
