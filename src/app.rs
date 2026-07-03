@@ -210,6 +210,11 @@ mod tests {
         increments: u32,
     }
 
+    #[derive(Debug, Clone, PartialEq, Default)]
+    struct QueueState {
+        handled: Vec<String>,
+    }
+
     fn counter_frame(state: &CounterState) -> GuiResult<UiFrame> {
         serde_json::from_value(json!({
             "frameId": "counter",
@@ -267,6 +272,44 @@ mod tests {
             }
             other => Err(GuiError::host(format!("unexpected action {other}"))),
         }
+    }
+
+    fn queue_frame(_state: &QueueState) -> GuiResult<UiFrame> {
+        serde_json::from_value(json!({
+            "frameId": "queue",
+            "actions": [{"id": "first"}, {"id": "second"}, {"id": "third"}],
+            "root": {
+                "kind": "element",
+                "key": "queue-toolbar",
+                "tag": "Toolbar",
+                "children": [
+                    {
+                        "kind": "element",
+                        "key": "first",
+                        "tag": "Button",
+                        "props": {"label": "First", "events": {"onPress": "first"}}
+                    },
+                    {
+                        "kind": "element",
+                        "key": "second",
+                        "tag": "Button",
+                        "props": {"label": "Second", "events": {"onPress": "second"}}
+                    },
+                    {
+                        "kind": "element",
+                        "key": "third",
+                        "tag": "Button",
+                        "props": {"label": "Third", "events": {"onPress": "third"}}
+                    }
+                ]
+            }
+        }))
+        .map_err(|error| GuiError::invalid_tree(format!("invalid queue frame: {error}")))
+    }
+
+    fn queue_reduce(state: &mut QueueState, invocation: &ActionInvocation) -> GuiResult<()> {
+        state.handled.push(invocation.action.clone());
+        Ok(())
     }
 
     #[test]
@@ -407,6 +450,42 @@ mod tests {
     }
 
     #[test]
+    fn native_runtime_app_handles_buffered_events_before_new_host_events() {
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut app = NativeRuntimeApp::new(host, QueueState::default(), queue_frame, queue_reduce);
+        app.render().unwrap();
+
+        let first = action_node(&app, "first");
+        let second = action_node(&app, "second");
+        let third = action_node(&app, "third");
+
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(first, NativeEventKind::Press));
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(second, NativeEventKind::Press));
+
+        let first_batch = app
+            .handle_pending_native_events_while(|state| state.handled.is_empty())
+            .unwrap();
+        assert_eq!(invocation_actions(&first_batch), vec!["first"]);
+        assert_eq!(app.state().handled, vec!["first"]);
+
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(third, NativeEventKind::Press));
+
+        let second_batch = app.handle_pending_native_events().unwrap();
+
+        assert_eq!(invocation_actions(&second_batch), vec!["second", "third"]);
+        assert_eq!(app.state().handled, vec!["first", "second", "third"]);
+    }
+
+    #[test]
     fn native_runtime_app_keeps_pending_events_when_predicate_starts_false() {
         let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
         let mut app =
@@ -431,5 +510,33 @@ mod tests {
             pending,
             vec![NativeEvent::new(rendered.root, NativeEventKind::Press)]
         );
+    }
+
+    fn action_node<S, F, R>(
+        app: &NativeRuntimeApp<CommandExecutingHost<Gtk4Adapter, RecordingBackend>, S, F, R>,
+        action: &str,
+    ) -> HostNodeId
+    where
+        F: Fn(&S) -> GuiResult<UiFrame>,
+        R: FnMut(&mut S, &ActionInvocation) -> GuiResult<()>,
+    {
+        app.runtime()
+            .host()
+            .planning()
+            .nodes()
+            .iter()
+            .find_map(|(id, node)| {
+                (node.blueprint.events.get("onPress").map(String::as_str) == Some(action))
+                    .then_some(*id)
+            })
+            .unwrap_or_else(|| panic!("missing queue action node {action}"))
+    }
+
+    fn invocation_actions(responses: &[NativeRuntimeEventResponse]) -> Vec<&str> {
+        responses
+            .iter()
+            .filter_map(|response| response.invocation.as_ref())
+            .map(|invocation| invocation.action.as_str())
+            .collect()
     }
 }
