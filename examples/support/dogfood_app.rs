@@ -209,6 +209,10 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
     .map_err(|error| GuiError::invalid_tree(format!("invalid dogfood frame: {error}")))
 }
 
+pub fn dogfood_should_continue(state: &DogfoodState) -> bool {
+    !state.close_requested
+}
+
 pub fn dogfood_reduce(state: &mut DogfoodState, invocation: &ActionInvocation) -> GuiResult<()> {
     match invocation.action.as_str() {
         "updateTitle" => {
@@ -384,7 +388,8 @@ fn workflow_menu(state: &DogfoodState) -> Value {
             menu_item("menu-save", "Save", "saveWork", false),
             menu_item("menu-review", "Request review", "requestReview", false),
             menu_item("menu-finish", "Complete review", "finishReview", !state.review_ready()),
-            menu_item("menu-reopen", "Reopen work", "reopenWork", state.stage == "Build")
+            menu_item("menu-reopen", "Reopen work", "reopenWork", state.stage == "Build"),
+            menu_item("menu-close", "Close window", "closeDogfood", false)
         ]
     })
 }

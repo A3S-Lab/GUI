@@ -6,13 +6,15 @@ mod dogfood_app;
 mod appkit_dogfood {
     use a3s_gui::{AppKitRuntimeApp, GuiResult, UiFrame};
 
-    use crate::dogfood_app::{dogfood_frame, dogfood_reduce, DogfoodState};
+    use crate::dogfood_app::{
+        dogfood_frame, dogfood_reduce, dogfood_should_continue, DogfoodState,
+    };
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let mut app =
             AppKitRuntimeApp::appkit(DogfoodState::default(), appkit_frame, dogfood_reduce)?;
         app.render()?;
-        app.run_appkit()?;
+        app.run_appkit_while(dogfood_should_continue)?;
         println!("dogfood app closed with state: {:?}", app.state());
         Ok(())
     }

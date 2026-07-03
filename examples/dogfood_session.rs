@@ -3,7 +3,7 @@ mod dogfood_app;
 
 use a3s_gui::{CommandExecutingHost, Gtk4Adapter, NativeRuntimeApp, RecordingBackend};
 
-use crate::dogfood_app::{dogfood_frame, dogfood_reduce, DogfoodState};
+use crate::dogfood_app::{dogfood_frame, dogfood_reduce, dogfood_should_continue, DogfoodState};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
@@ -14,6 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         dogfood_reduce,
     );
     let rendered = app.render()?;
+    assert!(dogfood_should_continue(app.state()));
     println!(
         "dogfood frame {} rendered as node {}",
         rendered.frame_id,
@@ -145,6 +146,28 @@ mod tests {
             Some("closeDogfood")
         );
         assert!(response.render.is_some());
+    }
+
+    #[test]
+    fn dogfood_session_close_menu_requests_app_exit() {
+        let mut app = new_app();
+        app.render().unwrap();
+
+        let close = find_event_blueprint(&app, "onPress", "closeDogfood").1;
+        assert_eq!(close.role, NativeRole::MenuItem);
+        assert!(dogfood_should_continue(app.state()));
+
+        dispatch(
+            &mut app,
+            "onPress",
+            "closeDogfood",
+            NativeEventKind::Press,
+            "",
+        );
+
+        assert!(app.state().close_requested);
+        assert_eq!(app.state().last_event, "Window close requested");
+        assert!(!dogfood_should_continue(app.state()));
     }
 
     #[test]

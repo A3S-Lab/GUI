@@ -134,8 +134,9 @@ loop. Native window close requests route through `window.onClose` action ids.
 The `*_dogfood` examples run one shared task editor and review workflow
 across the native surfaces, including menus, a dialog gate, assignment,
 checklists, keyboard shortcuts, window close lifecycle actions, and
-disabled/read-only state. `NativeProtocolApp` is the reusable host-side protocol
-loop; `NativeRuntimeApp` is the embedded loop for Rust-owned native hosts.
+state-driven app loop exit. `NativeProtocolApp` is the reusable host-side
+protocol loop; `NativeRuntimeApp` is the embedded loop for Rust-owned native
+hosts.
 
 ## Feature Flags
 

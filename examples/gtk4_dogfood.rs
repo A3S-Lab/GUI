@@ -6,12 +6,14 @@ mod dogfood_app;
 mod gtk4_dogfood {
     use a3s_gui::{Gtk4RuntimeApp, GuiResult, UiFrame};
 
-    use crate::dogfood_app::{dogfood_frame, dogfood_reduce, DogfoodState};
+    use crate::dogfood_app::{
+        dogfood_frame, dogfood_reduce, dogfood_should_continue, DogfoodState,
+    };
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let mut app = Gtk4RuntimeApp::gtk4(DogfoodState::default(), gtk4_frame, dogfood_reduce)?;
         app.render()?;
-        app.run_gtk4()?;
+        app.run_gtk4_while(dogfood_should_continue)?;
         println!("dogfood app closed with state: {:?}", app.state());
         Ok(())
     }

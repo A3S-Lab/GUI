@@ -528,7 +528,7 @@ Feature-gated platform executor surfaces:
   The `appkit_dogfood` example runs the shared task editor and review workflow
   with menu commands, dialog visibility, checklists, disabled gates, read-only
   status, keyboard shortcuts, window close lifecycle actions, and
-  reducer-driven rerenders.
+  state-driven app loop exit through `run_appkit_while`.
   These event paths flow through the existing `NativeEventSource` boundary.
 - `winui`: maps classes such as `Microsoft.UI.Xaml.Controls.Button`,
   `Microsoft.UI.Xaml.Controls.TextBox`,
@@ -591,7 +591,7 @@ Feature-gated platform executor surfaces:
   frame against real WinUI widgets.
   The `winui_dogfood` example runs the shared task editor and review workflow
   through the same reducer loop and WinUI event queue, including window close
-  lifecycle actions.
+  lifecycle actions and state-driven app loop exit through `run_winui_while`.
 - `gtk4`: maps classes such as `gtk::Button`, `gtk::Entry`,
   `gtk::SearchEntry`, `gtk::PasswordEntry`, `gtk::SpinButton`, and
   `gtk::TextView` into GTK object kinds behind `Gtk4WidgetDriver` and replays
@@ -643,7 +643,7 @@ Feature-gated platform executor surfaces:
   against real GTK4 widgets.
   The `gtk4_dogfood` example runs the shared task editor and review workflow
   through the same reducer loop and GTK event queue, including window close
-  lifecycle actions.
+  lifecycle actions and state-driven app loop exit through `run_gtk4_while`.
 
 Menu-specific native backend code lives under `src/native_backends/`:
 `native_backends/appkit/menu.rs` owns AppKit menu parent/child tracking,
