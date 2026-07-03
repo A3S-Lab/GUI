@@ -249,10 +249,11 @@ listbox items or tabs.
 Native event routing tries the target widget first, then mounted ancestors, so
 child widget callbacks can reach container-level handlers. Selection events
 without a value are normalized from the selected child's value or label.
-Text-field change values are clamped to `maxLength`; number-input and slider
-change values are clamped to min/max range bounds and snapped to step hints
-before interaction state or action dispatch. Protocol hosts and native backends
-therefore share the same value contract.
+Text-field change values are clamped to `maxLength`. Initial, rerendered, and
+event-provided number-input and ranged-control values are clamped to min/max
+range bounds and snapped to step hints before platform rendering, interaction
+state, or action dispatch. Protocol hosts and native backends therefore share
+the same value contract.
 Empty event action ids are ignored rather than dispatched.
 `ActionRegistry` records and validates non-empty action ids before they are
 handed to the JavaScript state bridge. Hosts that implement

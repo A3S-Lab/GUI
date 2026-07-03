@@ -89,7 +89,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `aria-hidden` / `aria-autocomplete` / `aria-multiline` / `aria-current` / `aria-haspopup` / `aria-pressed` / `aria-live` / `aria-atomic` / `aria-busy` / `aria-relevant` / `aria-modal` | normalized to native accessibility state hints and preserved as metadata; `aria-hidden` does not change visual widget visibility, and `aria-hidden="true"` omits the subtree from rendered accessibility trees |
 | `data-*` | preserved as metadata for testing, analytics, and automation |
 | `disabled` / `required` / `checked` / `selected` | normalized to React Aria-style native control state |
-| `min` / `max` / `step` / `aria-valuenow` | normalized to native ranged control state |
+| `min` / `max` / `step` / `aria-valuenow` | normalized to native ranged control state; initial and rerendered current values are clamped to bounds and snapped to step hints |
 | `readOnly` / `multiple` / `autoFocus` | normalized to native control state; `autoFocus` seeds initial runtime focus for rendered accessibility trees only in renderable, non-disabled subtrees and lets real native surfaces request platform focus where their bindings expose it, `readOnly` suppresses value-changing events, and `readOnly` plus `multiple` are exposed in rendered accessibility trees |
 | `autoComplete` / `inputMode` / `enterKeyHint` / `autoCapitalize` / `autoCorrect` / `virtualKeyboardPolicy` / `pattern` | normalized to native text-entry hints and preserved as metadata |
 | `minLength` / `maxLength` / `rows` / `cols` / `size` | normalized to native numeric control hints and preserved as metadata |
@@ -457,10 +457,11 @@ primary press action for activatable controls such as buttons, links, and menu
 items. Keyboard activation is also normalized into `Toggle` or
 `SelectionChange` events for checkboxes, switches, expanded controls, radios,
 listbox items, and tabs, so interaction state and action payloads stay
-semantic. Text-field change values are normalized against `maxLength`, and
-number-input plus slider change values are normalized against min/max range
-bounds and step hints, before the reducer sees the action payload. This matches
-native AppKit, GTK4, and WinUI control limit behavior.
+semantic. Text-field change values are normalized against `maxLength`.
+Number-input and ranged-control current values are normalized against min/max
+range bounds and step hints on initial render, rerender, and event dispatch,
+before the reducer sees an action payload. This matches native AppKit, GTK4,
+and WinUI control limit behavior.
 `createUiFrame` also accepts `window.onClose` as an action-like value. Rust
 wraps the root in a native window with an `onClose` event binding, infers that
 action when frame actions are omitted, and dispatches it from

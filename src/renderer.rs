@@ -3,7 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::error::{GuiError, GuiResult};
 use crate::host::{HostNodeId, NativeHost};
 use crate::html::HTML_TAG_METADATA_KEY;
-use crate::native::{ElementKey, NativeElement, NativeProps, NativeRole};
+use crate::native::{
+    normalize_props_for_native_role, ElementKey, NativeElement, NativeProps, NativeRole,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 struct MountedNode {
@@ -82,12 +84,13 @@ impl Renderer {
         element: &NativeElement,
         host: &mut H,
     ) -> GuiResult<HostNodeId> {
-        validate_native_tree(element)?;
+        let element = normalize_native_element(element);
+        validate_native_tree(&element)?;
         let previous_root = self.root.clone();
         let mut rollback = ReconcileRollback::default();
         let mounted = match self.root.take() {
-            Some(old) if needs_replacement(&old, element) => {
-                let mounted = match mount_node(None, 0, element, host) {
+            Some(old) if needs_replacement(&old, &element) => {
+                let mounted = match mount_node(None, 0, &element, host) {
                     Ok(mounted) => mounted,
                     Err(error) => {
                         self.root = Some(old);
@@ -98,7 +101,7 @@ impl Renderer {
                 rollback.record_deferred_unmount(old);
                 mounted
             }
-            Some(old) => match reconcile_node(None, 0, old, element, host, &mut rollback) {
+            Some(old) => match reconcile_node(None, 0, old, &element, host, &mut rollback) {
                 Ok(mounted) => mounted,
                 Err(error) => {
                     rollback.rollback(host);
@@ -106,7 +109,7 @@ impl Renderer {
                     return Err(error);
                 }
             },
-            None => mount_node(None, 0, element, host)?,
+            None => mount_node(None, 0, &element, host)?,
         };
         if let Err(error) = host.set_root(mounted.id) {
             if previous_root.is_none() {
@@ -152,6 +155,19 @@ impl Renderer {
             collect_ancestor_ids(root, node, &mut ancestors);
         }
         ancestors
+    }
+}
+
+fn normalize_native_element(element: &NativeElement) -> NativeElement {
+    NativeElement {
+        key: element.key.clone(),
+        role: element.role,
+        props: normalize_props_for_native_role(element.role, &element.props),
+        children: element
+            .children
+            .iter()
+            .map(normalize_native_element)
+            .collect(),
     }
 }
 

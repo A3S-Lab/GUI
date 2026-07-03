@@ -7,7 +7,10 @@ use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, ActionRegistry, EventRouter, NativeEvent};
 use crate::host::{HostNodeId, NativeHost};
 use crate::interaction::{InteractionChange, InteractionNodeState, InteractionState};
-use crate::native::{NativeElement, NativeProps};
+use crate::native::{
+    format_normalized_number, is_number_input_type, normalize_range_value, NativeElement,
+    NativeProps,
+};
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::react_aria::{AriaElement, ReactAriaMapper};
 use crate::renderer::Renderer;
@@ -500,11 +503,7 @@ fn normalize_text_change_value(
 }
 
 fn is_number_text_input(blueprint: &NativeWidgetBlueprint) -> bool {
-    blueprint
-        .control_state
-        .input_type
-        .as_deref()
-        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("number"))
+    is_number_input_type(blueprint.control_state.input_type.as_deref())
 }
 
 fn normalize_ranged_change_value(
@@ -524,49 +523,12 @@ fn normalize_ranged_change_value(
     let min = blueprint.control_state.min;
     let max = blueprint.control_state.max;
     let step = blueprint.control_state.step;
-    let value = normalize_range_value(value, min, max, step);
+    let Some(value) = normalize_range_value(value, min, max, step) else {
+        return event;
+    };
 
     event.value = Some(format_normalized_number(value));
     event
-}
-
-fn normalize_range_value(value: f64, min: Option<f64>, max: Option<f64>, step: Option<f64>) -> f64 {
-    let value = clamp_range_value(value, min, max);
-    let value = snap_range_step_value(value, min, step);
-    clamp_range_value(value, min, max)
-}
-
-fn snap_range_step_value(value: f64, min: Option<f64>, step: Option<f64>) -> f64 {
-    let Some(step) = step.filter(|step| step.is_finite() && *step > 0.0) else {
-        return value;
-    };
-    let base = min.filter(|min| min.is_finite()).unwrap_or(0.0);
-    let step_count = ((value - base) / step).round();
-    let snapped = base + step_count * step;
-    if snapped.is_finite() {
-        snapped
-    } else {
-        value
-    }
-}
-
-fn clamp_range_value(value: f64, min: Option<f64>, max: Option<f64>) -> f64 {
-    let mut value = value;
-    if let Some(min) = min.filter(|min| min.is_finite()) {
-        value = value.max(min);
-    }
-    if let Some(max) = max.filter(|max| max.is_finite()) {
-        value = value.min(max);
-    }
-    value
-}
-
-fn format_normalized_number(value: f64) -> String {
-    if value.fract() == 0.0 {
-        format!("{value:.0}")
-    } else {
-        value.to_string()
-    }
 }
 
 fn truncate_to_max_length(value: &str, max_length: u32) -> String {
@@ -2119,6 +2081,66 @@ mod tests {
         assert_eq!(
             runtime.actions().invocations()[1].value.as_deref(),
             Some("40")
+        );
+    }
+
+    #[test]
+    fn runtime_normalizes_initial_ranged_values_before_rendering() {
+        let element = NativeElement::new("volume", NativeRole::Slider).with_props(
+            NativeProps::new()
+                .label("Volume")
+                .range(Some(0.0), Some(100.0), Some(43.0))
+                .step(Some(5.0)),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+        assert_eq!(blueprint.control_state.current, Some(45.0));
+        assert_eq!(blueprint.value.as_deref(), Some("45"));
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("45")
+        );
+
+        let updated = NativeElement::new("volume", NativeRole::Slider).with_props(
+            NativeProps::new()
+                .label("Volume")
+                .range(Some(0.0), Some(100.0), Some(17.0))
+                .step(Some(5.0)),
+        );
+        runtime.render_native(&updated).unwrap();
+        let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+        assert_eq!(blueprint.control_state.current, Some(15.0));
+        assert_eq!(blueprint.value.as_deref(), Some("15"));
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("15")
+        );
+    }
+
+    #[test]
+    fn runtime_normalizes_initial_number_input_values_before_rendering() {
+        let element = NativeElement::new("estimate", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Estimate")
+                .input_type("number")
+                .range(Some(1.0), Some(12.0), Some(99.0)),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+        assert_eq!(blueprint.control_state.current, Some(12.0));
+        assert_eq!(blueprint.value.as_deref(), Some("12"));
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("12")
         );
     }
 

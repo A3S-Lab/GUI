@@ -804,6 +804,111 @@ impl NativeProps {
     }
 }
 
+pub(crate) fn normalize_props_for_native_role(
+    role: NativeRole,
+    props: &NativeProps,
+) -> NativeProps {
+    if !role_has_ranged_value(role, props) {
+        return props.clone();
+    }
+
+    let mut normalized = props.clone();
+    let (min, max) = normalize_range_bounds(props.min, props.max);
+    normalized.min = min;
+    normalized.max = max;
+    normalized.step = normalize_range_step(props.step);
+    normalized.current = None;
+
+    let current = props
+        .current
+        .filter(|value| value.is_finite())
+        .or_else(|| props.value.as_deref().and_then(parse_finite_number));
+    if let Some(current) =
+        current.and_then(|value| normalize_range_value(value, min, max, normalized.step))
+    {
+        normalized.current = Some(current);
+        normalized.value = Some(format_normalized_number(current));
+    }
+
+    normalized
+}
+
+pub(crate) fn role_has_ranged_value(role: NativeRole, props: &NativeProps) -> bool {
+    matches!(
+        role,
+        NativeRole::Meter | NativeRole::ProgressBar | NativeRole::Slider
+    ) || (role == NativeRole::TextField && is_number_input_type(props.input_type.as_deref()))
+}
+
+pub(crate) fn is_number_input_type(input_type: Option<&str>) -> bool {
+    input_type.is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("number"))
+}
+
+pub(crate) fn normalize_range_value(
+    value: f64,
+    min: Option<f64>,
+    max: Option<f64>,
+    step: Option<f64>,
+) -> Option<f64> {
+    if !value.is_finite() {
+        return None;
+    }
+    let (min, max) = normalize_range_bounds(min, max);
+    let value = clamp_range_value(value, min, max);
+    let value = snap_range_step_value(value, min, normalize_range_step(step));
+    Some(clamp_range_value(value, min, max))
+}
+
+pub(crate) fn format_normalized_number(value: f64) -> String {
+    if value.fract() == 0.0 {
+        format!("{value:.0}")
+    } else {
+        value.to_string()
+    }
+}
+
+fn normalize_range_bounds(min: Option<f64>, max: Option<f64>) -> (Option<f64>, Option<f64>) {
+    let min = min.filter(|value| value.is_finite());
+    let max = max.filter(|value| value.is_finite());
+    match (min, max) {
+        (Some(min), Some(max)) if max < min => (Some(min), Some(min)),
+        bounds => bounds,
+    }
+}
+
+fn normalize_range_step(step: Option<f64>) -> Option<f64> {
+    step.filter(|value| value.is_finite() && *value > 0.0)
+}
+
+fn snap_range_step_value(value: f64, min: Option<f64>, step: Option<f64>) -> f64 {
+    let Some(step) = step else {
+        return value;
+    };
+    let base = min.unwrap_or(0.0);
+    let step_count = ((value - base) / step).round();
+    let snapped = base + step_count * step;
+    if snapped.is_finite() {
+        snapped
+    } else {
+        value
+    }
+}
+
+fn clamp_range_value(value: f64, min: Option<f64>, max: Option<f64>) -> f64 {
+    let mut value = value;
+    if let Some(min) = min {
+        value = value.max(min);
+    }
+    if let Some(max) = max {
+        value = value.min(max);
+    }
+    value
+}
+
+fn parse_finite_number(value: &str) -> Option<f64> {
+    value.parse::<f64>().ok().filter(|value| value.is_finite())
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct NativeElement {
     pub key: ElementKey,

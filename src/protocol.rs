@@ -2488,6 +2488,90 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_normalizes_initial_ranged_values_before_rendering() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "volume",
+                "tag": "Slider",
+                "props": {
+                  "minValue": 0,
+                  "maxValue": 100,
+                  "valueNumber": 43,
+                  "stepValue": 5
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let response = session.render_frame(&frame).unwrap();
+        let blueprint = &session
+            .runtime()
+            .host()
+            .node(response.root)
+            .unwrap()
+            .blueprint;
+
+        assert_eq!(blueprint.control_state.current, Some(45.0));
+        assert_eq!(blueprint.value.as_deref(), Some("45"));
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("45")
+        );
+    }
+
+    #[test]
+    fn native_protocol_session_normalizes_initial_number_input_values_before_rendering() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "estimate",
+                "tag": "input",
+                "props": {
+                  "inputType": "number",
+                  "minValue": 1,
+                  "maxValue": 12,
+                  "valueNumber": 99
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let response = session.render_frame(&frame).unwrap();
+        let blueprint = &session
+            .runtime()
+            .host()
+            .node(response.root)
+            .unwrap()
+            .blueprint;
+
+        assert_eq!(blueprint.control_state.current, Some(12.0));
+        assert_eq!(blueprint.value.as_deref(), Some("12"));
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("12")
+        );
+    }
+
+    #[test]
     fn protocol_window_options_wrap_root_in_native_window() {
         let frame: UiFrame = serde_json::from_str(
             r#"
