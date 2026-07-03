@@ -13,6 +13,7 @@ pub struct DogfoodState {
     pub tests_reviewed: bool,
     pub docs_updated: bool,
     pub review_open: bool,
+    pub close_requested: bool,
     pub estimate: f64,
     pub saves: u32,
     pub last_event: String,
@@ -31,6 +32,7 @@ impl Default for DogfoodState {
             tests_reviewed: false,
             docs_updated: false,
             review_open: false,
+            close_requested: false,
             estimate: 6.0,
             saves: 0,
             last_event: "Ready".to_string(),
@@ -64,6 +66,7 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
         "frameId": frame_id,
         "window": {
             "title": title,
+            "onClose": "closeDogfood",
             "width": 760,
             "height": 680,
             "minWidth": 540,
@@ -85,6 +88,7 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
             {"id": "finishReview", "label": "Finish review"},
             {"id": "reopenWork", "label": "Reopen work"},
             {"id": "saveWork", "label": "Save work"},
+            {"id": "closeDogfood", "label": "Close dogfood"},
             {"id": "handleShortcut", "label": "Handle shortcut"},
             {"id": "handleShortcutRelease", "label": "Handle shortcut release"}
         ],
@@ -116,7 +120,13 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
                     state.assignee,
                     state.estimate,
                     state.review_count(),
-                    if state.completed { "done" } else { "active" },
+                    if state.close_requested {
+                        "closing"
+                    } else if state.completed {
+                        "done"
+                    } else {
+                        "active"
+                    },
                     state.saves
                 )),
                 text("title-label", "Task"),
@@ -283,6 +293,11 @@ pub fn dogfood_reduce(state: &mut DogfoodState, invocation: &ActionInvocation) -
         "saveWork" => {
             state.saves += 1;
             state.last_event = "Saved".to_string();
+        }
+        "closeDogfood" => {
+            state.close_requested = true;
+            state.review_open = false;
+            state.last_event = "Window close requested".to_string();
         }
         "handleShortcut" => apply_shortcut(state, invocation.value.as_deref()),
         "handleShortcutRelease" => apply_shortcut_release(state, invocation.value.as_deref()),

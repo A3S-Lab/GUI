@@ -298,8 +298,8 @@ protocol shape on each native surface. Native close requests route through
 `window.onClose` action ids. The `appkit_dogfood`, `winui_dogfood`, and
 `gtk4_dogfood` examples share a task editor frame that adds realistic app
 state, menu commands, a review dialog, checklist gates, keyboard shortcuts,
-logical sizing, and repeated reducer-driven rerenders on top of the same native
-event path.
+window close lifecycle actions, logical sizing, and repeated reducer-driven
+rerenders on top of the same native event path.
 
 The Linux `gtk4-native` feature exercises the same path with `gtk4-rs`.
 `Gtk4NativeSurface` maps the native command stream to real GTK4 widgets for

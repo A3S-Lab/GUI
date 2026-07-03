@@ -126,9 +126,47 @@ mod tests {
     }
 
     #[test]
+    fn dogfood_session_reduces_window_close_event() {
+        let mut app = new_app();
+        let rendered = app.render().unwrap();
+
+        let response = app
+            .dispatch_native_event(NativeEvent::new(rendered.root, NativeEventKind::Close))
+            .unwrap();
+
+        assert!(app.state().close_requested);
+        assert!(!app.state().review_open);
+        assert_eq!(app.state().last_event, "Window close requested");
+        assert_eq!(
+            response
+                .invocation
+                .as_ref()
+                .map(|invocation| invocation.action.as_str()),
+            Some("closeDogfood")
+        );
+        assert!(response.render.is_some());
+    }
+
+    #[test]
     fn dogfood_frame_projects_native_size_and_focus_hints() {
         let mut app = new_app();
         app.render().unwrap();
+
+        let frame = dogfood_session_frame(&DogfoodState::default()).unwrap();
+        assert_eq!(
+            frame
+                .window
+                .as_ref()
+                .and_then(|window| window.on_close.as_deref()),
+            Some("closeDogfood")
+        );
+        assert!(frame
+            .actions
+            .iter()
+            .any(|action| action.id == "closeDogfood"));
+
+        let window = find_event_blueprint(&app, "onClose", "closeDogfood").1;
+        assert_eq!(window.role, NativeRole::Window);
 
         let root = find_event_blueprint(&app, "onKeyDown", "handleShortcut").1;
         let size = root.portable_style.native_size_constraints();
