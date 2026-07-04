@@ -20,6 +20,9 @@ Use `NativeRuntimeApp` when Rust owns the app state:
 that same contract with platform-native hosts. Their `run_*_while` methods render
 the first frame if needed, pump platform events, drain queued A3S events, and
 stop when either the root window closes or the state predicate returns false.
+For embedded hosts and automation, `handle_pending_native_event_batch_while`
+returns the same per-event responses plus batch diagnostics for how many native
+events were drained, handled, and left buffered when the predicate stopped.
 
 Window close should be modeled as state:
 

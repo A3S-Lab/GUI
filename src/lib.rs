@@ -50,7 +50,7 @@ pub use accessibility::{
     AccessibilityDescriptionProps, AccessibilityNode, AccessibilityRelationshipProps,
     AccessibilityRole, AccessibilityStateProps, AccessibilityStructureProps, AccessibilityTreeHost,
 };
-pub use app::{NativeRuntimeApp, NativeRuntimeEventResponse};
+pub use app::{NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse};
 #[cfg(all(feature = "appkit", target_os = "macos"))]
 pub use appkit::{
     AppKitCommandExecutor, AppKitHandleAdapter, AppKitHandleCommandExecutor, AppKitHandleDriver,

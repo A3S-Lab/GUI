@@ -25,11 +25,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .host_mut()
         .executor_mut()
         .push_native_event(NativeEvent::new(button, NativeEventKind::Press));
-    let responses = app.handle_pending_native_events()?;
+    let batch = app.handle_pending_native_event_batch()?;
 
     assert_eq!(app.state().count, 1);
-    assert_eq!(responses.len(), 1);
-    println!("counter advanced to {}", app.state().count);
+    assert_eq!(batch.responses.len(), 1);
+    println!(
+        "counter advanced to {}; handled {} native event(s)",
+        app.state().count,
+        batch.handled_native_events
+    );
     Ok(())
 }
 

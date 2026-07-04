@@ -415,7 +415,10 @@ when reducer state can request app shutdown. The drain stops before the next
 queued native event once the predicate returns false, so a Close window command
 cannot be followed by stale input from the same event batch. Unprocessed events
 are kept for the next drain, and if the predicate is already false before
-draining starts, the host event queue is left untouched.
+draining starts, the host event queue is left untouched. Use
+`handle_pending_native_event_batch_while` when logging, test automation, or app
+diagnostics need the host-drain count, handled count, buffered count, and
+predicate-stop flag for that drain.
 
 ## Event Flow
 

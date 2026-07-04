@@ -27,6 +27,18 @@ pub struct NativeRuntimeEventResponse {
     pub render: Option<RenderedFrame>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NativeRuntimeEventBatch {
+    pub responses: Vec<NativeRuntimeEventResponse>,
+    pub host_events_drained: usize,
+    pub queued_native_events: usize,
+    pub handled_native_events: usize,
+    pub buffered_native_events: usize,
+    pub stopped_by_predicate: bool,
+    pub host_queue_preserved: bool,
+}
+
 #[derive(Debug)]
 pub struct NativeRuntimeApp<H: NativeHost, S, F, R> {
     runtime: GuiRuntime<H>,
@@ -87,6 +99,14 @@ where
 
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn pending_native_event_count(&self) -> usize {
+        self.pending_native_events.len()
+    }
+
+    pub fn has_pending_native_events(&self) -> bool {
+        !self.pending_native_events.is_empty()
     }
 
     pub fn render(&mut self) -> GuiResult<RenderedFrame> {
@@ -161,32 +181,63 @@ where
     R: FnMut(&mut S, &ActionInvocation) -> GuiResult<()>,
 {
     pub fn handle_pending_native_events(&mut self) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
-        self.pending_native_events
-            .extend(self.runtime.host_mut().take_native_events());
-        let mut responses = Vec::with_capacity(self.pending_native_events.len());
-        while let Some(event) = self.pending_native_events.pop_front() {
-            responses.push(self.handle_native_event(event)?);
-        }
-        Ok(responses)
+        self.handle_pending_native_event_batch()
+            .map(|batch| batch.responses)
     }
 
     pub fn handle_pending_native_events_while(
         &mut self,
-        mut should_continue: impl FnMut(&S) -> bool,
+        should_continue: impl FnMut(&S) -> bool,
     ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        self.handle_pending_native_event_batch_while(should_continue)
+            .map(|batch| batch.responses)
+    }
+
+    pub fn handle_pending_native_event_batch(&mut self) -> GuiResult<NativeRuntimeEventBatch> {
+        self.handle_pending_native_event_batch_while(|_| true)
+    }
+
+    pub fn handle_pending_native_event_batch_while(
+        &mut self,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<NativeRuntimeEventBatch> {
         if !should_continue(&self.state) {
-            return Ok(Vec::new());
+            let buffered_native_events = self.pending_native_events.len();
+            return Ok(NativeRuntimeEventBatch {
+                responses: Vec::new(),
+                host_events_drained: 0,
+                queued_native_events: buffered_native_events,
+                handled_native_events: 0,
+                buffered_native_events,
+                stopped_by_predicate: true,
+                host_queue_preserved: true,
+            });
         }
-        self.pending_native_events
-            .extend(self.runtime.host_mut().take_native_events());
-        let mut responses = Vec::with_capacity(self.pending_native_events.len());
+
+        let host_events = self.runtime.host_mut().take_native_events();
+        let host_events_drained = host_events.len();
+        self.pending_native_events.extend(host_events);
+        let queued_native_events = self.pending_native_events.len();
+        let mut responses = Vec::with_capacity(queued_native_events);
+        let mut stopped_by_predicate = false;
+
         while let Some(event) = self.pending_native_events.pop_front() {
             responses.push(self.handle_native_event(event)?);
             if !should_continue(&self.state) {
+                stopped_by_predicate = true;
                 break;
             }
         }
-        Ok(responses)
+
+        Ok(NativeRuntimeEventBatch {
+            handled_native_events: responses.len(),
+            buffered_native_events: self.pending_native_events.len(),
+            responses,
+            host_events_drained,
+            queued_native_events,
+            stopped_by_predicate,
+            host_queue_preserved: false,
+        })
     }
 }
 
@@ -506,6 +557,48 @@ mod tests {
     }
 
     #[test]
+    fn native_runtime_event_batch_reports_buffered_events_when_predicate_stops() {
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut app =
+            NativeRuntimeApp::new(host, CounterState::default(), counter_frame, counter_reduce);
+        let rendered = app.render().unwrap();
+
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(rendered.root, NativeEventKind::Press));
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(rendered.root, NativeEventKind::Press));
+
+        let batch = app
+            .handle_pending_native_event_batch_while(|state| state.count < 1)
+            .unwrap();
+
+        assert_eq!(app.state().count, 1);
+        assert_eq!(batch.host_events_drained, 2);
+        assert_eq!(batch.queued_native_events, 2);
+        assert_eq!(batch.handled_native_events, 1);
+        assert_eq!(batch.responses.len(), 1);
+        assert_eq!(batch.buffered_native_events, 1);
+        assert!(batch.stopped_by_predicate);
+        assert!(!batch.host_queue_preserved);
+        assert_eq!(app.pending_native_event_count(), 1);
+        assert!(app.has_pending_native_events());
+
+        let second_batch = app.handle_pending_native_event_batch().unwrap();
+
+        assert_eq!(app.state().count, 2);
+        assert_eq!(second_batch.host_events_drained, 0);
+        assert_eq!(second_batch.queued_native_events, 1);
+        assert_eq!(second_batch.handled_native_events, 1);
+        assert_eq!(second_batch.buffered_native_events, 0);
+        assert!(!second_batch.stopped_by_predicate);
+        assert!(!app.has_pending_native_events());
+    }
+
+    #[test]
     fn native_runtime_app_handles_buffered_events_before_new_host_events() {
         let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
         let mut app = NativeRuntimeApp::new(host, QueueState::default(), queue_frame, queue_reduce);
@@ -591,6 +684,42 @@ mod tests {
 
         assert!(responses.is_empty());
         assert_eq!(app.state().count, 0);
+        let pending = app
+            .runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .take_native_events();
+        assert_eq!(
+            pending,
+            vec![NativeEvent::new(rendered.root, NativeEventKind::Press)]
+        );
+    }
+
+    #[test]
+    fn native_runtime_event_batch_reports_preserved_host_queue_when_predicate_starts_false() {
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut app =
+            NativeRuntimeApp::new(host, CounterState::default(), counter_frame, counter_reduce);
+        let rendered = app.render().unwrap();
+
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(rendered.root, NativeEventKind::Press));
+
+        let batch = app
+            .handle_pending_native_event_batch_while(|_| false)
+            .unwrap();
+
+        assert!(batch.responses.is_empty());
+        assert_eq!(batch.host_events_drained, 0);
+        assert_eq!(batch.queued_native_events, 0);
+        assert_eq!(batch.handled_native_events, 0);
+        assert_eq!(batch.buffered_native_events, 0);
+        assert!(batch.stopped_by_predicate);
+        assert!(batch.host_queue_preserved);
+        assert_eq!(app.pending_native_event_count(), 0);
+
         let pending = app
             .runtime_mut()
             .host_mut()

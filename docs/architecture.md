@@ -339,10 +339,13 @@ reducer, and renders the next `UiFrame` back into the same host after
 state-changing events. `handle_pending_native_events_while` stops draining the
 current native event batch as soon as the supplied state predicate returns
 false, which keeps queued follow-up events from mutating state after an app-level
-close action. Unprocessed events are kept inside the app and are handled before
-new host events on the next drain. When the predicate is already false before
-the drain starts, the host event queue is left untouched so callers can pause
-and resume later.
+close action. `handle_pending_native_event_batch_while` uses the same behavior
+but returns a `NativeRuntimeEventBatch` with host-drain, queued, handled,
+buffered, and predicate-stop diagnostics for app-loop logging and native
+automation assertions. Unprocessed events are kept inside the app and are
+handled before new host events on the next drain. When the predicate is already
+false before the drain starts, the host event queue is left untouched so callers
+can pause and resume later.
 Platform-native app specializations such as
 `AppKitRuntimeApp`, `WinUiRuntimeApp`, and `Gtk4RuntimeApp` add the OS event
 pump and use the same bounded drain while stopping their `run_*_while` loops
@@ -380,6 +383,9 @@ The JS/Rust bridge uses serializable protocol types:
 - `NativeRuntimeApp`: the embedded equivalent for Rust-owned native hosts; it
   handles queued native events, applies reducer updates, and rerenders directly
   into the owned `GuiRuntime`.
+- `NativeRuntimeEventBatch`: the diagnostic result for embedded pending-event
+  drains, including per-event responses plus host-drain, handled, buffered, and
+  predicate-stop counts.
 
 The protocol decouples input generation from platform backend execution.
 JavaScript does not see native widget handles; native backends receive
