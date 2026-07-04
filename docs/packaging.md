@@ -19,6 +19,8 @@ just verify
 just dogfood-regression
 just check-native
 just release-native
+just bundle-native
+just check-bundle-native
 ```
 
 `just release-native` builds the dogfood example for the current operating
@@ -30,7 +32,10 @@ system:
 | Linux | `target/release/examples/gtk4_dogfood` |
 | Windows | `target/x86_64-pc-windows-msvc/release/examples/winui_dogfood.exe` |
 
-Use `just bundle-native` to stage the matching host bundle.
+Use `just bundle-native` to stage the matching host bundle. Use
+`just check-bundle-native` after staging, or `just bundle-gate-native` to build,
+stage, and validate in one step. The validation recipes check the staged file
+layout, executable payload, and platform metadata that this crate owns.
 
 ## macOS AppKit
 
@@ -43,6 +48,7 @@ Build and stage the unsigned app bundle:
 
 ```bash
 just bundle-appkit
+just check-bundle-appkit
 ```
 
 Output:
@@ -54,6 +60,8 @@ target/release/bundle/A3SGuiDogfood.app
 The staged bundle uses
 [`packaging/macos/A3SGuiDogfood-Info.plist`](../packaging/macos/A3SGuiDogfood-Info.plist)
 and copies the release example binary into `Contents/MacOS/A3SGuiDogfood`.
+`just check-bundle-appkit` verifies the executable, `Info.plist`, `PkgInfo`,
+and required AppKit bundle metadata.
 
 For distribution, the application owner must sign and notarize the bundle with
 their own identity and bundle identifier:
@@ -89,6 +97,7 @@ Build and stage a filesystem bundle:
 
 ```bash
 just bundle-gtk4
+just check-bundle-gtk4
 ```
 
 Output:
@@ -103,6 +112,8 @@ The desktop entry comes from
 [`packaging/linux/a3s-gui-dogfood.desktop`](../packaging/linux/a3s-gui-dogfood.desktop).
 The staged tree is suitable input for a later `.deb`, `.rpm`, AppImage, or
 Flatpak pipeline. It is not itself an installer.
+`just check-bundle-gtk4` verifies the executable payload and desktop entry
+fields owned by this crate.
 
 ## Windows WinUI
 
@@ -123,6 +134,7 @@ Build and stage the WinUI dogfood binary:
 
 ```bash
 just bundle-winui
+just check-bundle-winui
 ```
 
 Output:
@@ -138,6 +150,8 @@ The manifest comes from
 It is staged as sidecar metadata for local release smoke testing. A real Windows
 application should embed the manifest, add product resources, and publish
 through MSIX, MSI, winget, or another installer path owned by the product.
+`just check-bundle-winui` verifies the executable payload and sidecar manifest
+fields owned by this crate.
 
 Non-Windows hosts can still run API checks for WinUI when the Rust target is
 installed:

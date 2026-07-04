@@ -142,6 +142,7 @@ Build and stage host-native dogfood release artifacts:
 ```bash
 just release-native
 just bundle-native
+just check-bundle-native
 ```
 
 The staged bundles are unsigned smoke artifacts. Product repositories still own
