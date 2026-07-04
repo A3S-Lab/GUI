@@ -962,10 +962,13 @@ impl NativeWidgetSurface for WinUiNativeSurface {
     }
 
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
-        self.events
+        let events = self
+            .events
             .lock()
             .map(|mut events| std::mem::take(&mut *events))
-            .unwrap_or_default()
+            .unwrap_or_default();
+        self.cleanup_closed_content_dialogs(&events);
+        events
     }
 }
 
@@ -1068,6 +1071,29 @@ impl WinUiNativeSurface {
             .lock()
             .map(|mut open_dialogs| open_dialogs.remove(&id))
             .unwrap_or(false)
+    }
+
+    fn cleanup_closed_content_dialogs(&mut self, events: &[NativeEvent]) {
+        let closed_dialogs = events
+            .iter()
+            .filter_map(|event| {
+                if event.kind == NativeEventKind::Close
+                    && matches!(
+                        self.widgets.get(&event.node),
+                        Some(WinUiOsWidget::ContentDialog(_))
+                    )
+                {
+                    Some(event.node)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for id in closed_dialogs {
+            self.mark_content_dialog_closed(id);
+            self.dialog_operations.remove(&id);
+        }
     }
 
     fn root_xaml_root(&self) -> GuiResult<Option<xaml::XamlRoot>> {
