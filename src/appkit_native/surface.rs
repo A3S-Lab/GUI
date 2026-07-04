@@ -79,6 +79,9 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     NSBackingStoreType::Buffered,
                     false,
                 );
+                unsafe {
+                    panel.as_super().setReleasedWhenClosed(false);
+                }
                 panel.setTitle(&ns_string(config.label.as_deref().unwrap_or("")));
                 let delegate = AppKitWindowDelegate::new(
                     id,
@@ -90,6 +93,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     ProtocolObject::from_ref(&*delegate);
                 panel.as_super().setDelegate(Some(delegate_ref));
                 self.window_delegates.insert(id, delegate);
+                self.dialog_visible.insert(id, config.visible);
                 AppKitOsWidget::Panel(panel)
             }
             AppKitWidgetKind::Popover => {
@@ -747,6 +751,9 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 }
             }
             NativeWidgetSetter::SetVisible(value) => {
+                if let AppKitOsWidget::Panel(panel) = &handle.widget {
+                    self.set_panel_visible(id, panel, *value);
+                }
                 if let Some(view) = handle.widget.as_view() {
                     view.setHidden(!*value);
                 }
@@ -1118,6 +1125,19 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         child_handle: &Self::Handle,
         index: usize,
     ) -> GuiResult<()> {
+        if let AppKitOsWidget::Panel(panel) = &child_handle.widget {
+            self.show_panel_if_marked_visible(child, panel);
+            return Ok(());
+        }
+        if matches!(child_handle.widget, AppKitOsWidget::Menu(_))
+            && !matches!(parent_handle.widget, AppKitOsWidget::MenuItem(_))
+        {
+            if let AppKitOsWidget::Menu(menu) = &child_handle.widget {
+                self._application.setMainMenu(Some(menu));
+            }
+            return Ok(());
+        }
+
         if let (AppKitOsWidget::ComboBox(_), AppKitOsWidget::ComboBoxItem(item)) =
             (&parent_handle.widget, &child_handle.widget)
         {
@@ -1280,6 +1300,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         self.text_inputs.remove(&id);
         self.text_input_configs.remove(&id);
         self.closed_windows.borrow_mut().remove(&id);
+        self.dialog_visible.remove(&id);
         if let AppKitOsWidget::Window(window) = &handle.widget {
             window.setDelegate(None);
             self.window_delegates.remove(&id);
@@ -1365,12 +1386,50 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             AppKitOsWidget::Menu(menu) => self._application.setMainMenu(Some(menu)),
             _ => {}
         }
+        self.present_visible_panels();
         self.focus_pending_auto_focus();
         Ok(())
     }
 
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         std::mem::take(&mut self.events.borrow_mut())
+    }
+}
+
+impl AppKitNativeSurface {
+    fn set_panel_visible(&mut self, id: HostNodeId, panel: &NSPanel, visible: bool) {
+        self.dialog_visible.insert(id, visible);
+        if visible {
+            self.show_panel_if_marked_visible(id, panel);
+        } else {
+            panel.as_super().orderOut(None);
+        }
+    }
+
+    fn show_panel_if_marked_visible(&mut self, id: HostNodeId, panel: &NSPanel) {
+        if self.root.is_some() && self.dialog_visible.get(&id).copied().unwrap_or(false) {
+            self.closed_windows.borrow_mut().remove(&id);
+            panel.as_super().makeKeyAndOrderFront(None);
+        }
+    }
+
+    fn present_visible_panels(&mut self) {
+        let panels = self
+            .widgets
+            .iter()
+            .filter_map(|(id, widget)| match widget {
+                AppKitOsWidget::Panel(panel)
+                    if self.dialog_visible.get(id).copied().unwrap_or(false) =>
+                {
+                    Some((*id, panel.clone()))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        for (id, panel) in panels {
+            self.show_panel_if_marked_visible(id, &panel);
+        }
     }
 }
 

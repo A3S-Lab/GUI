@@ -463,6 +463,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     closed_windows.borrow_mut().insert(id);
                     gtk::glib::Propagation::Proceed
                 });
+                self.dialog_visible.insert(id, config.visible);
                 Gtk4OsWidget::Dialog(dialog)
             }
             Gtk4WidgetKind::Popover => {
@@ -769,6 +770,9 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 _ => {}
             },
             NativeWidgetSetter::SetVisible(value) => {
+                if let Gtk4OsWidget::Dialog(dialog) = &handle.widget {
+                    self.set_dialog_visible(id, dialog, *value);
+                }
                 if let Some(widget) = handle.widget.as_widget() {
                     widget.set_visible(*value);
                 }
@@ -1188,6 +1192,11 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         child_handle: &Self::Handle,
         index: usize,
     ) -> GuiResult<()> {
+        if let Gtk4OsWidget::Dialog(dialog) = &child_handle.widget {
+            self.show_dialog_if_marked_visible(child, dialog);
+            return Ok(());
+        }
+
         if let (Gtk4OsWidget::DropDown(_), Gtk4OsWidget::ListBoxRow { item, .. }) =
             (&parent_handle.widget, &child_handle.widget)
         {
@@ -1308,6 +1317,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         }
         clear_pending_auto_focus(&mut self.pending_auto_focus, id);
         self.closed_windows.borrow_mut().remove(&id);
+        self.dialog_visible.remove(&id);
         self.widgets.remove(&id);
         for children in self.container_children.values_mut() {
             children.retain(|child| *child != id);
@@ -1413,12 +1423,53 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 }
             }
         }
+        self.present_visible_dialogs();
         self.focus_pending_auto_focus();
         Ok(())
     }
 
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         std::mem::take(&mut self.events.borrow_mut())
+    }
+}
+
+impl Gtk4NativeSurface {
+    fn set_dialog_visible(&mut self, id: HostNodeId, dialog: &gtk::Dialog, visible: bool) {
+        self.dialog_visible.insert(id, visible);
+        if visible {
+            self.show_dialog_if_marked_visible(id, dialog);
+        } else {
+            dialog.hide();
+        }
+    }
+
+    fn show_dialog_if_marked_visible(&mut self, id: HostNodeId, dialog: &gtk::Dialog) {
+        if self.root.is_some() && self.dialog_visible.get(&id).copied().unwrap_or(false) {
+            self.closed_windows.borrow_mut().remove(&id);
+            dialog.present();
+        }
+    }
+
+    fn present_visible_dialogs(&mut self) {
+        let dialogs = self
+            .widgets
+            .iter()
+            .filter_map(|(id, widget)| {
+                if self.dialog_visible.get(id).copied().unwrap_or(false) {
+                    widget
+                        .clone()
+                        .downcast::<gtk::Dialog>()
+                        .ok()
+                        .map(|dialog| (*id, dialog))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for (id, dialog) in dialogs {
+            self.show_dialog_if_marked_visible(id, &dialog);
+        }
     }
 }
 

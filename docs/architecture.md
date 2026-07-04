@@ -542,15 +542,17 @@ Feature-gated platform executor surfaces:
   Semantic `Toolbar` trees create native `NSStackView` containers for tool
   controls.
   Semantic `Dialog` trees create native `NSPanel` windows whose content views
-  are populated with native children.
+  are populated with native children; panels are presented from native
+  visibility state instead of being inserted into parent stack layout.
   Semantic `Popover` trees create native `NSPopover` overlays whose content
   view controllers hold native children.
   Semantic `Tabs` trees fold `TabList` and ordered `TabPanel` children into
   native `NSTabViewItem` objects whose content views are the panel views;
   `NSTabViewDelegate` callbacks enqueue tab selection-change records.
   Semantic `Menu` trees create native `NSMenu` objects with `NSMenuItem`
-  children; root menus are installed as the application main menu, and menu item
-  target/action callbacks enqueue press records.
+  children; top-level menus are installed as the application main menu instead
+  of being inserted as views, and menu item target/action callbacks enqueue
+  press records.
   `Separator` creates native `NSBox` separators. `NSSlider` controls apply
   native orientation and step hints and enqueue ranged `NativeEventKind::Change`
   records with the current double value, while `NSProgressIndicator` is updated
@@ -611,7 +613,9 @@ Feature-gated platform executor surfaces:
   create horizontal
   native `StackPanel` containers, keeping toolbar children as real XAML
   controls. Semantic `Dialog` trees create native `ContentDialog` controls
-  whose content is populated with real XAML children. Semantic `Popover`
+  whose content is populated with real XAML children; dialog nodes are
+  overlay-mounted and shown with `ShowAsync` from native visibility state after
+  the root window exposes a `XamlRoot`. Semantic `Popover`
   trees create ToolTip-backed native overlay surfaces with real XAML children
   because `winio-winui3` 0.4.2 does not expose a strong `Flyout` binding yet.
   Semantic `Menu` trees use native XAML `StackPanel` menu surfaces with native
@@ -657,7 +661,9 @@ Feature-gated platform executor surfaces:
   `gtk::Separator`, `gtk::Scale`, and `gtk::ProgressBar` objects through
   `Gtk4NativeSurface`.
   Semantic `Toolbar` trees use native `gtk::Box(toolbar)` containers.
-  Semantic `Dialog` trees use native `gtk::Dialog` windows and content areas.
+  Semantic `Dialog` trees use native `gtk::Dialog` windows and content areas;
+  dialog nodes are presented from native visibility state instead of being
+  inserted into parent box layout.
   Semantic `Popover` trees use native `gtk::Popover` overlays with native
   GTK children.
   Semantic `Menu` trees use native `gio::Menu` models, `gio::MenuItem`

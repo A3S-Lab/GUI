@@ -301,6 +301,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     let title = text_content(label)?;
                     map_winui("failed to set WinUI dialog title", dialog.SetTitle(&title))?;
                 }
+                self.dialog_visible.insert(id, config.visible);
                 WinUiOsWidget::ContentDialog(dialog)
             }
             WinUiWidgetKind::ToolTip => {
@@ -417,6 +418,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                 }
             }
             NativeWidgetSetter::SetVisible(visible) => {
+                if let WinUiOsWidget::ContentDialog(dialog) = &handle.widget {
+                    self.set_content_dialog_visible(id, dialog, *visible)?;
+                }
                 if let WinUiOsWidget::ToolTip(tool_tip) = &handle.widget {
                     map_winui(
                         "failed to set WinUI tooltip popover open state",
@@ -687,6 +691,11 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         child_handle: &Self::Handle,
         index: usize,
     ) -> GuiResult<()> {
+        if let WinUiOsWidget::ContentDialog(dialog) = &child_handle.widget {
+            self.show_content_dialog_if_marked_visible(child, dialog)?;
+            return Ok(());
+        }
+
         match &parent_handle.widget {
             WinUiOsWidget::Window(window) => {
                 let child_element = child_handle.widget.ui_element().ok_or_else(|| {
@@ -883,9 +892,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                 map_winui("failed to close WinUI window", window.Close())?;
             }
             WinUiOsWidget::ContentDialog(dialog) => {
-                self.suppress_events(|| {
-                    map_winui("failed to hide WinUI content dialog", dialog.Hide())
-                })?;
+                self.hide_content_dialog(id, dialog)?;
             }
             WinUiOsWidget::ToolTip(tool_tip) => {
                 map_winui(
@@ -896,6 +903,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             _ => {}
         }
         self.widgets.remove(&id);
+        self.dialog_visible.remove(&id);
+        self.open_dialogs.remove(&id);
+        self.dialog_operations.remove(&id);
         self.combo_boxes.remove(&id);
         self.combo_items.remove(&id);
         self.combo_children.remove(&id);
@@ -945,6 +955,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                 tool_tip.SetIsOpen(true),
             )?;
         }
+        self.present_visible_content_dialogs()?;
         self.clear_satisfied_auto_focus();
         Ok(())
     }
@@ -954,6 +965,105 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             .lock()
             .map(|mut events| std::mem::take(&mut *events))
             .unwrap_or_default()
+    }
+}
+
+impl WinUiNativeSurface {
+    fn set_content_dialog_visible(
+        &mut self,
+        id: HostNodeId,
+        dialog: &Controls::ContentDialog,
+        visible: bool,
+    ) -> GuiResult<()> {
+        self.dialog_visible.insert(id, visible);
+        if visible {
+            self.show_content_dialog_if_marked_visible(id, dialog)
+        } else {
+            self.hide_content_dialog(id, dialog)
+        }
+    }
+
+    fn show_content_dialog_if_marked_visible(
+        &mut self,
+        id: HostNodeId,
+        dialog: &Controls::ContentDialog,
+    ) -> GuiResult<()> {
+        if !self.dialog_visible.get(&id).copied().unwrap_or(false)
+            || self.open_dialogs.contains(&id)
+        {
+            return Ok(());
+        }
+        let Some(xaml_root) = self.root_xaml_root()? else {
+            return Ok(());
+        };
+
+        let element: xaml::UIElement = map_winui(
+            "failed to inspect WinUI content dialog as UI element",
+            dialog.cast(),
+        )?;
+        map_winui(
+            "failed to bind WinUI content dialog to root XamlRoot",
+            element.SetXamlRoot(&xaml_root),
+        )?;
+        let operation = map_winui("failed to show WinUI content dialog", dialog.ShowAsync())?;
+        let operation = map_winui(
+            "failed to retain WinUI content dialog operation",
+            operation.cast::<windows_core::IInspectable>(),
+        )?;
+        self.dialog_operations.insert(id, operation);
+        self.open_dialogs.insert(id);
+        Ok(())
+    }
+
+    fn hide_content_dialog(
+        &mut self,
+        id: HostNodeId,
+        dialog: &Controls::ContentDialog,
+    ) -> GuiResult<()> {
+        self.dialog_operations.remove(&id);
+        if self.open_dialogs.remove(&id) {
+            self.suppress_events(|| {
+                map_winui("failed to hide WinUI content dialog", dialog.Hide())
+            })?;
+        }
+        Ok(())
+    }
+
+    fn present_visible_content_dialogs(&mut self) -> GuiResult<()> {
+        let dialogs = self
+            .widgets
+            .iter()
+            .filter_map(|(id, widget)| match widget {
+                WinUiOsWidget::ContentDialog(dialog)
+                    if self.dialog_visible.get(id).copied().unwrap_or(false) =>
+                {
+                    Some((*id, dialog.clone()))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        for (id, dialog) in dialogs {
+            self.show_content_dialog_if_marked_visible(id, &dialog)?;
+        }
+        Ok(())
+    }
+
+    fn root_xaml_root(&self) -> GuiResult<Option<xaml::XamlRoot>> {
+        let Some(root) = self.root else {
+            return Ok(None);
+        };
+        let Some(WinUiOsWidget::Window(window)) = self.widgets.get(&root) else {
+            return Ok(None);
+        };
+        let content = match window.Content() {
+            Ok(content) => content,
+            Err(_) => return Ok(None),
+        };
+        Ok(Some(map_winui(
+            "failed to read WinUI root content XamlRoot",
+            content.XamlRoot(),
+        )?))
     }
 }
 

@@ -1,6 +1,6 @@
 #![allow(unsafe_code)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -76,6 +76,9 @@ pub struct WinUiNativeSurface {
     events_suppressed: Arc<AtomicBool>,
     focused_node: WinUiFocusedNode,
     widgets: BTreeMap<HostNodeId, WinUiOsWidget>,
+    dialog_visible: BTreeMap<HostNodeId, bool>,
+    open_dialogs: BTreeSet<HostNodeId>,
+    dialog_operations: BTreeMap<HostNodeId, windows_core::IInspectable>,
     container_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     combo_boxes: BTreeMap<HostNodeId, ControlsComboBox>,
     combo_items: BTreeMap<HostNodeId, WinUiComboBoxItem>,
@@ -120,6 +123,9 @@ impl WinUiNativeSurface {
             events_suppressed: Arc::new(AtomicBool::new(false)),
             focused_node: Arc::new(Mutex::new(None)),
             widgets: BTreeMap::new(),
+            dialog_visible: BTreeMap::new(),
+            open_dialogs: BTreeSet::new(),
+            dialog_operations: BTreeMap::new(),
             container_children: BTreeMap::new(),
             combo_boxes: BTreeMap::new(),
             combo_items: BTreeMap::new(),
