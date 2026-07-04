@@ -317,9 +317,11 @@ the target and continues to rely on WinUI focus callbacks because
 Non-focus interaction state is
 revision-scoped: after a successful rerender, controlled values from the new
 blueprint supersede stale local event state while focus remains preserved until
-a blur or another focus event arrives. Later native events on that node also
-rebase their interaction baseline from the latest blueprint before applying
-local changes.
+a blur or another focus event arrives. Native focus history is retained even
+when the focused node is later removed, so rerenders do not reapply `autoFocus`
+after the platform has taken focus ownership. Later native events on that node
+also rebase their interaction baseline from the latest blueprint before
+applying local changes.
 
 CSS style attribute text is parsed by `src/css_text.rs` before it enters
 `WebProps`. The parser splits declarations only on top-level CSS separators, so

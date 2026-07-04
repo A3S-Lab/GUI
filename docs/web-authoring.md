@@ -507,7 +507,9 @@ runtime focus for accessibility projection. AppKit and GTK native surfaces also
 defer the request until the target is mounted and then ask the platform to focus
 it; WinUI records the pending target but waits for native focus callbacks
 because the current `winio-winui3` binding does not wrap programmatic focus.
-Later native focus and blur events take ownership of focus state.
+Later native focus and blur events take ownership of focus state, and that
+ownership survives removal of the focused node so later rerenders do not
+reapply `autoFocus`.
 
 For folded controls, event ownership follows the source element structure. For
 example, `TextField` receives the visible label, while `Input` can own

@@ -1439,6 +1439,40 @@ mod tests {
     }
 
     #[test]
+    fn runtime_auto_focus_yields_after_focused_node_is_removed() {
+        let first = NativeElement::new("tools", NativeRole::Toolbar).child(
+            NativeElement::new("temporary", NativeRole::TextField)
+                .with_props(NativeProps::new().label("Temporary field")),
+        );
+        let second = NativeElement::new("tools", NativeRole::Toolbar).child(
+            NativeElement::new("next", NativeRole::TextField)
+                .with_props(NativeProps::new().label("Next field").auto_focus(true)),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&first).unwrap();
+        let temporary = runtime.host().node(root_id).unwrap().children[0];
+        runtime
+            .handle_native_event(crate::event::NativeEvent::new(
+                temporary,
+                crate::event::NativeEventKind::Focus,
+            ))
+            .unwrap();
+
+        runtime.render_native(&second).unwrap();
+        let accessibility = runtime.accessibility_tree().unwrap();
+
+        assert!(runtime.interactions().has_focus_history());
+        assert_eq!(accessibility.children.len(), 1);
+        assert_eq!(
+            accessibility.children[0].label.as_deref(),
+            Some("Next field")
+        );
+        assert!(!accessibility.children[0].focused);
+    }
+
+    #[test]
     fn runtime_routes_focus_change_with_boolean_payloads() {
         let element = NativeElement::new("email", NativeRole::TextField)
             .with_props(NativeProps::new().web(WebProps::new().on_focus_change("setFocus")));
@@ -3342,11 +3376,12 @@ mod tests {
 
         let accessibility = runtime.accessibility_tree().unwrap();
         assert!(runtime.interactions().node(save).is_none());
-        assert!(runtime.interactions().node(cancel).unwrap().focused);
+        assert!(runtime.interactions().node(cancel).is_none());
+        assert!(runtime.interactions().has_focus_history());
         assert!(runtime.interactions().changes().is_empty());
         assert_eq!(accessibility.children.len(), 1);
         assert_eq!(accessibility.children[0].label.as_deref(), Some("Cancel"));
-        assert!(accessibility.children[0].focused);
+        assert!(!accessibility.children[0].focused);
     }
 
     #[test]

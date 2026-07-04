@@ -26,6 +26,7 @@ pub struct InteractionChange {
 pub struct InteractionState {
     nodes: BTreeMap<HostNodeId, InteractionNodeState>,
     changes: Vec<InteractionChange>,
+    focus_history: bool,
 }
 
 impl InteractionState {
@@ -42,9 +43,7 @@ impl InteractionState {
     }
 
     pub fn has_focus_history(&self) -> bool {
-        self.changes
-            .iter()
-            .any(|change| change.before.focused != change.after.focused)
+        self.focus_history
     }
 
     pub fn changes(&self) -> &[InteractionChange] {
@@ -86,10 +85,14 @@ impl InteractionState {
 
         match event.kind {
             NativeEventKind::Focus => {
+                self.focus_history = true;
                 self.clear_other_focused_nodes(event.node);
                 after.focused = true;
             }
-            NativeEventKind::Blur => after.focused = false,
+            NativeEventKind::Blur => {
+                self.focus_history = true;
+                after.focused = false;
+            }
             NativeEventKind::Change => apply_change(blueprint.role, event, &mut after),
             NativeEventKind::SelectionChange => apply_selection(blueprint.role, event, &mut after),
             NativeEventKind::Toggle => apply_toggle(blueprint.role, event, &mut after),
@@ -385,12 +388,14 @@ mod tests {
         let blueprint = Gtk4Adapter.blueprint(&element);
         let mut state = InteractionState::new();
 
+        assert!(!state.has_focus_history());
         state
             .apply_event(
                 &blueprint,
                 &NativeEvent::new(HostNodeId::new(3), NativeEventKind::Focus),
             )
             .unwrap();
+        assert!(state.has_focus_history());
         let change = state
             .apply_event(
                 &blueprint,
@@ -450,6 +455,7 @@ mod tests {
 
         assert!(state.node(HostNodeId::new(3)).is_none());
         assert!(state.node(HostNodeId::new(4)).is_some());
+        assert!(state.has_focus_history());
         assert_eq!(state.changes().len(), 1);
         assert_eq!(state.changes()[0].node, HostNodeId::new(4));
     }
