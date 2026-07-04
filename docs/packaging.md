@@ -35,9 +35,11 @@ system:
 Use `just bundle-native` to stage the matching host bundle. Use
 `just check-bundle-native` after staging, or `just bundle-gate-native` to build,
 stage, and validate in one step. The validation recipes check the staged file
-layout, executable payload, and platform metadata that this crate owns.
+layout, executable payload, platform metadata that this crate owns, and the
+bundle manifest's per-file SHA-256 checksums.
 On `main` pushes and manual workflow runs, CI uploads compressed
-`a3s-gui-dogfood-*` bundle artifacts after those smoke checks pass.
+`a3s-gui-dogfood-*` bundle artifacts plus matching `.sha256` files after those
+smoke checks pass.
 
 ## macOS AppKit
 
@@ -63,9 +65,10 @@ The staged bundle uses
 [`packaging/macos/A3SGuiDogfood-Info.plist`](../packaging/macos/A3SGuiDogfood-Info.plist)
 and copies the release example binary into `Contents/MacOS/A3SGuiDogfood`.
 It also includes the shared dogfood handoff note at
-`Contents/Resources/README.txt`. `just check-bundle-appkit` verifies the
-executable, `Info.plist`, `PkgInfo`, handoff note, and required AppKit bundle
-metadata.
+`Contents/Resources/README.txt` and a checksum manifest at
+`Contents/Resources/MANIFEST.txt`. `just check-bundle-appkit` verifies the
+executable, `Info.plist`, `PkgInfo`, handoff note, checksum manifest, and
+required AppKit bundle metadata.
 
 For distribution, the application owner must sign and notarize the bundle with
 their own identity and bundle identifier:
@@ -108,6 +111,7 @@ Output:
 
 ```text
 target/release/bundle/a3s-gui-dogfood-linux/
+|-- MANIFEST.txt
 |-- README.txt
 |-- usr/bin/a3s-gui-dogfood
 `-- usr/share/applications/a3s-gui-dogfood.desktop
@@ -118,10 +122,12 @@ The desktop entry comes from
 `README.txt` is copied from
 [`packaging/a3s-gui-dogfood-README.txt`](../packaging/a3s-gui-dogfood-README.txt)
 so downloaded smoke artifacts identify themselves and their run paths.
+`MANIFEST.txt` records the source commit plus SHA-256 and byte counts for every
+file in the staged tree.
 The staged tree is suitable input for a later `.deb`, `.rpm`, AppImage, or
 Flatpak pipeline. It is not itself an installer.
 `just check-bundle-gtk4` verifies the executable payload, desktop entry, and
-handoff note owned by this crate.
+handoff note owned by this crate, then validates the checksum manifest.
 
 ## Windows WinUI
 
@@ -151,6 +157,7 @@ Output:
 target/release/bundle/a3s-gui-dogfood-windows/
 |-- A3SGuiDogfood.exe
 |-- A3SGuiDogfood.exe.manifest
+|-- MANIFEST.txt
 `-- README.txt
 ```
 
@@ -159,10 +166,12 @@ The manifest comes from
 It is staged as sidecar metadata for local release smoke testing. `README.txt`
 is copied from
 [`packaging/a3s-gui-dogfood-README.txt`](../packaging/a3s-gui-dogfood-README.txt).
+`MANIFEST.txt` records the source commit plus SHA-256 and byte counts for every
+file in the staged tree.
 A real Windows application should embed the manifest, add product resources, and
 publish through MSIX, MSI, winget, or another installer path owned by the
 product. `just check-bundle-winui` verifies the executable payload, sidecar
-manifest, and handoff note owned by this crate.
+manifest, handoff note, and checksum manifest owned by this crate.
 
 Non-Windows hosts can still run API checks for WinUI when the Rust target is
 installed:

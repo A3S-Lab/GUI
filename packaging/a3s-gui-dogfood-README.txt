@@ -11,6 +11,14 @@ Run the bundle:
 - Linux: run usr/bin/a3s-gui-dogfood from this bundle tree.
 - Windows: run A3SGuiDogfood.exe.
 
+Check the bundle:
+
+- macOS: inspect Contents/Resources/MANIFEST.txt.
+- Linux and Windows: inspect MANIFEST.txt at the bundle root.
+
+The manifest records the source commit plus SHA-256 and byte counts for the
+staged bundle files.
+
 The app exercises the native shell, menus, dialogs, keyboard routing, text
 inputs, number inputs, toggles, sliders, selects, tabs, scroll containers,
 close actions, reducer-driven rerendering, and app loop exit.

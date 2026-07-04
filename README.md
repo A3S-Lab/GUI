@@ -134,7 +134,8 @@ CI runs the same verification gate on Linux and also runs host-native AppKit,
 GTK4, and WinUI compile/dogfood checks on their matching operating systems.
 Pushes to `main` additionally stage and validate the unsigned dogfood bundles.
 Those bundle smoke jobs upload compressed `a3s-gui-dogfood-*` artifacts for
-manual download and platform QA.
+manual download and platform QA, plus `.sha256` files for archive integrity
+checks.
 
 Focused native and dogfood checks:
 
@@ -155,7 +156,7 @@ just check-bundle-native
 The staged bundles are unsigned smoke artifacts. Product repositories still own
 bundle identifiers, icons, signing, notarization, installers, update metadata,
 and target-platform QA. Each staged dogfood bundle includes a `README.txt`
-handoff note that identifies the artifact and run path.
+handoff note and a `MANIFEST.txt` with per-file SHA-256 checksums.
 
 ## Documentation
 

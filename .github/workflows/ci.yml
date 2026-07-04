@@ -145,11 +145,15 @@ jobs:
           archive="target/release/bundle/${{ matrix.artifact_name }}.tar.gz"
           bundle_path="${{ matrix.bundle_path }}"
           tar -czf "$archive" -C "$(dirname "$bundle_path")" "$(basename "$bundle_path")"
+          packaging/write-file-sha256.sh "$archive" > "${archive}.sha256"
           echo "A3S_GUI_BUNDLE_ARCHIVE=$archive" >> "$GITHUB_ENV"
+          echo "A3S_GUI_BUNDLE_ARCHIVE_SHA256=${archive}.sha256" >> "$GITHUB_ENV"
 
       - name: Upload native bundle
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: ${{ env.A3S_GUI_BUNDLE_ARCHIVE }}
+          path: |
+            ${{ env.A3S_GUI_BUNDLE_ARCHIVE }}
+            ${{ env.A3S_GUI_BUNDLE_ARCHIVE_SHA256 }}
           if-no-files-found: error
