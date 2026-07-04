@@ -90,6 +90,7 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `data-*` | preserved as metadata for testing, analytics, and automation |
 | `disabled` / `required` / `checked` / `selected` | normalized to React Aria-style native control state |
 | `min` / `max` / `step` / `aria-valuenow` | normalized to native ranged control state; initial and rerendered current values are clamped to bounds and snapped to step hints |
+| value-bearing `input` / `textarea` `value` / `defaultValue` attributes | projected as the initial native control value when no top-level protocol value is supplied; button-like `input` controls keep using `value` as their fallback label |
 | `readOnly` / `multiple` / `autoFocus` | normalized to native control state; `autoFocus` seeds initial runtime focus for rendered accessibility trees only in renderable, non-disabled subtrees and lets real native surfaces request platform focus where their bindings expose it, `readOnly` suppresses value-changing events, and `readOnly` plus `multiple` are exposed in rendered accessibility trees |
 | `autoComplete` / `inputMode` / `enterKeyHint` / `autoCapitalize` / `autoCorrect` / `virtualKeyboardPolicy` / `pattern` | normalized to native text-entry hints and preserved as metadata |
 | `minLength` / `maxLength` / `rows` / `cols` / `size` | normalized to native numeric control hints and preserved as metadata; text-field values are clamped to `maxLength` before initial render, before rerender updates, and when native change events arrive |

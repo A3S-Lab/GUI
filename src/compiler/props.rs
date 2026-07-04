@@ -38,8 +38,9 @@ use semantic::WebSemanticAliases;
 use shadow::html_shadow_props_from_tag;
 use states::{
     has_explicit_textarea_value, html_details_open_state, html_fallback_label,
-    html_number_text_value_state, html_numeric_value_state, html_placeholder_state,
-    html_range_step_state, html_string_value_state, html_textarea_child_value,
+    html_form_control_value_state, html_number_text_value_state, html_numeric_value_state,
+    html_placeholder_state, html_range_step_state, html_string_value_state,
+    html_textarea_child_value,
 };
 use structure::html_collection_props_from_tag;
 use text_annotation::html_text_annotation_props_from_tag;
@@ -84,6 +85,7 @@ impl CompiledProps {
         let html_details_open = html_details_open_state(tag, &web);
         let html_placeholder = html_placeholder_state(tag, &web);
         let html_string_value = html_string_value_state(tag, &web);
+        let html_form_control_value = html_form_control_value_state(tag, &web);
         let html_numeric_value = html_numeric_value_state(tag, &web, self.value.as_deref());
         let html_range_step = html_range_step_state(tag, &web);
         let html_control = HtmlControlAliases::from_tag(tag, &web);
@@ -123,7 +125,11 @@ impl CompiledProps {
         let mut props = AriaProps::new().web(web);
         props.label = self.label.or(html_fallback_label);
         props.text_value = self.text_value;
-        props.value = self.value.or(html_string_value).or(html_number_text_value);
+        props.value = self
+            .value
+            .or(html_form_control_value)
+            .or(html_string_value)
+            .or(html_number_text_value);
         props.placeholder = self
             .placeholder
             .or(semantic.placeholder)

@@ -442,6 +442,7 @@ fn preserves_explicit_html_textarea_values_over_child_text() {
         import_source: None,
         props: CompiledProps {
             value: Some("Controlled".to_string()),
+            attributes: BTreeMap::from([("defaultValue".to_string(), "Ignored".to_string())]),
             ..CompiledProps::default()
         },
         children: vec![CompiledJsxNode::Text {
@@ -455,6 +456,102 @@ fn preserves_explicit_html_textarea_values_over_child_text() {
     assert_eq!(native.role, NativeRole::TextField);
     assert_eq!(native.props.value.as_deref(), Some("Controlled"));
     assert_eq!(native.props.label, None);
+}
+
+#[test]
+fn lowers_html_value_attributes_to_native_control_values() {
+    let bridge = ReactCompilerBridge::new();
+    let textarea = CompiledJsxNode::Element {
+        key: "message".to_string(),
+        tag: "textarea".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([("defaultValue".to_string(), "Draft".to_string())]),
+            ..CompiledProps::default()
+        },
+        children: vec![CompiledJsxNode::Text {
+            key: "message-text".to_string(),
+            value: "Ignored child text".to_string(),
+        }],
+    };
+    let text_input = CompiledJsxNode::Element {
+        key: "title".to_string(),
+        tag: "input".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("type".to_string(), "text".to_string()),
+                ("value".to_string(), "Initial title".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let hidden_input = CompiledJsxNode::Element {
+        key: "csrf".to_string(),
+        tag: "input".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("type".to_string(), "hidden".to_string()),
+                ("value".to_string(), "csrf-token".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let range_input = CompiledJsxNode::Element {
+        key: "volume".to_string(),
+        tag: "input".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("type".to_string(), "range".to_string()),
+                ("defaultValue".to_string(), "7".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let button_input = CompiledJsxNode::Element {
+        key: "open".to_string(),
+        tag: "input".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("type".to_string(), "button".to_string()),
+                ("value".to_string(), "Open".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+
+    let native_textarea = bridge.lower_to_native(&textarea).unwrap();
+    let native_text_input = bridge.lower_to_native(&text_input).unwrap();
+    let native_hidden_input = bridge.lower_to_native(&hidden_input).unwrap();
+    let native_range_input = bridge.lower_to_native(&range_input).unwrap();
+    let native_button_input = bridge.lower_to_native(&button_input).unwrap();
+
+    assert_eq!(native_textarea.role, NativeRole::TextField);
+    assert_eq!(native_textarea.props.value.as_deref(), Some("Draft"));
+    assert_eq!(native_text_input.role, NativeRole::TextField);
+    assert_eq!(
+        native_text_input.props.value.as_deref(),
+        Some("Initial title")
+    );
+    assert_eq!(native_hidden_input.role, NativeRole::TextField);
+    assert!(native_hidden_input.props.hidden);
+    assert_eq!(
+        native_hidden_input.props.value.as_deref(),
+        Some("csrf-token")
+    );
+    assert_eq!(native_range_input.role, NativeRole::Slider);
+    assert_eq!(native_range_input.props.value.as_deref(), Some("7"));
+    assert_eq!(native_range_input.props.current, Some(7.0));
+    assert_eq!(native_button_input.role, NativeRole::Button);
+    assert_eq!(native_button_input.props.label.as_deref(), Some("Open"));
+    assert_eq!(native_button_input.props.value, None);
 }
 
 #[test]

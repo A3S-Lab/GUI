@@ -125,19 +125,23 @@ heading-group, ruby annotation, landmark, sectioning, disclosure, figure,
 description-list, form, form-grouping, option-group, output, meter, list,
 dialog, menu, media, embedded-content, link, image-map, and table-structure
 tags lower to dedicated native roles. `input[type=range]` lowers to a native
-slider role, numeric `value` or `defaultValue` props are projected as the
-ranged current value, and numeric `step` is projected as native ranged-control
-step state. `input[type=number]` lowers to the native text-field role while
-numeric `value` or `defaultValue`, `min`, `max`, and `step` props are preserved
-as native control state; the text value is also retained for text-field
-backends. GTK planning maps that number-shaped text field to `gtk::SpinButton`.
+slider role, numeric `value` or `defaultValue` props and attributes are
+projected as the ranged current value, and numeric `step` is projected as
+native ranged-control step state. `input[type=number]` lowers to the native
+text-field role while numeric `value` or `defaultValue`, `min`, `max`, and
+`step` props and attributes are preserved as native control state; the text
+value is also retained for text-field backends. GTK planning maps that
+number-shaped text field to `gtk::SpinButton`.
 `input[type=button]`, `input[type=submit]`,
 `input[type=reset]`, and `input[type=image]` lower to native button roles with
 HTML fallback labels from `value`, default submit/reset labels, or image `alt`
 text. `input[type=hidden]` keeps its form `name`, `form`, `type`, and `value`
 state in the native IR but is marked hidden so platform widget config,
 rendered accessibility projection, and native event routing treat it as
-invisible. HTML dialog `open` state projects into a structured
+invisible. Value-bearing `input` and `textarea` `value` or `defaultValue`
+attributes are projected as initial native values when no top-level protocol
+value is supplied; button-like `input` controls keep using `value` as their
+fallback label instead. HTML dialog `open` state projects into a structured
 `HtmlDialogProps` value and controls native widget visibility for intrinsic
 dialog elements through the same derived `visible` config used by the platform
 surfaces; `HtmlDialogProps` remains the protocol metadata for replay and

@@ -3051,6 +3051,48 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_projects_textarea_default_value_attributes() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "notes",
+                "tag": "textarea",
+                "props": {
+                  "attributes": {"defaultValue": "Draft notes"}
+                },
+                "children": [
+                  {"kind": "text", "key": "notes-text", "value": "Ignored child text"}
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let response = session.render_frame(&frame).unwrap();
+        let blueprint = &session
+            .runtime()
+            .host()
+            .node(response.root)
+            .unwrap()
+            .blueprint;
+
+        assert_eq!(blueprint.role, NativeRole::TextField);
+        assert_eq!(blueprint.value.as_deref(), Some("Draft notes"));
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("Draft notes")
+        );
+    }
+
+    #[test]
     fn protocol_window_options_wrap_root_in_native_window() {
         let frame: UiFrame = serde_json::from_str(
             r#"

@@ -6,7 +6,7 @@ use crate::web::WebProps;
 
 use super::attributes::{
     bool_attribute, non_empty_string_attribute, non_empty_string_value, number_attribute,
-    parse_number_attribute,
+    parse_number_attribute, string_attribute,
 };
 
 pub(super) fn html_textarea_child_value(tag: &str, children: &[CompiledJsxNode]) -> Option<String> {
@@ -54,6 +54,18 @@ pub(super) fn html_string_value_state(tag: &str, web: &WebProps) -> Option<Strin
     }
 }
 
+pub(super) fn html_form_control_value_state(tag: &str, web: &WebProps) -> Option<String> {
+    match canonical_html_tag(tag)? {
+        "textarea" => {
+            string_attribute(&web.attributes, &["value", "defaultValue"]).map(str::to_string)
+        }
+        "input" if input_value_attribute_projects_to_value(web) => {
+            string_attribute(&web.attributes, &["value", "defaultValue"]).map(str::to_string)
+        }
+        _ => None,
+    }
+}
+
 pub(super) fn html_numeric_value_state(
     tag: &str,
     web: &WebProps,
@@ -65,7 +77,7 @@ pub(super) fn html_numeric_value_state(
             .or_else(|| number_attribute(&web.attributes, &["value"])),
         "input" if html_input_type_is(web, "range") || html_input_type_is(web, "number") => value
             .and_then(parse_number_attribute)
-            .or_else(|| number_attribute(&web.attributes, &["value"])),
+            .or_else(|| number_attribute(&web.attributes, &["value", "defaultValue"])),
         _ => None,
     }
 }
@@ -92,6 +104,16 @@ fn html_input_type_is(web: &WebProps, expected: &str) -> bool {
     web.attributes
         .get("type")
         .is_some_and(|value| value.trim().eq_ignore_ascii_case(expected))
+}
+
+fn input_value_attribute_projects_to_value(web: &WebProps) -> bool {
+    let Some(input_type) = web.attributes.get("type").map(|value| value.trim()) else {
+        return true;
+    };
+
+    !["button", "submit", "reset", "image"]
+        .iter()
+        .any(|button_type| input_type.eq_ignore_ascii_case(button_type))
 }
 
 pub(super) fn html_fallback_label(
