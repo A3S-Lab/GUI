@@ -112,6 +112,10 @@ For intrinsic `input` tags, `type="range"` normalizes numeric `value` and
 `defaultValue` props to `valueNumber`. `type="number"` also fills
 `valueNumber`, while preserving the text `value` needed by native text-field
 backends.
+Value-bearing `input` and `textarea` `value` and `defaultValue` props also keep
+their original Web JSX attribute names under `props.attributes`, so raw protocol
+consumers and Rust-side HTML attribute projection observe the same initial
+value contract.
 Numeric control props accept finite numbers and non-empty numeric strings.
 Empty strings, whitespace, booleans, and other non-numeric values are ignored
 for native numeric fields so transient form state does not become `0` or `1`.

@@ -545,6 +545,7 @@ test('intrinsic range input normalizes numeric value props', () => {
   assert.equal(root.props.minValue, 0);
   assert.equal(root.props.maxValue, 100);
   assert.equal(root.props.attributes.type, 'range');
+  assert.equal(root.props.attributes.value, '42');
   assert.equal(root.props.events.onChange, 'setVolume');
 });
 
@@ -565,6 +566,7 @@ test('intrinsic number input normalizes numeric value props', () => {
   assert.equal(root.props.maxValue, 10);
   assert.equal(root.props.stepValue, 0.5);
   assert.equal(root.props.attributes.type, 'number');
+  assert.equal(root.props.attributes.defaultValue, '7');
   assert.equal(root.props.events.onChange, 'setQuantity');
 });
 
@@ -594,11 +596,13 @@ test('numeric prop normalization ignores empty strings and booleans', () => {
 
   assert.equal(emptyNumber.props.value, '');
   assert.equal(emptyNumber.props.valueNumber, undefined);
+  assert.equal(emptyNumber.props.attributes.value, '');
   assert.equal(emptyNumber.props.minValue, undefined);
   assert.equal(emptyNumber.props.maxValue, undefined);
   assert.equal(emptyNumber.props.stepValue, undefined);
   assert.equal(emptyRange.props.value, undefined);
   assert.equal(emptyRange.props.valueNumber, undefined);
+  assert.equal(emptyRange.props.attributes.value, undefined);
   assert.equal(booleanSlider.props.value, undefined);
   assert.equal(booleanSlider.props.valueNumber, undefined);
   assert.equal(booleanSlider.props.minValue, undefined);
@@ -621,6 +625,28 @@ test('protocol-native numeric aliases accept string values', () => {
   assert.equal(root.props.minValue, 0);
   assert.equal(root.props.maxValue, 100);
   assert.equal(root.props.stepValue, 5);
+});
+
+test('value-bearing form controls preserve Web JSX value attribute names', () => {
+  const email = jsx('input', {
+    type: 'email',
+    defaultValue: 'ada@example.com',
+  }, 'email');
+  const notes = jsx('textarea', {
+    value: '',
+  }, 'notes');
+  const volume = jsx('input', {
+    type: 'range',
+    defaultValue: '9',
+  }, 'volume');
+
+  assert.equal(email.props.value, 'ada@example.com');
+  assert.equal(email.props.attributes.defaultValue, 'ada@example.com');
+  assert.equal(notes.props.value, '');
+  assert.equal(notes.props.attributes.value, '');
+  assert.equal(volume.props.valueNumber, 9);
+  assert.equal(volume.props.value, undefined);
+  assert.equal(volume.props.attributes.defaultValue, '9');
 });
 
 test('intrinsic form control attributes preserve Web JSX names', () => {

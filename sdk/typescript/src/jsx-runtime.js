@@ -483,6 +483,9 @@ function normalizeProps(props, tag) {
       const numericTag = isNumericValueTag(tag, props);
       const numberInput = isNumberInputTag(tag, props);
       const numericValue = numericTag ? numberValue(value) : undefined;
+      if (shouldPreserveValueAttribute(tag, numericTag, numberInput, numericValue)) {
+        attributes[name] = String(value);
+      }
       if (numericValue !== undefined) {
         out.valueNumber = numericValue;
         if (numberInput) out.value = String(value);
@@ -786,6 +789,13 @@ function isNumericValueTag(tag, props = {}) {
 
 function isNumberInputTag(tag, props = {}) {
   return tag === 'input' && String(props.type ?? '').trim().toLowerCase() === 'number';
+}
+
+function shouldPreserveValueAttribute(tag, numericTag, numberInput, numericValue) {
+  if (tag === 'textarea') return true;
+  if (tag !== 'input') return false;
+  if (!numericTag || numberInput) return true;
+  return numericValue !== undefined;
 }
 
 function isInputTypeTag(tag) {
