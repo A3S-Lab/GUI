@@ -31,7 +31,9 @@ use crate::platform::{
     NativeWidgetSetter, WinUiAdapter,
 };
 use crate::protocol::UiFrame;
-use crate::winui::{winui_max_length_value, winui_text_input_hints, WinUiWidgetKind};
+use crate::winui::{
+    winui_max_length_value, winui_text_input_hints, winui_truncate_to_max_length, WinUiWidgetKind,
+};
 use helpers::{child_position, map_winui, push_event, set_combo_box_item_content, to_u32};
 use types::{config_is_password, config_is_textarea, WinUiRangeState, WinUiTextInputSizing};
 pub use types::{WinUiComboBoxItem, WinUiOsHandle, WinUiOsWidget, WinUiTabItem};
@@ -89,6 +91,7 @@ pub struct WinUiNativeSurface {
     ranges: BTreeMap<HostNodeId, WinUiRangeState>,
     text_inputs: BTreeMap<HostNodeId, WinUiTextInputSizing>,
     text_input_configs: BTreeMap<HostNodeId, NativeWidgetConfig>,
+    text_input_max_lengths: Arc<Mutex<BTreeMap<HostNodeId, Option<u32>>>>,
 }
 
 type ControlsComboBox = Controls::ComboBox;
@@ -130,6 +133,7 @@ impl WinUiNativeSurface {
             ranges: BTreeMap::new(),
             text_inputs: BTreeMap::new(),
             text_input_configs: BTreeMap::new(),
+            text_input_max_lengths: Arc::new(Mutex::new(BTreeMap::new())),
         }
     }
 

@@ -196,6 +196,19 @@ pub(crate) fn winui_max_length_value(max_length: Option<u32>) -> i32 {
 }
 
 #[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
+pub(crate) fn winui_truncate_to_max_length(value: &str, max_length: Option<u32>) -> String {
+    let Some(max_length) = max_length else {
+        return value.to_string();
+    };
+    let max_length = max_length as usize;
+    if value.chars().count() <= max_length {
+        value.to_string()
+    } else {
+        value.chars().take(max_length).collect()
+    }
+}
+
+#[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct WinUiTextInputHints {
     pub spellcheck_enabled: Option<bool>,
@@ -631,6 +644,14 @@ mod tests {
         assert_eq!(winui_max_length_value(Some(64)), 64);
         assert_eq!(winui_max_length_value(Some(i32::MAX as u32)), i32::MAX);
         assert_eq!(winui_max_length_value(Some(u32::MAX)), i32::MAX);
+    }
+
+    #[test]
+    fn winui_truncate_to_max_length_limits_unicode_scalar_values() {
+        assert_eq!(winui_truncate_to_max_length("abcdef", Some(3)), "abc");
+        assert_eq!(winui_truncate_to_max_length("aé日b", Some(3)), "aé日");
+        assert_eq!(winui_truncate_to_max_length("abc", None), "abc");
+        assert_eq!(winui_truncate_to_max_length("abc", Some(0)), "");
     }
 
     #[test]

@@ -80,12 +80,16 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     self.text_inputs
                         .insert(id, WinUiTextInputSizing::from_config(&config));
                     self.text_input_configs.insert(id, config.clone());
+                    if let Ok(mut max_lengths) = self.text_input_max_lengths.lock() {
+                        max_lengths.insert(id, config.max_length);
+                    }
                     self.apply_password_box_size_hint(id, &password_box)?;
                     register_password_change(
                         id,
                         &password_box,
                         &self.events,
                         Arc::clone(&self.events_suppressed),
+                        Arc::clone(&self.text_input_max_lengths),
                     )?;
                     WinUiOsWidget::PasswordBox(password_box)
                 } else {
@@ -104,12 +108,16 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     self.text_inputs
                         .insert(id, WinUiTextInputSizing::from_config(&config));
                     self.text_input_configs.insert(id, config.clone());
+                    if let Ok(mut max_lengths) = self.text_input_max_lengths.lock() {
+                        max_lengths.insert(id, config.max_length);
+                    }
                     self.apply_text_box_size_hint(id, &text_box)?;
                     register_text_change(
                         id,
                         &text_box,
                         &self.events,
                         Arc::clone(&self.events_suppressed),
+                        Arc::clone(&self.text_input_max_lengths),
                     )?;
                     WinUiOsWidget::TextBox(text_box)
                 }
@@ -461,17 +469,42 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                 }
             }
             NativeWidgetSetter::SetMaxLength(max_length) => {
+                if let Ok(mut max_lengths) = self.text_input_max_lengths.lock() {
+                    max_lengths.insert(id, *max_length);
+                }
                 if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
                     map_winui(
                         "failed to set WinUI text box max length",
                         text_box.SetMaxLength(winui_max_length_value(*max_length)),
                     )?;
+                    let current =
+                        map_winui("failed to read WinUI text box value", text_box.Text())?
+                            .to_string();
+                    let value = winui_truncate_to_max_length(&current, *max_length);
+                    self.suppress_events(|| {
+                        map_winui(
+                            "failed to truncate WinUI text box value",
+                            text_box.SetText(&hstr(&value)),
+                        )
+                    })?;
                 }
                 if let WinUiOsWidget::PasswordBox(password_box) = &handle.widget {
                     map_winui(
                         "failed to set WinUI password box max length",
                         password_box.SetMaxLength(winui_max_length_value(*max_length)),
                     )?;
+                    let current = map_winui(
+                        "failed to read WinUI password box value",
+                        password_box.Password(),
+                    )?
+                    .to_string();
+                    let value = winui_truncate_to_max_length(&current, *max_length);
+                    self.suppress_events(|| {
+                        map_winui(
+                            "failed to truncate WinUI password box value",
+                            password_box.SetPassword(&hstr(&value)),
+                        )
+                    })?;
                 }
             }
             NativeWidgetSetter::SetCols(value) => {
@@ -836,6 +869,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         self.ranges.remove(&id);
         self.text_inputs.remove(&id);
         self.text_input_configs.remove(&id);
+        if let Ok(mut max_lengths) = self.text_input_max_lengths.lock() {
+            max_lengths.remove(&id);
+        }
         if let Ok(mut focused_node) = self.focused_node.lock() {
             if *focused_node == Some(id) {
                 *focused_node = None;

@@ -592,9 +592,10 @@ Feature-gated platform executor surfaces:
   `UiFrame.window.resizable` through HWND style updates so fixed and bounded
   windows match AppKit and GTK behavior.
   textarea-shaped text boxes enable return input and wrapping. WinUI text boxes
-  apply `maxLength` updates, including rerenders that remove the limit, and
-  saturate protocol values at WinUI's signed integer boundary. They also map
-  portable text-entry hints into native spell-check, text-prediction,
+  apply `maxLength` updates, including rerenders that remove the limit, clamp
+  programmatic text writes and change payloads to the active limit, and saturate
+  protocol values at WinUI's signed integer boundary. They also map portable
+  text-entry hints into native spell-check, text-prediction,
   programmatic keyboard display, and color-font settings where the current
   `winio-winui3` bindings expose those APIs. WinUI callbacks enqueue press,
   change,

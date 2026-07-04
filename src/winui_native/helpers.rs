@@ -126,18 +126,32 @@ pub(super) fn set_value(
         }
         WinUiOsWidget::Separator(_) => {}
         WinUiOsWidget::TextBox(text_box) => {
+            let value_text = winui_truncate_to_max_length(
+                value_text,
+                surface
+                    .text_input_configs
+                    .get(&id)
+                    .and_then(|config| config.max_length),
+            );
             surface.suppress_events(|| {
                 map_winui(
                     "failed to set WinUI text box value",
-                    text_box.SetText(&hstr(value_text)),
+                    text_box.SetText(&hstr(&value_text)),
                 )
             })?;
         }
         WinUiOsWidget::PasswordBox(password_box) => {
+            let value_text = winui_truncate_to_max_length(
+                value_text,
+                surface
+                    .text_input_configs
+                    .get(&id)
+                    .and_then(|config| config.max_length),
+            );
             surface.suppress_events(|| {
                 map_winui(
                     "failed to set WinUI password box value",
-                    password_box.SetPassword(&hstr(value_text)),
+                    password_box.SetPassword(&hstr(&value_text)),
                 )
             })?;
         }
@@ -420,17 +434,31 @@ pub(super) fn register_text_change(
     text_box: &Controls::TextBox,
     events: &WinUiEventQueue,
     suppressed: Arc<AtomicBool>,
+    max_lengths: Arc<Mutex<BTreeMap<HostNodeId, Option<u32>>>>,
 ) -> GuiResult<()> {
     let events = Arc::clone(events);
     let event_text_box = text_box.clone();
     let handler = Controls::TextChangedEventHandler::new(move |_, _| {
-        if !suppressed.load(Ordering::SeqCst) {
-            let value = event_text_box.Text()?.to_string();
-            push_event(
-                &events,
-                NativeEvent::new(id, NativeEventKind::Change).value(value),
-            );
+        if suppressed.load(Ordering::SeqCst) {
+            return Ok(());
         }
+
+        let raw_value = event_text_box.Text()?.to_string();
+        let max_length = max_lengths
+            .lock()
+            .ok()
+            .and_then(|max_lengths| max_lengths.get(&id).copied().flatten());
+        let value = winui_truncate_to_max_length(&raw_value, max_length);
+        if value != raw_value {
+            let previous = suppressed.swap(true, Ordering::SeqCst);
+            let result = event_text_box.SetText(&hstr(&value));
+            suppressed.store(previous, Ordering::SeqCst);
+            result?;
+        }
+        push_event(
+            &events,
+            NativeEvent::new(id, NativeEventKind::Change).value(value),
+        );
         Ok(())
     });
     map_winui(
@@ -445,17 +473,31 @@ pub(super) fn register_password_change(
     password_box: &Controls::PasswordBox,
     events: &WinUiEventQueue,
     suppressed: Arc<AtomicBool>,
+    max_lengths: Arc<Mutex<BTreeMap<HostNodeId, Option<u32>>>>,
 ) -> GuiResult<()> {
     let events = Arc::clone(events);
     let event_password_box = password_box.clone();
     let handler = RoutedEventHandler::new(move |_, _| {
-        if !suppressed.load(Ordering::SeqCst) {
-            let value = event_password_box.Password()?.to_string();
-            push_event(
-                &events,
-                NativeEvent::new(id, NativeEventKind::Change).value(value),
-            );
+        if suppressed.load(Ordering::SeqCst) {
+            return Ok(());
         }
+
+        let raw_value = event_password_box.Password()?.to_string();
+        let max_length = max_lengths
+            .lock()
+            .ok()
+            .and_then(|max_lengths| max_lengths.get(&id).copied().flatten());
+        let value = winui_truncate_to_max_length(&raw_value, max_length);
+        if value != raw_value {
+            let previous = suppressed.swap(true, Ordering::SeqCst);
+            let result = event_password_box.SetPassword(&hstr(&value));
+            suppressed.store(previous, Ordering::SeqCst);
+            result?;
+        }
+        push_event(
+            &events,
+            NativeEvent::new(id, NativeEventKind::Change).value(value),
+        );
         Ok(())
     });
     map_winui(
