@@ -682,6 +682,79 @@ export function createNativeHostEventResponse(frameId, options = {}) {
   };
 }
 
+export function createNativeRuntimeEventResponse(frameId, event, options = {}) {
+  validateResponseFrameId(frameId, 'native runtime event responses');
+  validateNativeEvent(event, 'native runtime event responses');
+  validateResponseOptions(options, 'native runtime event responses');
+  if (options.invocation != null) {
+    validateActionInvocation(options.invocation);
+  }
+  const accessibilityTree = validateOptionalAccessibilityTree(
+    options.accessibilityTree,
+    'native runtime event responses',
+  );
+  const interactionChanges = validateOptionalInteractionChanges(
+    options.interactionChanges,
+    'native runtime event responses',
+  );
+  if (options.render != null) {
+    validateRenderedFrame(options.render, 'native runtime event responses');
+  }
+  return {
+    frameId,
+    event,
+    ...(options.invocation === undefined ? {} : {invocation: options.invocation}),
+    ...(options.accessibilityTree === undefined ? {} : {accessibilityTree}),
+    ...(interactionChanges.length === 0 ? {} : {interactionChanges}),
+    ...(options.render === undefined ? {} : {render: options.render}),
+  };
+}
+
+export function createNativeRuntimeEventBatch(responses, options = {}) {
+  if (!Array.isArray(responses)) {
+    throw new Error('a3s-gui native runtime event batches responses need an array');
+  }
+  validateResponseOptions(options, 'native runtime event batches');
+  for (const response of responses) {
+    validateNativeRuntimeEventResponse(response);
+  }
+
+  const handledNativeEvents = options.handledNativeEvents ?? responses.length;
+  const bufferedNativeEvents = options.bufferedNativeEvents ?? 0;
+  const queuedNativeEvents =
+    options.queuedNativeEvents ?? handledNativeEvents + bufferedNativeEvents;
+  const hostEventsDrained = options.hostEventsDrained ?? queuedNativeEvents;
+  const stoppedByPredicate = options.stoppedByPredicate ?? false;
+  const hostQueuePreserved = options.hostQueuePreserved ?? false;
+
+  validateBatchCount(hostEventsDrained, 'hostEventsDrained');
+  validateBatchCount(queuedNativeEvents, 'queuedNativeEvents');
+  validateBatchCount(handledNativeEvents, 'handledNativeEvents');
+  validateBatchCount(bufferedNativeEvents, 'bufferedNativeEvents');
+  if (handledNativeEvents !== responses.length) {
+    throw new Error(
+      'a3s-gui native runtime event batches handledNativeEvents must match responses length',
+    );
+  }
+  if (queuedNativeEvents !== handledNativeEvents + bufferedNativeEvents) {
+    throw new Error(
+      'a3s-gui native runtime event batches queuedNativeEvents must equal handledNativeEvents plus bufferedNativeEvents',
+    );
+  }
+  validateBatchBoolean(stoppedByPredicate, 'stoppedByPredicate');
+  validateBatchBoolean(hostQueuePreserved, 'hostQueuePreserved');
+
+  return {
+    responses,
+    hostEventsDrained,
+    queuedNativeEvents,
+    handledNativeEvents,
+    bufferedNativeEvents,
+    stoppedByPredicate,
+    hostQueuePreserved,
+  };
+}
+
 function validateResponseFrameId(frameId, context) {
   if (typeof frameId !== 'string' || frameId.length === 0) {
     throw new Error(`a3s-gui ${context} need a non-empty frame id`);
@@ -930,6 +1003,48 @@ function validateOptionalInteractionChanges(changes, context) {
     validateInteractionChange(change);
   }
   return changes;
+}
+
+function validateNativeRuntimeEventResponse(response) {
+  validatePlainObject(response, 'native runtime event batches responses');
+  validateResponseFrameId(response.frameId, 'native runtime event responses');
+  validateNativeEvent(response.event, 'native runtime event responses');
+  if (response.invocation != null) {
+    validateActionInvocation(response.invocation);
+  }
+  validateOptionalAccessibilityTree(
+    response.accessibilityTree,
+    'native runtime event responses',
+  );
+  validateOptionalInteractionChanges(
+    response.interactionChanges,
+    'native runtime event responses',
+  );
+  if (response.render != null) {
+    validateRenderedFrame(response.render, 'native runtime event responses');
+  }
+}
+
+function validateRenderedFrame(frame, context) {
+  validatePlainObject(frame, `${context} render`);
+  validateResponseFrameId(frame.frameId, `${context} render`);
+  validateRootNodeId(frame.root, `${context} render`);
+}
+
+function validateBatchCount(value, field) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(
+      `a3s-gui native runtime event batches ${field} values need non-negative integer numbers`,
+    );
+  }
+}
+
+function validateBatchBoolean(value, field) {
+  if (typeof value !== 'boolean') {
+    throw new Error(
+      `a3s-gui native runtime event batches ${field} values need booleans`,
+    );
+  }
 }
 
 function validateNativeEvent(event, context) {

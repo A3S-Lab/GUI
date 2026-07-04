@@ -13,6 +13,8 @@ import {
   createHostEventResponse,
   createNativeHostEventResponse,
   createNativeRenderResponse,
+  createNativeRuntimeEventBatch,
+  createNativeRuntimeEventResponse,
   createAction,
   createUiFrame,
   defineAction,
@@ -277,6 +279,18 @@ test('native response helpers mirror Rust protocol envelopes', () => {
       expanded: null,
     },
   }];
+  const runtimeEvent = {node: 1, kind: 'press'};
+  const renderedFrame = {frameId: 'profile', root: 1};
+  const runtimeEventResponse = createNativeRuntimeEventResponse(
+    'profile',
+    runtimeEvent,
+    {
+      invocation,
+      accessibilityTree,
+      interactionChanges,
+      render: renderedFrame,
+    },
+  );
 
   assert.deepEqual(
     createNativeRenderResponse(
@@ -325,10 +339,42 @@ test('native response helpers mirror Rust protocol envelopes', () => {
       interactionChanges,
     },
   );
+  assert.deepEqual(runtimeEventResponse, {
+    frameId: 'profile',
+    event: runtimeEvent,
+    invocation,
+    accessibilityTree,
+    interactionChanges,
+    render: renderedFrame,
+  });
+  assert.deepEqual(
+    createNativeRuntimeEventBatch([runtimeEventResponse], {
+      hostEventsDrained: 2,
+      queuedNativeEvents: 2,
+      handledNativeEvents: 1,
+      bufferedNativeEvents: 1,
+      stoppedByPredicate: true,
+      hostQueuePreserved: false,
+    }),
+    {
+      responses: [runtimeEventResponse],
+      hostEventsDrained: 2,
+      queuedNativeEvents: 2,
+      handledNativeEvents: 1,
+      bufferedNativeEvents: 1,
+      stoppedByPredicate: true,
+      hostQueuePreserved: false,
+    },
+  );
 });
 
 test('native response helpers reject invalid protocol envelopes', () => {
   const invocation = {node: 1, action: 'saveProfile', event: 'press'};
+  const runtimeEventResponse = createNativeRuntimeEventResponse(
+    'profile',
+    {node: 1, kind: 'press'},
+    {invocation},
+  );
   const accessibilityTree = {
     node: 1,
     role: 'Button',
@@ -463,6 +509,37 @@ test('native response helpers reject invalid protocol envelopes', () => {
   assert.throws(
     () => createNativeHostEventResponse('profile', {invocation: {}}),
     /invocations need positive integer node ids/,
+  );
+  assert.throws(
+    () => createNativeRuntimeEventResponse('profile', {node: 0, kind: 'press'}),
+    /positive integer node id/,
+  );
+  assert.throws(
+    () => createNativeRuntimeEventResponse('profile', {node: 1, kind: 'press'}, {
+      render: {frameId: 'profile', root: 0},
+    }),
+    /positive integer root node id/,
+  );
+  assert.throws(
+    () => createNativeRuntimeEventBatch({}, {}),
+    /responses need an array/,
+  );
+  assert.throws(
+    () => createNativeRuntimeEventBatch([runtimeEventResponse], {
+      handledNativeEvents: 2,
+    }),
+    /handledNativeEvents must match responses length/,
+  );
+  assert.throws(
+    () => createNativeRuntimeEventBatch([runtimeEventResponse], {
+      queuedNativeEvents: 1,
+      bufferedNativeEvents: 1,
+    }),
+    /queuedNativeEvents must equal handledNativeEvents plus bufferedNativeEvents/,
+  );
+  assert.throws(
+    () => createNativeRuntimeEventBatch([], {stoppedByPredicate: 'yes'}),
+    /stoppedByPredicate values need booleans/,
   );
 });
 

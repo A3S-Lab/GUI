@@ -262,6 +262,11 @@ export interface NativeRenderResponse {
   accessibilityTree?: AccessibilityNode | null;
 }
 
+export interface RenderedFrame {
+  frameId: string;
+  root: number;
+}
+
 export interface ActionInvocation {
   node: number;
   action: string;
@@ -294,6 +299,25 @@ export interface NativeHostEventResponse {
   invocation?: ActionInvocation | null;
   accessibilityTree?: AccessibilityNode | null;
   interactionChanges?: InteractionChange[];
+}
+
+export interface NativeRuntimeEventResponse {
+  frameId: string;
+  event: NativeEvent;
+  invocation?: ActionInvocation | null;
+  accessibilityTree?: AccessibilityNode | null;
+  interactionChanges?: InteractionChange[];
+  render?: RenderedFrame | null;
+}
+
+export interface NativeRuntimeEventBatch {
+  responses: NativeRuntimeEventResponse[];
+  hostEventsDrained: number;
+  queuedNativeEvents: number;
+  handledNativeEvents: number;
+  bufferedNativeEvents: number;
+  stoppedByPredicate: boolean;
+  hostQueuePreserved: boolean;
 }
 
 export interface HandledNativeEvent {
@@ -347,5 +371,26 @@ export function createNativeHostEventResponse(
     interactionChanges?: InteractionChange[];
   },
 ): NativeHostEventResponse;
+export function createNativeRuntimeEventResponse(
+  frameId: string,
+  event: NativeEvent,
+  options?: {
+    invocation?: ActionInvocation | null;
+    accessibilityTree?: AccessibilityNode | null;
+    interactionChanges?: InteractionChange[];
+    render?: RenderedFrame | null;
+  },
+): NativeRuntimeEventResponse;
+export function createNativeRuntimeEventBatch(
+  responses: NativeRuntimeEventResponse[],
+  options?: {
+    hostEventsDrained?: number;
+    queuedNativeEvents?: number;
+    handledNativeEvents?: number;
+    bufferedNativeEvents?: number;
+    stoppedByPredicate?: boolean;
+    hostQueuePreserved?: boolean;
+  },
+): NativeRuntimeEventBatch;
 
 export * from './jsx-runtime.js';
