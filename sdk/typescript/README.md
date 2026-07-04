@@ -117,6 +117,9 @@ their original Web JSX attribute names under `props.attributes`, so raw protocol
 consumers and Rust-side HTML attribute projection observe the same initial
 value contract.
 Numeric control props accept finite numbers and non-empty numeric strings.
+`rows`, `cols`, and `size` are preserved as JSX attributes; the Rust native
+lowering layer only applies them as text-control sizing hints when they are
+positive integers.
 Empty strings, whitespace, booleans, and other non-numeric values are ignored
 for native numeric fields so transient form state does not become `0` or `1`.
 For intrinsic `textarea` tags, direct text children remain in the compiled

@@ -159,6 +159,9 @@ form-control attributes including `readonly`/`readOnly`, `multiple`,
 `virtualkeyboardpolicy`/`virtualKeyboardPolicy`, `pattern`,
 `minlength`/`minLength`, `maxlength`/`maxLength`, `rows`, `cols`, and `size`
 project into native control-state fields and stay available in metadata.
+`rows`, `cols`, and `size` only affect native sizing when they are positive
+integers, so zero-valued form sizing attributes remain metadata without
+shrinking native controls.
 Text-field values are clamped to `maxLength` before initial render, before
 rerender updates, and when native change events arrive.
 ARIA relationship attributes including `aria-labelledby`, `aria-describedby`,

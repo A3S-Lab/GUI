@@ -723,6 +723,28 @@ test('intrinsic form control attributes preserve Web JSX names', () => {
   assert.equal(root.props.formNoValidate, true);
 });
 
+test('zero form sizing attributes stay as JSX attributes', () => {
+  const input = jsx('input', {
+    type: 'email',
+    size: 0,
+    minLength: 0,
+    maxLength: 0,
+  }, 'email');
+  const textarea = jsx('textarea', {
+    rows: 0,
+    cols: 0,
+  }, 'message');
+
+  assert.equal(input.props.attributes.size, '0');
+  assert.equal(input.props.attributes.minLength, '0');
+  assert.equal(input.props.attributes.maxLength, '0');
+  assert.equal(input.props.size, undefined);
+  assert.equal(textarea.props.attributes.rows, '0');
+  assert.equal(textarea.props.attributes.cols, '0');
+  assert.equal(textarea.props.rows, undefined);
+  assert.equal(textarea.props.cols, undefined);
+});
+
 test('boolean-like intrinsic props parse string false without truthiness leaks', () => {
   const root = jsx('input', {
     disabled: 'false',

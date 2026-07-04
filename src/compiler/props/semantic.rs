@@ -3,7 +3,7 @@ use crate::web::WebProps;
 
 use super::attributes::{
     bool_attribute, invalid_attribute, non_empty_string_attribute, number_attribute,
-    string_attribute, u32_attribute,
+    positive_u32_attribute, string_attribute, u32_attribute,
 };
 
 #[derive(Debug, Default)]
@@ -82,9 +82,9 @@ impl WebSemanticAliases {
             pattern: non_empty_string_attribute(attributes, &["pattern"]).map(str::to_string),
             min_length: u32_attribute(attributes, &["minlength", "minLength"]),
             max_length: u32_attribute(attributes, &["maxlength", "maxLength"]),
-            rows: u32_attribute(attributes, &["rows"]),
-            cols: u32_attribute(attributes, &["cols"]),
-            size: u32_attribute(attributes, &["size"]),
+            rows: positive_u32_attribute(attributes, &["rows"]),
+            cols: positive_u32_attribute(attributes, &["cols"]),
+            size: positive_u32_attribute(attributes, &["size"]),
         }
     }
 }

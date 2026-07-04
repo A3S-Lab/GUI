@@ -61,6 +61,13 @@ pub(super) fn u32_attribute(attributes: &BTreeMap<String, String>, names: &[&str
     string_attribute(attributes, names).and_then(parse_u32_attribute)
 }
 
+pub(super) fn positive_u32_attribute(
+    attributes: &BTreeMap<String, String>,
+    names: &[&str],
+) -> Option<u32> {
+    u32_attribute(attributes, names).filter(|value| *value > 0)
+}
+
 pub(super) fn i32_attribute(attributes: &BTreeMap<String, String>, names: &[&str]) -> Option<i32> {
     string_attribute(attributes, names).and_then(parse_i32_attribute)
 }

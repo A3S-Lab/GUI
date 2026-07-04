@@ -180,6 +180,50 @@ fn lowers_common_html_form_control_attributes_to_native_state() {
 }
 
 #[test]
+fn omits_non_positive_html_text_sizing_hints_from_native_state() {
+    let bridge = ReactCompilerBridge::new();
+    let input = CompiledJsxNode::Element {
+        key: "email".to_string(),
+        tag: "input".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("type".to_string(), "email".to_string()),
+                ("minLength".to_string(), "0".to_string()),
+                ("maxLength".to_string(), "0".to_string()),
+                ("size".to_string(), "0".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+    let textarea = CompiledJsxNode::Element {
+        key: "message".to_string(),
+        tag: "textarea".to_string(),
+        import_source: None,
+        props: CompiledProps {
+            attributes: BTreeMap::from([
+                ("rows".to_string(), "0".to_string()),
+                ("cols".to_string(), "0".to_string()),
+            ]),
+            ..CompiledProps::default()
+        },
+        children: Vec::new(),
+    };
+
+    let native_input = bridge.lower_to_native(&input).unwrap();
+    let native_textarea = bridge.lower_to_native(&textarea).unwrap();
+
+    assert_eq!(native_input.role, NativeRole::TextField);
+    assert_eq!(native_input.props.min_length, Some(0));
+    assert_eq!(native_input.props.max_length, Some(0));
+    assert_eq!(native_input.props.size, None);
+    assert_eq!(native_textarea.role, NativeRole::TextField);
+    assert_eq!(native_textarea.props.rows, None);
+    assert_eq!(native_textarea.props.cols, None);
+}
+
+#[test]
 fn lowers_top_level_protocol_form_hints_to_native_state() {
     let bridge = ReactCompilerBridge::new();
     let file_input: CompiledJsxNode = serde_json::from_str(
