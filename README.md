@@ -106,8 +106,9 @@ cargo run --features winui-native --example winui_dogfood
 ```
 
 The shared dogfood app exercises windows, menus, dialogs, text input, number
-input, toggles, sliders, selects, tabs, keyboard routing, scroll containers,
-close actions, reducer-driven rerendering, and state-driven app loop exit.
+input, long-form max-length clamping, focus/blur routing, toggles, sliders,
+selects, tabs, keyboard routing, scroll containers, close actions,
+reducer-driven rerendering, and state-driven app loop exit.
 
 ## Features
 

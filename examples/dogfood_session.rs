@@ -32,7 +32,7 @@ mod tests {
     use super::*;
     use a3s_gui::{
         HostEvent, HostNodeId, NativeEvent, NativeEventKind, NativeProtocolApp, NativeRole,
-        NativeWidgetBlueprint, PlatformCommand,
+        NativeRuntimeEventResponse, NativeWidgetBlueprint, PlatformCommand,
     };
 
     type DogfoodTestApp = NativeRuntimeApp<
@@ -240,6 +240,153 @@ mod tests {
         );
         let title = find_event_blueprint(&app, "onInput", "updateTitle").1;
         assert!(title.control_state.invalid);
+    }
+
+    #[test]
+    fn dogfood_session_covers_long_form_focus_and_input_edges() {
+        let mut app = new_app();
+        app.render().unwrap();
+
+        let title_node = find_event_blueprint(&app, "onFocus", "focusTitle").0;
+        assert!(app
+            .runtime()
+            .interactions()
+            .node(title_node)
+            .is_some_and(|state| state.focused));
+        let response =
+            dispatch_response(&mut app, "onBlur", "blurTitle", NativeEventKind::Blur, "");
+        assert_eq!(app.state().focused_field, "none");
+        assert_eq!(app.state().last_event, "Blurred title");
+        assert!(response
+            .interaction_changes
+            .iter()
+            .any(|change| { change.node == title_node && !change.after.focused }));
+
+        let response = dispatch_response(
+            &mut app,
+            "onFocus",
+            "focusTitle",
+            NativeEventKind::Focus,
+            "",
+        );
+        assert_eq!(app.state().focused_field, "title");
+        assert_eq!(app.state().last_event, "Focused title");
+        assert_eq!(response.interaction_changes.len(), 1);
+        assert_eq!(response.interaction_changes[0].node, title_node);
+        assert!(response.interaction_changes[0].after.focused);
+        assert!(app
+            .runtime()
+            .interactions()
+            .node(title_node)
+            .is_some_and(|state| state.focused));
+        assert_eq!(
+            find_blueprint_by_label(&app, NativeRole::TextField, "Focus status")
+                .value
+                .as_deref(),
+            Some("Focused field: title")
+        );
+
+        let long_title = format!("{}{}", "Native GUI hardening ".repeat(8), "aé日");
+        let expected_title = truncate_chars(&long_title, 96);
+        let response = dispatch_response(
+            &mut app,
+            "onInput",
+            "updateTitle",
+            NativeEventKind::Change,
+            &long_title,
+        );
+        assert_eq!(app.state().title, expected_title);
+        assert_eq!(
+            response.event.value.as_deref(),
+            Some(expected_title.as_str())
+        );
+        assert_eq!(
+            response
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some(expected_title.as_str())
+        );
+        assert!(response.interaction_changes.iter().any(|change| {
+            change.node == title_node
+                && change.after.value.as_deref() == Some(expected_title.as_str())
+        }));
+        assert_eq!(
+            find_event_blueprint(&app, "onInput", "updateTitle")
+                .1
+                .value
+                .as_deref(),
+            Some(expected_title.as_str())
+        );
+
+        let title_node = find_event_blueprint(&app, "onFocus", "focusTitle").0;
+        let notes_node = find_event_blueprint(&app, "onFocus", "focusNotes").0;
+        let response = dispatch_response(
+            &mut app,
+            "onFocus",
+            "focusNotes",
+            NativeEventKind::Focus,
+            "",
+        );
+        assert_eq!(app.state().focused_field, "notes");
+        assert_eq!(app.state().last_event, "Focused notes");
+        assert!(response
+            .interaction_changes
+            .iter()
+            .any(|change| { change.node == title_node && !change.after.focused }));
+        assert!(response
+            .interaction_changes
+            .iter()
+            .any(|change| { change.node == notes_node && change.after.focused }));
+        assert!(app
+            .runtime()
+            .interactions()
+            .node(notes_node)
+            .is_some_and(|state| state.focused));
+
+        let long_notes = (0..32)
+            .map(|index| format!("Line {index}: verify resize, focus, and input paths aé日.\n"))
+            .collect::<String>();
+        let expected_notes = truncate_chars(&long_notes, 240);
+        let response = dispatch_response(
+            &mut app,
+            "onInput",
+            "updateNotes",
+            NativeEventKind::Change,
+            &long_notes,
+        );
+        assert_eq!(app.state().notes, expected_notes);
+        assert_eq!(
+            response.event.value.as_deref(),
+            Some(expected_notes.as_str())
+        );
+        assert!(response.interaction_changes.iter().any(|change| {
+            change.node == notes_node
+                && change.after.value.as_deref() == Some(expected_notes.as_str())
+        }));
+        assert_eq!(
+            find_event_blueprint(&app, "onInput", "updateNotes")
+                .1
+                .value
+                .as_deref(),
+            Some(expected_notes.as_str())
+        );
+
+        let notes_node = find_event_blueprint(&app, "onBlur", "blurNotes").0;
+        let response =
+            dispatch_response(&mut app, "onBlur", "blurNotes", NativeEventKind::Blur, "");
+        assert_eq!(app.state().focused_field, "none");
+        assert_eq!(app.state().last_event, "Blurred notes");
+        assert!(response
+            .interaction_changes
+            .iter()
+            .any(|change| { change.node == notes_node && !change.after.focused }));
+        assert_eq!(
+            find_blueprint_by_label(&app, NativeRole::TextField, "Focus status")
+                .value
+                .as_deref(),
+            Some("Focused field: none")
+        );
     }
 
     #[test]
@@ -466,6 +613,16 @@ mod tests {
         kind: NativeEventKind,
         value: &str,
     ) {
+        dispatch_response(app, event_name, action, kind, value);
+    }
+
+    fn dispatch_response(
+        app: &mut DogfoodTestApp,
+        event_name: &str,
+        action: &str,
+        kind: NativeEventKind,
+        value: &str,
+    ) -> NativeRuntimeEventResponse {
         let node = find_event_blueprint(app, event_name, action).0;
         let event = if value.is_empty() {
             NativeEvent::new(node, kind)
@@ -481,6 +638,7 @@ mod tests {
             Some(action)
         );
         assert!(response.render.is_some());
+        response
     }
 
     fn dispatch_host(
@@ -575,5 +733,9 @@ mod tests {
                     .then_some(&node.blueprint)
             })
             .unwrap_or_else(|| panic!("missing {role:?} blueprint labeled {label:?}"))
+    }
+
+    fn truncate_chars(value: &str, max: usize) -> String {
+        value.chars().take(max).collect()
     }
 }

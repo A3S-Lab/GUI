@@ -8,6 +8,7 @@ pub struct DogfoodState {
     pub priority: String,
     pub stage: String,
     pub assignee: String,
+    pub focused_field: String,
     pub completed: bool,
     pub design_reviewed: bool,
     pub tests_reviewed: bool,
@@ -27,6 +28,7 @@ impl Default for DogfoodState {
             priority: "High".to_string(),
             stage: "Build".to_string(),
             assignee: "Ada".to_string(),
+            focused_field: "none".to_string(),
             completed: false,
             design_reviewed: false,
             tests_reviewed: false,
@@ -59,9 +61,32 @@ impl DogfoodState {
             format!("{}/3 review checks complete", self.review_count())
         }
     }
+
+    fn focus_status(&self) -> String {
+        format!("Focused field: {}", self.focused_field)
+    }
 }
 
 pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiResult<UiFrame> {
+    let activity = if state.close_requested {
+        "closing"
+    } else if state.completed {
+        "done"
+    } else {
+        "active"
+    };
+    let summary = format!(
+        "{} | {} | {} | {:.0}h | {}/3 review | {} | saves {}",
+        state.priority,
+        state.stage,
+        state.assignee,
+        state.estimate,
+        state.review_count(),
+        activity,
+        state.saves
+    );
+    let focus_status = state.focus_status();
+
     serde_json::from_value(json!({
         "frameId": frame_id,
         "window": {
@@ -75,6 +100,10 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
         "actions": [
             {"id": "updateTitle", "label": "Update title"},
             {"id": "updateNotes", "label": "Update notes"},
+            {"id": "focusTitle", "label": "Focus title"},
+            {"id": "blurTitle", "label": "Blur title"},
+            {"id": "focusNotes", "label": "Focus notes"},
+            {"id": "blurNotes", "label": "Blur notes"},
             {"id": "setPriority", "label": "Set priority"},
             {"id": "setAssignee", "label": "Set assignee"},
             {"id": "setStage", "label": "Set stage"},
@@ -114,22 +143,7 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
             },
             "children": [
                 workflow_menu(state),
-                text("summary", format!(
-                    "{} | {} | {} | {:.0}h | {}/3 review | {} | saves {}",
-                    state.priority,
-                    state.stage,
-                    state.assignee,
-                    state.estimate,
-                    state.review_count(),
-                    if state.close_requested {
-                        "closing"
-                    } else if state.completed {
-                        "done"
-                    } else {
-                        "active"
-                    },
-                    state.saves
-                )),
+                text("summary", summary),
                 text("title-label", "Task"),
                 {
                     "kind": "element",
@@ -149,6 +163,8 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
                         "events": {
                             "onInput": "updateTitle",
                             "onChange": "updateTitle",
+                            "onFocus": "focusTitle",
+                            "onBlur": "blurTitle",
                             "onKeyDown": "handleShortcut"
                         },
                         "style": {"inlineSize": 640}
@@ -163,8 +179,25 @@ pub fn dogfood_frame(state: &DogfoodState, frame_id: &str, title: &str) -> GuiRe
                         "value": state.notes,
                         "placeholder": "Notes",
                         "attributes": {"rows": "4", "cols": "54", "maxLength": "240"},
-                        "events": {"onInput": "updateNotes", "onChange": "updateNotes"},
+                        "events": {
+                            "onInput": "updateNotes",
+                            "onChange": "updateNotes",
+                            "onFocus": "focusNotes",
+                            "onBlur": "blurNotes"
+                        },
                         "style": {"inlineSize": 640, "blockSize": 96}
+                    }
+                },
+                {
+                    "kind": "element",
+                    "key": "focus-status",
+                    "tag": "input",
+                    "props": {
+                        "label": "Focus status",
+                        "inputType": "text",
+                        "value": focus_status,
+                        "isReadOnly": true,
+                        "style": {"inlineSize": 360}
                     }
                 },
                 {
@@ -224,6 +257,10 @@ pub fn dogfood_reduce(state: &mut DogfoodState, invocation: &ActionInvocation) -
             state.notes = invocation.value.clone().unwrap_or_default();
             state.last_event = "Updated notes".to_string();
         }
+        "focusTitle" => focus_field(state, "title"),
+        "blurTitle" => blur_field(state, "title"),
+        "focusNotes" => focus_field(state, "notes"),
+        "blurNotes" => blur_field(state, "notes"),
         "setPriority" => {
             state.priority = value_or(invocation, "Normal");
             state.last_event = format!("Priority {}", state.priority);
@@ -309,6 +346,18 @@ pub fn dogfood_reduce(state: &mut DogfoodState, invocation: &ActionInvocation) -
         other => return Err(GuiError::host(format!("unexpected action {other}"))),
     }
     Ok(())
+}
+
+fn focus_field(state: &mut DogfoodState, field: &str) {
+    state.focused_field = field.to_string();
+    state.last_event = format!("Focused {field}");
+}
+
+fn blur_field(state: &mut DogfoodState, field: &str) {
+    if state.focused_field == field {
+        state.focused_field = "none".to_string();
+    }
+    state.last_event = format!("Blurred {field}");
 }
 
 fn apply_shortcut(state: &mut DogfoodState, key: Option<&str>) {
