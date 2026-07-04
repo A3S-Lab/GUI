@@ -467,10 +467,10 @@ range bounds and step hints on initial render, rerender, and event dispatch,
 before the reducer sees an action payload. Event payload numeric strings are
 trimmed before parsing. This matches native AppKit, GTK4, and WinUI control
 limit behavior.
-Selection-container events that arrive without a native value payload infer the
-current selected child before reducer dispatch, so container-level native
-callbacks and child-targeted selection events share the same action payload
-shape.
+Selection-container events that arrive without a native value payload, or with
+an empty native value payload, infer the current selected child before reducer
+dispatch, so container-level native callbacks and child-targeted selection
+events share the same action payload shape.
 `createUiFrame` also accepts `window.onClose` as an action-like value. Rust
 wraps the root in a native window with an `onClose` event binding, infers that
 action when frame actions are omitted, and dispatches it from

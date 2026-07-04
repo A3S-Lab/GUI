@@ -252,10 +252,10 @@ activation is normalized before routing: Space toggles checkboxes and switches,
 Space selects radios, and Enter or Space toggles expanded controls and selects
 listbox items or tabs.
 Native event routing tries the target widget first, then mounted ancestors, so
-child widget callbacks can reach container-level handlers. Selection events
-without a value are normalized from the selected child's value or label; native
-selection-container events also infer the current selected child when the host
-callback does not include a payload.
+child widget callbacks can reach container-level handlers. Selection events with
+missing or empty values are normalized from the selected child's value or label;
+native selection-container events also infer the current selected child when the
+host callback does not include a useful payload.
 Text-field change values are clamped to `maxLength`. Initial, rerendered, and
 event-provided number-input and ranged-control values are clamped to min/max
 range bounds and snapped to step hints before platform rendering, interaction

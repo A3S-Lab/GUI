@@ -2432,7 +2432,7 @@ mod tests {
         let response = session
             .handle_host_event(&HostEvent {
                 frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::SelectionChange),
+                event: NativeEvent::new(rendered.root, NativeEventKind::SelectionChange).value(""),
             })
             .unwrap();
 

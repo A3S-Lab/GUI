@@ -210,7 +210,7 @@ impl<H: NativeHost> GuiRuntime<H> {
             crate::event::NativeEventKind::Focus => event.value = Some("true".to_string()),
             crate::event::NativeEventKind::Blur => event.value = Some("false".to_string()),
             crate::event::NativeEventKind::SelectionChange => {
-                if event.value.is_none() {
+                if is_missing_selection_value(event.value.as_deref()) {
                     event.value = selected_node_value(blueprint);
                 }
             }
@@ -477,7 +477,7 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         mut event: NativeEvent,
     ) -> NativeEvent {
         if event.kind != crate::event::NativeEventKind::SelectionChange
-            || event.value.is_some()
+            || !is_missing_selection_value(event.value.as_deref())
             || !is_selection_container_native_role(blueprint.role)
         {
             return event;
@@ -491,6 +491,13 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         )
         .or_else(|| blueprint.value.clone());
         event
+    }
+}
+
+fn is_missing_selection_value(value: Option<&str>) -> bool {
+    match value {
+        Some(value) => value.trim().is_empty(),
+        None => true,
     }
 }
 
@@ -2902,10 +2909,13 @@ mod tests {
 
         let root_id = runtime.render_native(&element).unwrap();
         let handled = runtime
-            .handle_native_event_with_changes(crate::event::NativeEvent::new(
-                root_id,
-                crate::event::NativeEventKind::SelectionChange,
-            ))
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(
+                    root_id,
+                    crate::event::NativeEventKind::SelectionChange,
+                )
+                .value(" "),
+            )
             .unwrap();
 
         assert_eq!(handled.event.value.as_deref(), Some("comfortable"));
@@ -2924,6 +2934,40 @@ mod tests {
             runtime.actions().invocations()[0].value.as_deref(),
             Some("comfortable")
         );
+    }
+
+    #[test]
+    fn runtime_infers_selectable_node_value_from_empty_selection_payload() {
+        let element = NativeElement::new("compact", NativeRole::ListBoxItem).with_props(
+            NativeProps::new()
+                .label("Compact")
+                .value("compact")
+                .web(WebProps::new().on_selection_change("setTheme")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setTheme");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(
+                    root_id,
+                    crate::event::NativeEventKind::SelectionChange,
+                )
+                .value(""),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("compact"));
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("compact")
+        );
+        assert!(handled.interaction_changes[0].after.selected);
     }
 
     #[test]
