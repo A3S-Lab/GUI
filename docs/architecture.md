@@ -139,7 +139,9 @@ state in the native IR but is marked hidden so platform widget config,
 rendered accessibility projection, and native event routing treat it as
 invisible. HTML dialog `open` state projects into a structured
 `HtmlDialogProps` value and controls native widget visibility for intrinsic
-dialog elements. `input` and `textarea` `placeholder` attributes, plus
+dialog elements through the same derived `visible` config used by the platform
+surfaces; `HtmlDialogProps` remains the protocol metadata for replay and
+authoring semantics. `input` and `textarea` `placeholder` attributes, plus
 `aria-placeholder`, project into native placeholder state. `textarea` direct
 text children project into native text-field value state when no explicit value
 is supplied. HTML

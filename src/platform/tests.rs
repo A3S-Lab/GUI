@@ -137,6 +137,46 @@ fn widget_config_preserves_html_dialog_hints_and_visibility() {
 }
 
 #[test]
+fn dialog_open_diff_drives_derived_native_visibility() {
+    let closed_dialog = NativeElement::new("review", NativeRole::Dialog)
+        .with_props(NativeProps::new().html_dialog(HtmlDialogProps::default().open(false)));
+    let open_dialog = NativeElement::new("review", NativeRole::Dialog)
+        .with_props(NativeProps::new().html_dialog(HtmlDialogProps::default().open(true)));
+    let hidden_open_dialog = NativeElement::new("review", NativeRole::Dialog).with_props(
+        NativeProps::new()
+            .hidden(true)
+            .html_dialog(HtmlDialogProps::default().open(true)),
+    );
+
+    let closed_config = Gtk4Adapter.blueprint(&closed_dialog).config();
+    let open_config = Gtk4Adapter.blueprint(&open_dialog).config();
+    let hidden_open_config = Gtk4Adapter.blueprint(&hidden_open_dialog).config();
+
+    let open_setters = closed_config.diff(&open_config).setters();
+    assert!(open_setters.contains(&NativeWidgetSetter::SetVisible(true)));
+    assert!(open_setters.contains(&NativeWidgetSetter::SetHtmlDialog(
+        HtmlDialogProps::default().open(true)
+    )));
+
+    let close_setters = open_config.diff(&closed_config).setters();
+    assert!(close_setters.contains(&NativeWidgetSetter::SetVisible(false)));
+    assert!(close_setters.contains(&NativeWidgetSetter::SetHtmlDialog(
+        HtmlDialogProps::default().open(false)
+    )));
+
+    let hidden_open_setters = closed_config.diff(&hidden_open_config).setters();
+    assert!(!hidden_open_setters
+        .iter()
+        .any(|setter| matches!(setter, NativeWidgetSetter::SetVisible(_))));
+    assert!(hidden_open_setters.contains(&NativeWidgetSetter::SetHidden(true)));
+    assert!(
+        hidden_open_setters.contains(&NativeWidgetSetter::SetHtmlDialog(
+            HtmlDialogProps::default().open(true)
+        ))
+    );
+}
+
+#[test]
 fn popover_blueprint_targets_native_overlay_controls_not_webview() {
     let element =
         NativeElement::new("actions-popover", NativeRole::Popover).with_props(NativeProps::new());
