@@ -51,16 +51,10 @@ jobs:
         include:
           - name: AppKit
             os: macos-latest
-            artifact_name: a3s-gui-dogfood-macos
-            bundle_path: target/release/bundle/A3SGuiDogfood.app
           - name: GTK4
             os: ubuntu-latest
-            artifact_name: a3s-gui-dogfood-linux
-            bundle_path: target/release/bundle/a3s-gui-dogfood-linux
           - name: WinUI
             os: windows-latest
-            artifact_name: a3s-gui-dogfood-windows
-            bundle_path: target/release/bundle/a3s-gui-dogfood-windows
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -105,10 +99,16 @@ jobs:
         include:
           - name: AppKit
             os: macos-latest
+            artifact_name: a3s-gui-dogfood-macos
+            bundle_path: target/release/bundle/A3SGuiDogfood.app
           - name: GTK4
             os: ubuntu-latest
+            artifact_name: a3s-gui-dogfood-linux
+            bundle_path: target/release/bundle/a3s-gui-dogfood-linux
           - name: WinUI
             os: windows-latest
+            artifact_name: a3s-gui-dogfood-windows
+            bundle_path: target/release/bundle/a3s-gui-dogfood-windows
     steps:
       - name: Checkout
         uses: actions/checkout@v4

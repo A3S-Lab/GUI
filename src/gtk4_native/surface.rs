@@ -545,11 +545,6 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 self.ranges.insert(id, range);
                 Gtk4OsWidget::ProgressBar(progress_bar)
             }
-            other => {
-                return Err(GuiError::host(format!(
-                    "GTK4 native surface does not support {other:?} yet"
-                )));
-            }
         };
 
         if kind == Gtk4WidgetKind::Label && blueprint.widget_class == "gtk::Label(tab)" {
@@ -611,7 +606,6 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     | Gtk4OsWidget::PasswordEntry(_)
                     | Gtk4OsWidget::SpinButton(_)
                     | Gtk4OsWidget::TextView(_)
-                    | Gtk4OsWidget::Dialog(_)
                     | Gtk4OsWidget::Popover(_)
                     | Gtk4OsWidget::Menu(_)
                     | Gtk4OsWidget::Switch(_)
@@ -995,6 +989,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 | Gtk4OsWidget::Switch(_)
                 | Gtk4OsWidget::DropDown(_)
                 | Gtk4OsWidget::ListBox(_)
+                | Gtk4OsWidget::ScrolledWindow { .. }
                 | Gtk4OsWidget::ListBoxRow { .. }
                 | Gtk4OsWidget::Notebook(_)
                 | Gtk4OsWidget::Separator(_) => {}
