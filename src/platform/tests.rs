@@ -347,6 +347,41 @@ fn blueprint_preserves_react_aria_control_state_for_native_adapters() {
 }
 
 #[test]
+fn platform_adapter_blueprint_normalizes_ranged_values_without_renderer() {
+    let slider = NativeElement::new("volume", NativeRole::Slider).with_props(
+        NativeProps::new()
+            .label("Volume")
+            .value("43")
+            .range(Some(0.0), Some(100.0), None)
+            .step(Some(5.0)),
+    );
+    let number_input = NativeElement::new("estimate", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Estimate")
+            .value("99")
+            .input_type("number")
+            .range(Some(1.0), Some(12.0), None),
+    );
+    let invalid_slider = NativeElement::new("broken-volume", NativeRole::Slider).with_props(
+        NativeProps::new()
+            .label("Broken volume")
+            .value("not-a-number")
+            .range(Some(0.0), Some(100.0), None),
+    );
+
+    let slider_blueprint = Gtk4Adapter.blueprint(&slider);
+    let number_blueprint = Gtk4Adapter.blueprint(&number_input);
+    let invalid_blueprint = Gtk4Adapter.blueprint(&invalid_slider);
+
+    assert_eq!(slider_blueprint.control_state.current, Some(45.0));
+    assert_eq!(slider_blueprint.value.as_deref(), Some("45"));
+    assert_eq!(number_blueprint.control_state.current, Some(12.0));
+    assert_eq!(number_blueprint.value.as_deref(), Some("12"));
+    assert_eq!(invalid_blueprint.control_state.current, None);
+    assert_eq!(invalid_blueprint.value, None);
+}
+
+#[test]
 fn widget_config_normalizes_blueprint_for_native_setters() {
     let element = NativeElement::new("volume", NativeRole::Slider).with_props(
         NativeProps::new()

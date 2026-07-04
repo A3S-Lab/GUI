@@ -114,7 +114,10 @@ The pure Rust `PlatformPlanningHost` implements the same `NativeHost` contract
 without linking platform SDKs. It is an executable specification for native
 adapters: given a `NativeElement`, it records the AppKit, WinUI, or GTK widget
 class, accessibility role, action binding, style tokens, events, and metadata
-that a platform backend applies.
+that a platform backend applies. The adapter blueprint boundary applies the same
+native prop normalization used by the renderer, so direct planning calls and
+rendered command streams share value clamping, step snapping, and invalid
+numeric-value omission semantics.
 
 The compiler bridge accepts the HTML element registry exposed by `HTML_ELEMENTS`.
 Each recognized intrinsic tag lowers to the closest native semantic role, and

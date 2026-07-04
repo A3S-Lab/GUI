@@ -1,6 +1,6 @@
 use crate::accessibility::accessibility_role;
 use crate::html::HTML_TAG_METADATA_KEY;
-use crate::native::{NativeElement, NativeRole};
+use crate::native::{normalize_props_for_native_role, NativeElement, NativeProps, NativeRole};
 use crate::style::{OverflowMode, PortableStyle};
 
 use super::types::{NativeBackendKind, NativeControlState, NativeWidgetBlueprint};
@@ -18,32 +18,33 @@ pub fn widget_blueprint(
     backend: NativeBackendKind,
     element: &NativeElement,
 ) -> NativeWidgetBlueprint {
+    let props = normalize_props_for_native_role(element.role, &element.props);
     NativeWidgetBlueprint {
         backend,
-        widget_class: native_widget_name_for_element(backend, element).to_string(),
+        widget_class: native_widget_name_for_props(backend, element.role, &props).to_string(),
         role: element.role,
         accessibility_role: accessibility_role(element.role),
-        label: element.props.label.clone(),
-        value: element.props.value.clone(),
-        action: element
-            .props
+        label: props.label.clone(),
+        value: props.value.clone(),
+        action: props
             .action
             .clone()
-            .or_else(|| element.props.web.primary_action().map(str::to_string)),
-        class_name: element.props.web.class_name.clone(),
-        control_state: NativeControlState::from_props(&element.props),
-        style: element.props.web.style.clone(),
-        portable_style: PortableStyle::from_web(&element.props.web),
-        events: element.props.web.events.clone(),
-        metadata: element.props.metadata.clone(),
+            .or_else(|| props.web.primary_action().map(str::to_string)),
+        class_name: props.web.class_name.clone(),
+        control_state: NativeControlState::from_props(&props),
+        style: props.web.style.clone(),
+        portable_style: PortableStyle::from_web(&props.web),
+        events: props.web.events.clone(),
+        metadata: props.metadata.clone(),
     }
 }
 
-fn native_widget_name_for_element(
+fn native_widget_name_for_props(
     backend: NativeBackendKind,
-    element: &NativeElement,
+    role: NativeRole,
+    props: &NativeProps,
 ) -> &'static str {
-    if scrollable_container(element) {
+    if scrollable_container(role, props) {
         return match backend {
             NativeBackendKind::AppKit => "NSScrollView+NSStackView(scroll)",
             NativeBackendKind::WinUI => "Microsoft.UI.Xaml.Controls.ScrollViewer+StackPanel",
@@ -52,9 +53,8 @@ fn native_widget_name_for_element(
         };
     }
 
-    if element.role == NativeRole::TextField
-        && element
-            .props
+    if role == NativeRole::TextField
+        && props
             .metadata
             .get(HTML_TAG_METADATA_KEY)
             .is_some_and(|tag| tag == "textarea")
@@ -67,9 +67,8 @@ fn native_widget_name_for_element(
         };
     }
 
-    if element.role == NativeRole::TextField
-        && element
-            .props
+    if role == NativeRole::TextField
+        && props
             .input_type
             .as_deref()
             .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("search"))
@@ -82,9 +81,8 @@ fn native_widget_name_for_element(
         };
     }
 
-    if element.role == NativeRole::TextField
-        && element
-            .props
+    if role == NativeRole::TextField
+        && props
             .input_type
             .as_deref()
             .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("number"))
@@ -97,9 +95,8 @@ fn native_widget_name_for_element(
         };
     }
 
-    if element.role == NativeRole::TextField
-        && element
-            .props
+    if role == NativeRole::TextField
+        && props
             .input_type
             .as_deref()
             .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
@@ -112,14 +109,14 @@ fn native_widget_name_for_element(
         };
     }
 
-    native_widget_name(backend, element.role)
+    native_widget_name(backend, role)
 }
 
-fn scrollable_container(element: &NativeElement) -> bool {
-    if !scrollable_container_role(element.role) {
+fn scrollable_container(role: NativeRole, props: &NativeProps) -> bool {
+    if !scrollable_container_role(role) {
         return false;
     }
-    let style = PortableStyle::from_web(&element.props.web);
+    let style = PortableStyle::from_web(&props.web);
     scrollable_overflow(style.overflow_y)
         || scrollable_overflow(style.overflow_x)
         || scrollable_overflow(style.overflow_block)
