@@ -609,6 +609,20 @@ test('numeric prop normalization ignores empty strings and booleans', () => {
   assert.equal(ariaRange.props.attributes['aria-valuenow'], 'true');
 });
 
+test('protocol-native numeric aliases accept string values', () => {
+  const root = jsx(Slider, {
+    valueNumber: '50',
+    minValue: '0',
+    maxValue: '100',
+    stepValue: '5',
+  }, 'volume');
+
+  assert.equal(root.props.valueNumber, 50);
+  assert.equal(root.props.minValue, 0);
+  assert.equal(root.props.maxValue, 100);
+  assert.equal(root.props.stepValue, 5);
+});
+
 test('intrinsic form control attributes preserve Web JSX names', () => {
   const root = jsx('input', {
     type: 'email',
@@ -732,5 +746,25 @@ test('JSX runtime types allow string-backed booleanish input props', () => {
     'formNoValidate',
   ]) {
     assert.match(JSX_RUNTIME_TYPES, new RegExp(`${prop}\\?: Booleanish;`));
+  }
+});
+
+test('JSX runtime types allow string-backed numeric input props', () => {
+  assert.match(JSX_RUNTIME_TYPES, /export type Numberish = number \| string;/);
+  for (const prop of [
+    'width',
+    'height',
+    'min',
+    'max',
+    'step',
+    'low',
+    'high',
+    'optimum',
+    'minValue',
+    'maxValue',
+    'valueNumber',
+    'stepValue',
+  ]) {
+    assert.match(JSX_RUNTIME_TYPES, new RegExp(`${prop}\\?: Numberish;`));
   }
 });
