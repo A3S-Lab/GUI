@@ -92,6 +92,7 @@ export interface ActionHandler {
 }
 
 export type ActionLike = string | ActionHandler | ((...args: unknown[]) => void);
+export type Booleanish = boolean | string;
 export type Numberish = number | string;
 
 export interface WindowOptions {
@@ -103,7 +104,7 @@ export interface WindowOptions {
   minHeight?: Numberish;
   maxWidth?: Numberish;
   maxHeight?: Numberish;
-  resizable?: boolean;
+  resizable?: Booleanish;
 }
 
 export interface UiFrame {

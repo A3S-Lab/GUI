@@ -352,10 +352,11 @@ function normalizeWindowOptions(window) {
     normalized[property] = value;
   }
   if (window.resizable != null) {
-    if (typeof window.resizable !== 'boolean') {
-      throw new Error('a3s-gui window.resizable must be a boolean');
+    const resizable = booleanValue(window.resizable);
+    if (resizable === undefined) {
+      throw new Error('a3s-gui window.resizable must be a boolean or boolean string');
     }
-    normalized.resizable = window.resizable;
+    normalized.resizable = resizable;
   }
 
   validateWindowDimensionBounds(normalized, 'width', 'minWidth', 'maxWidth');
@@ -372,6 +373,16 @@ function positiveFiniteNumber(value) {
     if (trimmed.length === 0) return undefined;
     const parsed = Number(trimmed);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function booleanValue(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === '' || normalized === 'true') return true;
+    if (normalized === 'false') return false;
   }
   return undefined;
 }

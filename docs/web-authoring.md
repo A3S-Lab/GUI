@@ -376,9 +376,10 @@ numeric strings for those dimensions and emits protocol JSON numbers; min/max
 constraints must not conflict with each other or with the explicit width/height.
 `window.resizable` defaults to `true` and is projected into typed native
 config/setter state while remaining available as protocol metadata for
-compatibility. AppKit applies min/max constraints directly to the window frame;
-WinUI enforces the same bounds through the native `WM_GETMINMAXINFO` resize
-message.
+compatibility. The TypeScript SDK accepts booleans or boolean strings for
+`window.resizable` and emits protocol JSON booleans. AppKit applies min/max
+constraints directly to the window frame; WinUI enforces the same bounds through
+the native `WM_GETMINMAXINFO` resize message.
 
 Native platform hosts can use `NativeProtocolSession` as the frame boundary:
 

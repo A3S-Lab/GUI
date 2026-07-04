@@ -50,6 +50,8 @@ event action ids are ignored by Rust routing instead of being dispatched.
 Window dimensions accept positive finite numbers or non-empty numeric strings,
 and explicit width/height values must stay within any declared min/max
 constraints.
+`window.resizable` accepts booleans or boolean strings and is emitted as a
+protocol boolean.
 `window.onClose` accepts the same action-like values as JSX events and is routed
 from native close events.
 Focus, value, and toggle aliases such as `onFocusChange`, `onInput`,

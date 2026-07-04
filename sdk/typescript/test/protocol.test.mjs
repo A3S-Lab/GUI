@@ -727,6 +727,15 @@ test('window options must be valid native dimensions', () => {
       maxWidth: 1280,
     },
   );
+  assert.deepEqual(
+    createUiFrame('profile', root, {
+      window: {title: 'Profile', resizable: 'false'},
+    }).window,
+    {
+      title: 'Profile',
+      resizable: false,
+    },
+  );
   assert.throws(
     () => createUiFrame('profile', root, {window: {width: 640}}),
     /string title/,
@@ -763,14 +772,22 @@ test('window options must be valid native dimensions', () => {
   );
   assert.throws(
     () => createUiFrame('profile', root, {
-      window: {title: 'Profile', resizable: 'false'},
+      window: {title: 'Profile', resizable: 'maybe'},
+    }),
+    /resizable.*boolean/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {
+      window: {title: 'Profile', resizable: 1},
     }),
     /resizable.*boolean/,
   );
 });
 
 test('protocol types allow string-backed window dimensions', () => {
+  assert.match(INDEX_TYPES, /export type Booleanish = boolean \| string;/);
   assert.match(INDEX_TYPES, /export type Numberish = number \| string;/);
   assert.match(INDEX_TYPES, /width\?: Numberish;/);
   assert.match(INDEX_TYPES, /maxHeight\?: Numberish;/);
+  assert.match(INDEX_TYPES, /resizable\?: Booleanish;/);
 });
