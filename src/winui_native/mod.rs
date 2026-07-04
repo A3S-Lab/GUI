@@ -92,6 +92,8 @@ pub struct WinUiNativeSurface {
     text_inputs: BTreeMap<HostNodeId, WinUiTextInputSizing>,
     text_input_configs: BTreeMap<HostNodeId, NativeWidgetConfig>,
     text_input_max_lengths: Arc<Mutex<BTreeMap<HostNodeId, Option<u32>>>>,
+    text_input_read_only: Arc<Mutex<BTreeMap<HostNodeId, bool>>>,
+    text_input_values: Arc<Mutex<BTreeMap<HostNodeId, String>>>,
 }
 
 type ControlsComboBox = Controls::ComboBox;
@@ -134,6 +136,8 @@ impl WinUiNativeSurface {
             text_inputs: BTreeMap::new(),
             text_input_configs: BTreeMap::new(),
             text_input_max_lengths: Arc::new(Mutex::new(BTreeMap::new())),
+            text_input_read_only: Arc::new(Mutex::new(BTreeMap::new())),
+            text_input_values: Arc::new(Mutex::new(BTreeMap::new())),
         }
     }
 

@@ -83,6 +83,18 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     if let Ok(mut max_lengths) = self.text_input_max_lengths.lock() {
                         max_lengths.insert(id, config.max_length);
                     }
+                    if let Ok(mut read_only) = self.text_input_read_only.lock() {
+                        read_only.insert(id, config.read_only);
+                    }
+                    if let Ok(mut values) = self.text_input_values.lock() {
+                        values.insert(
+                            id,
+                            winui_truncate_to_max_length(
+                                config.value.as_deref().unwrap_or_default(),
+                                config.max_length,
+                            ),
+                        );
+                    }
                     self.apply_password_box_size_hint(id, &password_box)?;
                     register_password_change(
                         id,
@@ -90,6 +102,8 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                         &self.events,
                         Arc::clone(&self.events_suppressed),
                         Arc::clone(&self.text_input_max_lengths),
+                        Arc::clone(&self.text_input_read_only),
+                        Arc::clone(&self.text_input_values),
                     )?;
                     WinUiOsWidget::PasswordBox(password_box)
                 } else {
@@ -111,6 +125,18 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     if let Ok(mut max_lengths) = self.text_input_max_lengths.lock() {
                         max_lengths.insert(id, config.max_length);
                     }
+                    if let Ok(mut read_only) = self.text_input_read_only.lock() {
+                        read_only.insert(id, config.read_only);
+                    }
+                    if let Ok(mut values) = self.text_input_values.lock() {
+                        values.insert(
+                            id,
+                            winui_truncate_to_max_length(
+                                config.value.as_deref().unwrap_or_default(),
+                                config.max_length,
+                            ),
+                        );
+                    }
                     self.apply_text_box_size_hint(id, &text_box)?;
                     register_text_change(
                         id,
@@ -118,6 +144,8 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                         &self.events,
                         Arc::clone(&self.events_suppressed),
                         Arc::clone(&self.text_input_max_lengths),
+                        Arc::clone(&self.text_input_read_only),
+                        Arc::clone(&self.text_input_values),
                     )?;
                     WinUiOsWidget::TextBox(text_box)
                 }
@@ -372,6 +400,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                 }
             }
             NativeWidgetSetter::SetReadOnly(read_only) => {
+                if let Ok(mut inputs) = self.text_input_read_only.lock() {
+                    inputs.insert(id, *read_only);
+                }
                 if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
                     map_winui(
                         "failed to set WinUI text box read-only state",
@@ -487,6 +518,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                             text_box.SetText(&hstr(&value)),
                         )
                     })?;
+                    if let Ok(mut values) = self.text_input_values.lock() {
+                        values.insert(id, value);
+                    }
                 }
                 if let WinUiOsWidget::PasswordBox(password_box) = &handle.widget {
                     map_winui(
@@ -505,6 +539,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                             password_box.SetPassword(&hstr(&value)),
                         )
                     })?;
+                    if let Ok(mut values) = self.text_input_values.lock() {
+                        values.insert(id, value);
+                    }
                 }
             }
             NativeWidgetSetter::SetCols(value) => {
@@ -871,6 +908,12 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         self.text_input_configs.remove(&id);
         if let Ok(mut max_lengths) = self.text_input_max_lengths.lock() {
             max_lengths.remove(&id);
+        }
+        if let Ok(mut read_only) = self.text_input_read_only.lock() {
+            read_only.remove(&id);
+        }
+        if let Ok(mut values) = self.text_input_values.lock() {
+            values.remove(&id);
         }
         if let Ok(mut focused_node) = self.focused_node.lock() {
             if *focused_node == Some(id) {

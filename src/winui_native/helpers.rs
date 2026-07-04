@@ -139,6 +139,9 @@ pub(super) fn set_value(
                     text_box.SetText(&hstr(&value_text)),
                 )
             })?;
+            if let Ok(mut values) = surface.text_input_values.lock() {
+                values.insert(id, value_text);
+            }
         }
         WinUiOsWidget::PasswordBox(password_box) => {
             let value_text = winui_truncate_to_max_length(
@@ -154,6 +157,9 @@ pub(super) fn set_value(
                     password_box.SetPassword(&hstr(&value_text)),
                 )
             })?;
+            if let Ok(mut values) = surface.text_input_values.lock() {
+                values.insert(id, value_text);
+            }
         }
         WinUiOsWidget::ComboBox(combo_box) => {
             surface.set_combo_value(id, combo_box, Some(value_text))?;
@@ -435,6 +441,8 @@ pub(super) fn register_text_change(
     events: &WinUiEventQueue,
     suppressed: Arc<AtomicBool>,
     max_lengths: Arc<Mutex<BTreeMap<HostNodeId, Option<u32>>>>,
+    read_only: Arc<Mutex<BTreeMap<HostNodeId, bool>>>,
+    values: Arc<Mutex<BTreeMap<HostNodeId, String>>>,
 ) -> GuiResult<()> {
     let events = Arc::clone(events);
     let event_text_box = text_box.clone();
@@ -449,11 +457,33 @@ pub(super) fn register_text_change(
             .ok()
             .and_then(|max_lengths| max_lengths.get(&id).copied().flatten());
         let value = winui_truncate_to_max_length(&raw_value, max_length);
+        if read_only
+            .lock()
+            .ok()
+            .and_then(|read_only| read_only.get(&id).copied())
+            .unwrap_or(false)
+        {
+            let controlled_value = values
+                .lock()
+                .ok()
+                .and_then(|values| values.get(&id).cloned())
+                .unwrap_or(value);
+            if controlled_value != raw_value {
+                let previous = suppressed.swap(true, Ordering::SeqCst);
+                let result = event_text_box.SetText(&hstr(&controlled_value));
+                suppressed.store(previous, Ordering::SeqCst);
+                result?;
+            }
+            return Ok(());
+        }
         if value != raw_value {
             let previous = suppressed.swap(true, Ordering::SeqCst);
             let result = event_text_box.SetText(&hstr(&value));
             suppressed.store(previous, Ordering::SeqCst);
             result?;
+        }
+        if let Ok(mut values) = values.lock() {
+            values.insert(id, value.clone());
         }
         push_event(
             &events,
@@ -474,6 +504,8 @@ pub(super) fn register_password_change(
     events: &WinUiEventQueue,
     suppressed: Arc<AtomicBool>,
     max_lengths: Arc<Mutex<BTreeMap<HostNodeId, Option<u32>>>>,
+    read_only: Arc<Mutex<BTreeMap<HostNodeId, bool>>>,
+    values: Arc<Mutex<BTreeMap<HostNodeId, String>>>,
 ) -> GuiResult<()> {
     let events = Arc::clone(events);
     let event_password_box = password_box.clone();
@@ -488,11 +520,33 @@ pub(super) fn register_password_change(
             .ok()
             .and_then(|max_lengths| max_lengths.get(&id).copied().flatten());
         let value = winui_truncate_to_max_length(&raw_value, max_length);
+        if read_only
+            .lock()
+            .ok()
+            .and_then(|read_only| read_only.get(&id).copied())
+            .unwrap_or(false)
+        {
+            let controlled_value = values
+                .lock()
+                .ok()
+                .and_then(|values| values.get(&id).cloned())
+                .unwrap_or(value);
+            if controlled_value != raw_value {
+                let previous = suppressed.swap(true, Ordering::SeqCst);
+                let result = event_password_box.SetPassword(&hstr(&controlled_value));
+                suppressed.store(previous, Ordering::SeqCst);
+                result?;
+            }
+            return Ok(());
+        }
         if value != raw_value {
             let previous = suppressed.swap(true, Ordering::SeqCst);
             let result = event_password_box.SetPassword(&hstr(&value));
             suppressed.store(previous, Ordering::SeqCst);
             result?;
+        }
+        if let Ok(mut values) = values.lock() {
+            values.insert(id, value.clone());
         }
         push_event(
             &events,
