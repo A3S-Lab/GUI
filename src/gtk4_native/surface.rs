@@ -963,10 +963,13 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     scale.set_value(range.current());
                 }
                 Gtk4OsWidget::SpinButton(spin_button) => {
-                    let range = self.ranges.entry(id).or_default();
-                    range.current = *value;
-                    spin_button.set_digits(range.spin_button_digits());
-                    self.suppress_events(|| spin_button.set_value(range.current()));
+                    let current = {
+                        let range = self.ranges.entry(id).or_default();
+                        range.current = *value;
+                        spin_button.set_digits(range.spin_button_digits());
+                        range.current()
+                    };
+                    self.suppress_events(|| spin_button.set_value(current));
                 }
                 Gtk4OsWidget::ProgressBar(progress_bar) => {
                     let range = self.ranges.entry(id).or_default();
