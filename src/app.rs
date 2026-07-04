@@ -39,6 +39,18 @@ pub struct NativeRuntimeEventBatch {
     pub host_queue_preserved: bool,
 }
 
+impl NativeRuntimeEventBatch {
+    pub fn extend(&mut self, next: Self) {
+        self.host_events_drained += next.host_events_drained;
+        self.queued_native_events += next.queued_native_events;
+        self.handled_native_events += next.handled_native_events;
+        self.buffered_native_events = next.buffered_native_events;
+        self.stopped_by_predicate |= next.stopped_by_predicate;
+        self.host_queue_preserved |= next.host_queue_preserved;
+        self.responses.extend(next.responses);
+    }
+}
+
 #[derive(Debug)]
 pub struct NativeRuntimeApp<H: NativeHost, S, F, R> {
     runtime: GuiRuntime<H>,
@@ -596,6 +608,45 @@ mod tests {
         assert_eq!(second_batch.buffered_native_events, 0);
         assert!(!second_batch.stopped_by_predicate);
         assert!(!app.has_pending_native_events());
+    }
+
+    #[test]
+    fn native_runtime_event_batch_merges_sequential_drains() {
+        let mut first = NativeRuntimeEventBatch {
+            responses: vec![NativeRuntimeEventResponse {
+                frame_id: "queue".to_string(),
+                event: NativeEvent::new(HostNodeId::new(1), NativeEventKind::Press),
+                invocation: None,
+                accessibility_tree: None,
+                interaction_changes: Vec::new(),
+                render: None,
+            }],
+            host_events_drained: 1,
+            queued_native_events: 1,
+            handled_native_events: 1,
+            buffered_native_events: 0,
+            stopped_by_predicate: false,
+            host_queue_preserved: false,
+        };
+        let second = NativeRuntimeEventBatch {
+            responses: Vec::new(),
+            host_events_drained: 2,
+            queued_native_events: 2,
+            handled_native_events: 1,
+            buffered_native_events: 1,
+            stopped_by_predicate: true,
+            host_queue_preserved: true,
+        };
+
+        first.extend(second);
+
+        assert_eq!(first.responses.len(), 1);
+        assert_eq!(first.host_events_drained, 3);
+        assert_eq!(first.queued_native_events, 3);
+        assert_eq!(first.handled_native_events, 2);
+        assert_eq!(first.buffered_native_events, 1);
+        assert!(first.stopped_by_predicate);
+        assert!(first.host_queue_preserved);
     }
 
     #[test]

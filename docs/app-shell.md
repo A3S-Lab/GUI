@@ -22,7 +22,10 @@ the first frame if needed, pump platform events, drain queued A3S events, and
 stop when either the root window closes or the state predicate returns false.
 For embedded hosts and automation, `handle_pending_native_event_batch_while`
 returns the same per-event responses plus batch diagnostics for how many native
-events were drained, handled, and left buffered when the predicate stopped.
+events were drained, handled, and left buffered when the predicate stopped. The
+platform event-pump helpers expose the same diagnostics through
+`pump_appkit_event_batch_while`, `pump_gtk4_event_batch_while`, and
+`pump_winui_event_batch_while`.
 
 Window close should be modeled as state:
 

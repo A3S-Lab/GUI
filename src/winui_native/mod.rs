@@ -15,7 +15,7 @@ use winui3::Microsoft::UI::Xaml as xaml;
 use xaml::Controls::{self, Primitives};
 use xaml::{Markup, RoutedEventHandler, Visibility};
 
-use crate::app::{NativeRuntimeApp, NativeRuntimeEventResponse};
+use crate::app::{NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse};
 use crate::backend::{
     CommandExecutingHost, DriverCommandExecutor, HandleWidgetDriver, NativeWidgetSurface,
     SurfaceHandleAdapter,
@@ -772,7 +772,8 @@ where
         &mut self,
         wait: WinUiEventWait,
     ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
-        self.pump_winui_event_while(wait, |_| true)
+        self.pump_winui_event_batch(wait)
+            .map(|batch| batch.responses)
     }
 
     pub fn pump_winui_event_while(
@@ -780,9 +781,25 @@ where
         wait: WinUiEventWait,
         mut should_continue: impl FnMut(&S) -> bool,
     ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
-        let mut responses = self.handle_pending_native_events_while(&mut should_continue)?;
+        self.pump_winui_event_batch_while(wait, &mut should_continue)
+            .map(|batch| batch.responses)
+    }
+
+    pub fn pump_winui_event_batch(
+        &mut self,
+        wait: WinUiEventWait,
+    ) -> GuiResult<NativeRuntimeEventBatch> {
+        self.pump_winui_event_batch_while(wait, |_| true)
+    }
+
+    pub fn pump_winui_event_batch_while(
+        &mut self,
+        wait: WinUiEventWait,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<NativeRuntimeEventBatch> {
+        let mut batch = self.handle_pending_native_event_batch_while(&mut should_continue)?;
         if !should_continue(self.state()) {
-            return Ok(responses);
+            return Ok(batch);
         }
         let pumped = {
             let surface = self
@@ -795,9 +812,9 @@ where
             pump_winui_message(surface, wait)?
         };
         if pumped {
-            responses.extend(self.handle_pending_native_events_while(&mut should_continue)?);
+            batch.extend(self.handle_pending_native_event_batch_while(&mut should_continue)?);
         }
-        Ok(responses)
+        Ok(batch)
     }
 
     pub fn run_winui(&mut self) -> GuiResult<()> {

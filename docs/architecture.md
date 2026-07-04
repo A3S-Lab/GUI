@@ -349,7 +349,10 @@ can pause and resume later.
 Platform-native app specializations such as
 `AppKitRuntimeApp`, `WinUiRuntimeApp`, and `Gtk4RuntimeApp` add the OS event
 pump and use the same bounded drain while stopping their `run_*_while` loops
-when the root window closes or the state predicate exits.
+when the root window closes or the state predicate exits. Their
+`pump_*_event_batch_while` helpers combine the pre-pump and post-pump A3S event
+drains into one `NativeRuntimeEventBatch`, which gives native automation a
+single assertion point for OS event pump cycles.
 Window close lifecycle events use the same action path. `UiFrame.window.onClose`
 wraps the rendered root in a native window with an `onClose` event binding, and
 `NativeEventKind::Close` dispatches that action id. AppKit and GTK native

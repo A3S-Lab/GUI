@@ -418,7 +418,10 @@ are kept for the next drain, and if the predicate is already false before
 draining starts, the host event queue is left untouched. Use
 `handle_pending_native_event_batch_while` when logging, test automation, or app
 diagnostics need the host-drain count, handled count, buffered count, and
-predicate-stop flag for that drain.
+predicate-stop flag for that drain. Native platform hosts also expose
+`pump_appkit_event_batch_while`, `pump_gtk4_event_batch_while`, and
+`pump_winui_event_batch_while` when tests need one diagnostic envelope for a
+single OS event-pump cycle.
 
 ## Event Flow
 

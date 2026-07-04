@@ -5,7 +5,7 @@ use std::rc::Rc;
 use gtk::prelude::*;
 use gtk4_crate as gtk;
 
-use crate::app::{NativeRuntimeApp, NativeRuntimeEventResponse};
+use crate::app::{NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse};
 use crate::backend::{
     CommandExecutingHost, DriverCommandExecutor, HandleWidgetDriver, NativeWidgetSurface,
     SurfaceHandleAdapter,
@@ -604,7 +604,8 @@ where
         &mut self,
         wait: Gtk4EventWait,
     ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
-        self.pump_gtk4_event_while(wait, |_| true)
+        self.pump_gtk4_event_batch(wait)
+            .map(|batch| batch.responses)
     }
 
     pub fn pump_gtk4_event_while(
@@ -612,16 +613,32 @@ where
         wait: Gtk4EventWait,
         mut should_continue: impl FnMut(&S) -> bool,
     ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
-        let mut responses = self.handle_pending_native_events_while(&mut should_continue)?;
+        self.pump_gtk4_event_batch_while(wait, &mut should_continue)
+            .map(|batch| batch.responses)
+    }
+
+    pub fn pump_gtk4_event_batch(
+        &mut self,
+        wait: Gtk4EventWait,
+    ) -> GuiResult<NativeRuntimeEventBatch> {
+        self.pump_gtk4_event_batch_while(wait, |_| true)
+    }
+
+    pub fn pump_gtk4_event_batch_while(
+        &mut self,
+        wait: Gtk4EventWait,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<NativeRuntimeEventBatch> {
+        let mut batch = self.handle_pending_native_event_batch_while(&mut should_continue)?;
         if !should_continue(self.state()) {
-            return Ok(responses);
+            return Ok(batch);
         }
         let context = gtk::glib::MainContext::default();
         if wait.may_block() || context.pending() {
             context.iteration(wait.may_block());
-            responses.extend(self.handle_pending_native_events_while(&mut should_continue)?);
+            batch.extend(self.handle_pending_native_event_batch_while(&mut should_continue)?);
         }
-        Ok(responses)
+        Ok(batch)
     }
 
     pub fn run_gtk4(&mut self) -> GuiResult<()> {
