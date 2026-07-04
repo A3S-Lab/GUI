@@ -291,6 +291,12 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     "failed to create WinUI content dialog",
                     Controls::ContentDialog::new(),
                 )?;
+                register_content_dialog_close(
+                    id,
+                    &dialog,
+                    &self.events,
+                    Arc::clone(&self.events_suppressed),
+                )?;
                 if let Some(label) = config.label.as_deref() {
                     let title = text_content(label)?;
                     map_winui("failed to set WinUI dialog title", dialog.SetTitle(&title))?;
@@ -877,7 +883,9 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                 map_winui("failed to close WinUI window", window.Close())?;
             }
             WinUiOsWidget::ContentDialog(dialog) => {
-                map_winui("failed to hide WinUI content dialog", dialog.Hide())?;
+                self.suppress_events(|| {
+                    map_winui("failed to hide WinUI content dialog", dialog.Hide())
+                })?;
             }
             WinUiOsWidget::ToolTip(tool_tip) => {
                 map_winui(

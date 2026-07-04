@@ -745,6 +745,31 @@ pub(super) fn register_range_change(
     Ok(())
 }
 
+pub(super) fn register_content_dialog_close(
+    id: HostNodeId,
+    dialog: &Controls::ContentDialog,
+    events: &WinUiEventQueue,
+    suppressed: Arc<AtomicBool>,
+) -> GuiResult<()> {
+    let events = Arc::clone(events);
+    let handler = windows::Foundation::TypedEventHandler::<
+        Controls::ContentDialog,
+        Controls::ContentDialogClosingEventArgs,
+    >::new(
+        move |_, _args: windows_core::Ref<Controls::ContentDialogClosingEventArgs>| {
+            if !suppressed.load(Ordering::SeqCst) {
+                push_event(&events, NativeEvent::new(id, NativeEventKind::Close));
+            }
+            Ok(())
+        },
+    );
+    map_winui(
+        "failed to register WinUI content dialog close handler",
+        dialog.Closing(&handler),
+    )?;
+    Ok(())
+}
+
 pub(super) fn register_focus_events(
     id: HostNodeId,
     widget: &WinUiOsWidget,

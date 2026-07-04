@@ -349,8 +349,9 @@ Window close lifecycle events use the same action path. `UiFrame.window.onClose`
 wraps the rendered root in a native window with an `onClose` event binding, and
 `NativeEventKind::Close` dispatches that action id. AppKit and GTK native
 surfaces enqueue close events from native window, panel, and dialog callbacks.
-WinUI installs a small HWND subclass and enqueues the same event from
-`WM_CLOSE`, while still observing the root window handle for app-loop shutdown.
+WinUI installs a small HWND subclass for root windows and registers
+`ContentDialog::Closing` for dialogs, then enqueues the same close event while
+still observing the root window handle for app-loop shutdown.
 
 ## Host Protocol
 
@@ -630,7 +631,9 @@ Feature-gated platform executor surfaces:
   reports matching native focus.
   Window close requests are observed through the HWND message path: the surface
   installs a close-event subclass on each WinUI window and enqueues
-  `NativeEventKind::Close` when `WM_CLOSE` arrives.
+  `NativeEventKind::Close` when `WM_CLOSE` arrives. Content dialogs register
+  WinUI's `Closing` callback and enqueue the same event for dialog `onClose`
+  actions, with programmatic hides suppressed during render-driven teardown.
   `WinUiRuntimeApp` provides the embedded app loop for this backend: it renders
   into `WinUiNativeSurface`, pumps the Windows message queue, drains queued A3S
   native events, runs the application reducer, rerenders the next frame, and
