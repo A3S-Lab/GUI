@@ -820,6 +820,7 @@ pub(crate) fn normalize_props_for_native_role(
     normalized.max = max;
     normalized.step = normalize_range_step(props.step);
     normalized.current = None;
+    normalized.value = None;
 
     let current = props
         .current

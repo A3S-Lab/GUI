@@ -2517,6 +2517,39 @@ mod tests {
     }
 
     #[test]
+    fn runtime_omits_invalid_initial_numeric_values_before_rendering() {
+        let slider = NativeElement::new("volume", NativeRole::Slider).with_props(
+            NativeProps::new()
+                .label("Volume")
+                .value("not-a-number")
+                .range(Some(0.0), Some(100.0), None),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&slider).unwrap();
+        let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+        assert_eq!(blueprint.control_state.current, None);
+        assert_eq!(blueprint.value, None);
+        assert_eq!(runtime.accessibility_tree().unwrap().value, None);
+
+        let number_input = NativeElement::new("estimate", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Estimate")
+                .value(" ")
+                .input_type("number")
+                .range(Some(1.0), Some(12.0), None),
+        );
+        let root_id = runtime.render_native(&number_input).unwrap();
+        let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+        assert_eq!(blueprint.control_state.current, None);
+        assert_eq!(blueprint.value, None);
+        assert_eq!(runtime.accessibility_tree().unwrap().value, None);
+    }
+
+    #[test]
     fn runtime_event_number_parser_trims_values_without_coercing_empty_input() {
         assert_eq!(parse_event_number(" 42 "), Some(42.0));
         assert_eq!(parse_event_number("\t0.5\n"), Some(0.5));

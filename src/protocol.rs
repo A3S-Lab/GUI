@@ -3051,6 +3051,86 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_omits_invalid_initial_numeric_values() {
+        let range_frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "volume",
+                "tag": "input",
+                "props": {
+                  "attributes": {"type": "range", "defaultValue": "not-a-number"},
+                  "minValue": 0,
+                  "maxValue": 100
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let response = session.render_frame(&range_frame).unwrap();
+        let blueprint = &session
+            .runtime()
+            .host()
+            .node(response.root)
+            .unwrap()
+            .blueprint;
+
+        assert_eq!(blueprint.role, NativeRole::Slider);
+        assert_eq!(blueprint.control_state.current, None);
+        assert_eq!(blueprint.value, None);
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            None
+        );
+
+        let number_frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "estimate",
+                "tag": "input",
+                "props": {
+                  "attributes": {"type": "number", "value": ""},
+                  "minValue": 1,
+                  "maxValue": 12
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap();
+
+        let response = session.render_frame(&number_frame).unwrap();
+        let blueprint = &session
+            .runtime()
+            .host()
+            .node(response.root)
+            .unwrap()
+            .blueprint;
+
+        assert_eq!(blueprint.role, NativeRole::TextField);
+        assert_eq!(blueprint.control_state.current, None);
+        assert_eq!(blueprint.value, None);
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            None
+        );
+    }
+
+    #[test]
     fn native_protocol_session_projects_textarea_default_value_attributes() {
         let frame: UiFrame = serde_json::from_str(
             r#"
