@@ -129,6 +129,10 @@ Run the full local verification suite from `crates/gui`:
 just verify
 ```
 
+CI runs the same verification gate on Linux and also runs host-native AppKit,
+GTK4, and WinUI compile/dogfood checks on their matching operating systems.
+Pushes to `main` additionally stage and validate the unsigned dogfood bundles.
+
 Focused native and dogfood checks:
 
 ```bash

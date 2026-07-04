@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup component add rustfmt
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install just
+        shell: bash
+        run: cargo install just --locked
+
+      - name: Run local verification gate
+        shell: bash
+        run: just verify
+
+  native-check:
+    name: Native Check (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: AppKit
+            os: macos-latest
+          - name: GTK4
+            os: ubuntu-latest
+          - name: WinUI
+            os: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install Windows target
+        if: runner.os == 'Windows'
+        shell: bash
+        run: rustup target add x86_64-pc-windows-msvc
+
+      - name: Install GTK4 dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev pkg-config
+
+      - name: Install just
+        shell: bash
+        run: cargo install just --locked
+
+      - name: Check host native backend
+        shell: bash
+        run: just check-native
+
+      - name: Run dogfood regression
+        shell: bash
+        run: just dogfood-regression
+
+  bundle-smoke:
+    name: Bundle Smoke (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: AppKit
+            os: macos-latest
+          - name: GTK4
+            os: ubuntu-latest
+          - name: WinUI
+            os: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Install Windows target
+        if: runner.os == 'Windows'
+        shell: bash
+        run: rustup target add x86_64-pc-windows-msvc
+
+      - name: Install GTK4 dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev pkg-config
+
+      - name: Install just
+        shell: bash
+        run: cargo install just --locked
+
+      - name: Build, stage, and validate native bundle
+        shell: bash
+        run: just bundle-gate-native
