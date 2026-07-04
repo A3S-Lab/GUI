@@ -351,7 +351,9 @@ wraps the rendered root in a native window with an `onClose` event binding, and
 surfaces enqueue close events from native window, panel, and dialog callbacks.
 WinUI installs a small HWND subclass for root windows and registers
 `ContentDialog::Closing` for dialogs, then enqueues the same close event while
-still observing the root window handle for app-loop shutdown.
+clearing the surface's open-dialog tracking so a dismissed dialog can be shown
+again on a later state-driven render. The backend still observes the root window
+handle for app-loop shutdown.
 
 ## Host Protocol
 
@@ -637,7 +639,8 @@ Feature-gated platform executor surfaces:
   installs a close-event subclass on each WinUI window and enqueues
   `NativeEventKind::Close` when `WM_CLOSE` arrives. Content dialogs register
   WinUI's `Closing` callback and enqueue the same event for dialog `onClose`
-  actions, with programmatic hides suppressed during render-driven teardown.
+  actions while clearing local open-dialog tracking. Programmatic hides are
+  suppressed during render-driven teardown.
   `WinUiRuntimeApp` provides the embedded app loop for this backend: it renders
   into `WinUiNativeSurface`, pumps the Windows message queue, drains queued A3S
   native events, runs the application reducer, rerenders the next frame, and

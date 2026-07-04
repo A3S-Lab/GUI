@@ -750,6 +750,7 @@ pub(super) fn register_content_dialog_close(
     dialog: &Controls::ContentDialog,
     events: &WinUiEventQueue,
     suppressed: Arc<AtomicBool>,
+    open_dialogs: Arc<Mutex<BTreeSet<HostNodeId>>>,
 ) -> GuiResult<()> {
     let events = Arc::clone(events);
     let handler = windows::Foundation::TypedEventHandler::<
@@ -757,9 +758,7 @@ pub(super) fn register_content_dialog_close(
         Controls::ContentDialogClosingEventArgs,
     >::new(
         move |_, _args: windows_core::Ref<Controls::ContentDialogClosingEventArgs>| {
-            if !suppressed.load(Ordering::SeqCst) {
-                push_event(&events, NativeEvent::new(id, NativeEventKind::Close));
-            }
+            record_content_dialog_closed(id, &events, &suppressed, &open_dialogs);
             Ok(())
         },
     );
@@ -768,6 +767,20 @@ pub(super) fn register_content_dialog_close(
         dialog.Closing(&handler),
     )?;
     Ok(())
+}
+
+fn record_content_dialog_closed(
+    id: HostNodeId,
+    events: &WinUiEventQueue,
+    suppressed: &AtomicBool,
+    open_dialogs: &Arc<Mutex<BTreeSet<HostNodeId>>>,
+) {
+    if let Ok(mut open_dialogs) = open_dialogs.lock() {
+        open_dialogs.remove(&id);
+    }
+    if !suppressed.load(Ordering::SeqCst) {
+        push_event(events, NativeEvent::new(id, NativeEventKind::Close));
+    }
 }
 
 pub(super) fn register_focus_events(
@@ -809,6 +822,40 @@ pub(super) fn register_focus_events(
         element.LostFocus(&blur_handler),
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn winui_content_dialog_close_clears_open_state_and_queues_close() {
+        let id = HostNodeId::new(7);
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let suppressed = AtomicBool::new(false);
+        let open_dialogs = Arc::new(Mutex::new(BTreeSet::from([id])));
+
+        record_content_dialog_closed(id, &events, &suppressed, &open_dialogs);
+
+        assert!(!open_dialogs.lock().unwrap().contains(&id));
+        assert_eq!(
+            events.lock().unwrap().as_slice(),
+            &[NativeEvent::new(id, NativeEventKind::Close)]
+        );
+    }
+
+    #[test]
+    fn winui_content_dialog_close_clears_open_state_when_suppressed() {
+        let id = HostNodeId::new(9);
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let suppressed = AtomicBool::new(true);
+        let open_dialogs = Arc::new(Mutex::new(BTreeSet::from([id])));
+
+        record_content_dialog_closed(id, &events, &suppressed, &open_dialogs);
+
+        assert!(!open_dialogs.lock().unwrap().contains(&id));
+        assert!(events.lock().unwrap().is_empty());
+    }
 }
 
 pub(super) fn set_combo_box_item_content(

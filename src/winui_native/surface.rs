@@ -296,6 +296,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
                     &dialog,
                     &self.events,
                     Arc::clone(&self.events_suppressed),
+                    Arc::clone(&self.open_dialogs),
                 )?;
                 if let Some(label) = config.label.as_deref() {
                     let title = text_content(label)?;
@@ -904,7 +905,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         }
         self.widgets.remove(&id);
         self.dialog_visible.remove(&id);
-        self.open_dialogs.remove(&id);
+        self.mark_content_dialog_closed(id);
         self.dialog_operations.remove(&id);
         self.combo_boxes.remove(&id);
         self.combo_items.remove(&id);
@@ -989,7 +990,7 @@ impl WinUiNativeSurface {
         dialog: &Controls::ContentDialog,
     ) -> GuiResult<()> {
         if !self.dialog_visible.get(&id).copied().unwrap_or(false)
-            || self.open_dialogs.contains(&id)
+            || self.content_dialog_is_open(id)
         {
             return Ok(());
         }
@@ -1011,7 +1012,7 @@ impl WinUiNativeSurface {
             operation.cast::<windows_core::IInspectable>(),
         )?;
         self.dialog_operations.insert(id, operation);
-        self.open_dialogs.insert(id);
+        self.mark_content_dialog_open(id);
         Ok(())
     }
 
@@ -1021,7 +1022,7 @@ impl WinUiNativeSurface {
         dialog: &Controls::ContentDialog,
     ) -> GuiResult<()> {
         self.dialog_operations.remove(&id);
-        if self.open_dialogs.remove(&id) {
+        if self.mark_content_dialog_closed(id) {
             self.suppress_events(|| {
                 map_winui("failed to hide WinUI content dialog", dialog.Hide())
             })?;
@@ -1047,6 +1048,26 @@ impl WinUiNativeSurface {
             self.show_content_dialog_if_marked_visible(id, &dialog)?;
         }
         Ok(())
+    }
+
+    fn content_dialog_is_open(&self, id: HostNodeId) -> bool {
+        self.open_dialogs
+            .lock()
+            .map(|open_dialogs| open_dialogs.contains(&id))
+            .unwrap_or(false)
+    }
+
+    fn mark_content_dialog_open(&self, id: HostNodeId) {
+        if let Ok(mut open_dialogs) = self.open_dialogs.lock() {
+            open_dialogs.insert(id);
+        }
+    }
+
+    fn mark_content_dialog_closed(&self, id: HostNodeId) -> bool {
+        self.open_dialogs
+            .lock()
+            .map(|mut open_dialogs| open_dialogs.remove(&id))
+            .unwrap_or(false)
     }
 
     fn root_xaml_root(&self) -> GuiResult<Option<xaml::XamlRoot>> {
