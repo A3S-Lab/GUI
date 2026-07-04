@@ -31,9 +31,10 @@ fn dogfood_session_frame(state: &DogfoodState) -> a3s_gui::GuiResult<a3s_gui::Ui
 mod tests {
     use super::*;
     use a3s_gui::{
-        HostEvent, HostNodeId, NativeEvent, NativeEventKind, NativeProtocolApp, NativeRole,
-        NativeRuntimeEventResponse, NativeWidgetBlueprint, PlatformCommand,
+        ActionInvocation, HostEvent, HostNodeId, NativeEvent, NativeEventKind, NativeProtocolApp,
+        NativeRole, NativeRuntimeEventResponse, NativeWidgetBlueprint, PlatformCommand,
     };
+    use serde_json::json;
 
     type DogfoodTestApp = NativeRuntimeApp<
         CommandExecutingHost<Gtk4Adapter, RecordingBackend>,
@@ -46,6 +47,12 @@ mod tests {
         DogfoodState,
         fn(&DogfoodState) -> a3s_gui::GuiResult<a3s_gui::UiFrame>,
         fn(&mut DogfoodState, &a3s_gui::ActionInvocation) -> a3s_gui::GuiResult<()>,
+    >;
+    type ConditionalFocusApp = NativeRuntimeApp<
+        CommandExecutingHost<Gtk4Adapter, RecordingBackend>,
+        ConditionalFocusState,
+        fn(&ConditionalFocusState) -> a3s_gui::GuiResult<a3s_gui::UiFrame>,
+        fn(&mut ConditionalFocusState, &a3s_gui::ActionInvocation) -> a3s_gui::GuiResult<()>,
     >;
 
     #[test]
@@ -685,6 +692,138 @@ mod tests {
         assert!(response.render.is_some());
     }
 
+    #[test]
+    fn dogfood_conditional_form_preserves_native_focus_ownership_after_removal() {
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut app: ConditionalFocusApp = NativeRuntimeApp::new(
+            host,
+            ConditionalFocusState::default(),
+            conditional_focus_frame,
+            conditional_focus_reduce,
+        );
+        app.render().unwrap();
+
+        let first = find_runtime_event_blueprint(&app, "onFocus", "focusFirst").0;
+        app.handle_native_event(NativeEvent::new(first, NativeEventKind::Focus))
+            .unwrap();
+        assert_eq!(app.state().focused_field, "first");
+        assert!(app
+            .runtime()
+            .interactions()
+            .node(first)
+            .is_some_and(|state| state.focused));
+
+        let toggle = find_runtime_event_blueprint(&app, "onPress", "showSecond").0;
+        let response = app
+            .handle_native_event(NativeEvent::new(toggle, NativeEventKind::Press))
+            .unwrap();
+        let second = find_runtime_event_blueprint(&app, "onFocus", "focusSecond").0;
+
+        assert_eq!(app.state().focused_field, "first");
+        assert!(response.render.is_some());
+        assert!(app.runtime().interactions().has_focus_history());
+        assert!(app.runtime().interactions().node(first).is_none());
+        assert!(app.runtime().interactions().node(second).is_none());
+        assert!(!app
+            .runtime()
+            .accessibility_tree()
+            .unwrap()
+            .children
+            .iter()
+            .any(|node| node.label.as_deref() == Some("Second field") && node.focused));
+    }
+
+    #[derive(Debug, Clone, PartialEq)]
+    struct ConditionalFocusState {
+        show_second: bool,
+        focused_field: String,
+    }
+
+    impl Default for ConditionalFocusState {
+        fn default() -> Self {
+            Self {
+                show_second: false,
+                focused_field: "none".to_string(),
+            }
+        }
+    }
+
+    fn conditional_focus_frame(
+        state: &ConditionalFocusState,
+    ) -> a3s_gui::GuiResult<a3s_gui::UiFrame> {
+        let field = if state.show_second {
+            json!({
+                "kind": "element",
+                "key": "second",
+                "tag": "input",
+                "props": {
+                    "label": "Second field",
+                    "inputType": "text",
+                    "attributes": {"autoFocus": "true"},
+                    "events": {"onFocus": "focusSecond"}
+                }
+            })
+        } else {
+            json!({
+                "kind": "element",
+                "key": "first",
+                "tag": "input",
+                "props": {
+                    "label": "First field",
+                    "inputType": "text",
+                    "events": {"onFocus": "focusFirst"}
+                }
+            })
+        };
+
+        serde_json::from_value(json!({
+            "frameId": "conditional-focus",
+            "actions": [
+                {"id": "focusFirst"},
+                {"id": "focusSecond"},
+                {"id": "showSecond"}
+            ],
+            "root": {
+                "kind": "element",
+                "key": "conditional-form",
+                "tag": "Toolbar",
+                "props": {"orientation": "vertical"},
+                "children": [
+                    field,
+                    {
+                        "kind": "element",
+                        "key": "toggle",
+                        "tag": "Button",
+                        "props": {
+                            "label": "Show second",
+                            "events": {"onPress": "showSecond"}
+                        }
+                    }
+                ]
+            }
+        }))
+        .map_err(|error| {
+            a3s_gui::GuiError::invalid_tree(format!("invalid conditional focus frame: {error}"))
+        })
+    }
+
+    fn conditional_focus_reduce(
+        state: &mut ConditionalFocusState,
+        invocation: &ActionInvocation,
+    ) -> a3s_gui::GuiResult<()> {
+        match invocation.action.as_str() {
+            "focusFirst" => state.focused_field = "first".to_string(),
+            "focusSecond" => state.focused_field = "second".to_string(),
+            "showSecond" => state.show_second = true,
+            other => {
+                return Err(a3s_gui::GuiError::host(format!(
+                    "unexpected conditional focus action {other}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
     fn new_app() -> DogfoodTestApp {
         let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
         NativeRuntimeApp::new(
@@ -789,6 +928,23 @@ mod tests {
 
     fn find_event_blueprint<'a>(
         app: &'a DogfoodTestApp,
+        event_name: &str,
+        action: &str,
+    ) -> (HostNodeId, &'a NativeWidgetBlueprint) {
+        app.runtime()
+            .host()
+            .planning()
+            .nodes()
+            .iter()
+            .find_map(|(id, node)| {
+                (node.blueprint.events.get(event_name).map(String::as_str) == Some(action))
+                    .then_some((*id, &node.blueprint))
+            })
+            .unwrap_or_else(|| panic!("missing node for {event_name} -> {action}"))
+    }
+
+    fn find_runtime_event_blueprint<'a>(
+        app: &'a ConditionalFocusApp,
         event_name: &str,
         action: &str,
     ) -> (HostNodeId, &'a NativeWidgetBlueprint) {

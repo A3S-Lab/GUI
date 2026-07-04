@@ -117,6 +117,8 @@ before A3S GUI is considered generally usable:
 - text input and textarea length/sizing hints, initial/rerendered and
   change-event max-length clamping, focus/blur routing, select, slider range
   bounds and step hints, tabs, switches, and checkboxes
+- native focus ownership across conditional field removal and later `autoFocus`
+  candidates
 - overflow-aware root containers that become native scroll viewports
 - reducer-driven rerendering after native events
 - stale queued native events after reducer-driven node removal
