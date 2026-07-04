@@ -215,6 +215,17 @@ impl<H: NativeHost> GuiRuntime<H> {
                     event.value = selected_node_value(blueprint);
                 }
             }
+            crate::event::NativeEventKind::Change
+                if self.is_checked_change(blueprint, event.node) =>
+            {
+                let checked = self
+                    .current_checked_state(event.node, blueprint)
+                    .unwrap_or(false);
+                event.value = Some(normalize_boolean_event_value(
+                    event.value.as_deref(),
+                    checked,
+                ));
+            }
             crate::event::NativeEventKind::Toggle
                 if self.is_expansion_toggle(blueprint, event.node) =>
             {
@@ -325,6 +336,15 @@ impl<H: NativeHost> GuiRuntime<H> {
         matches!(
             blueprint.role,
             crate::native::NativeRole::Checkbox | crate::native::NativeRole::Switch
+        ) || self.current_checked_state(node, blueprint).is_some()
+    }
+
+    fn is_checked_change(&self, blueprint: &NativeWidgetBlueprint, node: HostNodeId) -> bool {
+        matches!(
+            blueprint.role,
+            crate::native::NativeRole::Checkbox
+                | crate::native::NativeRole::Switch
+                | crate::native::NativeRole::Radio
         ) || self.current_checked_state(node, blueprint).is_some()
     }
 
@@ -2702,6 +2722,56 @@ mod tests {
             Some("false")
         );
         assert_eq!(second.interaction_changes[0].after.checked, Some(false));
+    }
+
+    #[test]
+    fn runtime_routes_checked_change_with_current_boolean_payload() {
+        let element = NativeElement::new("notifications", NativeRole::Switch).with_props(
+            NativeProps::new()
+                .label("Notifications")
+                .checked(false)
+                .web(WebProps::new().on_change("setNotifications")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setNotifications");
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let first = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("on"),
+            )
+            .unwrap();
+        let second = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("not-a-bool"),
+            )
+            .unwrap();
+
+        assert_eq!(first.event.value.as_deref(), Some("true"));
+        assert_eq!(
+            first
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("true")
+        );
+        assert_eq!(first.interaction_changes[0].after.checked, Some(true));
+        assert_eq!(second.event.value.as_deref(), Some("false"));
+        assert_eq!(
+            second
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some("false")
+        );
+        assert_eq!(second.interaction_changes[0].after.checked, Some(false));
+        assert_eq!(
+            runtime.actions().invocations()[1].value.as_deref(),
+            Some("false")
+        );
     }
 
     #[test]

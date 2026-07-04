@@ -243,7 +243,8 @@ Focus and blur events always carry canonical `true` and `false` payloads for
 `onFocusChange`. Toggle events for checked or expanded controls canonicalize
 native boolean strings such as `1`, `0`, `on`, and `off`; invalid toggle
 payloads fall back to the next state derived from the current rendered or
-interactive state.
+interactive state. Boolean change events for checked controls use that same
+canonical payload contract before action dispatch.
 When a key-down event has no explicit `onKeyDown` binding on the target or its
 route ancestors, Enter and Space fall back to the primary press action for
 activatable controls such as buttons, links, and menu items. For stateful

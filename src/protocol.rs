@@ -1859,6 +1859,50 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_canonicalizes_boolean_change_payloads() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "setNotifications"}],
+              "root": {
+                "kind": "element",
+                "key": "notifications",
+                "tag": "Switch",
+                "props": {
+                  "isChecked": false,
+                  "events": {"onChange": "setNotifications"}
+                },
+                "children": [{"kind": "text", "key": "label", "value": "Notifications"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let first = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("1"),
+            })
+            .unwrap();
+        let second = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("not-a-bool"),
+            })
+            .unwrap();
+
+        assert_eq!(first.invocation.action, "setNotifications");
+        assert_eq!(first.invocation.value.as_deref(), Some("true"));
+        assert_eq!(first.interaction_changes[0].after.checked, Some(true));
+        assert_eq!(second.invocation.value.as_deref(), Some("false"));
+        assert_eq!(second.interaction_changes[0].after.checked, Some(false));
+    }
+
+    #[test]
     fn native_protocol_session_preserves_ancestor_key_down_handlers() {
         let frame: UiFrame = serde_json::from_str(
             r#"
