@@ -254,8 +254,10 @@ callback does not include a payload.
 Text-field change values are clamped to `maxLength`. Initial, rerendered, and
 event-provided number-input and ranged-control values are clamped to min/max
 range bounds and snapped to step hints before platform rendering, interaction
-state, or action dispatch. Protocol hosts and native backends therefore share
-the same value contract.
+state, or action dispatch. Missing, empty, non-finite, or otherwise
+unparseable numeric change payloads are treated as no-ops for number inputs and
+ranged controls, preserving the last valid value. Protocol hosts and native
+backends therefore share the same value contract.
 Empty event action ids are ignored rather than dispatched.
 `ActionRegistry` records and validates non-empty action ids before they are
 handed to the JavaScript state bridge. Hosts that implement

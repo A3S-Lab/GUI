@@ -141,6 +141,13 @@ impl<H: NativeHost> GuiRuntime<H> {
             });
         }
         let event = self.normalize_event_value(blueprint, route_blueprints, event);
+        if is_invalid_numeric_change_value(blueprint, &event) {
+            return Ok(HandledNativeEvent {
+                event,
+                invocation: None,
+                interaction_changes: Vec::new(),
+            });
+        }
         if is_read_only_value_event(blueprint, route_blueprints, event.kind) {
             return Ok(HandledNativeEvent {
                 event,
@@ -561,6 +568,23 @@ fn normalize_ranged_change_value(
 
     event.value = Some(format_normalized_number(value));
     event
+}
+
+fn is_invalid_numeric_change_value(blueprint: &NativeWidgetBlueprint, event: &NativeEvent) -> bool {
+    if event.kind != crate::event::NativeEventKind::Change || !is_numeric_change_target(blueprint) {
+        return false;
+    }
+
+    let Some(value) = event.value.as_deref().and_then(parse_event_number) else {
+        return true;
+    };
+    !value.is_finite()
+}
+
+fn is_numeric_change_target(blueprint: &NativeWidgetBlueprint) -> bool {
+    matches!(blueprint.role, crate::native::NativeRole::Slider)
+        || (matches!(blueprint.role, crate::native::NativeRole::TextField)
+            && is_number_text_input(blueprint))
 }
 
 fn parse_event_number(value: &str) -> Option<f64> {
@@ -2284,6 +2308,64 @@ mod tests {
         assert_eq!(
             runtime.actions().invocations()[1].value.as_deref(),
             Some("40")
+        );
+    }
+
+    #[test]
+    fn runtime_suppresses_invalid_numeric_change_values() {
+        let slider = NativeElement::new("volume", NativeRole::Slider).with_props(
+            NativeProps::new()
+                .label("Volume")
+                .range(Some(0.0), Some(100.0), Some(6.0))
+                .web(WebProps::new().on_change("setVolume")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setVolume");
+
+        let root_id = runtime.render_native(&slider).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value("not-a-number"),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some("not-a-number"));
+        assert!(handled.invocation.is_none());
+        assert!(handled.interaction_changes.is_empty());
+        assert!(runtime.actions().invocations().is_empty());
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("6")
+        );
+
+        let number_input = NativeElement::new("estimate", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Estimate")
+                .input_type("number")
+                .range(Some(1.0), Some(12.0), Some(6.0))
+                .web(WebProps::new().on_change("setEstimate")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("setEstimate");
+
+        let root_id = runtime.render_native(&number_input).unwrap();
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                    .value(" "),
+            )
+            .unwrap();
+
+        assert_eq!(handled.event.value.as_deref(), Some(" "));
+        assert!(handled.invocation.is_none());
+        assert!(handled.interaction_changes.is_empty());
+        assert!(runtime.actions().invocations().is_empty());
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("6")
         );
     }
 

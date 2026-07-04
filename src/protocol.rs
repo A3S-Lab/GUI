@@ -2627,6 +2627,51 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_suppresses_invalid_numeric_change_values() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "setEstimate"}],
+              "root": {
+                "kind": "element",
+                "key": "estimate",
+                "tag": "Slider",
+                "props": {
+                  "minValue": 1,
+                  "maxValue": 12,
+                  "valueNumber": 6,
+                  "events": {"onChange": "setEstimate"}
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let response = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Change)
+                    .value("not-a-number"),
+            })
+            .unwrap();
+
+        assert!(response.invocation.is_none());
+        assert!(response.interaction_changes.is_empty());
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("6")
+        );
+        assert!(session.runtime().actions().invocations().is_empty());
+    }
+
+    #[test]
     fn native_protocol_session_snaps_ranged_change_values_to_step() {
         let frame: UiFrame = serde_json::from_str(
             r#"
