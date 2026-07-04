@@ -150,6 +150,7 @@ jobs:
           tar -czf "$archive" -C "$(dirname "$bundle_path")" "$(basename "$bundle_path")"
           packaging/write-file-sha256.sh "$archive" > "${archive}.sha256"
           packaging/write-archive-metadata.sh "$archive" "${{ matrix.platform }}" "${{ matrix.artifact_name }}" "${archive}.metadata.txt"
+          packaging/check-archive-metadata.sh "$archive" "${archive}.sha256" "${archive}.metadata.txt" "${{ matrix.platform }}" "${{ matrix.artifact_name }}"
           echo "A3S_GUI_BUNDLE_ARCHIVE=$archive" >> "$GITHUB_ENV"
           echo "A3S_GUI_BUNDLE_ARCHIVE_SHA256=${archive}.sha256" >> "$GITHUB_ENV"
           echo "A3S_GUI_BUNDLE_ARCHIVE_METADATA=${archive}.metadata.txt" >> "$GITHUB_ENV"

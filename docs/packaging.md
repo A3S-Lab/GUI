@@ -42,7 +42,10 @@ On `main` pushes and manual workflow runs, CI uploads compressed
 also includes a matching `.sha256` file and `.metadata.txt` handoff note. The
 metadata records the target platform, artifact name, archive filename, archive
 SHA-256, byte count, source commit, and generation time so platform QA can
-identify and verify a downloaded artifact before unpacking it.
+identify and verify a downloaded artifact before unpacking it. CI validates the
+archive, checksum file, and metadata with
+[`packaging/check-archive-metadata.sh`](../packaging/check-archive-metadata.sh)
+before uploading the artifact set.
 
 ## macOS AppKit
 

@@ -135,7 +135,8 @@ GTK4, and WinUI compile/dogfood checks on their matching operating systems.
 Pushes to `main` additionally stage and validate the unsigned dogfood bundles.
 Those bundle smoke jobs upload compressed `a3s-gui-dogfood-*` artifacts for
 manual download and platform QA, plus `.sha256` and `.metadata.txt` files for
-archive integrity checks and artifact identification before unpacking.
+archive integrity checks and artifact identification before unpacking. CI
+validates that the archive, checksum file, and metadata agree before upload.
 
 Focused native and dogfood checks:
 
