@@ -1809,6 +1809,56 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_canonicalizes_boolean_event_payloads() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "setNotifications"}, {"id": "setFocus"}],
+              "root": {
+                "kind": "element",
+                "key": "notifications",
+                "tag": "Switch",
+                "props": {
+                  "isChecked": false,
+                  "events": {
+                    "onChange": "setNotifications",
+                    "onFocusChange": "setFocus"
+                  }
+                },
+                "children": [{"kind": "text", "key": "label", "value": "Notifications"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        let focus = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Focus).value("maybe"),
+            })
+            .unwrap();
+
+        assert_eq!(focus.invocation.action, "setFocus");
+        assert_eq!(focus.invocation.value.as_deref(), Some("true"));
+        assert_eq!(focus.interaction_changes[0].after.focused, true);
+
+        let toggle = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Toggle).value("not-a-bool"),
+            })
+            .unwrap();
+
+        assert_eq!(toggle.invocation.action, "setNotifications");
+        assert_eq!(toggle.invocation.value.as_deref(), Some("true"));
+        assert_eq!(toggle.interaction_changes[0].after.checked, Some(true));
+    }
+
+    #[test]
     fn native_protocol_session_preserves_ancestor_key_down_handlers() {
         let frame: UiFrame = serde_json::from_str(
             r#"

@@ -205,15 +205,14 @@ impl<H: NativeHost> GuiRuntime<H> {
         mut event: NativeEvent,
     ) -> NativeEvent {
         event = self.normalize_keyboard_activation(blueprint, route_blueprints, event);
-        if event.value.is_some() {
-            return normalize_change_value(blueprint, event);
-        }
 
         match event.kind {
             crate::event::NativeEventKind::Focus => event.value = Some("true".to_string()),
             crate::event::NativeEventKind::Blur => event.value = Some("false".to_string()),
             crate::event::NativeEventKind::SelectionChange => {
-                event.value = selected_node_value(blueprint);
+                if event.value.is_none() {
+                    event.value = selected_node_value(blueprint);
+                }
             }
             crate::event::NativeEventKind::Toggle
                 if self.is_expansion_toggle(blueprint, event.node) =>
@@ -221,7 +220,10 @@ impl<H: NativeHost> GuiRuntime<H> {
                 let expanded = self
                     .current_expanded_state(event.node, blueprint)
                     .unwrap_or(false);
-                event.value = Some((!expanded).to_string());
+                event.value = Some(normalize_boolean_event_value(
+                    event.value.as_deref(),
+                    expanded,
+                ));
             }
             crate::event::NativeEventKind::Toggle
                 if self.is_checked_toggle(blueprint, event.node) =>
@@ -229,7 +231,10 @@ impl<H: NativeHost> GuiRuntime<H> {
                 let checked = self
                     .current_checked_state(event.node, blueprint)
                     .unwrap_or(false);
-                event.value = Some((!checked).to_string());
+                event.value = Some(normalize_boolean_event_value(
+                    event.value.as_deref(),
+                    checked,
+                ));
             }
             _ => {}
         }
@@ -507,6 +512,18 @@ fn selected_child_value<'a>(
                     || blueprint.control_state.checked == Some(true))
         })
         .and_then(selected_node_value)
+}
+
+fn normalize_boolean_event_value(value: Option<&str>, current: bool) -> String {
+    parse_event_bool(value).unwrap_or(!current).to_string()
+}
+
+fn parse_event_bool(value: Option<&str>) -> Option<bool> {
+    match value?.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" | "on" => Some(true),
+        "false" | "0" | "off" => Some(false),
+        _ => None,
+    }
 }
 
 fn normalize_change_value(blueprint: &NativeWidgetBlueprint, event: NativeEvent) -> NativeEvent {
@@ -1398,16 +1415,16 @@ mod tests {
 
         let root_id = runtime.render_native(&element).unwrap();
         let focus = runtime
-            .handle_native_event_with_changes(crate::event::NativeEvent::new(
-                root_id,
-                crate::event::NativeEventKind::Focus,
-            ))
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Focus)
+                    .value("maybe"),
+            )
             .unwrap();
         let blur = runtime
-            .handle_native_event_with_changes(crate::event::NativeEvent::new(
-                root_id,
-                crate::event::NativeEventKind::Blur,
-            ))
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Blur)
+                    .value("true"),
+            )
             .unwrap();
 
         assert_eq!(focus.event.value.as_deref(), Some("true"));
@@ -2438,6 +2455,18 @@ mod tests {
     }
 
     #[test]
+    fn runtime_event_bool_parser_canonicalizes_common_native_payloads() {
+        assert_eq!(parse_event_bool(Some(" true ")), Some(true));
+        assert_eq!(parse_event_bool(Some("ON")), Some(true));
+        assert_eq!(parse_event_bool(Some("1")), Some(true));
+        assert_eq!(parse_event_bool(Some(" false ")), Some(false));
+        assert_eq!(parse_event_bool(Some("OFF")), Some(false));
+        assert_eq!(parse_event_bool(Some("0")), Some(false));
+        assert_eq!(parse_event_bool(Some("maybe")), None);
+        assert_eq!(parse_event_bool(None), None);
+    }
+
+    #[test]
     fn runtime_suppresses_read_only_keyboard_toggle_normalization() {
         let element = NativeElement::new("notifications", NativeRole::Switch).with_props(
             NativeProps::new()
@@ -2578,16 +2607,16 @@ mod tests {
 
         let root_id = runtime.render_native(&element).unwrap();
         let first = runtime
-            .handle_native_event_with_changes(crate::event::NativeEvent::new(
-                root_id,
-                crate::event::NativeEventKind::Toggle,
-            ))
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Toggle)
+                    .value("on"),
+            )
             .unwrap();
         let second = runtime
-            .handle_native_event_with_changes(crate::event::NativeEvent::new(
-                root_id,
-                crate::event::NativeEventKind::Toggle,
-            ))
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Toggle)
+                    .value("not-a-bool"),
+            )
             .unwrap();
 
         assert_eq!(first.event.value.as_deref(), Some("true"));
@@ -2625,16 +2654,16 @@ mod tests {
 
         let root_id = runtime.render_native(&element).unwrap();
         let first = runtime
-            .handle_native_event_with_changes(crate::event::NativeEvent::new(
-                root_id,
-                crate::event::NativeEventKind::Toggle,
-            ))
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Toggle)
+                    .value("1"),
+            )
             .unwrap();
         let second = runtime
-            .handle_native_event_with_changes(crate::event::NativeEvent::new(
-                root_id,
-                crate::event::NativeEventKind::Toggle,
-            ))
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Toggle)
+                    .value("not-a-bool"),
+            )
             .unwrap();
 
         assert_eq!(first.event.value.as_deref(), Some("true"));

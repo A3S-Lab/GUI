@@ -109,8 +109,8 @@ The Rust core maps that tree into `NativeElement` and `NativeProps` through
 | `colSpan` / `rowSpan` / `headers` / `scope` / `abbr` / `span` / `start` / `reversed` / list `type` / `li value` | normalized to native table and list structure hints when applicable |
 | `onClick` / `onPress` | normalized to the primary native action |
 | `onChange` / `onInput` | normalized to the primary action for change, selection, and value-toggle controls; text-field change values are clamped to `maxLength`, number-input and slider change values are clamped to min/max range bounds and snapped to step hints, invalid numeric change payloads are ignored before state updates or reducer dispatch, selection-container events without payloads infer the current selected child, and `onChange` wins when both are present |
-| `onFocus` / `onBlur` / `onFocusChange` | routed from native focus and blur events; `onFocusChange` receives boolean string payloads |
-| `onToggle` / `onExpandedChange` | routed from native toggle events; expanded controls receive boolean string payloads |
+| `onFocus` / `onBlur` / `onFocusChange` | routed from native focus and blur events; `onFocusChange` receives canonical `true` / `false` string payloads |
+| `onToggle` / `onExpandedChange` | routed from native toggle events; checked and expanded controls receive canonical `true` / `false` string payloads, with invalid native boolean payloads falling back to the next current state |
 | `onKeyDown` / `onKeyUp` | routed from native keyboard events; `NativeEvent.value` carries the key or shortcut token when the host supplies one |
 | `TextField` + `Label` + `Input` | folded into one native text field; `Input` value, placeholder, style, metadata, and events are inherited |
 | `textarea` direct text children | projected as native text-field value when no explicit value is supplied |
