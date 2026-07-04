@@ -321,13 +321,15 @@ such as focus or blur do not interrupt the batch.
 `GuiRuntime::handle_pending_native_event_results()` keeps the same drain boundary
 but returns one result per native event, including optional action invocations
 and the interaction state changes caused by that event. Those handled event
-results are serializable for host logging and process boundaries. Protocol hosts
-can still send explicit `HostEvent` records. Keyboard event values can carry the
-platform key or shortcut token; the runtime normalizes common native key names
-into canonical payloads such as `Enter`, `Tab`, `Backspace`, `Escape`, arrow
-keys, and a single space for Space. Use the `handle_*` event APIs when the
-caller needs per-event results, including events that only update runtime or
-accessibility state.
+results are serializable for host logging and process boundaries. Events for
+host node ids that no longer belong to the current render tree are treated as
+empty handled events, so a stale native callback from a previous frame cannot
+abort the remaining drain batch. Protocol hosts can still send explicit
+`HostEvent` records. Keyboard event values can carry the platform key or
+shortcut token; the runtime normalizes common native key names into canonical
+payloads such as `Enter`, `Tab`, `Backspace`, `Escape`, arrow keys, and a single
+space for Space. Use the `handle_*` event APIs when the caller needs per-event
+results, including events that only update runtime or accessibility state.
 `NativeRuntimeApp` builds on that embedded runtime path: it owns
 `GuiRuntime<H>`, drains pending native events from hosts that implement
 `NativeEventHost`, applies action invocations to application state through a

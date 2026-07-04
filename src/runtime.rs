@@ -479,9 +479,13 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         mut event: NativeEvent,
     ) -> GuiResult<HandledNativeEvent> {
         event.validate()?;
-        let blueprint = self.host.blueprint(event.node).cloned().ok_or_else(|| {
-            GuiError::host(format!("native node {} has no blueprint", event.node.get()))
-        })?;
+        let Some(blueprint) = self.host.blueprint(event.node).cloned() else {
+            return Ok(HandledNativeEvent {
+                event,
+                invocation: None,
+                interaction_changes: Vec::new(),
+            });
+        };
         let route_blueprints = self
             .renderer
             .ancestor_ids(event.node)
@@ -3190,6 +3194,46 @@ mod tests {
         assert!(runtime.interactions().node(save).is_none());
         assert!(runtime.interactions().changes().is_empty());
         assert!(!runtime.accessibility_tree().unwrap().children[0].focused);
+    }
+
+    #[test]
+    fn runtime_ignores_native_events_for_unmounted_nodes() {
+        let first = NativeElement::new("tools", NativeRole::Toolbar)
+            .child(
+                NativeElement::new("save", NativeRole::Button).with_props(
+                    NativeProps::new()
+                        .label("Save")
+                        .web(WebProps::new().on_press("saveDocument")),
+                ),
+            )
+            .child(
+                NativeElement::new("cancel", NativeRole::Button)
+                    .with_props(NativeProps::new().label("Cancel")),
+            );
+        let second = NativeElement::new("tools", NativeRole::Toolbar).child(
+            NativeElement::new("cancel", NativeRole::Button)
+                .with_props(NativeProps::new().label("Cancel")),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+        runtime.actions_mut().register("saveDocument");
+
+        let root_id = runtime.render_native(&first).unwrap();
+        let save = runtime.host().node(root_id).unwrap().children[0];
+        runtime.render_native(&second).unwrap();
+
+        let handled = runtime
+            .handle_native_event_with_changes(crate::event::NativeEvent::new(
+                save,
+                crate::event::NativeEventKind::Press,
+            ))
+            .unwrap();
+
+        assert_eq!(handled.event.node, save);
+        assert!(handled.invocation.is_none());
+        assert!(handled.interaction_changes.is_empty());
+        assert!(runtime.actions().invocations().is_empty());
+        assert!(runtime.host().node(save).is_none());
     }
 
     #[test]

@@ -429,6 +429,10 @@ the native render succeeds, so failed renders keep the previous action scope.
 Raw protocol frames may omit `actions`; in that case Rust infers the set from
 compiled event props and `actionLabels`. Explicit `actions`, including an empty
 list, override inference.
+Host events that reference a node removed by a later render are handled as
+no-ops. This lets native adapters and protocol hosts tolerate late callbacks
+from widgets that were destroyed by the previous reducer update without
+interrupting the current event drain.
 
 ```text
 onPress={saveProfile}

@@ -215,6 +215,11 @@ mod tests {
         handled: Vec<String>,
     }
 
+    #[derive(Debug, Clone, PartialEq, Default)]
+    struct RemovingState {
+        removed: bool,
+    }
+
     fn counter_frame(state: &CounterState) -> GuiResult<UiFrame> {
         serde_json::from_value(json!({
             "frameId": "counter",
@@ -310,6 +315,57 @@ mod tests {
     fn queue_reduce(state: &mut QueueState, invocation: &ActionInvocation) -> GuiResult<()> {
         state.handled.push(invocation.action.clone());
         Ok(())
+    }
+
+    fn removing_frame(state: &RemovingState) -> GuiResult<UiFrame> {
+        let children = if state.removed {
+            json!([
+                {
+                    "kind": "element",
+                    "key": "done",
+                    "tag": "Button",
+                    "props": {"label": "Done"}
+                }
+            ])
+        } else {
+            json!([
+                {
+                    "kind": "element",
+                    "key": "remove",
+                    "tag": "Button",
+                    "props": {"label": "Remove stale", "events": {"onPress": "remove"}}
+                },
+                {
+                    "kind": "element",
+                    "key": "stale",
+                    "tag": "Button",
+                    "props": {"label": "Stale action", "events": {"onPress": "stale"}}
+                }
+            ])
+        };
+
+        serde_json::from_value(json!({
+            "frameId": "removing",
+            "actions": [{"id": "remove"}, {"id": "stale"}],
+            "root": {
+                "kind": "element",
+                "key": "removing-toolbar",
+                "tag": "Toolbar",
+                "children": children
+            }
+        }))
+        .map_err(|error| GuiError::invalid_tree(format!("invalid removing frame: {error}")))
+    }
+
+    fn removing_reduce(state: &mut RemovingState, invocation: &ActionInvocation) -> GuiResult<()> {
+        match invocation.action.as_str() {
+            "remove" => {
+                state.removed = true;
+                Ok(())
+            }
+            "stale" => Err(GuiError::host("stale action should not dispatch")),
+            other => Err(GuiError::host(format!("unexpected action {other}"))),
+        }
     }
 
     #[test]
@@ -483,6 +539,40 @@ mod tests {
 
         assert_eq!(invocation_actions(&second_batch), vec!["second", "third"]);
         assert_eq!(app.state().handled, vec!["first", "second", "third"]);
+    }
+
+    #[test]
+    fn native_runtime_app_ignores_stale_pending_events_after_rerender_removes_node() {
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut app = NativeRuntimeApp::new(
+            host,
+            RemovingState::default(),
+            removing_frame,
+            removing_reduce,
+        );
+        app.render().unwrap();
+
+        let remove = action_node(&app, "remove");
+        let stale = action_node(&app, "stale");
+
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(remove, NativeEventKind::Press));
+        app.runtime_mut()
+            .host_mut()
+            .executor_mut()
+            .push_native_event(NativeEvent::new(stale, NativeEventKind::Press));
+
+        let responses = app.handle_pending_native_events().unwrap();
+
+        assert!(app.state().removed);
+        assert_eq!(responses.len(), 2);
+        assert_eq!(invocation_actions(&responses), vec!["remove"]);
+        assert!(responses[1].invocation.is_none());
+        assert!(responses[1].render.is_none());
+        assert!(responses[1].interaction_changes.is_empty());
+        assert!(app.runtime().host().planning().node(stale).is_none());
     }
 
     #[test]

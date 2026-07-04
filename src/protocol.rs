@@ -917,6 +917,84 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_ignores_stale_host_events_after_rerender_removes_node() {
+        let first: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "saveProfile"}],
+              "root": {
+                "kind": "element",
+                "key": "toolbar",
+                "tag": "Toolbar",
+                "children": [
+                  {
+                    "kind": "element",
+                    "key": "save",
+                    "tag": "Button",
+                    "props": {"events": {"onPress": "saveProfile"}},
+                    "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+                  },
+                  {
+                    "kind": "element",
+                    "key": "cancel",
+                    "tag": "Button",
+                    "children": [{"kind": "text", "key": "cancel-text", "value": "Cancel"}]
+                  }
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let second: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "toolbar",
+                "tag": "Toolbar",
+                "children": [
+                  {
+                    "kind": "element",
+                    "key": "cancel",
+                    "tag": "Button",
+                    "children": [{"kind": "text", "key": "cancel-text", "value": "Cancel"}]
+                  }
+                ]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let first_response = session.render_frame(&first).unwrap();
+        let save = session
+            .runtime()
+            .host()
+            .node(first_response.root)
+            .unwrap()
+            .children[0];
+        session.render_frame(&second).unwrap();
+
+        let response = session
+            .handle_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(save, NativeEventKind::Press),
+            })
+            .unwrap();
+
+        let accessibility = response.accessibility_tree.unwrap();
+        assert!(response.invocation.is_none());
+        assert!(response.interaction_changes.is_empty());
+        assert!(session.runtime().host().node(save).is_none());
+        assert_eq!(accessibility.children.len(), 1);
+        assert_eq!(accessibility.children[0].label.as_deref(), Some("Cancel"));
+    }
+
+    #[test]
     fn native_protocol_session_rejects_invalid_frame_contracts() {
         let valid: UiFrame = serde_json::from_str(
             r#"

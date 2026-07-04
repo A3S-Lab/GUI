@@ -106,6 +106,7 @@ before A3S GUI is considered generally usable:
   step hints, tabs, switches, and checkboxes
 - overflow-aware root containers that become native scroll viewports
 - reducer-driven rerendering after native events
+- stale queued native events after reducer-driven node removal
 - dialog open and close state
 - keyboard down and key release routing
 - review gates that disable completion until state is valid and suppress
