@@ -99,14 +99,17 @@ jobs:
         include:
           - name: AppKit
             os: macos-latest
+            platform: macos-appkit
             artifact_name: a3s-gui-dogfood-macos
             bundle_path: target/release/bundle/A3SGuiDogfood.app
           - name: GTK4
             os: ubuntu-latest
+            platform: linux-gtk4
             artifact_name: a3s-gui-dogfood-linux
             bundle_path: target/release/bundle/a3s-gui-dogfood-linux
           - name: WinUI
             os: windows-latest
+            platform: windows-winui
             artifact_name: a3s-gui-dogfood-windows
             bundle_path: target/release/bundle/a3s-gui-dogfood-windows
     steps:
@@ -146,8 +149,10 @@ jobs:
           bundle_path="${{ matrix.bundle_path }}"
           tar -czf "$archive" -C "$(dirname "$bundle_path")" "$(basename "$bundle_path")"
           packaging/write-file-sha256.sh "$archive" > "${archive}.sha256"
+          packaging/write-archive-metadata.sh "$archive" "${{ matrix.platform }}" "${{ matrix.artifact_name }}" "${archive}.metadata.txt"
           echo "A3S_GUI_BUNDLE_ARCHIVE=$archive" >> "$GITHUB_ENV"
           echo "A3S_GUI_BUNDLE_ARCHIVE_SHA256=${archive}.sha256" >> "$GITHUB_ENV"
+          echo "A3S_GUI_BUNDLE_ARCHIVE_METADATA=${archive}.metadata.txt" >> "$GITHUB_ENV"
 
       - name: Upload native bundle
         uses: actions/upload-artifact@v6
@@ -156,4 +161,5 @@ jobs:
           path: |
             ${{ env.A3S_GUI_BUNDLE_ARCHIVE }}
             ${{ env.A3S_GUI_BUNDLE_ARCHIVE_SHA256 }}
+            ${{ env.A3S_GUI_BUNDLE_ARCHIVE_METADATA }}
           if-no-files-found: error

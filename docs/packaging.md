@@ -38,8 +38,11 @@ stage, and validate in one step. The validation recipes check the staged file
 layout, executable payload, platform metadata that this crate owns, and the
 bundle manifest's per-file SHA-256 checksums.
 On `main` pushes and manual workflow runs, CI uploads compressed
-`a3s-gui-dogfood-*` bundle artifacts plus matching `.sha256` files after those
-smoke checks pass.
+`a3s-gui-dogfood-*` bundle artifacts after those smoke checks pass. Each upload
+also includes a matching `.sha256` file and `.metadata.txt` handoff note. The
+metadata records the target platform, artifact name, archive filename, archive
+SHA-256, byte count, source commit, and generation time so platform QA can
+identify and verify a downloaded artifact before unpacking it.
 
 ## macOS AppKit
 
