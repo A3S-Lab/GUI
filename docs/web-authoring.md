@@ -463,8 +463,9 @@ listbox items, and tabs, so interaction state and action payloads stay
 semantic. Text-field change values are normalized against `maxLength`.
 Number-input and ranged-control current values are normalized against min/max
 range bounds and step hints on initial render, rerender, and event dispatch,
-before the reducer sees an action payload. This matches native AppKit, GTK4,
-and WinUI control limit behavior.
+before the reducer sees an action payload. Event payload numeric strings are
+trimmed before parsing. This matches native AppKit, GTK4, and WinUI control
+limit behavior.
 Selection-container events that arrive without a native value payload infer the
 current selected child before reducer dispatch, so container-level native
 callbacks and child-targeted selection events share the same action payload

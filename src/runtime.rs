@@ -546,11 +546,7 @@ fn normalize_ranged_change_value(
     blueprint: &NativeWidgetBlueprint,
     mut event: NativeEvent,
 ) -> NativeEvent {
-    let Some(value) = event
-        .value
-        .as_deref()
-        .and_then(|value| value.parse::<f64>().ok())
-    else {
+    let Some(value) = event.value.as_deref().and_then(parse_event_number) else {
         return event;
     };
     if !value.is_finite() {
@@ -565,6 +561,14 @@ fn normalize_ranged_change_value(
 
     event.value = Some(format_normalized_number(value));
     event
+}
+
+fn parse_event_number(value: &str) -> Option<f64> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    value.parse::<f64>().ok()
 }
 
 fn truncate_to_max_length(value: &str, max_length: u32) -> String {
@@ -2111,7 +2115,7 @@ mod tests {
         let handled = runtime
             .handle_native_event_with_changes(
                 crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
-                    .value("99"),
+                    .value(" 99 "),
             )
             .unwrap();
 
@@ -2135,7 +2139,7 @@ mod tests {
         let handled = runtime
             .handle_native_event_with_changes(
                 crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
-                    .value("0"),
+                    .value(" 0 "),
             )
             .unwrap();
 
@@ -2174,7 +2178,7 @@ mod tests {
         let handled = runtime
             .handle_native_event_with_changes(
                 crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
-                    .value("99"),
+                    .value(" 99 "),
             )
             .unwrap();
 
@@ -2198,7 +2202,7 @@ mod tests {
         let handled = runtime
             .handle_native_event_with_changes(
                 crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
-                    .value("0"),
+                    .value(" 0 "),
             )
             .unwrap();
 
@@ -2341,6 +2345,14 @@ mod tests {
             runtime.accessibility_tree().unwrap().value.as_deref(),
             Some("12")
         );
+    }
+
+    #[test]
+    fn runtime_event_number_parser_trims_values_without_coercing_empty_input() {
+        assert_eq!(parse_event_number(" 42 "), Some(42.0));
+        assert_eq!(parse_event_number("\t0.5\n"), Some(0.5));
+        assert_eq!(parse_event_number(" "), None);
+        assert_eq!(parse_event_number("not-a-number"), None);
     }
 
     #[test]

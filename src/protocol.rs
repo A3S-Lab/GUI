@@ -2489,7 +2489,7 @@ mod tests {
         let response = session
             .handle_host_event(&HostEvent {
                 frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("99"),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value(" 99 "),
             })
             .unwrap();
 
@@ -2517,7 +2517,7 @@ mod tests {
         let response = session
             .handle_host_event(&HostEvent {
                 frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("0"),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value(" 0 "),
             })
             .unwrap();
 
@@ -2572,7 +2572,7 @@ mod tests {
         let response = session
             .handle_host_event(&HostEvent {
                 frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("99"),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value(" 99 "),
             })
             .unwrap();
 
@@ -2600,7 +2600,7 @@ mod tests {
         let response = session
             .handle_host_event(&HostEvent {
                 frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("0"),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value(" 0 "),
             })
             .unwrap();
 
