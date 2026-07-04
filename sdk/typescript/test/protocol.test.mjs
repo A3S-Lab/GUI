@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -18,6 +19,8 @@ import {
   jsx,
   jsxs,
 } from '../src/index.js';
+
+const INDEX_TYPES = readFileSync(new URL('../src/index.d.ts', import.meta.url), 'utf8');
 
 test('jsx runtime lowers React Aria-like tree to UiFrame protocol', () => {
   const root = jsxs(TextField, {
@@ -706,12 +709,38 @@ test('window options must be valid native dimensions', () => {
     resizable: false,
   });
   assert.deepEqual(frame.actions, [{id: 'closeProfile', label: 'Close profile'}]);
+  assert.deepEqual(
+    createUiFrame('profile', root, {
+      window: {
+        title: 'Profile',
+        width: '640',
+        height: ' 480 ',
+        minWidth: '320',
+        maxWidth: '1280',
+      },
+    }).window,
+    {
+      title: 'Profile',
+      width: 640,
+      height: 480,
+      minWidth: 320,
+      maxWidth: 1280,
+    },
+  );
   assert.throws(
     () => createUiFrame('profile', root, {window: {width: 640}}),
     /string title/,
   );
   assert.throws(
     () => createUiFrame('profile', root, {window: {title: 'Profile', width: 0}}),
+    /positive finite number/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {window: {title: 'Profile', width: ''}}),
+    /positive finite number/,
+  );
+  assert.throws(
+    () => createUiFrame('profile', root, {window: {title: 'Profile', width: true}}),
     /positive finite number/,
   );
   assert.throws(
@@ -738,4 +767,10 @@ test('window options must be valid native dimensions', () => {
     }),
     /resizable.*boolean/,
   );
+});
+
+test('protocol types allow string-backed window dimensions', () => {
+  assert.match(INDEX_TYPES, /export type Numberish = number \| string;/);
+  assert.match(INDEX_TYPES, /width\?: Numberish;/);
+  assert.match(INDEX_TYPES, /maxHeight\?: Numberish;/);
 });

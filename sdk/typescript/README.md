@@ -47,8 +47,9 @@ Explicit frame actions must also use non-empty, unique string ids. Use
 `defineAction` when the host needs action metadata beyond the stable id.
 Inferred actions preserve labels from `createAction(id, label)` handlers. Empty
 event action ids are ignored by Rust routing instead of being dispatched.
-Window dimensions must be positive finite numbers, and explicit width/height
-values must stay within any declared min/max constraints.
+Window dimensions accept positive finite numbers or non-empty numeric strings,
+and explicit width/height values must stay within any declared min/max
+constraints.
 `window.onClose` accepts the same action-like values as JSX events and is routed
 from native close events.
 Focus, value, and toggle aliases such as `onFocusChange`, `onInput`,

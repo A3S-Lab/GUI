@@ -92,16 +92,17 @@ export interface ActionHandler {
 }
 
 export type ActionLike = string | ActionHandler | ((...args: unknown[]) => void);
+export type Numberish = number | string;
 
 export interface WindowOptions {
   title: string;
   onClose?: ActionLike;
-  width?: number;
-  height?: number;
-  minWidth?: number;
-  minHeight?: number;
-  maxWidth?: number;
-  maxHeight?: number;
+  width?: Numberish;
+  height?: Numberish;
+  minWidth?: Numberish;
+  minHeight?: Numberish;
+  maxWidth?: Numberish;
+  maxHeight?: Numberish;
   resizable?: boolean;
 }
 

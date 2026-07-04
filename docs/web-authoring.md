@@ -371,7 +371,8 @@ The window wrapper is part of the host protocol, not the source component
 tree. The source tree stays independent of host surface selection; hosts decide
 which frames become windows, panels, or embedded surfaces. `window.width`,
 `window.height`, and optional min/max dimensions are projected into portable
-native style. Window dimensions must be positive finite numbers; min/max
+native style. The TypeScript SDK accepts positive finite numbers or non-empty
+numeric strings for those dimensions and emits protocol JSON numbers; min/max
 constraints must not conflict with each other or with the explicit width/height.
 `window.resizable` defaults to `true` and is projected into typed native
 config/setter state while remaining available as protocol metadata for

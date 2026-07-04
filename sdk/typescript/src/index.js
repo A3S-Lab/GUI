@@ -345,8 +345,8 @@ function normalizeWindowOptions(window) {
   }
   for (const property of ['width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight']) {
     if (window[property] == null) continue;
-    const value = window[property];
-    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    const value = positiveFiniteNumber(window[property]);
+    if (value === undefined) {
       throw new Error(`a3s-gui window.${property} must be a positive finite number`);
     }
     normalized[property] = value;
@@ -361,6 +361,19 @@ function normalizeWindowOptions(window) {
   validateWindowDimensionBounds(normalized, 'width', 'minWidth', 'maxWidth');
   validateWindowDimensionBounds(normalized, 'height', 'minHeight', 'maxHeight');
   return normalized;
+}
+
+function positiveFiniteNumber(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? value : undefined;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) return undefined;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  }
+  return undefined;
 }
 
 function validateWindowDimensionBounds(window, valueName, minName, maxName) {
