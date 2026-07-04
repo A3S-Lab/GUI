@@ -51,10 +51,16 @@ jobs:
         include:
           - name: AppKit
             os: macos-latest
+            artifact_name: a3s-gui-dogfood-macos
+            bundle_path: target/release/bundle/A3SGuiDogfood.app
           - name: GTK4
             os: ubuntu-latest
+            artifact_name: a3s-gui-dogfood-linux
+            bundle_path: target/release/bundle/a3s-gui-dogfood-linux
           - name: WinUI
             os: windows-latest
+            artifact_name: a3s-gui-dogfood-windows
+            bundle_path: target/release/bundle/a3s-gui-dogfood-windows
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -132,3 +138,18 @@ jobs:
       - name: Build, stage, and validate native bundle
         shell: bash
         run: just bundle-gate-native
+
+      - name: Archive native bundle
+        shell: bash
+        run: |
+          archive="target/release/bundle/${{ matrix.artifact_name }}.tar.gz"
+          bundle_path="${{ matrix.bundle_path }}"
+          tar -czf "$archive" -C "$(dirname "$bundle_path")" "$(basename "$bundle_path")"
+          echo "A3S_GUI_BUNDLE_ARCHIVE=$archive" >> "$GITHUB_ENV"
+
+      - name: Upload native bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ env.A3S_GUI_BUNDLE_ARCHIVE }}
+          if-no-files-found: error

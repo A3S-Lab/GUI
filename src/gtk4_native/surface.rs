@@ -306,9 +306,6 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 let text_view = gtk::TextView::new();
                 text_view.set_wrap_mode(gtk::WrapMode::WordChar);
                 text_view.set_editable(!config.read_only);
-                if let Some(placeholder) = config.placeholder.as_deref() {
-                    text_view.set_placeholder_text(Some(placeholder));
-                }
                 let buffer = text_view.buffer();
                 let max_length = config.max_length;
                 self.suppress_events(|| {
@@ -437,8 +434,22 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 let dialog = gtk::Dialog::builder()
                     .application(&self.application)
                     .title(config.label.as_deref().unwrap_or(""))
-                    .default_width(config_dimension(config.portable_style.width, 420))
-                    .default_height(config_dimension(config.portable_style.height, 280))
+                    .default_width(config_dimension(
+                        config
+                            .portable_style
+                            .width
+                            .as_ref()
+                            .and_then(StyleLength::points),
+                        420,
+                    ))
+                    .default_height(config_dimension(
+                        config
+                            .portable_style
+                            .height
+                            .as_ref()
+                            .and_then(StyleLength::points),
+                        280,
+                    ))
                     .build();
                 let events = self.events.clone();
                 let events_suppressed = self.events_suppressed.clone();
@@ -734,9 +745,6 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                 }
                 Gtk4OsWidget::SearchEntry(entry) => {
                     entry.set_placeholder_text(value.as_deref());
-                }
-                Gtk4OsWidget::TextView(text_view) => {
-                    text_view.set_placeholder_text(value.as_deref());
                 }
                 _ => {}
             },

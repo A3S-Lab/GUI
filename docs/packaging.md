@@ -36,6 +36,8 @@ Use `just bundle-native` to stage the matching host bundle. Use
 `just check-bundle-native` after staging, or `just bundle-gate-native` to build,
 stage, and validate in one step. The validation recipes check the staged file
 layout, executable payload, and platform metadata that this crate owns.
+On `main` pushes and manual workflow runs, CI uploads compressed
+`a3s-gui-dogfood-*` bundle artifacts after those smoke checks pass.
 
 ## macOS AppKit
 

@@ -53,7 +53,8 @@ tests, TypeScript SDK tests, and whitespace checks.
 The repository CI runs `just verify` on Linux, then runs host-native AppKit,
 GTK4, and WinUI compile checks plus dogfood regression tests on the matching
 operating systems. Pushes to `main` and manual workflow runs also build, stage,
-and validate the unsigned native dogfood bundles.
+validate, and upload compressed unsigned native dogfood bundles for manual
+platform QA.
 
 Use the headless dogfood session when changing protocol, reducer, or rendering
 logic:
