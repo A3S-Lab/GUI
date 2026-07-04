@@ -583,6 +583,7 @@ fn review_dialog(state: &DogfoodState) -> Value {
         "props": {
             "label": "Review gate",
             "attributes": attributes,
+            "events": {"onClose": "closeReview"},
             "style": {"inlineSize": 520}
         },
         "children": [

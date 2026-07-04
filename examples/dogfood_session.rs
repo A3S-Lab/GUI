@@ -474,6 +474,62 @@ mod tests {
     }
 
     #[test]
+    fn dogfood_menu_dialog_and_keyboard_routes_share_close_paths() {
+        let mut app = new_app();
+        app.render().unwrap();
+
+        let review_dialog = find_blueprint_by_label(&app, NativeRole::Dialog, "Review gate");
+        assert_eq!(
+            review_dialog.events.get("onClose").map(String::as_str),
+            Some("closeReview")
+        );
+
+        dispatch(
+            &mut app,
+            "onPress",
+            "requestReview",
+            NativeEventKind::Press,
+            "",
+        );
+        assert!(app.state().review_open);
+        assert_eq!(app.state().stage, "Review");
+
+        let response = dispatch_response(
+            &mut app,
+            "onClose",
+            "closeReview",
+            NativeEventKind::Close,
+            "",
+        );
+        assert!(!app.state().review_open);
+        assert_eq!(app.state().stage, "Review");
+        assert_eq!(app.state().last_event, "Review dialog closed");
+        assert_render_updated_dialog_runtime(&app, &response, false);
+
+        dispatch(
+            &mut app,
+            "onKeyDown",
+            "handleShortcut",
+            NativeEventKind::KeyDown,
+            "r",
+        );
+        assert!(app.state().review_open);
+        assert_eq!(app.state().stage, "Review");
+        assert_eq!(app.state().last_event, "Review requested from shortcut");
+
+        let response = dispatch_response(
+            &mut app,
+            "onKeyDown",
+            "handleShortcut",
+            NativeEventKind::KeyDown,
+            "Escape",
+        );
+        assert!(!app.state().review_open);
+        assert_eq!(app.state().last_event, "Review dialog closed");
+        assert_render_updated_dialog_runtime(&app, &response, false);
+    }
+
+    #[test]
     fn dogfood_disabled_review_completion_actions_are_suppressed() {
         let mut app = new_app();
         app.render().unwrap();
@@ -538,6 +594,48 @@ mod tests {
         assert!(app.state().review_open);
         assert_eq!(app.state().stage, "Review");
         assert_render_updated_dialog(&response, true);
+
+        let response = dispatch_host(
+            &mut app,
+            "onClose",
+            "closeReview",
+            NativeEventKind::Close,
+            "",
+        );
+        assert!(!app.state().review_open);
+        assert_eq!(app.state().last_event, "Review dialog closed");
+        assert_render_updated_dialog(&response, false);
+
+        let response = dispatch_host(
+            &mut app,
+            "onKeyDown",
+            "handleShortcut",
+            NativeEventKind::KeyDown,
+            "r",
+        );
+        assert!(app.state().review_open);
+        assert_eq!(app.state().last_event, "Review requested from shortcut");
+        assert_render_updated_dialog(&response, true);
+
+        let response = dispatch_host(
+            &mut app,
+            "onKeyDown",
+            "handleShortcut",
+            NativeEventKind::KeyDown,
+            "Escape",
+        );
+        assert!(!app.state().review_open);
+        assert_eq!(app.state().last_event, "Review dialog closed");
+        assert_render_updated_dialog(&response, false);
+
+        dispatch_host(
+            &mut app,
+            "onPress",
+            "requestReview",
+            NativeEventKind::Press,
+            "",
+        );
+        assert!(app.state().review_open);
 
         dispatch_host(
             &mut app,
@@ -639,6 +737,24 @@ mod tests {
         );
         assert!(response.render.is_some());
         response
+    }
+
+    fn assert_render_updated_dialog_runtime(
+        app: &DogfoodTestApp,
+        response: &NativeRuntimeEventResponse,
+        open: bool,
+    ) {
+        response
+            .render
+            .as_ref()
+            .expect("state action should render a follow-up frame");
+        assert_eq!(
+            find_blueprint_by_label(app, NativeRole::Dialog, "Review gate")
+                .control_state
+                .html_dialog
+                .open,
+            Some(open)
+        );
     }
 
     fn dispatch_host(
