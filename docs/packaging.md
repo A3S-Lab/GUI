@@ -62,8 +62,10 @@ target/release/bundle/A3SGuiDogfood.app
 The staged bundle uses
 [`packaging/macos/A3SGuiDogfood-Info.plist`](../packaging/macos/A3SGuiDogfood-Info.plist)
 and copies the release example binary into `Contents/MacOS/A3SGuiDogfood`.
-`just check-bundle-appkit` verifies the executable, `Info.plist`, `PkgInfo`,
-and required AppKit bundle metadata.
+It also includes the shared dogfood handoff note at
+`Contents/Resources/README.txt`. `just check-bundle-appkit` verifies the
+executable, `Info.plist`, `PkgInfo`, handoff note, and required AppKit bundle
+metadata.
 
 For distribution, the application owner must sign and notarize the bundle with
 their own identity and bundle identifier:
@@ -106,16 +108,20 @@ Output:
 
 ```text
 target/release/bundle/a3s-gui-dogfood-linux/
+|-- README.txt
 |-- usr/bin/a3s-gui-dogfood
 `-- usr/share/applications/a3s-gui-dogfood.desktop
 ```
 
 The desktop entry comes from
 [`packaging/linux/a3s-gui-dogfood.desktop`](../packaging/linux/a3s-gui-dogfood.desktop).
+`README.txt` is copied from
+[`packaging/a3s-gui-dogfood-README.txt`](../packaging/a3s-gui-dogfood-README.txt)
+so downloaded smoke artifacts identify themselves and their run paths.
 The staged tree is suitable input for a later `.deb`, `.rpm`, AppImage, or
 Flatpak pipeline. It is not itself an installer.
-`just check-bundle-gtk4` verifies the executable payload and desktop entry
-fields owned by this crate.
+`just check-bundle-gtk4` verifies the executable payload, desktop entry, and
+handoff note owned by this crate.
 
 ## Windows WinUI
 
@@ -144,16 +150,19 @@ Output:
 ```text
 target/release/bundle/a3s-gui-dogfood-windows/
 |-- A3SGuiDogfood.exe
-`-- A3SGuiDogfood.exe.manifest
+|-- A3SGuiDogfood.exe.manifest
+`-- README.txt
 ```
 
 The manifest comes from
 [`packaging/windows/a3s-gui-dogfood.manifest`](../packaging/windows/a3s-gui-dogfood.manifest).
-It is staged as sidecar metadata for local release smoke testing. A real Windows
-application should embed the manifest, add product resources, and publish
-through MSIX, MSI, winget, or another installer path owned by the product.
-`just check-bundle-winui` verifies the executable payload and sidecar manifest
-fields owned by this crate.
+It is staged as sidecar metadata for local release smoke testing. `README.txt`
+is copied from
+[`packaging/a3s-gui-dogfood-README.txt`](../packaging/a3s-gui-dogfood-README.txt).
+A real Windows application should embed the manifest, add product resources, and
+publish through MSIX, MSI, winget, or another installer path owned by the
+product. `just check-bundle-winui` verifies the executable payload, sidecar
+manifest, and handoff note owned by this crate.
 
 Non-Windows hosts can still run API checks for WinUI when the Rust target is
 installed:

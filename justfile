@@ -98,6 +98,7 @@ bundle-appkit:
     mkdir -p "$bundle_dir/Contents/MacOS" "$bundle_dir/Contents/Resources"
     cp target/release/examples/appkit_dogfood "$bundle_dir/Contents/MacOS/A3SGuiDogfood"
     cp packaging/macos/A3SGuiDogfood-Info.plist "$bundle_dir/Contents/Info.plist"
+    cp packaging/a3s-gui-dogfood-README.txt "$bundle_dir/Contents/Resources/README.txt"
     printf 'APPL????' > "$bundle_dir/Contents/PkgInfo"
     chmod +x "$bundle_dir/Contents/MacOS/A3SGuiDogfood"
 
@@ -117,15 +118,18 @@ check-bundle-appkit:
     binary="$bundle_dir/Contents/MacOS/A3SGuiDogfood"
     plist="$bundle_dir/Contents/Info.plist"
     pkginfo="$bundle_dir/Contents/PkgInfo"
+    readme="$bundle_dir/Contents/Resources/README.txt"
 
     [[ -d "$bundle_dir/Contents/MacOS" ]] || { echo "missing app MacOS directory: $bundle_dir/Contents/MacOS" >&2; exit 1; }
     [[ -d "$bundle_dir/Contents/Resources" ]] || { echo "missing app Resources directory: $bundle_dir/Contents/Resources" >&2; exit 1; }
     [[ -x "$binary" ]] || { echo "missing executable app binary: $binary" >&2; exit 1; }
     [[ -f "$plist" ]] || { echo "missing app Info.plist: $plist" >&2; exit 1; }
     [[ -f "$pkginfo" ]] || { echo "missing app PkgInfo: $pkginfo" >&2; exit 1; }
+    [[ -f "$readme" ]] || { echo "missing app handoff README: $readme" >&2; exit 1; }
     [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$plist")" == "A3SGuiDogfood" ]] || { echo "Info.plist CFBundleExecutable does not match A3SGuiDogfood" >&2; exit 1; }
     [[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundlePackageType' "$plist")" == "APPL" ]] || { echo "Info.plist CFBundlePackageType does not match APPL" >&2; exit 1; }
     [[ "$(cat "$pkginfo")" == "APPL????" ]] || { echo "PkgInfo does not match APPL????" >&2; exit 1; }
+    grep -q 'unsigned smoke artifact' "$readme" || { echo "handoff README does not identify an unsigned smoke artifact" >&2; exit 1; }
 
     echo "validated $bundle_dir"
 
@@ -146,6 +150,7 @@ bundle-gtk4:
     mkdir -p "$bundle_dir/usr/bin" "$bundle_dir/usr/share/applications"
     cp target/release/examples/gtk4_dogfood "$bundle_dir/usr/bin/a3s-gui-dogfood"
     cp packaging/linux/a3s-gui-dogfood.desktop "$bundle_dir/usr/share/applications/a3s-gui-dogfood.desktop"
+    cp packaging/a3s-gui-dogfood-README.txt "$bundle_dir/README.txt"
     chmod +x "$bundle_dir/usr/bin/a3s-gui-dogfood"
 
     echo "staged $bundle_dir"
@@ -163,12 +168,15 @@ check-bundle-gtk4:
     bundle_dir="target/release/bundle/a3s-gui-dogfood-linux"
     binary="$bundle_dir/usr/bin/a3s-gui-dogfood"
     desktop="$bundle_dir/usr/share/applications/a3s-gui-dogfood.desktop"
+    readme="$bundle_dir/README.txt"
 
     [[ -x "$binary" ]] || { echo "missing executable GTK4 dogfood binary: $binary" >&2; exit 1; }
     [[ -f "$desktop" ]] || { echo "missing desktop entry: $desktop" >&2; exit 1; }
+    [[ -f "$readme" ]] || { echo "missing GTK4 handoff README: $readme" >&2; exit 1; }
     grep -qx 'Type=Application' "$desktop" || { echo "desktop entry Type is not Application" >&2; exit 1; }
     grep -qx 'Name=A3S GUI Dogfood' "$desktop" || { echo "desktop entry Name does not match A3S GUI Dogfood" >&2; exit 1; }
     grep -qx 'Exec=a3s-gui-dogfood' "$desktop" || { echo "desktop entry Exec does not match a3s-gui-dogfood" >&2; exit 1; }
+    grep -q 'unsigned smoke artifact' "$readme" || { echo "handoff README does not identify an unsigned smoke artifact" >&2; exit 1; }
 
     echo "validated $bundle_dir"
 
@@ -193,6 +201,7 @@ bundle-winui:
     mkdir -p "$bundle_dir"
     cp target/x86_64-pc-windows-msvc/release/examples/winui_dogfood.exe "$bundle_dir/A3SGuiDogfood.exe"
     cp packaging/windows/a3s-gui-dogfood.manifest "$bundle_dir/A3SGuiDogfood.exe.manifest"
+    cp packaging/a3s-gui-dogfood-README.txt "$bundle_dir/README.txt"
 
     echo "staged $bundle_dir"
 
@@ -213,11 +222,14 @@ check-bundle-winui:
     bundle_dir="target/release/bundle/a3s-gui-dogfood-windows"
     binary="$bundle_dir/A3SGuiDogfood.exe"
     manifest="$bundle_dir/A3SGuiDogfood.exe.manifest"
+    readme="$bundle_dir/README.txt"
 
     [[ -s "$binary" ]] || { echo "missing WinUI dogfood executable: $binary" >&2; exit 1; }
     [[ -f "$manifest" ]] || { echo "missing WinUI dogfood manifest: $manifest" >&2; exit 1; }
+    [[ -f "$readme" ]] || { echo "missing WinUI handoff README: $readme" >&2; exit 1; }
     grep -q 'name="A3S.GUI.Dogfood"' "$manifest" || { echo "manifest assembly identity does not match A3S.GUI.Dogfood" >&2; exit 1; }
     grep -q '<dpiAwareness' "$manifest" || { echo "manifest is missing dpiAwareness" >&2; exit 1; }
+    grep -q 'unsigned smoke artifact' "$readme" || { echo "handoff README does not identify an unsigned smoke artifact" >&2; exit 1; }
 
     echo "validated $bundle_dir"
 

@@ -153,7 +153,8 @@ just check-bundle-native
 
 The staged bundles are unsigned smoke artifacts. Product repositories still own
 bundle identifiers, icons, signing, notarization, installers, update metadata,
-and target-platform QA.
+and target-platform QA. Each staged dogfood bundle includes a `README.txt`
+handoff note that identifies the artifact and run path.
 
 ## Documentation
 
