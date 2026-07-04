@@ -2634,6 +2634,46 @@ mod tests {
     }
 
     #[test]
+    fn native_protocol_session_clamps_initial_text_value_to_max_length_before_rendering() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "root": {
+                "kind": "element",
+                "key": "name",
+                "tag": "TextField",
+                "props": {
+                  "value": "aé日b",
+                  "attributes": {"maxLength": "3"}
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let response = session.render_frame(&frame).unwrap();
+        let blueprint = &session
+            .runtime()
+            .host()
+            .node(response.root)
+            .unwrap()
+            .blueprint;
+
+        assert_eq!(blueprint.control_state.max_length, Some(3));
+        assert_eq!(blueprint.value.as_deref(), Some("aé日"));
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.value.as_deref()),
+            Some("aé日")
+        );
+    }
+
+    #[test]
     fn native_protocol_session_clamps_slider_change_values_to_range_bounds() {
         let frame: UiFrame = serde_json::from_str(
             r#"

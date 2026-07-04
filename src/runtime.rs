@@ -8,8 +8,8 @@ use crate::event::{ActionInvocation, ActionRegistry, EventRouter, NativeEvent};
 use crate::host::{HostNodeId, NativeHost};
 use crate::interaction::{InteractionChange, InteractionNodeState, InteractionState};
 use crate::native::{
-    format_normalized_number, is_number_input_type, normalize_range_value, NativeElement,
-    NativeProps,
+    format_normalized_number, is_number_input_type, normalize_range_value, truncate_to_max_length,
+    NativeElement, NativeProps,
 };
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::react_aria::{AriaElement, ReactAriaMapper};
@@ -652,15 +652,6 @@ fn parse_event_number(value: &str) -> Option<f64> {
         return None;
     }
     value.parse::<f64>().ok()
-}
-
-fn truncate_to_max_length(value: &str, max_length: u32) -> String {
-    let max_length = max_length as usize;
-    if value.chars().count() <= max_length {
-        value.to_string()
-    } else {
-        value.chars().take(max_length).collect()
-    }
 }
 
 fn has_explicit_key_down_handler(
@@ -2179,6 +2170,43 @@ mod tests {
         assert_eq!(
             runtime.actions().invocations()[0].value.as_deref(),
             Some("aé日")
+        );
+    }
+
+    #[test]
+    fn runtime_clamps_initial_text_value_to_max_length_before_rendering() {
+        let element = NativeElement::new("name", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Name")
+                .value("aé日b")
+                .max_length(Some(3)),
+        );
+        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let mut runtime = GuiRuntime::new(host);
+
+        let root_id = runtime.render_native(&element).unwrap();
+        let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+        assert_eq!(blueprint.control_state.max_length, Some(3));
+        assert_eq!(blueprint.value.as_deref(), Some("aé日"));
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("aé日")
+        );
+
+        let updated = NativeElement::new("name", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Name")
+                .value("Ada Lovelace")
+                .max_length(Some(3)),
+        );
+        runtime.render_native(&updated).unwrap();
+        let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+        assert_eq!(blueprint.value.as_deref(), Some("Ada"));
+        assert_eq!(
+            runtime.accessibility_tree().unwrap().value.as_deref(),
+            Some("Ada")
         );
     }
 

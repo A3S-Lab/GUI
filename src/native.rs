@@ -808,11 +808,13 @@ pub(crate) fn normalize_props_for_native_role(
     role: NativeRole,
     props: &NativeProps,
 ) -> NativeProps {
-    if !role_has_ranged_value(role, props) {
-        return props.clone();
+    let mut normalized = props.clone();
+    normalize_text_value_for_native_role(role, &mut normalized);
+
+    if !role_has_ranged_value(role, &normalized) {
+        return normalized;
     }
 
-    let mut normalized = props.clone();
     let (min, max) = normalize_range_bounds(props.min, props.max);
     normalized.min = min;
     normalized.max = max;
@@ -831,6 +833,18 @@ pub(crate) fn normalize_props_for_native_role(
     }
 
     normalized
+}
+
+fn normalize_text_value_for_native_role(role: NativeRole, props: &mut NativeProps) {
+    if role != NativeRole::TextField {
+        return;
+    }
+
+    let (Some(max_length), Some(value)) = (props.max_length, props.value.as_deref()) else {
+        return;
+    };
+
+    props.value = Some(truncate_to_max_length(value, max_length));
 }
 
 pub(crate) fn role_has_ranged_value(role: NativeRole, props: &NativeProps) -> bool {
@@ -864,6 +878,15 @@ pub(crate) fn format_normalized_number(value: f64) -> String {
         format!("{value:.0}")
     } else {
         value.to_string()
+    }
+}
+
+pub(crate) fn truncate_to_max_length(value: &str, max_length: u32) -> String {
+    let max_length = max_length as usize;
+    if value.chars().count() <= max_length {
+        value.to_string()
+    } else {
+        value.chars().take(max_length).collect()
     }
 }
 
