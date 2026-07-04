@@ -455,10 +455,12 @@ compiled frame keeps native press semantics.
 Keyboard callbacks follow the same action-routing path. `onKeyDown` and
 `onKeyUp` are routed from `NativeEventKind::KeyDown` and
 `NativeEventKind::KeyUp`; hosts can put the key or shortcut token in
-`NativeEvent.value`. If no explicit `onKeyDown` handler is present on the
-target or its route ancestors, Enter and Space key-down events fall back to the
-primary press action for activatable controls such as buttons, links, and menu
-items. Keyboard activation is also normalized into `Toggle` or
+`NativeEvent.value`, and the runtime normalizes common platform key names such
+as `Return`, `KP_Enter`, `space`, and `Esc` before reducer dispatch. If no
+explicit `onKeyDown` handler is present on the target or its route ancestors,
+Enter and Space key-down events fall back to the primary press action for
+activatable controls such as buttons, links, and menu items. Keyboard
+activation is also normalized into `Toggle` or
 `SelectionChange` events for checkboxes, switches, expanded controls, radios,
 listbox items, and tabs, so interaction state and action payloads stay
 semantic. Text-field change values are normalized against `maxLength`.

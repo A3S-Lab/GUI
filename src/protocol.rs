@@ -1727,7 +1727,7 @@ mod tests {
         let response = session
             .dispatch_host_event(&HostEvent {
                 frame_id: "search".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::KeyDown).value("Enter"),
+                event: NativeEvent::new(rendered.root, NativeEventKind::KeyDown).value(" Return "),
             })
             .unwrap();
 

@@ -204,6 +204,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         route_blueprints: &[NativeWidgetBlueprint],
         mut event: NativeEvent,
     ) -> NativeEvent {
+        event = normalize_keyboard_event_value(event);
         event = self.normalize_keyboard_activation(blueprint, route_blueprints, event);
 
         match event.kind {
@@ -519,6 +520,16 @@ fn selected_child_value<'a>(
                     || blueprint.control_state.checked == Some(true))
         })
         .and_then(selected_node_value)
+}
+
+fn normalize_keyboard_event_value(mut event: NativeEvent) -> NativeEvent {
+    if matches!(
+        event.kind,
+        crate::event::NativeEventKind::KeyDown | crate::event::NativeEventKind::KeyUp
+    ) {
+        event.value = event.value.as_deref().map(crate::event::native_key_value);
+    }
+    event
 }
 
 fn normalize_boolean_event_value(value: Option<&str>, current: bool) -> String {
@@ -1202,7 +1213,7 @@ mod tests {
         let invocation = runtime
             .dispatch_native_event(
                 crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::KeyDown)
-                    .value("Enter"),
+                    .value(" Return "),
             )
             .unwrap();
 
@@ -2754,17 +2765,25 @@ mod tests {
         let handled = runtime
             .handle_native_event_with_changes(
                 crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::KeyDown)
-                    .value(" "),
+                    .value("space"),
             )
             .unwrap();
 
         assert_eq!(handled.event.kind, crate::event::NativeEventKind::KeyDown);
+        assert_eq!(handled.event.value.as_deref(), Some(" "));
         assert_eq!(
             handled
                 .invocation
                 .as_ref()
                 .map(|invocation| invocation.action.as_str()),
             Some("handleKeyDown")
+        );
+        assert_eq!(
+            handled
+                .invocation
+                .as_ref()
+                .and_then(|invocation| invocation.value.as_deref()),
+            Some(" ")
         );
         assert!(handled.interaction_changes.is_empty());
         assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(false));

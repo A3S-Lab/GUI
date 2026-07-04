@@ -322,8 +322,10 @@ but returns one result per native event, including optional action invocations
 and the interaction state changes caused by that event. Those handled event
 results are serializable for host logging and process boundaries. Protocol hosts
 can still send explicit `HostEvent` records. Keyboard event values can carry the
-platform key or shortcut token. Use the `handle_*` event APIs when the caller
-needs per-event results, including events that only update runtime or
+platform key or shortcut token; the runtime normalizes common native key names
+into canonical payloads such as `Enter`, `Tab`, `Backspace`, `Escape`, arrow
+keys, and a single space for Space. Use the `handle_*` event APIs when the
+caller needs per-event results, including events that only update runtime or
 accessibility state.
 `NativeRuntimeApp` builds on that embedded runtime path: it owns
 `GuiRuntime<H>`, drains pending native events from hosts that implement
