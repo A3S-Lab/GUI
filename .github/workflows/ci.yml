@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust
         shell: bash
@@ -30,9 +30,9 @@ jobs:
           rustup component add rustfmt
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install just
         shell: bash
@@ -57,7 +57,7 @@ jobs:
             os: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust
         shell: bash
@@ -111,7 +111,7 @@ jobs:
             bundle_path: target/release/bundle/a3s-gui-dogfood-windows
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust
         shell: bash
@@ -150,7 +150,7 @@ jobs:
           echo "A3S_GUI_BUNDLE_ARCHIVE_SHA256=${archive}.sha256" >> "$GITHUB_ENV"
 
       - name: Upload native bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact_name }}
           path: |
