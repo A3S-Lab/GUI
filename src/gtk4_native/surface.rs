@@ -207,26 +207,46 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
                     Gtk4OsWidget::PasswordEntry(entry)
                 } else {
                     let entry = gtk::Entry::new();
+                    let max_length = config.max_length;
                     self.suppress_events(|| {
-                        entry.set_text(config.value.as_deref().unwrap_or(""));
+                        entry.set_text(&truncate_to_max_length(
+                            config.value.as_deref().unwrap_or(""),
+                            max_length,
+                        ));
                     });
+                    entry.set_max_length(max_length.map(u32_to_i32).unwrap_or(0));
                     if let Some(placeholder) = config.placeholder.as_deref() {
                         entry.set_placeholder_text(Some(placeholder));
                     }
+                    entry.set_editable(!config.read_only);
                     self.text_inputs
                         .insert(id, Gtk4TextInputSizing::from_config(&config));
                     self.text_input_configs.insert(id, config.clone());
+                    self.text_input_max_lengths
+                        .borrow_mut()
+                        .insert(id, config.max_length);
                     self.apply_entry_width_hint(id, &entry);
 
                     let events = self.events.clone();
                     let events_suppressed = self.events_suppressed.clone();
+                    let text_input_max_lengths = self.text_input_max_lengths.clone();
                     entry.connect_changed(move |entry| {
-                        push_event(
-                            &events,
-                            &events_suppressed,
-                            NativeEvent::new(id, NativeEventKind::Change)
-                                .value(entry.text().to_string()),
-                        );
+                        if *events_suppressed.borrow() {
+                            return;
+                        }
+
+                        let raw_value = entry.text().to_string();
+                        let max_length =
+                            text_input_max_lengths.borrow().get(&id).copied().flatten();
+                        let value = truncate_to_max_length(&raw_value, max_length);
+                        if value != raw_value {
+                            let previous = events_suppressed.replace(true);
+                            entry.set_text(&value);
+                            events_suppressed.replace(previous);
+                        }
+                        events
+                            .borrow_mut()
+                            .push(NativeEvent::new(id, NativeEventKind::Change).value(value));
                     });
 
                     let events = self.events.clone();
@@ -601,7 +621,18 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             }
             NativeWidgetSetter::SetValue(value) => match &handle.widget {
                 Gtk4OsWidget::Entry(entry) => {
-                    self.suppress_events(|| entry.set_text(value.as_deref().unwrap_or("")));
+                    let max_length = self
+                        .text_input_max_lengths
+                        .borrow()
+                        .get(&id)
+                        .copied()
+                        .flatten();
+                    self.suppress_events(|| {
+                        entry.set_text(&truncate_to_max_length(
+                            value.as_deref().unwrap_or(""),
+                            max_length,
+                        ));
+                    });
                 }
                 Gtk4OsWidget::SearchEntry(entry) => {
                     let max_length = self
@@ -973,7 +1004,12 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             }
             NativeWidgetSetter::SetMaxLength(value) => match &handle.widget {
                 Gtk4OsWidget::Entry(entry) => {
+                    self.text_input_max_lengths.borrow_mut().insert(id, *value);
                     entry.set_max_length(value.map(u32_to_i32).unwrap_or(0));
+                    let current = entry.text().to_string();
+                    self.suppress_events(|| {
+                        entry.set_text(&truncate_to_max_length(&current, *value));
+                    });
                 }
                 Gtk4OsWidget::SearchEntry(entry) => {
                     self.text_input_max_lengths.borrow_mut().insert(id, *value);
