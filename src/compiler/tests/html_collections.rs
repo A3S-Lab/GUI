@@ -2,14 +2,14 @@ use super::support::*;
 
 #[test]
 fn lowers_html_table_structure_attributes_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let table = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let table = CompiledRsxNode::Element {
         key: "metrics".to_string(),
         tag: "table".to_string(),
         import_source: None,
         props: CompiledProps::default(),
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "metric-cols".to_string(),
                 tag: "colgroup".to_string(),
                 import_source: None,
@@ -17,7 +17,7 @@ fn lowers_html_table_structure_attributes_to_native_state() {
                     attributes: BTreeMap::from([("span".to_string(), "2".to_string())]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Element {
+                children: vec![CompiledRsxNode::Element {
                     key: "metric-col".to_string(),
                     tag: "col".to_string(),
                     import_source: None,
@@ -28,13 +28,13 @@ fn lowers_html_table_structure_attributes_to_native_state() {
                     children: Vec::new(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "metric-row".to_string(),
                 tag: "tr".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
                 children: vec![
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "metric-heading".to_string(),
                         tag: "th".to_string(),
                         import_source: None,
@@ -50,7 +50,7 @@ fn lowers_html_table_structure_attributes_to_native_state() {
                         },
                         children: Vec::new(),
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "metric-cell".to_string(),
                         tag: "td".to_string(),
                         import_source: None,
@@ -105,8 +105,8 @@ fn lowers_html_table_structure_attributes_to_native_state() {
 
 #[test]
 fn lowers_html_list_structure_attributes_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let list = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let list = CompiledRsxNode::Element {
         key: "steps".to_string(),
         tag: "ol".to_string(),
         import_source: None,
@@ -119,7 +119,7 @@ fn lowers_html_list_structure_attributes_to_native_state() {
             ..CompiledProps::default()
         },
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "step".to_string(),
                 tag: "li".to_string(),
                 import_source: None,
@@ -132,7 +132,7 @@ fn lowers_html_list_structure_attributes_to_native_state() {
                 },
                 children: Vec::new(),
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "fallback-step".to_string(),
                 tag: "li".to_string(),
                 import_source: None,

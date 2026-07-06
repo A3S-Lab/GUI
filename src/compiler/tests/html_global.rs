@@ -2,8 +2,8 @@ use super::support::*;
 
 #[test]
 fn lowers_html_global_attributes_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let node = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let node = CompiledRsxNode::Element {
         key: "panel".to_string(),
         tag: "section".to_string(),
         import_source: None,

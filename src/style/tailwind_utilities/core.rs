@@ -9,8 +9,11 @@ pub(in crate::style) fn tailwind_prefixed_declaration(class: &str) -> Option<(St
         Some(("min-width".to_string(), style_length_css(value)))
     } else if let Some(value) = class.strip_prefix("min-h-").and_then(tailwind_length) {
         Some(("min-height".to_string(), style_length_css(value)))
-    } else if let Some(value) = class.strip_prefix("max-w-").and_then(tailwind_length) {
-        Some(("max-width".to_string(), style_length_css(value)))
+    } else if let Some(value) = class
+        .strip_prefix("max-w-")
+        .and_then(tailwind_max_width_css)
+    {
+        Some(("max-width".to_string(), value))
     } else if let Some(value) = class.strip_prefix("max-h-").and_then(tailwind_length) {
         Some(("max-height".to_string(), style_length_css(value)))
     } else if let Some(value) = class.strip_prefix("gap-").and_then(tailwind_length) {

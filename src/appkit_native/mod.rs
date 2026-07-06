@@ -11,19 +11,22 @@ use objc2::{
     MainThreadOnly,
 };
 use objc2_app_kit::{
-    NSApplication, NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSButton, NSComboBox,
-    NSComboBoxDelegate, NSControl, NSControlStateValue, NSControlStateValueOff,
-    NSControlStateValueOn, NSControlTextEditingDelegate, NSEvent, NSEventMask, NSEventType, NSMenu,
-    NSMenuItem, NSPanel, NSPopover, NSPopoverBehavior, NSProgressIndicator,
-    NSProgressIndicatorStyle, NSResponder, NSScrollView, NSSearchField, NSSearchFieldDelegate,
-    NSSecureTextField, NSSlider, NSStackView, NSStackViewDistribution, NSSwitch, NSTabView,
-    NSTabViewDelegate, NSTabViewItem, NSTextField, NSTextFieldDelegate,
-    NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow, NSWindowDelegate,
-    NSWindowStyleMask,
+    NSApplication, NSApplicationActivationOptions, NSApplicationActivationPolicy,
+    NSAutoresizingMaskOptions, NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSButton,
+    NSColor, NSComboBox, NSComboBoxDelegate, NSControl, NSControlStateValue,
+    NSControlStateValueOff, NSControlStateValueOn, NSControlTextEditingDelegate, NSEvent,
+    NSEventMask, NSEventType, NSFont, NSLayoutAttribute, NSLayoutConstraint,
+    NSLayoutConstraintOrientation, NSLayoutPriorityDefaultLow, NSLayoutPriorityRequired,
+    NSLayoutRelation, NSMenu, NSMenuItem, NSPanel, NSPopover, NSPopoverBehavior,
+    NSProgressIndicator, NSProgressIndicatorStyle, NSResponder, NSRunningApplication, NSScrollView,
+    NSSearchField, NSSearchFieldDelegate, NSSecureTextField, NSSlider, NSStackView,
+    NSStackViewDistribution, NSSwitch, NSTabView, NSTabViewDelegate, NSTabViewItem, NSTextField,
+    NSTextFieldDelegate, NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow,
+    NSWindowDelegate, NSWindowStyleMask,
 };
 use objc2_foundation::{
-    NSDate, NSDefaultRunLoopMode, NSInteger, NSNotification, NSObject, NSObjectProtocol, NSPoint,
-    NSRect, NSSize, NSString,
+    NSDate, NSDefaultRunLoopMode, NSEdgeInsets, NSInteger, NSNotification, NSObject,
+    NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
 };
 
 use crate::app::{NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse};
@@ -45,7 +48,7 @@ use crate::platform::{
     NativeWidgetConfig, NativeWidgetSetter,
 };
 use crate::protocol::UiFrame;
-use crate::style::{OverflowMode, PortableStyle, StyleLength};
+use crate::style::{EdgeInsets, FontWeight, OverflowMode, PortableStyle, StyleColor, StyleLength};
 
 mod surface;
 
@@ -85,6 +88,7 @@ pub struct AppKitNativeSurface {
     ranges: BTreeMap<HostNodeId, AppKitRangeState>,
     text_inputs: BTreeMap<HostNodeId, AppKitTextInputSizing>,
     text_input_configs: BTreeMap<HostNodeId, NativeWidgetConfig>,
+    size_constraints: BTreeMap<HostNodeId, AppKitSizeConstraints>,
     menus: AppKitMenuRegistry,
 }
 
@@ -100,7 +104,12 @@ impl AppKitNativeSurface {
             GuiError::host("AppKit native surface must be created on main thread")
         })?;
         let application = NSApplication::sharedApplication(mtm);
+        application.setActivationPolicy(NSApplicationActivationPolicy::Regular);
         application.finishLaunching();
+        #[allow(deprecated)]
+        {
+            application.activateIgnoringOtherApps(true);
+        }
         Ok(Self {
             mtm,
             _application: application,
@@ -124,6 +133,7 @@ impl AppKitNativeSurface {
             ranges: BTreeMap::new(),
             text_inputs: BTreeMap::new(),
             text_input_configs: BTreeMap::new(),
+            size_constraints: BTreeMap::new(),
             menus: AppKitMenuRegistry::default(),
         })
     }
@@ -180,6 +190,126 @@ impl AppKitNativeSurface {
             APPKIT_TEXT_INPUT_DEFAULT_HEIGHT
         };
         view.setFrameSize(NSSize::new(width, height));
+    }
+
+    fn apply_native_size_constraints(
+        &mut self,
+        id: HostNodeId,
+        view: &NSView,
+        style: &PortableStyle,
+    ) {
+        let constraints = style.native_size_constraints();
+        if constraints.width.is_none()
+            && constraints.height.is_none()
+            && constraints.min_width.is_none()
+            && constraints.min_height.is_none()
+            && constraints.max_width.is_none()
+            && constraints.max_height.is_none()
+        {
+            self.clear_native_size_constraints(id);
+            return;
+        }
+
+        self.clear_native_size_constraints(id);
+
+        let current = view.frame().size;
+        let width = constraints.width.unwrap_or(current.width.max(120.0));
+        let height = constraints.height.unwrap_or(current.height.max(32.0));
+        view.setFrameSize(NSSize::new(width, height));
+        view.setTranslatesAutoresizingMaskIntoConstraints(false);
+        view.setContentCompressionResistancePriority_forOrientation(
+            NSLayoutPriorityRequired,
+            NSLayoutConstraintOrientation::Horizontal,
+        );
+        view.setContentCompressionResistancePriority_forOrientation(
+            NSLayoutPriorityRequired,
+            NSLayoutConstraintOrientation::Vertical,
+        );
+        view.setContentHuggingPriority_forOrientation(
+            if constraints.width.is_some() {
+                NSLayoutPriorityRequired
+            } else {
+                NSLayoutPriorityDefaultLow
+            },
+            NSLayoutConstraintOrientation::Horizontal,
+        );
+        view.setContentHuggingPriority_forOrientation(
+            if constraints.height.is_some() {
+                NSLayoutPriorityRequired
+            } else {
+                NSLayoutPriorityDefaultLow
+            },
+            NSLayoutConstraintOrientation::Vertical,
+        );
+
+        let mut active_constraints = Vec::new();
+        if let Some(width) = constraints.width {
+            active_constraints.push(size_constraint(
+                view,
+                NSLayoutAttribute::Width,
+                NSLayoutRelation::Equal,
+                width,
+            ));
+        }
+        if let Some(height) = constraints.height {
+            active_constraints.push(size_constraint(
+                view,
+                NSLayoutAttribute::Height,
+                NSLayoutRelation::Equal,
+                height,
+            ));
+        }
+        if let Some(width) = constraints.min_width {
+            active_constraints.push(size_constraint(
+                view,
+                NSLayoutAttribute::Width,
+                NSLayoutRelation::GreaterThanOrEqual,
+                width,
+            ));
+        }
+        if let Some(height) = constraints.min_height {
+            active_constraints.push(size_constraint(
+                view,
+                NSLayoutAttribute::Height,
+                NSLayoutRelation::GreaterThanOrEqual,
+                height,
+            ));
+        }
+        if let Some(width) = constraints.max_width {
+            active_constraints.push(size_constraint(
+                view,
+                NSLayoutAttribute::Width,
+                NSLayoutRelation::LessThanOrEqual,
+                width,
+            ));
+        }
+        if let Some(height) = constraints.max_height {
+            active_constraints.push(size_constraint(
+                view,
+                NSLayoutAttribute::Height,
+                NSLayoutRelation::LessThanOrEqual,
+                height,
+            ));
+        }
+
+        if !active_constraints.is_empty() {
+            for constraint in &active_constraints {
+                constraint.setActive(true);
+            }
+            self.size_constraints
+                .insert(id, AppKitSizeConstraints { active_constraints });
+        }
+        view.invalidateIntrinsicContentSize();
+        view.setNeedsLayout(true);
+    }
+
+    fn clear_native_size_constraints(&mut self, id: HostNodeId) {
+        let Some(previous) = self.size_constraints.remove(&id) else {
+            return;
+        };
+        for constraint in previous.active_constraints {
+            constraint.setActive(false);
+        }
     }
 
     fn apply_text_input_hints(&self, id: HostNodeId, widget: &AppKitOsWidget) {
@@ -417,6 +547,47 @@ struct AppKitWindowDelegateIvars {
     node: HostNodeId,
     events: Rc<RefCell<Vec<NativeEvent>>>,
     closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
+}
+
+define_class!(
+    #[unsafe(super(NSView))]
+    #[thread_kind = MainThreadOnly]
+    #[derive(Debug)]
+    struct AppKitFlippedView;
+
+    impl AppKitFlippedView {
+        #[unsafe(method(isFlipped))]
+        fn is_flipped(&self) -> bool {
+            true
+        }
+    }
+);
+
+define_class!(
+    #[unsafe(super(NSStackView))]
+    #[thread_kind = MainThreadOnly]
+    #[derive(Debug)]
+    struct AppKitFlippedStackView;
+
+    impl AppKitFlippedStackView {
+        #[unsafe(method(isFlipped))]
+        fn is_flipped(&self) -> bool {
+            true
+        }
+    }
+);
+
+fn flipped_view(mtm: MainThreadMarker, frame: NSRect) -> Retained<NSView> {
+    let view = AppKitFlippedView::alloc(mtm).set_ivars(());
+    let view: Retained<AppKitFlippedView> = unsafe { msg_send![super(view), initWithFrame: frame] };
+    view.into_super()
+}
+
+fn flipped_stack_view(mtm: MainThreadMarker, frame: NSRect) -> Retained<NSStackView> {
+    let stack_view = AppKitFlippedStackView::alloc(mtm).set_ivars(());
+    let stack_view: Retained<AppKitFlippedStackView> =
+        unsafe { msg_send![super(stack_view), initWithFrame: frame] };
+    stack_view.into_super()
 }
 
 define_class!(
@@ -871,6 +1042,11 @@ pub struct AppKitScrollViewState {
 }
 
 #[derive(Debug, Clone)]
+struct AppKitSizeConstraints {
+    active_constraints: Vec<Retained<NSLayoutConstraint>>,
+}
+
+#[derive(Debug, Clone)]
 pub enum AppKitOsWidget {
     Window(Retained<NSWindow>),
     Panel(Retained<NSPanel>),
@@ -978,6 +1154,22 @@ fn focus_appkit_widget(widget: &AppKitOsWidget) -> bool {
     }
 }
 
+fn install_window_content_view(window: &NSWindow, child: &NSView) {
+    let size = window.contentLayoutRect().size;
+    child.setFrame(NSRect::new(NSPoint::new(0.0, 0.0), size));
+    child.setAutoresizingMask(flexible_view_mask());
+    window.setContentView(Some(child));
+    child.setNeedsLayout(true);
+    child.layoutSubtreeIfNeeded();
+    window.displayIfNeeded();
+}
+
+fn flexible_view_mask() -> NSAutoresizingMaskOptions {
+    let mut mask = NSAutoresizingMaskOptions::ViewWidthSizable;
+    mask.insert(NSAutoresizingMaskOptions::ViewHeightSizable);
+    mask
+}
+
 fn config_rect(config: &NativeWidgetConfig, default_width: f64, default_height: f64) -> NSRect {
     NSRect::new(
         NSPoint::new(0.0, 0.0),
@@ -1020,6 +1212,25 @@ fn config_size(config: &NativeWidgetConfig, default_width: f64, default_height: 
     let width = size.width.unwrap_or(default_width);
     let height = size.height.unwrap_or(default_height);
     NSSize::new(width, height)
+}
+
+fn size_constraint(
+    view: &NSView,
+    attribute: NSLayoutAttribute,
+    relation: NSLayoutRelation,
+    constant: f64,
+) -> Retained<NSLayoutConstraint> {
+    unsafe {
+        NSLayoutConstraint::constraintWithItem_attribute_relatedBy_toItem_attribute_multiplier_constant(
+            view.as_super().as_super().as_super(),
+            attribute,
+            relation,
+            None,
+            NSLayoutAttribute::NotAnAttribute,
+            1.0,
+            constant,
+        )
+    }
 }
 
 fn config_text_input_size(config: &NativeWidgetConfig) -> NSSize {
@@ -1100,6 +1311,332 @@ fn appkit_text_input_trait_value(value: AppKitTextInputTrait) -> NSInteger {
     }
 }
 
+fn apply_widget_portable_style(
+    widget: &AppKitOsWidget,
+    kind: AppKitWidgetKind,
+    style: &PortableStyle,
+) {
+    match widget {
+        AppKitOsWidget::Window(window) => {
+            if let Some(color) = style
+                .background_color
+                .as_ref()
+                .and_then(ns_color_from_style_color)
+            {
+                window.setBackgroundColor(Some(&color));
+            }
+            if let Some(content_view) = window.contentView() {
+                apply_view_portable_style(&content_view, style);
+            }
+        }
+        AppKitOsWidget::Panel(panel) => {
+            if let Some(color) = style
+                .background_color
+                .as_ref()
+                .and_then(ns_color_from_style_color)
+            {
+                panel.as_super().setBackgroundColor(Some(&color));
+            }
+            if let Some(content_view) = panel.as_super().contentView() {
+                apply_view_portable_style(&content_view, style);
+            }
+        }
+        AppKitOsWidget::Popover(state) => {
+            apply_view_portable_style(&state.content_view, style);
+        }
+        AppKitOsWidget::StackView(stack_view) => {
+            apply_stack_view_portable_visuals(stack_view, style);
+        }
+        AppKitOsWidget::ScrollView(state) => {
+            apply_scroll_view_portable_visuals(state, style);
+        }
+        AppKitOsWidget::Button(button) => {
+            apply_button_portable_style(button, style);
+        }
+        AppKitOsWidget::TextField(text_field) => {
+            apply_text_field_portable_style(text_field, kind, style);
+        }
+        AppKitOsWidget::SearchField(text_field) => {
+            apply_text_field_portable_style(text_field.as_super(), kind, style);
+        }
+        AppKitOsWidget::SecureTextField(text_field) => {
+            apply_text_field_portable_style(text_field.as_super(), kind, style);
+        }
+        _ => {
+            if let Some(view) = widget.as_view() {
+                apply_view_portable_style(view, style);
+            }
+            if let Some(control) = widget.as_control() {
+                apply_control_typography(control, style);
+            }
+        }
+    }
+}
+
+fn apply_stack_view_portable_visuals(stack_view: &NSStackView, style: &PortableStyle) {
+    apply_view_portable_style(stack_view.as_super(), style);
+    if let Some(edge_insets) = ns_edge_insets_from_style(&style.padding) {
+        stack_view.setEdgeInsets(edge_insets);
+    }
+}
+
+fn apply_scroll_view_portable_visuals(state: &AppKitScrollViewState, style: &PortableStyle) {
+    apply_view_portable_style(state.scroll_view.as_super(), style);
+    apply_view_portable_style(state.stack_view.as_super(), style);
+    if let Some(color) = style
+        .background_color
+        .as_ref()
+        .and_then(ns_color_from_style_color)
+    {
+        state.scroll_view.setDrawsBackground(true);
+        state.scroll_view.setBackgroundColor(&color);
+        let clip_view = state.scroll_view.contentView();
+        clip_view.setDrawsBackground(true);
+        clip_view.setBackgroundColor(&color);
+    }
+    if let Some(edge_insets) = ns_edge_insets_from_style(&style.padding) {
+        state.scroll_view.setContentInsets(edge_insets);
+        state.stack_view.setEdgeInsets(edge_insets);
+    }
+}
+
+fn apply_text_field_portable_style(
+    text_field: &NSTextField,
+    kind: AppKitWidgetKind,
+    style: &PortableStyle,
+) {
+    apply_control_typography(text_field.as_super(), style);
+    if let Some(color) = style.color.as_ref().and_then(ns_color_from_style_color) {
+        text_field.setTextColor(Some(&color));
+    }
+    if let Some(background) = style
+        .background_color
+        .as_ref()
+        .and_then(ns_color_from_style_color)
+    {
+        text_field.setDrawsBackground(true);
+        text_field.setBackgroundColor(Some(&background));
+    }
+    if kind == AppKitWidgetKind::Label {
+        text_field.setBordered(false);
+    }
+    apply_view_portable_style(text_field.as_super().as_super(), style);
+}
+
+fn apply_button_portable_style(button: &NSButton, style: &PortableStyle) {
+    apply_control_typography(button.as_super(), style);
+    if let Some(color) = style.color.as_ref().and_then(ns_color_from_style_color) {
+        button.setContentTintColor(Some(&color));
+    }
+    if style_has_custom_chrome(style) {
+        button.setBordered(false);
+    }
+    button.as_super().sizeToFit();
+    apply_control_padding(button.as_super(), style);
+    apply_view_portable_style(button.as_super().as_super(), style);
+}
+
+fn apply_control_typography(control: &NSControl, style: &PortableStyle) {
+    if style.font_size.is_none() && style.font_weight.is_none() && style.font_family.is_none() {
+        return;
+    }
+    let font_size = style_font_size_points(style).unwrap_or_else(|| {
+        control
+            .font()
+            .as_ref()
+            .map(|font| font.pointSize())
+            .unwrap_or(13.0)
+    });
+    let font = ns_font_from_style(style, font_size);
+    control.setFont(Some(&font));
+}
+
+fn apply_control_padding(control: &NSControl, style: &PortableStyle) {
+    let Some(edge_insets) = ns_edge_insets_from_style(&style.padding) else {
+        return;
+    };
+    let view = control.as_super();
+    let current = view.frame().size;
+    let width = (current.width + edge_insets.left + edge_insets.right).max(current.width);
+    let height = (current.height + edge_insets.top + edge_insets.bottom).max(current.height);
+    view.setFrameSize(NSSize::new(width, height));
+}
+
+fn apply_view_portable_style(view: &NSView, style: &PortableStyle) {
+    if !style_has_custom_chrome(style) && style.opacity.is_none() {
+        return;
+    }
+    view.setWantsLayer(true);
+    let Some(layer) = view.layer() else {
+        return;
+    };
+    if let Some(color) = style
+        .background_color
+        .as_ref()
+        .and_then(ns_color_from_style_color)
+    {
+        let cg_color = color.CGColor();
+        layer.setBackgroundColor(Some(&cg_color));
+    }
+    if let Some(opacity) = style.opacity {
+        layer.setOpacity(opacity.clamp(0.0, 1.0) as f32);
+    }
+    if let Some(radius) = border_radius_points(style) {
+        layer.setCornerRadius(radius);
+        layer.setMasksToBounds(radius > 0.0);
+    }
+    if let Some(width) = border_width_points(style) {
+        layer.setBorderWidth(width);
+        let color = first_border_color(style)
+            .and_then(ns_color_from_style_color)
+            .unwrap_or_else(neutral_border_color);
+        let cg_color = color.CGColor();
+        layer.setBorderColor(Some(&cg_color));
+    }
+    view.setNeedsDisplay(true);
+}
+
+fn style_has_custom_chrome(style: &PortableStyle) -> bool {
+    style.background_color.is_some()
+        || style.border_radius.is_some()
+        || style.border_color.is_some()
+        || border_width_points(style).is_some()
+}
+
+fn ns_edge_insets_from_style(edge_insets: &EdgeInsets) -> Option<NSEdgeInsets> {
+    let top = edge_length_points(edge_insets.top.as_ref());
+    let right = edge_length_points(edge_insets.right.as_ref());
+    let bottom = edge_length_points(edge_insets.bottom.as_ref());
+    let left = edge_length_points(edge_insets.left.as_ref());
+    if top.is_none() && right.is_none() && bottom.is_none() && left.is_none() {
+        return None;
+    }
+    Some(NSEdgeInsets {
+        top: top.unwrap_or(0.0),
+        left: left.unwrap_or(0.0),
+        bottom: bottom.unwrap_or(0.0),
+        right: right.unwrap_or(0.0),
+    })
+}
+
+fn edge_length_points(length: Option<&StyleLength>) -> Option<f64> {
+    length
+        .and_then(StyleLength::points)
+        .filter(|value| value.is_finite() && *value >= 0.0)
+}
+
+fn border_width_points(style: &PortableStyle) -> Option<f64> {
+    let mut width = 0.0_f64;
+    let mut found = false;
+    for length in [
+        style.border_width.top.as_ref(),
+        style.border_width.right.as_ref(),
+        style.border_width.bottom.as_ref(),
+        style.border_width.left.as_ref(),
+        style.logical_border_width.block_start.as_ref(),
+        style.logical_border_width.block_end.as_ref(),
+        style.logical_border_width.inline_start.as_ref(),
+        style.logical_border_width.inline_end.as_ref(),
+    ] {
+        if let Some(points) = edge_length_points(length) {
+            found = true;
+            width = width.max(points);
+        }
+    }
+    found.then_some(width)
+}
+
+fn border_radius_points(style: &PortableStyle) -> Option<f64> {
+    style
+        .border_radius
+        .as_ref()
+        .and_then(StyleLength::points)
+        .filter(|value| value.is_finite() && *value >= 0.0)
+}
+
+fn style_font_size_points(style: &PortableStyle) -> Option<f64> {
+    style
+        .font_size
+        .as_ref()
+        .and_then(StyleLength::points)
+        .filter(|value| value.is_finite() && *value > 0.0)
+}
+
+fn ns_font_from_style(style: &PortableStyle, font_size: f64) -> Retained<NSFont> {
+    let mono = style
+        .font_family
+        .as_deref()
+        .is_some_and(|family| family.to_ascii_lowercase().contains("mono"));
+    if mono {
+        if let Some(font) = NSFont::userFixedPitchFontOfSize(font_size) {
+            return font;
+        }
+    }
+    if font_weight_is_bold(style.font_weight.as_ref()) {
+        NSFont::boldSystemFontOfSize(font_size)
+    } else {
+        NSFont::systemFontOfSize(font_size)
+    }
+}
+
+fn font_weight_is_bold(weight: Option<&FontWeight>) -> bool {
+    match weight {
+        Some(FontWeight::Number(value)) => *value >= 600,
+        Some(FontWeight::Keyword(value)) => {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "bold" | "bolder"
+            )
+        }
+        None => false,
+    }
+}
+
+fn first_border_color(style: &PortableStyle) -> Option<&StyleColor> {
+    style
+        .border_color
+        .as_ref()
+        .or(style.border_colors.top.as_ref())
+        .or(style.border_colors.right.as_ref())
+        .or(style.border_colors.bottom.as_ref())
+        .or(style.border_colors.left.as_ref())
+        .or(style.logical_border_colors.block_start.as_ref())
+        .or(style.logical_border_colors.block_end.as_ref())
+        .or(style.logical_border_colors.inline_start.as_ref())
+        .or(style.logical_border_colors.inline_end.as_ref())
+}
+
+fn ns_color_from_style_color(color: &StyleColor) -> Option<Retained<NSColor>> {
+    match color {
+        StyleColor::Rgba {
+            red,
+            green,
+            blue,
+            alpha,
+        } => Some(ns_color(*red, *green, *blue, *alpha)),
+        StyleColor::Keyword(keyword) => match keyword.trim().to_ascii_lowercase().as_str() {
+            "black" => Some(ns_color(0, 0, 0, 255)),
+            "white" => Some(ns_color(255, 255, 255, 255)),
+            "transparent" => Some(ns_color(0, 0, 0, 0)),
+            _ => None,
+        },
+        StyleColor::Function(_) => None,
+    }
+}
+
+fn neutral_border_color() -> Retained<NSColor> {
+    ns_color(229, 229, 229, 255)
+}
+
+fn ns_color(red: u8, green: u8, blue: u8, alpha: u8) -> Retained<NSColor> {
+    NSColor::colorWithSRGBRed_green_blue_alpha(
+        f64::from(red) / 255.0,
+        f64::from(green) / 255.0,
+        f64::from(blue) / 255.0,
+        f64::from(alpha) / 255.0,
+    )
+}
+
 fn apply_window_portable_style(window: &NSWindow, style: &crate::style::PortableStyle) {
     let size = style.native_size_constraints();
     if size.width.is_some() || size.height.is_some() {
@@ -1130,6 +1667,18 @@ fn apply_window_portable_style(window: &NSWindow, style: &crate::style::Portable
     }
 }
 
+fn activate_current_application() {
+    let options = {
+        let mut options = NSApplicationActivationOptions::ActivateAllWindows;
+        #[allow(deprecated)]
+        {
+            options.insert(NSApplicationActivationOptions::ActivateIgnoringOtherApps);
+        }
+        options
+    };
+    let _ = NSRunningApplication::currentApplication().activateWithOptions(options);
+}
+
 fn apply_scroll_view_layout(state: &AppKitScrollViewState, style: &PortableStyle) {
     state
         .scroll_view
@@ -1147,6 +1696,7 @@ fn apply_scroll_view_layout(state: &AppKitScrollViewState, style: &PortableStyle
             size.height.unwrap_or(current.height.max(32.0)),
         ));
     }
+    scroll_view_to_top(state);
 }
 
 fn apply_stack_view_layout(
@@ -1154,9 +1704,14 @@ fn apply_stack_view_layout(
     style: &PortableStyle,
     orientation: Option<Orientation>,
 ) {
-    if let Some(orientation) = orientation.or(style.flex_direction) {
+    let orientation = orientation.or(style.flex_direction);
+    if let Some(orientation) = orientation {
         stack_view.setOrientation(appkit_stack_orientation(orientation));
     }
+    stack_view.setDistribution(NSStackViewDistribution::Fill);
+    stack_view.setAlignment(appkit_stack_alignment(
+        orientation.unwrap_or_else(|| orientation_from_appkit_stack(stack_view)),
+    ));
     let gap = style
         .gap
         .as_ref()
@@ -1164,6 +1719,33 @@ fn apply_stack_view_layout(
         .unwrap_or(0.0);
     unsafe {
         let _: () = msg_send![stack_view, setSpacing: gap];
+    }
+}
+
+fn stack_arranged_insert_index(stack_view: &NSStackView, requested: usize) -> GuiResult<NSInteger> {
+    let existing = stack_view.arrangedSubviews().count();
+    let index = stack_insert_index(existing, requested);
+    index
+        .try_into()
+        .map_err(|_| GuiError::host("AppKit stack view child insertion index overflow"))
+}
+
+fn stack_insert_index(existing: usize, requested: usize) -> usize {
+    requested.min(existing)
+}
+
+fn orientation_from_appkit_stack(stack_view: &NSStackView) -> Orientation {
+    if stack_view.orientation() == NSUserInterfaceLayoutOrientation::Vertical {
+        Orientation::Vertical
+    } else {
+        Orientation::Horizontal
+    }
+}
+
+fn appkit_stack_alignment(orientation: Orientation) -> NSLayoutAttribute {
+    match orientation {
+        Orientation::Horizontal => NSLayoutAttribute::Top,
+        Orientation::Vertical => NSLayoutAttribute::Leading,
     }
 }
 
@@ -1186,6 +1768,22 @@ fn appkit_stack_orientation(orientation: Orientation) -> NSUserInterfaceLayoutOr
         Orientation::Horizontal => NSUserInterfaceLayoutOrientation::Horizontal,
         Orientation::Vertical => NSUserInterfaceLayoutOrientation::Vertical,
     }
+}
+
+fn configure_scroll_document(scroll_view: &NSScrollView, stack_view: &NSStackView) {
+    stack_view
+        .as_super()
+        .setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
+    scroll_view.setDocumentView(Some(stack_view.as_super()));
+}
+
+fn scroll_view_to_top(state: &AppKitScrollViewState) {
+    let clip_view = state.scroll_view.contentView();
+    let clip_height = clip_view.bounds().size.height.max(0.0);
+    let document_height = state.stack_view.frame().size.height.max(0.0);
+    let top_y = (document_height - clip_height).max(0.0);
+    clip_view.scrollToPoint(NSPoint::new(0.0, top_y));
+    state.scroll_view.reflectScrolledClipView(&clip_view);
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -1455,6 +2053,14 @@ mod tests {
 
         clear_pending_auto_focus(&mut pending, first);
         assert_eq!(pending, None);
+    }
+
+    #[test]
+    fn appkit_stack_insert_index_preserves_protocol_order() {
+        assert_eq!(stack_insert_index(0, 0), 0);
+        assert_eq!(stack_insert_index(1, 1), 1);
+        assert_eq!(stack_insert_index(2, 2), 2);
+        assert_eq!(stack_insert_index(2, 99), 2);
     }
 
     #[test]

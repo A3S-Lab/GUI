@@ -631,7 +631,7 @@ impl NativeWidgetDriver for WinUiWidgetDriver {
 mod tests {
     use super::*;
     use crate::backend::CommandExecutingHost;
-    use crate::compiler::CompiledJsxNode;
+    use crate::compiler::CompiledRsxNode;
     use crate::geometry::Orientation;
     use crate::native::{NativeElement, NativeProps, NativeRole};
     use crate::platform::{PlatformAdapter, WinUiAdapter};
@@ -770,8 +770,8 @@ mod tests {
     }
 
     #[test]
-    fn winui_executor_consumes_compiled_react_aria_commands() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+    fn winui_executor_consumes_compiled_semantic_ui_commands() {
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -809,8 +809,8 @@ mod tests {
     }
 
     #[test]
-    fn winui_executor_consumes_compiled_react_aria_toolbar_commands() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+    fn winui_executor_consumes_compiled_semantic_ui_toolbar_commands() {
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -852,8 +852,8 @@ mod tests {
     }
 
     #[test]
-    fn winui_executor_consumes_compiled_react_aria_dialog_commands() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+    fn winui_executor_consumes_compiled_semantic_ui_dialog_commands() {
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -892,8 +892,8 @@ mod tests {
     }
 
     #[test]
-    fn winui_executor_consumes_compiled_react_aria_popover_commands() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+    fn winui_executor_consumes_compiled_semantic_ui_popover_commands() {
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -932,8 +932,8 @@ mod tests {
     }
 
     #[test]
-    fn winui_executor_consumes_compiled_react_aria_menu_commands() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+    fn winui_executor_consumes_compiled_semantic_ui_menu_commands() {
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -973,7 +973,7 @@ mod tests {
 
     #[test]
     fn winui_handle_adapter_stores_thread_bound_native_handles() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -1056,7 +1056,7 @@ mod tests {
 
     #[test]
     fn winui_scroll_handle_adapter_applies_rerender_style_setters() {
-        let first: CompiledJsxNode = serde_json::from_str(
+        let first: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -1071,7 +1071,7 @@ mod tests {
             "#,
         )
         .unwrap();
-        let second: CompiledJsxNode = serde_json::from_str(
+        let second: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",

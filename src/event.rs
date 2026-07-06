@@ -3,11 +3,15 @@ use std::collections::BTreeMap;
 use crate::error::{GuiError, GuiResult};
 use crate::host::HostNodeId;
 use crate::platform::NativeWidgetBlueprint;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum NativeEventKind {
+    PressStart,
+    PressEnd,
     Press,
     Change,
     SelectionChange,
@@ -60,6 +64,37 @@ pub struct ActionInvocation {
     pub value: Option<String>,
 }
 
+impl ActionInvocation {
+    pub fn value(&self) -> Option<&str> {
+        self.value.as_deref()
+    }
+
+    pub fn payload_json(&self) -> GuiResult<Option<JsonValue>> {
+        self.value.as_deref().map(action_payload_json).transpose()
+    }
+
+    pub fn payload<T>(&self) -> GuiResult<Option<T>>
+    where
+        T: DeserializeOwned,
+    {
+        let Some(raw) = self.value.as_deref() else {
+            return Ok(None);
+        };
+
+        serde_json::from_str(raw)
+            .or_else(|json_error| {
+                serde_json::from_value(JsonValue::String(raw.to_string())).map_err(|string_error| {
+                    GuiError::host(format!(
+                        "action {:?} payload did not decode as {}: {json_error}; string fallback failed: {string_error}",
+                        self.action,
+                        std::any::type_name::<T>()
+                    ))
+                })
+            })
+            .map(Some)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct EventRouter;
 
@@ -78,7 +113,10 @@ impl EventRouter {
             node: event.node,
             action: action.to_string(),
             event: event.kind,
-            value: event.value.clone(),
+            value: event
+                .value
+                .clone()
+                .or_else(|| static_action_value(blueprint)),
         })
     }
 }
@@ -87,6 +125,9 @@ impl EventRouter {
 #[serde(rename_all = "camelCase")]
 pub struct RegisteredAction {
     pub id: String,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub disabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
 }
 
@@ -103,9 +144,11 @@ impl ActionRegistry {
 
     pub fn register(&mut self, id: impl Into<String>) {
         let id = id.into();
-        self.actions
-            .entry(id.clone())
-            .or_insert(RegisteredAction { id, label: None });
+        self.actions.entry(id.clone()).or_insert(RegisteredAction {
+            id,
+            disabled: false,
+            label: None,
+        });
     }
 
     pub fn register_labeled(&mut self, id: impl Into<String>, label: impl Into<String>) {
@@ -114,6 +157,7 @@ impl ActionRegistry {
             id.clone(),
             RegisteredAction {
                 id,
+                disabled: false,
                 label: Some(label.into()),
             },
         );
@@ -137,21 +181,34 @@ impl ActionRegistry {
         self.actions.get(id)
     }
 
+    pub fn is_disabled(&self, id: &str) -> bool {
+        self.registered(id).is_some_and(|action| action.disabled)
+    }
+
     pub fn invocations(&self) -> &[ActionInvocation] {
         &self.invocations
     }
 
     pub fn invoke(&mut self, invocation: ActionInvocation) -> GuiResult<()> {
-        if self.contains(&invocation.action) {
-            self.invocations.push(invocation);
-            Ok(())
-        } else {
-            Err(GuiError::host(format!(
+        let Some(action) = self.registered(&invocation.action) else {
+            return Err(GuiError::host(format!(
                 "unregistered action {}",
                 invocation.action
-            )))
+            )));
+        };
+        if action.disabled {
+            return Err(GuiError::host(format!(
+                "disabled action {}",
+                invocation.action
+            )));
         }
+        self.invocations.push(invocation);
+        Ok(())
     }
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 fn action_for_event<'a>(
@@ -160,6 +217,8 @@ fn action_for_event<'a>(
 ) -> Option<&'a str> {
     let events = &blueprint.events;
     match event.kind {
+        NativeEventKind::PressStart => non_empty_action(events.get("onPressStart")),
+        NativeEventKind::PressEnd => non_empty_action(events.get("onPressEnd")),
         NativeEventKind::Press => press_action(blueprint),
         NativeEventKind::Change => non_empty_action(events.get("onChange"))
             .or_else(|| non_empty_action(events.get("onInput")))
@@ -195,6 +254,31 @@ fn press_action(blueprint: &NativeWidgetBlueprint) -> Option<&str> {
     non_empty_action(blueprint.events.get("onPress"))
         .or_else(|| non_empty_action(blueprint.events.get("onClick")))
         .or_else(|| non_empty_action(blueprint.action.as_ref()))
+}
+
+fn static_action_value(blueprint: &NativeWidgetBlueprint) -> Option<String> {
+    [
+        "actionValue",
+        "action-value",
+        "actionPayload",
+        "action-payload",
+        "data-action-value",
+        "data-action-payload",
+        "data-a3s-action-value",
+        "data-a3s-action-payload",
+    ]
+    .into_iter()
+    .find_map(|name| {
+        blueprint
+            .metadata
+            .get(name)
+            .filter(|value| !value.is_empty())
+            .cloned()
+    })
+}
+
+fn action_payload_json(raw: &str) -> GuiResult<JsonValue> {
+    serde_json::from_str(raw).or_else(|_| Ok(JsonValue::String(raw.to_string())))
 }
 
 pub(crate) fn non_empty_action(action: Option<&String>) -> Option<&str> {
@@ -320,6 +404,77 @@ mod tests {
     }
 
     #[test]
+    fn routes_static_action_value_when_native_event_has_no_value() {
+        let element = NativeElement::new("alpha", NativeRole::Button).with_props(
+            NativeProps::new()
+                .metadata("actionValue", "alpha")
+                .web(WebProps::new().on_press("selectItem")),
+        );
+        let blueprint = AppKitAdapter.blueprint(&element);
+        let event = NativeEvent::new(HostNodeId::new(17), NativeEventKind::Press);
+
+        let invocation = EventRouter::new().route(&blueprint, &event).unwrap();
+
+        assert_eq!(invocation.action, "selectItem");
+        assert_eq!(invocation.value.as_deref(), Some("alpha"));
+    }
+
+    #[test]
+    fn native_event_value_wins_over_static_action_value() {
+        let element = NativeElement::new("email", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .metadata("actionValue", "fallback")
+                .web(WebProps::new().on_input("setEmail")),
+        );
+        let blueprint = AppKitAdapter.blueprint(&element);
+        let event = NativeEvent::new(HostNodeId::new(18), NativeEventKind::Change)
+            .value("current@example.com");
+
+        let invocation = EventRouter::new().route(&blueprint, &event).unwrap();
+
+        assert_eq!(invocation.action, "setEmail");
+        assert_eq!(invocation.value.as_deref(), Some("current@example.com"));
+    }
+
+    #[derive(Debug, PartialEq, Deserialize)]
+    struct ItemPayload {
+        id: String,
+        title: String,
+    }
+
+    #[test]
+    fn action_invocation_decodes_json_and_string_payloads() {
+        let json = ActionInvocation {
+            node: HostNodeId::new(19),
+            action: "selectItem".to_string(),
+            event: NativeEventKind::Press,
+            value: Some(r#"{"id":"alpha","title":"Alpha"}"#.to_string()),
+        };
+        let string = ActionInvocation {
+            node: HostNodeId::new(20),
+            action: "selectItem".to_string(),
+            event: NativeEventKind::Press,
+            value: Some("alpha".to_string()),
+        };
+
+        assert_eq!(
+            json.payload::<ItemPayload>().unwrap(),
+            Some(ItemPayload {
+                id: "alpha".to_string(),
+                title: "Alpha".to_string()
+            })
+        );
+        assert_eq!(
+            string.payload::<String>().unwrap().as_deref(),
+            Some("alpha")
+        );
+        assert_eq!(
+            string.payload_json().unwrap(),
+            Some(JsonValue::String("alpha".to_string()))
+        );
+    }
+
+    #[test]
     fn routes_native_change_to_input_event_alias() {
         let input_only = NativeElement::new("email", NativeRole::TextField)
             .with_props(NativeProps::new().web(WebProps::new().on_input("setEmailInput")));
@@ -426,7 +581,7 @@ mod tests {
     }
 
     #[test]
-    fn routes_native_selection_change_to_react_aria_selection_action() {
+    fn routes_native_selection_change_to_semantic_ui_selection_action() {
         let element = NativeElement::new("project", NativeRole::Select)
             .with_props(NativeProps::new().web(WebProps::new().on_selection_change("setProject")));
         let blueprint = AppKitAdapter.blueprint(&element);
@@ -663,11 +818,36 @@ mod tests {
 
         registry.replace_registered([RegisteredAction {
             id: "deleteDocument".to_string(),
+            disabled: false,
             label: Some("Delete document".to_string()),
         }]);
 
         assert!(!registry.contains("saveDocument"));
         assert!(registry.contains("deleteDocument"));
         assert_eq!(registry.invocations().len(), 1);
+    }
+
+    #[test]
+    fn action_registry_rejects_disabled_actions() {
+        let mut registry = ActionRegistry::new();
+        registry.replace_registered([RegisteredAction {
+            id: "saveDocument".to_string(),
+            disabled: true,
+            label: Some("Save document".to_string()),
+        }]);
+
+        let error = registry
+            .invoke(ActionInvocation {
+                node: HostNodeId::new(1),
+                action: "saveDocument".to_string(),
+                event: NativeEventKind::Press,
+                value: None,
+            })
+            .unwrap_err();
+
+        assert!(registry.contains("saveDocument"));
+        assert!(registry.is_disabled("saveDocument"));
+        assert!(error.to_string().contains("disabled action saveDocument"));
+        assert!(registry.invocations().is_empty());
     }
 }

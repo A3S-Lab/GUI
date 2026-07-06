@@ -2,7 +2,7 @@ use super::support::*;
 
 #[test]
 fn lowers_html_button_activation_attributes_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
+    let bridge = RsxCompilerBridge::new();
     let button = element(
         "show-settings",
         "button",
@@ -41,7 +41,7 @@ fn lowers_html_button_activation_attributes_to_native_state() {
 
 #[test]
 fn lowers_button_like_input_popover_activation_attributes_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
+    let bridge = RsxCompilerBridge::new();
     let input_button = element(
         "open-help",
         "input",
@@ -85,8 +85,8 @@ fn lowers_button_like_input_popover_activation_attributes_to_native_state() {
     assert_eq!(native_text.props.html_activation.popover_target, None);
 }
 
-fn element(key: &str, tag: &str, attributes: BTreeMap<String, String>) -> CompiledJsxNode {
-    CompiledJsxNode::Element {
+fn element(key: &str, tag: &str, attributes: BTreeMap<String, String>) -> CompiledRsxNode {
+    CompiledRsxNode::Element {
         key: key.to_string(),
         tag: tag.to_string(),
         import_source: None,

@@ -1,14 +1,14 @@
 use super::support::*;
 
 #[test]
-fn lowers_compiled_react_aria_button_json_to_native_button() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+fn lowers_compiled_semantic_ui_button_json_to_native_button() {
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r##"
         {
           "kind": "element",
           "key": "save",
           "tag": "Button",
-          "importSource": "react-aria-components",
+          "importSource": "a3s-rsx",
           "props": {
             "className": "primary",
             "style": {"minWidth": 280, "backgroundColor": "#663399"},
@@ -24,9 +24,7 @@ fn lowers_compiled_react_aria_button_json_to_native_button() {
     )
     .unwrap();
 
-    let native = ReactCompilerBridge::new()
-        .lower_to_native(&compiled)
-        .unwrap();
+    let native = RsxCompilerBridge::new().lower_to_native(&compiled).unwrap();
 
     assert_eq!(native.role, NativeRole::Button);
     assert_eq!(native.props.label.as_deref(), Some("Save document"));
@@ -43,7 +41,7 @@ fn lowers_compiled_react_aria_button_json_to_native_button() {
 
 #[test]
 fn rejects_unstable_compiled_node_identities() {
-    let duplicate_child_keys: CompiledJsxNode = serde_json::from_str(
+    let duplicate_child_keys: CompiledRsxNode = serde_json::from_str(
         r#"
         {
           "kind": "element",
@@ -57,7 +55,7 @@ fn rejects_unstable_compiled_node_identities() {
         "#,
     )
     .unwrap();
-    let empty_tag = CompiledJsxNode::Element {
+    let empty_tag = CompiledRsxNode::Element {
         key: "empty-tag".to_string(),
         tag: String::new(),
         import_source: None,
@@ -65,7 +63,7 @@ fn rejects_unstable_compiled_node_identities() {
         children: Vec::new(),
     };
 
-    let bridge = ReactCompilerBridge::new();
+    let bridge = RsxCompilerBridge::new();
     let duplicate_error = bridge.lower_to_native(&duplicate_child_keys).unwrap_err();
     let empty_tag_error = bridge.lower_to_native(&empty_tag).unwrap_err();
 
@@ -79,26 +77,26 @@ fn rejects_unstable_compiled_node_identities() {
 
 #[test]
 fn lowers_intrinsic_form_text_field_shape_to_native_text_field() {
-    let compiled = CompiledJsxNode::Element {
+    let compiled = CompiledRsxNode::Element {
         key: "email-field".to_string(),
         tag: "TextField".to_string(),
-        import_source: Some("react-aria-components".to_string()),
+        import_source: Some("a3s-rsx".to_string()),
         props: CompiledProps {
             is_required: true,
             ..CompiledProps::default()
         },
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "email-label".to_string(),
                 tag: "Label".to_string(),
-                import_source: Some("react-aria-components".to_string()),
+                import_source: Some("a3s-rsx".to_string()),
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "email-label-text".to_string(),
                     value: "Email".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "email-input".to_string(),
                 tag: "input".to_string(),
                 import_source: None,
@@ -113,9 +111,7 @@ fn lowers_intrinsic_form_text_field_shape_to_native_text_field() {
         ],
     };
 
-    let native = ReactCompilerBridge::new()
-        .lower_to_native(&compiled)
-        .unwrap();
+    let native = RsxCompilerBridge::new().lower_to_native(&compiled).unwrap();
 
     assert_eq!(native.role, NativeRole::TextField);
     assert_eq!(native.props.label.as_deref(), Some("Email"));
@@ -125,7 +121,7 @@ fn lowers_intrinsic_form_text_field_shape_to_native_text_field() {
 
 #[test]
 fn lowers_web_and_aria_attribute_aliases_to_native_control_state() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r#"
         {
           "kind": "element",
@@ -182,9 +178,7 @@ fn lowers_web_and_aria_attribute_aliases_to_native_control_state() {
     )
     .unwrap();
 
-    let native = ReactCompilerBridge::new()
-        .lower_to_native(&compiled)
-        .unwrap();
+    let native = RsxCompilerBridge::new().lower_to_native(&compiled).unwrap();
 
     assert_eq!(native.role, NativeRole::Slider);
     assert_eq!(native.props.label.as_deref(), Some("Volume"));
@@ -312,7 +306,7 @@ fn lowers_web_and_aria_attribute_aliases_to_native_control_state() {
 
 #[test]
 fn lowers_radio_group_and_radios_to_native_selection_controls() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r#"
         {
           "kind": "element",
@@ -345,9 +339,7 @@ fn lowers_radio_group_and_radios_to_native_selection_controls() {
     )
     .unwrap();
 
-    let native = ReactCompilerBridge::new()
-        .lower_to_native(&compiled)
-        .unwrap();
+    let native = RsxCompilerBridge::new().lower_to_native(&compiled).unwrap();
 
     assert_eq!(native.role, NativeRole::RadioGroup);
     assert_eq!(native.props.label.as_deref(), Some("Theme"));
@@ -361,7 +353,7 @@ fn lowers_radio_group_and_radios_to_native_selection_controls() {
 
 #[test]
 fn folds_compiled_tabs_into_native_tab_items_with_panels() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r#"
         {
           "kind": "element",
@@ -410,9 +402,7 @@ fn folds_compiled_tabs_into_native_tab_items_with_panels() {
     )
     .unwrap();
 
-    let native = ReactCompilerBridge::new()
-        .lower_to_native(&compiled)
-        .unwrap();
+    let native = RsxCompilerBridge::new().lower_to_native(&compiled).unwrap();
 
     assert_eq!(native.role, NativeRole::Tabs);
     assert_eq!(
@@ -440,7 +430,7 @@ fn folds_compiled_tabs_into_native_tab_items_with_panels() {
 
 #[test]
 fn lowers_compiled_menu_to_native_menu_items() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r#"
         {
           "kind": "element",
@@ -463,9 +453,7 @@ fn lowers_compiled_menu_to_native_menu_items() {
     )
     .unwrap();
 
-    let native = ReactCompilerBridge::new()
-        .lower_to_native(&compiled)
-        .unwrap();
+    let native = RsxCompilerBridge::new().lower_to_native(&compiled).unwrap();
 
     assert_eq!(native.role, NativeRole::Menu);
     assert_eq!(native.children.len(), 1);
@@ -477,19 +465,19 @@ fn lowers_compiled_menu_to_native_menu_items() {
 
 #[test]
 fn lowers_every_supported_semantic_component_tag() {
-    let bridge = ReactCompilerBridge::new();
+    let bridge = RsxCompilerBridge::new();
 
-    for component in AriaComponent::ALL {
+    for component in SemanticComponent::ALL {
         let tag = component.as_str();
-        let compiled = CompiledJsxNode::Element {
+        let compiled = CompiledRsxNode::Element {
             key: tag.to_string(),
             tag: tag.to_string(),
-            import_source: Some("@a3s-lab/gui".to_string()),
+            import_source: Some("a3s-rsx".to_string()),
             props: CompiledProps {
                 label: Some(format!("{tag} label")),
                 ..CompiledProps::default()
             },
-            children: vec![CompiledJsxNode::Text {
+            children: vec![CompiledRsxNode::Text {
                 key: format!("{tag}-text"),
                 value: format!("{tag} text"),
             }],
@@ -503,127 +491,128 @@ fn lowers_every_supported_semantic_component_tag() {
     }
 }
 
-fn expected_native_role(component: AriaComponent) -> NativeRole {
+fn expected_native_role(component: SemanticComponent) -> NativeRole {
     match component {
-        AriaComponent::Button => NativeRole::Button,
-        AriaComponent::Label | AriaComponent::SelectValue => NativeRole::Text,
-        AriaComponent::Document => NativeRole::Document,
-        AriaComponent::DocumentHead => NativeRole::DocumentHead,
-        AriaComponent::DocumentBody => NativeRole::DocumentBody,
-        AriaComponent::DocumentTitle => NativeRole::DocumentTitle,
-        AriaComponent::Metadata => NativeRole::Metadata,
-        AriaComponent::ResourceLink => NativeRole::ResourceLink,
-        AriaComponent::StyleSheet => NativeRole::StyleSheet,
-        AriaComponent::Script => NativeRole::Script,
-        AriaComponent::Template => NativeRole::Template,
-        AriaComponent::Slot => NativeRole::Slot,
-        AriaComponent::Text => NativeRole::Text,
-        AriaComponent::Abbreviation => NativeRole::Abbreviation,
-        AriaComponent::Citation => NativeRole::Citation,
-        AriaComponent::Definition => NativeRole::Definition,
-        AriaComponent::DataValue => NativeRole::DataValue,
-        AriaComponent::InsertedText => NativeRole::InsertedText,
-        AriaComponent::DeletedText => NativeRole::DeletedText,
-        AriaComponent::MarkedText => NativeRole::MarkedText,
-        AriaComponent::Time => NativeRole::Time,
-        AriaComponent::Emphasis => NativeRole::Emphasis,
-        AriaComponent::StrongText => NativeRole::StrongText,
-        AriaComponent::Code => NativeRole::Code,
-        AriaComponent::KeyboardInput => NativeRole::KeyboardInput,
-        AriaComponent::SampleOutput => NativeRole::SampleOutput,
-        AriaComponent::Variable => NativeRole::Variable,
-        AriaComponent::InlineQuote => NativeRole::InlineQuote,
-        AriaComponent::Subscript => NativeRole::Subscript,
-        AriaComponent::Superscript => NativeRole::Superscript,
-        AriaComponent::SmallText => NativeRole::SmallText,
-        AriaComponent::BoldText => NativeRole::BoldText,
-        AriaComponent::ItalicText => NativeRole::ItalicText,
-        AriaComponent::StruckText => NativeRole::StruckText,
-        AriaComponent::UnderlinedText => NativeRole::UnderlinedText,
-        AriaComponent::BidirectionalIsolate => NativeRole::BidirectionalIsolate,
-        AriaComponent::BidirectionalOverride => NativeRole::BidirectionalOverride,
-        AriaComponent::Paragraph => NativeRole::Paragraph,
-        AriaComponent::PreformattedText => NativeRole::PreformattedText,
-        AriaComponent::BlockQuote => NativeRole::BlockQuote,
-        AriaComponent::ContactAddress => NativeRole::ContactAddress,
-        AriaComponent::LineBreak => NativeRole::LineBreak,
-        AriaComponent::WordBreakOpportunity => NativeRole::WordBreakOpportunity,
-        AriaComponent::NoBreakText => NativeRole::NoBreakText,
-        AriaComponent::CenteredText => NativeRole::CenteredText,
-        AriaComponent::FontText => NativeRole::FontText,
-        AriaComponent::BigText => NativeRole::BigText,
-        AriaComponent::TeletypeText => NativeRole::TeletypeText,
-        AriaComponent::Applet => NativeRole::Applet,
-        AriaComponent::BackgroundSound => NativeRole::BackgroundSound,
-        AriaComponent::Frame => NativeRole::Frame,
-        AriaComponent::FrameSet => NativeRole::FrameSet,
-        AriaComponent::NoEmbedFallback => NativeRole::NoEmbedFallback,
-        AriaComponent::NoFramesFallback => NativeRole::NoFramesFallback,
-        AriaComponent::Marquee => NativeRole::Marquee,
-        AriaComponent::Math => NativeRole::Math,
-        AriaComponent::NextId => NativeRole::NextId,
-        AriaComponent::SelectedContent => NativeRole::SelectedContent,
-        AriaComponent::Heading => NativeRole::Heading,
-        AriaComponent::HeadingGroup => NativeRole::HeadingGroup,
-        AriaComponent::Ruby => NativeRole::Ruby,
-        AriaComponent::RubyBase => NativeRole::RubyBase,
-        AriaComponent::RubyText => NativeRole::RubyText,
-        AriaComponent::RubyParenthesis => NativeRole::RubyParenthesis,
-        AriaComponent::RubyTextContainer => NativeRole::RubyTextContainer,
-        AriaComponent::Main => NativeRole::Main,
-        AriaComponent::Navigation => NativeRole::Navigation,
-        AriaComponent::Header => NativeRole::Header,
-        AriaComponent::Footer => NativeRole::Footer,
-        AriaComponent::Article => NativeRole::Article,
-        AriaComponent::Section => NativeRole::Section,
-        AriaComponent::Aside => NativeRole::Aside,
-        AriaComponent::Search => NativeRole::Search,
-        AriaComponent::Disclosure => NativeRole::Disclosure,
-        AriaComponent::DisclosureSummary => NativeRole::DisclosureSummary,
-        AriaComponent::Figure => NativeRole::Figure,
-        AriaComponent::FigureCaption => NativeRole::FigureCaption,
-        AriaComponent::DescriptionList => NativeRole::DescriptionList,
-        AriaComponent::DescriptionTerm => NativeRole::DescriptionTerm,
-        AriaComponent::DescriptionDetails => NativeRole::DescriptionDetails,
-        AriaComponent::Image => NativeRole::Image,
-        AriaComponent::Media => NativeRole::Media,
-        AriaComponent::Canvas => NativeRole::Canvas,
-        AriaComponent::EmbeddedContent => NativeRole::EmbeddedContent,
-        AriaComponent::Link => NativeRole::Link,
-        AriaComponent::ImageMap => NativeRole::ImageMap,
-        AriaComponent::ImageMapArea => NativeRole::ImageMapArea,
-        AriaComponent::TextField | AriaComponent::Input => NativeRole::TextField,
-        AriaComponent::Checkbox => NativeRole::Checkbox,
-        AriaComponent::Switch => NativeRole::Switch,
-        AriaComponent::RadioGroup => NativeRole::RadioGroup,
-        AriaComponent::Radio => NativeRole::Radio,
-        AriaComponent::FieldSet => NativeRole::FieldSet,
-        AriaComponent::Legend => NativeRole::Legend,
-        AriaComponent::OptionGroup => NativeRole::OptionGroup,
-        AriaComponent::Output => NativeRole::Output,
-        AriaComponent::Meter => NativeRole::Meter,
-        AriaComponent::Select => NativeRole::Select,
-        AriaComponent::ListBox => NativeRole::ListBox,
-        AriaComponent::ListBoxItem => NativeRole::ListBoxItem,
-        AriaComponent::Dialog => NativeRole::Dialog,
-        AriaComponent::Popover => NativeRole::Popover,
-        AriaComponent::Tabs => NativeRole::Tabs,
-        AriaComponent::TabList => NativeRole::TabList,
-        AriaComponent::Tab => NativeRole::Tab,
-        AriaComponent::TabPanel => NativeRole::TabPanel,
-        AriaComponent::Group => NativeRole::View,
-        AriaComponent::Form => NativeRole::Form,
-        AriaComponent::Menu => NativeRole::Menu,
-        AriaComponent::MenuItem => NativeRole::MenuItem,
-        AriaComponent::Separator => NativeRole::Separator,
-        AriaComponent::Slider => NativeRole::Slider,
-        AriaComponent::ProgressBar => NativeRole::ProgressBar,
-        AriaComponent::Toolbar => NativeRole::Toolbar,
-        AriaComponent::Table => NativeRole::Table,
-        AriaComponent::TableSection => NativeRole::TableSection,
-        AriaComponent::TableRow => NativeRole::TableRow,
-        AriaComponent::TableCell => NativeRole::TableCell,
-        AriaComponent::TableColumn => NativeRole::TableColumn,
-        AriaComponent::TableCaption => NativeRole::TableCaption,
+        SemanticComponent::Button => NativeRole::Button,
+        SemanticComponent::Label | SemanticComponent::SelectValue => NativeRole::Text,
+        SemanticComponent::Document => NativeRole::Document,
+        SemanticComponent::DocumentHead => NativeRole::DocumentHead,
+        SemanticComponent::DocumentBody => NativeRole::DocumentBody,
+        SemanticComponent::DocumentTitle => NativeRole::DocumentTitle,
+        SemanticComponent::Metadata => NativeRole::Metadata,
+        SemanticComponent::ResourceLink => NativeRole::ResourceLink,
+        SemanticComponent::StyleSheet => NativeRole::StyleSheet,
+        SemanticComponent::Script => NativeRole::Script,
+        SemanticComponent::Template => NativeRole::Template,
+        SemanticComponent::Slot => NativeRole::Slot,
+        SemanticComponent::Text => NativeRole::Text,
+        SemanticComponent::Abbreviation => NativeRole::Abbreviation,
+        SemanticComponent::Citation => NativeRole::Citation,
+        SemanticComponent::Definition => NativeRole::Definition,
+        SemanticComponent::DataValue => NativeRole::DataValue,
+        SemanticComponent::InsertedText => NativeRole::InsertedText,
+        SemanticComponent::DeletedText => NativeRole::DeletedText,
+        SemanticComponent::MarkedText => NativeRole::MarkedText,
+        SemanticComponent::Time => NativeRole::Time,
+        SemanticComponent::Emphasis => NativeRole::Emphasis,
+        SemanticComponent::StrongText => NativeRole::StrongText,
+        SemanticComponent::Code => NativeRole::Code,
+        SemanticComponent::KeyboardInput => NativeRole::KeyboardInput,
+        SemanticComponent::SampleOutput => NativeRole::SampleOutput,
+        SemanticComponent::Variable => NativeRole::Variable,
+        SemanticComponent::InlineQuote => NativeRole::InlineQuote,
+        SemanticComponent::Subscript => NativeRole::Subscript,
+        SemanticComponent::Superscript => NativeRole::Superscript,
+        SemanticComponent::SmallText => NativeRole::SmallText,
+        SemanticComponent::BoldText => NativeRole::BoldText,
+        SemanticComponent::ItalicText => NativeRole::ItalicText,
+        SemanticComponent::StruckText => NativeRole::StruckText,
+        SemanticComponent::UnderlinedText => NativeRole::UnderlinedText,
+        SemanticComponent::BidirectionalIsolate => NativeRole::BidirectionalIsolate,
+        SemanticComponent::BidirectionalOverride => NativeRole::BidirectionalOverride,
+        SemanticComponent::Paragraph => NativeRole::Paragraph,
+        SemanticComponent::PreformattedText => NativeRole::PreformattedText,
+        SemanticComponent::BlockQuote => NativeRole::BlockQuote,
+        SemanticComponent::ContactAddress => NativeRole::ContactAddress,
+        SemanticComponent::LineBreak => NativeRole::LineBreak,
+        SemanticComponent::WordBreakOpportunity => NativeRole::WordBreakOpportunity,
+        SemanticComponent::NoBreakText => NativeRole::NoBreakText,
+        SemanticComponent::CenteredText => NativeRole::CenteredText,
+        SemanticComponent::FontText => NativeRole::FontText,
+        SemanticComponent::BigText => NativeRole::BigText,
+        SemanticComponent::TeletypeText => NativeRole::TeletypeText,
+        SemanticComponent::Applet => NativeRole::Applet,
+        SemanticComponent::BackgroundSound => NativeRole::BackgroundSound,
+        SemanticComponent::Frame => NativeRole::Frame,
+        SemanticComponent::FrameSet => NativeRole::FrameSet,
+        SemanticComponent::NoEmbedFallback => NativeRole::NoEmbedFallback,
+        SemanticComponent::NoFramesFallback => NativeRole::NoFramesFallback,
+        SemanticComponent::Marquee => NativeRole::Marquee,
+        SemanticComponent::Math => NativeRole::Math,
+        SemanticComponent::NextId => NativeRole::NextId,
+        SemanticComponent::SelectedContent => NativeRole::SelectedContent,
+        SemanticComponent::Heading => NativeRole::Heading,
+        SemanticComponent::HeadingGroup => NativeRole::HeadingGroup,
+        SemanticComponent::Ruby => NativeRole::Ruby,
+        SemanticComponent::RubyBase => NativeRole::RubyBase,
+        SemanticComponent::RubyText => NativeRole::RubyText,
+        SemanticComponent::RubyParenthesis => NativeRole::RubyParenthesis,
+        SemanticComponent::RubyTextContainer => NativeRole::RubyTextContainer,
+        SemanticComponent::Main => NativeRole::Main,
+        SemanticComponent::Navigation => NativeRole::Navigation,
+        SemanticComponent::Header => NativeRole::Header,
+        SemanticComponent::Footer => NativeRole::Footer,
+        SemanticComponent::Article => NativeRole::Article,
+        SemanticComponent::Section => NativeRole::Section,
+        SemanticComponent::Aside => NativeRole::Aside,
+        SemanticComponent::Search => NativeRole::Search,
+        SemanticComponent::Disclosure => NativeRole::Disclosure,
+        SemanticComponent::DisclosureSummary => NativeRole::DisclosureSummary,
+        SemanticComponent::Figure => NativeRole::Figure,
+        SemanticComponent::FigureCaption => NativeRole::FigureCaption,
+        SemanticComponent::DescriptionList => NativeRole::DescriptionList,
+        SemanticComponent::DescriptionTerm => NativeRole::DescriptionTerm,
+        SemanticComponent::DescriptionDetails => NativeRole::DescriptionDetails,
+        SemanticComponent::Image => NativeRole::Image,
+        SemanticComponent::Media => NativeRole::Media,
+        SemanticComponent::Canvas => NativeRole::Canvas,
+        SemanticComponent::EmbeddedContent => NativeRole::EmbeddedContent,
+        SemanticComponent::Link => NativeRole::Link,
+        SemanticComponent::ImageMap => NativeRole::ImageMap,
+        SemanticComponent::ImageMapArea => NativeRole::ImageMapArea,
+        SemanticComponent::TextField | SemanticComponent::Input => NativeRole::TextField,
+        SemanticComponent::Checkbox => NativeRole::Checkbox,
+        SemanticComponent::Switch => NativeRole::Switch,
+        SemanticComponent::RadioGroup => NativeRole::RadioGroup,
+        SemanticComponent::Radio => NativeRole::Radio,
+        SemanticComponent::FieldSet => NativeRole::FieldSet,
+        SemanticComponent::Legend => NativeRole::Legend,
+        SemanticComponent::OptionGroup => NativeRole::OptionGroup,
+        SemanticComponent::Output => NativeRole::Output,
+        SemanticComponent::Meter => NativeRole::Meter,
+        SemanticComponent::ComboBox => NativeRole::ComboBox,
+        SemanticComponent::Select => NativeRole::Select,
+        SemanticComponent::ListBox => NativeRole::ListBox,
+        SemanticComponent::ListBoxItem => NativeRole::ListBoxItem,
+        SemanticComponent::Dialog => NativeRole::Dialog,
+        SemanticComponent::Popover => NativeRole::Popover,
+        SemanticComponent::Tabs => NativeRole::Tabs,
+        SemanticComponent::TabList => NativeRole::TabList,
+        SemanticComponent::Tab => NativeRole::Tab,
+        SemanticComponent::TabPanel => NativeRole::TabPanel,
+        SemanticComponent::Group => NativeRole::View,
+        SemanticComponent::Form => NativeRole::Form,
+        SemanticComponent::Menu => NativeRole::Menu,
+        SemanticComponent::MenuItem => NativeRole::MenuItem,
+        SemanticComponent::Separator => NativeRole::Separator,
+        SemanticComponent::Slider => NativeRole::Slider,
+        SemanticComponent::ProgressBar => NativeRole::ProgressBar,
+        SemanticComponent::Toolbar => NativeRole::Toolbar,
+        SemanticComponent::Table => NativeRole::Table,
+        SemanticComponent::TableSection => NativeRole::TableSection,
+        SemanticComponent::TableRow => NativeRole::TableRow,
+        SemanticComponent::TableCell => NativeRole::TableCell,
+        SemanticComponent::TableColumn => NativeRole::TableColumn,
+        SemanticComponent::TableCaption => NativeRole::TableCaption,
     }
 }

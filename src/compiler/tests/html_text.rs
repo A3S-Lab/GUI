@@ -2,30 +2,30 @@ use super::support::*;
 
 #[test]
 fn lowers_html_document_metadata_template_and_slot_tags_to_native_roles() {
-    let bridge = ReactCompilerBridge::new();
-    let document = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let document = CompiledRsxNode::Element {
         key: "document".to_string(),
         tag: "html".to_string(),
         import_source: None,
         props: CompiledProps::default(),
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "head".to_string(),
                 tag: "head".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
                 children: vec![
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "title".to_string(),
                         tag: "title".to_string(),
                         import_source: None,
                         props: CompiledProps::default(),
-                        children: vec![CompiledJsxNode::Text {
+                        children: vec![CompiledRsxNode::Text {
                             key: "title-text".to_string(),
                             value: "Dashboard".to_string(),
                         }],
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "base".to_string(),
                         tag: "base".to_string(),
                         import_source: None,
@@ -38,7 +38,7 @@ fn lowers_html_document_metadata_template_and_slot_tags_to_native_roles() {
                         },
                         children: Vec::new(),
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "description".to_string(),
                         tag: "meta".to_string(),
                         import_source: None,
@@ -51,7 +51,7 @@ fn lowers_html_document_metadata_template_and_slot_tags_to_native_roles() {
                         },
                         children: Vec::new(),
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "stylesheet".to_string(),
                         tag: "link".to_string(),
                         import_source: None,
@@ -64,17 +64,17 @@ fn lowers_html_document_metadata_template_and_slot_tags_to_native_roles() {
                         },
                         children: Vec::new(),
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "style".to_string(),
                         tag: "style".to_string(),
                         import_source: None,
                         props: CompiledProps::default(),
-                        children: vec![CompiledJsxNode::Text {
+                        children: vec![CompiledRsxNode::Text {
                             key: "style-text".to_string(),
                             value: ".card{display:grid}".to_string(),
                         }],
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "script".to_string(),
                         tag: "script".to_string(),
                         import_source: None,
@@ -87,22 +87,22 @@ fn lowers_html_document_metadata_template_and_slot_tags_to_native_roles() {
                         },
                         children: Vec::new(),
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "noscript".to_string(),
                         tag: "noscript".to_string(),
                         import_source: None,
                         props: CompiledProps::default(),
-                        children: vec![CompiledJsxNode::Text {
+                        children: vec![CompiledRsxNode::Text {
                             key: "noscript-text".to_string(),
                             value: "JavaScript is disabled".to_string(),
                         }],
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "card-template".to_string(),
                         tag: "template".to_string(),
                         import_source: None,
                         props: CompiledProps::default(),
-                        children: vec![CompiledJsxNode::Element {
+                        children: vec![CompiledRsxNode::Element {
                             key: "template-card".to_string(),
                             tag: "div".to_string(),
                             import_source: None,
@@ -112,41 +112,41 @@ fn lowers_html_document_metadata_template_and_slot_tags_to_native_roles() {
                     },
                 ],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "body".to_string(),
                 tag: "body".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
                 children: vec![
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "hero-heading".to_string(),
                         tag: "hgroup".to_string(),
                         import_source: None,
                         props: CompiledProps::default(),
                         children: vec![
-                            CompiledJsxNode::Element {
+                            CompiledRsxNode::Element {
                                 key: "headline".to_string(),
                                 tag: "h1".to_string(),
                                 import_source: None,
                                 props: CompiledProps::default(),
-                                children: vec![CompiledJsxNode::Text {
+                                children: vec![CompiledRsxNode::Text {
                                     key: "headline-text".to_string(),
                                     value: "Dashboard".to_string(),
                                 }],
                             },
-                            CompiledJsxNode::Element {
+                            CompiledRsxNode::Element {
                                 key: "tagline".to_string(),
                                 tag: "p".to_string(),
                                 import_source: None,
                                 props: CompiledProps::default(),
-                                children: vec![CompiledJsxNode::Text {
+                                children: vec![CompiledRsxNode::Text {
                                     key: "tagline-text".to_string(),
                                     value: "Operational summary".to_string(),
                                 }],
                             },
                         ],
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "actions-slot".to_string(),
                         tag: "slot".to_string(),
                         import_source: None,
@@ -220,64 +220,64 @@ fn lowers_html_document_metadata_template_and_slot_tags_to_native_roles() {
 
 #[test]
 fn lowers_html_ruby_annotation_tags_to_native_roles() {
-    let bridge = ReactCompilerBridge::new();
-    let ruby = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let ruby = CompiledRsxNode::Element {
         key: "ruby".to_string(),
         tag: "ruby".to_string(),
         import_source: None,
         props: CompiledProps::default(),
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "base".to_string(),
                 tag: "rb".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "base-text".to_string(),
                     value: "漢".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "open-parenthesis".to_string(),
                 tag: "rp".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "open-parenthesis-text".to_string(),
                     value: "(".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "text".to_string(),
                 tag: "rt".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "text-value".to_string(),
                     value: "kan".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "close-parenthesis".to_string(),
                 tag: "rp".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "close-parenthesis-text".to_string(),
                     value: ")".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "container".to_string(),
                 tag: "rtc".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Element {
+                children: vec![CompiledRsxNode::Element {
                     key: "alternate-text".to_string(),
                     tag: "rt".to_string(),
                     import_source: None,
                     props: CompiledProps::default(),
-                    children: vec![CompiledJsxNode::Text {
+                    children: vec![CompiledRsxNode::Text {
                         key: "alternate-text-value".to_string(),
                         value: "Han".to_string(),
                     }],
@@ -304,27 +304,27 @@ fn lowers_html_ruby_annotation_tags_to_native_roles() {
 
 #[test]
 fn lowers_html_text_annotation_tags_to_native_roles() {
-    fn text_annotation(key: &str, tag: &str, text: &str) -> CompiledJsxNode {
-        CompiledJsxNode::Element {
+    fn text_annotation(key: &str, tag: &str, text: &str) -> CompiledRsxNode {
+        CompiledRsxNode::Element {
             key: key.to_string(),
             tag: tag.to_string(),
             import_source: None,
             props: CompiledProps::default(),
-            children: vec![CompiledJsxNode::Text {
+            children: vec![CompiledRsxNode::Text {
                 key: format!("{key}-text"),
                 value: text.to_string(),
             }],
         }
     }
 
-    let bridge = ReactCompilerBridge::new();
-    let root = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let root = CompiledRsxNode::Element {
         key: "annotations".to_string(),
         tag: "div".to_string(),
         import_source: None,
         props: CompiledProps::default(),
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "abbr".to_string(),
                 tag: "abbr".to_string(),
                 import_source: None,
@@ -335,14 +335,14 @@ fn lowers_html_text_annotation_tags_to_native_roles() {
                     )]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "abbr-text".to_string(),
                     value: "HTML".to_string(),
                 }],
             },
             text_annotation("cite", "cite", "Spec"),
             text_annotation("dfn", "dfn", "Term"),
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "data".to_string(),
                 tag: "data".to_string(),
                 import_source: None,
@@ -350,12 +350,12 @@ fn lowers_html_text_annotation_tags_to_native_roles() {
                     attributes: BTreeMap::from([("value".to_string(), "42".to_string())]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "data-text".to_string(),
                     value: "Answer".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "ins".to_string(),
                 tag: "ins".to_string(),
                 import_source: None,
@@ -369,12 +369,12 @@ fn lowers_html_text_annotation_tags_to_native_roles() {
                     ]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "ins-text".to_string(),
                     value: "added".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "del".to_string(),
                 tag: "del".to_string(),
                 import_source: None,
@@ -388,13 +388,13 @@ fn lowers_html_text_annotation_tags_to_native_roles() {
                     ]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "del-text".to_string(),
                     value: "removed".to_string(),
                 }],
             },
             text_annotation("mark", "mark", "highlight"),
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "time".to_string(),
                 tag: "time".to_string(),
                 import_source: None,
@@ -405,7 +405,7 @@ fn lowers_html_text_annotation_tags_to_native_roles() {
                     )]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "time-text".to_string(),
                     value: "Today".to_string(),
                 }],
@@ -501,21 +501,21 @@ fn lowers_html_text_annotation_tags_to_native_roles() {
 
 #[test]
 fn lowers_html_phrasing_text_tags_to_native_roles() {
-    fn phrasing(key: &str, tag: &str, text: &str) -> CompiledJsxNode {
-        CompiledJsxNode::Element {
+    fn phrasing(key: &str, tag: &str, text: &str) -> CompiledRsxNode {
+        CompiledRsxNode::Element {
             key: key.to_string(),
             tag: tag.to_string(),
             import_source: None,
             props: CompiledProps::default(),
-            children: vec![CompiledJsxNode::Text {
+            children: vec![CompiledRsxNode::Text {
                 key: format!("{key}-text"),
                 value: text.to_string(),
             }],
         }
     }
 
-    let bridge = ReactCompilerBridge::new();
-    let root = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let root = CompiledRsxNode::Element {
         key: "phrasing".to_string(),
         tag: "p".to_string(),
         import_source: None,
@@ -527,7 +527,7 @@ fn lowers_html_phrasing_text_tags_to_native_roles() {
             phrasing("kbd", "kbd", "Command K"),
             phrasing("samp", "samp", "OK"),
             phrasing("var", "var", "x"),
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "quote".to_string(),
                 tag: "q".to_string(),
                 import_source: None,
@@ -538,7 +538,7 @@ fn lowers_html_phrasing_text_tags_to_native_roles() {
                     )]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "quote-text".to_string(),
                     value: "quoted".to_string(),
                 }],
@@ -551,7 +551,7 @@ fn lowers_html_phrasing_text_tags_to_native_roles() {
             phrasing("s", "s", "obsolete"),
             phrasing("u", "u", "annotation"),
             phrasing("bdi", "bdi", "مرحبا"),
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "bdo".to_string(),
                 tag: "bdo".to_string(),
                 import_source: None,
@@ -559,7 +559,7 @@ fn lowers_html_phrasing_text_tags_to_native_roles() {
                     attributes: BTreeMap::from([("dir".to_string(), "rtl".to_string())]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "bdo-text".to_string(),
                     value: "abc".to_string(),
                 }],
@@ -621,21 +621,21 @@ fn lowers_html_phrasing_text_tags_to_native_roles() {
 
 #[test]
 fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
-    fn flow(key: &str, tag: &str, text: &str) -> CompiledJsxNode {
-        CompiledJsxNode::Element {
+    fn flow(key: &str, tag: &str, text: &str) -> CompiledRsxNode {
+        CompiledRsxNode::Element {
             key: key.to_string(),
             tag: tag.to_string(),
             import_source: None,
             props: CompiledProps::default(),
-            children: vec![CompiledJsxNode::Text {
+            children: vec![CompiledRsxNode::Text {
                 key: format!("{key}-text"),
                 value: text.to_string(),
             }],
         }
     }
 
-    let bridge = ReactCompilerBridge::new();
-    let root = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let root = CompiledRsxNode::Element {
         key: "flow".to_string(),
         tag: "div".to_string(),
         import_source: None,
@@ -643,7 +643,7 @@ fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
         children: vec![
             flow("paragraph", "p", "Paragraph"),
             flow("pre", "pre", "line 1\nline 2"),
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "blockquote".to_string(),
                 tag: "blockquote".to_string(),
                 import_source: None,
@@ -654,26 +654,26 @@ fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
                     )]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Element {
+                children: vec![CompiledRsxNode::Element {
                     key: "quote-p".to_string(),
                     tag: "p".to_string(),
                     import_source: None,
                     props: CompiledProps::default(),
-                    children: vec![CompiledJsxNode::Text {
+                    children: vec![CompiledRsxNode::Text {
                         key: "quote-p-text".to_string(),
                         value: "Quoted paragraph".to_string(),
                     }],
                 }],
             },
             flow("address", "address", "help@example.test"),
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "break".to_string(),
                 tag: "br".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
                 children: Vec::new(),
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "word-break".to_string(),
                 tag: "wbr".to_string(),
                 import_source: None,
@@ -682,7 +682,7 @@ fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
             },
             flow("nobr", "nobr", "No break"),
             flow("center", "center", "Centered"),
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "font".to_string(),
                 tag: "font".to_string(),
                 import_source: None,
@@ -690,7 +690,7 @@ fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
                     attributes: BTreeMap::from([("color".to_string(), "red".to_string())]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "font-text".to_string(),
                     value: "Font text".to_string(),
                 }],
@@ -701,17 +701,17 @@ fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
             flow("plaintext", "plaintext", "Plain text"),
             flow("xmp", "xmp", "Example"),
             flow("basefont", "basefont", "Base font"),
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "directory".to_string(),
                 tag: "dir".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Element {
+                children: vec![CompiledRsxNode::Element {
                     key: "directory-item".to_string(),
                     tag: "li".to_string(),
                     import_source: None,
                     props: CompiledProps::default(),
-                    children: vec![CompiledJsxNode::Text {
+                    children: vec![CompiledRsxNode::Text {
                         key: "directory-item-text".to_string(),
                         value: "Item".to_string(),
                     }],
@@ -783,27 +783,27 @@ fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
 
 #[test]
 fn lowers_html_remaining_legacy_and_foreign_tags_to_native_roles() {
-    fn container(key: &str, tag: &str, text: &str) -> CompiledJsxNode {
-        CompiledJsxNode::Element {
+    fn container(key: &str, tag: &str, text: &str) -> CompiledRsxNode {
+        CompiledRsxNode::Element {
             key: key.to_string(),
             tag: tag.to_string(),
             import_source: None,
             props: CompiledProps::default(),
-            children: vec![CompiledJsxNode::Text {
+            children: vec![CompiledRsxNode::Text {
                 key: format!("{key}-text"),
                 value: text.to_string(),
             }],
         }
     }
 
-    let bridge = ReactCompilerBridge::new();
-    let root = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let root = CompiledRsxNode::Element {
         key: "legacy".to_string(),
         tag: "div".to_string(),
         import_source: None,
         props: CompiledProps::default(),
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "applet".to_string(),
                 tag: "applet".to_string(),
                 import_source: None,
@@ -811,12 +811,12 @@ fn lowers_html_remaining_legacy_and_foreign_tags_to_native_roles() {
                     attributes: BTreeMap::from([("code".to_string(), "Demo.class".to_string())]),
                     ..CompiledProps::default()
                 },
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "applet-text".to_string(),
                     value: "Applet fallback".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "bgsound".to_string(),
                 tag: "bgsound".to_string(),
                 import_source: None,
@@ -826,12 +826,12 @@ fn lowers_html_remaining_legacy_and_foreign_tags_to_native_roles() {
                 },
                 children: Vec::new(),
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "frameset".to_string(),
                 tag: "frameset".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Element {
+                children: vec![CompiledRsxNode::Element {
                     key: "frame".to_string(),
                     tag: "frame".to_string(),
                     import_source: None,
@@ -849,7 +849,7 @@ fn lowers_html_remaining_legacy_and_foreign_tags_to_native_roles() {
             container("noframes", "noframes", "No frames fallback"),
             container("marquee", "marquee", "Moving text"),
             container("math", "math", "x+y"),
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "nextid".to_string(),
                 tag: "nextid".to_string(),
                 import_source: None,

@@ -2,8 +2,8 @@ use super::support::*;
 
 #[test]
 fn lowers_html_embedded_media_and_table_tags_to_native_roles() {
-    let bridge = ReactCompilerBridge::new();
-    let img = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let img = CompiledRsxNode::Element {
         key: "hero".to_string(),
         tag: "img".to_string(),
         import_source: None,
@@ -32,12 +32,12 @@ fn lowers_html_embedded_media_and_table_tags_to_native_roles() {
         Some("img")
     );
 
-    let video = CompiledJsxNode::Element {
+    let video = CompiledRsxNode::Element {
         key: "demo-video".to_string(),
         tag: "video".to_string(),
         import_source: None,
         props: CompiledProps::default(),
-        children: vec![CompiledJsxNode::Element {
+        children: vec![CompiledRsxNode::Element {
             key: "demo-source".to_string(),
             tag: "source".to_string(),
             import_source: None,
@@ -54,38 +54,38 @@ fn lowers_html_embedded_media_and_table_tags_to_native_roles() {
     assert_eq!(native_video.children.len(), 1);
     assert_eq!(native_video.children[0].role, NativeRole::EmbeddedContent);
 
-    let table = CompiledJsxNode::Element {
+    let table = CompiledRsxNode::Element {
         key: "metrics".to_string(),
         tag: "table".to_string(),
         import_source: None,
         props: CompiledProps::default(),
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "metrics-caption".to_string(),
                 tag: "caption".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "metrics-caption-text".to_string(),
                     value: "Metrics".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "metrics-body".to_string(),
                 tag: "tbody".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Element {
+                children: vec![CompiledRsxNode::Element {
                     key: "metrics-row".to_string(),
                     tag: "tr".to_string(),
                     import_source: None,
                     props: CompiledProps::default(),
-                    children: vec![CompiledJsxNode::Element {
+                    children: vec![CompiledRsxNode::Element {
                         key: "metrics-cell".to_string(),
                         tag: "td".to_string(),
                         import_source: None,
                         props: CompiledProps::default(),
-                        children: vec![CompiledJsxNode::Text {
+                        children: vec![CompiledRsxNode::Text {
                             key: "metrics-cell-text".to_string(),
                             value: "42".to_string(),
                         }],
@@ -122,8 +122,8 @@ fn lowers_html_embedded_media_and_table_tags_to_native_roles() {
 
 #[test]
 fn lowers_html_media_and_resource_attributes_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let picture = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let picture = CompiledRsxNode::Element {
         key: "picture".to_string(),
         tag: "picture".to_string(),
         import_source: None,
@@ -135,7 +135,7 @@ fn lowers_html_media_and_resource_attributes_to_native_state() {
             ..CompiledProps::default()
         },
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "hero-source".to_string(),
                 tag: "source".to_string(),
                 import_source: None,
@@ -158,7 +158,7 @@ fn lowers_html_media_and_resource_attributes_to_native_state() {
                 },
                 children: Vec::new(),
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "hero-img".to_string(),
                 tag: "img".to_string(),
                 import_source: None,
@@ -185,7 +185,7 @@ fn lowers_html_media_and_resource_attributes_to_native_state() {
             },
         ],
     };
-    let video = CompiledJsxNode::Element {
+    let video = CompiledRsxNode::Element {
         key: "demo-video".to_string(),
         tag: "video".to_string(),
         import_source: None,
@@ -205,7 +205,7 @@ fn lowers_html_media_and_resource_attributes_to_native_state() {
             ]),
             ..CompiledProps::default()
         },
-        children: vec![CompiledJsxNode::Element {
+        children: vec![CompiledRsxNode::Element {
             key: "captions".to_string(),
             tag: "track".to_string(),
             import_source: None,
@@ -222,7 +222,7 @@ fn lowers_html_media_and_resource_attributes_to_native_state() {
             children: Vec::new(),
         }],
     };
-    let link = CompiledJsxNode::Element {
+    let link = CompiledRsxNode::Element {
         key: "stylesheet".to_string(),
         tag: "link".to_string(),
         import_source: None,
@@ -239,7 +239,7 @@ fn lowers_html_media_and_resource_attributes_to_native_state() {
         },
         children: Vec::new(),
     };
-    let script = CompiledJsxNode::Element {
+    let script = CompiledRsxNode::Element {
         key: "analytics".to_string(),
         tag: "script".to_string(),
         import_source: None,
@@ -255,7 +255,7 @@ fn lowers_html_media_and_resource_attributes_to_native_state() {
         },
         children: Vec::new(),
     };
-    let object = CompiledJsxNode::Element {
+    let object = CompiledRsxNode::Element {
         key: "pdf".to_string(),
         tag: "object".to_string(),
         import_source: None,
@@ -380,8 +380,8 @@ fn lowers_html_media_and_resource_attributes_to_native_state() {
 
 #[test]
 fn lowers_top_level_protocol_resource_hints_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let image: CompiledJsxNode = serde_json::from_str(
+    let bridge = RsxCompilerBridge::new();
+    let image: CompiledRsxNode = serde_json::from_str(
         r#"
         {
           "kind": "element",
@@ -404,7 +404,7 @@ fn lowers_top_level_protocol_resource_hints_to_native_state() {
         "#,
     )
     .unwrap();
-    let video: CompiledJsxNode = serde_json::from_str(
+    let video: CompiledRsxNode = serde_json::from_str(
         r#"
         {
           "kind": "element",
@@ -441,7 +441,7 @@ fn lowers_top_level_protocol_resource_hints_to_native_state() {
         "#,
     )
     .unwrap();
-    let link: CompiledJsxNode = serde_json::from_str(
+    let link: CompiledRsxNode = serde_json::from_str(
         r#"
         {
           "kind": "element",
@@ -519,14 +519,14 @@ fn lowers_top_level_protocol_resource_hints_to_native_state() {
 
 #[test]
 fn lowers_html_sectioning_landmark_and_heading_tags_to_native_roles() {
-    let bridge = ReactCompilerBridge::new();
-    let tree = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let tree = CompiledRsxNode::Element {
         key: "main".to_string(),
         tag: "main".to_string(),
         import_source: None,
         props: CompiledProps::default(),
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "top-nav".to_string(),
                 tag: "nav".to_string(),
                 import_source: None,
@@ -539,23 +539,23 @@ fn lowers_html_sectioning_landmark_and_heading_tags_to_native_roles() {
                 },
                 children: Vec::new(),
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "article".to_string(),
                 tag: "article".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
                 children: vec![
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "headline".to_string(),
                         tag: "h1".to_string(),
                         import_source: None,
                         props: CompiledProps::default(),
-                        children: vec![CompiledJsxNode::Text {
+                        children: vec![CompiledRsxNode::Text {
                             key: "headline-text".to_string(),
                             value: "Release notes".to_string(),
                         }],
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "summary".to_string(),
                         tag: "section".to_string(),
                         import_source: None,
@@ -570,14 +570,14 @@ fn lowers_html_sectioning_landmark_and_heading_tags_to_native_roles() {
                     },
                 ],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "related".to_string(),
                 tag: "aside".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
                 children: Vec::new(),
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "search".to_string(),
                 tag: "search".to_string(),
                 import_source: None,
@@ -619,8 +619,8 @@ fn lowers_html_sectioning_landmark_and_heading_tags_to_native_roles() {
 
 #[test]
 fn lowers_html_disclosure_figure_and_description_list_tags_to_native_roles() {
-    let bridge = ReactCompilerBridge::new();
-    let disclosure = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let disclosure = CompiledRsxNode::Element {
         key: "release-notes".to_string(),
         tag: "details".to_string(),
         import_source: None,
@@ -629,22 +629,22 @@ fn lowers_html_disclosure_figure_and_description_list_tags_to_native_roles() {
             ..CompiledProps::default()
         },
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "release-summary".to_string(),
                 tag: "summary".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "release-summary-text".to_string(),
                     value: "Release details".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "release-body".to_string(),
                 tag: "p".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "release-body-text".to_string(),
                     value: "Native semantic roles are preserved.".to_string(),
                 }],
@@ -672,13 +672,13 @@ fn lowers_html_disclosure_figure_and_description_list_tags_to_native_roles() {
         Some("Release details")
     );
 
-    let figure = CompiledJsxNode::Element {
+    let figure = CompiledRsxNode::Element {
         key: "chart".to_string(),
         tag: "figure".to_string(),
         import_source: None,
         props: CompiledProps::default(),
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "chart-image".to_string(),
                 tag: "img".to_string(),
                 import_source: None,
@@ -688,12 +688,12 @@ fn lowers_html_disclosure_figure_and_description_list_tags_to_native_roles() {
                 },
                 children: Vec::new(),
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "chart-caption".to_string(),
                 tag: "figcaption".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "chart-caption-text".to_string(),
                     value: "Revenue by quarter".to_string(),
                 }],
@@ -714,28 +714,28 @@ fn lowers_html_disclosure_figure_and_description_list_tags_to_native_roles() {
         Some("Revenue by quarter")
     );
 
-    let description_list = CompiledJsxNode::Element {
+    let description_list = CompiledRsxNode::Element {
         key: "terms".to_string(),
         tag: "dl".to_string(),
         import_source: None,
         props: CompiledProps::default(),
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "term".to_string(),
                 tag: "dt".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "term-text".to_string(),
                     value: "IR".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "details".to_string(),
                 tag: "dd".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "details-text".to_string(),
                     value: "Intermediate representation".to_string(),
                 }],
@@ -765,8 +765,8 @@ fn lowers_html_disclosure_figure_and_description_list_tags_to_native_roles() {
 
 #[test]
 fn lowers_html_dialog_open_attribute_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let open_dialog = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let open_dialog = CompiledRsxNode::Element {
         key: "settings-dialog".to_string(),
         tag: "dialog".to_string(),
         import_source: None,
@@ -774,27 +774,27 @@ fn lowers_html_dialog_open_attribute_to_native_state() {
             attributes: BTreeMap::from([("open".to_string(), String::new())]),
             ..CompiledProps::default()
         },
-        children: vec![CompiledJsxNode::Text {
+        children: vec![CompiledRsxNode::Text {
             key: "settings-dialog-text".to_string(),
             value: "Settings".to_string(),
         }],
     };
-    let closed_dialog = CompiledJsxNode::Element {
+    let closed_dialog = CompiledRsxNode::Element {
         key: "help-dialog".to_string(),
         tag: "dialog".to_string(),
         import_source: None,
         props: CompiledProps::default(),
-        children: vec![CompiledJsxNode::Text {
+        children: vec![CompiledRsxNode::Text {
             key: "help-dialog-text".to_string(),
             value: "Help".to_string(),
         }],
     };
-    let semantic_dialog = CompiledJsxNode::Element {
+    let semantic_dialog = CompiledRsxNode::Element {
         key: "semantic-dialog".to_string(),
         tag: "Dialog".to_string(),
         import_source: None,
         props: CompiledProps::default(),
-        children: vec![CompiledJsxNode::Text {
+        children: vec![CompiledRsxNode::Text {
             key: "semantic-dialog-text".to_string(),
             value: "Semantic".to_string(),
         }],

@@ -405,7 +405,7 @@ pub(in crate::style) fn tailwind_color(value: &str) -> Option<StyleColor> {
         "current" => Some(StyleColor::Keyword("currentColor".to_string())),
         "inherit" => Some(StyleColor::Keyword("inherit".to_string())),
         other if is_tailwind_palette_color(other) => Some(StyleColor::Keyword(other.to_string())),
-        _ => None,
+        other => tailwind_semantic_color(other).and_then(parse_color),
     }?;
     Some(apply_tailwind_color_opacity(color, opacity))
 }
@@ -432,21 +432,70 @@ pub(in crate::style) fn tailwind_color_css(value: &str) -> Option<String> {
         }
         return Some(apply_tailwind_keyword_opacity(value, opacity));
     }
-    let color = match value {
+    match value {
         "black" => parse_color("#000")
             .map(|color| style_color_css(&apply_tailwind_color_opacity(color, opacity))),
         "white" => parse_color("#fff")
             .map(|color| style_color_css(&apply_tailwind_color_opacity(color, opacity))),
         "transparent" => Some("transparent".to_string()),
-        "current" => Some("currentColor".to_string()),
-        "inherit" => Some("inherit".to_string()),
-        other if is_tailwind_palette_color(other) => Some(other.to_string()),
+        "current" => Some(apply_tailwind_keyword_opacity(
+            "currentColor".to_string(),
+            opacity,
+        )),
+        "inherit" => Some(apply_tailwind_keyword_opacity(
+            "inherit".to_string(),
+            opacity,
+        )),
+        other if is_tailwind_palette_color(other) => {
+            Some(apply_tailwind_keyword_opacity(other.to_string(), opacity))
+        }
+        other => tailwind_semantic_color(other)
+            .and_then(parse_color)
+            .map(|color| style_color_css(&apply_tailwind_color_opacity(color, opacity))),
+    }
+}
+
+pub(in crate::style) fn tailwind_semantic_color(value: &str) -> Option<&'static str> {
+    match value {
+        // shadcn-compatible semantic aliases, backed by DESIGN.md's Vercel/Geist palette.
+        "background" | "canvas" => Some("#fafafa"),
+        "foreground" | "ink" => Some("#171717"),
+        "card" | "popover" | "elevated" | "canvas-elevated" => Some("#ffffff"),
+        "card-foreground" | "popover-foreground" => Some("#171717"),
+        "primary" => Some("#171717"),
+        "primary-foreground" => Some("#ffffff"),
+        "secondary" | "muted" | "accent" | "hairline-soft" => Some("#f2f2f2"),
+        "secondary-foreground" | "accent-foreground" => Some("#171717"),
+        "muted-foreground" | "mute" => Some("#8f8f8f"),
+        "body" => Some("#4d4d4d"),
+        "faint" => Some("#a1a1a1"),
+        "destructive" | "error" => Some("#ee0000"),
+        "destructive-foreground" | "error-foreground" => Some("#ffffff"),
+        "border" | "input" | "hairline" => Some("#ebebeb"),
+        "ring" | "link" | "success" => Some("#0070f3"),
+        "link-deep" => Some("#0761d1"),
+        "link-soft" => Some("#d3e5ff"),
+        "warning" => Some("#f5a623"),
+        "violet" => Some("#7928ca"),
+        "cyan" => Some("#50e3c2"),
+        "pink" => Some("#ff0080"),
+        "magenta" => Some("#eb367f"),
+        "gradient-develop-start" | "chart-1" => Some("#007cf0"),
+        "gradient-develop-end" | "chart-2" => Some("#00dfd8"),
+        "gradient-preview-start" | "chart-3" => Some("#7928ca"),
+        "gradient-preview-end" | "chart-4" => Some("#ff0080"),
+        "gradient-ship-start" => Some("#ff4d4d"),
+        "gradient-ship-end" | "chart-5" => Some("#f9cb28"),
+        "sidebar" => Some("#fafafa"),
+        "sidebar-foreground" => Some("#171717"),
+        "sidebar-primary" => Some("#171717"),
+        "sidebar-primary-foreground" => Some("#ffffff"),
+        "sidebar-accent" => Some("#f2f2f2"),
+        "sidebar-accent-foreground" => Some("#171717"),
+        "sidebar-border" => Some("#ebebeb"),
+        "sidebar-ring" => Some("#0070f3"),
         _ => None,
-    }?;
-    Some(match value {
-        "black" | "white" => color,
-        _ => apply_tailwind_keyword_opacity(color, opacity),
-    })
+    }
 }
 
 pub(in crate::style) fn split_tailwind_color_opacity(value: &str) -> (&str, Option<&str>) {

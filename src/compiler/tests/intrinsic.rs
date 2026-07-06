@@ -2,11 +2,11 @@ use super::support::*;
 
 #[test]
 fn lowers_all_conforming_html_elements_without_rejecting_intrinsic_tags() {
-    let bridge = ReactCompilerBridge::new();
+    let bridge = RsxCompilerBridge::new();
 
     for tag in HTML_CONFORMING_ELEMENTS {
         let props = intrinsic_props_for_tag(tag);
-        let compiled = CompiledJsxNode::Element {
+        let compiled = CompiledRsxNode::Element {
             key: format!("{tag}-key"),
             tag: tag.to_string(),
             import_source: None,
@@ -31,11 +31,11 @@ fn lowers_all_conforming_html_elements_without_rejecting_intrinsic_tags() {
 
 #[test]
 fn lowers_all_known_html_elements_without_rejecting_intrinsic_tags() {
-    let bridge = ReactCompilerBridge::new();
+    let bridge = RsxCompilerBridge::new();
 
     for tag in HTML_ELEMENTS {
         let props = intrinsic_props_for_tag(tag);
-        let compiled = CompiledJsxNode::Element {
+        let compiled = CompiledRsxNode::Element {
             key: format!("{tag}-key"),
             tag: tag.to_string(),
             import_source: None,
@@ -60,10 +60,10 @@ fn lowers_all_known_html_elements_without_rejecting_intrinsic_tags() {
 
 #[test]
 fn lowers_all_known_svg_elements_without_rejecting_intrinsic_tags() {
-    let bridge = ReactCompilerBridge::new();
+    let bridge = RsxCompilerBridge::new();
 
     for tag in SVG_ELEMENTS {
-        let compiled = CompiledJsxNode::Element {
+        let compiled = CompiledRsxNode::Element {
             key: format!("{tag}-key"),
             tag: tag.to_string(),
             import_source: None,
@@ -88,8 +88,8 @@ fn lowers_all_known_svg_elements_without_rejecting_intrinsic_tags() {
 
 #[test]
 fn lowers_html_link_and_image_map_tags_to_native_roles() {
-    let bridge = ReactCompilerBridge::new();
-    let link = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let link = CompiledRsxNode::Element {
         key: "docs-link".to_string(),
         tag: "a".to_string(),
         import_source: None,
@@ -97,7 +97,7 @@ fn lowers_html_link_and_image_map_tags_to_native_roles() {
             attributes: BTreeMap::from([("href".to_string(), "/docs".to_string())]),
             ..CompiledProps::default()
         },
-        children: vec![CompiledJsxNode::Text {
+        children: vec![CompiledRsxNode::Text {
             key: "docs-link-text".to_string(),
             value: "Docs".to_string(),
         }],
@@ -124,7 +124,7 @@ fn lowers_html_link_and_image_map_tags_to_native_roles() {
         Some("/docs")
     );
 
-    let protocol_link = CompiledJsxNode::Element {
+    let protocol_link = CompiledRsxNode::Element {
         key: "protocol-docs-link".to_string(),
         tag: "a".to_string(),
         import_source: None,
@@ -132,7 +132,7 @@ fn lowers_html_link_and_image_map_tags_to_native_roles() {
             href: Some("/protocol-docs".to_string()),
             ..CompiledProps::default()
         },
-        children: vec![CompiledJsxNode::Text {
+        children: vec![CompiledRsxNode::Text {
             key: "protocol-docs-link-text".to_string(),
             value: "Protocol docs".to_string(),
         }],
@@ -145,7 +145,7 @@ fn lowers_html_link_and_image_map_tags_to_native_roles() {
         Some("/protocol-docs")
     );
 
-    let clickable_anchor = CompiledJsxNode::Element {
+    let clickable_anchor = CompiledRsxNode::Element {
         key: "archive-anchor".to_string(),
         tag: "a".to_string(),
         import_source: None,
@@ -153,7 +153,7 @@ fn lowers_html_link_and_image_map_tags_to_native_roles() {
             events: BTreeMap::from([("onClick".to_string(), "archive".to_string())]),
             ..CompiledProps::default()
         },
-        children: vec![CompiledJsxNode::Text {
+        children: vec![CompiledRsxNode::Text {
             key: "archive-anchor-text".to_string(),
             value: "Archive".to_string(),
         }],
@@ -170,7 +170,7 @@ fn lowers_html_link_and_image_map_tags_to_native_roles() {
         Some("archive")
     );
 
-    let image_map = CompiledJsxNode::Element {
+    let image_map = CompiledRsxNode::Element {
         key: "hero-map".to_string(),
         tag: "map".to_string(),
         import_source: None,
@@ -178,7 +178,7 @@ fn lowers_html_link_and_image_map_tags_to_native_roles() {
             attributes: BTreeMap::from([("name".to_string(), "hero-map".to_string())]),
             ..CompiledProps::default()
         },
-        children: vec![CompiledJsxNode::Element {
+        children: vec![CompiledRsxNode::Element {
             key: "cta-area".to_string(),
             tag: "area".to_string(),
             import_source: None,

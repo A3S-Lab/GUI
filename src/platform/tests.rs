@@ -308,7 +308,7 @@ fn number_text_fields_target_gtk_spin_button() {
 }
 
 #[test]
-fn blueprint_preserves_react_aria_control_state_for_native_adapters() {
+fn blueprint_preserves_semantic_ui_control_state_for_native_adapters() {
     let element = NativeElement::new("volume", NativeRole::Slider).with_props(
         NativeProps::new()
             .label("Volume")

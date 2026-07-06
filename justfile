@@ -290,12 +290,8 @@ test-examples:
 test-platforms:
     cargo test --features appkit,winui,gtk4
 
-# Run the TypeScript protocol SDK tests
-test-sdk:
-    npm test --prefix sdk/typescript
-
 # Run the full local verification suite
-verify: fmt-check test test-examples test-platforms test-sdk diff-check
+verify: fmt-check test test-examples test-platforms diff-check
 
 # Run dogfood reducer and protocol-boundary regression tests
 dogfood-regression:

@@ -98,10 +98,8 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
             AppKitWidgetKind::Popover => {
                 let size = config_size(&config, 320.0, 220.0);
-                let content_view = NSView::initWithFrame(
-                    NSView::alloc(self.mtm),
-                    NSRect::new(NSPoint::new(0.0, 0.0), size),
-                );
+                let content_view =
+                    flipped_view(self.mtm, NSRect::new(NSPoint::new(0.0, 0.0), size));
                 let content_view_controller = NSViewController::new(self.mtm);
                 content_view_controller.setView(&content_view);
                 if let Some(label) = config.label.as_deref() {
@@ -156,10 +154,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 AppKitOsWidget::MenuItem(menu_item)
             }
             AppKitWidgetKind::View => {
-                let view = NSView::initWithFrame(
-                    NSView::alloc(self.mtm),
-                    config_rect(&config, 320.0, 240.0),
-                );
+                let view = flipped_view(self.mtm, config_rect(&config, 320.0, 240.0));
                 AppKitOsWidget::View(view)
             }
             AppKitWidgetKind::Button => {
@@ -221,27 +216,15 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 AppKitOsWidget::Switch(switch)
             }
             AppKitWidgetKind::RadioGroup => {
-                let stack_view = NSStackView::initWithFrame(
-                    NSStackView::alloc(self.mtm),
-                    config_rect(&config, 180.0, 96.0),
-                );
-                stack_view.setDistribution(NSStackViewDistribution::GravityAreas);
-                apply_stack_view_layout(&stack_view, &config.portable_style, config.orientation);
-                if config.orientation.is_none() && config.portable_style.flex_direction.is_none() {
-                    stack_view.setOrientation(appkit_stack_orientation(Orientation::Vertical));
-                }
+                let orientation = config.orientation.unwrap_or(Orientation::Vertical);
+                let stack_view = flipped_stack_view(self.mtm, config_rect(&config, 180.0, 96.0));
+                apply_stack_view_layout(&stack_view, &config.portable_style, Some(orientation));
                 AppKitOsWidget::StackView(stack_view)
             }
             AppKitWidgetKind::Toolbar => {
-                let stack_view = NSStackView::initWithFrame(
-                    NSStackView::alloc(self.mtm),
-                    config_rect(&config, 320.0, 44.0),
-                );
-                stack_view.setDistribution(NSStackViewDistribution::GravityAreas);
-                apply_stack_view_layout(&stack_view, &config.portable_style, config.orientation);
-                if config.orientation.is_none() && config.portable_style.flex_direction.is_none() {
-                    stack_view.setOrientation(appkit_stack_orientation(Orientation::Horizontal));
-                }
+                let orientation = config.orientation.unwrap_or(Orientation::Horizontal);
+                let stack_view = flipped_stack_view(self.mtm, config_rect(&config, 320.0, 44.0));
+                apply_stack_view_layout(&stack_view, &config.portable_style, Some(orientation));
                 AppKitOsWidget::StackView(stack_view)
             }
             AppKitWidgetKind::Radio => {
@@ -327,15 +310,13 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 scroll_view.setHasVerticalScroller(true);
                 scroll_view.setAutohidesScrollers(true);
 
-                let stack_view = NSStackView::initWithFrame(
-                    NSStackView::alloc(self.mtm),
-                    NSRect::new(NSPoint::new(0.0, 0.0), rect.size),
-                );
+                let stack_view =
+                    flipped_stack_view(self.mtm, NSRect::new(NSPoint::new(0.0, 0.0), rect.size));
                 stack_view.setDistribution(NSStackViewDistribution::Fill);
                 stack_view.setOrientation(appkit_stack_orientation(
                     config.orientation.unwrap_or(Orientation::Vertical),
                 ));
-                scroll_view.setDocumentView(Some(stack_view.as_super()));
+                configure_scroll_document(&scroll_view, &stack_view);
 
                 self.list_views.insert(
                     id,
@@ -348,22 +329,17 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 AppKitOsWidget::ListView(scroll_view)
             }
             AppKitWidgetKind::ScrollView => {
+                let orientation = config.orientation.unwrap_or(Orientation::Vertical);
                 let rect = config_rect(&config, 320.0, 240.0);
                 let scroll_view = NSScrollView::initWithFrame(NSScrollView::alloc(self.mtm), rect);
                 scroll_view.setHasVerticalScroller(appkit_vertical_scroll_enabled(&config));
                 scroll_view.setHasHorizontalScroller(appkit_horizontal_scroll_enabled(&config));
                 scroll_view.setAutohidesScrollers(true);
 
-                let stack_view = NSStackView::initWithFrame(
-                    NSStackView::alloc(self.mtm),
-                    NSRect::new(NSPoint::new(0.0, 0.0), rect.size),
-                );
-                stack_view.setDistribution(NSStackViewDistribution::GravityAreas);
-                apply_stack_view_layout(&stack_view, &config.portable_style, config.orientation);
-                if config.orientation.is_none() && config.portable_style.flex_direction.is_none() {
-                    stack_view.setOrientation(appkit_stack_orientation(Orientation::Vertical));
-                }
-                scroll_view.setDocumentView(Some(stack_view.as_super()));
+                let stack_view =
+                    flipped_stack_view(self.mtm, NSRect::new(NSPoint::new(0.0, 0.0), rect.size));
+                apply_stack_view_layout(&stack_view, &config.portable_style, Some(orientation));
+                configure_scroll_document(&scroll_view, &stack_view);
 
                 AppKitOsWidget::ScrollView(AppKitScrollViewState {
                     scroll_view,
@@ -767,6 +743,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 }
             }
             NativeWidgetSetter::SetPortableStyle(style) => {
+                apply_widget_portable_style(&handle.widget, handle.kind, style);
                 match &handle.widget {
                     AppKitOsWidget::Window(window) => {
                         apply_window_portable_style(window, style);
@@ -777,14 +754,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     _ => {}
                 }
                 if let Some(view) = handle.widget.as_view() {
-                    let size = style.native_size_constraints();
-                    if size.width.is_some() || size.height.is_some() {
-                        let current = view.frame().size;
-                        view.setFrameSize(NSSize::new(
-                            size.width.unwrap_or(current.width.max(120.0)),
-                            size.height.unwrap_or(current.height.max(32.0)),
-                        ));
-                    }
+                    self.apply_native_size_constraints(id, view, style);
                 }
                 if let AppKitOsWidget::Popover(state) = &handle.widget {
                     let constraints = style.native_size_constraints();
@@ -797,6 +767,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         state.popover.setContentSize(content_size);
                         state.content_view.setFrameSize(content_size);
                     }
+                    self.apply_native_size_constraints(id, &state.content_view, style);
                 }
                 if let AppKitOsWidget::TextField(text_field) = &handle.widget {
                     if handle.kind == AppKitWidgetKind::TextField {
@@ -1238,22 +1209,21 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             GuiError::host("AppKit native child insertion requires an NSView child")
         })?;
         match &parent_handle.widget {
-            AppKitOsWidget::Window(window) => window.setContentView(Some(child)),
-            AppKitOsWidget::Panel(panel) => panel.setContentView(Some(child)),
+            AppKitOsWidget::Window(window) => install_window_content_view(window, child),
+            AppKitOsWidget::Panel(panel) => install_window_content_view(panel.as_super(), child),
             AppKitOsWidget::Popover(state) => state.content_view.addSubview(child),
             AppKitOsWidget::View(view) => view.addSubview(child),
             AppKitOsWidget::StackView(stack_view) => stack_view.insertArrangedSubview_atIndex(
                 child,
-                index.try_into().map_err(|_| {
-                    GuiError::host("AppKit stack view child insertion index overflow")
-                })?,
+                stack_arranged_insert_index(stack_view, index)?,
             ),
-            AppKitOsWidget::ScrollView(state) => state.stack_view.insertArrangedSubview_atIndex(
-                child,
-                index.try_into().map_err(|_| {
-                    GuiError::host("AppKit scroll view child insertion index overflow")
-                })?,
-            ),
+            AppKitOsWidget::ScrollView(state) => {
+                state.stack_view.insertArrangedSubview_atIndex(
+                    child,
+                    stack_arranged_insert_index(&state.stack_view, index)?,
+                );
+                scroll_view_to_top(state);
+            }
             AppKitOsWidget::Button(button) => button.as_super().as_super().addSubview(child),
             AppKitOsWidget::Switch(switch) => switch.as_super().as_super().addSubview(child),
             AppKitOsWidget::Slider(slider) => slider.as_super().as_super().addSubview(child),
@@ -1299,6 +1269,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         self.ranges.remove(&id);
         self.text_inputs.remove(&id);
         self.text_input_configs.remove(&id);
+        self.clear_native_size_constraints(id);
         self.closed_windows.borrow_mut().remove(&id);
         self.dialog_visible.remove(&id);
         if let AppKitOsWidget::Window(window) = &handle.widget {
@@ -1373,20 +1344,26 @@ impl NativeWidgetSurface for AppKitNativeSurface {
     }
 
     fn set_native_root(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
+        let root_changed = self.root != Some(id);
         self.root = Some(id);
-        match &handle.widget {
-            AppKitOsWidget::Window(window) => {
-                self.closed_windows.borrow_mut().remove(&id);
-                window.makeKeyAndOrderFront(None);
+        if root_changed {
+            match &handle.widget {
+                AppKitOsWidget::Window(window) => {
+                    self.closed_windows.borrow_mut().remove(&id);
+                    window.makeKeyAndOrderFront(None);
+                }
+                AppKitOsWidget::Panel(panel) => {
+                    self.closed_windows.borrow_mut().remove(&id);
+                    panel.as_super().makeKeyAndOrderFront(None);
+                }
+                AppKitOsWidget::Menu(menu) => self._application.setMainMenu(Some(menu)),
+                _ => {}
             }
-            AppKitOsWidget::Panel(panel) => {
-                self.closed_windows.borrow_mut().remove(&id);
-                panel.as_super().makeKeyAndOrderFront(None);
-            }
-            AppKitOsWidget::Menu(menu) => self._application.setMainMenu(Some(menu)),
-            _ => {}
         }
         self.present_visible_panels();
+        if root_changed {
+            activate_current_application();
+        }
         self.focus_pending_auto_focus();
         Ok(())
     }

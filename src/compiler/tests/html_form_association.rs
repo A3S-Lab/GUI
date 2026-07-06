@@ -2,8 +2,8 @@ use super::support::*;
 
 #[test]
 fn lowers_html_label_and_output_associations_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let root = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let root = CompiledRsxNode::Element {
         key: "form-associations".to_string(),
         tag: "form".to_string(),
         import_source: None,
@@ -55,7 +55,7 @@ fn lowers_html_label_and_output_associations_to_native_state() {
 
 #[test]
 fn lowers_html_meter_range_metadata_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
+    let bridge = RsxCompilerBridge::new();
     let meter = element(
         "quota",
         "meter",
@@ -80,8 +80,8 @@ fn lowers_html_meter_range_metadata_to_native_state() {
     assert_eq!(native.props.html_form_association.meter_optimum, Some(75.0));
 }
 
-fn element(key: &str, tag: &str, attributes: BTreeMap<String, String>) -> CompiledJsxNode {
-    CompiledJsxNode::Element {
+fn element(key: &str, tag: &str, attributes: BTreeMap<String, String>) -> CompiledRsxNode {
+    CompiledRsxNode::Element {
         key: key.to_string(),
         tag: tag.to_string(),
         import_source: None,

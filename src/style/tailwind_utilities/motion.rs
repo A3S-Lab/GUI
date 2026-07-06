@@ -88,9 +88,21 @@ pub(in crate::style) fn tailwind_motion_declarations(
             declarations.insert("animation".to_string(), "none".to_string());
             return Some(declarations);
         }
+        "animate-in" => {
+            insert_tailwind_enter_animation(&mut declarations);
+            return Some(declarations);
+        }
+        "animate-out" => {
+            insert_tailwind_exit_animation(&mut declarations);
+            return Some(declarations);
+        }
         _ => {}
     }
 
+    if let Some(animation) = tailwind_animate_plugin_declarations(class) {
+        declarations.extend(animation);
+        return Some(declarations);
+    }
     if let Some(value) = class
         .strip_prefix("transition-[")
         .and_then(|value| value.strip_suffix(']'))
@@ -114,15 +126,18 @@ pub(in crate::style) fn tailwind_motion_declarations(
         .strip_prefix("duration-")
         .and_then(tailwind_time_value)
     {
-        declarations.insert("transition-duration".to_string(), value);
+        declarations.insert("transition-duration".to_string(), value.clone());
+        declarations.insert("animation-duration".to_string(), value);
         return Some(declarations);
     }
     if let Some(value) = class.strip_prefix("delay-").and_then(tailwind_time_value) {
-        declarations.insert("transition-delay".to_string(), value);
+        declarations.insert("transition-delay".to_string(), value.clone());
+        declarations.insert("animation-delay".to_string(), value);
         return Some(declarations);
     }
     if let Some(value) = class.strip_prefix("ease-").and_then(tailwind_easing_value) {
-        declarations.insert("transition-timing-function".to_string(), value);
+        declarations.insert("transition-timing-function".to_string(), value.clone());
+        declarations.insert("animation-timing-function".to_string(), value);
         return Some(declarations);
     }
     if let Some(value) = class
@@ -134,6 +149,98 @@ pub(in crate::style) fn tailwind_motion_declarations(
     }
 
     None
+}
+
+pub(in crate::style) fn insert_tailwind_enter_animation(
+    declarations: &mut BTreeMap<String, String>,
+) {
+    declarations.insert("animation-name".to_string(), "enter".to_string());
+    declarations.insert("animation-duration".to_string(), "150ms".to_string());
+}
+
+pub(in crate::style) fn insert_tailwind_exit_animation(
+    declarations: &mut BTreeMap<String, String>,
+) {
+    declarations.insert("animation-name".to_string(), "exit".to_string());
+    declarations.insert("animation-duration".to_string(), "150ms".to_string());
+}
+
+pub(in crate::style) fn tailwind_animate_plugin_declarations(
+    class: &str,
+) -> Option<BTreeMap<String, String>> {
+    let mut declarations = BTreeMap::new();
+    if let Some(value) = class.strip_prefix("fade-in-") {
+        declarations.insert(
+            "--tw-enter-opacity".to_string(),
+            tailwind_unit_value(value)?,
+        );
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("fade-out-") {
+        declarations.insert("--tw-exit-opacity".to_string(), tailwind_unit_value(value)?);
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("zoom-in-") {
+        declarations.insert("--tw-enter-scale".to_string(), tailwind_unit_value(value)?);
+        return Some(declarations);
+    }
+    if let Some(value) = class.strip_prefix("zoom-out-") {
+        declarations.insert("--tw-exit-scale".to_string(), tailwind_unit_value(value)?);
+        return Some(declarations);
+    }
+    if let Some((direction, value)) = class
+        .strip_prefix("slide-in-from-")
+        .and_then(|value| value.rsplit_once('-'))
+    {
+        let (property, negative) = tailwind_slide_axis(direction)?;
+        declarations.insert(
+            format!("--tw-enter-{property}"),
+            tailwind_slide_length(value, negative)?,
+        );
+        return Some(declarations);
+    }
+    if let Some((direction, value)) = class
+        .strip_prefix("slide-out-to-")
+        .and_then(|value| value.rsplit_once('-'))
+    {
+        let (property, negative) = tailwind_slide_axis(direction)?;
+        declarations.insert(
+            format!("--tw-exit-{property}"),
+            tailwind_slide_length(value, negative)?,
+        );
+        return Some(declarations);
+    }
+    None
+}
+
+pub(in crate::style) fn tailwind_unit_value(value: &str) -> Option<String> {
+    if let Some(value) = tailwind_arbitrary_or_custom_var(value) {
+        return Some(value);
+    }
+    let value = value.parse::<f64>().ok()?;
+    if value == 0.0 {
+        Some("0".to_string())
+    } else {
+        Some(trim_float(value / 100.0))
+    }
+}
+
+pub(in crate::style) fn tailwind_slide_axis(direction: &str) -> Option<(&'static str, bool)> {
+    match direction {
+        "top" => Some(("translate-y", true)),
+        "bottom" => Some(("translate-y", false)),
+        "left" => Some(("translate-x", true)),
+        "right" => Some(("translate-x", false)),
+        _ => None,
+    }
+}
+
+pub(in crate::style) fn tailwind_slide_length(value: &str, negative: bool) -> Option<String> {
+    let mut length = tailwind_length(value)?;
+    if negative {
+        length = negate_style_length(length)?;
+    }
+    Some(style_length_css(length))
 }
 
 pub(in crate::style) fn insert_tailwind_default_transition(

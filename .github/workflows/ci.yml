@@ -29,11 +29,6 @@ jobs:
           rustup default stable
           rustup component add rustfmt
 
-      - name: Install Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-
       - name: Install just
         shell: bash
         run: cargo install just --locked

@@ -280,6 +280,76 @@ fn preserves_tailwind_color_opacity_modifiers() {
 }
 
 #[test]
+fn parses_shadcn_semantic_tailwind_colors_from_vercel_design_tokens() {
+    let web = WebProps::new().class_name(
+        "bg-background text-foreground border-border caret-ring \
+         ring-ring hover:bg-card focus:text-muted-foreground active:border-sidebar-border",
+    );
+
+    let style = PortableStyle::from_web(&web);
+
+    assert_eq!(
+        style.background_color,
+        Some(StyleColor::Rgba {
+            red: 0xfa,
+            green: 0xfa,
+            blue: 0xfa,
+            alpha: 255,
+        })
+    );
+    assert_eq!(
+        style.color,
+        Some(StyleColor::Rgba {
+            red: 0x17,
+            green: 0x17,
+            blue: 0x17,
+            alpha: 255,
+        })
+    );
+    assert_eq!(
+        style.border_color,
+        Some(StyleColor::Rgba {
+            red: 0xeb,
+            green: 0xeb,
+            blue: 0xeb,
+            alpha: 255,
+        })
+    );
+    assert_eq!(
+        style.caret_color,
+        Some(StyleColor::Rgba {
+            red: 0x00,
+            green: 0x70,
+            blue: 0xf3,
+            alpha: 255,
+        })
+    );
+    assert_eq!(
+        style
+            .variant_declarations
+            .get("hover")
+            .and_then(|styles| styles.get("background-color"))
+            .map(String::as_str),
+        Some("rgb(255, 255, 255)")
+    );
+    assert_eq!(
+        style
+            .variant_declarations
+            .get("focus")
+            .and_then(|styles| styles.get("color"))
+            .map(String::as_str),
+        Some("rgb(143, 143, 143)")
+    );
+    assert_eq!(
+        style
+            .custom_properties
+            .get("--tw-ring-color")
+            .map(String::as_str),
+        Some("rgb(0, 112, 243)")
+    );
+}
+
+#[test]
 fn preserves_tailwind_arbitrary_color_functions() {
     let web = WebProps::new().class_name(
         "bg-[oklch(70%_0.2_260)]/50 text-[color-mix(in_srgb,red_40%,blue)] \

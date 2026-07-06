@@ -151,7 +151,7 @@ where
     ) -> GuiResult<NativeRuntimeEventResponse> {
         let response = self.handle_native_event(event)?;
         if response.invocation.is_none() {
-            return Err(GuiError::host("native event has no registered Web action"));
+            return Err(GuiError::host("native event has no registered RSX action"));
         }
         Ok(response)
     }

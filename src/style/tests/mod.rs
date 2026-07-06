@@ -4,6 +4,7 @@ mod cascade;
 mod layout;
 mod masking;
 mod motion;
+mod shadcn;
 mod speech;
 mod svg;
 mod typography_tailwind;

@@ -1,4 +1,4 @@
-use crate::react_aria::AriaComponent;
+use crate::semantic_ui::SemanticComponent;
 
 pub const SVG_TAG_METADATA_KEY: &str = "data-a3s-svg-tag";
 
@@ -81,12 +81,12 @@ pub fn canonical_svg_tag(tag: &str) -> Option<&'static str> {
         .find(|candidate| candidate.eq_ignore_ascii_case(tag))
 }
 
-pub fn component_for_svg_tag(tag: &str) -> Option<AriaComponent> {
+pub fn component_for_svg_tag(tag: &str) -> Option<SemanticComponent> {
     let tag = canonical_svg_tag(tag)?;
     Some(if is_text_svg_tag(tag) {
-        AriaComponent::Text
+        SemanticComponent::Text
     } else {
-        AriaComponent::Group
+        SemanticComponent::Group
     })
 }
 
@@ -108,7 +108,10 @@ mod tests {
 
     #[test]
     fn maps_svg_text_elements_to_text_semantics() {
-        assert_eq!(component_for_svg_tag("text"), Some(AriaComponent::Text));
-        assert_eq!(component_for_svg_tag("path"), Some(AriaComponent::Group));
+        assert_eq!(component_for_svg_tag("text"), Some(SemanticComponent::Text));
+        assert_eq!(
+            component_for_svg_tag("path"),
+            Some(SemanticComponent::Group)
+        );
     }
 }

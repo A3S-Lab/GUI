@@ -29,10 +29,27 @@ platform event-pump helpers expose the same diagnostics through
 
 Window close should be modeled as state:
 
-```tsx
-createUiFrame('editor', <Editor />, {
-  window: {title: 'Editor', onClose: 'closeEditor'},
-  actions: [defineAction(createAction('closeEditor'))],
+```rust
+use a3s_gui::{rsx, ComponentCx, RSX, WindowOptions};
+
+fn editor(cx: &mut ComponentCx<EditorState>) -> RSX {
+    let close_editor = cx.use_reducer("closeEditor", |state: &mut EditorState, _action| {
+        state.close_requested = true;
+        Ok(())
+    });
+    rsx!(<Button key="close" onPress={close_editor}>Close</Button>)
+}
+
+let editor = ComponentCx::compile("editor", editor)?.with_window(WindowOptions {
+    title: "Editor".to_string(),
+    on_close: Some("closeEditor".to_string()),
+    width: None,
+    height: None,
+    min_width: None,
+    min_height: None,
+    max_width: None,
+    max_height: None,
+    resizable: true,
 });
 ```
 
@@ -54,7 +71,7 @@ just verify
 ```
 
 `just verify` runs formatting, Rust tests, example tests, platform planning
-tests, TypeScript SDK tests, and whitespace checks.
+tests, and whitespace checks.
 
 The repository CI runs `just verify` on Linux, then runs host-native AppKit,
 GTK4, and WinUI compile checks plus dogfood regression tests on the matching

@@ -3,26 +3,26 @@
 `a3s-gui` accepts structured UI input and emits native platform commands for
 AppKit, WinUI, and GTK4 backends.
 
-The input contract is structured element data: protocol element records,
+The input contract is structured RSX element data: protocol element records,
 semantic element names, `className`, inline style objects, `aria-*`, `data-*`,
-and DOM-style event props. Supported React Aria component names are treated as
-semantic identifiers. The renderer consumes A3S Native UI IR; host adapters
+and DOM-style event props. Supported `semantic_ui` component names are treated
+as semantic identifiers. The renderer consumes A3S Native UI IR; host adapters
 create platform widgets directly.
 
 ```text
-JSX source
+Rust ComponentCx function + optional RSX view template
         |
         v
-@a3s-lab/gui JSX runtime
+parse_rsx / RsxComponent
         |
         v
-Compiled element records
+CompiledRsxNode records
         |
         v
 UiFrame protocol
         |
         v
-ReactCompilerBridge
+RsxCompilerBridge
         |
         v
 Semantic UI tree
@@ -62,9 +62,9 @@ Action ids
 
 The bridge accepts semantic component names, HTML and SVG intrinsic names,
 common Web props, and event names. The native renderer receives a typed,
-portable protocol. Input records may come from `react-aria-components`, the
-zero-dependency marker exports used by compiler fixtures, or any compiler that
-emits the same protocol shape.
+portable protocol. Input records come from Rust `ComponentCx` functions,
+registered `.rsx` view templates, `RsxComponent` hook registrations, or Rust
+code that builds the same protocol shape.
 
 Allowed data:
 
@@ -79,7 +79,7 @@ Allowed data:
 - `className`, Tailwind utility classes, inline `style` objects, and CSS text
   style strings as portable style input
 - `aria-*`, `data-*`, and HTML attributes as metadata
-- common JSX event prop names such as `onClick`, `onChange`, `onInput`,
+- common RSX event prop names such as `onClick`, `onChange`, `onInput`,
   `onFocusChange`, `onExpandedChange`, `onKeyDown`, and `onKeyUp` with named
   callback functions, normalized into native actions
 
@@ -236,16 +236,16 @@ dialog, shadow/style-part, microdata, resource policy, form association, and
 table/list hints are represented by `HtmlActivationProps`,
 `HtmlTextAnnotationProps`, `HtmlDialogProps`, `HtmlShadowProps`,
 `HtmlMicrodataProps`, `HtmlResourcePolicyProps`, `HtmlFormAssociationProps`,
-and `HtmlCollectionProps` under `src/html/`; native and React Aria builder
+and `HtmlCollectionProps` under `src/html/`; native and semantic UI builder
 methods for those grouped hints are split into dedicated submodules.
 Generic HTML containers lower to `NativeRole::View`; unsupported custom elements
 with a hyphenated tag name also lower to a generic native view.
 The SVG element registry exposed by `SVG_ELEMENTS` follows the same lowering
-path for vector and icon JSX trees. Recognized SVG tags lower to generic native
+path for vector and icon RSX trees. Recognized SVG tags lower to generic native
 views or text nodes and preserve the original tag as `data-a3s-svg-tag`
 metadata.
 
-`GuiRuntime` is the public orchestration API. It accepts compiled JSX trees,
+`GuiRuntime` is the public orchestration API. It accepts compiled RSX trees,
 supported semantic component trees, or native IR trees and renders them into any
 `NativeHost`. `InteractionState` updates platform-independent focus, value,
 checked, selected, and expanded state from native events before action routing.
@@ -281,7 +281,7 @@ preserving the last valid value. Protocol hosts and native backends therefore
 share the same value contract.
 Empty event action ids are ignored rather than dispatched.
 `ActionRegistry` records and validates non-empty action ids before they are
-handed to the JavaScript state bridge. Hosts that implement
+handed to the Rust state reducer. Hosts that implement
 `AccessibilityTreeHost` can expose the rendered tree through
 `GuiRuntime::accessibility_tree()` for tests, protocol inspection, and native
 accessibility integration. Runtime export overlays interaction state, so changed
@@ -333,7 +333,7 @@ declarations.
 For embedded Rust hosts, native backends can expose callbacks through
 `NativeEventSource`. `GuiRuntime::dispatch_pending_native_events()` drains the
 host event queue, applies interaction state updates for every event, and returns
-the action invocations from events that have bound Web actions. State-only events
+the action invocations from events that have bound RSX actions. State-only events
 such as focus or blur do not interrupt the batch.
 `GuiRuntime::handle_pending_native_event_results()` keeps the same drain boundary
 but returns one result per native event, including optional action invocations
@@ -381,9 +381,9 @@ dialog. The backend still observes the root window handle for app-loop shutdown.
 
 ## Host Protocol
 
-The JS/Rust bridge uses serializable protocol types:
+The RSX/native host boundary uses serializable protocol types:
 
-- `UiFrame`: a compiled React tree plus action ids.
+- `UiFrame`: a compiled RSX tree plus action ids.
 - `WindowOptions`: optional native window title, close action id, initial
   dimensions, min/max dimensions, and resizable flag for a frame.
 - `RenderedFrame`: the native root node produced by rendering a frame.
@@ -406,7 +406,7 @@ The JS/Rust bridge uses serializable protocol types:
   predicate-stop counts.
 
 The protocol decouples input generation from platform backend execution.
-JavaScript does not see native widget handles; native backends receive
+RSX components do not see native widget handles; native backends receive
 serialized protocol records. The same rule applies to native rendering
 commands: platform hosts receive serializable command records and blueprints,
 not component runtime instances.
@@ -421,10 +421,10 @@ registered action scope with that frame's `actions` list after the native render
 succeeds, so stale action ids from earlier frames cannot be invoked by later
 host events and failed renders keep the previous action scope. If raw protocol
 JSON omits `actions`, Rust infers action ids from compiled event props and
-optional `actionLabels`, matching the default TypeScript `createUiFrame`
-behavior. Explicit `actions`, including an empty list, remain authoritative.
+optional `actionLabels`. Explicit `actions`, including an empty list, remain
+authoritative.
 
-When `UiFrame.window` is present, the Rust core wraps the compiled React root in
+When `UiFrame.window` is present, the Rust core wraps the compiled RSX root in
 a `NativeRole::Window`. The same command stream then creates `NSWindow`,
 `Microsoft.UI.Xaml.Window`, or `gtk::ApplicationWindow` before inserting the
 frame content as its child. Window title, initial dimensions, min/max
@@ -443,7 +443,7 @@ to execute:
 - `{"type": "remove", "id": ...}`
 - `{"type": "setRoot", "id": ...}`
 
-This keeps React reconciliation in the Rust core and keeps platform adapters
+This keeps keyed reconciliation in the Rust core and keeps platform adapters
 focused on native object lifetime and thread-affine UI work.
 `NativeWidgetBlueprint` carries the platform family (`appKit`, `winUI`, `gtk4`),
 native widget class, native role, accessibility role, label/value/action
@@ -736,18 +736,30 @@ Feature-gated platform executor surfaces:
   through the same reducer loop and GTK event queue, including window close
   lifecycle actions and state-driven app loop exit through `run_gtk4_while`.
 
-Menu-specific native backend code lives under `src/native_backends/`:
-`native_backends/appkit/menu.rs` owns AppKit menu parent/child tracking,
-`native_backends/winui/menu.rs` owns the WinUI menu fallback policy, and
-`native_backends/gtk4/menu.rs` owns GTK menu models, menu item actions, and
-model rebuilds.
+Source files are grouped by layer:
 
-Source files are grouped by layer. `src/backend/` owns the command executor,
-handle driver, surface adapter, recording backend, and backend traits.
-`src/platform/` owns native blueprint types, config diffs, platform adapters,
-planning, and widget-name mapping. Platform-specific native surfaces live in
-`src/appkit_native/`, `src/gtk4_native/`, and `src/winui_native/`; each surface
-directory keeps its module entry point separate from the `NativeWidgetSurface`
+- `src/native.rs` and `src/native/` define the platform-neutral native element
+  IR: roles, keys, props, and prop builders. They do not create OS widgets.
+- `src/platform/` owns native blueprint types, config diffs, platform adapters,
+  planning, and widget-name mapping. It answers "what widget class should this
+  native element become on this platform?"
+- `src/appkit.rs`, `src/gtk4.rs`, and `src/winui.rs` contain lightweight
+  platform mapping and handle-driver code. They are useful for planning,
+  recording, and tests that should not instantiate real OS widgets.
+- `src/appkit_native/`, `src/gtk4_native/`, and `src/winui_native/` are the real
+  OS surface implementations. They implement `NativeWidgetSurface`, create
+  AppKit/GTK/WinUI widgets, attach native events, and run the embedded app
+  loops.
+- `src/native_backends/` is private support code for those real native
+  surfaces, not a competing backend layer. It currently holds menu-specific
+  helpers: `native_backends/appkit/menu.rs` owns AppKit menu parent/child
+  tracking, `native_backends/winui/menu.rs` owns the WinUI menu fallback policy,
+  and `native_backends/gtk4/menu.rs` owns GTK menu models, menu item actions,
+  and model rebuilds.
+
+`src/backend/` owns the command executor, handle driver, surface adapter,
+recording backend, and backend traits. Platform-specific native surface
+directories keep their module entry point separate from the `NativeWidgetSurface`
 implementation, and WinUI keeps setter and event helpers in a dedicated helper
 module.
 

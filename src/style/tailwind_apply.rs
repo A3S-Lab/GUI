@@ -105,7 +105,10 @@ impl PortableStyle {
             self.min_width = Some(value);
         } else if let Some(value) = class.strip_prefix("min-h-").and_then(tailwind_length) {
             self.min_height = Some(value);
-        } else if let Some(value) = class.strip_prefix("max-w-").and_then(tailwind_length) {
+        } else if let Some(value) = class
+            .strip_prefix("max-w-")
+            .and_then(tailwind_max_width_value)
+        {
             self.max_width = Some(value);
         } else if let Some(value) = class.strip_prefix("max-h-").and_then(tailwind_length) {
             self.max_height = Some(value);

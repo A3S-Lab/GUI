@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::accessibility::{AccessibilityNode, AccessibilityRole, AccessibilityTreeHost};
 use crate::backend::NativeEventHost;
-use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
+use crate::compiler::{CompiledRsxNode, RsxCompilerBridge};
 use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, ActionRegistry, EventRouter, NativeEvent};
 use crate::host::{HostNodeId, NativeHost};
@@ -12,8 +12,8 @@ use crate::native::{
     NativeElement, NativeProps,
 };
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
-use crate::react_aria::{AriaElement, ReactAriaMapper};
 use crate::renderer::Renderer;
+use crate::semantic_ui::{SemanticElement, SemanticMapper};
 use crate::style::PortableStyle;
 use serde::{Deserialize, Serialize};
 
@@ -27,8 +27,8 @@ pub struct HandledNativeEvent {
 
 #[derive(Debug)]
 pub struct GuiRuntime<H: NativeHost> {
-    bridge: ReactCompilerBridge,
-    mapper: ReactAriaMapper,
+    bridge: RsxCompilerBridge,
+    mapper: SemanticMapper,
     renderer: Renderer,
     host: H,
     event_router: EventRouter,
@@ -41,8 +41,8 @@ pub struct GuiRuntime<H: NativeHost> {
 impl<H: NativeHost> GuiRuntime<H> {
     pub fn new(host: H) -> Self {
         Self {
-            bridge: ReactCompilerBridge::new(),
-            mapper: ReactAriaMapper::new(),
+            bridge: RsxCompilerBridge::new(),
+            mapper: SemanticMapper::new(),
             renderer: Renderer::new(),
             host,
             event_router: EventRouter::new(),
@@ -53,12 +53,12 @@ impl<H: NativeHost> GuiRuntime<H> {
         }
     }
 
-    pub fn render_compiled(&mut self, node: &CompiledJsxNode) -> GuiResult<HostNodeId> {
+    pub fn render_compiled(&mut self, node: &CompiledRsxNode) -> GuiResult<HostNodeId> {
         let native = self.bridge.lower_to_native(node)?;
         self.render_native(&native)
     }
 
-    pub fn render_aria(&mut self, element: &AriaElement) -> GuiResult<HostNodeId> {
+    pub fn render_semantic(&mut self, element: &SemanticElement) -> GuiResult<HostNodeId> {
         let native = self.mapper.map(element)?;
         self.render_native(&native)
     }
@@ -97,7 +97,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         event: NativeEvent,
     ) -> GuiResult<ActionInvocation> {
         self.handle_event(blueprint, event)?
-            .ok_or_else(|| GuiError::host("native event has no registered Web action"))
+            .ok_or_else(|| GuiError::host("native event has no registered RSX action"))
     }
 
     pub fn handle_event(
@@ -464,7 +464,7 @@ impl<H: NativeHost> GuiRuntime<H> {
 impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
     pub fn dispatch_native_event(&mut self, event: NativeEvent) -> GuiResult<ActionInvocation> {
         self.handle_native_event(event)?
-            .ok_or_else(|| GuiError::host("native event has no registered Web action"))
+            .ok_or_else(|| GuiError::host("native event has no registered RSX action"))
     }
 
     pub fn handle_native_event(
@@ -821,6 +821,9 @@ fn apply_interaction_state(
     current_interaction: bool,
 ) {
     node.focused = state.focused;
+    if state.pressed {
+        node.state.pressed = Some("true".to_string());
+    }
     if !current_interaction {
         return;
     }
@@ -1035,8 +1038,8 @@ mod tests {
     use crate::web::WebProps;
 
     #[test]
-    fn runtime_renders_compiled_jsx_to_platform_host() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+    fn runtime_renders_compiled_rsx_to_platform_host() {
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -1105,8 +1108,8 @@ mod tests {
     }
 
     #[test]
-    fn runtime_exports_platform_accessibility_tree_from_compiled_jsx() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+    fn runtime_exports_platform_accessibility_tree_from_compiled_rsx() {
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -1186,8 +1189,8 @@ mod tests {
     }
 
     #[test]
-    fn runtime_dispatches_native_event_to_registered_web_action() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+    fn runtime_dispatches_native_event_to_registered_rsx_action() {
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -1560,7 +1563,7 @@ mod tests {
             ))
             .unwrap_err();
 
-        assert!(error.to_string().contains("no registered Web action"));
+        assert!(error.to_string().contains("no registered RSX action"));
         assert!(runtime.interactions().node(root_id).unwrap().focused);
     }
 
@@ -1620,7 +1623,7 @@ mod tests {
             ))
             .unwrap_err();
 
-        assert!(error.to_string().contains("no registered Web action"));
+        assert!(error.to_string().contains("no registered RSX action"));
         assert!(runtime.actions().invocations().is_empty());
     }
 
@@ -1653,7 +1656,7 @@ mod tests {
         assert!(handled.invocation.is_none());
         assert!(handled.interaction_changes.is_empty());
         assert!(runtime.actions().invocations().is_empty());
-        assert!(error.to_string().contains("no registered Web action"));
+        assert!(error.to_string().contains("no registered RSX action"));
     }
 
     #[test]
@@ -2633,7 +2636,7 @@ mod tests {
 
     #[test]
     fn runtime_updates_interaction_state_before_dispatching_action() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",
@@ -3660,8 +3663,8 @@ mod tests {
     }
 
     #[test]
-    fn runtime_renders_compiled_jsx_to_native_command_stream() {
-        let compiled: CompiledJsxNode = serde_json::from_str(
+    fn runtime_renders_compiled_rsx_to_native_command_stream() {
+        let compiled: CompiledRsxNode = serde_json::from_str(
             r#"
             {
               "kind": "element",

@@ -1,10 +1,10 @@
 use crate::geometry::Orientation;
 use crate::html::{canonical_html_tag, HTML_TAG_METADATA_KEY};
-use crate::react_aria::AriaProps;
+use crate::semantic_ui::SemanticProps;
 use crate::svg::{canonical_svg_tag, SVG_TAG_METADATA_KEY};
 use crate::web::WebProps;
 
-use super::{CompiledJsxNode, CompiledOrientation, CompiledProps};
+use super::{CompiledOrientation, CompiledProps, CompiledRsxNode};
 
 mod accessibility;
 mod activation;
@@ -46,11 +46,11 @@ use structure::html_collection_props_from_tag;
 use text_annotation::html_text_annotation_props_from_tag;
 
 impl CompiledProps {
-    pub(super) fn into_aria_props_for_tag(
+    pub(super) fn into_semantic_props_for_tag(
         mut self,
         tag: &str,
-        children: &[CompiledJsxNode],
-    ) -> AriaProps {
+        children: &[CompiledRsxNode],
+    ) -> SemanticProps {
         if self.value.is_none() && !has_explicit_textarea_value(&self.attributes) {
             self.value = html_textarea_child_value(tag, children);
         }
@@ -122,7 +122,7 @@ impl CompiledProps {
             CompiledOrientation::Vertical => Orientation::Vertical,
         });
 
-        let mut props = AriaProps::new().web(web);
+        let mut props = SemanticProps::new().web(web);
         props.label = self.label.or(html_fallback_label);
         props.text_value = self.text_value;
         props.value = self

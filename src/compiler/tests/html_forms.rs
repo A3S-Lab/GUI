@@ -2,8 +2,8 @@ use super::support::*;
 
 #[test]
 fn lowers_html_placeholder_attributes_to_native_text_fields() {
-    let bridge = ReactCompilerBridge::new();
-    let input = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let input = CompiledRsxNode::Element {
         key: "email".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -16,7 +16,7 @@ fn lowers_html_placeholder_attributes_to_native_text_fields() {
         },
         children: Vec::new(),
     };
-    let textarea = CompiledJsxNode::Element {
+    let textarea = CompiledRsxNode::Element {
         key: "message".to_string(),
         tag: "textarea".to_string(),
         import_source: None,
@@ -47,8 +47,8 @@ fn lowers_html_placeholder_attributes_to_native_text_fields() {
 
 #[test]
 fn lowers_html_textarea_child_text_to_native_value() {
-    let bridge = ReactCompilerBridge::new();
-    let textarea = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let textarea = CompiledRsxNode::Element {
         key: "message".to_string(),
         tag: "textarea".to_string(),
         import_source: None,
@@ -59,7 +59,7 @@ fn lowers_html_textarea_child_text_to_native_value() {
             )]),
             ..CompiledProps::default()
         },
-        children: vec![CompiledJsxNode::Text {
+        children: vec![CompiledRsxNode::Text {
             key: "message-text".to_string(),
             value: "Hello".to_string(),
         }],
@@ -83,8 +83,8 @@ fn lowers_html_textarea_child_text_to_native_value() {
 
 #[test]
 fn lowers_common_html_form_control_attributes_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let input = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let input = CompiledRsxNode::Element {
         key: "email".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -108,7 +108,7 @@ fn lowers_common_html_form_control_attributes_to_native_state() {
         },
         children: Vec::new(),
     };
-    let textarea = CompiledJsxNode::Element {
+    let textarea = CompiledRsxNode::Element {
         key: "message".to_string(),
         tag: "textarea".to_string(),
         import_source: None,
@@ -123,7 +123,7 @@ fn lowers_common_html_form_control_attributes_to_native_state() {
         },
         children: Vec::new(),
     };
-    let select = CompiledJsxNode::Element {
+    let select = CompiledRsxNode::Element {
         key: "projects".to_string(),
         tag: "select".to_string(),
         import_source: None,
@@ -181,8 +181,8 @@ fn lowers_common_html_form_control_attributes_to_native_state() {
 
 #[test]
 fn omits_non_positive_html_text_sizing_hints_from_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let input = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let input = CompiledRsxNode::Element {
         key: "email".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -197,7 +197,7 @@ fn omits_non_positive_html_text_sizing_hints_from_native_state() {
         },
         children: Vec::new(),
     };
-    let textarea = CompiledJsxNode::Element {
+    let textarea = CompiledRsxNode::Element {
         key: "message".to_string(),
         tag: "textarea".to_string(),
         import_source: None,
@@ -225,8 +225,8 @@ fn omits_non_positive_html_text_sizing_hints_from_native_state() {
 
 #[test]
 fn lowers_top_level_protocol_form_hints_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let file_input: CompiledJsxNode = serde_json::from_str(
+    let bridge = RsxCompilerBridge::new();
+    let file_input: CompiledRsxNode = serde_json::from_str(
         r#"
         {
           "kind": "element",
@@ -252,7 +252,7 @@ fn lowers_top_level_protocol_form_hints_to_native_state() {
         "#,
     )
     .unwrap();
-    let override_input: CompiledJsxNode = serde_json::from_str(
+    let override_input: CompiledRsxNode = serde_json::from_str(
         r#"
         {
           "kind": "element",
@@ -297,8 +297,8 @@ fn lowers_top_level_protocol_form_hints_to_native_state() {
 
 #[test]
 fn lowers_html_form_submission_attributes_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let form = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let form = CompiledRsxNode::Element {
         key: "profile-form".to_string(),
         tag: "form".to_string(),
         import_source: None,
@@ -315,7 +315,7 @@ fn lowers_html_form_submission_attributes_to_native_state() {
         },
         children: Vec::new(),
     };
-    let file_input = CompiledJsxNode::Element {
+    let file_input = CompiledRsxNode::Element {
         key: "avatar".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -333,7 +333,7 @@ fn lowers_html_form_submission_attributes_to_native_state() {
         },
         children: Vec::new(),
     };
-    let image_submit = CompiledJsxNode::Element {
+    let image_submit = CompiledRsxNode::Element {
         key: "submit-image".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -352,7 +352,7 @@ fn lowers_html_form_submission_attributes_to_native_state() {
         },
         children: Vec::new(),
     };
-    let textarea = CompiledJsxNode::Element {
+    let textarea = CompiledRsxNode::Element {
         key: "bio".to_string(),
         tag: "textarea".to_string(),
         import_source: None,
@@ -366,7 +366,7 @@ fn lowers_html_form_submission_attributes_to_native_state() {
         },
         children: Vec::new(),
     };
-    let button = CompiledJsxNode::Element {
+    let button = CompiledRsxNode::Element {
         key: "publish".to_string(),
         tag: "button".to_string(),
         import_source: None,
@@ -388,7 +388,7 @@ fn lowers_html_form_submission_attributes_to_native_state() {
         },
         children: Vec::new(),
     };
-    let plain_button = CompiledJsxNode::Element {
+    let plain_button = CompiledRsxNode::Element {
         key: "preview".to_string(),
         tag: "button".to_string(),
         import_source: None,
@@ -479,8 +479,8 @@ fn lowers_html_form_submission_attributes_to_native_state() {
 
 #[test]
 fn preserves_explicit_html_textarea_values_over_child_text() {
-    let bridge = ReactCompilerBridge::new();
-    let textarea = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let textarea = CompiledRsxNode::Element {
         key: "message".to_string(),
         tag: "textarea".to_string(),
         import_source: None,
@@ -489,7 +489,7 @@ fn preserves_explicit_html_textarea_values_over_child_text() {
             attributes: BTreeMap::from([("defaultValue".to_string(), "Ignored".to_string())]),
             ..CompiledProps::default()
         },
-        children: vec![CompiledJsxNode::Text {
+        children: vec![CompiledRsxNode::Text {
             key: "message-text".to_string(),
             value: "Ignored".to_string(),
         }],
@@ -504,8 +504,8 @@ fn preserves_explicit_html_textarea_values_over_child_text() {
 
 #[test]
 fn lowers_html_value_attributes_to_native_control_values() {
-    let bridge = ReactCompilerBridge::new();
-    let textarea = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let textarea = CompiledRsxNode::Element {
         key: "message".to_string(),
         tag: "textarea".to_string(),
         import_source: None,
@@ -513,12 +513,12 @@ fn lowers_html_value_attributes_to_native_control_values() {
             attributes: BTreeMap::from([("defaultValue".to_string(), "Draft".to_string())]),
             ..CompiledProps::default()
         },
-        children: vec![CompiledJsxNode::Text {
+        children: vec![CompiledRsxNode::Text {
             key: "message-text".to_string(),
             value: "Ignored child text".to_string(),
         }],
     };
-    let text_input = CompiledJsxNode::Element {
+    let text_input = CompiledRsxNode::Element {
         key: "title".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -531,7 +531,7 @@ fn lowers_html_value_attributes_to_native_control_values() {
         },
         children: Vec::new(),
     };
-    let hidden_input = CompiledJsxNode::Element {
+    let hidden_input = CompiledRsxNode::Element {
         key: "csrf".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -544,7 +544,7 @@ fn lowers_html_value_attributes_to_native_control_values() {
         },
         children: Vec::new(),
     };
-    let range_input = CompiledJsxNode::Element {
+    let range_input = CompiledRsxNode::Element {
         key: "volume".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -557,7 +557,7 @@ fn lowers_html_value_attributes_to_native_control_values() {
         },
         children: Vec::new(),
     };
-    let button_input = CompiledJsxNode::Element {
+    let button_input = CompiledRsxNode::Element {
         key: "open".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -600,8 +600,8 @@ fn lowers_html_value_attributes_to_native_control_values() {
 
 #[test]
 fn lowers_html_form_grouping_and_value_tags_to_native_roles() {
-    let bridge = ReactCompilerBridge::new();
-    let form = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let form = CompiledRsxNode::Element {
         key: "settings".to_string(),
         tag: "form".to_string(),
         import_source: None,
@@ -610,28 +610,28 @@ fn lowers_html_form_grouping_and_value_tags_to_native_roles() {
             ..CompiledProps::default()
         },
         children: vec![
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "notifications".to_string(),
                 tag: "fieldset".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
                 children: vec![
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "notifications-legend".to_string(),
                         tag: "legend".to_string(),
                         import_source: None,
                         props: CompiledProps::default(),
-                        children: vec![CompiledJsxNode::Text {
+                        children: vec![CompiledRsxNode::Text {
                             key: "notifications-legend-text".to_string(),
                             value: "Notifications".to_string(),
                         }],
                     },
-                    CompiledJsxNode::Element {
+                    CompiledRsxNode::Element {
                         key: "notification-level".to_string(),
                         tag: "select".to_string(),
                         import_source: None,
                         props: CompiledProps::default(),
-                        children: vec![CompiledJsxNode::Element {
+                        children: vec![CompiledRsxNode::Element {
                             key: "standard-options".to_string(),
                             tag: "optgroup".to_string(),
                             import_source: None,
@@ -642,7 +642,7 @@ fn lowers_html_form_grouping_and_value_tags_to_native_roles() {
                                 )]),
                                 ..CompiledProps::default()
                             },
-                            children: vec![CompiledJsxNode::Element {
+                            children: vec![CompiledRsxNode::Element {
                                 key: "daily".to_string(),
                                 tag: "option".to_string(),
                                 import_source: None,
@@ -659,17 +659,17 @@ fn lowers_html_form_grouping_and_value_tags_to_native_roles() {
                     },
                 ],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "result".to_string(),
                 tag: "output".to_string(),
                 import_source: None,
                 props: CompiledProps::default(),
-                children: vec![CompiledJsxNode::Text {
+                children: vec![CompiledRsxNode::Text {
                     key: "result-text".to_string(),
                     value: "Saved".to_string(),
                 }],
             },
-            CompiledJsxNode::Element {
+            CompiledRsxNode::Element {
                 key: "quota".to_string(),
                 tag: "meter".to_string(),
                 import_source: None,
@@ -739,8 +739,8 @@ fn lowers_html_form_grouping_and_value_tags_to_native_roles() {
 
 #[test]
 fn lowers_html_input_types_to_native_form_roles() {
-    let bridge = ReactCompilerBridge::new();
-    let input = |input_type: &str| CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let input = |input_type: &str| CompiledRsxNode::Element {
         key: format!("{input_type}-input"),
         tag: "input".to_string(),
         import_source: None,
@@ -768,7 +768,7 @@ fn lowers_html_input_types_to_native_form_roles() {
         NativeRole::TextField
     );
 
-    let submit = CompiledJsxNode::Element {
+    let submit = CompiledRsxNode::Element {
         key: "submit".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -784,7 +784,7 @@ fn lowers_html_input_types_to_native_form_roles() {
     assert_eq!(native_submit.role, NativeRole::Button);
     assert_eq!(native_submit.props.label.as_deref(), Some("Save changes"));
 
-    let submit_default = CompiledJsxNode::Element {
+    let submit_default = CompiledRsxNode::Element {
         key: "submit-default".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -799,7 +799,7 @@ fn lowers_html_input_types_to_native_form_roles() {
     assert_eq!(native_submit_default.role, NativeRole::Button);
     assert_eq!(native_submit_default.props.label.as_deref(), Some("Submit"));
 
-    let reset = CompiledJsxNode::Element {
+    let reset = CompiledRsxNode::Element {
         key: "reset".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -814,7 +814,7 @@ fn lowers_html_input_types_to_native_form_roles() {
     assert_eq!(native_reset.role, NativeRole::Button);
     assert_eq!(native_reset.props.label.as_deref(), Some("Reset"));
 
-    let button = CompiledJsxNode::Element {
+    let button = CompiledRsxNode::Element {
         key: "button".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -832,7 +832,7 @@ fn lowers_html_input_types_to_native_form_roles() {
     assert_eq!(native_button.role, NativeRole::Button);
     assert_eq!(native_button.props.label.as_deref(), Some("Open panel"));
 
-    let hidden = CompiledJsxNode::Element {
+    let hidden = CompiledRsxNode::Element {
         key: "csrf".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -854,7 +854,7 @@ fn lowers_html_input_types_to_native_form_roles() {
     assert_eq!(native_hidden.props.value.as_deref(), Some("csrf-token"));
     assert_eq!(native_hidden.props.input_type.as_deref(), Some("hidden"));
 
-    let image_button = CompiledJsxNode::Element {
+    let image_button = CompiledRsxNode::Element {
         key: "image-submit".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -872,7 +872,7 @@ fn lowers_html_input_types_to_native_form_roles() {
     assert_eq!(native_image_button.role, NativeRole::Button);
     assert_eq!(native_image_button.props.label.as_deref(), Some("Search"));
 
-    let number = CompiledJsxNode::Element {
+    let number = CompiledRsxNode::Element {
         key: "quantity".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -901,7 +901,7 @@ fn lowers_html_input_types_to_native_form_roles() {
         Some("number")
     );
 
-    let protocol_number = CompiledJsxNode::Element {
+    let protocol_number = CompiledRsxNode::Element {
         key: "quantity-protocol".to_string(),
         tag: "input".to_string(),
         import_source: None,
@@ -918,7 +918,7 @@ fn lowers_html_input_types_to_native_form_roles() {
     assert_eq!(native_protocol_number.props.value.as_deref(), Some("7"));
     assert_eq!(native_protocol_number.props.current, Some(7.0));
 
-    let range = CompiledJsxNode::Element {
+    let range = CompiledRsxNode::Element {
         key: "volume".to_string(),
         tag: "input".to_string(),
         import_source: None,

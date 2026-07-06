@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct InteractionNodeState {
     pub focused: bool,
+    pub pressed: bool,
     pub value: Option<String>,
     pub selected: bool,
     pub checked: Option<bool>,
@@ -84,6 +85,12 @@ impl InteractionState {
         let mut after = before.clone();
 
         match event.kind {
+            NativeEventKind::PressStart => {
+                after.pressed = true;
+            }
+            NativeEventKind::PressEnd | NativeEventKind::Press => {
+                after.pressed = false;
+            }
             NativeEventKind::Focus => {
                 self.focus_history = true;
                 self.clear_other_focused_nodes(event.node);
@@ -96,10 +103,7 @@ impl InteractionState {
             NativeEventKind::Change => apply_change(blueprint.role, event, &mut after),
             NativeEventKind::SelectionChange => apply_selection(blueprint.role, event, &mut after),
             NativeEventKind::Toggle => apply_toggle(blueprint.role, event, &mut after),
-            NativeEventKind::Press
-            | NativeEventKind::KeyDown
-            | NativeEventKind::KeyUp
-            | NativeEventKind::Close => {}
+            NativeEventKind::KeyDown | NativeEventKind::KeyUp | NativeEventKind::Close => {}
         }
 
         if before == after {
@@ -136,6 +140,7 @@ impl InteractionState {
 fn initial_state_from_blueprint(blueprint: &NativeWidgetBlueprint) -> InteractionNodeState {
     InteractionNodeState {
         focused: false,
+        pressed: false,
         value: blueprint.value.clone(),
         selected: blueprint.control_state.selected,
         checked: blueprint.control_state.checked,
@@ -146,6 +151,7 @@ fn initial_state_from_blueprint(blueprint: &NativeWidgetBlueprint) -> Interactio
 fn initial_state_from_props(props: &NativeProps) -> InteractionNodeState {
     InteractionNodeState {
         focused: false,
+        pressed: false,
         value: props.value.clone(),
         selected: props.selected,
         checked: props.checked,

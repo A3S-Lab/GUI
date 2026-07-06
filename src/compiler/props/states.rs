@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::compiler::CompiledJsxNode;
+use crate::compiler::CompiledRsxNode;
 use crate::html::canonical_html_tag;
 use crate::web::WebProps;
 
@@ -9,7 +9,7 @@ use super::attributes::{
     parse_number_attribute, string_attribute,
 };
 
-pub(super) fn html_textarea_child_value(tag: &str, children: &[CompiledJsxNode]) -> Option<String> {
+pub(super) fn html_textarea_child_value(tag: &str, children: &[CompiledRsxNode]) -> Option<String> {
     if canonical_html_tag(tag)? != "textarea" {
         return None;
     }
@@ -17,7 +17,7 @@ pub(super) fn html_textarea_child_value(tag: &str, children: &[CompiledJsxNode])
     let mut value = String::new();
     let mut has_text = false;
     for child in children {
-        if let CompiledJsxNode::Text { value: text, .. } = child {
+        if let CompiledRsxNode::Text { value: text, .. } = child {
             value.push_str(text);
             has_text = true;
         }
@@ -160,11 +160,11 @@ mod tests {
     #[test]
     fn textarea_child_value_preserves_all_text_children() {
         let children = vec![
-            CompiledJsxNode::Text {
+            CompiledRsxNode::Text {
                 key: "a".to_string(),
                 value: "hello".to_string(),
             },
-            CompiledJsxNode::Text {
+            CompiledRsxNode::Text {
                 key: "b".to_string(),
                 value: " world".to_string(),
             },

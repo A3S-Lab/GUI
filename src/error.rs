@@ -5,7 +5,7 @@ pub type GuiResult<T> = Result<T, GuiError>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GuiError {
-    UnsupportedAriaComponent {
+    UnsupportedSemanticComponent {
         component: String,
     },
     UnsupportedDomAttribute {
@@ -27,15 +27,15 @@ pub enum GuiError {
 impl Display for GuiError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            GuiError::UnsupportedAriaComponent { component } => {
-                write!(f, "unsupported React Aria component: {component}")
+            GuiError::UnsupportedSemanticComponent { component } => {
+                write!(f, "unsupported semantic UI component: {component}")
             }
             GuiError::UnsupportedDomAttribute {
                 component,
                 attribute,
             } => write!(
                 f,
-                "unsupported DOM-only attribute {attribute:?} on React Aria component {component}"
+                "unsupported DOM-only attribute {attribute:?} on semantic UI component {component}"
             ),
             GuiError::MissingRequiredProp { component, prop } => {
                 write!(f, "missing required prop {prop:?} on component {component}")

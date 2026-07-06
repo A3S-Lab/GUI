@@ -1,6 +1,6 @@
 use super::*;
 use crate::accessibility::AccessibilityRole;
-use crate::compiler::CompiledJsxNode;
+use crate::compiler::CompiledRsxNode;
 use crate::error::{GuiError, GuiResult};
 use crate::event::{NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
@@ -1214,7 +1214,7 @@ fn recording_backend_remove_deletes_entire_subtree() {
 
 #[test]
 fn command_executing_host_dispatches_driver_native_events_to_actions() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r#"
             {
               "kind": "element",
@@ -1298,7 +1298,7 @@ fn command_executing_host_rolls_back_planning_after_backend_update_failure() {
 
 #[test]
 fn command_executing_host_dispatches_pending_state_events_without_invocation() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r#"
             {
               "kind": "element",
@@ -1343,7 +1343,7 @@ fn command_executing_host_dispatches_pending_state_events_without_invocation() {
 
 #[test]
 fn command_executing_host_handles_unbound_native_events_without_invocation() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r#"
             {
               "kind": "element",
@@ -1383,7 +1383,7 @@ fn command_executing_host_handles_unbound_native_events_without_invocation() {
 
 #[test]
 fn command_executing_host_reports_pending_native_event_results() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r#"
             {
               "kind": "element",
@@ -1437,8 +1437,8 @@ fn command_executing_host_reports_pending_native_event_results() {
 }
 
 #[test]
-fn command_executing_host_creates_backend_object_tree_from_compiled_jsx() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+fn command_executing_host_creates_backend_object_tree_from_compiled_rsx() {
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r#"
             {
               "kind": "element",
@@ -1476,7 +1476,7 @@ fn command_executing_host_creates_backend_object_tree_from_compiled_jsx() {
 
 #[test]
 fn command_executing_host_exposes_rendered_accessibility_tree() {
-    let compiled: CompiledJsxNode = serde_json::from_str(
+    let compiled: CompiledRsxNode = serde_json::from_str(
         r#"
             {
               "kind": "element",
@@ -1515,7 +1515,7 @@ fn command_executing_host_exposes_rendered_accessibility_tree() {
 
 #[test]
 fn command_executing_host_applies_updates_and_removes_to_backend_objects() {
-    let first: CompiledJsxNode = serde_json::from_str(
+    let first: CompiledRsxNode = serde_json::from_str(
         r#"
             {"kind": "element", "key": "root", "tag": "div", "children": [
               {"kind": "element", "key": "a", "tag": "Button", "children": [
@@ -1528,7 +1528,7 @@ fn command_executing_host_applies_updates_and_removes_to_backend_objects() {
             "#,
     )
     .unwrap();
-    let second: CompiledJsxNode = serde_json::from_str(
+    let second: CompiledRsxNode = serde_json::from_str(
         r#"
             {"kind": "element", "key": "root", "tag": "div", "children": [
               {"kind": "element", "key": "b", "tag": "Button", "children": [

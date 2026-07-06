@@ -2,8 +2,8 @@ use super::support::*;
 
 #[test]
 fn lowers_html_navigation_policy_attributes_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let root = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let root = CompiledRsxNode::Element {
         key: "navigation-policy".to_string(),
         tag: "div".to_string(),
         import_source: None,
@@ -85,8 +85,8 @@ fn lowers_html_navigation_policy_attributes_to_native_state() {
 
 #[test]
 fn lowers_html_loading_and_embedding_policy_attributes_to_native_state() {
-    let bridge = ReactCompilerBridge::new();
-    let root = CompiledJsxNode::Element {
+    let bridge = RsxCompilerBridge::new();
+    let root = CompiledRsxNode::Element {
         key: "loading-policy".to_string(),
         tag: "div".to_string(),
         import_source: None,
@@ -179,8 +179,8 @@ fn lowers_html_loading_and_embedding_policy_attributes_to_native_state() {
     assert_eq!(frame.frame_srcdoc.as_deref(), Some("<p>Preview</p>"));
 }
 
-fn element(key: &str, tag: &str, attributes: BTreeMap<String, String>) -> CompiledJsxNode {
-    CompiledJsxNode::Element {
+fn element(key: &str, tag: &str, attributes: BTreeMap<String, String>) -> CompiledRsxNode {
+    CompiledRsxNode::Element {
         key: key.to_string(),
         tag: tag.to_string(),
         import_source: None,

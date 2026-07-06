@@ -75,6 +75,14 @@ impl WebProps {
         self.event("onPress", action)
     }
 
+    pub fn on_press_start(self, action: impl Into<String>) -> Self {
+        self.event("onPressStart", action)
+    }
+
+    pub fn on_press_end(self, action: impl Into<String>) -> Self {
+        self.event("onPressEnd", action)
+    }
+
     pub fn on_change(self, action: impl Into<String>) -> Self {
         self.event("onChange", action)
     }
@@ -142,7 +150,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn react_aria_on_press_is_primary_action() {
+    fn semantic_ui_on_press_is_primary_action() {
         let props = WebProps::new()
             .on_click("fallbackClick")
             .on_press("primaryPress");

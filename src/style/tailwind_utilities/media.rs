@@ -173,6 +173,18 @@ pub(in crate::style) fn tailwind_container_width(value: &str) -> Option<&'static
     }
 }
 
+pub(in crate::style) fn tailwind_max_width_css(value: &str) -> Option<String> {
+    tailwind_container_width(value)
+        .map(ToString::to_string)
+        .or_else(|| tailwind_length(value).map(style_length_css))
+}
+
+pub(in crate::style) fn tailwind_max_width_value(value: &str) -> Option<StyleLength> {
+    tailwind_container_width(value)
+        .and_then(parse_length)
+        .or_else(|| tailwind_length(value))
+}
+
 pub(in crate::style) fn tailwind_font_family(value: &str) -> Option<String> {
     tailwind_arbitrary_or_custom_var(value)
 }

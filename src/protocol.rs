@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::{json, Value as JsonValue};
 
 use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
-use crate::compiler::{CompiledJsxNode, ReactCompilerBridge};
+use crate::compiler::{CompiledRsxNode, RsxCompilerBridge};
 use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, NativeEvent, RegisteredAction};
 use crate::host::{HostNodeId, NativeHost};
@@ -17,7 +18,7 @@ use crate::web::WebProps;
 #[serde(rename_all = "camelCase")]
 pub struct UiFrame {
     pub frame_id: String,
-    pub root: CompiledJsxNode,
+    pub root: CompiledRsxNode,
     #[serde(default)]
     pub actions: Vec<UiAction>,
     #[serde(default)]
@@ -28,7 +29,7 @@ pub struct UiFrame {
 #[serde(rename_all = "camelCase")]
 struct UiFrameWire {
     frame_id: String,
-    root: CompiledJsxNode,
+    root: CompiledRsxNode,
     #[serde(default, deserialize_with = "deserialize_frame_actions")]
     actions: Option<Vec<UiAction>>,
     #[serde(default, deserialize_with = "deserialize_frame_window")]
@@ -57,6 +58,8 @@ impl<'de> Deserialize<'de> for UiFrame {
 #[serde(rename_all = "camelCase")]
 pub struct UiAction {
     pub id: String,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub disabled: bool,
     #[serde(default)]
     pub label: Option<String>,
 }
@@ -143,18 +146,110 @@ pub struct NativeAppEventResponse {
 }
 
 impl UiFrame {
+    pub fn from_compiled(frame_id: impl Into<String>, root: CompiledRsxNode) -> GuiResult<Self> {
+        Self::from_compiled_parts(frame_id, root, None, None)
+    }
+
+    pub fn from_compiled_parts(
+        frame_id: impl Into<String>,
+        root: CompiledRsxNode,
+        actions: Option<Vec<UiAction>>,
+        window: Option<WindowOptions>,
+    ) -> GuiResult<Self> {
+        let actions = actions.unwrap_or_else(|| collect_actions_from_frame(&root, window.as_ref()));
+        let frame = Self {
+            frame_id: frame_id.into(),
+            root,
+            actions,
+            window,
+        };
+        frame.validate()?;
+        Ok(frame)
+    }
+
+    pub fn from_rsx_source(frame_id: impl Into<String>, source: &str) -> GuiResult<Self> {
+        Self::from_rsx_source_parts(frame_id, source, None, None)
+    }
+
+    pub fn from_rsx_source_with_window(
+        frame_id: impl Into<String>,
+        source: &str,
+        window: WindowOptions,
+    ) -> GuiResult<Self> {
+        Self::from_rsx_source_parts(frame_id, source, None, Some(window))
+    }
+
+    pub fn from_rsx_source_parts(
+        frame_id: impl Into<String>,
+        source: &str,
+        actions: Option<Vec<UiAction>>,
+        window: Option<WindowOptions>,
+    ) -> GuiResult<Self> {
+        let root = crate::rsx::parse_rsx(source)?;
+        Self::from_compiled_parts(frame_id, root, actions, window)
+    }
+
+    pub fn from_rsx_source_with_state(
+        frame_id: impl Into<String>,
+        source: &str,
+        state: &JsonValue,
+    ) -> GuiResult<Self> {
+        Self::from_rsx_source_parts_with_state(frame_id, source, state, None, None)
+    }
+
+    pub fn from_rsx_source_parts_with_state(
+        frame_id: impl Into<String>,
+        source: &str,
+        state: &JsonValue,
+        actions: Option<Vec<UiAction>>,
+        window: Option<WindowOptions>,
+    ) -> GuiResult<Self> {
+        let scope = json!({
+            "state": state,
+            "props": {},
+            "derived": {},
+            "context": {},
+            "resource": {},
+        });
+        Self::from_rsx_source_parts_with_scope(frame_id, source, &scope, actions, window)
+    }
+
+    pub fn from_rsx_source_with_scope(
+        frame_id: impl Into<String>,
+        source: &str,
+        scope: &JsonValue,
+    ) -> GuiResult<Self> {
+        Self::from_rsx_source_parts_with_scope(frame_id, source, scope, None, None)
+    }
+
+    pub fn from_rsx_source_parts_with_scope(
+        frame_id: impl Into<String>,
+        source: &str,
+        scope: &JsonValue,
+        actions: Option<Vec<UiAction>>,
+        window: Option<WindowOptions>,
+    ) -> GuiResult<Self> {
+        let root = crate::rsx::parse_rsx(source)?.resolve_bindings(scope)?;
+        Self::from_compiled_parts(frame_id, root, actions, window)
+    }
+
     pub fn validate(&self) -> GuiResult<()> {
         if self.frame_id.is_empty() {
             return Err(GuiError::invalid_tree(
                 "a3s-gui frames need a non-empty string frame id",
             ));
         }
-        if !matches!(&self.root, CompiledJsxNode::Element { .. }) {
+        if !matches!(&self.root, CompiledRsxNode::Element { .. }) {
             return Err(GuiError::invalid_tree(
                 "a3s-gui frames need one root element",
             ));
         }
         self.root.validate()?;
+        if self.root.has_bindings() {
+            return Err(GuiError::invalid_tree(
+                "a3s-gui frames cannot render unresolved RSX state/props/derived/context/resource bindings; use from_rsx_source_with_state or from_rsx_source_with_scope",
+            ));
+        }
         if self.actions.iter().any(|action| action.id.is_empty()) {
             return Err(GuiError::invalid_tree(
                 "a3s-gui frame actions need non-empty string ids",
@@ -184,7 +279,7 @@ impl UiFrame {
         self.validate()?;
         let root = match &self.window {
             Some(window) => {
-                let content = ReactCompilerBridge::new().lower_to_native(&self.root)?;
+                let content = RsxCompilerBridge::new().lower_to_native(&self.root)?;
                 let window = window.wrap_native_root(&self.frame_id, content);
                 runtime.render_native(&window)?
             }
@@ -204,6 +299,7 @@ impl UiAction {
     fn registered_action(&self) -> RegisteredAction {
         RegisteredAction {
             id: self.id.clone(),
+            disabled: self.disabled,
             label: self.label.clone(),
         }
     }
@@ -282,6 +378,10 @@ fn default_true() -> bool {
     true
 }
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 fn deserialize_frame_actions<'de, D>(deserializer: D) -> Result<Option<Vec<UiAction>>, D::Error>
 where
     D: Deserializer<'de>,
@@ -352,7 +452,7 @@ fn validate_dimension_bounds(
 }
 
 fn collect_actions_from_frame(
-    root: &CompiledJsxNode,
+    root: &CompiledRsxNode,
     window: Option<&WindowOptions>,
 ) -> Vec<UiAction> {
     let mut actions = Vec::new();
@@ -365,11 +465,11 @@ fn collect_actions_from_frame(
 }
 
 fn collect_actions_into(
-    node: &CompiledJsxNode,
+    node: &CompiledRsxNode,
     actions: &mut Vec<UiAction>,
     indexes: &mut BTreeMap<String, usize>,
 ) {
-    let CompiledJsxNode::Element {
+    let CompiledRsxNode::Element {
         props, children, ..
     } = node
     else {
@@ -408,6 +508,7 @@ fn collect_action_id(
             indexes.insert(id.to_string(), actions.len());
             actions.push(UiAction {
                 id: id.to_string(),
+                disabled: false,
                 label,
             });
         }
@@ -602,7 +703,7 @@ impl HostEvent {
         self.validate()?;
         let handled = runtime.handle_native_event_with_changes(self.event.clone())?;
         let invocation = handled.invocation.ok_or_else(|| {
-            crate::error::GuiError::host("native event has no registered Web action")
+            crate::error::GuiError::host("native event has no registered RSX action")
         })?;
         Ok(HostEventResponse {
             frame_id: self.frame_id.clone(),
@@ -708,6 +809,19 @@ mod tests {
         }
     }
 
+    fn rsx_counter_frame(state: &CounterState) -> GuiResult<UiFrame> {
+        let state = serde_json::json!({ "count": state.count });
+        UiFrame::from_rsx_source_with_state(
+            "rsx-counter",
+            r#"
+            <Button key="increment" onPress={increment}>
+              Count {state.count}
+            </Button>
+            "#,
+            &state,
+        )
+    }
+
     #[test]
     fn native_protocol_app_reduces_actions_and_renders_next_frame() {
         let mut app = NativeProtocolApp::new(
@@ -735,6 +849,47 @@ mod tests {
         );
         assert!(response.render.is_some());
         assert_eq!(response.render.as_ref().unwrap().root, rendered.root);
+    }
+
+    #[test]
+    fn native_protocol_app_resolves_rsx_state_bindings_after_reducer() {
+        let mut app = NativeProtocolApp::new(
+            Gtk4Adapter,
+            CounterState::default(),
+            rsx_counter_frame,
+            counter_reduce,
+        );
+        let rendered = app.render().unwrap();
+        assert_eq!(
+            rendered
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.label.as_deref()),
+            Some("Count 0")
+        );
+
+        let response = app
+            .dispatch_host_event(&HostEvent {
+                frame_id: "rsx-counter".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
+            })
+            .unwrap();
+
+        assert_eq!(app.state().count, 1);
+        assert_eq!(
+            response
+                .invocation
+                .as_ref()
+                .map(|action| action.action.as_str()),
+            Some("increment")
+        );
+        assert_eq!(
+            response
+                .accessibility_tree
+                .as_ref()
+                .and_then(|tree| tree.label.as_deref()),
+            Some("Count 1")
+        );
     }
 
     #[test]
@@ -801,6 +956,58 @@ mod tests {
         assert_eq!(response.frame_id, "frame-1");
         assert_eq!(response.invocation.action, "saveProfile");
         assert_eq!(runtime.actions().invocations().len(), 1);
+    }
+
+    #[test]
+    fn rsx_source_frame_renders_tailwind_to_native_widgets_without_node_or_bun() {
+        let frame = UiFrame::from_rsx_source(
+            "rsx-native",
+            r##"
+            <Toolbar key="root" orientation="vertical" className="min-w-[920px] gap-2 bg-[#fafafa] p-3">
+              <Button key="save" onPress={saveDocument} className="rounded-md border border-[#ebebeb]">
+                Save
+              </Button>
+            </Toolbar>
+            "##,
+        )
+        .unwrap();
+        assert_eq!(frame.actions.len(), 1);
+        assert_eq!(frame.actions[0].id, "saveDocument");
+
+        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let mut runtime = GuiRuntime::new(host);
+        let rendered = frame.render_into(&mut runtime).unwrap();
+        let root = runtime.host().planning().node(rendered.root).unwrap();
+
+        assert_eq!(root.blueprint.widget_class, "gtk::Box(toolbar)");
+        assert_eq!(
+            root.blueprint.class_name.as_deref(),
+            Some("min-w-[920px] gap-2 bg-[#fafafa] p-3")
+        );
+        assert!(root.blueprint.portable_style.min_width.is_some());
+        assert!(root.blueprint.portable_style.background_color.is_some());
+
+        let button = root.children[0];
+        let response = HostEvent {
+            frame_id: rendered.frame_id.clone(),
+            event: NativeEvent::new(button, NativeEventKind::Press),
+        }
+        .dispatch_into(&mut runtime)
+        .unwrap();
+
+        assert_eq!(response.frame_id, "rsx-native");
+        assert_eq!(response.invocation.action, "saveDocument");
+    }
+
+    #[test]
+    fn rsx_source_frame_rejects_unresolved_state_bindings() {
+        let error =
+            UiFrame::from_rsx_source("unresolved", r#"<Text key="title" label={state.title} />"#)
+                .unwrap_err();
+
+        assert!(error.to_string().contains(
+            "cannot render unresolved RSX state/props/derived/context/resource bindings"
+        ));
     }
 
     #[test]
@@ -1732,10 +1939,12 @@ mod tests {
             vec![
                 UiAction {
                     id: "saveProfile".to_string(),
+                    disabled: false,
                     label: Some("Save profile".to_string()),
                 },
                 UiAction {
                     id: "handleSearchKey".to_string(),
+                    disabled: false,
                     label: Some("Handle search key".to_string()),
                 },
             ]
@@ -1777,6 +1986,7 @@ mod tests {
             frame.actions,
             vec![UiAction {
                 id: "explicitAction".to_string(),
+                disabled: false,
                 label: Some("Explicit action".to_string()),
             }]
         );
@@ -2080,6 +2290,39 @@ mod tests {
         assert!(error
             .to_string()
             .contains("unregistered action saveProfile"));
+    }
+
+    #[test]
+    fn native_protocol_session_rejects_disabled_registered_actions() {
+        let frame: UiFrame = serde_json::from_str(
+            r#"
+            {
+              "frameId": "profile",
+              "actions": [{"id": "saveProfile", "disabled": true}],
+              "root": {
+                "kind": "element",
+                "key": "save",
+                "tag": "Button",
+                "props": {"events": {"onPress": "saveProfile"}},
+                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
+              }
+            }
+            "#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+        let rendered = session.render_frame(&frame).unwrap();
+
+        assert!(session.runtime().actions().is_disabled("saveProfile"));
+        let error = session
+            .dispatch_host_event(&HostEvent {
+                frame_id: "profile".to_string(),
+                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
+            })
+            .unwrap_err();
+
+        assert!(error.to_string().contains("disabled action saveProfile"));
+        assert!(session.runtime().actions().invocations().is_empty());
     }
 
     #[test]
