@@ -19,7 +19,9 @@ pub fn parse_rsx(source: &str) -> GuiResult<CompiledRsxNode> {
 pub fn parse_rsx_source(source_name: impl AsRef<str>, source: &str) -> GuiResult<CompiledRsxNode> {
     let source_name = normalize_rsx_source_name(source_name);
     let root_source = match extract_rsx_function_component(&source_name, source)? {
-        Some(component) => component.root_expression,
+        Some(component) => {
+            rewrite_rust_template_aliases(&component.root_expression, &component.aliases)
+        }
         None => source.trim().to_string(),
     };
     let module = parse_rsx_module(&source_name, &root_source)?;
@@ -86,6 +88,39 @@ fn normalize_rsx_source_name(source_name: impl AsRef<str>) -> String {
 
 struct RsxFunctionComponent {
     root_expression: String,
+    aliases: BTreeMap<String, RustTemplateAlias>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum RustTemplateAlias {
+    Binding { root: &'static str, path: String },
+    Action(String),
+}
+
+impl RustTemplateAlias {
+    fn resolve(&self, suffix: &[String], spread: bool) -> Option<String> {
+        match self {
+            Self::Action(action) => {
+                if spread || !suffix.is_empty() {
+                    None
+                } else {
+                    Some(format!("{action:?}"))
+                }
+            }
+            Self::Binding { root, path } => {
+                let mut rewritten = format!("{root}.{path}");
+                if !suffix.is_empty() {
+                    rewritten.push('.');
+                    rewritten.push_str(&suffix.join("."));
+                }
+                if spread {
+                    Some(format!("...{rewritten}"))
+                } else {
+                    Some(rewritten)
+                }
+            }
+        }
+    }
 }
 
 fn extract_rsx_function_component(
@@ -98,11 +133,44 @@ fn extract_rsx_function_component(
         ));
     }
 
-    let Some(fn_start) = find_rust_fn_keyword(source) else {
+    let Some(body) = find_rsx_component_body(source_name, source)? else {
         return Ok(None);
     };
 
-    validate_only_leading_ws_before(source, fn_start, source_name)?;
+    let aliases = collect_rust_template_aliases(body)?;
+    let root_expression = extract_rsx_return_expression(source_name, body)?;
+
+    Ok(Some(RsxFunctionComponent {
+        root_expression,
+        aliases,
+    }))
+}
+
+fn find_rsx_component_body<'a>(source_name: &str, source: &'a str) -> GuiResult<Option<&'a str>> {
+    let mut bodies = Vec::new();
+    let mut cursor = 0;
+
+    while let Some(fn_start) = find_next_top_level_keyword(source, cursor, "fn") {
+        if let Some(body) = parse_rsx_component_body_at(source_name, source, fn_start)? {
+            bodies.push(body);
+        }
+        cursor = fn_start + "fn".len();
+    }
+
+    match bodies.len() {
+        0 => Ok(None),
+        1 => Ok(bodies.pop()),
+        _ => Err(GuiError::invalid_tree(format!(
+            "invalid RSX view template in {source_name:?}: only one top-level `fn View(props: Props) -> RSX` wrapper is supported"
+        ))),
+    }
+}
+
+fn parse_rsx_component_body_at<'a>(
+    source_name: &str,
+    source: &'a str,
+    fn_start: usize,
+) -> GuiResult<Option<&'a str>> {
     let mut cursor = fn_start + "fn".len();
     cursor = skip_whitespace(source, cursor);
     let Some((_name, after_name)) = read_identifier(source, cursor) else {
@@ -110,62 +178,82 @@ fn extract_rsx_function_component(
             "invalid RSX component in {source_name:?}: expected a component name after `fn`"
         )));
     };
-    cursor = skip_whitespace(source, after_name);
-    if !source[cursor..].starts_with('(') {
-        return Err(GuiError::invalid_tree(format!(
-            "invalid RSX component in {source_name:?}: expected props parameter list"
-        )));
-    }
 
-    let Some(params_end) = find_matching_delimiter(source, cursor, '(', ')') else {
-        return Err(GuiError::invalid_tree(format!(
-            "invalid RSX component in {source_name:?}: unclosed props parameter list"
-        )));
+    let Some(body_start) = find_rust_function_body_start(source, after_name) else {
+        return Ok(None);
     };
-    validate_rsx_component_params(source_name, &source[cursor + 1..params_end])?;
+    let Some((params_start, params_end)) =
+        find_rust_function_params(source, after_name, body_start)
+    else {
+        return Ok(None);
+    };
+    let Some(return_type) = rust_function_return_type(source, params_end, body_start) else {
+        return Ok(None);
+    };
+    if !is_rsx_return_type(return_type) {
+        return Ok(None);
+    }
+    validate_rsx_component_params(source_name, &source[params_start + 1..params_end])?;
 
-    cursor = skip_whitespace(source, params_end + 1);
-    if !source[cursor..].starts_with("->") {
-        return Err(GuiError::invalid_tree(format!(
-            "invalid RSX component in {source_name:?}: expected `-> RSX` return type"
-        )));
-    }
-    cursor = skip_whitespace(source, cursor + "->".len());
-
-    let return_type_start = cursor;
-    while cursor < source.len() {
-        let Some(ch) = source[cursor..].chars().next() else {
-            break;
-        };
-        if ch == '{' {
-            break;
-        }
-        cursor += ch.len_utf8();
-    }
-    let return_type = source[return_type_start..cursor].trim();
-    if return_type != "RSX" {
-        return Err(GuiError::invalid_tree(format!(
-            "invalid RSX component in {source_name:?}: expected return type `RSX`, found `{return_type}`"
-        )));
-    }
-
-    cursor = skip_whitespace(source, cursor);
-    if !source[cursor..].starts_with('{') {
-        return Err(GuiError::invalid_tree(format!(
-            "invalid RSX component in {source_name:?}: expected component body"
-        )));
-    }
-    let Some(body_end) = find_matching_delimiter(source, cursor, '{', '}') else {
+    let Some(body_end) = find_matching_rust_delimiter(source, body_start, '{', '}') else {
         return Err(GuiError::invalid_tree(format!(
             "invalid RSX component in {source_name:?}: unclosed component body"
         )));
     };
-    validate_only_trailing_ws_after(source, body_end + 1, source_name)?;
+    Ok(Some(&source[body_start + 1..body_end]))
+}
 
-    let body = &source[cursor + 1..body_end];
-    let root_expression = extract_rsx_return_expression(source_name, body)?;
+fn find_rust_function_body_start(source: &str, mut index: usize) -> Option<usize> {
+    let mut delimiter_depth = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+    let mut line_comment = false;
+    let mut block_comment = false;
 
-    Ok(Some(RsxFunctionComponent { root_expression }))
+    while index < source.len() {
+        let ch = source[index..].chars().next()?;
+        if quote.is_none() && !line_comment && !block_comment && delimiter_depth == 0 && ch == '{' {
+            return Some(index);
+        }
+        advance_rust_scan_state(
+            source,
+            &mut index,
+            ch,
+            &mut delimiter_depth,
+            &mut quote,
+            &mut escaped,
+            &mut line_comment,
+            &mut block_comment,
+        );
+    }
+
+    None
+}
+
+fn find_rust_function_params(
+    source: &str,
+    after_name: usize,
+    body_start: usize,
+) -> Option<(usize, usize)> {
+    let params_start = source[after_name..body_start].find('(')? + after_name;
+    let params_end = find_matching_rust_delimiter(source, params_start, '(', ')')?;
+    (params_end <= body_start).then_some((params_start, params_end))
+}
+
+fn rust_function_return_type(source: &str, params_end: usize, body_start: usize) -> Option<&str> {
+    let cursor = skip_whitespace(source, params_end + 1);
+    let return_type = source[cursor..body_start].strip_prefix("->")?.trim();
+    let return_type = return_type
+        .split_once(" where ")
+        .map(|(return_type, _)| return_type)
+        .unwrap_or(return_type)
+        .trim();
+    (!return_type.is_empty()).then_some(return_type)
+}
+
+fn is_rsx_return_type(return_type: &str) -> bool {
+    let return_type = return_type.replace(char::is_whitespace, "");
+    matches!(return_type.as_str(), "RSX" | "crate::RSX" | "a3s_gui::RSX")
 }
 
 fn keyword_at(source: &str, index: usize, keyword: &str) -> bool {
@@ -184,6 +272,18 @@ fn is_ident_char(ch: char) -> bool {
     ch == '_' || ch.is_ascii_alphanumeric()
 }
 
+fn is_rust_lifetime_start(source: &str, index: usize) -> bool {
+    let next_index = index + '\''.len_utf8();
+    let Some(next) = source[next_index..].chars().next() else {
+        return false;
+    };
+    let after_next = next_index + next.len_utf8();
+    if source[after_next..].starts_with('\'') {
+        return false;
+    }
+    next == '_' || next.is_ascii_alphabetic()
+}
+
 fn contains_javascript_component_syntax(source: &str) -> bool {
     first_code_token(source).is_some_and(|token| matches!(token, "export" | "import" | "function"))
 }
@@ -200,46 +300,114 @@ fn first_code_token(source: &str) -> Option<&str> {
     Some(&source[..end])
 }
 
-fn find_rust_fn_keyword(source: &str) -> Option<usize> {
+fn find_next_top_level_keyword(source: &str, start: usize, keyword: &str) -> Option<usize> {
     let mut index = 0;
+    let mut brace_depth = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+    let mut line_comment = false;
+    let mut block_comment = false;
+
     while index < source.len() {
-        if keyword_at(source, index, "fn") {
+        let ch = source[index..].chars().next()?;
+
+        if index < start {
+            advance_rust_scan_state(
+                source,
+                &mut index,
+                ch,
+                &mut brace_depth,
+                &mut quote,
+                &mut escaped,
+                &mut line_comment,
+                &mut block_comment,
+            );
+            continue;
+        }
+
+        if quote.is_none()
+            && !line_comment
+            && !block_comment
+            && brace_depth == 0
+            && keyword_at(source, index, keyword)
+        {
             return Some(index);
         }
-        if keyword_at(source, index, "pub") {
-            let after_pub = skip_whitespace(source, index + "pub".len());
-            if keyword_at(source, after_pub, "fn") {
-                return Some(after_pub);
-            }
-        }
-        index += source[index..].chars().next()?.len_utf8();
+
+        advance_rust_scan_state(
+            source,
+            &mut index,
+            ch,
+            &mut brace_depth,
+            &mut quote,
+            &mut escaped,
+            &mut line_comment,
+            &mut block_comment,
+        );
     }
+
     None
 }
 
-fn validate_only_leading_ws_before(
+fn advance_rust_scan_state(
     source: &str,
-    fn_start: usize,
-    source_name: &str,
-) -> GuiResult<()> {
-    let leading = source[..fn_start].trim();
-    if leading.is_empty() || leading == "pub" {
-        Ok(())
-    } else {
-        Err(GuiError::invalid_tree(format!(
-            "invalid RSX view template in {source_name:?}: only one top-level `fn View(props: Props) -> RSX` wrapper is supported"
-        )))
+    index: &mut usize,
+    ch: char,
+    brace_depth: &mut usize,
+    quote: &mut Option<char>,
+    escaped: &mut bool,
+    line_comment: &mut bool,
+    block_comment: &mut bool,
+) {
+    if *line_comment {
+        if ch == '\n' {
+            *line_comment = false;
+        }
+        *index += ch.len_utf8();
+        return;
     }
-}
 
-fn validate_only_trailing_ws_after(source: &str, index: usize, source_name: &str) -> GuiResult<()> {
-    if source[index..].trim().is_empty() {
-        Ok(())
-    } else {
-        Err(GuiError::invalid_tree(format!(
-            "invalid RSX component in {source_name:?}: unexpected content after component body"
-        )))
+    if *block_comment {
+        if source[*index..].starts_with("*/") {
+            *block_comment = false;
+            *index += 2;
+        } else {
+            *index += ch.len_utf8();
+        }
+        return;
     }
+
+    if let Some(quote_ch) = *quote {
+        if *escaped {
+            *escaped = false;
+        } else if ch == '\\' {
+            *escaped = true;
+        } else if ch == quote_ch {
+            *quote = None;
+        }
+        *index += ch.len_utf8();
+        return;
+    }
+
+    if source[*index..].starts_with("//") {
+        *line_comment = true;
+        *index += 2;
+        return;
+    }
+    if source[*index..].starts_with("/*") {
+        *block_comment = true;
+        *index += 2;
+        return;
+    }
+
+    match ch {
+        '\'' if !is_rust_lifetime_start(source, *index) => *quote = Some(ch),
+        '"' | '`' => *quote = Some(ch),
+        '(' | '[' | '{' => *brace_depth += 1,
+        ')' | ']' | '}' => *brace_depth = brace_depth.saturating_sub(1),
+        _ => {}
+    }
+    *index += ch.len_utf8();
 }
 
 fn read_identifier(source: &str, index: usize) -> Option<(&str, usize)> {
@@ -283,6 +451,14 @@ fn extract_rsx_return_expression(source_name: &str, body: &str) -> GuiResult<Str
             "invalid RSX view template in {source_name:?}: view-template body must be an RSX expression; remove `return`"
         )));
     }
+    if let Some(expression) = extract_trailing_rsx_macro_body(body) {
+        return Ok(expression.trim().to_string());
+    }
+    if find_next_top_level_keyword(body, 0, "let").is_some() {
+        return Err(GuiError::invalid_tree(format!(
+            "invalid RSX view template in {source_name:?}: Rust statement bodies must end with an `rsx!(...)`, `crate::rsx!(...)`, or `a3s_gui::rsx!(...)` expression"
+        )));
+    }
     let expression = body;
     let expression = expression.strip_suffix(';').unwrap_or(expression).trim();
     if expression.is_empty() {
@@ -291,6 +467,472 @@ fn extract_rsx_return_expression(source_name: &str, body: &str) -> GuiResult<Str
         )));
     }
     Ok(expression.to_string())
+}
+
+fn extract_trailing_rsx_macro_body(body: &str) -> Option<&str> {
+    let mut cursor = 0;
+    let mut trailing = None;
+
+    while let Some(index) = find_next_top_level_rsx_macro(body, cursor) {
+        let bang = skip_whitespace(body, index + "rsx".len());
+        if !body[bang..].starts_with('!') {
+            cursor = index + "rsx".len();
+            continue;
+        }
+        let open = skip_whitespace(body, bang + 1);
+        if !body[open..].starts_with('(') {
+            cursor = index + "rsx".len();
+            continue;
+        }
+        let close = find_matching_rust_delimiter(body, open, '(', ')')?;
+        if body[close + 1..]
+            .trim()
+            .trim_end_matches(';')
+            .trim()
+            .is_empty()
+        {
+            trailing = Some(&body[open + 1..close]);
+        }
+        cursor = close + 1;
+    }
+
+    trailing
+}
+
+fn find_next_top_level_rsx_macro(source: &str, start: usize) -> Option<usize> {
+    let mut index = 0;
+    let mut delimiter_depth = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+    let mut line_comment = false;
+    let mut block_comment = false;
+
+    while index < source.len() {
+        let ch = source[index..].chars().next()?;
+
+        if index >= start
+            && quote.is_none()
+            && !line_comment
+            && !block_comment
+            && delimiter_depth == 0
+            && keyword_at(source, index, "rsx")
+        {
+            return Some(index);
+        }
+
+        advance_rust_scan_state(
+            source,
+            &mut index,
+            ch,
+            &mut delimiter_depth,
+            &mut quote,
+            &mut escaped,
+            &mut line_comment,
+            &mut block_comment,
+        );
+    }
+
+    None
+}
+
+fn collect_rust_template_aliases(body: &str) -> GuiResult<BTreeMap<String, RustTemplateAlias>> {
+    let mut aliases = BTreeMap::new();
+    let mut cursor = 0;
+
+    while let Some(let_start) = find_next_top_level_keyword(body, cursor, "let") {
+        let Some(statement_end) = find_rust_statement_end(body, let_start + "let".len()) else {
+            return Err(GuiError::invalid_tree(
+                "invalid RSX component: unterminated Rust `let` statement",
+            ));
+        };
+        if let Some((name, expression)) = rust_let_binding_parts(body, let_start, statement_end) {
+            if let Some(alias) = rust_template_alias_from_expression(expression) {
+                aliases.entry(name.to_string()).or_insert(alias);
+            }
+        }
+        cursor = statement_end + 1;
+    }
+
+    Ok(aliases)
+}
+
+fn find_rust_statement_end(source: &str, mut index: usize) -> Option<usize> {
+    let mut delimiter_depth = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+    let mut line_comment = false;
+    let mut block_comment = false;
+
+    while index < source.len() {
+        let ch = source[index..].chars().next()?;
+
+        if quote.is_none() && !line_comment && !block_comment && delimiter_depth == 0 && ch == ';' {
+            return Some(index);
+        }
+        advance_rust_scan_state(
+            source,
+            &mut index,
+            ch,
+            &mut delimiter_depth,
+            &mut quote,
+            &mut escaped,
+            &mut line_comment,
+            &mut block_comment,
+        );
+    }
+
+    None
+}
+
+fn rust_let_binding_parts(
+    source: &str,
+    let_start: usize,
+    statement_end: usize,
+) -> Option<(&str, &str)> {
+    let mut cursor = skip_whitespace(source, let_start + "let".len());
+    if keyword_at(source, cursor, "mut") {
+        cursor = skip_whitespace(source, cursor + "mut".len());
+    }
+    let (name, after_name) = read_identifier(source, cursor)?;
+    cursor = skip_whitespace(source, after_name);
+    if source[cursor..statement_end].trim_start().starts_with(':') {
+        let colon = cursor + source[cursor..statement_end].find(':')?;
+        cursor = colon + 1;
+    }
+    let equals = cursor + source[cursor..statement_end].find('=')?;
+    Some((name, source[equals + 1..statement_end].trim()))
+}
+
+fn rust_template_alias_from_expression(expression: &str) -> Option<RustTemplateAlias> {
+    let (hook, args) = cx_hook_call(expression)?;
+    match hook {
+        "use_state"
+        | "use_state_result"
+        | "use_selector"
+        | "use_selector_result"
+        | "use_reactive"
+        | "use_reactive_result" => Some(RustTemplateAlias::Binding {
+            root: "state",
+            path: args.first()?.clone(),
+        }),
+        "use_prop" | "use_prop_result" => Some(RustTemplateAlias::Binding {
+            root: "props",
+            path: args.first()?.clone(),
+        }),
+        "use_derived"
+        | "use_derived_result"
+        | "use_memo"
+        | "use_memo_result"
+        | "use_deferred_value"
+        | "use_sync_external_store"
+        | "use_optimistic"
+        | "use_form_status" => Some(RustTemplateAlias::Binding {
+            root: "derived",
+            path: args.first()?.clone(),
+        }),
+        "use_context" | "use_context_result" => Some(RustTemplateAlias::Binding {
+            root: "context",
+            path: args.first()?.clone(),
+        }),
+        "use_resource" | "use_resource_result" => Some(RustTemplateAlias::Binding {
+            root: "resource",
+            path: args.first()?.clone(),
+        }),
+        "use_reducer"
+        | "use_value_reducer"
+        | "use_payload_reducer"
+        | "use_callback"
+        | "use_transition_reducer"
+        | "use_value_transition_reducer"
+        | "use_payload_transition_reducer" => {
+            Some(RustTemplateAlias::Action(args.first()?.clone()))
+        }
+        "use_action_state" => args.get(1).cloned().map(RustTemplateAlias::Action),
+        _ => None,
+    }
+}
+
+fn cx_hook_call(expression: &str) -> Option<(&str, Vec<String>)> {
+    let expression = expression.trim();
+    let mut cursor = skip_whitespace(expression, 0);
+    if !keyword_at(expression, cursor, "cx") {
+        return None;
+    }
+    cursor = skip_whitespace(expression, cursor + "cx".len());
+    if !expression[cursor..].starts_with('.') {
+        return None;
+    }
+    cursor = skip_whitespace(expression, cursor + 1);
+    let (hook, after_hook) = read_identifier(expression, cursor)?;
+    let open = expression[after_hook..].find('(')? + after_hook;
+    let close = find_matching_rust_delimiter(expression, open, '(', ')')?;
+    if !expression[close + 1..].trim().is_empty() {
+        return None;
+    }
+    let args = rust_string_arguments(&expression[open + 1..close]);
+    Some((hook, args))
+}
+
+fn rust_string_arguments(args: &str) -> Vec<String> {
+    top_level_arguments(args)
+        .into_iter()
+        .filter_map(rust_string_literal)
+        .collect()
+}
+
+fn top_level_arguments(args: &str) -> Vec<&str> {
+    let mut values = Vec::new();
+    let mut start = 0usize;
+    let mut index = 0usize;
+    let mut delimiter_depth = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+
+    while index < args.len() {
+        let ch = args[index..].chars().next().unwrap();
+        if let Some(quote_ch) = quote {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == quote_ch {
+                quote = None;
+            }
+            index += ch.len_utf8();
+            continue;
+        }
+
+        match ch {
+            '"' | '\'' | '`' => quote = Some(ch),
+            '(' | '[' | '{' => delimiter_depth += 1,
+            ')' | ']' | '}' => delimiter_depth = delimiter_depth.saturating_sub(1),
+            ',' if delimiter_depth == 0 => {
+                values.push(args[start..index].trim());
+                start = index + ch.len_utf8();
+            }
+            _ => {}
+        }
+        index += ch.len_utf8();
+    }
+
+    let tail = args[start..].trim();
+    if !tail.is_empty() {
+        values.push(tail);
+    }
+    values
+}
+
+fn rust_string_literal(value: &str) -> Option<String> {
+    let value = value.trim();
+    if let Some(raw) = rust_raw_string_literal(value) {
+        return Some(raw);
+    }
+    let value = value.strip_prefix('"')?;
+    let mut output = String::new();
+    let mut escaped = false;
+    for ch in value.chars() {
+        if escaped {
+            output.push(match ch {
+                'n' => '\n',
+                'r' => '\r',
+                't' => '\t',
+                '"' => '"',
+                '\\' => '\\',
+                other => other,
+            });
+            escaped = false;
+        } else if ch == '\\' {
+            escaped = true;
+        } else if ch == '"' {
+            return Some(output);
+        } else {
+            output.push(ch);
+        }
+    }
+    None
+}
+
+fn rust_raw_string_literal(value: &str) -> Option<String> {
+    let value = value.strip_prefix('r')?;
+    let hash_count = value.chars().take_while(|ch| *ch == '#').count();
+    let quote_index = hash_count;
+    if !value[quote_index..].starts_with('"') {
+        return None;
+    }
+    let content_start = quote_index + '"'.len_utf8();
+    let closing = format!("\"{}", "#".repeat(hash_count));
+    let content_end = value[content_start..].find(&closing)? + content_start;
+    Some(value[content_start..content_end].to_string())
+}
+
+fn rewrite_rust_template_aliases(
+    source: &str,
+    aliases: &BTreeMap<String, RustTemplateAlias>,
+) -> String {
+    if aliases.is_empty() {
+        return source.to_string();
+    }
+
+    let mut output = String::with_capacity(source.len());
+    let mut index = 0;
+    let mut quote = None;
+    let chars = source.char_indices().collect::<Vec<_>>();
+    let mut cursor = 0;
+
+    while cursor < chars.len() {
+        let (byte_index, ch) = chars[cursor];
+        if let Some(quote_ch) = quote {
+            output.push_str(&source[index..byte_index + ch.len_utf8()]);
+            index = byte_index + ch.len_utf8();
+            if ch == quote_ch {
+                quote = None;
+            }
+            cursor += 1;
+            continue;
+        }
+
+        match ch {
+            '"' | '\'' | '`' => {
+                output.push_str(&source[index..byte_index + ch.len_utf8()]);
+                index = byte_index + ch.len_utf8();
+                quote = Some(ch);
+                cursor += 1;
+            }
+            '{' => {
+                if let Some(end) = find_matching_delimiter(source, byte_index, '{', '}') {
+                    output.push_str(&source[index..byte_index]);
+                    let expression = &source[byte_index + 1..end];
+                    if let Some(rewritten) = rewrite_rust_template_expression(expression, aliases) {
+                        output.push('{');
+                        output.push_str(&rewritten);
+                        output.push('}');
+                    } else {
+                        output.push_str(&source[byte_index..=end]);
+                    }
+                    index = end + 1;
+                    cursor = chars
+                        .iter()
+                        .position(|(position, _)| *position >= index)
+                        .unwrap_or(chars.len());
+                } else {
+                    output.push_str(&source[index..byte_index + ch.len_utf8()]);
+                    index = byte_index + ch.len_utf8();
+                    cursor += 1;
+                }
+            }
+            _ => {
+                output.push_str(&source[index..byte_index + ch.len_utf8()]);
+                index = byte_index + ch.len_utf8();
+                cursor += 1;
+            }
+        }
+    }
+
+    output.push_str(&source[index..]);
+    output
+}
+
+fn rewrite_rust_template_expression(
+    expression: &str,
+    aliases: &BTreeMap<String, RustTemplateAlias>,
+) -> Option<String> {
+    let trimmed = expression.trim();
+    let (spread, path) = trimmed
+        .strip_prefix("...")
+        .map(|path| (true, path.trim()))
+        .unwrap_or((false, trimmed));
+    let segments = template_member_segments(path)?;
+    let alias = aliases.get(segments.first()?)?;
+    alias.resolve(&segments[1..], spread)
+}
+
+fn template_member_segments(expression: &str) -> Option<Vec<String>> {
+    let segments = expression
+        .split('.')
+        .map(str::trim)
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    if segments.is_empty()
+        || segments
+            .iter()
+            .any(|segment| !is_valid_local_identifier(segment))
+    {
+        None
+    } else {
+        Some(segments)
+    }
+}
+
+fn find_matching_rust_delimiter(
+    source: &str,
+    mut index: usize,
+    open: char,
+    close: char,
+) -> Option<usize> {
+    let mut depth = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+    let mut line_comment = false;
+    let mut block_comment = false;
+
+    while index < source.len() {
+        let ch = source[index..].chars().next()?;
+
+        if line_comment {
+            if ch == '\n' {
+                line_comment = false;
+            }
+            index += ch.len_utf8();
+            continue;
+        }
+        if block_comment {
+            if source[index..].starts_with("*/") {
+                block_comment = false;
+                index += 2;
+            } else {
+                index += ch.len_utf8();
+            }
+            continue;
+        }
+        if let Some(quote_ch) = quote {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == quote_ch {
+                quote = None;
+            }
+            index += ch.len_utf8();
+            continue;
+        }
+
+        if source[index..].starts_with("//") {
+            line_comment = true;
+            index += 2;
+            continue;
+        }
+        if source[index..].starts_with("/*") {
+            block_comment = true;
+            index += 2;
+            continue;
+        }
+
+        match ch {
+            '\'' if !is_rust_lifetime_start(source, index) => quote = Some(ch),
+            '"' | '`' => quote = Some(ch),
+            ch if ch == open => depth += 1,
+            ch if ch == close => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+        index += ch.len_utf8();
+    }
+
+    None
 }
 
 fn find_matching_delimiter(
@@ -1528,6 +2170,377 @@ mod tests {
             props.bindings.get("textValue"),
             Some(&CompiledBinding::state(["count"]))
         );
+    }
+
+    #[test]
+    fn parses_rust_component_files_with_hook_expressions_and_rsx_macro() {
+        let root = parse_rsx(
+            r##"
+            use a3s_gui::{ComponentCx, RSX};
+
+            #[derive(Default)]
+            struct ProfileProps {
+                title: String,
+            }
+
+            impl ProfileProps {
+                fn helper(&self) -> &str {
+                    &self.title
+                }
+            }
+
+            fn helper() -> usize {
+                1
+            }
+
+            fn char_helper() -> char {
+                'a'
+            }
+
+            fn borrow_helper<'a, T>(value: &'a T) -> &'a T {
+                value
+            }
+
+            #[allow(non_snake_case)]
+            pub fn ProfileCard(cx: &mut ComponentCx<ProfileProps>) -> RSX {
+                let _marker = 'a';
+                let title = cx.use_prop(r#"title"#, |props: &ProfileProps| {
+                    format!("{}!", props.helper())
+                });
+                let badgeClass = cx.use_state(
+                    "badgeClass",
+                    |state: &'static ProfileState| if state.ready { "ready" } else { "idle" },
+                );
+                let save = cx
+                    .use_value_reducer("saveProfile", |state: &mut ProfileState, value| {
+                        state.save(value)
+                    });
+
+                a3s_gui::rsx!(
+                    <Button key="save" label={title} className={badgeClass} onPress={save}>
+                        {title}
+                    </Button>
+                )
+            }
+            "##,
+        )
+        .unwrap();
+
+        let CompiledRsxNode::Element {
+            tag,
+            props,
+            children,
+            ..
+        } = root
+        else {
+            panic!("button element");
+        };
+
+        assert_eq!(tag, "Button");
+        assert_eq!(
+            props.bindings.get("label"),
+            Some(&CompiledBinding::props(["title"]))
+        );
+        assert_eq!(
+            props.bindings.get("className"),
+            Some(&CompiledBinding::state(["badgeClass"]))
+        );
+        assert_eq!(
+            props.events.get("onPress").map(String::as_str),
+            Some("saveProfile")
+        );
+        let CompiledRsxNode::Element { props, .. } = &children[0] else {
+            panic!("bound title text element");
+        };
+        assert_eq!(
+            props.bindings.get("textValue"),
+            Some(&CompiledBinding::props(["title"]))
+        );
+    }
+
+    #[test]
+    fn parses_real_calculator_rsx_component_file() {
+        let root = parse_rsx(include_str!(
+            "../examples/support/calculator/components/calculator.rsx"
+        ))
+        .unwrap();
+
+        let CompiledRsxNode::Element { tag, props, .. } = root else {
+            panic!("calculator shell element");
+        };
+
+        assert_eq!(tag, "CalculatorShell");
+        assert_eq!(
+            props.bindings.get("display"),
+            Some(&CompiledBinding::state(["calculator", "display"]))
+        );
+        assert_eq!(
+            props.bindings.get("history"),
+            Some(&CompiledBinding::state(["calculator", "history"]))
+        );
+        assert_eq!(
+            props.bindings.get("hasError"),
+            Some(&CompiledBinding::state(["calculator", "hasError"]))
+        );
+        assert_eq!(
+            props.attributes.get("pressDigit").map(String::as_str),
+            Some("pressDigit")
+        );
+        assert_eq!(
+            props.attributes.get("pressOperator").map(String::as_str),
+            Some("pressOperator")
+        );
+    }
+
+    #[test]
+    fn parses_rust_component_hook_alias_matrix() {
+        let root = parse_rsx(
+            r##"
+            use a3s_gui::{ComponentCx, RSX};
+
+            pub fn AliasMatrix(cx: &mut ComponentCx<AppState>) -> RSX {
+                let profile = cx.use_selector("profile", |state: &AppState| {
+                    state.profile.clone()
+                });
+                let settings = cx.use_reactive("settings", |state: &AppState| {
+                    state.settings.clone()
+                });
+                let buttonProps = cx.use_prop("buttonProps", |props: &PanelProps| {
+                    props.button_props.clone()
+                });
+                let summary = cx.use_derived("summary", |state: &AppState| {
+                    format!("{} items", state.items.len())
+                });
+                let memoTitle = cx.use_memo("memoTitle", |state: &AppState| {
+                    state.title.clone()
+                });
+                let deferredTitle = cx.use_deferred_value("deferredTitle", |state: &AppState| {
+                    state.title.clone()
+                });
+                let externalValue = cx.use_sync_external_store("externalValue", external_store);
+                let optimisticTitle = cx.use_optimistic("optimisticTitle", |state: &AppState| {
+                    state.title.clone()
+                });
+                let formStatus = cx.use_form_status("formStatus", submit_state);
+                let theme = cx.use_context("theme", |context: &AppContext| {
+                    context.theme.clone()
+                });
+                let profileResource = cx.use_resource("profileResource", |state: &AppState| {
+                    state.profile_resource.clone()
+                });
+                let save = cx.use_reducer("saveProfile", |state: &mut AppState, _| {
+                    state.save()
+                });
+                let setValue = cx.use_value_reducer("setValue", |state: &mut AppState, value| {
+                    state.set_value(value)
+                });
+                let submitPayload = cx.use_payload_reducer(
+                    "submitPayload",
+                    |state: &mut AppState, payload| state.submit(payload),
+                );
+                let callback = cx.use_callback("callbackAction", |state: &mut AppState, _| {
+                    state.callback()
+                });
+                let transition = cx.use_transition_reducer(
+                    "transitionAction",
+                    |state: &mut AppState, _| state.transition(),
+                );
+                let submitAction = cx.use_action_state(
+                    "submitState",
+                    "submitProfile",
+                    |state: &mut AppState, _| state.submit_profile(),
+                );
+
+                rsx!(
+                    <Panel
+                        key="panel"
+                        profileName={profile.name}
+                        settingsTheme={settings.theme}
+                        summary={summary}
+                        memoTitle={memoTitle}
+                        deferredTitle={deferredTitle}
+                        externalValue={externalValue}
+                        optimisticTitle={optimisticTitle}
+                        formPending={formStatus.pending}
+                        themeTone={theme.tone}
+                        profileStatus={profileResource.status}
+                        {...buttonProps}
+                        onSave={save}
+                        onSetValue={setValue}
+                        onSubmitPayload={submitPayload}
+                        onCallback={callback}
+                        onTransition={transition}
+                        onSubmit={submitAction}
+                    >
+                        {summary}
+                    </Panel>
+                )
+            }
+            "##,
+        )
+        .unwrap();
+
+        let CompiledRsxNode::Element {
+            tag,
+            props,
+            children,
+            ..
+        } = root
+        else {
+            panic!("panel element");
+        };
+
+        assert_eq!(tag, "Panel");
+        assert_eq!(
+            props.bindings.get("profileName"),
+            Some(&CompiledBinding::state(["profile", "name"]))
+        );
+        assert_eq!(
+            props.bindings.get("settingsTheme"),
+            Some(&CompiledBinding::state(["settings", "theme"]))
+        );
+        assert_eq!(
+            props.bindings.get("summary"),
+            Some(&CompiledBinding::derived(["summary"]))
+        );
+        assert_eq!(
+            props.bindings.get("memoTitle"),
+            Some(&CompiledBinding::derived(["memoTitle"]))
+        );
+        assert_eq!(
+            props.bindings.get("deferredTitle"),
+            Some(&CompiledBinding::derived(["deferredTitle"]))
+        );
+        assert_eq!(
+            props.bindings.get("externalValue"),
+            Some(&CompiledBinding::derived(["externalValue"]))
+        );
+        assert_eq!(
+            props.bindings.get("optimisticTitle"),
+            Some(&CompiledBinding::derived(["optimisticTitle"]))
+        );
+        assert_eq!(
+            props.bindings.get("formPending"),
+            Some(&CompiledBinding::derived(["formStatus", "pending"]))
+        );
+        assert_eq!(
+            props.bindings.get("themeTone"),
+            Some(&CompiledBinding::context(["theme", "tone"]))
+        );
+        assert_eq!(
+            props.bindings.get("profileStatus"),
+            Some(&CompiledBinding::resource(["profileResource", "status"]))
+        );
+        assert_eq!(props.spreads, vec![CompiledBinding::props(["buttonProps"])]);
+        assert_eq!(
+            props.events.get("onSave").map(String::as_str),
+            Some("saveProfile")
+        );
+        assert_eq!(
+            props.events.get("onSetValue").map(String::as_str),
+            Some("setValue")
+        );
+        assert_eq!(
+            props.events.get("onSubmitPayload").map(String::as_str),
+            Some("submitPayload")
+        );
+        assert_eq!(
+            props.events.get("onCallback").map(String::as_str),
+            Some("callbackAction")
+        );
+        assert_eq!(
+            props.events.get("onTransition").map(String::as_str),
+            Some("transitionAction")
+        );
+        assert_eq!(
+            props.events.get("onSubmit").map(String::as_str),
+            Some("submitProfile")
+        );
+
+        let CompiledRsxNode::Element { tag, props, .. } = &children[0] else {
+            panic!("bound summary text element");
+        };
+        assert_eq!(tag, "Text");
+        assert_eq!(
+            props.bindings.get("textValue"),
+            Some(&CompiledBinding::derived(["summary"]))
+        );
+    }
+
+    #[test]
+    fn parses_rsx_macro_and_return_type_forms() {
+        for (return_type, macro_name) in [
+            ("RSX", "rsx!"),
+            ("crate::RSX", "crate::rsx!"),
+            ("a3s_gui::RSX", "a3s_gui::rsx!"),
+        ] {
+            let source = format!(
+                r#"
+                fn MacroView(cx: &mut ComponentCx<AppState>) -> {return_type} {{
+                    {macro_name}(
+                        <Text key="title" label={{props.title}} />
+                    )
+                }}
+                "#
+            );
+            let root = parse_rsx_source(format!("{macro_name}.rsx"), &source).unwrap();
+            let CompiledRsxNode::Element { tag, props, .. } = root else {
+                panic!("text element for {macro_name}");
+            };
+
+            assert_eq!(tag, "Text");
+            assert_eq!(
+                props.bindings.get("label"),
+                Some(&CompiledBinding::props(["title"]))
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_rust_component_expression_boundaries() {
+        let missing_macro = parse_rsx(
+            r##"
+            fn MissingMacro(cx: &mut ComponentCx<AppState>) -> RSX {
+                let title = cx.use_prop("title", |props: &PanelProps| props.title.clone());
+
+                <Text key="title" label={title} />
+            }
+            "##,
+        )
+        .unwrap_err();
+        assert!(missing_macro
+            .to_string()
+            .contains("Rust statement bodies must end with an `rsx!(...)`"));
+
+        let multiple_roots = parse_rsx(
+            r##"
+            fn First(cx: &mut ComponentCx<AppState>) -> RSX {
+                rsx!(<Text key="first" />)
+            }
+
+            fn Second(cx: &mut ComponentCx<AppState>) -> RSX {
+                rsx!(<Text key="second" />)
+            }
+            "##,
+        )
+        .unwrap_err();
+        assert!(multiple_roots
+            .to_string()
+            .contains("only one top-level `fn View(props: Props) -> RSX` wrapper"));
+
+        let direct_local_expression = parse_rsx(
+            r##"
+            fn DirectLocal(cx: &mut ComponentCx<AppState>) -> RSX {
+                let label = format!("Count {}", 1);
+
+                rsx!(<Text key="label" label={label} />)
+            }
+            "##,
+        )
+        .unwrap_err();
+        assert!(direct_local_expression
+            .to_string()
+            .contains("dynamic RSX attribute \"label\" is not supported"));
     }
 
     #[test]

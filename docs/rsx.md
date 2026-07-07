@@ -9,9 +9,10 @@ it compiles directly into `a3s-gui`'s native UI IR instead of a browser DOM.
 RSX is intentionally structural:
 
 - Rust `ComponentCx` functions are the component authoring API for stateful UI.
-- `.rsx` files are view templates. They may wrap the view in one
-  `fn View(props: ViewProps) -> RSX` expression-body function so the template is
-  easy to read and type at the syntax boundary.
+- `.rsx` files may be full Rust component modules with imports, local types,
+  `ComponentCx` hook registrations, Rust selector/reducer expressions, and one
+  top-level `fn View(cx: &mut ComponentCx<S>) -> RSX` whose final expression is
+  `rsx!(...)`.
 - Elements, fragments, and text children are supported.
 - Component tags such as `Toolbar`, `Button`, and `Text` are supported.
 - Intrinsic HTML and SVG tags such as `div`, `button`, `input`, `svg`, and
@@ -31,20 +32,23 @@ RSX is intentionally structural:
   binding.
 - Registered RSX subcomponents can be expanded by the Rust component layer.
 
-RSX does not execute JavaScript. View-template functions are parsed for their
-static RSX expression body, but arbitrary expression children, computed spread
-expressions, unbounded ternaries, loops, and JavaScript hooks are dynamic
-application logic. Represent that logic as explicit A3S state, bindings,
-registered RSX subcomponents, Rust hooks on `ComponentCx`, or registered native
-actions before rendering.
+RSX does not execute JavaScript. Rust component files may use normal Rust before
+the final `rsx!(...)` view, and the parser recognizes common `ComponentCx` hook
+aliases such as `let title = cx.use_prop("title", ...)` or
+`let save = cx.use_reducer("save", ...)`. Inside the template braces, expressions
+still lower to static A3S bindings or native action ids. Represent richer
+runtime logic as explicit A3S state, bindings, registered RSX subcomponents,
+Rust hooks on `ComponentCx`, or registered native actions before rendering.
 
 ## View Templates
 
 Author components as Rust functions that receive `&mut ComponentCx<S>`.
-Use `.rsx` files only as view templates when the view is large enough to deserve
-a separate file. A view template receives `props` and consumes `state.*`,
-`props.*`, `derived.*`, `context.*`, `resource.*`, and action bindings; it does
-not own business logic.
+Use `.rsx` files for Rust component modules when the view is large enough to
+deserve a separate file. A component may register hooks with `ComponentCx`, then
+finish with an `rsx!(...)` view. The view consumes `state.*`, `props.*`,
+`derived.*`, `context.*`, `resource.*`, local hook aliases, and action bindings;
+business logic still belongs in Rust selectors, reducers, effects, resources,
+and registered native actions.
 
 ```rsx
 fn CounterView(props: CounterViewProps) -> RSX {
@@ -65,11 +69,33 @@ fn BadgeView(props: BadgeViewProps) -> RSX {
 }
 ```
 
-The function body is not a Rust or JavaScript runtime. `props.*`, `state.*`,
-`derived.*`, `context.*`, and `resource.*` are native binding paths resolved by
-the Rust `ComponentCx`/`RsxComponent` hook system. Calls, local mutation, async
-work, and hooks belong in Rust selectors, reducers, effects, resources, and
-registered actions.
+Full Rust component files can keep imports, local props, hook closures, and
+Rust expressions before the view:
+
+```rsx
+use a3s_gui::{ComponentCx, RSX};
+
+pub fn ProfileCard(cx: &mut ComponentCx<ProfileProps>) -> RSX {
+  let title = cx.use_prop("title", |props: &ProfileProps| {
+    format!("{} ({})", props.name, props.count)
+  });
+  let save = cx.use_reducer("saveProfile", |state: &mut ProfileState, _| {
+    state.save_profile()
+  });
+
+  a3s_gui::rsx!(
+    <Button key="save" label={title} onPress={save}>
+      {title}
+    </Button>
+  )
+}
+```
+
+In the final template, `props.*`, `state.*`, `derived.*`, `context.*`,
+`resource.*`, and hook aliases are native binding paths resolved by the Rust
+`ComponentCx`/`RsxComponent` hook system. Calls, local mutation, async work, and
+other arbitrary runtime computation still belong before the template, usually in
+hook selectors, reducers, effects, resources, and registered actions.
 
 ## Dynamic State
 
@@ -413,22 +439,32 @@ let counter = RsxComponent::from_source(
 
 `RsxComponent::from_file`, `RsxTemplate::from_file`, and
 `parse_rsx_file` are available for development tools that read `.rsx` files from
-disk at runtime. `include_str!` remains the recommended production path because
-the RSX source is bundled into the Rust binary.
+disk at runtime. These readers can extract the final `rsx!(...)` view from a
+Rust `.rsx` component file and rewrite hook aliases from common
+`cx.use_state`, `cx.use_prop`, `cx.use_derived`, `cx.use_context`,
+`cx.use_resource`, and reducer/action registrations. `include_str!` remains the
+recommended production path because the RSX source is bundled into the Rust
+binary.
 
-The hook surface is React-aligned where the native runtime can preserve the same
-mental model, but the hooks live on `ComponentCx` and execute as Rust
-registrations, not JavaScript. A3S keeps the render tree pure: selectors are
-read-only, while reducers and commit effects mutate Rust state outside
-rendering.
+The hook surface uses React's mental model where the native runtime can preserve
+it, but `ComponentCx` is not a JavaScript hook runtime. Every `use_*` call is a
+Rust registration. A3S keeps the render tree pure: selectors are read-only,
+while reducers and commit effects mutate Rust state outside rendering.
+
+There are two intentionally separate hook groups:
+
+- React-aligned hooks: the small set that maps to React or React DOM concepts.
+- A3S native hooks: extra `use_*` registrations for state projection, typed
+  native events, semantic component props, router lifecycle, resources, and
+  accessibility metadata.
 
 React hook parity is tracked against the React 19.2 reference:
 <https://react.dev/reference/react/hooks>.
 
-| React hook | A3S hook | Status | Notes |
+| React hook | A3S equivalent | Status | Notes |
 | --- | --- | --- | --- |
-| `useState` | `use_reactive` for object state, `use_selector` for render selectors, legacy `use_state` | Native variant | State is owned by the Rust app state `S`; reducers mutate it. |
-| `useReducer` | `use_reducer`, `use_value_reducer`, `use_payload_reducer` | Native variant | Native events dispatch stable action ids. |
+| `useState` | `use_selector`, legacy `use_state`; `use_reactive` is the object-binding extension | Native variant | State is owned by the Rust app state `S`; reducers mutate it. |
+| `useReducer` | `use_reducer`; typed value/payload reducers are A3S extensions | Native variant | Native events dispatch stable action ids. |
 | `useContext` | `use_context` | Implemented | Context is read-only render scope data. |
 | `useRef` | `use_ref` | Implemented | Returns a stable `RefHandle<T>` that can be read or mutated without scheduling a render. |
 | `useImperativeHandle` | `use_imperative_handle` | Implemented | Updates a ref handle from a layout effect and clears it during cleanup. |
@@ -455,74 +491,40 @@ the render scope without suspending a JavaScript component tree.
 `use_state` remains available for existing code and React familiarity, but it is
 not a tuple-returning local state hook.
 
-The primary hooks are:
+The primary `ComponentCx` hooks are grouped by ownership:
+
+State and render data:
 
 - `cx.use_selector(path, selector)` exposes a serializable Rust state selector as
   `state.<path>` in RSX.
 - `cx.use_selector_result(path, selector)` is the fallible typed form for state
   selectors that can fail while preparing a render.
-- `cx.use_state(path, selector)` exposes a serializable Rust state selector as
-  `state.<path>` in RSX. This is the compatibility spelling of
-  `cx.use_selector(...)`; pair either spelling with `cx.use_value_reducer(...)`
-  when a native control needs a setter-like action.
-- `cx.use_state_result(path, selector)` is the fallible typed form for state
-  selectors that can fail while preparing a render.
-- `cx.use_reactive(path, selector)` exposes a serializable object as
-  `state.<path>` and returns a `ReactiveHandle`; use it for ahooks-style object
-  state ergonomics such as `{profile.name}` or `{profile.settings.theme}`.
+- `cx.use_state(path, selector)` is the compatibility spelling of
+  `cx.use_selector(...)`. Pair either spelling with a reducer when a native
+  control needs a setter-like action.
+- `cx.use_state_result(path, selector)` is the fallible typed form for
+  compatibility state selectors.
+- `cx.use_reactive(path, selector)` is an A3S extension that exposes a
+  serializable object as `state.<path>` and returns a `ReactiveHandle`; use it
+  for object state ergonomics such as `{profile.name}` or
+  `{profile.settings.theme}`.
 - `cx.use_reactive_result(path, selector)` is the fallible typed form for
   reactive object selectors.
-- `cx.use_prop(path, selector)` exposes derived component props as
-  `props.<path>`.
-- `cx.use_press(selector)` exposes semantic press data as
-  `props.pressProps` and `props.isPressed`.
-- `cx.use_button(selector)` exposes semantic button data as
-  `props.buttonProps` and `props.isPressed`.
-- `cx.use_link(selector)` exposes semantic link data as `props.linkProps`,
-  `props.href`, `props.isDisabled`, and `props.isPressed`.
-- `cx.use_breadcrumbs(selector)` exposes navigation landmark metadata as
-  `props.breadcrumbsProps` and `props.label`.
-- `cx.use_collection(selector)` exposes collection container metadata as
-  `props.collectionProps` plus `props.itemCount`, `props.isEmpty`, and disabled
-  state.
-- `cx.use_landmark(selector)` exposes layout landmark metadata as
-  `props.landmarkProps`, `props.landmarkKind`, and `props.label`.
-- `cx.use_group(selector)` exposes grouped-region metadata, hover state, focus
-  state, disabled state, invalid state, and read-only state as
-  `props.groupProps` plus direct state handles such as
-  `props.isFocusWithin`.
-- `cx.use_disclosure_group(selector)` exposes disclosure group metadata as
-  `props.disclosureGroupProps` plus `props.expandedKeys`,
-  `props.allowsMultipleExpanded`, and disabled state.
-- `cx.use_virtualizer(selector)` exposes virtual collection container metadata
-  as `props.virtualizerProps` plus window state such as `props.itemCount`,
-  `props.visibleStart`, and `props.visibleEnd`.
-- `cx.use_clipboard(selector)` exposes clipboard event metadata as
-  `props.clipboardProps` and `props.isClipboardDisabled`.
-- `cx.use_drag(selector)` exposes drag metadata as `props.dragProps`,
-  `props.dragButtonProps`, and `props.isDragging`.
-- `cx.use_drop(selector)` exposes drop-target metadata as `props.dropProps`,
-  `props.dropButtonProps`, and `props.isDropTarget`.
-- `cx.use_form(selector)` exposes form metadata as `props.formProps`,
-  `props.label`, `props.isInvalid`, and related validation state.
-- `cx.use_prop_result(path, selector)` is the fallible typed form for derived
-  props.
-- `cx.use_derived(path, selector)` exposes computed page state as
-  `derived.<path>`.
-- `cx.use_derived_result(path, selector)` is the fallible typed form for
-  computed page state.
-- `cx.use_context(path, selector)` exposes read-only environment data, such as
-  theme, workspace, session, or feature flags, as `context.<path>`.
-- `cx.use_context_result(path, selector)` is the fallible typed form for
-  read-only environment data.
-- `cx.use_resource(path, selector)` exposes a standard resource state as
-  `resource.<path>`, including `status`, `data`, `error`, `isLoading`,
-  `isReady`, and `isError`.
-- `cx.use_resource_result(path, selector)` is the fallible typed form for
-  resources that may fail while preparing a render.
+- `cx.use_prop(path, selector)` and `cx.use_prop_result(path, selector)` expose
+  derived component props as `props.<path>`.
+- `cx.use_derived(path, selector)` and `cx.use_derived_result(path, selector)`
+  expose computed page state as `derived.<path>`.
+- `cx.use_context(path, selector)` and `cx.use_context_result(path, selector)`
+  expose read-only environment data, such as theme, workspace, session, or
+  feature flags, as `context.<path>`.
+- `cx.use_resource(path, selector)` and `cx.use_resource_result(path, selector)`
+  expose resource state as `resource.<path>`, including `status`, `data`,
+  `error`, `isLoading`, `isReady`, and `isError`.
 - `cx.use_memo(path, selector)` is an authoring alias for `cx.use_derived`;
-  selectors are still Rust functions evaluated during render, not JavaScript
-  hooks.
+  selectors are Rust functions evaluated during render, not JavaScript closures.
+
+React-aligned state helpers:
+
 - `cx.use_deferred_value(path, selector)` exposes the previous committed
   selector value as `derived.<path>` and updates the stored value after commit.
 - `cx.use_sync_external_store(path, store)` exposes the latest
@@ -535,6 +537,9 @@ The primary hooks are:
   `{ pending, data, error }` as `derived.<path>`.
 - `cx.use_form_status(path, action_state)` exposes `{ pending, action, data,
   error }` as `derived.<path>` for a form/action state handle.
+
+Identity and component-local handles:
+
 - `cx.use_ref(initial)` returns a stable `RefHandle<T>` that can hold mutable
   component-local data without touching the RSX render scope.
 - `cx.use_imperative_handle(ref, handler)` writes a layout-phase imperative
@@ -547,39 +552,40 @@ The primary hooks are:
   in A3S this is the React-named alias for the reducer/action hook shape.
 - `cx.use_effect_event(handler)` returns a stable effect-event handle that can be
   called from effects while reading the latest Rust state.
+
+Native actions:
+
 - `cx.use_reducer(action, handler)` registers the native action handler that
   mutates Rust state after a native event.
-- `cx.use_value_reducer(action, handler)` decodes the native event value into a
-  typed Rust argument before running the reducer. Use it for controlled text
-  fields, sliders, selections, and toggles.
-- `cx.use_payload_reducer(action, handler)` decodes `actionValue` /
-  `actionPayload` into a typed Rust payload before running the reducer.
+- `cx.use_value_reducer(action, handler)` and
+  `cx.use_payload_reducer(action, handler)` are A3S extensions that decode event
+  values or structured payloads into typed Rust arguments before running the
+  reducer.
 - `cx.use_action_disabled(action, selector)` and
   `cx.use_action_enabled(action, selector)` expose state-derived command
   availability. Disabled actions remain registered for menus, buttons, and
   shortcuts, but the runtime rejects them before the reducer mutates state.
-- `cx.use_mount(handler)` runs synchronous Rust initialization when the component
-  is mounted into a runtime app. Use it for restoring local state, seeding a
-  loading resource, or initializing a page-scoped counter before the first native
-  frame.
-- `cx.use_mount_result(handler)` is the fallible form for initialization that
-  may fail, such as restoring serialized page state or validating a persisted
-  workspace snapshot. Prefer `try_into_protocol_app` or `try_into_runtime_app`
-  when a component registers fallible mount hooks so the error is returned
-  before the first frame is built.
-- `cx.use_unmount(handler)` runs synchronous Rust cleanup when a component is
-  explicitly unmounted or when a router leaves that page. Use it for clearing
-  page-local selections, flushing small state snapshots, or releasing host-side
-  handles tracked in app state.
-- `cx.use_unmount_result(handler)` is the fallible cleanup form. Router
-  transitions return this error before the next page's mount hooks run.
-- `cx.use_effect(handler)` runs a deterministic Rust effect after each committed
-  native frame. Like React, this happens after the rendered frame is produced, so
-  state changes made by the effect are visible on the next render.
-- `cx.use_effect_once(handler)` runs after the first committed frame for that
-  mounted component instance.
-- `cx.use_effect_with_deps(deps, handler)` reruns only when the serializable
-  dependency selector changes.
+
+Semantic UI projections:
+
+| Hook family | Examples | Exposed data |
+| --- | --- | --- |
+| Press and links | `use_press`, `use_button`, `use_link` | Press state, link props, labels, disabled state, native activation metadata. |
+| Collections and navigation | `use_breadcrumbs`, `use_collection`, `use_virtualizer` | Collection props, item counts, empty state, windowed collection metadata. |
+| Layout and groups | `use_landmark`, `use_group`, `use_disclosure_group` | Landmark props, grouped focus/hover state, disclosure metadata. |
+| Clipboard, drag, and drop | `use_clipboard`, `use_drag`, `use_drop` | Native clipboard, drag source, and drop target contracts. |
+| Forms and controls | `use_form` plus field/control-specific hooks | Form props, labels, validation state, and native control metadata. |
+
+Runtime lifecycle and effects:
+
+- `cx.use_mount(handler)` and `cx.use_mount_result(handler)` run synchronous
+  Rust initialization when the component is mounted into a runtime app.
+- `cx.use_unmount(handler)` and `cx.use_unmount_result(handler)` run synchronous
+  cleanup when a component is explicitly unmounted or when a router leaves that
+  page.
+- `cx.use_effect(handler)`, `cx.use_effect_once(handler)`, and
+  `cx.use_effect_with_deps(deps, handler)` run deterministic passive effects
+  after committed native frames.
 - `cx.use_effect_with_cleanup(handler)`,
   `cx.use_effect_once_with_cleanup(handler)`, and
   `cx.use_effect_with_deps_and_cleanup(deps, handler)` register cleanup work that
@@ -592,17 +598,17 @@ The primary hooks are:
 - `cx.use_action_effect(action, handler)` scopes a post-reducer effect to one
   action id.
 - `cx.use_value_effect(action, handler)` and
-  `cx.use_payload_effect(action, handler)` decode action values or payloads
-  before running typed post-reducer effects.
+  `cx.use_payload_effect(action, handler)` are A3S extensions that decode action
+  values or payloads before running typed post-reducer effects.
 
 The lower-level `RsxComponent` template API still exposes some advanced hooks
 used by router internals and older tests:
 
 - `use_memo_result(path, selector)` is the fallible typed alias for
   `use_derived_result`.
-- `use_reactive(path, selector)` is the object-state alias for `use_state`;
+- `use_reactive(path, selector)` is the A3S object-binding extension;
   `use_reactive_result` and `use_reactive_value` provide fallible typed and raw
-  `serde_json::Value` forms.
+  `serde_json::Value` forms for object-shaped state.
 - `use_selector_value`, `use_state_value`, `use_prop_value`,
   `use_derived_value`, `use_context_value`, and `use_memo_value` are the raw
   `serde_json::Value` forms for selectors that already produce a structured

@@ -1,7 +1,7 @@
 # RSX Framework Plan
 
 RSX is a Rust-owned UI language with `ComponentCx` function components and
-separate `.rsx` view templates. It should feel familiar to React authors without
+`.rsx` component source modules. It should feel familiar to React authors without
 inheriting the JavaScript runtime, DOM, CSSOM, or browser routing model.
 
 ## Direction
@@ -13,8 +13,9 @@ The framework should keep these boundaries stable:
   resources, and router hooks.
 - Components are authored as Rust functions that receive
   `&mut ComponentCx<State>` and return `RSX`.
-- `.rsx` files are view templates. They consume `state.*`, `props.*`, derived
-  values, context, resources, and action ids produced by Rust hooks.
+- `.rsx` files are Rust component modules or view templates. They consume
+  `state.*`, `props.*`, derived values, context, resources, and action ids
+  produced by Rust hooks.
 - Native hosts receive compiled UI IR, actions, style tokens, accessibility
   metadata, and platform-neutral control state.
 - Familiar intrinsic names are an authoring affordance, not a compatibility
@@ -41,19 +42,15 @@ The app model is the Rust equivalent of React's one-way data flow:
   hook registrations and compiles the returned `RSX` into an `RsxComponent`.
 - `RsxComponent` owns the compiled template and registered hooks used by the
   runtime.
-- `cx.use_selector`, `cx.use_state`, `cx.use_reducer`, `cx.use_press`,
-  `cx.use_button`, `cx.use_link`,
-  `cx.use_breadcrumbs`, `cx.use_checkbox_group`, `cx.use_collection`,
-  `cx.use_collection_section`, `cx.use_radio_group`, `cx.use_tab_list`,
-  `cx.use_landmark`, `cx.use_group`, `cx.use_disclosure_group`,
-  `cx.use_virtualizer`, `cx.use_clipboard`, `cx.use_drag`, `cx.use_drop`,
-  `cx.use_form`, `cx.use_effect`, `cx.use_reactive`, `cx.use_memo`,
-  `cx.use_context`, and `cx.use_resource` provide the hook vocabulary in
-  explicit Rust context form.
+- `cx.use_*` APIs provide the hook vocabulary in explicit Rust context form.
+  Some APIs are React-aligned equivalents, while others are A3S native
+  extensions for state projection, typed native actions, semantic component
+  props, router lifecycle, resources, and accessibility metadata.
 - React hook alignment is a naming and mental-model target, not a JavaScript
   runtime contract: `use_selector` is the exact state-selector spelling,
-  `use_state` remains compatible, and React commit hooks map to insertion,
-  layout, and passive native effect phases.
+  `use_state` remains compatible, `use_reactive` is an A3S object-binding
+  extension, and React commit hooks map to insertion, layout, and passive native
+  effect phases.
 - State, props, derived, context, resource, and memo hooks build the render
   scope consumed by `.rsx` view-template props and bindings.
 - Reducer/action hooks mutate Rust state from native events.
@@ -237,6 +234,9 @@ Related primitives are grouped by component family in the source tree, such as
 The component files use native semantic tags, familiar intrinsic names, and
 Tailwind-compatible class strings. Each component is a Rust function component
 stored in a `.rsx` source module, using `ComponentCx` hooks and an `rsx!` view.
+The file parser can extract the final `rsx!(...)` view from these Rust modules
+and rewrite common hook aliases such as `let title = cx.use_prop("title", ...)`
+or `let save = cx.use_reducer("save", ...)` into static native bindings/actions.
 Static base classes and Rust-side `ComponentClassVariants` merge with caller
 `className`, matching the important parts of shadcn's `cn(...)` and variant
 behavior without JavaScript.
