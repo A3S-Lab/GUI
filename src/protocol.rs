@@ -606,12 +606,27 @@ impl<A: PlatformAdapter + Default> Default for NativeProtocolSession<A> {
     }
 }
 
-#[derive(Debug)]
 pub struct NativeProtocolApp<A: PlatformAdapter, S, F, R> {
     session: NativeProtocolSession<A>,
     state: S,
     frame_builder: F,
     action_reducer: R,
+    render_effect: Option<Box<dyn FnMut(&mut S) -> GuiResult<()>>>,
+    cleanup_effect: Option<Box<dyn FnMut(&mut S) -> GuiResult<()>>>,
+}
+
+impl<A, S, F, R> std::fmt::Debug for NativeProtocolApp<A, S, F, R>
+where
+    A: PlatformAdapter,
+    S: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NativeProtocolApp")
+            .field("state", &self.state)
+            .field("has_render_effect", &self.render_effect.is_some())
+            .field("has_cleanup_effect", &self.cleanup_effect.is_some())
+            .finish_non_exhaustive()
+    }
 }
 
 impl<A, S, F, R> NativeProtocolApp<A, S, F, R>
@@ -626,7 +641,25 @@ where
             state,
             frame_builder,
             action_reducer,
+            render_effect: None,
+            cleanup_effect: None,
         }
+    }
+
+    pub fn with_render_effect(
+        mut self,
+        effect: impl FnMut(&mut S) -> GuiResult<()> + 'static,
+    ) -> Self {
+        self.render_effect = Some(Box::new(effect));
+        self
+    }
+
+    pub fn with_cleanup_effect(
+        mut self,
+        cleanup: impl FnMut(&mut S) -> GuiResult<()> + 'static,
+    ) -> Self {
+        self.cleanup_effect = Some(Box::new(cleanup));
+        self
     }
 
     pub fn session(&self) -> &NativeProtocolSession<A> {
@@ -647,7 +680,18 @@ where
 
     pub fn render(&mut self) -> GuiResult<NativeRenderResponse> {
         let frame = (self.frame_builder)(&self.state)?;
-        self.session.render_frame(&frame)
+        let rendered = self.session.render_frame(&frame)?;
+        if let Some(effect) = self.render_effect.as_mut() {
+            effect(&mut self.state)?;
+        }
+        Ok(rendered)
+    }
+
+    pub fn cleanup_effects(&mut self) -> GuiResult<()> {
+        if let Some(cleanup) = self.cleanup_effect.as_mut() {
+            cleanup(&mut self.state)?;
+        }
+        Ok(())
     }
 
     pub fn dispatch_host_event(&mut self, event: &HostEvent) -> GuiResult<NativeAppEventResponse> {

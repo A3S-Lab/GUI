@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -20,29 +20,31 @@ mod component_cx;
 mod hooks;
 
 pub use component_cx::{
-    ActionHandle, AutocompleteHook, BreadcrumbsHook, ButtonHook, CalendarCellHook, CalendarHook,
-    CheckboxGroupHook, ClipboardHook, CollectionHook, CollectionItemHook, CollectionSectionHook,
-    ColorAreaHook, ColorFieldHook, ColorPickerHook, ColorSliderHook, ColorSwatchHook,
-    ColorSwatchPickerHook, ColorSwatchPickerItemHook, ColorThumbHook, ColorWheelHook,
-    ComboBoxDisplayHook, ComboBoxHook, ComponentCx, ContextHandle, DateFieldHook, DateInputHook,
-    DatePickerHook, DateRangePickerHook, DateSegmentHook, DerivedHandle, DisclosureGroupHook,
-    DisclosureHook, DragHook, DropHook, DropIndicatorHook, DropZoneHook, FieldErrorHook, FieldHook,
-    FileTriggerHook, FocusRingHook, FocusScopeHook, FocusableHook, FormHook, GridListHeaderHook,
-    GroupHook, HeadingHook, HoverHook, I18nHook, KeyboardHook, KeyboardInteractionHook, LabelHook,
-    LegendHook, LinkHook, ListBoxHeaderHook, LoadMoreItemHook, LongPressHook, MenuHook,
-    MenuItemHook, MoveHook, NumberFieldHook, OverlayHook, PressHook, PropHandle, RadioGroupHook,
-    RadioHook, RangeCalendarHook, RangeHook, ResourceHandle, SelectDisplayHook, SelectHook,
-    SelectionIndicatorHook, SeparatorHook, SliderFillHook, SliderOutputHook, SliderTrackHook,
-    StateHandle, TabHook, TabListHook, TabPanelHook, TableCaptionHook, TableCellHook,
-    TableColumnHook, TableHook, TableRowHook, TableSectionHook, TextFieldHook, TextHook,
-    TimeFieldHook, ToggleButtonGroupHook, ToggleButtonHook, ToggleHook, ToolbarHook,
+    ActionHandle, ActionStateHandle, ActionStateSnapshot, AutocompleteHook, BreadcrumbsHook,
+    ButtonHook, CalendarCellHook, CalendarHook, CheckboxGroupHook, ClipboardHook, CollectionHook,
+    CollectionItemHook, CollectionSectionHook, ColorAreaHook, ColorFieldHook, ColorPickerHook,
+    ColorSliderHook, ColorSwatchHook, ColorSwatchPickerHook, ColorSwatchPickerItemHook,
+    ColorThumbHook, ColorWheelHook, ComboBoxDisplayHook, ComboBoxHook, ComponentCx, ContextHandle,
+    DateFieldHook, DateInputHook, DatePickerHook, DateRangePickerHook, DateSegmentHook,
+    DerivedHandle, DisclosureGroupHook, DisclosureHook, DragHook, DropHook, DropIndicatorHook,
+    DropZoneHook, EffectEventHandle, FieldErrorHook, FieldHook, FileTriggerHook, FocusRingHook,
+    FocusScopeHook, FocusableHook, FormHook, FormStatusSnapshot, GridListHeaderHook, GroupHook,
+    HeadingHook, HoverHook, I18nHook, KeyboardHook, KeyboardInteractionHook, LabelHook, LegendHook,
+    LinkHook, ListBoxHeaderHook, LoadMoreItemHook, LongPressHook, MenuHook, MenuItemHook, MoveHook,
+    NumberFieldHook, OptimisticHandle, OverlayHook, PressHook, PropHandle, RadioGroupHook,
+    RadioHook, RangeCalendarHook, RangeHook, ReactiveHandle, RefHandle, ResourceHandle,
+    SelectDisplayHook, SelectHook, SelectionIndicatorHook, SelectorHandle, SeparatorHook,
+    SliderFillHook, SliderOutputHook, SliderTrackHook, StateHandle, SyncExternalStore,
+    SyncExternalStoreSubscription, TabHook, TabListHook, TabPanelHook, TableCaptionHook,
+    TableCellHook, TableColumnHook, TableHook, TableRowHook, TableSectionHook, TextFieldHook,
+    TextHook, TimeFieldHook, ToggleButtonGroupHook, ToggleButtonHook, ToggleHook, ToolbarHook,
     TreeHeaderHook, TreeHook, TreeItemHook, VirtualizerHook, VisuallyHiddenHook, RSX,
 };
 
 use hooks::{
     decode_action_payload, decode_action_value, insert_scope_value, RsxActionDisabledHook,
-    RsxActionHook, RsxEffectHook, RsxMountHook, RsxRouteContextHook, RsxRouteEffectHook,
-    RsxUnmountHook, RsxValueHook,
+    RsxActionHook, RsxDebugValueHook, RsxEffectHook, RsxMountHook, RsxRenderEffectHook,
+    RsxRenderEffectRuntime, RsxRouteContextHook, RsxRouteEffectHook, RsxUnmountHook, RsxValueHook,
 };
 
 #[derive(Debug, Clone)]
@@ -65,6 +67,12 @@ pub enum RsxResource<T> {
     Loading,
     Ready(T),
     Failed(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RsxDebugValue {
+    pub label: String,
+    pub value: JsonValue,
 }
 
 impl<T> RsxResource<T> {
@@ -529,7 +537,9 @@ pub struct RsxComponent<S> {
     duplicate_action_disabled_hooks: BTreeSet<String>,
     mount_hooks: Vec<RsxMountHook<S>>,
     unmount_hooks: Vec<RsxUnmountHook<S>>,
-    effect_hooks: Vec<RsxEffectHook<S>>,
+    action_effect_hooks: Vec<RsxEffectHook<S>>,
+    render_effect_hooks: Vec<RsxRenderEffectHook<S>>,
+    debug_hooks: Vec<RsxDebugValueHook<S>>,
     window: Option<WindowOptions>,
 }
 
@@ -540,6 +550,12 @@ pub struct RsxRouter<S> {
     default_route: Option<String>,
     route_context_hooks: Vec<RsxRouteContextHook<S>>,
     route_effect_hooks: Vec<RsxRouteEffectHook<S>>,
+}
+
+struct RsxRouterRenderEffectRuntime<S> {
+    layout: Option<RsxRenderEffectRuntime<S>>,
+    routes: BTreeMap<String, RsxRenderEffectRuntime<S>>,
+    active_route: Option<String>,
 }
 
 impl<S> RsxComponent<S> {
@@ -584,7 +600,9 @@ impl<S> RsxComponent<S> {
             duplicate_action_disabled_hooks: BTreeSet::new(),
             mount_hooks: Vec::new(),
             unmount_hooks: Vec::new(),
-            effect_hooks: Vec::new(),
+            action_effect_hooks: Vec::new(),
+            render_effect_hooks: Vec::new(),
+            debug_hooks: Vec::new(),
             window: None,
         }
     }
@@ -799,6 +817,29 @@ impl<S> RsxComponent<S> {
         self
     }
 
+    pub fn use_selector<T, F>(self, path: impl Into<String>, selector: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        self.use_state(path, selector)
+    }
+
+    pub fn use_selector_result<T, F>(self, path: impl Into<String>, selector: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        self.use_state_result(path, selector)
+    }
+
+    pub fn use_selector_value<F>(self, path: impl Into<String>, selector: F) -> Self
+    where
+        F: Fn(&S) -> GuiResult<JsonValue> + Send + Sync + 'static,
+    {
+        self.use_state_value(path, selector)
+    }
+
     pub fn use_prop<T, F>(mut self, path: impl Into<String>, selector: F) -> Self
     where
         T: Serialize,
@@ -928,6 +969,98 @@ impl<S> RsxComponent<S> {
         self.use_derived_value(path, selector)
     }
 
+    pub fn use_sync_external_store<T>(
+        self,
+        path: impl Into<String>,
+        store: SyncExternalStore<T>,
+    ) -> Self
+    where
+        T: Clone + Send + Serialize + 'static,
+    {
+        self.use_derived_result(path, move |_state| store.snapshot())
+    }
+
+    pub fn use_deferred_value<T, F>(self, path: impl Into<String>, selector: F) -> Self
+    where
+        S: 'static,
+        T: Clone + Send + Serialize + 'static,
+        F: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        self.use_deferred_value_result(path, move |state| Ok(selector(state)))
+    }
+
+    pub fn use_deferred_value_result<T, F>(self, path: impl Into<String>, selector: F) -> Self
+    where
+        S: 'static,
+        T: Clone + Send + Serialize + 'static,
+        F: Fn(&S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        let selector: Arc<dyn Fn(&S) -> GuiResult<T> + Send + Sync> = Arc::new(selector);
+        let deferred_value = Arc::new(Mutex::new(None::<T>));
+        let render_selector = Arc::clone(&selector);
+        let render_deferred_value = Arc::clone(&deferred_value);
+        let effect_selector = Arc::clone(&selector);
+        let effect_deferred_value = Arc::clone(&deferred_value);
+        self.use_derived_result(path, move |state| {
+            let current = render_selector(state)?;
+            let deferred = render_deferred_value.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX deferred value lock was poisoned while reading")
+            })?;
+            Ok(deferred.clone().unwrap_or(current))
+        })
+        .use_effect(move |state| {
+            let current = effect_selector(state)?;
+            let mut deferred = effect_deferred_value.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX deferred value lock was poisoned while writing")
+            })?;
+            *deferred = Some(current);
+            Ok(())
+        })
+    }
+
+    pub fn use_debug_value<T, F>(mut self, label: impl Into<String>, selector: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        self.debug_hooks
+            .push(RsxDebugValueHook::serializing(label, selector));
+        self
+    }
+
+    pub fn use_debug_value_result<T, F>(mut self, label: impl Into<String>, selector: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        self.debug_hooks
+            .push(RsxDebugValueHook::serializing_result(label, selector));
+        self
+    }
+
+    pub fn use_reactive<T, F>(self, path: impl Into<String>, selector: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        self.use_state(path, selector)
+    }
+
+    pub fn use_reactive_result<T, F>(self, path: impl Into<String>, selector: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        self.use_state_result(path, selector)
+    }
+
+    pub fn use_reactive_value<F>(self, path: impl Into<String>, selector: F) -> Self
+    where
+        F: Fn(&S) -> GuiResult<JsonValue> + Send + Sync + 'static,
+    {
+        self.use_state_value(path, selector)
+    }
+
     pub fn use_field<T, F, R>(
         self,
         path: impl Into<String>,
@@ -994,9 +1127,204 @@ impl<S> RsxComponent<S> {
 
     pub fn use_effect<F>(mut self, effect: F) -> Self
     where
-        F: Fn(&mut S, &ActionInvocation) -> GuiResult<()> + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
     {
-        self.effect_hooks.push(RsxEffectHook::global(effect));
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::always(effect));
+        self
+    }
+
+    pub fn use_effect_once<F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::once(effect));
+        self
+    }
+
+    pub fn use_effect_with_deps<T, D, F>(mut self, deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::with_deps::<T, F, D>(deps, effect));
+        self
+    }
+
+    pub fn use_effect_with_cleanup<C, F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::always_with_cleanup(effect));
+        self
+    }
+
+    pub fn use_effect_once_with_cleanup<C, F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::once_with_cleanup(effect));
+        self
+    }
+
+    pub fn use_effect_with_deps_and_cleanup<T, D, C, F>(mut self, deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::with_deps_and_cleanup::<T, F, D, C>(
+                deps, effect,
+            ));
+        self
+    }
+
+    pub fn use_layout_effect<F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::layout(effect));
+        self
+    }
+
+    pub fn use_layout_effect_once<F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::layout_once(effect));
+        self
+    }
+
+    pub fn use_layout_effect_with_deps<T, D, F>(mut self, deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::layout_with_deps::<T, F, D>(
+                deps, effect,
+            ));
+        self
+    }
+
+    pub fn use_layout_effect_with_cleanup<C, F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::layout_with_cleanup(effect));
+        self
+    }
+
+    pub fn use_layout_effect_once_with_cleanup<C, F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::layout_once_with_cleanup(effect));
+        self
+    }
+
+    pub fn use_layout_effect_with_deps_and_cleanup<T, D, C, F>(mut self, deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::layout_with_deps_and_cleanup::<
+                T,
+                F,
+                D,
+                C,
+            >(deps, effect));
+        self
+    }
+
+    pub fn use_insertion_effect<F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::insertion(effect));
+        self
+    }
+
+    pub fn use_insertion_effect_once<F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::insertion_once(effect));
+        self
+    }
+
+    pub fn use_insertion_effect_with_deps<T, D, F>(mut self, deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::insertion_with_deps::<T, F, D>(
+                deps, effect,
+            ));
+        self
+    }
+
+    pub fn use_insertion_effect_with_cleanup<C, F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::insertion_with_cleanup(effect));
+        self
+    }
+
+    pub fn use_insertion_effect_once_with_cleanup<C, F>(mut self, effect: F) -> Self
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::insertion_once_with_cleanup(effect));
+        self
+    }
+
+    pub fn use_insertion_effect_with_deps_and_cleanup<T, D, C, F>(
+        mut self,
+        deps: D,
+        effect: F,
+    ) -> Self
+    where
+        T: Serialize,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.render_effect_hooks
+            .push(RsxRenderEffectHook::insertion_with_deps_and_cleanup::<
+                T,
+                F,
+                D,
+                C,
+            >(deps, effect));
         self
     }
 
@@ -1004,7 +1332,7 @@ impl<S> RsxComponent<S> {
     where
         F: Fn(&mut S, &ActionInvocation) -> GuiResult<()> + Send + Sync + 'static,
     {
-        self.effect_hooks
+        self.action_effect_hooks
             .push(RsxEffectHook::for_action(action, effect));
         self
     }
@@ -1038,7 +1366,7 @@ impl<S> RsxComponent<S> {
         S: Clone + 'static,
         F: for<'a> Fn(&mut S, &RsxActionTransition<'a, S>) -> GuiResult<()> + Send + Sync + 'static,
     {
-        self.effect_hooks
+        self.action_effect_hooks
             .push(RsxEffectHook::transition_global(effect));
         self
     }
@@ -1048,7 +1376,7 @@ impl<S> RsxComponent<S> {
         S: Clone + 'static,
         F: for<'a> Fn(&mut S, &RsxActionTransition<'a, S>) -> GuiResult<()> + Send + Sync + 'static,
     {
-        self.effect_hooks
+        self.action_effect_hooks
             .push(RsxEffectHook::transition_for_action(action, effect));
         self
     }
@@ -1357,6 +1685,13 @@ impl<S> RsxComponent<S> {
         })
     }
 
+    pub fn use_callback<F>(self, id: impl Into<String>, callback: F) -> Self
+    where
+        F: Fn(&mut S, &ActionInvocation) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.use_reducer(id, callback)
+    }
+
     pub fn use_reducer<F>(self, id: impl Into<String>, reducer: F) -> Self
     where
         F: Fn(&mut S, &ActionInvocation) -> GuiResult<()> + Send + Sync + 'static,
@@ -1464,6 +1799,13 @@ impl<S> RsxComponent<S> {
         self.validate_with_context_paths(&[])
     }
 
+    pub fn debug_values(&self, state: &S) -> GuiResult<Vec<RsxDebugValue>> {
+        self.debug_hooks
+            .iter()
+            .map(|hook| hook.select(state))
+            .collect()
+    }
+
     fn validate_with_context_paths(&self, context_paths: &[Vec<String>]) -> GuiResult<()> {
         self.validate_value_hook_paths("state", &self.state_hooks)?;
         self.validate_value_hook_paths("props", &self.prop_hooks)?;
@@ -1529,12 +1871,12 @@ impl<S> RsxComponent<S> {
             )));
         }
         let effect_captures = self
-            .effect_hooks
+            .action_effect_hooks
             .iter()
             .map(|effect| effect.capture_if_matches(state, invocation))
             .collect::<Vec<_>>();
         action.reduce(state, invocation)?;
-        for (effect, capture) in self.effect_hooks.iter().zip(effect_captures.iter()) {
+        for (effect, capture) in self.action_effect_hooks.iter().zip(effect_captures.iter()) {
             effect.run_if_matches(state, invocation, capture.as_ref())?;
         }
         Ok(())
@@ -1585,7 +1927,12 @@ impl<S> RsxComponent<S> {
     {
         let component = Arc::new(self);
         let render_component = Arc::clone(&component);
-        let reduce_component = component;
+        let reduce_component = Arc::clone(&component);
+        let effect_component = Arc::clone(&component);
+        let cleanup_component = component;
+        let effect_runtime = Arc::new(Mutex::new(effect_component.new_render_effect_runtime()));
+        let render_effect_runtime = Arc::clone(&effect_runtime);
+        let cleanup_effect_runtime = effect_runtime;
         NativeProtocolApp::new(
             adapter,
             state,
@@ -1597,6 +1944,18 @@ impl<S> RsxComponent<S> {
             },
             move |state, invocation| reduce_component.reduce(state, invocation),
         )
+        .with_render_effect(move |state| {
+            let mut runtime = render_effect_runtime.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX render effect runtime lock was poisoned")
+            })?;
+            effect_component.run_render_effect_hooks(state, &mut runtime)
+        })
+        .with_cleanup_effect(move |state| {
+            let mut runtime = cleanup_effect_runtime.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX render effect runtime lock was poisoned")
+            })?;
+            cleanup_component.cleanup_render_effect_hooks(state, &mut runtime)
+        })
     }
 
     pub fn try_into_protocol_app<A>(
@@ -1656,7 +2015,12 @@ impl<S> RsxComponent<S> {
     {
         let component = Arc::new(self);
         let render_component = Arc::clone(&component);
-        let reduce_component = component;
+        let reduce_component = Arc::clone(&component);
+        let effect_component = Arc::clone(&component);
+        let cleanup_component = component;
+        let effect_runtime = Arc::new(Mutex::new(effect_component.new_render_effect_runtime()));
+        let render_effect_runtime = Arc::clone(&effect_runtime);
+        let cleanup_effect_runtime = effect_runtime;
         NativeRuntimeApp::new(
             host,
             state,
@@ -1668,6 +2032,18 @@ impl<S> RsxComponent<S> {
             },
             move |state, invocation| reduce_component.reduce(state, invocation),
         )
+        .with_render_effect(move |state| {
+            let mut runtime = render_effect_runtime.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX render effect runtime lock was poisoned")
+            })?;
+            effect_component.run_render_effect_hooks(state, &mut runtime)
+        })
+        .with_cleanup_effect(move |state| {
+            let mut runtime = cleanup_effect_runtime.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX render effect runtime lock was poisoned")
+            })?;
+            cleanup_component.cleanup_render_effect_hooks(state, &mut runtime)
+        })
     }
 
     pub fn try_into_runtime_app<H>(
@@ -1704,6 +2080,26 @@ impl<S> RsxComponent<S> {
             hook.run(state)?;
         }
         Ok(())
+    }
+
+    fn new_render_effect_runtime(&self) -> RsxRenderEffectRuntime<S> {
+        RsxRenderEffectRuntime::new(self.render_effect_hooks.len())
+    }
+
+    fn run_render_effect_hooks(
+        &self,
+        state: &mut S,
+        runtime: &mut RsxRenderEffectRuntime<S>,
+    ) -> GuiResult<()> {
+        runtime.run(&self.render_effect_hooks, state)
+    }
+
+    fn cleanup_render_effect_hooks(
+        &self,
+        state: &mut S,
+        runtime: &mut RsxRenderEffectRuntime<S>,
+    ) -> GuiResult<()> {
+        runtime.cleanup(&self.render_effect_hooks, state)
     }
 
     fn validate_value_hook_paths(&self, kind: &str, hooks: &[RsxValueHook<S>]) -> GuiResult<()> {
@@ -1787,7 +2183,7 @@ impl<S> RsxComponent<S> {
     }
 
     fn validate_action_effect_hooks(&self) -> GuiResult<()> {
-        for effect in &self.effect_hooks {
+        for effect in &self.action_effect_hooks {
             let Some(action) = effect.action() else {
                 continue;
             };
@@ -2268,7 +2664,12 @@ impl<S> RsxRouter<S> {
     {
         let router = Arc::new(self);
         let render_router = Arc::clone(&router);
-        let reduce_router = router;
+        let reduce_router = Arc::clone(&router);
+        let effect_router = Arc::clone(&router);
+        let cleanup_router = router;
+        let effect_runtime = Arc::new(Mutex::new(effect_router.new_render_effect_runtime()));
+        let render_effect_runtime = Arc::clone(&effect_runtime);
+        let cleanup_effect_runtime = effect_runtime;
         NativeProtocolApp::new(
             adapter,
             state,
@@ -2280,6 +2681,18 @@ impl<S> RsxRouter<S> {
             },
             move |state, invocation| reduce_router.reduce(state, invocation),
         )
+        .with_render_effect(move |state| {
+            let mut runtime = render_effect_runtime.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX render effect runtime lock was poisoned")
+            })?;
+            effect_router.run_render_effect_hooks(state, &mut runtime)
+        })
+        .with_cleanup_effect(move |state| {
+            let mut runtime = cleanup_effect_runtime.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX render effect runtime lock was poisoned")
+            })?;
+            cleanup_router.cleanup_render_effect_hooks(state, &mut runtime)
+        })
     }
 
     pub fn try_into_protocol_app<A>(
@@ -2339,7 +2752,12 @@ impl<S> RsxRouter<S> {
     {
         let router = Arc::new(self);
         let render_router = Arc::clone(&router);
-        let reduce_router = router;
+        let reduce_router = Arc::clone(&router);
+        let effect_router = Arc::clone(&router);
+        let cleanup_router = router;
+        let effect_runtime = Arc::new(Mutex::new(effect_router.new_render_effect_runtime()));
+        let render_effect_runtime = Arc::clone(&effect_runtime);
+        let cleanup_effect_runtime = effect_runtime;
         NativeRuntimeApp::new(
             host,
             state,
@@ -2351,6 +2769,18 @@ impl<S> RsxRouter<S> {
             },
             move |state, invocation| reduce_router.reduce(state, invocation),
         )
+        .with_render_effect(move |state| {
+            let mut runtime = render_effect_runtime.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX render effect runtime lock was poisoned")
+            })?;
+            effect_router.run_render_effect_hooks(state, &mut runtime)
+        })
+        .with_cleanup_effect(move |state| {
+            let mut runtime = cleanup_effect_runtime.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX render effect runtime lock was poisoned")
+            })?;
+            cleanup_router.cleanup_render_effect_hooks(state, &mut runtime)
+        })
     }
 
     pub fn try_into_runtime_app<H>(
@@ -2403,6 +2833,87 @@ impl<S> RsxRouter<S> {
             .expect("active route should be registered")
             .run_mount_hooks(state)?;
         self.run_route_effect_hooks(state, before, after, invocation)
+    }
+
+    fn new_render_effect_runtime(&self) -> RsxRouterRenderEffectRuntime<S> {
+        RsxRouterRenderEffectRuntime {
+            layout: self
+                .layout
+                .as_ref()
+                .map(RsxComponent::new_render_effect_runtime),
+            routes: self
+                .routes
+                .iter()
+                .map(|(route, component)| (route.clone(), component.new_render_effect_runtime()))
+                .collect(),
+            active_route: None,
+        }
+    }
+
+    fn run_render_effect_hooks(
+        &self,
+        state: &mut S,
+        runtime: &mut RsxRouterRenderEffectRuntime<S>,
+    ) -> GuiResult<()> {
+        let route = self.active_route_id(state)?;
+        if let Some(previous) = runtime.active_route.clone() {
+            if previous != route {
+                self.cleanup_route_render_effect_hooks(state, &previous, runtime)?;
+            }
+        }
+        runtime.active_route = Some(route.clone());
+
+        if let Some(layout) = &self.layout {
+            let layout_runtime = runtime.layout.as_mut().ok_or_else(|| {
+                GuiError::invalid_tree("RSX router layout effect runtime was not initialized")
+            })?;
+            layout.run_render_effect_hooks(state, layout_runtime)?;
+        }
+
+        let route_component = self
+            .routes
+            .get(&route)
+            .expect("active route should be registered");
+        let route_runtime = runtime.routes.get_mut(&route).ok_or_else(|| {
+            GuiError::invalid_tree(format!(
+                "RSX route {route:?} effect runtime was not initialized"
+            ))
+        })?;
+        route_component.run_render_effect_hooks(state, route_runtime)
+    }
+
+    fn cleanup_render_effect_hooks(
+        &self,
+        state: &mut S,
+        runtime: &mut RsxRouterRenderEffectRuntime<S>,
+    ) -> GuiResult<()> {
+        if let Some(route) = runtime.active_route.clone() {
+            self.cleanup_route_render_effect_hooks(state, &route, runtime)?;
+        }
+        runtime.active_route = None;
+        if let Some(layout) = &self.layout {
+            if let Some(layout_runtime) = runtime.layout.as_mut() {
+                layout.cleanup_render_effect_hooks(state, layout_runtime)?;
+                *layout_runtime = layout.new_render_effect_runtime();
+            }
+        }
+        Ok(())
+    }
+
+    fn cleanup_route_render_effect_hooks(
+        &self,
+        state: &mut S,
+        route: &str,
+        runtime: &mut RsxRouterRenderEffectRuntime<S>,
+    ) -> GuiResult<()> {
+        let Some(route_component) = self.routes.get(route) else {
+            return Ok(());
+        };
+        if let Some(route_runtime) = runtime.routes.get_mut(route) {
+            route_component.cleanup_render_effect_hooks(state, route_runtime)?;
+            *route_runtime = route_component.new_render_effect_runtime();
+        }
+        Ok(())
     }
 
     fn layout_handles_action(&self, action: &str) -> bool {
@@ -2839,7 +3350,9 @@ fn path_segments_cover(registered: &[String], binding: &[String]) -> bool {
 
 fn hook_registration_hint(kind: &str) -> &'static str {
     match kind {
-        "state" => "use_state, use_state_result, or use_state_value",
+        "state" => {
+            "use_selector, use_state, use_selector_result, use_state_result, use_selector_value, or use_state_value"
+        }
         "props" => "use_prop, use_prop_result, or use_prop_value",
         "derived" => {
             "use_derived, use_derived_result, use_memo, use_memo_result, or use_derived_value"

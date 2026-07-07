@@ -117,7 +117,7 @@ mod tests {
     fn calculator_view_is_composed_from_hook_driven_rsx_components() {
         assert!(components::CALCULATOR_RSX
             .contains("pub fn calculator(cx: &mut ComponentCx<CalculatorState>) -> RSX"));
-        assert!(components::CALCULATOR_RSX.contains("cx.use_state"));
+        assert!(components::CALCULATOR_RSX.contains("cx.use_reactive"));
         assert!(components::CALCULATOR_RSX.contains("cx.use_value_reducer"));
         assert!(components::CALCULATOR_RSX.contains("<CalculatorShell"));
         assert!(components::SHELL_RSX.contains("<CalculatorDisplay"));

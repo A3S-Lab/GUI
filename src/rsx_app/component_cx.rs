@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 
-use crate::error::GuiResult;
+use crate::error::{GuiError, GuiResult};
 use crate::event::ActionInvocation;
 use crate::semantic_ui::{
     use_autocomplete_value, use_breadcrumbs_value, use_button_value, use_calendar_cell_value,
@@ -122,7 +122,32 @@ pub struct StateHandle<T = JsonValue> {
     _value: PhantomData<fn() -> T>,
 }
 
+pub type SelectorHandle<T = JsonValue> = StateHandle<T>;
+
 impl<T> StateHandle<T> {
+    fn new(path: impl Into<String>) -> Self {
+        Self {
+            path: path.into(),
+            _value: PhantomData,
+        }
+    }
+
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    pub fn binding_path(&self) -> String {
+        format!("state.{}", self.path)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReactiveHandle<T = JsonValue> {
+    path: String,
+    _value: PhantomData<fn() -> T>,
+}
+
+impl<T> ReactiveHandle<T> {
     fn new(path: impl Into<String>) -> Self {
         Self {
             path: path.into(),
@@ -228,6 +253,430 @@ impl<T> ResourceHandle<T> {
 
     pub fn binding_path(&self) -> String {
         format!("resource.{}", self.path)
+    }
+}
+
+#[derive(Debug)]
+pub struct RefHandle<T> {
+    value: Arc<Mutex<T>>,
+}
+
+impl<T> Clone for RefHandle<T> {
+    fn clone(&self) -> Self {
+        Self {
+            value: Arc::clone(&self.value),
+        }
+    }
+}
+
+impl<T> RefHandle<T> {
+    fn new(initial: T) -> Self {
+        Self {
+            value: Arc::new(Mutex::new(initial)),
+        }
+    }
+
+    pub fn with<R>(&self, read: impl FnOnce(&T) -> R) -> GuiResult<R> {
+        let guard = self.value.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX ref handle lock was poisoned while reading")
+        })?;
+        Ok(read(&guard))
+    }
+
+    pub fn with_mut<R>(&self, write: impl FnOnce(&mut T) -> R) -> GuiResult<R> {
+        let mut guard = self.value.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX ref handle lock was poisoned while writing")
+        })?;
+        Ok(write(&mut guard))
+    }
+
+    pub fn set(&self, value: T) -> GuiResult<()> {
+        self.with_mut(|slot| *slot = value)
+    }
+}
+
+impl<T: Clone> RefHandle<T> {
+    pub fn current(&self) -> GuiResult<T> {
+        self.with(Clone::clone)
+    }
+}
+
+struct SyncExternalStoreState<T> {
+    snapshot: T,
+    version: u64,
+    next_subscriber: usize,
+    subscribers: BTreeMap<usize, Arc<dyn Fn() -> GuiResult<()> + Send + Sync>>,
+}
+
+pub struct SyncExternalStore<T> {
+    state: Arc<Mutex<SyncExternalStoreState<T>>>,
+}
+
+impl<T> Clone for SyncExternalStore<T> {
+    fn clone(&self) -> Self {
+        Self {
+            state: Arc::clone(&self.state),
+        }
+    }
+}
+
+impl<T> std::fmt::Debug for SyncExternalStore<T>
+where
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.state.lock() {
+            Ok(state) => f
+                .debug_struct("SyncExternalStore")
+                .field("snapshot", &state.snapshot)
+                .field("version", &state.version)
+                .field("subscriber_count", &state.subscribers.len())
+                .finish(),
+            Err(_) => f
+                .debug_struct("SyncExternalStore")
+                .field("poisoned", &true)
+                .finish(),
+        }
+    }
+}
+
+impl<T> SyncExternalStore<T> {
+    pub fn new(snapshot: T) -> Self {
+        Self {
+            state: Arc::new(Mutex::new(SyncExternalStoreState {
+                snapshot,
+                version: 0,
+                next_subscriber: 0,
+                subscribers: BTreeMap::new(),
+            })),
+        }
+    }
+
+    pub fn snapshot(&self) -> GuiResult<T>
+    where
+        T: Clone,
+    {
+        let state = self.state.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX external store lock was poisoned while reading")
+        })?;
+        Ok(state.snapshot.clone())
+    }
+
+    pub fn version(&self) -> GuiResult<u64> {
+        let state = self.state.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX external store lock was poisoned while reading")
+        })?;
+        Ok(state.version)
+    }
+
+    pub fn set(&self, snapshot: T) -> GuiResult<()> {
+        let subscribers = {
+            let mut state = self.state.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX external store lock was poisoned while writing")
+            })?;
+            state.snapshot = snapshot;
+            state.version += 1;
+            state.subscribers.values().cloned().collect::<Vec<_>>()
+        };
+        for subscriber in subscribers {
+            subscriber()?;
+        }
+        Ok(())
+    }
+
+    pub fn update(&self, update: impl FnOnce(&mut T)) -> GuiResult<()> {
+        let subscribers = {
+            let mut state = self.state.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX external store lock was poisoned while writing")
+            })?;
+            update(&mut state.snapshot);
+            state.version += 1;
+            state.subscribers.values().cloned().collect::<Vec<_>>()
+        };
+        for subscriber in subscribers {
+            subscriber()?;
+        }
+        Ok(())
+    }
+
+    pub fn subscribe(
+        &self,
+        subscriber: impl Fn() -> GuiResult<()> + Send + Sync + 'static,
+    ) -> GuiResult<SyncExternalStoreSubscription<T>> {
+        let mut state = self.state.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX external store lock was poisoned while subscribing")
+        })?;
+        let id = state.next_subscriber;
+        state.next_subscriber += 1;
+        state.subscribers.insert(id, Arc::new(subscriber));
+        Ok(SyncExternalStoreSubscription {
+            store: self.clone(),
+            id,
+            active: true,
+        })
+    }
+
+    fn unsubscribe(&self, id: usize) -> GuiResult<()> {
+        let mut state = self.state.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX external store lock was poisoned while unsubscribing")
+        })?;
+        state.subscribers.remove(&id);
+        Ok(())
+    }
+}
+
+pub struct SyncExternalStoreSubscription<T> {
+    store: SyncExternalStore<T>,
+    id: usize,
+    active: bool,
+}
+
+impl<T> SyncExternalStoreSubscription<T> {
+    pub fn unsubscribe(&mut self) -> GuiResult<()> {
+        if self.active {
+            self.store.unsubscribe(self.id)?;
+            self.active = false;
+        }
+        Ok(())
+    }
+}
+
+impl<T> Drop for SyncExternalStoreSubscription<T> {
+    fn drop(&mut self) {
+        if self.active {
+            let _ = self.store.unsubscribe(self.id);
+            self.active = false;
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActionStateSnapshot<D = JsonValue, E = String> {
+    pub pending: bool,
+    pub data: Option<D>,
+    pub error: Option<E>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FormStatusSnapshot<D = JsonValue, E = String> {
+    pub pending: bool,
+    pub action: Option<String>,
+    pub data: Option<D>,
+    pub error: Option<E>,
+}
+
+#[derive(Debug)]
+struct ActionStateInner<D, E> {
+    pending: bool,
+    data: Option<D>,
+    error: Option<E>,
+}
+
+#[derive(Debug)]
+pub struct ActionStateHandle<D = JsonValue, E = String> {
+    action: String,
+    inner: Arc<Mutex<ActionStateInner<D, E>>>,
+}
+
+impl<D, E> Clone for ActionStateHandle<D, E> {
+    fn clone(&self) -> Self {
+        Self {
+            action: self.action.clone(),
+            inner: Arc::clone(&self.inner),
+        }
+    }
+}
+
+impl<D, E> ActionStateHandle<D, E> {
+    fn new(action: impl Into<String>) -> Self {
+        Self {
+            action: action.into(),
+            inner: Arc::new(Mutex::new(ActionStateInner {
+                pending: false,
+                data: None,
+                error: None,
+            })),
+        }
+    }
+
+    pub fn action(&self) -> &str {
+        &self.action
+    }
+
+    pub fn set_pending(&self, pending: bool) -> GuiResult<()> {
+        let mut inner = self.inner.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX action state lock was poisoned while setting pending")
+        })?;
+        inner.pending = pending;
+        Ok(())
+    }
+
+    pub fn set_data(&self, data: D) -> GuiResult<()> {
+        let mut inner = self.inner.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX action state lock was poisoned while setting data")
+        })?;
+        inner.pending = false;
+        inner.data = Some(data);
+        inner.error = None;
+        Ok(())
+    }
+
+    pub fn set_error(&self, error: E) -> GuiResult<()> {
+        let mut inner = self.inner.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX action state lock was poisoned while setting error")
+        })?;
+        inner.pending = false;
+        inner.error = Some(error);
+        Ok(())
+    }
+
+    pub fn clear(&self) -> GuiResult<()> {
+        let mut inner = self.inner.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX action state lock was poisoned while clearing")
+        })?;
+        inner.pending = false;
+        inner.data = None;
+        inner.error = None;
+        Ok(())
+    }
+}
+
+impl<D, E> ActionStateHandle<D, E>
+where
+    D: Clone,
+    E: Clone,
+{
+    pub fn snapshot(&self) -> GuiResult<ActionStateSnapshot<D, E>> {
+        let inner = self.inner.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX action state lock was poisoned while reading")
+        })?;
+        Ok(ActionStateSnapshot {
+            pending: inner.pending,
+            data: inner.data.clone(),
+            error: inner.error.clone(),
+        })
+    }
+
+    pub fn form_status(&self) -> GuiResult<FormStatusSnapshot<D, E>> {
+        let snapshot = self.snapshot()?;
+        Ok(FormStatusSnapshot {
+            pending: snapshot.pending,
+            action: Some(self.action.clone()),
+            data: snapshot.data,
+            error: snapshot.error,
+        })
+    }
+}
+
+impl<D, E> From<ActionStateHandle<D, E>> for String {
+    fn from(handle: ActionStateHandle<D, E>) -> Self {
+        handle.action
+    }
+}
+
+impl<D, E> From<&ActionStateHandle<D, E>> for String {
+    fn from(handle: &ActionStateHandle<D, E>) -> Self {
+        handle.action.clone()
+    }
+}
+
+#[derive(Debug)]
+struct OptimisticState<T> {
+    base: Option<T>,
+    optimistic: Option<T>,
+}
+
+#[derive(Debug)]
+pub struct OptimisticHandle<T> {
+    inner: Arc<Mutex<OptimisticState<T>>>,
+}
+
+impl<T> Clone for OptimisticHandle<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
+}
+
+impl<T> OptimisticHandle<T> {
+    fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(OptimisticState {
+                base: None,
+                optimistic: None,
+            })),
+        }
+    }
+
+    pub fn set_base(&self, base: T) -> GuiResult<()> {
+        let mut inner = self.inner.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX optimistic state lock was poisoned while setting base")
+        })?;
+        inner.base = Some(base);
+        Ok(())
+    }
+
+    pub fn set_optimistic(&self, optimistic: T) -> GuiResult<()> {
+        let mut inner = self.inner.lock().map_err(|_| {
+            GuiError::invalid_tree(
+                "RSX optimistic state lock was poisoned while setting optimistic value",
+            )
+        })?;
+        inner.optimistic = Some(optimistic);
+        Ok(())
+    }
+
+    pub fn clear_optimistic(&self) -> GuiResult<()> {
+        let mut inner = self.inner.lock().map_err(|_| {
+            GuiError::invalid_tree(
+                "RSX optimistic state lock was poisoned while clearing optimistic value",
+            )
+        })?;
+        inner.optimistic = None;
+        Ok(())
+    }
+}
+
+impl<T> OptimisticHandle<T>
+where
+    T: Clone,
+{
+    pub fn current(&self) -> GuiResult<T> {
+        let inner = self.inner.lock().map_err(|_| {
+            GuiError::invalid_tree("RSX optimistic state lock was poisoned while reading")
+        })?;
+        inner
+            .optimistic
+            .clone()
+            .or_else(|| inner.base.clone())
+            .ok_or_else(|| GuiError::invalid_tree("RSX optimistic state has no base value yet"))
+    }
+}
+
+pub struct EffectEventHandle<S> {
+    event: Arc<dyn Fn(&mut S) -> GuiResult<()> + Send + Sync>,
+}
+
+impl<S> Clone for EffectEventHandle<S> {
+    fn clone(&self) -> Self {
+        Self {
+            event: Arc::clone(&self.event),
+        }
+    }
+}
+
+impl<S> EffectEventHandle<S> {
+    fn new(event: impl Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static) -> Self {
+        Self {
+            event: Arc::new(event),
+        }
+    }
+
+    pub fn call(&self, state: &mut S) -> GuiResult<()> {
+        (self.event)(state)
     }
 }
 
@@ -1186,6 +1635,7 @@ pub struct ComponentCx<S> {
     frame_id: String,
     registrations: Vec<ComponentRegistration<S>>,
     aliases: BTreeMap<String, BindingAlias>,
+    id_counter: usize,
 }
 
 impl<S: 'static> ComponentCx<S> {
@@ -1194,6 +1644,7 @@ impl<S: 'static> ComponentCx<S> {
             frame_id: frame_id.into(),
             registrations: Vec::new(),
             aliases: BTreeMap::new(),
+            id_counter: 0,
         }
     }
 
@@ -1216,6 +1667,38 @@ impl<S: 'static> ComponentCx<S> {
         let mut cx = Self::new(frame_id);
         let view = render(&mut cx);
         cx.into_component_bare(view)
+    }
+
+    pub fn use_ref<T>(&mut self, initial: T) -> RefHandle<T>
+    where
+        T: Send + 'static,
+    {
+        RefHandle::new(initial)
+    }
+
+    pub fn use_imperative_handle<T, F>(&mut self, target: RefHandle<Option<T>>, create: F)
+    where
+        T: Send + 'static,
+        F: Fn(&mut S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        self.use_layout_effect_with_cleanup(move |state| {
+            target.set(Some(create(state)?))?;
+            let cleanup_target = target.clone();
+            Ok(move |_state: &mut S| cleanup_target.set(None))
+        });
+    }
+
+    pub fn use_id(&mut self) -> String {
+        let id = stable_hook_id(&self.frame_id, self.id_counter);
+        self.id_counter += 1;
+        id
+    }
+
+    pub fn use_effect_event<F>(&mut self, event: F) -> EffectEventHandle<S>
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        EffectEventHandle::new(event)
     }
 
     pub fn use_state<T, F>(&mut self, path: impl Into<String>, selector: F) -> StateHandle<T>
@@ -1244,6 +1727,26 @@ impl<S: 'static> ComponentCx<S> {
             Ok(component.use_state_result::<T, F>(hook_path, selector))
         }));
         StateHandle::new(path)
+    }
+
+    pub fn use_selector<T, F>(&mut self, path: impl Into<String>, selector: F) -> SelectorHandle<T>
+    where
+        T: Serialize + 'static,
+        F: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        self.use_state(path, selector)
+    }
+
+    pub fn use_selector_result<T, F>(
+        &mut self,
+        path: impl Into<String>,
+        selector: F,
+    ) -> SelectorHandle<T>
+    where
+        T: Serialize + 'static,
+        F: Fn(&S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        self.use_state_result(path, selector)
     }
 
     pub fn use_prop<T, F>(&mut self, path: impl Into<String>, selector: F) -> PropHandle<T>
@@ -1314,6 +1817,115 @@ impl<S: 'static> ComponentCx<S> {
         self.use_derived(path, selector)
     }
 
+    pub fn use_sync_external_store<T>(
+        &mut self,
+        path: impl Into<String>,
+        store: SyncExternalStore<T>,
+    ) -> DerivedHandle<T>
+    where
+        T: Clone + Send + Serialize + 'static,
+    {
+        self.use_derived_result(path, move |_state| store.snapshot())
+    }
+
+    pub fn use_optimistic<T, F>(
+        &mut self,
+        path: impl Into<String>,
+        selector: F,
+    ) -> OptimisticHandle<T>
+    where
+        T: Clone + Send + Serialize + 'static,
+        F: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        self.use_optimistic_result(path, move |state| Ok(selector(state)))
+    }
+
+    pub fn use_optimistic_result<T, F>(
+        &mut self,
+        path: impl Into<String>,
+        selector: F,
+    ) -> OptimisticHandle<T>
+    where
+        T: Clone + Send + Serialize + 'static,
+        F: Fn(&S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        let handle = OptimisticHandle::new();
+        let render_handle = handle.clone();
+        self.use_derived_result(path, move |state| {
+            render_handle.set_base(selector(state)?)?;
+            render_handle.current()
+        });
+        handle
+    }
+
+    pub fn use_deferred_value<T, F>(
+        &mut self,
+        path: impl Into<String>,
+        selector: F,
+    ) -> DerivedHandle<T>
+    where
+        T: Clone + Send + Serialize + 'static,
+        F: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        self.use_deferred_value_result(path, move |state| Ok(selector(state)))
+    }
+
+    pub fn use_deferred_value_result<T, F>(
+        &mut self,
+        path: impl Into<String>,
+        selector: F,
+    ) -> DerivedHandle<T>
+    where
+        T: Clone + Send + Serialize + 'static,
+        F: Fn(&S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        let path = path.into();
+        let selector: Arc<dyn Fn(&S) -> GuiResult<T> + Send + Sync> = Arc::new(selector);
+        let deferred_value = Arc::new(Mutex::new(None::<T>));
+        let render_selector = Arc::clone(&selector);
+        let render_deferred_value = Arc::clone(&deferred_value);
+        let effect_selector = Arc::clone(&selector);
+        let effect_deferred_value = Arc::clone(&deferred_value);
+        let handle = self.use_derived_result(path, move |state| {
+            let current = render_selector(state)?;
+            let deferred = render_deferred_value.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX deferred value lock was poisoned while reading")
+            })?;
+            Ok(deferred.clone().unwrap_or(current))
+        });
+        self.use_effect(move |state| {
+            let current = effect_selector(state)?;
+            let mut deferred = effect_deferred_value.lock().map_err(|_| {
+                GuiError::invalid_tree("RSX deferred value lock was poisoned while writing")
+            })?;
+            *deferred = Some(current);
+            Ok(())
+        });
+        handle
+    }
+
+    pub fn use_debug_value<T, F>(&mut self, label: impl Into<String>, selector: F)
+    where
+        T: Serialize + 'static,
+        F: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        let label = label.into();
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_debug_value::<T, F>(label, selector))
+        }));
+    }
+
+    pub fn use_debug_value_result<T, F>(&mut self, label: impl Into<String>, selector: F)
+    where
+        T: Serialize + 'static,
+        F: Fn(&S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        let label = label.into();
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_debug_value_result::<T, F>(label, selector))
+        }));
+    }
+
     pub fn use_context<T, F>(&mut self, path: impl Into<String>, selector: F) -> ContextHandle<T>
     where
         T: Serialize + 'static,
@@ -1378,6 +1990,65 @@ impl<S: 'static> ComponentCx<S> {
         ResourceHandle::new(path)
     }
 
+    pub fn use_action_state<D, F>(
+        &mut self,
+        path: impl Into<String>,
+        action: impl Into<String>,
+        reducer: F,
+    ) -> ActionStateHandle<D, String>
+    where
+        D: Clone + Send + Serialize + 'static,
+        F: Fn(&mut S, &ActionInvocation) -> GuiResult<D> + Send + Sync + 'static,
+    {
+        let action = action.into();
+        let handle = ActionStateHandle::new(action.clone());
+        let selector_handle = handle.clone();
+        self.use_derived_result(path, move |_state| selector_handle.snapshot());
+        let reducer_handle = handle.clone();
+        self.use_reducer(action, move |state, invocation| {
+            reducer_handle.set_pending(true)?;
+            match reducer(state, invocation) {
+                Ok(data) => reducer_handle.set_data(data),
+                Err(error) => reducer_handle.set_error(error.to_string()),
+            }
+        });
+        handle
+    }
+
+    pub fn use_form_status<D, E>(
+        &mut self,
+        path: impl Into<String>,
+        action_state: ActionStateHandle<D, E>,
+    ) -> DerivedHandle<FormStatusSnapshot<D, E>>
+    where
+        D: Clone + Send + Serialize + 'static,
+        E: Clone + Send + Serialize + 'static,
+    {
+        self.use_derived_result(path, move |_state| action_state.form_status())
+    }
+
+    pub fn use_reactive<T, F>(&mut self, path: impl Into<String>, selector: F) -> ReactiveHandle<T>
+    where
+        T: Serialize + 'static,
+        F: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        let handle = self.use_state(path, selector);
+        ReactiveHandle::new(handle.path().to_string())
+    }
+
+    pub fn use_reactive_result<T, F>(
+        &mut self,
+        path: impl Into<String>,
+        selector: F,
+    ) -> ReactiveHandle<T>
+    where
+        T: Serialize + 'static,
+        F: Fn(&S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        let handle = self.use_state_result(path, selector);
+        ReactiveHandle::new(handle.path().to_string())
+    }
+
     pub fn use_reducer<F>(&mut self, id: impl Into<String>, reducer: F) -> ActionHandle
     where
         F: Fn(&mut S, &ActionInvocation) -> GuiResult<()> + Send + Sync + 'static,
@@ -1417,6 +2088,13 @@ impl<S: 'static> ComponentCx<S> {
             Ok(component.use_payload_reducer::<T, F>(action_id, reducer))
         }));
         ActionHandle::new(id)
+    }
+
+    pub fn use_callback<F>(&mut self, id: impl Into<String>, callback: F) -> ActionHandle
+    where
+        F: Fn(&mut S, &ActionInvocation) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.use_reducer(id, callback)
     }
 
     pub fn use_action_disabled<F>(&mut self, id: impl Into<String>, selector: F)
@@ -1495,10 +2173,184 @@ impl<S: 'static> ComponentCx<S> {
 
     pub fn use_effect<F>(&mut self, effect: F)
     where
-        F: Fn(&mut S, &ActionInvocation) -> GuiResult<()> + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
     {
         self.registrations
             .push(Box::new(move |component| Ok(component.use_effect(effect))));
+    }
+
+    pub fn use_effect_once<F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_effect_once(effect))
+        }));
+    }
+
+    pub fn use_effect_with_deps<T, D, F>(&mut self, deps: D, effect: F)
+    where
+        T: Serialize + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_effect_with_deps::<T, D, F>(deps, effect))
+        }));
+    }
+
+    pub fn use_effect_with_cleanup<C, F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_effect_with_cleanup::<C, F>(effect))
+        }));
+    }
+
+    pub fn use_effect_once_with_cleanup<C, F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_effect_once_with_cleanup::<C, F>(effect))
+        }));
+    }
+
+    pub fn use_effect_with_deps_and_cleanup<T, D, C, F>(&mut self, deps: D, effect: F)
+    where
+        T: Serialize + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_effect_with_deps_and_cleanup::<T, D, C, F>(deps, effect))
+        }));
+    }
+
+    pub fn use_layout_effect<F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_layout_effect(effect))
+        }));
+    }
+
+    pub fn use_layout_effect_once<F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_layout_effect_once(effect))
+        }));
+    }
+
+    pub fn use_layout_effect_with_deps<T, D, F>(&mut self, deps: D, effect: F)
+    where
+        T: Serialize + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_layout_effect_with_deps::<T, D, F>(deps, effect))
+        }));
+    }
+
+    pub fn use_layout_effect_with_cleanup<C, F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_layout_effect_with_cleanup::<C, F>(effect))
+        }));
+    }
+
+    pub fn use_layout_effect_once_with_cleanup<C, F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_layout_effect_once_with_cleanup::<C, F>(effect))
+        }));
+    }
+
+    pub fn use_layout_effect_with_deps_and_cleanup<T, D, C, F>(&mut self, deps: D, effect: F)
+    where
+        T: Serialize + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_layout_effect_with_deps_and_cleanup::<T, D, C, F>(deps, effect))
+        }));
+    }
+
+    pub fn use_insertion_effect<F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_insertion_effect(effect))
+        }));
+    }
+
+    pub fn use_insertion_effect_once<F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_insertion_effect_once(effect))
+        }));
+    }
+
+    pub fn use_insertion_effect_with_deps<T, D, F>(&mut self, deps: D, effect: F)
+    where
+        T: Serialize + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_insertion_effect_with_deps::<T, D, F>(deps, effect))
+        }));
+    }
+
+    pub fn use_insertion_effect_with_cleanup<C, F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_insertion_effect_with_cleanup::<C, F>(effect))
+        }));
+    }
+
+    pub fn use_insertion_effect_once_with_cleanup<C, F>(&mut self, effect: F)
+    where
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_insertion_effect_once_with_cleanup::<C, F>(effect))
+        }));
+    }
+
+    pub fn use_insertion_effect_with_deps_and_cleanup<T, D, C, F>(&mut self, deps: D, effect: F)
+    where
+        T: Serialize + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        self.registrations.push(Box::new(move |component| {
+            Ok(component.use_insertion_effect_with_deps_and_cleanup::<T, D, C, F>(deps, effect))
+        }));
     }
 
     pub fn use_action_effect<F>(&mut self, action: impl Into<String>, effect: F)
@@ -4563,6 +5415,23 @@ impl<S: 'static> ComponentCx<S> {
         if let Some(name) = path.rsplit('.').next().filter(|name| !name.is_empty()) {
             self.aliases.entry(name.to_string()).or_insert(alias);
         }
+    }
+}
+
+fn stable_hook_id(frame_id: &str, index: usize) -> String {
+    let mut stem = String::new();
+    for ch in frame_id.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+            stem.push(ch);
+        } else if !stem.ends_with('-') {
+            stem.push('-');
+        }
+    }
+    let stem = stem.trim_matches('-');
+    if stem.is_empty() {
+        format!("rsx-{index}")
+    } else {
+        format!("rsx-{stem}-{index}")
     }
 }
 

@@ -41,19 +41,24 @@ The app model is the Rust equivalent of React's one-way data flow:
   hook registrations and compiles the returned `RSX` into an `RsxComponent`.
 - `RsxComponent` owns the compiled template and registered hooks used by the
   runtime.
-- `cx.use_state`, `cx.use_reducer`, `cx.use_press`, `cx.use_button`,
-  `cx.use_link`,
+- `cx.use_selector`, `cx.use_state`, `cx.use_reducer`, `cx.use_press`,
+  `cx.use_button`, `cx.use_link`,
   `cx.use_breadcrumbs`, `cx.use_checkbox_group`, `cx.use_collection`,
   `cx.use_collection_section`, `cx.use_radio_group`, `cx.use_tab_list`,
   `cx.use_landmark`, `cx.use_group`, `cx.use_disclosure_group`,
   `cx.use_virtualizer`, `cx.use_clipboard`, `cx.use_drag`, `cx.use_drop`,
-  `cx.use_form`, `cx.use_effect`,
-  `cx.use_memo`, `cx.use_context`, and
-  `cx.use_resource` provide the hook vocabulary in explicit Rust context form.
+  `cx.use_form`, `cx.use_effect`, `cx.use_reactive`, `cx.use_memo`,
+  `cx.use_context`, and `cx.use_resource` provide the hook vocabulary in
+  explicit Rust context form.
+- React hook alignment is a naming and mental-model target, not a JavaScript
+  runtime contract: `use_selector` is the exact state-selector spelling,
+  `use_state` remains compatible, and React commit hooks map to insertion,
+  layout, and passive native effect phases.
 - State, props, derived, context, resource, and memo hooks build the render
   scope consumed by `.rsx` view-template props and bindings.
 - Reducer/action hooks mutate Rust state from native events.
-- Effect and transition hooks run after reducers.
+- `use_effect` hooks run after a native frame is committed. Action and
+  transition effect hooks run after reducers.
 - Mount and unmount hooks initialize and clean up page-local state.
 - `RsxRouter` selects active pages, provides route context, runs route
   lifecycle hooks, and supports a persistent layout outlet.

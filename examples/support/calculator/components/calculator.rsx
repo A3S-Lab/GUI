@@ -1,16 +1,25 @@
 use a3s_gui::{ComponentCx, RSX};
+use serde::Serialize;
 
 use super::super::model::CalculatorState;
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CalculatorReactiveState {
+    display: String,
+    history: String,
+    has_error: bool,
+}
+
 #[allow(non_snake_case)]
 pub fn calculator(cx: &mut ComponentCx<CalculatorState>) -> RSX {
-    let display = cx.use_state("display", |state: &CalculatorState| {
-        state.display().to_string()
+    let calculator = cx.use_reactive("calculator", |state: &CalculatorState| {
+        CalculatorReactiveState {
+            display: state.display().to_string(),
+            history: state.history().to_string(),
+            has_error: state.has_error(),
+        }
     });
-    let history = cx.use_state("history", |state: &CalculatorState| {
-        state.history().to_string()
-    });
-    let hasError = cx.use_state("hasError", CalculatorState::has_error);
 
     let pressDigit = cx.use_value_reducer("pressDigit", |state: &mut CalculatorState, digit| {
         state.press_digit(digit)
@@ -54,9 +63,9 @@ pub fn calculator(cx: &mut ComponentCx<CalculatorState>) -> RSX {
     a3s_gui::rsx!(
         <CalculatorShell
             key="calculator"
-            display={display}
-            history={history}
-            hasError={hasError}
+            display={calculator.display}
+            history={calculator.history}
+            hasError={calculator.hasError}
             pressDigit={pressDigit}
             pressOperator={pressOperator}
             pressDecimal={pressDecimal}

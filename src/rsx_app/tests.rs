@@ -5,7 +5,7 @@ use crate::event::{ActionInvocation, NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
 use crate::platform::Gtk4Adapter;
 use crate::protocol::HostEvent;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 mod actions;
 mod composition;
@@ -91,7 +91,7 @@ fn rsx_view_template_uses_rust_component_hooks() {
             Ok(())
         },
     )
-    .use_effect(|state: &mut ComponentHookState, invocation| {
+    .use_action_effect("increment", |state: &mut ComponentHookState, invocation| {
         if invocation.action == "increment" {
             state.effects += 1;
         }
@@ -172,6 +172,207 @@ fn component_cx_compiles_counter_function_with_logic_data_view_split() {
 }
 
 #[test]
+fn component_cx_react_identity_and_debug_hooks_have_runtime_state() {
+    let mut generated_ids = Vec::new();
+    let mut exposed_handle = None;
+
+    let component = ComponentCx::compile("identity hooks", |cx: &mut ComponentCx<CounterState>| {
+        generated_ids.push(cx.use_id());
+        generated_ids.push(cx.use_id());
+        let handle = cx.use_ref(None::<String>);
+        exposed_handle = Some(handle.clone());
+        cx.use_imperative_handle(handle, |state: &mut CounterState| {
+            Ok(format!("count:{}", state.count))
+        });
+        cx.use_debug_value("count", |state: &CounterState| state.count);
+        let increment = cx.use_callback("increment", |state: &mut CounterState, _invocation| {
+            state.count += 1;
+            Ok(())
+        });
+
+        crate::rsx!(<Button key="increment" onPress={increment}>Increment</Button>)
+    })
+    .unwrap();
+
+    assert_eq!(
+        generated_ids,
+        vec![
+            "rsx-identity-hooks-0".to_string(),
+            "rsx-identity-hooks-1".to_string()
+        ]
+    );
+    assert_eq!(
+        component.debug_values(&CounterState::default()).unwrap(),
+        vec![RsxDebugValue {
+            label: "count".to_string(),
+            value: serde_json::json!(0)
+        }]
+    );
+
+    let handle = exposed_handle.expect("imperative ref handle");
+    assert_eq!(handle.current().unwrap(), None);
+
+    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let mut app = component.into_runtime_app(host, CounterState::default());
+    let rendered = app.render().unwrap();
+    assert_eq!(handle.current().unwrap(), Some("count:0".to_string()));
+
+    app.dispatch_native_event(NativeEvent::new(rendered.root, NativeEventKind::Press))
+        .unwrap();
+    assert_eq!(app.state().count, 1);
+    assert_eq!(handle.current().unwrap(), Some("count:1".to_string()));
+
+    app.cleanup_effects().unwrap();
+    assert_eq!(handle.current().unwrap(), None);
+}
+
+#[test]
+fn component_cx_use_sync_external_store_reads_snapshots_and_notifies_subscribers() {
+    let store = SyncExternalStore::new("offline".to_string());
+    let notifications = std::sync::Arc::new(std::sync::Mutex::new(0_u32));
+    let subscriber_notifications = std::sync::Arc::clone(&notifications);
+    let _subscription = store
+        .subscribe(move || {
+            *subscriber_notifications.lock().unwrap() += 1;
+            Ok(())
+        })
+        .unwrap();
+
+    let component = ComponentCx::compile("external-store", |cx: &mut ComponentCx<CounterState>| {
+        let status = cx.use_sync_external_store("status", store.clone());
+
+        crate::rsx!(<Text key="status">{status}</Text>)
+    })
+    .unwrap();
+
+    let frame = component.render(&CounterState::default()).unwrap();
+    assert_eq!(text_values(&frame.root), vec!["offline"]);
+
+    store.set("online".to_string()).unwrap();
+    assert_eq!(*notifications.lock().unwrap(), 1);
+    assert_eq!(store.version().unwrap(), 1);
+
+    let frame = component.render(&CounterState::default()).unwrap();
+    assert_eq!(text_values(&frame.root), vec!["online"]);
+}
+
+#[test]
+fn component_cx_use_optimistic_exposes_overlay_until_cleared() {
+    let mut optimistic_handle = None;
+    let component = ComponentCx::compile("optimistic", |cx: &mut ComponentCx<CounterState>| {
+        let count = cx.use_optimistic("count", |state: &CounterState| state.count);
+        optimistic_handle = Some(count.clone());
+
+        crate::rsx!(<Text key="count">{count}</Text>)
+    })
+    .unwrap();
+    let optimistic = optimistic_handle.expect("optimistic handle");
+    let mut state = CounterState { count: 1 };
+
+    let frame = component.render(&state).unwrap();
+    assert_eq!(text_values(&frame.root), vec!["1"]);
+
+    optimistic.set_optimistic(9).unwrap();
+    state.count = 2;
+    let frame = component.render(&state).unwrap();
+    assert_eq!(text_values(&frame.root), vec!["9"]);
+
+    optimistic.clear_optimistic().unwrap();
+    let frame = component.render(&state).unwrap();
+    assert_eq!(text_values(&frame.root), vec!["2"]);
+}
+
+#[test]
+fn component_cx_use_action_state_and_form_status_track_action_results() {
+    #[derive(Debug, Clone, PartialEq, Default)]
+    struct SubmitState {
+        count: u32,
+        fail: bool,
+    }
+
+    let component = ComponentCx::compile("action-state", |cx: &mut ComponentCx<SubmitState>| {
+        let submit = cx.use_action_state(
+            "submission",
+            "submit",
+            |state: &mut SubmitState, _invocation| {
+                if state.fail {
+                    return Err(GuiError::invalid_tree("submit failed"));
+                }
+                state.count += 1;
+                Ok(format!("saved:{}", state.count))
+            },
+        );
+        cx.use_form_status("formStatus", submit.clone());
+
+        crate::rsx!(
+            <Toolbar key="root" orientation="vertical">
+              <Button key="submit" onPress={submit} label="Submit" />
+              <Text key="data" label={derived.submission.data} />
+              <Text key="error" label={derived.submission.error} />
+              <Text key="pending" label={derived.formStatus.pending} />
+              <Text key="action" label={derived.formStatus.action} />
+              <Text key="status-data" label={derived.formStatus.data} />
+            </Toolbar>
+        )
+    })
+    .unwrap();
+    let mut state = SubmitState::default();
+    let frame = component.render(&state).unwrap();
+    assert_eq!(direct_child_label(&frame.root, "submit"), Some("Submit"));
+    assert_eq!(direct_child_label(&frame.root, "data"), Some(""));
+    assert_eq!(direct_child_label(&frame.root, "error"), Some(""));
+    assert_eq!(direct_child_label(&frame.root, "pending"), Some("false"));
+    assert_eq!(direct_child_label(&frame.root, "action"), Some("submit"));
+    assert_eq!(direct_child_label(&frame.root, "status-data"), Some(""));
+
+    component
+        .reduce(
+            &mut state,
+            &ActionInvocation {
+                node: HostNodeId::new(1),
+                action: "submit".to_string(),
+                event: NativeEventKind::Press,
+                value: None,
+            },
+        )
+        .unwrap();
+    let frame = component.render(&state).unwrap();
+    assert_eq!(direct_child_label(&frame.root, "data"), Some("saved:1"));
+    assert_eq!(direct_child_label(&frame.root, "error"), Some(""));
+    assert_eq!(direct_child_label(&frame.root, "pending"), Some("false"));
+    assert_eq!(direct_child_label(&frame.root, "action"), Some("submit"));
+    assert_eq!(
+        direct_child_label(&frame.root, "status-data"),
+        Some("saved:1")
+    );
+
+    state.fail = true;
+    component
+        .reduce(
+            &mut state,
+            &ActionInvocation {
+                node: HostNodeId::new(1),
+                action: "submit".to_string(),
+                event: NativeEventKind::Press,
+                value: None,
+            },
+        )
+        .unwrap();
+    let frame = component.render(&state).unwrap();
+    assert_eq!(direct_child_label(&frame.root, "data"), Some("saved:1"));
+    assert_eq!(
+        direct_child_label(&frame.root, "error"),
+        Some("invalid native UI tree: submit failed")
+    );
+    assert_eq!(direct_child_label(&frame.root, "pending"), Some("false"));
+    assert_eq!(direct_child_label(&frame.root, "action"), Some("submit"));
+    assert_eq!(
+        direct_child_label(&frame.root, "status-data"),
+        Some("saved:1")
+    );
+}
+
+#[test]
 fn component_cx_accepts_requested_counter_shape_without_explicit_key() {
     #[allow(non_snake_case)]
     #[deny(unused_variables)]
@@ -249,6 +450,161 @@ fn component_cx_view_can_consume_explicit_state_scope() {
 }
 
 #[test]
+fn component_cx_use_selector_aliases_state_selectors() {
+    #[deny(unused_variables)]
+    fn counter(cx: &mut ComponentCx<CounterState>) -> RSX {
+        let count = cx.use_selector("count", |state: &CounterState| state.count);
+
+        crate::rsx!(<Text key="count">{count}</Text>)
+    }
+
+    let component = ComponentCx::compile("counter", counter).unwrap();
+    let frame = component.render(&CounterState { count: 7 }).unwrap();
+
+    assert_eq!(text_values(&frame.root), vec!["7"]);
+}
+
+#[test]
+fn rsx_component_use_selector_aliases_state_selectors() {
+    let component = RsxComponent::new("counter", r#"<Text key="count">{state.count}</Text>"#)
+        .unwrap()
+        .use_selector("count", |state: &CounterState| state.count);
+
+    let frame = component.render(&CounterState { count: 9 }).unwrap();
+
+    assert_eq!(text_values(&frame.root), vec!["9"]);
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+struct ReactiveProfile {
+    name: String,
+    age: u32,
+    settings: ReactiveSettings,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+struct ReactiveSettings {
+    theme: String,
+    enabled: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ReactiveHookState {
+    profile: ReactiveProfile,
+}
+
+#[test]
+fn component_cx_use_reactive_exposes_nested_state_object() {
+    fn profile_view(cx: &mut ComponentCx<ReactiveHookState>) -> RSX {
+        let profile = cx.use_reactive("profile", |state: &ReactiveHookState| state.profile.clone());
+        let rename =
+            cx.use_value_reducer("rename", |state: &mut ReactiveHookState, name: String| {
+                state.profile.name = name;
+                Ok(())
+            });
+        let enable_dark = cx.use_reducer(
+            "enable_dark",
+            |state: &mut ReactiveHookState, _invocation| {
+                state.profile.settings.theme = "dark".to_string();
+                state.profile.settings.enabled = true;
+                Ok(())
+            },
+        );
+
+        assert_eq!(profile.binding_path(), "state.profile");
+
+        crate::rsx!(
+            <Toolbar
+              key="root"
+              data-name={profile.name}
+              data-theme={profile.settings.theme}
+              data-enabled={profile.settings.enabled}
+            >
+              <Text key="name" label={profile.name} />
+              <Text key="age" label={profile.age} />
+              <Text key="theme" label={profile.settings.theme} />
+              <Button key="rename" onPress={rename}>Rename</Button>
+              <Button key="dark" onPress={enable_dark}>Dark</Button>
+            </Toolbar>
+        )
+    }
+
+    let component = ComponentCx::compile("reactive-profile", profile_view).unwrap();
+    let mut state = ReactiveHookState {
+        profile: ReactiveProfile {
+            name: "Ada".to_string(),
+            age: 37,
+            settings: ReactiveSettings {
+                theme: "light".to_string(),
+                enabled: false,
+            },
+        },
+    };
+    let frame = component.render(&state).unwrap();
+    let CompiledRsxNode::Element { props, .. } = &frame.root else {
+        panic!("root element");
+    };
+    assert_eq!(direct_child_label(&frame.root, "name"), Some("Ada"));
+    assert_eq!(direct_child_label(&frame.root, "age"), Some("37"));
+    assert_eq!(direct_child_label(&frame.root, "theme"), Some("light"));
+    assert_eq!(
+        props.attributes.get("data-name").map(String::as_str),
+        Some("Ada")
+    );
+    assert_eq!(
+        props.attributes.get("data-theme").map(String::as_str),
+        Some("light")
+    );
+    assert_eq!(
+        props.attributes.get("data-enabled").map(String::as_str),
+        Some("false")
+    );
+
+    component
+        .reduce(
+            &mut state,
+            &ActionInvocation {
+                node: HostNodeId::new(1),
+                action: "rename".to_string(),
+                event: NativeEventKind::Change,
+                value: Some("Grace".to_string()),
+            },
+        )
+        .unwrap();
+    let frame = component.render(&state).unwrap();
+    assert_eq!(direct_child_label(&frame.root, "name"), Some("Grace"));
+    assert_eq!(direct_child_label(&frame.root, "age"), Some("37"));
+    assert_eq!(direct_child_label(&frame.root, "theme"), Some("light"));
+
+    component
+        .reduce(
+            &mut state,
+            &ActionInvocation {
+                node: HostNodeId::new(1),
+                action: "enable_dark".to_string(),
+                event: NativeEventKind::Press,
+                value: None,
+            },
+        )
+        .unwrap();
+    let frame = component.render(&state).unwrap();
+    let CompiledRsxNode::Element { props, .. } = &frame.root else {
+        panic!("root element");
+    };
+    assert_eq!(direct_child_label(&frame.root, "name"), Some("Grace"));
+    assert_eq!(direct_child_label(&frame.root, "age"), Some("37"));
+    assert_eq!(direct_child_label(&frame.root, "theme"), Some("dark"));
+    assert_eq!(
+        props.attributes.get("data-theme").map(String::as_str),
+        Some("dark")
+    );
+    assert_eq!(
+        props.attributes.get("data-enabled").map(String::as_str),
+        Some("true")
+    );
+}
+
+#[test]
 fn component_cx_handles_cover_derived_context_and_resource_data() {
     fn status(cx: &mut ComponentCx<ComponentHookState>) -> RSX {
         let summary = cx.use_derived("summary", |state: &ComponentHookState| {
@@ -313,7 +669,7 @@ fn component_cx_owns_lifecycle_effect_and_action_state_hooks() {
             state.mounts += 1;
             state.title = "Mounted".to_string();
         });
-        cx.use_effect(|state: &mut LifecycleHookState, invocation| {
+        cx.use_action_effect("click", |state: &mut LifecycleHookState, invocation| {
             if invocation.action == "click" {
                 state.effects += 1;
             }
@@ -363,6 +719,42 @@ fn component_cx_owns_lifecycle_effect_and_action_state_hooks() {
             .find(|action| action.id == "click")
             .map(|action| action.disabled),
         Some(true)
+    );
+}
+
+#[test]
+fn component_cx_use_effect_runs_after_runtime_commit() {
+    fn lifecycle(cx: &mut ComponentCx<LifecycleHookState>) -> RSX {
+        let title = cx.use_state("title", |state: &LifecycleHookState| state.title.clone());
+        cx.use_effect(|state: &mut LifecycleHookState| {
+            state.effects += 1;
+            state.title = format!("Effect {}", state.effects);
+            Ok(())
+        });
+
+        crate::rsx!(<Text key="title" label={title} />)
+    }
+
+    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let mut app = ComponentCx::compile("lifecycle", lifecycle)
+        .unwrap()
+        .into_runtime_app(
+            host,
+            LifecycleHookState {
+                title: "Before".to_string(),
+                ..LifecycleHookState::default()
+            },
+        );
+
+    app.render().unwrap();
+
+    assert_eq!(app.state().effects, 1);
+    assert_eq!(app.state().title, "Effect 1");
+    assert_eq!(
+        app.runtime()
+            .accessibility_tree()
+            .and_then(|tree| tree.label),
+        Some("Before".to_string())
     );
 }
 
@@ -7886,6 +8278,20 @@ fn child_labels(root: &CompiledRsxNode) -> Vec<&str> {
             props.label.as_deref().unwrap_or_default()
         })
         .collect()
+}
+
+fn direct_child_label<'a>(root: &'a CompiledRsxNode, key: &str) -> Option<&'a str> {
+    let CompiledRsxNode::Element { children, .. } = root else {
+        panic!("root element");
+    };
+    children.iter().find_map(|child| match child {
+        CompiledRsxNode::Element {
+            key: child_key,
+            props,
+            ..
+        } if child_key == key => props.label.as_deref(),
+        _ => None,
+    })
 }
 
 fn text_values(root: &CompiledRsxNode) -> Vec<&str> {

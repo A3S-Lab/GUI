@@ -717,6 +717,55 @@ fn rsx_router_runs_route_effects_after_route_lifecycle_hooks() {
 }
 
 #[test]
+fn rsx_router_cleans_up_route_render_effects_when_active_route_changes() {
+    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let home = RsxComponent::new(
+        "home",
+        r#"<Button key="settings" label="Settings" onPress={openSettings} />"#,
+    )
+    .unwrap()
+    .use_action("openSettings", |state: &mut RouteState, _invocation| {
+        state.route = "settings".to_string();
+        Ok(())
+    })
+    .use_effect_once_with_cleanup(|state: &mut RouteState| {
+        state.title.push_str(" -> home effect");
+        Ok(|state: &mut RouteState| {
+            state.title.push_str(" -> home cleanup");
+            Ok(())
+        })
+    });
+    let settings = RsxComponent::new("settings", r#"<Text key="title" label={state.title} />"#)
+        .unwrap()
+        .use_state("title", |state: &RouteState| state.title.clone())
+        .use_effect_once(|state: &mut RouteState| {
+            state.title.push_str(" -> settings effect");
+            Ok(())
+        });
+    let router = RsxRouter::new(|state: &RouteState| state.route.clone())
+        .route("home", home)
+        .unwrap()
+        .route("settings", settings)
+        .unwrap();
+    let mut app = router.into_runtime_app(
+        host,
+        RouteState {
+            route: "home".to_string(),
+            title: "start".to_string(),
+        },
+    );
+
+    let rendered = app.render().unwrap();
+    app.dispatch_native_event(NativeEvent::new(rendered.root, NativeEventKind::Press))
+        .unwrap();
+
+    assert_eq!(
+        app.state().title,
+        "start -> home effect -> home cleanup -> settings effect"
+    );
+}
+
+#[test]
 fn rsx_router_route_transition_effect_receives_transition_details() {
     let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
     let router = RsxRouter::new(|state: &RouteState| state.route.clone())

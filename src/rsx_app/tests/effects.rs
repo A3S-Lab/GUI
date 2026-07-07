@@ -9,7 +9,271 @@ struct EffectState {
 }
 
 #[test]
-fn rsx_component_runs_effect_hooks_after_reducers_before_rerender() {
+fn rsx_component_use_effect_runs_after_committed_renders() {
+    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let mut app = RsxComponent::new(
+        "effects",
+        r#"<Text key="summary" label={derived.summary} />"#,
+    )
+    .unwrap()
+    .use_derived("summary", |state: &EffectState| {
+        format!("Count {} Effects {}", state.count, state.effects)
+    })
+    .use_effect(|state: &mut EffectState| {
+        state.effects += 1;
+        Ok(())
+    })
+    .into_runtime_app(host, EffectState::default());
+
+    let rendered = app.render().unwrap();
+
+    assert_eq!(app.state().effects, 1);
+    assert_eq!(
+        app.runtime()
+            .accessibility_tree()
+            .and_then(|tree| tree.label),
+        Some("Count 0 Effects 0".to_string())
+    );
+    assert_eq!(app.root(), Some(rendered.root));
+
+    app.render().unwrap();
+    assert_eq!(app.state().effects, 2);
+}
+
+#[test]
+fn rsx_component_use_effect_runs_after_protocol_commits() {
+    let mut app = RsxComponent::new(
+        "effects",
+        r#"<Text key="summary" label={derived.summary} />"#,
+    )
+    .unwrap()
+    .use_derived("summary", |state: &EffectState| {
+        format!("Effects {}", state.effects)
+    })
+    .use_effect(|state: &mut EffectState| {
+        state.effects += 1;
+        Ok(())
+    })
+    .into_protocol_app(Gtk4Adapter, EffectState::default());
+
+    let rendered = app.render().unwrap();
+
+    assert_eq!(app.state().effects, 1);
+    assert_eq!(
+        rendered
+            .accessibility_tree
+            .as_ref()
+            .and_then(|tree| tree.label.as_deref()),
+        Some("Effects 0")
+    );
+}
+
+#[test]
+fn rsx_component_use_effect_once_runs_only_after_first_commit() {
+    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let mut app = RsxComponent::new("effects", r#"<Text key="summary" label="Ready" />"#)
+        .unwrap()
+        .use_effect_once(|state: &mut EffectState| {
+            state.effects += 1;
+            Ok(())
+        })
+        .into_runtime_app(host, EffectState::default());
+
+    app.render().unwrap();
+    app.render().unwrap();
+
+    assert_eq!(app.state().effects, 1);
+}
+
+#[test]
+fn rsx_component_use_effect_with_deps_skips_unchanged_dependencies() {
+    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let mut app = RsxComponent::new(
+        "effects",
+        r#"
+            <Toolbar key="root" orientation="horizontal">
+              <Button key="increment" onPress={increment} label="Increment" />
+              <Button key="noop" onPress={noop} label="Noop" />
+            </Toolbar>
+            "#,
+    )
+    .unwrap()
+    .use_action("increment", |state: &mut EffectState, _invocation| {
+        state.count += 1;
+        Ok(())
+    })
+    .use_action("noop", |_state: &mut EffectState, _invocation| Ok(()))
+    .use_effect_with_deps::<u32, _, _>(
+        |state: &EffectState| state.count,
+        |state: &mut EffectState| {
+            state.effects += 1;
+            state.audit.push(format!("effect:{}", state.count));
+            Ok(())
+        },
+    )
+    .into_runtime_app(host, EffectState::default());
+    app.render().unwrap();
+    let increment = action_node(&app, "increment", None);
+    let noop = action_node(&app, "noop", None);
+
+    app.render().unwrap();
+    app.dispatch_native_event(NativeEvent::new(noop, NativeEventKind::Press))
+        .unwrap();
+    app.dispatch_native_event(NativeEvent::new(increment, NativeEventKind::Press))
+        .unwrap();
+    app.render().unwrap();
+
+    assert_eq!(app.state().effects, 2);
+    assert_eq!(app.state().audit, vec!["effect:0", "effect:1"]);
+}
+
+#[test]
+fn rsx_component_use_effect_cleanup_runs_before_next_matching_effect_and_manual_cleanup() {
+    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let mut app = RsxComponent::new(
+        "effects",
+        r#"<Button key="increment" onPress={increment} label="Increment" />"#,
+    )
+    .unwrap()
+    .use_action("increment", |state: &mut EffectState, _invocation| {
+        state.count += 1;
+        Ok(())
+    })
+    .use_effect_with_deps_and_cleanup::<u32, _, _, _>(
+        |state: &EffectState| state.count,
+        |state: &mut EffectState| {
+            let count = state.count;
+            state.audit.push(format!("effect:{count}"));
+            Ok(move |state: &mut EffectState| {
+                state.audit.push(format!("cleanup:{count}"));
+                Ok(())
+            })
+        },
+    )
+    .into_runtime_app(host, EffectState::default());
+    let rendered = app.render().unwrap();
+
+    app.dispatch_native_event(NativeEvent::new(rendered.root, NativeEventKind::Press))
+        .unwrap();
+    app.cleanup_effects().unwrap();
+
+    assert_eq!(
+        app.state().audit,
+        vec!["effect:0", "cleanup:0", "effect:1", "cleanup:1"]
+    );
+}
+
+#[test]
+fn rsx_component_render_effect_phases_run_and_cleanup_in_react_order() {
+    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let mut app = RsxComponent::new("effects", r#"<Text key="summary" label="Ready" />"#)
+        .unwrap()
+        .use_effect_with_cleanup(|state: &mut EffectState| {
+            state.audit.push("passive".to_string());
+            Ok(|state: &mut EffectState| {
+                state.audit.push("cleanup:passive".to_string());
+                Ok(())
+            })
+        })
+        .use_layout_effect_with_cleanup(|state: &mut EffectState| {
+            state.audit.push("layout".to_string());
+            Ok(|state: &mut EffectState| {
+                state.audit.push("cleanup:layout".to_string());
+                Ok(())
+            })
+        })
+        .use_insertion_effect_with_cleanup(|state: &mut EffectState| {
+            state.audit.push("insertion".to_string());
+            Ok(|state: &mut EffectState| {
+                state.audit.push("cleanup:insertion".to_string());
+                Ok(())
+            })
+        })
+        .into_runtime_app(host, EffectState::default());
+
+    app.render().unwrap();
+    app.cleanup_effects().unwrap();
+
+    assert_eq!(
+        app.state().audit,
+        vec![
+            "insertion",
+            "layout",
+            "passive",
+            "cleanup:passive",
+            "cleanup:layout",
+            "cleanup:insertion",
+        ]
+    );
+}
+
+#[test]
+fn rsx_component_use_deferred_value_lags_one_committed_render() {
+    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let mut app = RsxComponent::new(
+        "deferred",
+        r#"<Button key="increment" onPress={increment} label={derived.count} />"#,
+    )
+    .unwrap()
+    .use_deferred_value("count", |state: &EffectState| state.count.to_string())
+    .use_action("increment", |state: &mut EffectState, _invocation| {
+        state.count += 1;
+        Ok(())
+    })
+    .into_runtime_app(host, EffectState::default());
+
+    let rendered = app.render().unwrap();
+    assert_eq!(
+        app.runtime()
+            .accessibility_tree()
+            .and_then(|tree| tree.label),
+        Some("0".to_string())
+    );
+
+    app.dispatch_native_event(NativeEvent::new(rendered.root, NativeEventKind::Press))
+        .unwrap();
+    assert_eq!(
+        app.runtime()
+            .accessibility_tree()
+            .and_then(|tree| tree.label),
+        Some("0".to_string())
+    );
+
+    app.render().unwrap();
+    assert_eq!(
+        app.runtime()
+            .accessibility_tree()
+            .and_then(|tree| tree.label),
+        Some("1".to_string())
+    );
+}
+
+#[test]
+fn component_cx_use_effect_event_reads_latest_state_from_effects() {
+    fn view(cx: &mut ComponentCx<EffectState>) -> RSX {
+        let event = cx.use_effect_event(|state: &mut EffectState| {
+            state.audit.push(format!("event:{}", state.count));
+            Ok(())
+        });
+        cx.use_effect(move |state| event.call(state));
+
+        crate::rsx!(<Text key="summary" label="Ready" />)
+    }
+
+    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let mut app = ComponentCx::compile("effect-event", view)
+        .unwrap()
+        .into_runtime_app(host, EffectState::default());
+
+    app.render().unwrap();
+    app.state_mut().count = 7;
+    app.render().unwrap();
+
+    assert_eq!(app.state().audit, vec!["event:0", "event:7"]);
+}
+
+#[test]
+fn rsx_component_action_effect_hooks_run_after_reducers_before_rerender() {
     let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
@@ -23,7 +287,7 @@ fn rsx_component_runs_effect_hooks_after_reducers_before_rerender() {
         state.count += 1;
         Ok(())
     })
-    .use_effect(|state: &mut EffectState, invocation| {
+    .use_action_effect("increment", |state: &mut EffectState, invocation| {
         assert_eq!(invocation.action, "increment");
         state.effects += state.count;
         Ok(())
@@ -67,7 +331,11 @@ fn rsx_component_action_effect_hooks_filter_by_action_id() {
         state.count = 0;
         Ok(())
     })
-    .use_effect(|state: &mut EffectState, _invocation| {
+    .use_action_effect("reset", |state: &mut EffectState, _invocation| {
+        state.effects += 1;
+        Ok(())
+    })
+    .use_action_effect("increment", |state: &mut EffectState, _invocation| {
         state.effects += 1;
         Ok(())
     })
@@ -90,7 +358,7 @@ fn rsx_component_action_effect_hooks_filter_by_action_id() {
 }
 
 #[test]
-fn rsx_component_transition_effect_hooks_receive_before_state_after_plain_reducers() {
+fn rsx_component_action_transition_effect_hooks_receive_before_state_after_plain_reducers() {
     let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
@@ -115,7 +383,7 @@ fn rsx_component_transition_effect_hooks_receive_before_state_after_plain_reduce
             Ok(())
         },
     )
-    .use_effect(|state: &mut EffectState, _invocation| {
+    .use_action_effect("increment", |state: &mut EffectState, _invocation| {
         state.audit.push(format!("effect:{}", state.effects));
         Ok(())
     })

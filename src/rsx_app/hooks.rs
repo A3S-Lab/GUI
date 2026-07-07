@@ -7,7 +7,7 @@ use serde_json::{Map as JsonMap, Value as JsonValue};
 use crate::error::{GuiError, GuiResult};
 use crate::event::ActionInvocation;
 
-use super::{RsxActionTransition, RsxRouteTransition};
+use super::{RsxActionTransition, RsxDebugValue, RsxRouteTransition};
 
 pub(super) struct RsxValueHook<S> {
     pub(super) path: String,
@@ -70,6 +70,59 @@ impl<S> RsxValueHook<S> {
             path: path.into(),
             selector: Box::new(selector),
         }
+    }
+}
+
+pub(super) struct RsxDebugValueHook<S> {
+    label: String,
+    selector: Box<dyn Fn(&S) -> GuiResult<JsonValue> + Send + Sync>,
+}
+
+impl<S> RsxDebugValueHook<S> {
+    pub(super) fn serializing<T, F>(label: impl Into<String>, selector: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        let label = label.into();
+        let context = label.clone();
+        Self {
+            label,
+            selector: Box::new(move |state| {
+                serde_json::to_value(selector(state)).map_err(|error| {
+                    GuiError::invalid_tree(format!(
+                        "RSX debug value hook {context:?} did not serialize: {error}"
+                    ))
+                })
+            }),
+        }
+    }
+
+    pub(super) fn serializing_result<T, F>(label: impl Into<String>, selector: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&S) -> GuiResult<T> + Send + Sync + 'static,
+    {
+        let label = label.into();
+        let context = label.clone();
+        Self {
+            label,
+            selector: Box::new(move |state| {
+                let value = selector(state)?;
+                serde_json::to_value(value).map_err(|error| {
+                    GuiError::invalid_tree(format!(
+                        "RSX debug value hook {context:?} did not serialize: {error}"
+                    ))
+                })
+            }),
+        }
+    }
+
+    pub(super) fn select(&self, state: &S) -> GuiResult<RsxDebugValue> {
+        Ok(RsxDebugValue {
+            label: self.label.clone(),
+            value: (self.selector)(state)?,
+        })
     }
 }
 
@@ -204,15 +257,6 @@ pub(super) struct RsxEffectHook<S> {
 }
 
 impl<S> RsxEffectHook<S> {
-    pub(super) fn global(
-        effect: impl Fn(&mut S, &ActionInvocation) -> GuiResult<()> + Send + Sync + 'static,
-    ) -> Self {
-        Self {
-            action: None,
-            kind: RsxEffectKind::Invocation(Box::new(effect)),
-        }
-    }
-
     pub(super) fn for_action(
         action: impl Into<String>,
         effect: impl Fn(&mut S, &ActionInvocation) -> GuiResult<()> + Send + Sync + 'static,
@@ -323,6 +367,424 @@ impl<S> RsxEffectHook<S> {
         self.action
             .as_ref()
             .is_none_or(|action| action == &invocation.action)
+    }
+}
+
+type RsxRenderEffectCleanup<S> = Box<dyn Fn(&mut S) -> GuiResult<()> + Send + Sync>;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum RsxRenderEffectPhase {
+    Insertion,
+    Layout,
+    Passive,
+}
+
+enum RsxRenderEffectDeps<S> {
+    Always,
+    Once,
+    Selector(Box<dyn Fn(&S) -> GuiResult<JsonValue> + Send + Sync>),
+}
+
+pub(super) struct RsxRenderEffectHook<S> {
+    phase: RsxRenderEffectPhase,
+    deps: RsxRenderEffectDeps<S>,
+    effect: Box<dyn Fn(&mut S) -> GuiResult<Option<RsxRenderEffectCleanup<S>>> + Send + Sync>,
+}
+
+impl<S> RsxRenderEffectHook<S> {
+    pub(super) fn always(effect: impl Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static) -> Self {
+        Self::without_cleanup(
+            RsxRenderEffectPhase::Passive,
+            RsxRenderEffectDeps::Always,
+            effect,
+        )
+    }
+
+    pub(super) fn once(effect: impl Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static) -> Self {
+        Self::without_cleanup(
+            RsxRenderEffectPhase::Passive,
+            RsxRenderEffectDeps::Once,
+            effect,
+        )
+    }
+
+    pub(super) fn with_deps<T, F, D>(deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        let deps = Box::new(move |state: &S| {
+            serde_json::to_value(deps(state)).map_err(|error| {
+                GuiError::invalid_tree(format!(
+                    "RSX effect dependencies did not serialize: {error}"
+                ))
+            })
+        });
+        Self::without_cleanup(
+            RsxRenderEffectPhase::Passive,
+            RsxRenderEffectDeps::Selector(deps),
+            effect,
+        )
+    }
+
+    pub(super) fn always_with_cleanup<C>(
+        effect: impl Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+    ) -> Self
+    where
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        Self::with_parts(
+            RsxRenderEffectPhase::Passive,
+            RsxRenderEffectDeps::Always,
+            effect,
+        )
+    }
+
+    pub(super) fn once_with_cleanup<C>(
+        effect: impl Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+    ) -> Self
+    where
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        Self::with_parts(
+            RsxRenderEffectPhase::Passive,
+            RsxRenderEffectDeps::Once,
+            effect,
+        )
+    }
+
+    pub(super) fn with_deps_and_cleanup<T, F, D, C>(deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        let deps = Box::new(move |state: &S| {
+            serde_json::to_value(deps(state)).map_err(|error| {
+                GuiError::invalid_tree(format!(
+                    "RSX effect dependencies did not serialize: {error}"
+                ))
+            })
+        });
+        Self::with_parts(
+            RsxRenderEffectPhase::Passive,
+            RsxRenderEffectDeps::Selector(deps),
+            effect,
+        )
+    }
+
+    pub(super) fn insertion(
+        effect: impl Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    ) -> Self {
+        Self::without_cleanup(
+            RsxRenderEffectPhase::Insertion,
+            RsxRenderEffectDeps::Always,
+            effect,
+        )
+    }
+
+    pub(super) fn insertion_once(
+        effect: impl Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    ) -> Self {
+        Self::without_cleanup(
+            RsxRenderEffectPhase::Insertion,
+            RsxRenderEffectDeps::Once,
+            effect,
+        )
+    }
+
+    pub(super) fn insertion_with_deps<T, F, D>(deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        let deps = Box::new(move |state: &S| {
+            serde_json::to_value(deps(state)).map_err(|error| {
+                GuiError::invalid_tree(format!(
+                    "RSX insertion effect dependencies did not serialize: {error}"
+                ))
+            })
+        });
+        Self::without_cleanup(
+            RsxRenderEffectPhase::Insertion,
+            RsxRenderEffectDeps::Selector(deps),
+            effect,
+        )
+    }
+
+    pub(super) fn insertion_with_cleanup<C>(
+        effect: impl Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+    ) -> Self
+    where
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        Self::with_parts(
+            RsxRenderEffectPhase::Insertion,
+            RsxRenderEffectDeps::Always,
+            effect,
+        )
+    }
+
+    pub(super) fn insertion_once_with_cleanup<C>(
+        effect: impl Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+    ) -> Self
+    where
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        Self::with_parts(
+            RsxRenderEffectPhase::Insertion,
+            RsxRenderEffectDeps::Once,
+            effect,
+        )
+    }
+
+    pub(super) fn insertion_with_deps_and_cleanup<T, F, D, C>(deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        let deps = Box::new(move |state: &S| {
+            serde_json::to_value(deps(state)).map_err(|error| {
+                GuiError::invalid_tree(format!(
+                    "RSX insertion effect dependencies did not serialize: {error}"
+                ))
+            })
+        });
+        Self::with_parts(
+            RsxRenderEffectPhase::Insertion,
+            RsxRenderEffectDeps::Selector(deps),
+            effect,
+        )
+    }
+
+    pub(super) fn layout(effect: impl Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static) -> Self {
+        Self::without_cleanup(
+            RsxRenderEffectPhase::Layout,
+            RsxRenderEffectDeps::Always,
+            effect,
+        )
+    }
+
+    pub(super) fn layout_once(
+        effect: impl Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    ) -> Self {
+        Self::without_cleanup(
+            RsxRenderEffectPhase::Layout,
+            RsxRenderEffectDeps::Once,
+            effect,
+        )
+    }
+
+    pub(super) fn layout_with_deps<T, F, D>(deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+    {
+        let deps = Box::new(move |state: &S| {
+            serde_json::to_value(deps(state)).map_err(|error| {
+                GuiError::invalid_tree(format!(
+                    "RSX layout effect dependencies did not serialize: {error}"
+                ))
+            })
+        });
+        Self::without_cleanup(
+            RsxRenderEffectPhase::Layout,
+            RsxRenderEffectDeps::Selector(deps),
+            effect,
+        )
+    }
+
+    pub(super) fn layout_with_cleanup<C>(
+        effect: impl Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+    ) -> Self
+    where
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        Self::with_parts(
+            RsxRenderEffectPhase::Layout,
+            RsxRenderEffectDeps::Always,
+            effect,
+        )
+    }
+
+    pub(super) fn layout_once_with_cleanup<C>(
+        effect: impl Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+    ) -> Self
+    where
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        Self::with_parts(
+            RsxRenderEffectPhase::Layout,
+            RsxRenderEffectDeps::Once,
+            effect,
+        )
+    }
+
+    pub(super) fn layout_with_deps_and_cleanup<T, F, D, C>(deps: D, effect: F) -> Self
+    where
+        T: Serialize,
+        F: Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+        D: Fn(&S) -> T + Send + Sync + 'static,
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        let deps = Box::new(move |state: &S| {
+            serde_json::to_value(deps(state)).map_err(|error| {
+                GuiError::invalid_tree(format!(
+                    "RSX layout effect dependencies did not serialize: {error}"
+                ))
+            })
+        });
+        Self::with_parts(
+            RsxRenderEffectPhase::Layout,
+            RsxRenderEffectDeps::Selector(deps),
+            effect,
+        )
+    }
+
+    fn with_parts<C>(
+        phase: RsxRenderEffectPhase,
+        deps: RsxRenderEffectDeps<S>,
+        effect: impl Fn(&mut S) -> GuiResult<C> + Send + Sync + 'static,
+    ) -> Self
+    where
+        C: Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    {
+        Self {
+            phase,
+            deps,
+            effect: Box::new(move |state| {
+                let cleanup = effect(state)?;
+                Ok(Some(Box::new(cleanup)))
+            }),
+        }
+    }
+
+    fn without_cleanup(
+        phase: RsxRenderEffectPhase,
+        deps: RsxRenderEffectDeps<S>,
+        effect: impl Fn(&mut S) -> GuiResult<()> + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            phase,
+            deps,
+            effect: Box::new(move |state| {
+                effect(state)?;
+                Ok(None)
+            }),
+        }
+    }
+
+    fn run(&self, state: &mut S, runtime: &mut RsxRenderEffectRuntimeSlot<S>) -> GuiResult<()> {
+        let next_deps = match &self.deps {
+            RsxRenderEffectDeps::Always => None,
+            RsxRenderEffectDeps::Once => None,
+            RsxRenderEffectDeps::Selector(deps) => Some(deps(state)?),
+        };
+        let should_run = match &self.deps {
+            RsxRenderEffectDeps::Always => true,
+            RsxRenderEffectDeps::Once => !runtime.has_run,
+            RsxRenderEffectDeps::Selector(_) => {
+                !runtime.has_run || runtime.deps.as_ref() != next_deps.as_ref()
+            }
+        };
+
+        if !should_run {
+            return Ok(());
+        }
+
+        if let Some(cleanup) = runtime.cleanup.take() {
+            cleanup(state)?;
+        }
+        runtime.cleanup = (self.effect)(state)?;
+        runtime.has_run = true;
+        runtime.deps = next_deps;
+        Ok(())
+    }
+}
+
+struct RsxRenderEffectRuntimeSlot<S> {
+    has_run: bool,
+    deps: Option<JsonValue>,
+    cleanup: Option<RsxRenderEffectCleanup<S>>,
+}
+
+impl<S> Default for RsxRenderEffectRuntimeSlot<S> {
+    fn default() -> Self {
+        Self {
+            has_run: false,
+            deps: None,
+            cleanup: None,
+        }
+    }
+}
+
+pub(super) struct RsxRenderEffectRuntime<S> {
+    slots: Vec<RsxRenderEffectRuntimeSlot<S>>,
+}
+
+impl<S> RsxRenderEffectRuntime<S> {
+    pub(super) fn new(count: usize) -> Self {
+        Self {
+            slots: std::iter::repeat_with(RsxRenderEffectRuntimeSlot::default)
+                .take(count)
+                .collect(),
+        }
+    }
+
+    pub(super) fn run(&mut self, hooks: &[RsxRenderEffectHook<S>], state: &mut S) -> GuiResult<()> {
+        self.validate_len(hooks)?;
+        for phase in [
+            RsxRenderEffectPhase::Insertion,
+            RsxRenderEffectPhase::Layout,
+            RsxRenderEffectPhase::Passive,
+        ] {
+            for (hook, slot) in hooks.iter().zip(self.slots.iter_mut()) {
+                if hook.phase == phase {
+                    hook.run(state, slot)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn cleanup(
+        &mut self,
+        hooks: &[RsxRenderEffectHook<S>],
+        state: &mut S,
+    ) -> GuiResult<()> {
+        self.validate_len(hooks)?;
+        for phase in [
+            RsxRenderEffectPhase::Passive,
+            RsxRenderEffectPhase::Layout,
+            RsxRenderEffectPhase::Insertion,
+        ] {
+            for (hook, slot) in hooks.iter().zip(self.slots.iter_mut()).rev() {
+                if hook.phase != phase {
+                    continue;
+                }
+                if let Some(cleanup) = slot.cleanup.take() {
+                    cleanup(state)?;
+                }
+                slot.has_run = false;
+                slot.deps = None;
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_len(&self, hooks: &[RsxRenderEffectHook<S>]) -> GuiResult<()> {
+        if self.slots.len() != hooks.len() {
+            return Err(GuiError::invalid_tree(
+                "RSX effect runtime state did not match registered effect hooks",
+            ));
+        }
+        Ok(())
     }
 }
 

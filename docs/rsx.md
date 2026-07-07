@@ -286,6 +286,41 @@ fn counter(cx: &mut ComponentCx<CounterState>) -> RSX {
 let counter = ComponentCx::compile("counter", counter)?;
 ```
 
+Use `cx.use_reactive` when a component wants to expose a whole serializable
+state object and let the RSX view read nested fields naturally. It is a Rust
+hook, not a template directive or JavaScript proxy: reducers still mutate the
+real app state, and the next render reads the updated object.
+
+```rust
+use a3s_gui::{rsx, ComponentCx, RSX};
+use serde::Serialize;
+
+#[derive(Clone, Serialize)]
+struct Profile {
+    name: String,
+    theme: String,
+}
+
+struct AppState {
+    profile: Profile,
+}
+
+fn profile(cx: &mut ComponentCx<AppState>) -> RSX {
+    let profile = cx.use_reactive("profile", |state: &AppState| state.profile.clone());
+    let rename = cx.use_value_reducer("rename", |state: &mut AppState, name: String| {
+        state.profile.name = name;
+        Ok(())
+    });
+
+    rsx!(
+        <Group key="root" data-theme={profile.theme}>
+          <Text key="name" label={profile.name} />
+          <Button key="rename" onPress={rename}>Rename</Button>
+        </Group>
+    )
+}
+```
+
 Semantic hooks return props for the view to spread, mirroring the role of
 interaction hooks without importing a JavaScript runtime model:
 
@@ -381,14 +416,62 @@ let counter = RsxComponent::from_source(
 disk at runtime. `include_str!` remains the recommended production path because
 the RSX source is bundled into the Rust binary.
 
-The hook names are intentionally familiar to React developers, but in A3S they
-live on `ComponentCx` and execute as Rust registrations, not JavaScript:
+The hook surface is React-aligned where the native runtime can preserve the same
+mental model, but the hooks live on `ComponentCx` and execute as Rust
+registrations, not JavaScript. A3S keeps the render tree pure: selectors are
+read-only, while reducers and commit effects mutate Rust state outside
+rendering.
 
+React hook parity is tracked against the React 19.2 reference:
+<https://react.dev/reference/react/hooks>.
+
+| React hook | A3S hook | Status | Notes |
+| --- | --- | --- | --- |
+| `useState` | `use_reactive` for object state, `use_selector` for render selectors, legacy `use_state` | Native variant | State is owned by the Rust app state `S`; reducers mutate it. |
+| `useReducer` | `use_reducer`, `use_value_reducer`, `use_payload_reducer` | Native variant | Native events dispatch stable action ids. |
+| `useContext` | `use_context` | Implemented | Context is read-only render scope data. |
+| `useRef` | `use_ref` | Implemented | Returns a stable `RefHandle<T>` that can be read or mutated without scheduling a render. |
+| `useImperativeHandle` | `use_imperative_handle` | Implemented | Updates a ref handle from a layout effect and clears it during cleanup. |
+| `useEffect` | `use_effect`, `use_effect_once`, `use_effect_with_deps` | Implemented | Passive effects run after a native frame is committed. |
+| `useLayoutEffect` | `use_layout_effect`, plus deps/cleanup variants | Implemented | Runs in the layout phase before passive effects. |
+| `useInsertionEffect` | `use_insertion_effect`, plus deps/cleanup variants | Implemented | Runs before layout and passive effects. |
+| `useMemo` | `use_memo`, `use_derived` | Implemented | Selectors are pure Rust render selectors. |
+| `useCallback` | `use_callback` | Native variant | Registers a stable action callback; it is equivalent to `use_reducer` in this native event model. |
+| `useTransition` | `use_transition_reducer`, `use_transition_effect` | Native variant | These expose before/after Rust state for one action; they are not React concurrent rendering. |
+| `useDeferredValue` | `use_deferred_value` | Implemented | Exposes the previous committed selector value under `derived.<path>` and updates it after commit. |
+| `useId` | `use_id` | Implemented | Produces stable ASCII ids from the frame id and hook call order. |
+| `useDebugValue` | `use_debug_value`, `debug_values(state)` | Implemented | Registers serializable debug selectors for tooling and tests. |
+| `useEffectEvent` | `use_effect_event` | Implemented | Returns a stable effect-event handle whose `call` receives the latest Rust state. |
+| `useSyncExternalStore` | `use_sync_external_store`, `SyncExternalStore` | Implemented | Reads a subscribed external store snapshot during render; store updates notify native subscribers. |
+| `useOptimistic` | `use_optimistic` | Implemented | Exposes an optimistic overlay value until the returned `OptimisticHandle` is cleared. |
+| `useActionState` | `use_action_state` | Implemented | Registers an action and exposes `pending`, `data`, and `error` under `derived.<path>`. |
+| React DOM `useFormStatus` | `use_form_status` | Implemented | Derives form submission status from an `ActionStateHandle`. |
+
+The React `use` API is not listed as a hook in React's Hooks reference. A3S's
+closest native shape is `use_resource`, which exposes resource status and data in
+the render scope without suspending a JavaScript component tree.
+
+`use_selector` is the preferred exact name for exposing a Rust state selector.
+`use_state` remains available for existing code and React familiarity, but it is
+not a tuple-returning local state hook.
+
+The primary hooks are:
+
+- `cx.use_selector(path, selector)` exposes a serializable Rust state selector as
+  `state.<path>` in RSX.
+- `cx.use_selector_result(path, selector)` is the fallible typed form for state
+  selectors that can fail while preparing a render.
 - `cx.use_state(path, selector)` exposes a serializable Rust state selector as
-  `state.<path>` in RSX. Pair it with `cx.use_value_reducer(...)` when a native
-  control needs a setter-like action.
+  `state.<path>` in RSX. This is the compatibility spelling of
+  `cx.use_selector(...)`; pair either spelling with `cx.use_value_reducer(...)`
+  when a native control needs a setter-like action.
 - `cx.use_state_result(path, selector)` is the fallible typed form for state
   selectors that can fail while preparing a render.
+- `cx.use_reactive(path, selector)` exposes a serializable object as
+  `state.<path>` and returns a `ReactiveHandle`; use it for ahooks-style object
+  state ergonomics such as `{profile.name}` or `{profile.settings.theme}`.
+- `cx.use_reactive_result(path, selector)` is the fallible typed form for
+  reactive object selectors.
 - `cx.use_prop(path, selector)` exposes derived component props as
   `props.<path>`.
 - `cx.use_press(selector)` exposes semantic press data as
@@ -440,6 +523,30 @@ live on `ComponentCx` and execute as Rust registrations, not JavaScript:
 - `cx.use_memo(path, selector)` is an authoring alias for `cx.use_derived`;
   selectors are still Rust functions evaluated during render, not JavaScript
   hooks.
+- `cx.use_deferred_value(path, selector)` exposes the previous committed
+  selector value as `derived.<path>` and updates the stored value after commit.
+- `cx.use_sync_external_store(path, store)` exposes the latest
+  `SyncExternalStore` snapshot as `derived.<path>` and lets native owners
+  subscribe to store updates.
+- `cx.use_optimistic(path, selector)` exposes an optimistic overlay as
+  `derived.<path>` and returns an `OptimisticHandle` for setting or clearing
+  that overlay.
+- `cx.use_action_state(path, action, handler)` registers an action and exposes
+  `{ pending, data, error }` as `derived.<path>`.
+- `cx.use_form_status(path, action_state)` exposes `{ pending, action, data,
+  error }` as `derived.<path>` for a form/action state handle.
+- `cx.use_ref(initial)` returns a stable `RefHandle<T>` that can hold mutable
+  component-local data without touching the RSX render scope.
+- `cx.use_imperative_handle(ref, handler)` writes a layout-phase imperative
+  handle into a `RefHandle<Option<T>>` and clears it during cleanup.
+- `cx.use_id()` returns a stable id derived from the component frame id and hook
+  call order.
+- `cx.use_debug_value(label, selector)` registers a serializable debug value
+  available through `RsxComponent::debug_values(state)`.
+- `cx.use_callback(action, handler)` registers a stable native action callback;
+  in A3S this is the React-named alias for the reducer/action hook shape.
+- `cx.use_effect_event(handler)` returns a stable effect-event handle that can be
+  called from effects while reading the latest Rust state.
 - `cx.use_reducer(action, handler)` registers the native action handler that
   mutates Rust state after a native event.
 - `cx.use_value_reducer(action, handler)` decodes the native event value into a
@@ -466,9 +573,24 @@ live on `ComponentCx` and execute as Rust registrations, not JavaScript:
   handles tracked in app state.
 - `cx.use_unmount_result(handler)` is the fallible cleanup form. Router
   transitions return this error before the next page's mount hooks run.
-- `cx.use_effect(handler)` runs deterministic state effects after a reducer
-  succeeds and before the next native render.
-- `cx.use_action_effect(action, handler)` scopes an effect to one action id.
+- `cx.use_effect(handler)` runs a deterministic Rust effect after each committed
+  native frame. Like React, this happens after the rendered frame is produced, so
+  state changes made by the effect are visible on the next render.
+- `cx.use_effect_once(handler)` runs after the first committed frame for that
+  mounted component instance.
+- `cx.use_effect_with_deps(deps, handler)` reruns only when the serializable
+  dependency selector changes.
+- `cx.use_effect_with_cleanup(handler)`,
+  `cx.use_effect_once_with_cleanup(handler)`, and
+  `cx.use_effect_with_deps_and_cleanup(deps, handler)` register cleanup work that
+  runs before the next matching effect and during explicit effect cleanup.
+- `cx.use_layout_effect(...)` has the same once/deps/cleanup variants as
+  `use_effect`, but runs before passive effects in the commit pipeline.
+- `cx.use_insertion_effect(...)` has the same once/deps/cleanup variants as
+  `use_effect`, but runs before layout and passive effects in the commit
+  pipeline.
+- `cx.use_action_effect(action, handler)` scopes a post-reducer effect to one
+  action id.
 - `cx.use_value_effect(action, handler)` and
   `cx.use_payload_effect(action, handler)` decode action values or payloads
   before running typed post-reducer effects.
@@ -478,9 +600,13 @@ used by router internals and older tests:
 
 - `use_memo_result(path, selector)` is the fallible typed alias for
   `use_derived_result`.
-- `use_state_value`, `use_prop_value`, `use_derived_value`,
-  `use_context_value`, and `use_memo_value` are the raw `serde_json::Value`
-  forms for selectors that already produce a structured render value.
+- `use_reactive(path, selector)` is the object-state alias for `use_state`;
+  `use_reactive_result` and `use_reactive_value` provide fallible typed and raw
+  `serde_json::Value` forms.
+- `use_selector_value`, `use_state_value`, `use_prop_value`,
+  `use_derived_value`, `use_context_value`, and `use_memo_value` are the raw
+  `serde_json::Value` forms for selectors that already produce a structured
+  render value.
 - `use_field(path, action, selector, reducer)` registers the state selector and
   the typed value reducer for a controlled field in one hook.
 - `use_transition_reducer(action, reducer, effect)` runs one action reducer with
@@ -546,8 +672,8 @@ of panicking or silently dropping it. In both cases, the flow remains the same:
 
 ```text
 mount hooks -> Rust state -> state/prop/derived/context/resource selectors
--> RSX bindings -> native frame -> native action -> reducer hook -> effect hooks
--> Rust state -> rerender
+-> RSX bindings -> native frame -> render effects -> Rust state
+native action -> reducer hook -> action/transition effects -> rerender
 ```
 
 `context.*` participates in render like state and derived data, but reducers do
@@ -808,12 +934,70 @@ let router = RsxRouter::new(|state: &AppState| state.route.clone())
     .use_routes(|router| router.default_route("home"));
 ```
 
+### Render Effects
+
+Render effects are the React-aligned commit-phase hooks. They run after a native
+frame is committed to the host, not while the RSX tree is being built. This keeps
+rendering pure and makes effect state changes visible on the next render.
+
+The commit pipeline runs insertion effects first, layout effects second, and
+passive effects last. Explicit cleanup runs in the reverse order:
+
+1. `use_insertion_effect`
+2. `use_layout_effect`
+3. `use_effect`
+
+```rust
+let component = RsxComponent::new("counter", source)?
+    .use_state("summary", |state: &CounterState| {
+        format!("Count {} Effects {}", state.count, state.effects)
+    })
+    .use_effect(|state: &mut CounterState| {
+        state.effects += 1;
+        Ok(())
+    });
+```
+
+Use `use_effect_once` for mount-style passive work, and `use_effect_with_deps`
+when the effect should rerun only after a serializable dependency selector
+changes. `use_layout_effect_*` and `use_insertion_effect_*` expose the same
+once/deps/cleanup variants in earlier commit phases:
+
+```rust
+let component = RsxComponent::new("profile", source)?
+    .use_effect_with_deps(
+        |state: &ProfileState| state.user_id.clone(),
+        |state: &mut ProfileState| {
+            state.audit.push(format!("viewed {}", state.user_id));
+            Ok(())
+        },
+    );
+```
+
+Cleanup variants return a cleanup closure. Cleanup runs before the next matching
+effect and when `cleanup_effects()` is called by the runtime owner:
+
+```rust
+let component = RsxComponent::new("profile", source)?
+    .use_effect_with_deps_and_cleanup(
+        |state: &ProfileState| state.user_id.clone(),
+        |state: &mut ProfileState| {
+            let user_id = state.user_id.clone();
+            state.audit.push(format!("subscribe {user_id}"));
+            Ok(move |state: &mut ProfileState| {
+                state.audit.push(format!("unsubscribe {user_id}"));
+                Ok(())
+            })
+        },
+    );
+```
+
 ### Action Effects
 
 Action effects are native, deterministic post-reducer hooks. They are useful for
 state bookkeeping that should happen after one or more actions, such as updating
 history, clearing dependent fields, or maintaining counters. They do not run
-after every render and they do not execute JavaScript.
+after every render and they are not React hooks.
 
 ```rust
 let component = RsxComponent::new("counter", source)?
@@ -821,18 +1005,15 @@ let component = RsxComponent::new("counter", source)?
         state.count += 1;
         Ok(())
     })
-    .use_effect(|state: &mut CounterState, action: &ActionInvocation| {
-        state.last_action = Some(action.action.clone());
-        Ok(())
-    })
     .use_action_effect("increment", |state: &mut CounterState, _action| {
+        state.last_action = Some("increment".to_string());
         state.increment_count += 1;
         Ok(())
     });
 ```
 
-Effects run in registration order after the matching action reducer succeeds.
-If an effect returns an error, the next render is skipped and the error is
+Action effects run in registration order after the matching action reducer
+succeeds. If an effect returns an error, the next render is skipped and the error is
 reported to the runtime caller. Keep rendering data derivation in `use_derived`
 or `use_memo`; use action effects only when state itself must change.
 An action-scoped effect is validated against registered reducer/action hooks, so

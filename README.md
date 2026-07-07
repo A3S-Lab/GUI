@@ -4,11 +4,62 @@ Native GUI runtime for structured A3S UI frames.
 
 A3S GUI renders reducer-driven UI frames into native AppKit, WinUI, GTK4, or a
 headless test host without embedding a browser. The primary authoring model is
-React-inspired Rust function components stored in `.rsx` files and backed by
+React-aligned Rust function components stored in `.rsx` files and backed by
 explicit `ComponentCx` hooks. Hooks own state selection, semantic props, and
 reducers. Views consume hook handles and compose registered RSX components. A3S
 lowers those components into a portable native IR, reconciles keyed updates, and
 routes native events back to stable action ids.
+
+React hook names map to Rust-native behavior: `use_reactive` and `use_selector`
+expose render state, `use_reducer` handles native actions, `use_memo` derives
+render data, `use_context` reads environment data, `use_ref` holds local mutable
+handles, and insertion/layout/passive effect hooks run after a native frame is
+committed. Legacy `use_state` remains as the selector spelling for existing
+code. The React 19.2 hook set is tracked in the RSX docs, including native
+variants for external stores, optimistic overlays, action state, and form
+status.
+
+## React Hook Parity
+
+A3S GUI tracks the stable hook surface from React 19.2 and the React DOM
+`useFormStatus` hook. The mapping is intentionally Rust-native: app state lives
+in the application state `S`, reducers mutate that state through native action
+ids, and effects run against committed native frames. React does not provide a
+`use_reducer_effect` hook; reducer-scoped post-action work is modeled with
+`use_action_effect`, `use_value_effect`, `use_payload_effect`, and transition
+effect variants instead.
+
+| React hook | A3S hook/API | Verification |
+| --- | --- | --- |
+| `useState` | `use_reactive`, `use_selector`, legacy `use_state` | Selector, reactive binding, and calculator tests. |
+| `useReducer` | `use_reducer`, `use_value_reducer`, `use_payload_reducer` | Native action and calculator reducer tests. |
+| `useContext` | `use_context` | Context selector tests. |
+| `useRef` | `use_ref` | `component_cx_react_identity_and_debug_hooks_have_runtime_state`. |
+| `useImperativeHandle` | `use_imperative_handle` | `component_cx_react_identity_and_debug_hooks_have_runtime_state`. |
+| `useEffect` | `use_effect`, `use_effect_once`, `use_effect_with_deps` | `rsx_component_render_effect_phases_run_and_cleanup_in_react_order`. |
+| `useLayoutEffect` | `use_layout_effect` variants | `rsx_component_render_effect_phases_run_and_cleanup_in_react_order`. |
+| `useInsertionEffect` | `use_insertion_effect` variants | `rsx_component_render_effect_phases_run_and_cleanup_in_react_order`. |
+| `useEffectEvent` | `use_effect_event` | `component_cx_use_effect_event_reads_latest_state_from_effects`. |
+| `useMemo` | `use_memo`, `use_derived` | Derived and memo selector tests. |
+| `useCallback` | `use_callback` | `component_cx_react_identity_and_debug_hooks_have_runtime_state`. |
+| `useTransition` | `use_transition_reducer`, `use_transition_effect` | Transition reducer/effect tests. |
+| `useDeferredValue` | `use_deferred_value` | `rsx_component_use_deferred_value_lags_one_committed_render`. |
+| `useId` | `use_id` | `component_cx_react_identity_and_debug_hooks_have_runtime_state`. |
+| `useDebugValue` | `use_debug_value`, `debug_values(state)` | `component_cx_react_identity_and_debug_hooks_have_runtime_state`. |
+| `useSyncExternalStore` | `use_sync_external_store`, `SyncExternalStore` | `component_cx_use_sync_external_store_reads_snapshots_and_notifies_subscribers`. |
+| `useOptimistic` | `use_optimistic` | `component_cx_use_optimistic_exposes_overlay_until_cleared`. |
+| `useActionState` | `use_action_state` | `component_cx_use_action_state_and_form_status_track_action_results`. |
+| React DOM `useFormStatus` | `use_form_status` | `component_cx_use_action_state_and_form_status_track_action_results`. |
+
+React's `use` entry is an API, not part of the built-in hook list. The closest
+native A3S shape is `use_resource`, which exposes resource status and data to
+RSX under a stable path. See `docs/rsx.md` for the full hook contract and
+examples.
+
+For object-shaped state, `cx.use_reactive("profile", ...)` exposes a
+serializable Rust object as a reactive RSX binding, so views can read nested
+fields such as `{profile.name}` while reducers continue to mutate the real Rust
+state.
 
 It is not a WebView runtime. There is no DOM, CSSOM, browser layout engine, or
 JavaScript object graph at the host boundary.
@@ -296,18 +347,27 @@ examples/support/calculator/
 
 ```rust
 use a3s_gui::{ComponentCx, RSX};
+use serde::Serialize;
 
 use super::super::model::CalculatorState;
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CalculatorReactiveState {
+    display: String,
+    history: String,
+    has_error: bool,
+}
+
 #[allow(non_snake_case)]
 pub fn calculator(cx: &mut ComponentCx<CalculatorState>) -> RSX {
-    let display = cx.use_state("display", |state: &CalculatorState| {
-        state.display().to_string()
+    let calculator = cx.use_reactive("calculator", |state: &CalculatorState| {
+        CalculatorReactiveState {
+            display: state.display().to_string(),
+            history: state.history().to_string(),
+            has_error: state.has_error(),
+        }
     });
-    let history = cx.use_state("history", |state: &CalculatorState| {
-        state.history().to_string()
-    });
-    let hasError = cx.use_state("hasError", CalculatorState::has_error);
 
     let pressDigit = cx.use_value_reducer("pressDigit", |state: &mut CalculatorState, digit| {
         state.press_digit(digit)
@@ -351,9 +411,9 @@ pub fn calculator(cx: &mut ComponentCx<CalculatorState>) -> RSX {
     a3s_gui::rsx!(
         <CalculatorShell
             key="calculator"
-            display={display}
-            history={history}
-            hasError={hasError}
+            display={calculator.display}
+            history={calculator.history}
+            hasError={calculator.hasError}
             pressDigit={pressDigit}
             pressOperator={pressOperator}
             pressDecimal={pressDecimal}

@@ -51,15 +51,33 @@ impl NativeRuntimeEventBatch {
     }
 }
 
-#[derive(Debug)]
 pub struct NativeRuntimeApp<H: NativeHost, S, F, R> {
     runtime: GuiRuntime<H>,
     state: S,
     frame_builder: F,
     action_reducer: R,
+    render_effect: Option<Box<dyn FnMut(&mut S) -> GuiResult<()>>>,
+    cleanup_effect: Option<Box<dyn FnMut(&mut S) -> GuiResult<()>>>,
     active_frame_id: Option<String>,
     root: Option<HostNodeId>,
     pending_native_events: VecDeque<NativeEvent>,
+}
+
+impl<H, S, F, R> std::fmt::Debug for NativeRuntimeApp<H, S, F, R>
+where
+    H: NativeHost,
+    S: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NativeRuntimeApp")
+            .field("state", &self.state)
+            .field("active_frame_id", &self.active_frame_id)
+            .field("root", &self.root)
+            .field("pending_native_events", &self.pending_native_events)
+            .field("has_render_effect", &self.render_effect.is_some())
+            .field("has_cleanup_effect", &self.cleanup_effect.is_some())
+            .finish_non_exhaustive()
+    }
 }
 
 impl<H, S, F, R> NativeRuntimeApp<H, S, F, R>
@@ -83,10 +101,28 @@ where
             state,
             frame_builder,
             action_reducer,
+            render_effect: None,
+            cleanup_effect: None,
             active_frame_id: None,
             root: None,
             pending_native_events: VecDeque::new(),
         }
+    }
+
+    pub fn with_render_effect(
+        mut self,
+        effect: impl FnMut(&mut S) -> GuiResult<()> + 'static,
+    ) -> Self {
+        self.render_effect = Some(Box::new(effect));
+        self
+    }
+
+    pub fn with_cleanup_effect(
+        mut self,
+        cleanup: impl FnMut(&mut S) -> GuiResult<()> + 'static,
+    ) -> Self {
+        self.cleanup_effect = Some(Box::new(cleanup));
+        self
     }
 
     pub fn runtime(&self) -> &GuiRuntime<H> {
@@ -126,7 +162,17 @@ where
         let rendered = frame.render_into(&mut self.runtime)?;
         self.active_frame_id = Some(rendered.frame_id.clone());
         self.root = Some(rendered.root);
+        if let Some(effect) = self.render_effect.as_mut() {
+            effect(&mut self.state)?;
+        }
         Ok(rendered)
+    }
+
+    pub fn cleanup_effects(&mut self) -> GuiResult<()> {
+        if let Some(cleanup) = self.cleanup_effect.as_mut() {
+            cleanup(&mut self.state)?;
+        }
+        Ok(())
     }
 
     pub fn into_parts(self) -> (GuiRuntime<H>, S, F, R) {
