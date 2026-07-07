@@ -1,74 +1,70 @@
 pub const UI_BUTTON_BASE_CLASS: &str = "\
-inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm \
-font-medium transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-50 \
-[&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 \
-[&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 \
-focus-visible:ring-[3px] aria-invalid:ring-destructive/20 \
-dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive";
+inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-[18px] py-2 \
+text-sm font-medium leading-none transition-colors disabled:pointer-events-none \
+disabled:bg-surface-strong disabled:text-muted-soft [&_svg]:pointer-events-none \
+[&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none \
+focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-semantic-error";
 
 pub const UI_BUTTON_DEFAULT_VARIANT_CLASS: &str =
-    "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90";
-pub const UI_BUTTON_DEFAULT_SIZE_CLASS: &str = "h-9 px-4 py-2 has-[>svg]:px-3";
+    "border border-primary bg-primary text-on-primary active:bg-primary-active";
+pub const UI_BUTTON_DEFAULT_SIZE_CLASS: &str = "h-10 px-[18px] py-2 has-[>svg]:px-4";
 pub const UI_BUTTON_CLASS: &str = "\
-inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm \
-font-medium transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-50 \
-[&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 \
-[&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 \
-focus-visible:ring-[3px] aria-invalid:ring-destructive/20 \
-dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive bg-primary \
-text-primary-foreground shadow-xs hover:bg-primary/90 h-9 px-4 py-2 has-[>svg]:px-3";
+inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md border \
+border-primary bg-primary px-[18px] py-2 text-sm font-medium leading-none \
+text-on-primary transition-colors disabled:pointer-events-none \
+disabled:bg-surface-strong disabled:text-muted-soft [&_svg]:pointer-events-none \
+[&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none \
+active:bg-primary-active focus-visible:ring-[3px] focus-visible:ring-ring/50 \
+aria-invalid:border-semantic-error has-[>svg]:px-4";
 
 pub const UI_INPUT_CLASS: &str = "\
-h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 \
-text-base shadow-xs transition-[color,box-shadow] outline-none selection:bg-primary \
-selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 \
-file:bg-transparent file:text-sm file:font-medium file:text-foreground \
-placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed \
-disabled:opacity-50 md:text-sm dark:bg-input/30 focus-visible:border-ring \
-focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive \
-aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40";
+h-11 w-full min-w-0 rounded-md border border-hairline-strong bg-canvas px-4 py-3 \
+text-sm text-ink transition-colors outline-none selection:bg-primary \
+selection:text-on-primary file:inline-flex file:h-7 file:border-0 \
+file:bg-transparent file:text-sm file:font-medium file:text-ink \
+placeholder:text-mute disabled:pointer-events-none disabled:cursor-not-allowed \
+disabled:bg-surface-strong disabled:text-muted-soft md:text-sm focus-visible:border-ink \
+focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-semantic-error";
 
 pub const UI_TEXTAREA_CLASS: &str = "\
-border-input placeholder:text-muted-foreground focus-visible:border-ring \
-focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 \
-dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive \
-dark:bg-input/30 flex field-sizing-content min-h-16 w-full rounded-md border \
-bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] \
-outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed \
-disabled:opacity-50 md:text-sm";
+border-hairline-strong placeholder:text-mute focus-visible:border-ink \
+focus-visible:ring-ring/50 aria-invalid:border-semantic-error flex field-sizing-content \
+min-h-20 w-full rounded-md border bg-canvas px-4 py-3 text-sm text-ink \
+transition-colors outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed \
+disabled:bg-surface-strong disabled:text-muted-soft md:text-sm";
 
 pub const UI_CARD_CLASS: &str =
-    "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm";
+    "flex flex-col gap-4 rounded-lg border border-hairline-strong bg-canvas p-6 text-ink";
 pub const UI_CARD_HEADER_CLASS: &str = "\
-@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 \
-has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6";
-pub const UI_CARD_TITLE_CLASS: &str = "leading-none font-semibold";
-pub const UI_CARD_DESCRIPTION_CLASS: &str = "text-muted-foreground text-sm";
-pub const UI_CARD_CONTENT_CLASS: &str = "px-6";
-pub const UI_CARD_FOOTER_CLASS: &str = "flex items-center px-6 [.border-t]:pt-6";
+@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 \
+has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-4";
+pub const UI_CARD_TITLE_CLASS: &str = "text-lg font-semibold leading-7 text-ink";
+pub const UI_CARD_DESCRIPTION_CLASS: &str = "text-sm leading-6 text-body";
+pub const UI_CARD_CONTENT_CLASS: &str = "";
+pub const UI_CARD_FOOTER_CLASS: &str = "flex items-center [.border-t]:pt-4";
 
 pub const UI_BADGE_BASE_CLASS: &str = "\
-inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs \
-font-medium w-fit whitespace-nowrap shrink-0 gap-1 transition-[color,box-shadow] overflow-hidden";
+inline-flex min-h-6 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden \
+whitespace-nowrap rounded-full border border-transparent bg-surface-strong px-2.5 py-1 \
+text-[11px] font-semibold uppercase tracking-[0.08em] text-ink transition-colors";
 pub const UI_BADGE_CLASS: &str = "\
-inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs \
-font-medium w-fit whitespace-nowrap shrink-0 gap-1 transition-[color,box-shadow] \
-overflow-hidden bg-secondary text-secondary-foreground";
+inline-flex min-h-6 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden \
+whitespace-nowrap rounded-full border border-transparent bg-surface-strong px-2.5 py-1 \
+text-[11px] font-semibold uppercase tracking-[0.08em] text-ink transition-colors";
 
 pub const UI_SEPARATOR_CLASS: &str = "\
-bg-border shrink-0 data-[orientation=horizontal]:h-px \
+bg-hairline shrink-0 data-[orientation=horizontal]:h-px \
 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full \
 data-[orientation=vertical]:w-px";
 
 pub const UI_TABS_CLASS: &str = "flex flex-col gap-2";
 pub const UI_TABS_LIST_CLASS: &str = "\
-bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center \
-rounded-lg p-[3px]";
+inline-flex h-10 w-fit items-center justify-center rounded-md border border-hairline \
+bg-surface-strong p-1 text-body";
 pub const UI_TABS_TRIGGER_CLASS: &str = "\
-data-[selected=true]:bg-background data-[selected=true]:text-foreground \
-focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring \
-inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 \
-rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap \
-transition-[color,box-shadow] focus-visible:ring-[3px] disabled:pointer-events-none \
-disabled:opacity-50 data-[selected=true]:shadow-sm";
+data-[selected=true]:bg-canvas data-[selected=true]:text-ink focus-visible:ring-ring/50 \
+focus-visible:outline-ring inline-flex h-8 flex-1 items-center justify-center gap-1.5 \
+whitespace-nowrap rounded-sm border border-transparent px-3 py-1 text-sm font-medium \
+transition-colors focus-visible:ring-[3px] disabled:pointer-events-none \
+disabled:text-muted-soft";
 pub const UI_TABS_CONTENT_CLASS: &str = "flex-1 outline-none";

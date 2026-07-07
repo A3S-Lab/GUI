@@ -20,8 +20,23 @@ mod component_cx;
 mod hooks;
 
 pub use component_cx::{
-    ActionHandle, ButtonHook, ComponentCx, ContextHandle, DerivedHandle, PressHook, PropHandle,
-    ResourceHandle, StateHandle, RSX,
+    ActionHandle, AutocompleteHook, BreadcrumbsHook, ButtonHook, CalendarCellHook, CalendarHook,
+    CheckboxGroupHook, ClipboardHook, CollectionHook, CollectionItemHook, CollectionSectionHook,
+    ColorAreaHook, ColorFieldHook, ColorPickerHook, ColorSliderHook, ColorSwatchHook,
+    ColorSwatchPickerHook, ColorSwatchPickerItemHook, ColorThumbHook, ColorWheelHook,
+    ComboBoxDisplayHook, ComboBoxHook, ComponentCx, ContextHandle, DateFieldHook, DateInputHook,
+    DatePickerHook, DateRangePickerHook, DateSegmentHook, DerivedHandle, DisclosureGroupHook,
+    DisclosureHook, DragHook, DropHook, DropIndicatorHook, DropZoneHook, FieldErrorHook, FieldHook,
+    FileTriggerHook, FocusRingHook, FocusScopeHook, FocusableHook, FormHook, GridListHeaderHook,
+    GroupHook, HeadingHook, HoverHook, I18nHook, KeyboardHook, KeyboardInteractionHook, LabelHook,
+    LegendHook, LinkHook, ListBoxHeaderHook, LoadMoreItemHook, LongPressHook, MenuHook,
+    MenuItemHook, MoveHook, NumberFieldHook, OverlayHook, PressHook, PropHandle, RadioGroupHook,
+    RadioHook, RangeCalendarHook, RangeHook, ResourceHandle, SelectDisplayHook, SelectHook,
+    SelectionIndicatorHook, SeparatorHook, SliderFillHook, SliderOutputHook, SliderTrackHook,
+    StateHandle, TabHook, TabListHook, TabPanelHook, TableCaptionHook, TableCellHook,
+    TableColumnHook, TableHook, TableRowHook, TableSectionHook, TextFieldHook, TextHook,
+    TimeFieldHook, ToggleButtonGroupHook, ToggleButtonHook, ToggleHook, ToolbarHook,
+    TreeHeaderHook, TreeHook, TreeItemHook, VirtualizerHook, VisuallyHiddenHook, RSX,
 };
 
 use hooks::{
@@ -2957,8 +2972,14 @@ fn canonical_component_prop_name(prop: impl Into<String>) -> String {
         "onfocuschange" => "onFocusChange".to_string(),
         "ontoggle" => "onToggle".to_string(),
         "onexpandedchange" => "onExpandedChange".to_string(),
+        "onhoverstart" => "onHoverStart".to_string(),
+        "onhoverend" => "onHoverEnd".to_string(),
+        "onhoverchange" => "onHoverChange".to_string(),
         "onkeydown" => "onKeyDown".to_string(),
         "onkeyup" => "onKeyUp".to_string(),
+        "oncopy" => "onCopy".to_string(),
+        "oncut" => "onCut".to_string(),
+        "onpaste" => "onPaste".to_string(),
         _ => prop,
     }
 }

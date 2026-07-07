@@ -594,6 +594,8 @@ fn expected_native_role(component: SemanticComponent) -> NativeRole {
         SemanticComponent::Select => NativeRole::Select,
         SemanticComponent::ListBox => NativeRole::ListBox,
         SemanticComponent::ListBoxItem => NativeRole::ListBoxItem,
+        SemanticComponent::Tree => NativeRole::Tree,
+        SemanticComponent::TreeItem => NativeRole::TreeItem,
         SemanticComponent::Dialog => NativeRole::Dialog,
         SemanticComponent::Popover => NativeRole::Popover,
         SemanticComponent::Tabs => NativeRole::Tabs,

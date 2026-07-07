@@ -156,6 +156,8 @@ pub enum NativeRole {
     ComboBox,
     ListBox,
     ListBoxItem,
+    Tree,
+    TreeItem,
     Dialog,
     Popover,
     Tabs,

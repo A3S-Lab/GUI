@@ -105,7 +105,7 @@ fn parses_tailwind_utilities_before_inline_style_overrides() {
     assert_eq!(style.padding.right, Some(StyleLength::Points(8.0)));
     assert_eq!(style.margin.left, Some(StyleLength::Auto));
     assert_eq!(style.margin.right, Some(StyleLength::Auto));
-    assert_eq!(style.border_radius, Some(StyleLength::Points(8.0)));
+    assert_eq!(style.border_radius, Some(StyleLength::Points(12.0)));
     assert_eq!(style.opacity, Some(0.5));
     assert_eq!(
         style.declarations.get("min-width").map(String::as_str),

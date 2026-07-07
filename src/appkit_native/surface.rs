@@ -111,6 +111,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 popover.setAnimates(true);
                 popover.setContentSize(size);
                 popover.setContentViewController(Some(&content_view_controller));
+                self.popover_visible.insert(id, config.visible);
                 AppKitOsWidget::Popover(AppKitPopoverState {
                     popover,
                     content_view_controller,
@@ -154,8 +155,23 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 AppKitOsWidget::MenuItem(menu_item)
             }
             AppKitWidgetKind::View => {
-                let view = flipped_view(self.mtm, config_rect(&config, 320.0, 240.0));
-                AppKitOsWidget::View(view)
+                if let Some(orientation) = table_stack_orientation(config.role) {
+                    let stack_view =
+                        flipped_stack_view(self.mtm, config_rect(&config, 320.0, 44.0));
+                    apply_stack_view_layout(&stack_view, &config.portable_style, Some(orientation));
+                    if let Some((min_width, min_height)) = table_stack_minimum_size(config.role) {
+                        self.apply_native_minimum_size(
+                            id,
+                            stack_view.as_super(),
+                            min_width,
+                            min_height,
+                        );
+                    }
+                    AppKitOsWidget::StackView(stack_view)
+                } else {
+                    let view = flipped_view(self.mtm, config_rect(&config, 320.0, 240.0));
+                    AppKitOsWidget::View(view)
+                }
             }
             AppKitWidgetKind::Button => {
                 let title = ns_string(config.label.as_deref().unwrap_or(""));
@@ -306,16 +322,18 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             AppKitWidgetKind::ListView => {
                 let rect = config_rect(&config, 240.0, 160.0);
                 let scroll_view = NSScrollView::initWithFrame(NSScrollView::alloc(self.mtm), rect);
-                scroll_view.setBorderType(NSBorderType::BezelBorder);
+                scroll_view.setBorderType(NSBorderType::NoBorder);
                 scroll_view.setHasVerticalScroller(true);
+                scroll_view.setHasHorizontalScroller(false);
                 scroll_view.setAutohidesScrollers(true);
 
                 let stack_view =
                     flipped_stack_view(self.mtm, NSRect::new(NSPoint::new(0.0, 0.0), rect.size));
-                stack_view.setDistribution(NSStackViewDistribution::Fill);
-                stack_view.setOrientation(appkit_stack_orientation(
-                    config.orientation.unwrap_or(Orientation::Vertical),
-                ));
+                apply_stack_view_layout(
+                    &stack_view,
+                    &config.portable_style,
+                    Some(Orientation::Vertical),
+                );
                 configure_scroll_document(&scroll_view, &stack_view);
 
                 self.list_views.insert(
@@ -323,6 +341,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     AppKitListViewState {
                         stack_view,
                         rows: Rc::new(RefCell::new(Vec::new())),
+                        style: config.portable_style.clone(),
                     },
                 );
                 self.list_children.entry(id).or_default();
@@ -734,9 +753,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                     view.setHidden(!*value);
                 }
                 if let AppKitOsWidget::Popover(state) = &handle.widget {
-                    if !*value {
-                        state.popover.close();
-                    }
+                    self.set_popover_visible(id, state, *value);
                 }
                 if let AppKitOsWidget::MenuItem(menu_item) = &handle.widget {
                     menu_item.setHidden(!*value);
@@ -801,6 +818,15 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 }
                 if let AppKitOsWidget::ScrollView(state) = &handle.widget {
                     apply_scroll_view_layout(state, style);
+                }
+                if let AppKitOsWidget::ComboBoxItem(item) = &handle.widget {
+                    self.update_option_item_style(id, item, style.clone())?;
+                }
+                if let AppKitOsWidget::ListView(scroll_view) = &handle.widget {
+                    if let Some(state) = self.list_views.get_mut(&id) {
+                        state.style = style.clone();
+                        apply_list_view_layout(scroll_view, state, style);
+                    }
                 }
             }
             NativeWidgetSetter::SetChecked(value) => match &handle.widget {
@@ -993,6 +1019,16 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                         .stack_view
                         .setOrientation(appkit_stack_orientation(*orientation));
                 }
+                if let (AppKitOsWidget::ListView(scroll_view), Some(orientation)) =
+                    (&handle.widget, value)
+                {
+                    if let Some(state) = self.list_views.get(&id) {
+                        state
+                            .stack_view
+                            .setOrientation(appkit_stack_orientation(*orientation));
+                        apply_list_view_layout(scroll_view, state, &state.style);
+                    }
+                }
             }
             NativeWidgetSetter::SetAutocomplete(_)
             | NativeWidgetSetter::SetInputMode(_)
@@ -1100,6 +1136,16 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             self.show_panel_if_marked_visible(child, panel);
             return Ok(());
         }
+        if let AppKitOsWidget::Popover(state) = &child_handle.widget {
+            if parent_handle.widget.as_view().is_some() {
+                self.popover_anchors.insert(child, parent);
+                self.show_popover_if_marked_visible(child, state);
+                return Ok(());
+            }
+            return Err(GuiError::host(
+                "AppKit popover insertion requires an anchor NSView parent",
+            ));
+        }
         if matches!(child_handle.widget, AppKitOsWidget::Menu(_))
             && !matches!(parent_handle.widget, AppKitOsWidget::MenuItem(_))
         {
@@ -1181,7 +1227,10 @@ impl NativeWidgetSurface for AppKitNativeSurface {
 
         if let AppKitOsWidget::TabViewItem(tab_item) = &parent_handle.widget {
             let child = child_handle.widget.as_view().ok_or_else(|| {
-                GuiError::host("AppKit tab item insertion requires an NSView child")
+                GuiError::host(format!(
+                    "AppKit tab item insertion requires an NSView child: parent={:?}({parent:?}) child={:?}({child:?})",
+                    parent_handle.kind, child_handle.kind
+                ))
             })?;
             tab_item.setView(Some(child));
             self.focus_pending_auto_focus();
@@ -1206,7 +1255,10 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         }
 
         let child = child_handle.widget.as_view().ok_or_else(|| {
-            GuiError::host("AppKit native child insertion requires an NSView child")
+            GuiError::host(format!(
+                "AppKit native child insertion requires an NSView child: parent={:?}({parent:?}) child={:?}({child:?})",
+                parent_handle.kind, child_handle.kind
+            ))
         })?;
         match &parent_handle.widget {
             AppKitOsWidget::Window(window) => install_window_content_view(window, child),
@@ -1224,6 +1276,15 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 );
                 scroll_view_to_top(state);
             }
+            AppKitOsWidget::ListView(scroll_view) => {
+                if let Some(state) = self.list_views.get(&parent) {
+                    state.stack_view.insertArrangedSubview_atIndex(
+                        child,
+                        stack_arranged_insert_index(&state.stack_view, index)?,
+                    );
+                    apply_list_view_layout(scroll_view, state, &state.style);
+                }
+            }
             AppKitOsWidget::Button(button) => button.as_super().as_super().addSubview(child),
             AppKitOsWidget::Switch(switch) => switch.as_super().as_super().addSubview(child),
             AppKitOsWidget::Slider(slider) => slider.as_super().as_super().addSubview(child),
@@ -1232,7 +1293,6 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             AppKitOsWidget::Box(box_) => box_.as_super().addSubview(child),
             AppKitOsWidget::ComboBox(_)
             | AppKitOsWidget::ComboBoxItem(_)
-            | AppKitOsWidget::ListView(_)
             | AppKitOsWidget::Menu(_)
             | AppKitOsWidget::MenuItem(_)
             | AppKitOsWidget::TabViewItem(_) => {}
@@ -1272,6 +1332,9 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         self.clear_native_size_constraints(id);
         self.closed_windows.borrow_mut().remove(&id);
         self.dialog_visible.remove(&id);
+        self.popover_visible.remove(&id);
+        self.popover_anchors.remove(&id);
+        self.popover_anchors.retain(|_, anchor| *anchor != id);
         if let AppKitOsWidget::Window(window) = &handle.widget {
             window.setDelegate(None);
             self.window_delegates.remove(&id);
@@ -1361,6 +1424,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
             }
         }
         self.present_visible_panels();
+        self.present_visible_popovers();
         if root_changed {
             activate_current_application();
         }
@@ -1406,6 +1470,59 @@ impl AppKitNativeSurface {
 
         for (id, panel) in panels {
             self.show_panel_if_marked_visible(id, &panel);
+        }
+    }
+
+    fn set_popover_visible(&mut self, id: HostNodeId, state: &AppKitPopoverState, visible: bool) {
+        self.popover_visible.insert(id, visible);
+        if visible {
+            self.show_popover_if_marked_visible(id, state);
+        } else {
+            state.popover.close();
+        }
+    }
+
+    fn show_popover_if_marked_visible(&mut self, id: HostNodeId, state: &AppKitPopoverState) {
+        if self.root.is_none() || !self.popover_visible.get(&id).copied().unwrap_or(false) {
+            return;
+        }
+
+        let Some(anchor_id) = self.popover_anchors.get(&id).copied() else {
+            return;
+        };
+        let Some(anchor_widget) = self.widgets.get(&anchor_id).cloned() else {
+            return;
+        };
+        let Some(anchor_view) = anchor_widget.as_view() else {
+            return;
+        };
+        if anchor_view.window().is_none() || anchor_view.isHiddenOrHasHiddenAncestor() {
+            return;
+        }
+
+        state.popover.showRelativeToRect_ofView_preferredEdge(
+            anchor_view.bounds(),
+            anchor_view,
+            NSRectEdge::MaxY,
+        );
+    }
+
+    fn present_visible_popovers(&mut self) {
+        let popovers = self
+            .widgets
+            .iter()
+            .filter_map(|(id, widget)| match widget {
+                AppKitOsWidget::Popover(state)
+                    if self.popover_visible.get(id).copied().unwrap_or(false) =>
+                {
+                    Some((*id, state.clone()))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        for (id, state) in popovers {
+            self.show_popover_if_marked_visible(id, &state);
         }
     }
 }

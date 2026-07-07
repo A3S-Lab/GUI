@@ -963,7 +963,7 @@ mod tests {
         let frame = UiFrame::from_rsx_source(
             "rsx-native",
             r##"
-            <Toolbar key="root" orientation="vertical" className="min-w-[920px] gap-2 bg-[#fafafa] p-3">
+            <Toolbar key="root" orientation="vertical" className="min-w-[920px] gap-2 bg-[#efefef] p-3">
               <Button key="save" onPress={saveDocument} className="rounded-md border border-[#ebebeb]">
                 Save
               </Button>
@@ -982,7 +982,7 @@ mod tests {
         assert_eq!(root.blueprint.widget_class, "gtk::Box(toolbar)");
         assert_eq!(
             root.blueprint.class_name.as_deref(),
-            Some("min-w-[920px] gap-2 bg-[#fafafa] p-3")
+            Some("min-w-[920px] gap-2 bg-[#efefef] p-3")
         );
         assert!(root.blueprint.portable_style.min_width.is_some());
         assert!(root.blueprint.portable_style.background_color.is_some());

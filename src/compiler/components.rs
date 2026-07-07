@@ -109,6 +109,8 @@ pub(super) fn component_from_rsx_tag(
         "SelectValue" => Ok(SemanticComponent::SelectValue),
         "ListBox" | "ul" | "ol" | "datalist" | "dir" => Ok(SemanticComponent::ListBox),
         "ListBoxItem" | "option" | "li" => Ok(SemanticComponent::ListBoxItem),
+        "Tree" => Ok(SemanticComponent::Tree),
+        "TreeItem" => Ok(SemanticComponent::TreeItem),
         "Dialog" | "dialog" => Ok(SemanticComponent::Dialog),
         "Popover" => Ok(SemanticComponent::Popover),
         "Tabs" => Ok(SemanticComponent::Tabs),

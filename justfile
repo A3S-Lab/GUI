@@ -366,3 +366,45 @@ controls-native:
             exit 1
             ;;
     esac
+
+# Run the native calculator app for this operating system
+calculator:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    case "$(uname -s)" in
+        Darwin)
+            cargo run --features appkit-native --example appkit_calculator
+            ;;
+        Linux)
+            cargo run --features gtk4-native --example gtk4_calculator
+            ;;
+        MINGW*|MSYS*|CYGWIN*|Windows_NT)
+            cargo run --features winui-native --example winui_calculator
+            ;;
+        *)
+            echo "unsupported operating system for native GUI calculator: $(uname -s)" >&2
+            exit 1
+            ;;
+    esac
+
+# Run the native semantic component playground for this operating system
+playground:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    case "$(uname -s)" in
+        Darwin)
+            cargo run --features appkit-native --example appkit_component_playground
+            ;;
+        Linux)
+            cargo run --features gtk4-native --example gtk4_component_playground
+            ;;
+        MINGW*|MSYS*|CYGWIN*|Windows_NT)
+            cargo run --features winui-native --example winui_component_playground
+            ;;
+        *)
+            echo "unsupported operating system for native GUI component playground: $(uname -s)" >&2
+            exit 1
+            ;;
+    esac

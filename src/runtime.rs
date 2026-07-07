@@ -3426,7 +3426,7 @@ mod tests {
 
     #[test]
     fn runtime_accessibility_tree_projects_single_listbox_child_selection_to_siblings() {
-        let tree = NativeElement::new("project", NativeRole::ListBox)
+        let list_box = NativeElement::new("project", NativeRole::ListBox)
             .with_props(NativeProps::new().label("Project"))
             .child(
                 NativeElement::new("a3s", NativeRole::ListBoxItem)
@@ -3439,7 +3439,7 @@ mod tests {
         let host = PlatformPlanningHost::new(Gtk4Adapter);
         let mut runtime = GuiRuntime::new(host);
 
-        let root_id = runtime.render_native(&tree).unwrap();
+        let root_id = runtime.render_native(&list_box).unwrap();
         let other = runtime.host().node(root_id).unwrap().children[1];
         runtime
             .handle_native_event(crate::event::NativeEvent::new(
@@ -3457,7 +3457,7 @@ mod tests {
 
     #[test]
     fn runtime_accessibility_tree_preserves_multiple_listbox_child_selections() {
-        let tree = NativeElement::new("project", NativeRole::ListBox)
+        let list_box = NativeElement::new("project", NativeRole::ListBox)
             .with_props(NativeProps::new().label("Project").multiple(true))
             .child(
                 NativeElement::new("a3s", NativeRole::ListBoxItem)
@@ -3470,7 +3470,7 @@ mod tests {
         let host = PlatformPlanningHost::new(Gtk4Adapter);
         let mut runtime = GuiRuntime::new(host);
 
-        let root_id = runtime.render_native(&tree).unwrap();
+        let root_id = runtime.render_native(&list_box).unwrap();
         let other = runtime.host().node(root_id).unwrap().children[1];
         runtime
             .handle_native_event(crate::event::NativeEvent::new(

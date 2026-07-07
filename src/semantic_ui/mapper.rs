@@ -367,6 +367,12 @@ impl SemanticMapper {
                 NativeRole::ListBoxItem,
                 self.best_label(element)?,
             )),
+            SemanticComponent::Tree => self.map_container(element, NativeRole::Tree),
+            SemanticComponent::TreeItem => Ok(simple_leaf(
+                element,
+                NativeRole::TreeItem,
+                self.best_label(element)?,
+            )),
             SemanticComponent::Dialog => self.map_container_with_label(element, NativeRole::Dialog),
             SemanticComponent::Popover => self.map_container(element, NativeRole::Popover),
             SemanticComponent::Tabs => self.map_tabs(element),
@@ -423,7 +429,10 @@ impl SemanticMapper {
             .children
             .iter()
             .map(|child| self.map_element(child))
-            .collect::<GuiResult<Vec<_>>>()?;
+            .collect::<GuiResult<Vec<_>>>()?
+            .into_iter()
+            .filter(|child| !empty_native_text(child))
+            .collect();
         Ok(native)
     }
 
@@ -465,6 +474,16 @@ impl SemanticMapper {
         }
         if props.placeholder.is_none() {
             props.placeholder = input.and_then(|child| child.props.placeholder.clone());
+        }
+        if props.input_type.is_none() {
+            props.input_type = input.and_then(|child| child.props.input_type.clone());
+        }
+        if let Some(input_type) = props.input_type.clone() {
+            props
+                .web
+                .attributes
+                .entry("type".to_string())
+                .or_insert(input_type);
         }
         if let Some(input) = input {
             if props.action.is_none() {
@@ -682,6 +701,14 @@ fn radio_leaf(element: &SemanticElement, label: Option<String>) -> NativeElement
         props.checked = Some(true);
     }
     NativeElement::new(element.key.clone(), NativeRole::Radio).with_props(props)
+}
+
+fn empty_native_text(element: &NativeElement) -> bool {
+    element.role == NativeRole::Text
+        && element.props.label.as_deref().is_none_or(str::is_empty)
+        && element.props.value.as_deref().is_none_or(str::is_empty)
+        && element.props.html_form_association == Default::default()
+        && element.children.is_empty()
 }
 
 fn non_empty_clone(value: Option<&String>) -> Option<String> {

@@ -22,6 +22,14 @@ name = "appkit_controls"
 required-features = ["appkit-native"]
 
 [[example]]
+name = "appkit_calculator"
+required-features = ["appkit-native"]
+
+[[example]]
+name = "appkit_component_playground"
+required-features = ["appkit-native"]
+
+[[example]]
 name = "appkit_dogfood"
 required-features = ["appkit-native"]
 
@@ -34,6 +42,14 @@ name = "gtk4_controls"
 required-features = ["gtk4-native"]
 
 [[example]]
+name = "gtk4_calculator"
+required-features = ["gtk4-native"]
+
+[[example]]
+name = "gtk4_component_playground"
+required-features = ["gtk4-native"]
+
+[[example]]
 name = "gtk4_dogfood"
 required-features = ["gtk4-native"]
 
@@ -43,6 +59,14 @@ required-features = ["winui-native"]
 
 [[example]]
 name = "winui_controls"
+required-features = ["winui-native"]
+
+[[example]]
+name = "winui_calculator"
+required-features = ["winui-native"]
+
+[[example]]
+name = "winui_component_playground"
 required-features = ["winui-native"]
 
 [[example]]

@@ -20,6 +20,9 @@ pub enum NativeEventKind {
     Blur,
     KeyDown,
     KeyUp,
+    Copy,
+    Cut,
+    Paste,
     Close,
 }
 
@@ -245,6 +248,9 @@ fn action_for_event<'a>(
         NativeEventKind::KeyDown => non_empty_action(events.get("onKeyDown"))
             .or_else(|| activation_key_action(blueprint, event)),
         NativeEventKind::KeyUp => non_empty_action(events.get("onKeyUp")),
+        NativeEventKind::Copy => non_empty_action(events.get("onCopy")),
+        NativeEventKind::Cut => non_empty_action(events.get("onCut")),
+        NativeEventKind::Paste => non_empty_action(events.get("onPaste")),
         NativeEventKind::Close => non_empty_action(events.get("onClose"))
             .or_else(|| non_empty_action(events.get("onCloseRequest"))),
     }
@@ -651,6 +657,46 @@ mod tests {
         assert_eq!(key_up.action, "handleKeyUp");
         assert_eq!(key_up.event, NativeEventKind::KeyUp);
         assert_eq!(key_up.value.as_deref(), Some("Enter"));
+    }
+
+    #[test]
+    fn routes_native_clipboard_events_to_clipboard_actions() {
+        let element = NativeElement::new("clipboard", NativeRole::TextField).with_props(
+            NativeProps::new().web(
+                WebProps::new()
+                    .on_copy("copySelection")
+                    .on_cut("cutSelection")
+                    .on_paste("pasteSelection"),
+            ),
+        );
+        let blueprint = AppKitAdapter.blueprint(&element);
+
+        let copy = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(24), NativeEventKind::Copy),
+            )
+            .unwrap();
+        let cut = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(24), NativeEventKind::Cut),
+            )
+            .unwrap();
+        let paste = EventRouter::new()
+            .route(
+                &blueprint,
+                &NativeEvent::new(HostNodeId::new(24), NativeEventKind::Paste).value("Hello world"),
+            )
+            .unwrap();
+
+        assert_eq!(copy.action, "copySelection");
+        assert_eq!(copy.event, NativeEventKind::Copy);
+        assert_eq!(cut.action, "cutSelection");
+        assert_eq!(cut.event, NativeEventKind::Cut);
+        assert_eq!(paste.action, "pasteSelection");
+        assert_eq!(paste.event, NativeEventKind::Paste);
+        assert_eq!(paste.value.as_deref(), Some("Hello world"));
     }
 
     #[test]

@@ -1262,12 +1262,56 @@ fn apply_attribute(props: &mut CompiledProps, name: &str, value: AttributeValue)
             };
         }
         "isDisabled" | "disabled" => props.is_disabled = value.as_bool().unwrap_or(false),
+        "aria-disabled" => {
+            props.is_disabled = value.as_bool().unwrap_or(false);
+            props
+                .attributes
+                .insert(name.to_string(), value.into_string());
+        }
         "isRequired" | "required" => props.is_required = value.as_bool().unwrap_or(false),
+        "aria-required" => {
+            props.is_required = value.as_bool().unwrap_or(false);
+            props
+                .attributes
+                .insert(name.to_string(), value.into_string());
+        }
         "isInvalid" | "invalid" => props.is_invalid = value.as_bool().unwrap_or(false),
-        "isReadOnly" | "readOnly" => props.is_read_only = value.as_bool().unwrap_or(false),
+        "aria-invalid" => {
+            props.is_invalid = value.as_bool().unwrap_or(false);
+            props
+                .attributes
+                .insert(name.to_string(), value.into_string());
+        }
+        "isReadOnly" | "readOnly" | "readonly" => {
+            props.is_read_only = value.as_bool().unwrap_or(false)
+        }
+        "aria-readonly" => {
+            props.is_read_only = value.as_bool().unwrap_or(false);
+            props
+                .attributes
+                .insert(name.to_string(), value.into_string());
+        }
         "isSelected" | "selected" => props.is_selected = value.as_bool().unwrap_or(false),
+        "aria-selected" => {
+            props.is_selected = value.as_bool().unwrap_or(false);
+            props
+                .attributes
+                .insert(name.to_string(), value.into_string());
+        }
         "isChecked" | "checked" => props.is_checked = value.as_bool(),
+        "aria-checked" => {
+            props.is_checked = value.as_bool();
+            props
+                .attributes
+                .insert(name.to_string(), value.into_string());
+        }
         "isExpanded" | "expanded" => props.is_expanded = value.as_bool(),
+        "aria-expanded" => {
+            props.is_expanded = value.as_bool();
+            props
+                .attributes
+                .insert(name.to_string(), value.into_string());
+        }
         "min" | "minValue" => props.min_value = value.as_number(),
         "max" | "maxValue" => props.max_value = value.as_number(),
         "step" | "stepValue" => props.step_value = value.as_number(),
@@ -1303,13 +1347,13 @@ fn canonical_prop_name(name: &str) -> String {
     match name {
         "class" | "className" => "className".to_string(),
         "aria-label" | "ariaLabel" => "aria-label".to_string(),
-        "disabled" | "isDisabled" => "isDisabled".to_string(),
-        "required" | "isRequired" => "isRequired".to_string(),
-        "invalid" | "isInvalid" => "isInvalid".to_string(),
-        "readOnly" | "readonly" | "isReadOnly" => "isReadOnly".to_string(),
-        "selected" | "isSelected" => "isSelected".to_string(),
-        "checked" | "isChecked" => "isChecked".to_string(),
-        "expanded" | "isExpanded" => "isExpanded".to_string(),
+        "disabled" | "aria-disabled" | "isDisabled" => "isDisabled".to_string(),
+        "required" | "aria-required" | "isRequired" => "isRequired".to_string(),
+        "invalid" | "aria-invalid" | "isInvalid" => "isInvalid".to_string(),
+        "readOnly" | "readonly" | "aria-readonly" | "isReadOnly" => "isReadOnly".to_string(),
+        "selected" | "aria-selected" | "isSelected" => "isSelected".to_string(),
+        "checked" | "aria-checked" | "isChecked" => "isChecked".to_string(),
+        "expanded" | "aria-expanded" | "isExpanded" => "isExpanded".to_string(),
         "min" | "minValue" => "minValue".to_string(),
         "max" | "maxValue" => "maxValue".to_string(),
         "step" | "stepValue" => "stepValue".to_string(),
@@ -1331,8 +1375,14 @@ fn normalize_event_name(name: &str) -> String {
         "onfocuschange" => "onFocusChange",
         "ontoggle" => "onToggle",
         "onexpandedchange" => "onExpandedChange",
+        "onhoverstart" => "onHoverStart",
+        "onhoverend" => "onHoverEnd",
+        "onhoverchange" => "onHoverChange",
         "onkeydown" => "onKeyDown",
         "onkeyup" => "onKeyUp",
+        "oncopy" => "onCopy",
+        "oncut" => "onCut",
+        "onpaste" => "onPaste",
         _ => name,
     }
     .to_string()
@@ -1396,7 +1446,7 @@ mod tests {
     fn parses_rsx_elements_with_tailwind_class_names() {
         let root = parse_rsx(
             r##"
-            <Toolbar key="root" orientation="vertical" className="flex gap-2 bg-[#fafafa]">
+            <Toolbar key="root" orientation="vertical" className="flex gap-2 bg-[#efefef]">
               <Button key="save" onPress={saveDocument} className="rounded-md border border-[#ebebeb]">
                 Save
               </Button>
@@ -1417,7 +1467,7 @@ mod tests {
 
         assert_eq!(tag, "Toolbar");
         assert_eq!(props.orientation, Some(CompiledOrientation::Vertical));
-        assert_eq!(props.class_name.as_deref(), Some("flex gap-2 bg-[#fafafa]"));
+        assert_eq!(props.class_name.as_deref(), Some("flex gap-2 bg-[#efefef]"));
         let CompiledRsxNode::Element {
             props, children, ..
         } = &children[0]
@@ -1546,7 +1596,7 @@ mod tests {
     fn parses_web_class_alias_for_static_rsx() {
         let root = parse_rsx(
             r##"
-            <div key="root" class="min-w-[920px] bg-[#fafafa]">
+            <div key="root" class="min-w-[920px] bg-[#efefef]">
               <button key="save" onclick={saveDocument}>Save</button>
             </div>
             "##,
@@ -1566,7 +1616,7 @@ mod tests {
         assert_eq!(tag, "div");
         assert_eq!(
             props.class_name.as_deref(),
-            Some("min-w-[920px] bg-[#fafafa]")
+            Some("min-w-[920px] bg-[#efefef]")
         );
 
         let CompiledRsxNode::Element { props, .. } = &children[0] else {

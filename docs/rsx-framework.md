@@ -42,8 +42,14 @@ The app model is the Rust equivalent of React's one-way data flow:
 - `RsxComponent` owns the compiled template and registered hooks used by the
   runtime.
 - `cx.use_state`, `cx.use_reducer`, `cx.use_press`, `cx.use_button`,
-  `cx.use_effect`, `cx.use_memo`, `cx.use_context`, and `cx.use_resource`
-  provide the hook vocabulary in explicit Rust context form.
+  `cx.use_link`,
+  `cx.use_breadcrumbs`, `cx.use_checkbox_group`, `cx.use_collection`,
+  `cx.use_collection_section`, `cx.use_radio_group`, `cx.use_tab_list`,
+  `cx.use_landmark`, `cx.use_group`, `cx.use_disclosure_group`,
+  `cx.use_virtualizer`, `cx.use_clipboard`, `cx.use_drag`, `cx.use_drop`,
+  `cx.use_form`, `cx.use_effect`,
+  `cx.use_memo`, `cx.use_context`, and
+  `cx.use_resource` provide the hook vocabulary in explicit Rust context form.
 - State, props, derived, context, resource, and memo hooks build the render
   scope consumed by `.rsx` view-template props and bindings.
 - Reducer/action hooks mutate Rust state from native events.
@@ -55,10 +61,19 @@ The app model is the Rust equivalent of React's one-way data flow:
 ### Design System
 
 The first design-system layer is `rsx_ui`, a React-inspired Rust RSX component set
-backed by the Vercel/Geist tokens in the repository root `DESIGN.md`.
+backed by the Uber-style tokens in the repository root `DESIGN.md`.
 
 This layer makes reusable `.rsx` Rust function components available by default
 instead of asking every page to copy long class strings:
+
+Related primitives are grouped by component family in the source tree, such as
+`components/card/`, `components/checkbox/`, `components/color/`,
+`components/combo_box/`, `components/form/`, `components/radio/`,
+`components/slider/`, `components/select/`, `components/tag/`,
+`components/tabs/`, `components/text_field/`, `components/toggle/`,
+`components/menu/`, `components/collection/`, `components/breadcrumb/`,
+`components/feedback/`, `components/typography/`, `components/structure/`,
+`components/interaction/`, `components/file/`, and `components/layout/`.
 
 - `UiButton`
 - `UiBadge`
@@ -73,66 +88,146 @@ instead of asking every page to copy long class strings:
 - `UiCardFooter`
 - `UiCheckbox`
 - `UiCheckboxGroup`
+- `UiClipboardTarget`
+- `UiCollection`
+- `UiColorPicker`
+- `UiColorArea`
+- `UiColorThumb`
+- `UiColorField`
+- `UiColorSlider`
+- `UiColorWheel`
+- `UiColorWheelTrack`
+- `UiColorSwatch`
+- `UiColorSwatchPicker`
+- `UiColorSwatchPickerItem`
 - `UiComboBox`
+- `UiComboBoxValue`
+- `UiDateField`
+- `UiDateInput`
+- `UiDateSegment`
+- `UiDatePicker`
+- `UiDateRangePicker`
+- `UiDescription`
 - `UiDialog`
+- `UiDialogTrigger`
 - `UiDisclosure`
 - `UiDisclosureGroup`
 - `UiDisclosureSummary`
+- `UiDisclosurePanel`
+- `UiDraggable`
+- `UiDropIndicator`
 - `UiDropZone`
+- `UiDroppable`
+- `UiArticle`
+- `UiAside`
 - `UiFieldSet`
+- `UiFieldError`
 - `UiFileTrigger`
+- `UiFocusable`
+- `UiFooter`
 - `UiForm`
 - `UiGridList`
+- `UiGridListSection`
+- `UiGridListHeader`
 - `UiGridListItem`
 - `UiGroup`
+- `UiHeader`
 - `UiHeading`
+- `UiHoverable`
 - `UiInput`
+- `UiKeyboard`
+- `UiKeyboardTarget`
 - `UiLabel`
 - `UiLegend`
 - `UiLink`
 - `UiListBox`
+- `UiListBoxSection`
+- `UiListBoxHeader`
 - `UiListBoxItem`
+- `UiLongPressable`
+- `UiMain`
 - `UiMenu`
+- `UiMenuTrigger`
+- `UiMenuSection`
 - `UiMenuItem`
+- `UiSubmenuTrigger`
 - `UiMeter`
 - `UiModal`
+- `UiMovable`
+- `UiNavigation`
 - `UiNumberField`
 - `UiPopover`
+- `UiPressable`
 - `UiProgressBar`
 - `UiRadio`
 - `UiRadioGroup`
+- `UiRangeCalendar`
+- `UiSearch`
 - `UiSearchField`
 - `UiSelect`
 - `UiSelectValue`
+- `UiSelectionIndicator`
 - `UiSeparator`
+- `UiSection`
+- `UiSharedElement`
+- `UiSharedElementTransition`
 - `UiSlider`
+- `UiSliderTrack`
+- `UiSliderFill`
+- `UiSliderThumb`
+- `UiSliderOutput`
 - `UiSwitch`
 - `UiTagGroup`
+- `UiTagList`
 - `UiTag`
 - `UiTable`
 - `UiTableHeader`
 - `UiTableBody`
 - `UiTableRow`
+- `UiRow`
 - `UiTableColumn`
+- `UiColumn`
 - `UiTableCell`
+- `UiCell`
+- `UiTableFooter`
 - `UiTableCaption`
 - `UiTabs`
 - `UiTabsList`
 - `UiTabsTrigger`
 - `UiTabsContent`
+- `UiTabList`
+- `UiTabPanels`
+- `UiTab`
+- `UiTabPanel`
 - `UiText`
 - `UiTextField`
 - `UiTextarea`
+- `UiTextArea`
+- `UiTimeField`
 - `UiToastRegion`
 - `UiToast`
 - `UiToolbar`
 - `UiToggleButton`
 - `UiToggleButtonGroup`
 - `UiTooltip`
+- `UiTooltipTrigger`
 - `UiTree`
+- `UiTreeSection`
+- `UiTreeHeader`
 - `UiTreeItem`
 - `UiTreeItemContent`
+- `UiTreeLoadMoreItem`
 - `UiVirtualizer`
+- `UiVisuallyHidden`
+- `UiCalendar`
+- `UiCalendarHeading`
+- `UiCalendarGrid`
+- `UiCalendarGridHeader`
+- `UiCalendarGridBody`
+- `UiCalendarHeaderCell`
+- `UiCalendarCell`
+- `UiCalendarMonthPicker`
+- `UiCalendarYearPicker`
 
 The component files use native semantic tags, familiar intrinsic names, and
 Tailwind-compatible class strings. Each component is a Rust function component
@@ -186,12 +281,14 @@ Status: initial implementation.
 - `rsx_ui` module
 - default built-in component availability for `RsxComponent::new`,
   `from_source`, `from_file`, and `from_template`
-- Vercel/shadcn class contracts for Button, Input, TextField, SearchField,
+- `DESIGN.md` class contracts for Button, Input, TextField, SearchField,
   NumberField, Card, Badge, Separator, Checkbox, CheckboxGroup, Switch, Radio,
   ComboBox, Select/ListBox, Menu, Slider, Tabs, Dialog, Modal, Disclosure,
   ProgressBar, Meter, Toolbar, ToggleButton, Tooltip, Table, Breadcrumbs,
-  GridList, TagGroup, Tree, FileTrigger, DropZone, Toast, Virtualizer, Link,
-  and text primitives
+  GridList, TagGroup, Tree, FileTrigger, DropZone, Draggable, Droppable, Toast, Virtualizer,
+  DateField, TimeField, DatePicker, DateRangePicker, Calendar, RangeCalendar,
+  ColorPicker, ColorArea, ColorField, ColorSlider, ColorWheel, ColorSwatch,
+  Link, and text primitives
 - Rust function components stored as `.rsx` source modules and written with
   `ComponentCx` and `rsx!`
 - `UiTextarea`

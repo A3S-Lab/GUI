@@ -123,6 +123,18 @@ impl WebProps {
         self.event("onKeyUp", action)
     }
 
+    pub fn on_copy(self, action: impl Into<String>) -> Self {
+        self.event("onCopy", action)
+    }
+
+    pub fn on_cut(self, action: impl Into<String>) -> Self {
+        self.event("onCut", action)
+    }
+
+    pub fn on_paste(self, action: impl Into<String>) -> Self {
+        self.event("onPaste", action)
+    }
+
     pub fn primary_action(&self) -> Option<&str> {
         non_empty_action(self.events.get("onPress"))
             .or_else(|| non_empty_action(self.events.get("onClick")))

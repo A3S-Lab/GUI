@@ -162,7 +162,7 @@ so a reusable component can keep local guarantees such as `disabled={false}` or
 let mut cx = ComponentCx::<AppState>::new("save");
 cx.use_prop("primaryButton", |_state: &AppState| {
     serde_json::json!({
-        "className": "rounded-md border border-border bg-background",
+        "className": "rounded-full border border-primary bg-primary text-on-primary",
         "onPress": "saveDocument",
         "data-kind": "primary"
     })
@@ -290,7 +290,7 @@ Semantic hooks return props for the view to spread, mirroring the role of
 interaction hooks without importing a JavaScript runtime model:
 
 ```rust
-use a3s_gui::{rsx, ComponentCx, RSX, UsePressProps};
+use a3s_gui::{rsx, ComponentCx, RSX, UseButtonProps};
 
 fn pressable(cx: &mut ComponentCx<CounterState>) -> RSX {
     let count = cx.use_state("count", |state: &CounterState| state.count);
@@ -299,14 +299,37 @@ fn pressable(cx: &mut ComponentCx<CounterState>) -> RSX {
         Ok(())
     });
     let action = increment.clone();
-    cx.use_press(move |_state| UsePressProps::new().on_press(Some(&action)));
+    cx.use_button(move |_state| UseButtonProps::new().on_press(Some(&action)));
     rsx!(
-        <button key="root" {...props.pressProps}>
+        <button key="root" {...props.buttonProps}>
           Count {count}
         </button>
     )
 }
 ```
+
+Table sections follow the same contract. `cx.use_table_section` returns
+`tableSectionProps`, `sectionKind`, and optional label data; `UiTableHeader`,
+`UiTableBody`, and `UiTableFooter` render those sections as native row groups
+with stable `data-table-section` markers for header, body, and footer. Calendar
+grid headers and bodies use the same table section hook so date/time views share
+the table semantics instead of carrying ad hoc section props.
+Collection sections use `cx.use_collection_section` and expose
+`collectionSectionProps`, `collectionKind`, and label state for list box, grid
+list, menu, and tree section components.
+Tab lists use `cx.use_tab_list` and expose `tabListProps`, `label`,
+`orientation`, and `isDisabled` state so `UiTabsList` owns tablist semantics
+while the `.rsx` view only spreads the hook props.
+Radio groups use `cx.use_radio_group` and expose `radioGroupProps`,
+`selectedValue`, validation state, and selection action data as one semantic
+unit instead of requiring component authors to compose field and selection hooks
+by hand.
+Checkbox groups use `cx.use_checkbox_group` and expose `checkboxGroupProps`,
+selected value, validation state, and group-level `onChange` data while still
+lowering to the native fieldset abstraction.
+Links use `cx.use_link` and expose `linkProps`, `href`, `isDisabled`, and
+`isPressed`, keeping link navigation and press actions in the hook layer while
+the `.rsx` view only spreads semantic props.
 
 `RsxComponent` remains the lower-level template API used by routers,
 design-system presets, and tooling. App components with state or actions should
@@ -370,8 +393,35 @@ live on `ComponentCx` and execute as Rust registrations, not JavaScript:
   `props.<path>`.
 - `cx.use_press(selector)` exposes semantic press data as
   `props.pressProps` and `props.isPressed`.
-- `cx.use_button(selector)` composes button semantics on top of the same
-  press-data shape.
+- `cx.use_button(selector)` exposes semantic button data as
+  `props.buttonProps` and `props.isPressed`.
+- `cx.use_link(selector)` exposes semantic link data as `props.linkProps`,
+  `props.href`, `props.isDisabled`, and `props.isPressed`.
+- `cx.use_breadcrumbs(selector)` exposes navigation landmark metadata as
+  `props.breadcrumbsProps` and `props.label`.
+- `cx.use_collection(selector)` exposes collection container metadata as
+  `props.collectionProps` plus `props.itemCount`, `props.isEmpty`, and disabled
+  state.
+- `cx.use_landmark(selector)` exposes layout landmark metadata as
+  `props.landmarkProps`, `props.landmarkKind`, and `props.label`.
+- `cx.use_group(selector)` exposes grouped-region metadata, hover state, focus
+  state, disabled state, invalid state, and read-only state as
+  `props.groupProps` plus direct state handles such as
+  `props.isFocusWithin`.
+- `cx.use_disclosure_group(selector)` exposes disclosure group metadata as
+  `props.disclosureGroupProps` plus `props.expandedKeys`,
+  `props.allowsMultipleExpanded`, and disabled state.
+- `cx.use_virtualizer(selector)` exposes virtual collection container metadata
+  as `props.virtualizerProps` plus window state such as `props.itemCount`,
+  `props.visibleStart`, and `props.visibleEnd`.
+- `cx.use_clipboard(selector)` exposes clipboard event metadata as
+  `props.clipboardProps` and `props.isClipboardDisabled`.
+- `cx.use_drag(selector)` exposes drag metadata as `props.dragProps`,
+  `props.dragButtonProps`, and `props.isDragging`.
+- `cx.use_drop(selector)` exposes drop-target metadata as `props.dropProps`,
+  `props.dropButtonProps`, and `props.isDropTarget`.
+- `cx.use_form(selector)` exposes form metadata as `props.formProps`,
+  `props.label`, `props.isInvalid`, and related validation state.
 - `cx.use_prop_result(path, selector)` is the fallible typed form for derived
   props.
 - `cx.use_derived(path, selector)` exposes computed page state as
@@ -540,6 +590,47 @@ Use `RsxRouter` when a desktop surface has multiple screens. The active page is
 selected from Rust state; page actions mutate that state, then the next render
 selects the new page. There is no browser URL parser or JavaScript router hidden
 inside RSX.
+
+For React Router-style composition inside one RSX surface, use the built-in
+`UiRouter`, `UiRoutes`, `UiRoute`, `UiNavLink`, and `UiNavigateButton`
+components. Route matching stays in hooks:
+
+```rust
+#[allow(non_snake_case)]
+fn App(cx: &mut ComponentCx<AppState>) -> RSX {
+    let currentPath = cx.use_state("currentPath", |state: &AppState| state.path.clone());
+    let homeActive = cx.use_state("homeActive", |state: &AppState| state.path == "/");
+    let settingsActive = cx.use_state("settingsActive", |state: &AppState| {
+        state.path == "/settings"
+    });
+    let navigate = cx.use_reducer("navigate", |state: &mut AppState, action| {
+        if let Some(path) = action.value() {
+            state.path = path.to_string();
+        }
+        Ok(())
+    });
+
+    a3s_gui::rsx!(
+        <UiRouter key="app" currentPath={currentPath}>
+          <UiNavigation key="nav" label="Routes">
+            <UiNavLink key="home" to="/" onNavigate={navigate} isActive={homeActive}>Home</UiNavLink>
+            <UiNavigateButton key="settings" to="/settings" onNavigate={navigate} isActive={settingsActive}>Settings</UiNavigateButton>
+          </UiNavigation>
+          <UiRoutes key="routes" label="Application routes">
+            <UiRoute key="home-route" path="/" isActive={homeActive}>
+              <HomePage key="page" />
+            </UiRoute>
+            <UiRoute key="settings-route" path="/settings" isActive={settingsActive}>
+              <SettingsPage key="page" />
+            </UiRoute>
+          </UiRoutes>
+        </UiRouter>
+    )
+}
+```
+
+Use `RsxRouter` instead when each route should be its own `RsxComponent` with
+mount/unmount hooks, route effects, and route context.
 
 ```rust
 let router = RsxRouter::new(|state: &AppState| state.route.clone())
@@ -1149,7 +1240,7 @@ optional payloads, event kind inspection, node ids, or dynamic JSON handling.
 
 ## Design System Components
 
-`rsx_ui` provides a React-inspired Rust component set backed by the Vercel/Geist
+`rsx_ui` provides a React-inspired Rust component set backed by the Uber-style
 tokens in the repository root `DESIGN.md`. Built-in components are available by
 default when a page component is created with `RsxComponent::new`,
 `RsxComponent::from_source`, `RsxComponent::from_file`, or
@@ -1170,6 +1261,29 @@ let page = RsxComponent::from_source(
 
 The default component set includes:
 
+Related component families live together in the source tree. For example,
+card parts are under `src/rsx_ui/components/card/`, checkbox parts are under
+`src/rsx_ui/components/checkbox/`, color parts are under
+`src/rsx_ui/components/color/`, combo box parts are under
+`src/rsx_ui/components/combo_box/`, form parts are under
+`src/rsx_ui/components/form/`, radio parts are under
+`src/rsx_ui/components/radio/`, slider parts are under
+`src/rsx_ui/components/slider/`, select parts are under
+`src/rsx_ui/components/select/`, tags are under
+`src/rsx_ui/components/tag/`, tabs are under
+`src/rsx_ui/components/tabs/`, text input parts are under
+`src/rsx_ui/components/text_field/`, toggle parts are under
+`src/rsx_ui/components/toggle/`, menu parts are under
+`src/rsx_ui/components/menu/`, collection parts are under
+`src/rsx_ui/components/collection/`, breadcrumbs are under
+`src/rsx_ui/components/breadcrumb/`, feedback primitives are under
+`src/rsx_ui/components/feedback/`, typography primitives are under
+`src/rsx_ui/components/typography/`, structure primitives are under
+`src/rsx_ui/components/structure/`, interaction primitives are under
+`src/rsx_ui/components/interaction/`, file primitives are under
+`src/rsx_ui/components/file/`, and layout semantics are under
+`src/rsx_ui/components/layout/`.
+
 - `UiButton`
 - `UiBadge`
 - `UiAutocomplete`
@@ -1183,66 +1297,153 @@ The default component set includes:
 - `UiCardFooter`
 - `UiCheckbox`
 - `UiCheckboxGroup`
+- `UiClipboardTarget`
+- `UiCollection`
+- `UiColorPicker`
+- `UiColorArea`
+- `UiColorThumb`
+- `UiColorField`
+- `UiColorSlider`
+- `UiColorWheel`
+- `UiColorWheelTrack`
+- `UiColorSwatch`
+- `UiColorSwatchPicker`
+- `UiColorSwatchPickerItem`
 - `UiComboBox`
+- `UiComboBoxValue`
+- `UiDateField`
+- `UiDateInput`
+- `UiDateSegment`
+- `UiDatePicker`
+- `UiDateRangePicker`
+- `UiDescription`
 - `UiDialog`
+- `UiDialogTrigger`
 - `UiDisclosure`
 - `UiDisclosureGroup`
 - `UiDisclosureSummary`
+- `UiDisclosurePanel`
+- `UiDraggable`
+- `UiDropIndicator`
 - `UiDropZone`
+- `UiDroppable`
+- `UiArticle`
+- `UiAside`
 - `UiFieldSet`
+- `UiFieldError`
 - `UiFileTrigger`
+- `UiFocusable`
+- `UiFooter`
 - `UiForm`
 - `UiGridList`
+- `UiGridListSection`
+- `UiGridListHeader`
 - `UiGridListItem`
+- `UiGridListLoadMoreItem`
 - `UiGroup`
+- `UiHeader`
 - `UiHeading`
+- `UiHoverable`
 - `UiInput`
+- `UiKeyboard`
+- `UiKeyboardTarget`
 - `UiLabel`
 - `UiLegend`
 - `UiLink`
 - `UiListBox`
+- `UiListBoxSection`
+- `UiListBoxHeader`
 - `UiListBoxItem`
+- `UiListBoxLoadMoreItem`
+- `UiLongPressable`
+- `UiMain`
 - `UiMenu`
+- `UiMenuTrigger`
+- `UiMenuSection`
 - `UiMenuItem`
+- `UiSubmenuTrigger`
 - `UiMeter`
 - `UiModal`
+- `UiModalOverlay`
+- `UiMovable`
+- `UiNavigation`
 - `UiNumberField`
+- `UiOverlayArrow`
 - `UiPopover`
+- `UiPressable`
 - `UiProgressBar`
 - `UiRadio`
 - `UiRadioGroup`
+- `UiRangeCalendar`
+- `UiSearch`
 - `UiSearchField`
 - `UiSelect`
 - `UiSelectValue`
+- `UiSelectionIndicator`
 - `UiSeparator`
+- `UiSection`
+- `UiSharedElement`
+- `UiSharedElementTransition`
 - `UiSlider`
+- `UiSliderTrack`
+- `UiSliderFill`
+- `UiSliderThumb`
+- `UiSliderOutput`
 - `UiSwitch`
 - `UiTagGroup`
+- `UiTagList`
 - `UiTag`
 - `UiTable`
 - `UiTableHeader`
 - `UiTableBody`
 - `UiTableRow`
+- `UiRow`
 - `UiTableColumn`
+- `UiColumn`
 - `UiTableCell`
+- `UiCell`
+- `UiTableFooter`
 - `UiTableCaption`
+- `UiResizableTableContainer`
+- `UiColumnResizer`
+- `UiTableLoadMoreItem`
 - `UiTabs`
 - `UiTabsList`
 - `UiTabsTrigger`
 - `UiTabsContent`
+- `UiTabList`
+- `UiTabPanels`
+- `UiTab`
+- `UiTabPanel`
 - `UiText`
 - `UiTextField`
 - `UiTextarea`
+- `UiTextArea`
+- `UiTimeField`
 - `UiToastRegion`
 - `UiToast`
 - `UiToolbar`
 - `UiToggleButton`
 - `UiToggleButtonGroup`
 - `UiTooltip`
+- `UiTooltipTrigger`
 - `UiTree`
+- `UiTreeSection`
+- `UiTreeHeader`
 - `UiTreeItem`
 - `UiTreeItemContent`
+- `UiTreeLoadMoreItem`
 - `UiVirtualizer`
+- `UiVisuallyHidden`
+- `UiCalendar`
+- `UiCalendarHeading`
+- `UiCalendarGrid`
+- `UiCalendarGridHeader`
+- `UiCalendarGridBody`
+- `UiCalendarHeaderCell`
+- `UiCalendarCell`
+- `UiCalendarMonthPicker`
+- `UiCalendarYearPicker`
 
 Example:
 
@@ -1278,7 +1479,7 @@ Example:
 </UiCard>
 ```
 
-Tabs use shadcn-style visual wrappers while preserving native tab semantics:
+Tabs use pill-style visual wrappers while preserving native tab semantics:
 
 ```rsx
 <UiTabs key="settings-tabs" value={state.tab} onSelectionChange={setTab}>
@@ -1401,6 +1602,132 @@ one-way data model:
 </UiToastRegion>
 ```
 
+Date and time primitives use the same composition rules. Field values and
+calendar cell actions are reducer-driven; calendar container state is exposed
+through `data-*` attributes until dedicated platform calendar roles are added:
+
+```rsx
+<UiDatePicker
+  key="ship-date"
+  label="Ship date"
+  value={state.shipDate}
+  onChange={setShipDate}
+  onOpenChange={toggleShipCalendar}
+  isOpen={state.shipCalendarOpen}
+>
+  <UiPopover key="ship-popover">
+    <UiCalendar key="ship-calendar" label="July 2026" value={state.shipDate}>
+      <UiCalendarHeading key="heading" level="3">July 2026</UiCalendarHeading>
+      <UiCalendarGrid key="grid" label="July 2026">
+        <UiCalendarGridBody key="body">
+          <UiTableRow key="week">
+            <UiCalendarCell
+              key="day-6"
+              value="2026-07-06"
+              actionValue="2026-07-06"
+              isSelected={state.shipDateSelected}
+              onPress={setShipDate}
+            >
+              6
+            </UiCalendarCell>
+          </UiTableRow>
+        </UiCalendarGridBody>
+      </UiCalendarGrid>
+    </UiCalendar>
+  </UiPopover>
+</UiDatePicker>
+```
+
+Color primitives also compose from small Rust-owned RSX components. The picker
+container coordinates the value, while channels and swatches remain ordinary
+native actions and bindings:
+
+```rsx
+<UiColorPicker
+  key="accent"
+  label="Accent color"
+  value={state.accent}
+  onChange={setAccent}
+>
+  <UiColorArea
+    key="area"
+    value={state.accent}
+    xChannel="saturation"
+    yChannel="brightness"
+    xValue={state.saturation}
+    yValue={state.brightness}
+    onChange={setAccent}
+  >
+    <UiColorThumb
+      key="area-thumb"
+      value={state.accent}
+      xValue={state.saturation}
+      yValue={state.brightness}
+      onPress={commitAccent}
+    />
+  </UiColorArea>
+  <UiColorSlider
+    key="hue"
+    label="Hue"
+    channel="hue"
+    valueNumber={state.hue}
+    minValue="0"
+    maxValue="360"
+    onChange={setHue}
+  >
+    <UiSliderTrack key="hue-track">
+      <UiSliderFill key="hue-fill" valueNumber={state.hue} />
+    </UiSliderTrack>
+    <UiSliderThumb key="hue-thumb" valueNumber={state.hue} onPress={commitHue} />
+    <UiSliderOutput key="hue-output" valueNumber={state.hue} />
+  </UiColorSlider>
+  <UiColorField key="hex" label="Hex" value={state.accent} onChange={setAccent} />
+  <UiColorSwatchPicker
+    key="swatches"
+    label="Saved colors"
+    value={state.accent}
+    onSelectionChange={setAccent}
+  >
+    <UiColorSwatchPickerItem key="violet" value="#7c3aed" textValue="Violet">
+      <UiColorSwatch key="violet-preview" value="#7c3aed" label="Violet" />
+    </UiColorSwatchPickerItem>
+  </UiColorSwatchPicker>
+</UiColorPicker>
+```
+
+Collection and overlay parts compose the same way. Triggers own press logic,
+sections and headers carry grouping semantics, and indicator or keyboard
+components remain ordinary RSX children:
+
+```rsx
+<UiMenuTrigger key="actions-trigger" isOpen={state.actionsOpen} onPress={toggleActions}>
+  Actions
+</UiMenuTrigger>
+<UiMenu key="actions-menu">
+  <UiMenuSection key="file-actions" label="File actions">
+    <UiMenuItem key="open" onAction={openFile} actionValue="open">
+      Open
+      <UiKeyboard key="open-shortcut" textValue="Cmd+O">Cmd+O</UiKeyboard>
+    </UiMenuItem>
+    <UiSubmenuTrigger key="more" isOpen={state.moreOpen} onPress={toggleMore}>
+      More
+    </UiSubmenuTrigger>
+  </UiMenuSection>
+</UiMenu>
+
+<UiListBox key="people" onSelectionChange={selectPerson}>
+  <UiListBoxSection key="people-section" label="People">
+    <UiListBoxHeader key="people-header" textValue="People">People</UiListBoxHeader>
+    <UiListBoxItem key="ada" value="ada" textValue="Ada" isSelected={state.adaSelected}>
+      <UiSelectionIndicator key="ada-selected" isSelected={state.adaSelected}>
+        selected
+      </UiSelectionIndicator>
+      Ada
+    </UiListBoxItem>
+  </UiListBoxSection>
+</UiListBox>
+```
+
 Forms and feedback primitives follow the same model. The component files keep
 logic in Rust hooks, props as data, and the view as a semantic RSX tree:
 
@@ -1430,7 +1757,7 @@ logic in Rust hooks, props as data, and the view as a semantic RSX tree:
 
 These are Rust function components in `.rsx` source modules, written with
 `ComponentCx` hooks and `rsx!` views. They do not execute React components. Each
-component owns a static shadcn/Vercel base class and merges a caller-provided
+component owns a static `DESIGN.md` base class and merges a caller-provided
 `className` onto that base class, matching the useful part of shadcn's
 `cn(base, className)` pattern without JavaScript.
 
@@ -1457,11 +1784,11 @@ utilities are supported.
 ```rsx
 <div
   key="root"
-  class="min-w-[920px] bg-background text-foreground p-3"
+  class="min-w-[920px] bg-canvas text-ink p-3"
 >
   <button
     key="save"
-    class="rounded-md border border-border bg-primary text-primary-foreground px-3"
+    class="rounded-full border border-primary bg-primary text-on-primary px-5 py-2"
     onclick={saveDocument}
   >
     Save
@@ -1479,7 +1806,7 @@ Dropdown Menu components:
 - Attribute variants such as `data-[state=open]:*`.
 - Structural variants such as `has-[>svg]:*` and arbitrary selector variants
   such as `[&_svg]:*`.
-- Arbitrary values such as `ring-[3px]`, `transition-[color,box-shadow]`, and
+- Arbitrary values such as `ring-[3px]`, `transition-colors`, and
   `w-[calc(100%_-_2rem)]`.
 - Tailwind container width tokens such as `sm:max-w-lg`.
 - Common `tailwindcss-animate` shadcn classes such as `animate-in`,
@@ -1490,12 +1817,12 @@ Dropdown Menu components:
 <button
   key="save"
   class="
-    inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md
-    bg-primary text-primary-foreground px-4 py-2 text-sm font-medium shadow-xs
-    transition-[color,box-shadow] outline-none
-    hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50
-    focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]
-    aria-invalid:border-destructive aria-invalid:ring-destructive/20
+    inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full
+    border border-primary bg-primary px-3 py-3 text-base font-medium leading-5
+    text-on-primary transition-colors outline-none
+    active:bg-black-elevated disabled:pointer-events-none disabled:bg-canvas-soft disabled:text-mute
+    focus-visible:ring-ring/50 focus-visible:ring-[3px]
+    aria-invalid:border-semantic-error
     [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4
   "
   onclick={saveDocument}
@@ -1508,7 +1835,7 @@ Those variants are not browser CSS selectors. They are preserved as explicit
 style metadata so native hosts can apply supported states without embedding a
 DOM, CSSOM, or React runtime.
 
-The contract is covered by focused style tests for representative shadcn
+The contract is covered by focused style tests for representative
 Button, Input, Card, Dialog, and Dropdown Menu class strings. Radix-style
 variants such as `data-[state=open]:*`, `data-[side=bottom]:*`,
 `data-[disabled]:*`, and `data-[variant=destructive]:focus:*` are preserved as
@@ -1517,20 +1844,21 @@ variant keys in the native style IR.
 ## Design Tokens
 
 The RSX style parser supports shadcn-compatible semantic color utilities, backed
-by the Vercel/Geist palette in `DESIGN.md`.
+by the Uber-style black, white, and gray palette in `DESIGN.md`.
 
-| Class token | Vercel value |
+| Class token | Design value |
 | --- | --- |
-| `background`, `canvas` | `#fafafa` |
-| `foreground`, `ink`, `primary` | `#171717` |
-| `card`, `popover`, `elevated` | `#ffffff` |
-| `border`, `input`, `hairline` | `#ebebeb` |
-| `secondary`, `muted`, `accent` | `#f2f2f2` |
-| `body` | `#4d4d4d` |
-| `muted-foreground`, `mute` | `#8f8f8f` |
-| `faint` | `#a1a1a1` |
-| `ring`, `link`, `success` | `#0070f3` |
-| `destructive`, `error` | `#ee0000` |
+| `background`, `canvas`, `card`, `popover`, `elevated` | `#ffffff` |
+| `foreground`, `ink`, `primary` | `#000000` |
+| `surface-pressed`, `border`, `input`, `hairline` | `#e2e2e2` |
+| `black-elevated` | `#282828` |
+| `canvas-soft`, `surface-soft`, `secondary`, `muted`, `accent` | `#efefef` |
+| `canvas-softer` | `#f3f3f3` |
+| `body`, `muted-foreground` | `#5e5e5e` |
+| `hairline-mid`, `charcoal`, `hairline-strong` | `#4b4b4b` |
+| `mute`, `faint` | `#afafaf` |
+| `ring`, `success`, `destructive`, `error` | `#000000` |
+| `link`, `link-blue` | `#0000ee` |
 
 The usual shadcn foreground pairs are also available, including
 `primary-foreground`, `card-foreground`, `popover-foreground`,
@@ -1539,18 +1867,19 @@ The usual shadcn foreground pairs are also available, including
 
 Use these names with Tailwind color prefixes:
 
-- `bg-background`
-- `text-foreground`
-- `border-border`
+- `bg-canvas`
+- `text-ink`
+- `border-hairline`
 - `ring-ring`
-- `bg-card`
-- `text-muted-foreground`
+- `bg-canvas`
+- `bg-canvas-soft`
+- `text-body`
 - `bg-sidebar`
 - `border-sidebar-border`
 
 Opacity modifiers work with semantic colors, so shadcn classes such as
-`bg-primary/90`, `ring-ring/50`, and `aria-invalid:ring-destructive/20` resolve
-to native RGBA colors from the same Vercel palette.
+`bg-primary/90`, `ring-ring/50`, and `aria-invalid:ring-semantic-error/20` resolve
+to native RGBA colors from the same design palette.
 
 ## Rust API
 

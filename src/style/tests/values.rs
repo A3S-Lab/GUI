@@ -280,7 +280,7 @@ fn preserves_tailwind_color_opacity_modifiers() {
 }
 
 #[test]
-fn parses_shadcn_semantic_tailwind_colors_from_vercel_design_tokens() {
+fn parses_design_semantic_tailwind_colors_from_vercel_style_tokens() {
     let web = WebProps::new().class_name(
         "bg-background text-foreground border-border caret-ring \
          ring-ring hover:bg-card focus:text-muted-foreground active:border-sidebar-border",
@@ -291,9 +291,9 @@ fn parses_shadcn_semantic_tailwind_colors_from_vercel_design_tokens() {
     assert_eq!(
         style.background_color,
         Some(StyleColor::Rgba {
-            red: 0xfa,
-            green: 0xfa,
-            blue: 0xfa,
+            red: 0xff,
+            green: 0xff,
+            blue: 0xff,
             alpha: 255,
         })
     );
@@ -309,18 +309,18 @@ fn parses_shadcn_semantic_tailwind_colors_from_vercel_design_tokens() {
     assert_eq!(
         style.border_color,
         Some(StyleColor::Rgba {
-            red: 0xeb,
-            green: 0xeb,
-            blue: 0xeb,
+            red: 0xf0,
+            green: 0xf0,
+            blue: 0xf3,
             alpha: 255,
         })
     );
     assert_eq!(
         style.caret_color,
         Some(StyleColor::Rgba {
-            red: 0x00,
-            green: 0x70,
-            blue: 0xf3,
+            red: 0x17,
+            green: 0x17,
+            blue: 0x17,
             alpha: 255,
         })
     );
@@ -338,14 +338,14 @@ fn parses_shadcn_semantic_tailwind_colors_from_vercel_design_tokens() {
             .get("focus")
             .and_then(|styles| styles.get("color"))
             .map(String::as_str),
-        Some("rgb(143, 143, 143)")
+        Some("rgb(96, 100, 108)")
     );
     assert_eq!(
         style
             .custom_properties
             .get("--tw-ring-color")
             .map(String::as_str),
-        Some("rgb(0, 112, 243)")
+        Some("rgb(23, 23, 23)")
     );
 }
 

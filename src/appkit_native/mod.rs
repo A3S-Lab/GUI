@@ -26,7 +26,7 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{
     NSDate, NSDefaultRunLoopMode, NSEdgeInsets, NSInteger, NSNotification, NSObject,
-    NSObjectProtocol, NSPoint, NSRect, NSSize, NSString,
+    NSObjectProtocol, NSPoint, NSRect, NSRectEdge, NSSize, NSString,
 };
 
 use crate::app::{NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse};
@@ -48,7 +48,9 @@ use crate::platform::{
     NativeWidgetConfig, NativeWidgetSetter,
 };
 use crate::protocol::UiFrame;
-use crate::style::{EdgeInsets, FontWeight, OverflowMode, PortableStyle, StyleColor, StyleLength};
+use crate::style::{
+    EdgeInsets, FontWeight, OverflowMode, PortableStyle, StyleColor, StyleLength, TextAlign,
+};
 
 mod surface;
 
@@ -63,6 +65,9 @@ const MAX_APPKIT_SLIDER_TICK_MARKS: NSInteger = 101;
 const APPKIT_TEXT_INPUT_DEFAULT_WIDTH: f64 = 120.0;
 const APPKIT_TEXT_INPUT_DEFAULT_HEIGHT: f64 = 24.0;
 const APPKIT_TEXT_INPUT_MIN_WIDTH: f64 = 80.0;
+const APPKIT_LIST_ROW_HEIGHT: f64 = 28.0;
+const APPKIT_LIST_MIN_HEIGHT: f64 = 32.0;
+const APPKIT_LIST_DEFAULT_WIDTH: f64 = 240.0;
 
 #[derive(Debug)]
 pub struct AppKitNativeSurface {
@@ -74,6 +79,8 @@ pub struct AppKitNativeSurface {
     focused_node: Rc<Cell<Option<HostNodeId>>>,
     closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
     dialog_visible: BTreeMap<HostNodeId, bool>,
+    popover_visible: BTreeMap<HostNodeId, bool>,
+    popover_anchors: BTreeMap<HostNodeId, HostNodeId>,
     widgets: BTreeMap<HostNodeId, AppKitOsWidget>,
     action_targets: BTreeMap<HostNodeId, Retained<AppKitActionTarget>>,
     window_delegates: BTreeMap<HostNodeId, Retained<AppKitWindowDelegate>>,
@@ -119,6 +126,8 @@ impl AppKitNativeSurface {
             focused_node: Rc::new(Cell::new(None)),
             closed_windows: Rc::new(RefCell::new(BTreeSet::new())),
             dialog_visible: BTreeMap::new(),
+            popover_visible: BTreeMap::new(),
+            popover_anchors: BTreeMap::new(),
             widgets: BTreeMap::new(),
             action_targets: BTreeMap::new(),
             window_delegates: BTreeMap::new(),
@@ -303,6 +312,42 @@ impl AppKitNativeSurface {
         view.setNeedsLayout(true);
     }
 
+    fn apply_native_minimum_size(
+        &mut self,
+        id: HostNodeId,
+        view: &NSView,
+        min_width: f64,
+        min_height: f64,
+    ) {
+        self.clear_native_size_constraints(id);
+        view.setFrameSize(NSSize::new(
+            view.frame().size.width.max(min_width),
+            view.frame().size.height.max(min_height),
+        ));
+        view.setTranslatesAutoresizingMaskIntoConstraints(false);
+        let active_constraints = vec![
+            size_constraint(
+                view,
+                NSLayoutAttribute::Width,
+                NSLayoutRelation::GreaterThanOrEqual,
+                min_width,
+            ),
+            size_constraint(
+                view,
+                NSLayoutAttribute::Height,
+                NSLayoutRelation::GreaterThanOrEqual,
+                min_height,
+            ),
+        ];
+        for constraint in &active_constraints {
+            constraint.setActive(true);
+        }
+        self.size_constraints
+            .insert(id, AppKitSizeConstraints { active_constraints });
+        view.invalidateIntrinsicContentSize();
+        view.setNeedsLayout(true);
+    }
+
     fn clear_native_size_constraints(&mut self, id: HostNodeId) {
         let Some(previous) = self.size_constraints.remove(&id) else {
             return;
@@ -412,6 +457,11 @@ impl AppKitNativeSurface {
             .combo_items
             .entry(id)
             .or_insert_with(|| fallback.clone());
+        let label = if label.trim().is_empty() {
+            item.value.clone()
+        } else {
+            label
+        };
         if item.value == item.label {
             item.value = label.clone();
         }
@@ -429,6 +479,19 @@ impl AppKitNativeSurface {
             .entry(id)
             .or_insert_with(|| fallback.clone())
             .value = value;
+        self.rebuild_for_option_item(id)
+    }
+
+    fn update_option_item_style(
+        &mut self,
+        id: HostNodeId,
+        fallback: &AppKitComboBoxItem,
+        style: PortableStyle,
+    ) -> GuiResult<()> {
+        self.combo_items
+            .entry(id)
+            .or_insert_with(|| fallback.clone())
+            .style = style;
         self.rebuild_for_option_item(id)
     }
 
@@ -532,6 +595,9 @@ impl AppKitNativeSurface {
             rows.push(row);
         }
         *state.rows.borrow_mut() = rows;
+        if let Some(AppKitOsWidget::ListView(scroll_view)) = self.widgets.get(&id) {
+            apply_list_view_layout(scroll_view, &state, &state.style);
+        }
         Ok(())
     }
 }
@@ -763,18 +829,23 @@ where
 
 impl AppKitComboBoxItem {
     fn from_config(config: &NativeWidgetConfig) -> Self {
-        let label = config
-            .label
-            .clone()
-            .or_else(|| config.value.clone())
+        let label = non_empty_config_string(config.label.as_ref())
+            .or_else(|| non_empty_config_string(config.value.as_ref()))
             .unwrap_or_default();
-        let value = config.value.clone().unwrap_or_else(|| label.clone());
+        let value = non_empty_config_string(config.value.as_ref()).unwrap_or_else(|| label.clone());
         Self {
             label,
             value,
             selected: config.selected,
+            style: config.portable_style.clone(),
         }
     }
+}
+
+fn non_empty_config_string(value: Option<&String>) -> Option<String> {
+    value
+        .filter(|value| !value.trim().is_empty())
+        .map(ToOwned::to_owned)
 }
 
 #[derive(Debug, Clone)]
@@ -969,23 +1040,27 @@ pub struct AppKitOsHandle {
     pub widget: AppKitOsWidget,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AppKitComboBoxItem {
     pub label: String,
     pub value: String,
     pub selected: bool,
+    pub style: PortableStyle,
 }
 
 #[derive(Debug, Clone)]
 struct AppKitListViewState {
     stack_view: Retained<NSStackView>,
     rows: Rc<RefCell<Vec<AppKitListRow>>>,
+    style: PortableStyle,
 }
 
 #[derive(Debug, Clone)]
 struct AppKitListRow {
     button: Retained<NSButton>,
+    _label: Retained<NSTextField>,
     _target: Retained<AppKitActionTarget>,
+    _constraints: Vec<Retained<NSLayoutConstraint>>,
     value: String,
 }
 
@@ -998,7 +1073,12 @@ impl AppKitListRow {
         focused_node: Rc<Cell<Option<HostNodeId>>>,
         mtm: MainThreadMarker,
     ) -> Self {
-        let title = ns_string(&item.label);
+        let label_text = if item.label.trim().is_empty() {
+            item.value.as_str()
+        } else {
+            item.label.as_str()
+        };
+        let title = ns_string(label_text);
         let target = AppKitActionTarget::new_selection(
             parent,
             events,
@@ -1006,19 +1086,67 @@ impl AppKitListRow {
             item.value.clone(),
             mtm,
         );
+        let empty_title = ns_string("");
         let button = unsafe {
             NSButton::buttonWithTitle_target_action(
-                &title,
+                &empty_title,
                 Some(target.as_any_object()),
                 Some(sel!(a3sGuiPress:)),
                 mtm,
             )
         };
+        let row_width = row_width_from_style(&item.style);
+        let row_height = row_height_from_style(&item.style);
         button.setBordered(false);
+        button.setContentTintColor(Some(&NSColor::labelColor()));
+        button
+            .as_super()
+            .setFont(Some(&NSFont::systemFontOfSize(13.0)));
+        button
+            .as_super()
+            .as_super()
+            .setFrameSize(NSSize::new(row_width, row_height));
+        button
+            .as_super()
+            .as_super()
+            .setTranslatesAutoresizingMaskIntoConstraints(false);
         button.setState(appkit_state(selected));
+        let label = NSTextField::labelWithString(&title, mtm);
+        label
+            .as_super()
+            .setFont(Some(&NSFont::systemFontOfSize(13.0)));
+        label.setTextColor(Some(&NSColor::labelColor()));
+        let left = edge_length_points(item.style.padding.left.as_ref()).unwrap_or(8.0);
+        let right = edge_length_points(item.style.padding.right.as_ref()).unwrap_or(left);
+        let label_height = 17.0;
+        let label_y = ((row_height - label_height) / 2.0).max(0.0);
+        label.as_super().as_super().setFrame(NSRect::new(
+            NSPoint::new(left, label_y),
+            NSSize::new((row_width - left - right).max(24.0), label_height),
+        ));
+        button
+            .as_super()
+            .as_super()
+            .addSubview(label.as_super().as_super());
+        let height_constraint = size_constraint(
+            button.as_super().as_super(),
+            NSLayoutAttribute::Height,
+            NSLayoutRelation::Equal,
+            row_height,
+        );
+        let width_constraint = size_constraint(
+            button.as_super().as_super(),
+            NSLayoutAttribute::Width,
+            NSLayoutRelation::Equal,
+            row_width,
+        );
+        height_constraint.setActive(true);
+        width_constraint.setActive(true);
         Self {
             button,
+            _label: label,
             _target: target,
+            _constraints: vec![height_constraint, width_constraint],
             value: item.value,
         }
     }
@@ -1400,12 +1528,50 @@ fn apply_scroll_view_portable_visuals(state: &AppKitScrollViewState, style: &Por
     }
 }
 
+fn apply_list_view_portable_visuals(
+    scroll_view: &NSScrollView,
+    state: &AppKitListViewState,
+    style: &PortableStyle,
+) {
+    apply_view_portable_style(scroll_view.as_super(), style);
+    apply_view_portable_style(state.stack_view.as_super(), style);
+    if let Some(color) = style
+        .background_color
+        .as_ref()
+        .and_then(ns_color_from_style_color)
+    {
+        scroll_view.setDrawsBackground(true);
+        scroll_view.setBackgroundColor(&color);
+        let clip_view = scroll_view.contentView();
+        clip_view.setDrawsBackground(true);
+        clip_view.setBackgroundColor(&color);
+    }
+    scroll_view.setContentInsets(zero_edge_insets());
+    state
+        .stack_view
+        .setEdgeInsets(ns_edge_insets_from_style(&style.padding).unwrap_or_else(zero_edge_insets));
+}
+
+fn zero_edge_insets() -> NSEdgeInsets {
+    NSEdgeInsets {
+        top: 0.0,
+        left: 0.0,
+        bottom: 0.0,
+        right: 0.0,
+    }
+}
+
 fn apply_text_field_portable_style(
     text_field: &NSTextField,
     kind: AppKitWidgetKind,
     style: &PortableStyle,
 ) {
     apply_control_typography(text_field.as_super(), style);
+    if let Some(alignment) = style.text_align.map(appkit_text_alignment) {
+        unsafe {
+            let _: () = msg_send![text_field, setAlignment: alignment];
+        }
+    }
     if let Some(color) = style.color.as_ref().and_then(ns_color_from_style_color) {
         text_field.setTextColor(Some(&color));
     }
@@ -1421,6 +1587,15 @@ fn apply_text_field_portable_style(
         text_field.setBordered(false);
     }
     apply_view_portable_style(text_field.as_super().as_super(), style);
+}
+
+fn appkit_text_alignment(alignment: TextAlign) -> NSInteger {
+    match alignment {
+        TextAlign::Start => 0,
+        TextAlign::End => 1,
+        TextAlign::Center => 2,
+        TextAlign::Justify => 3,
+    }
 }
 
 fn apply_button_portable_style(button: &NSButton, style: &PortableStyle) {
@@ -1699,6 +1874,107 @@ fn apply_scroll_view_layout(state: &AppKitScrollViewState, style: &PortableStyle
     scroll_view_to_top(state);
 }
 
+fn apply_list_view_layout(
+    scroll_view: &NSScrollView,
+    state: &AppKitListViewState,
+    style: &PortableStyle,
+) {
+    scroll_view.setHasVerticalScroller(appkit_vertical_scroll_enabled_for_style(style));
+    scroll_view.setHasHorizontalScroller(false);
+    scroll_view.setAutohidesScrollers(true);
+    apply_stack_view_layout(&state.stack_view, style, Some(Orientation::Vertical));
+    apply_list_view_portable_visuals(scroll_view, state, style);
+    resize_list_view_document(scroll_view, state, style);
+}
+
+fn resize_list_view_document(
+    scroll_view: &NSScrollView,
+    state: &AppKitListViewState,
+    style: &PortableStyle,
+) {
+    let constraints = style.native_size_constraints();
+    let current = scroll_view.as_super().frame().size;
+    let width = constraints
+        .width
+        .or(constraints.min_width)
+        .unwrap_or_else(|| current.width.max(APPKIT_LIST_DEFAULT_WIDTH));
+    let implicit_height = implicit_list_view_height(state, style);
+    let height = constraints.height.unwrap_or_else(|| {
+        constraints
+            .min_height
+            .map(|min_height| implicit_height.max(min_height))
+            .unwrap_or(implicit_height)
+    });
+    let height = constraints
+        .max_height
+        .map(|max_height| height.min(max_height))
+        .unwrap_or(height)
+        .max(APPKIT_LIST_MIN_HEIGHT);
+    let document_height = implicit_height.max(height);
+    let document_width = width.max(APPKIT_LIST_DEFAULT_WIDTH + horizontal_padding_points(style));
+    scroll_view
+        .as_super()
+        .setFrameSize(NSSize::new(width, height));
+    state
+        .stack_view
+        .setFrameSize(NSSize::new(document_width, document_height));
+    scroll_view_to_top_view(scroll_view, state.stack_view.as_super());
+}
+
+fn implicit_list_view_height(state: &AppKitListViewState, style: &PortableStyle) -> f64 {
+    let arranged_count = state.stack_view.arrangedSubviews().count();
+    let rows = state.rows.borrow();
+    let row_count = rows.len().max(arranged_count);
+    let rows_height = if rows.is_empty() {
+        APPKIT_LIST_MIN_HEIGHT
+    } else {
+        rows.iter()
+            .map(|row| {
+                row.button_view()
+                    .frame()
+                    .size
+                    .height
+                    .max(APPKIT_LIST_ROW_HEIGHT)
+            })
+            .sum::<f64>()
+    };
+    let rows_height = if row_count > rows.len() {
+        rows_height + ((row_count - rows.len()) as f64 * APPKIT_LIST_ROW_HEIGHT)
+    } else {
+        rows_height
+    };
+    (rows_height + vertical_padding_points(style)).max(APPKIT_LIST_MIN_HEIGHT)
+}
+
+fn vertical_padding_points(style: &PortableStyle) -> f64 {
+    edge_length_points(style.padding.top.as_ref()).unwrap_or(0.0)
+        + edge_length_points(style.padding.bottom.as_ref()).unwrap_or(0.0)
+}
+
+fn horizontal_padding_points(style: &PortableStyle) -> f64 {
+    edge_length_points(style.padding.left.as_ref()).unwrap_or(0.0)
+        + edge_length_points(style.padding.right.as_ref()).unwrap_or(0.0)
+}
+
+fn row_width_from_style(style: &PortableStyle) -> f64 {
+    let constraints = style.native_size_constraints();
+    constraints
+        .width
+        .or(constraints.min_width)
+        .unwrap_or(APPKIT_LIST_DEFAULT_WIDTH)
+        .max(80.0)
+}
+
+fn row_height_from_style(style: &PortableStyle) -> f64 {
+    let constraints = style.native_size_constraints();
+    let padded_height = 17.0 + vertical_padding_points(style);
+    constraints
+        .height
+        .or(constraints.min_height)
+        .unwrap_or(padded_height.max(APPKIT_LIST_ROW_HEIGHT))
+        .max(APPKIT_LIST_MIN_HEIGHT)
+}
+
 fn apply_stack_view_layout(
     stack_view: &NSStackView,
     style: &PortableStyle,
@@ -1719,6 +1995,27 @@ fn apply_stack_view_layout(
         .unwrap_or(0.0);
     unsafe {
         let _: () = msg_send![stack_view, setSpacing: gap];
+    }
+}
+
+fn table_stack_orientation(role: crate::native::NativeRole) -> Option<Orientation> {
+    match role {
+        crate::native::NativeRole::TableSection => Some(Orientation::Vertical),
+        crate::native::NativeRole::TableRow
+        | crate::native::NativeRole::TableCell
+        | crate::native::NativeRole::TableColumn => Some(Orientation::Horizontal),
+        _ => None,
+    }
+}
+
+fn table_stack_minimum_size(role: crate::native::NativeRole) -> Option<(f64, f64)> {
+    match role {
+        crate::native::NativeRole::TableSection => Some((240.0, 32.0)),
+        crate::native::NativeRole::TableRow => Some((240.0, 36.0)),
+        crate::native::NativeRole::TableCell | crate::native::NativeRole::TableColumn => {
+            Some((96.0, 36.0))
+        }
+        _ => None,
     }
 }
 
@@ -1778,12 +2075,20 @@ fn configure_scroll_document(scroll_view: &NSScrollView, stack_view: &NSStackVie
 }
 
 fn scroll_view_to_top(state: &AppKitScrollViewState) {
-    let clip_view = state.scroll_view.contentView();
-    let clip_height = clip_view.bounds().size.height.max(0.0);
-    let document_height = state.stack_view.frame().size.height.max(0.0);
-    let top_y = (document_height - clip_height).max(0.0);
+    scroll_view_to_top_view(&state.scroll_view, state.stack_view.as_super());
+}
+
+fn scroll_view_to_top_view(scroll_view: &NSScrollView, document_view: &NSView) {
+    let clip_view = scroll_view.contentView();
+    let top_y = if document_view.isFlipped() {
+        0.0
+    } else {
+        let clip_height = clip_view.bounds().size.height.max(0.0);
+        let document_height = document_view.frame().size.height.max(0.0);
+        (document_height - clip_height).max(0.0)
+    };
     clip_view.scrollToPoint(NSPoint::new(0.0, top_y));
-    state.scroll_view.reflectScrolledClipView(&clip_view);
+    scroll_view.reflectScrolledClipView(&clip_view);
 }
 
 #[derive(Debug, Clone, Copy, Default)]

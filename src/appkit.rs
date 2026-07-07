@@ -153,9 +153,11 @@ impl AppKitWidgetKind {
             "NSStackView(radio-group)" => Ok(AppKitWidgetKind::RadioGroup),
             "NSButton(radio)" => Ok(AppKitWidgetKind::Radio),
             "NSComboBox" => Ok(AppKitWidgetKind::ComboBox),
-            "NSScrollView+NSStackView" | "NSTableView" => Ok(AppKitWidgetKind::ListView),
+            "NSScrollView+NSStackView" | "NSTableView" | "NSOutlineView" => {
+                Ok(AppKitWidgetKind::ListView)
+            }
             "NSScrollView+NSStackView(scroll)" => Ok(AppKitWidgetKind::ScrollView),
-            "NSButton(list-row)" => Ok(AppKitWidgetKind::ListItem),
+            "NSButton(list-row)" | "NSButton(outline-row)" => Ok(AppKitWidgetKind::ListItem),
             "NSPanel" => Ok(AppKitWidgetKind::Panel),
             "NSPopover" => Ok(AppKitWidgetKind::Popover),
             "NSTabView" => Ok(AppKitWidgetKind::Tabs),
