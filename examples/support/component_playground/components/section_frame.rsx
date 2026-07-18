@@ -17,21 +17,21 @@ pub fn playground_section(cx: &mut ComponentCx<PlaygroundSectionProps>) -> RSX {
     });
     let className = cx.use_prop("className", |props: &PlaygroundSectionProps| {
         if props.class_name.is_empty() {
-            "w-[884px] gap-5 p-6".to_string()
+            "w-[860px] gap-4".to_string()
         } else {
-            format!("w-[884px] gap-5 p-6 {}", props.class_name)
+            format!("w-[860px] gap-4 {}", props.class_name)
         }
     });
 
     a3s_gui::rsx!(
-        <UiCard key="root" className={className}>
-            <UiCardHeader key="header" className="gap-1 border-b border-hairline pb-4">
-                <UiCardTitle key="title">{title}</UiCardTitle>
-                <UiCardDescription key="description">{description}</UiCardDescription>
-            </UiCardHeader>
-            <UiCardContent key="content" className="pt-5">
+        <UiSection key="root" label={title} className={className}>
+            <UiHeader key="header" label={title} className="grid gap-1 border-b border-hairline pb-3">
+                <UiHeading key="title" level={2} label={title} className="text-lg font-semibold leading-7 text-ink" />
+                <UiDescription key="description" label={description} className="text-sm leading-6 text-body" />
+            </UiHeader>
+            <UiGroup key="content" label="Section content" className="gap-4 pt-1">
                 <Slot key="content" />
-            </UiCardContent>
-        </UiCard>
+            </UiGroup>
+        </UiSection>
     )
 }

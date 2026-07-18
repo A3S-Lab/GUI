@@ -61,6 +61,67 @@ pub struct RsxComponentContract {
     allow_extra_props: bool,
 }
 
+/// A reusable set of compiled RSX component definitions.
+///
+/// Cloning a registry is inexpensive: its templates, contracts, and class
+/// variants are held in shared immutable maps. A component only detaches the
+/// map it needs when an application-specific definition is registered.
+#[derive(Debug, Clone, Default)]
+pub struct ComponentRegistry {
+    templates: Arc<BTreeMap<String, CompiledRsxNode>>,
+    contracts: Arc<BTreeMap<String, RsxComponentContract>>,
+    variants: Arc<BTreeMap<String, ComponentClassVariants>>,
+}
+
+impl ComponentRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn len(&self) -> usize {
+        self.templates.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.templates.is_empty()
+    }
+
+    pub fn contains(&self, name: &str) -> bool {
+        self.templates.contains_key(name)
+    }
+
+    fn templates(&self) -> &BTreeMap<String, CompiledRsxNode> {
+        &self.templates
+    }
+
+    fn contracts(&self) -> &BTreeMap<String, RsxComponentContract> {
+        &self.contracts
+    }
+
+    fn variants(&self) -> &BTreeMap<String, ComponentClassVariants> {
+        &self.variants
+    }
+
+    fn templates_mut(&mut self) -> &mut BTreeMap<String, CompiledRsxNode> {
+        Arc::make_mut(&mut self.templates)
+    }
+
+    fn contracts_mut(&mut self) -> &mut BTreeMap<String, RsxComponentContract> {
+        Arc::make_mut(&mut self.contracts)
+    }
+
+    fn variants_mut(&mut self) -> &mut BTreeMap<String, ComponentClassVariants> {
+        Arc::make_mut(&mut self.variants)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn shares_compiled_definitions_with(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.templates, &other.templates)
+            && Arc::ptr_eq(&self.contracts, &other.contracts)
+            && Arc::ptr_eq(&self.variants, &other.variants)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RsxResource<T> {
     Idle,
@@ -528,9 +589,7 @@ pub struct RsxComponent<S> {
     derived_hooks: Vec<RsxValueHook<S>>,
     context_hooks: Vec<RsxValueHook<S>>,
     resource_hooks: Vec<RsxValueHook<S>>,
-    component_templates: BTreeMap<String, CompiledRsxNode>,
-    component_contracts: BTreeMap<String, RsxComponentContract>,
-    component_variants: BTreeMap<String, ComponentClassVariants>,
+    component_registry: ComponentRegistry,
     action_hooks: BTreeMap<String, RsxActionHook<S>>,
     duplicate_actions: BTreeSet<String>,
     action_disabled_hooks: BTreeMap<String, RsxActionDisabledHook<S>>,
@@ -563,6 +622,28 @@ impl<S> RsxComponent<S> {
         Self::from_template_with_default_components(frame_id, RsxTemplate::parse(source)?)
     }
 
+    /// Creates an RSX component without installing the default design-system
+    /// components.
+    pub fn new_bare(frame_id: impl Into<String>, source: &str) -> GuiResult<Self> {
+        Ok(Self::from_template_bare(
+            frame_id,
+            RsxTemplate::parse(source)?,
+        ))
+    }
+
+    /// Creates an RSX component with an explicitly supplied component registry.
+    pub fn new_with_registry(
+        frame_id: impl Into<String>,
+        source: &str,
+        registry: ComponentRegistry,
+    ) -> GuiResult<Self> {
+        Ok(Self::from_template_with_registry(
+            frame_id,
+            RsxTemplate::parse(source)?,
+            registry,
+        ))
+    }
+
     pub fn from_source(
         frame_id: impl Into<String>,
         source_name: impl AsRef<str>,
@@ -574,15 +655,66 @@ impl<S> RsxComponent<S> {
         )
     }
 
+    pub fn from_source_bare(
+        frame_id: impl Into<String>,
+        source_name: impl AsRef<str>,
+        source: &str,
+    ) -> GuiResult<Self> {
+        Ok(Self::from_template_bare(
+            frame_id,
+            RsxTemplate::parse_source(source_name, source)?,
+        ))
+    }
+
+    pub fn from_source_with_registry(
+        frame_id: impl Into<String>,
+        source_name: impl AsRef<str>,
+        source: &str,
+        registry: ComponentRegistry,
+    ) -> GuiResult<Self> {
+        Ok(Self::from_template_with_registry(
+            frame_id,
+            RsxTemplate::parse_source(source_name, source)?,
+            registry,
+        ))
+    }
+
     pub fn from_file(frame_id: impl Into<String>, path: impl AsRef<Path>) -> GuiResult<Self> {
         Self::from_template_with_default_components(frame_id, RsxTemplate::from_file(path)?)
+    }
+
+    pub fn from_file_bare(frame_id: impl Into<String>, path: impl AsRef<Path>) -> GuiResult<Self> {
+        Ok(Self::from_template_bare(
+            frame_id,
+            RsxTemplate::from_file(path)?,
+        ))
+    }
+
+    pub fn from_file_with_registry(
+        frame_id: impl Into<String>,
+        path: impl AsRef<Path>,
+        registry: ComponentRegistry,
+    ) -> GuiResult<Self> {
+        Ok(Self::from_template_with_registry(
+            frame_id,
+            RsxTemplate::from_file(path)?,
+            registry,
+        ))
     }
 
     pub fn from_template(frame_id: impl Into<String>, template: RsxTemplate) -> GuiResult<Self> {
         Self::from_template_with_default_components(frame_id, template)
     }
 
-    pub(crate) fn from_template_bare(frame_id: impl Into<String>, template: RsxTemplate) -> Self {
+    pub fn from_template_bare(frame_id: impl Into<String>, template: RsxTemplate) -> Self {
+        Self::from_template_with_registry(frame_id, template, ComponentRegistry::new())
+    }
+
+    pub fn from_template_with_registry(
+        frame_id: impl Into<String>,
+        template: RsxTemplate,
+        component_registry: ComponentRegistry,
+    ) -> Self {
         Self {
             frame_id: frame_id.into(),
             template,
@@ -591,9 +723,7 @@ impl<S> RsxComponent<S> {
             derived_hooks: Vec::new(),
             context_hooks: Vec::new(),
             resource_hooks: Vec::new(),
-            component_templates: BTreeMap::new(),
-            component_contracts: BTreeMap::new(),
-            component_variants: BTreeMap::new(),
+            component_registry,
             action_hooks: BTreeMap::new(),
             duplicate_actions: BTreeSet::new(),
             action_disabled_hooks: BTreeMap::new(),
@@ -607,26 +737,28 @@ impl<S> RsxComponent<S> {
         }
     }
 
-    pub(crate) fn from_source_bare(
-        frame_id: impl Into<String>,
-        source_name: impl AsRef<str>,
-        source: &str,
-    ) -> GuiResult<Self> {
-        Ok(Self::from_template_bare(
-            frame_id,
-            RsxTemplate::parse_source(source_name, source)?,
-        ))
-    }
-
     fn from_template_with_default_components(
         frame_id: impl Into<String>,
         template: RsxTemplate,
     ) -> GuiResult<Self> {
-        crate::rsx_ui::with_builtin_components(Self::from_template_bare(frame_id, template))
+        Ok(Self::from_template_with_registry(
+            frame_id,
+            template,
+            crate::default_components::registry()?,
+        ))
     }
 
     pub fn template(&self) -> &RsxTemplate {
         &self.template
+    }
+
+    pub fn component_registry(&self) -> &ComponentRegistry {
+        &self.component_registry
+    }
+
+    #[cfg(feature = "design-system")]
+    pub(crate) fn into_component_registry(self) -> ComponentRegistry {
+        self.component_registry
     }
 
     pub fn with_window(mut self, window: WindowOptions) -> Self {
@@ -667,7 +799,8 @@ impl<S> RsxComponent<S> {
         validate_component_name(&name)?;
         self.validate_new_component_name(&name)?;
         let template = RsxTemplate::parse(source)?;
-        self.component_templates
+        self.component_registry
+            .templates_mut()
             .insert(name, template.root().clone());
         Ok(self)
     }
@@ -682,7 +815,8 @@ impl<S> RsxComponent<S> {
         validate_component_name(&name)?;
         self.validate_new_component_name(&name)?;
         let template = RsxTemplate::parse_source(source_name, source)?;
-        self.component_templates
+        self.component_registry
+            .templates_mut()
             .insert(name, template.root().clone());
         Ok(self)
     }
@@ -706,9 +840,12 @@ impl<S> RsxComponent<S> {
         self.validate_new_component_name(&name)?;
         contract.validate(&name)?;
         let template = RsxTemplate::parse(source)?;
-        self.component_templates
+        self.component_registry
+            .templates_mut()
             .insert(name.clone(), template.root().clone());
-        self.component_contracts.insert(name, contract);
+        self.component_registry
+            .contracts_mut()
+            .insert(name, contract);
         Ok(self)
     }
 
@@ -724,9 +861,12 @@ impl<S> RsxComponent<S> {
         self.validate_new_component_name(&name)?;
         contract.validate(&name)?;
         let template = RsxTemplate::parse_source(source_name, source)?;
-        self.component_templates
+        self.component_registry
+            .templates_mut()
             .insert(name.clone(), template.root().clone());
-        self.component_contracts.insert(name, contract);
+        self.component_registry
+            .contracts_mut()
+            .insert(name, contract);
         Ok(self)
     }
 
@@ -747,7 +887,8 @@ impl<S> RsxComponent<S> {
         let name = name.into();
         validate_component_name(&name)?;
         self.validate_new_component_name(&name)?;
-        self.component_templates
+        self.component_registry
+            .templates_mut()
             .insert(name, template.root().clone());
         Ok(self)
     }
@@ -762,9 +903,12 @@ impl<S> RsxComponent<S> {
         validate_component_name(&name)?;
         self.validate_new_component_name(&name)?;
         contract.validate(&name)?;
-        self.component_templates
+        self.component_registry
+            .templates_mut()
             .insert(name.clone(), template.root().clone());
-        self.component_contracts.insert(name, contract);
+        self.component_registry
+            .contracts_mut()
+            .insert(name, contract);
         Ok(self)
     }
 
@@ -775,17 +919,19 @@ impl<S> RsxComponent<S> {
     ) -> GuiResult<Self> {
         let name = name.into();
         validate_component_name(&name)?;
-        if !self.component_templates.contains_key(&name) {
+        if !self.component_registry.templates().contains_key(&name) {
             return Err(GuiError::invalid_tree(format!(
                 "RSX component {name:?} needs a registered template before class variants can be attached"
             )));
         }
-        if self.component_variants.contains_key(&name) {
+        if self.component_registry.variants().contains_key(&name) {
             return Err(GuiError::invalid_tree(format!(
                 "RSX component {name:?} class variants were registered more than once"
             )));
         }
-        self.component_variants.insert(name, variants);
+        self.component_registry
+            .variants_mut()
+            .insert(name, variants);
         Ok(self)
     }
 
@@ -1838,7 +1984,7 @@ impl<S> RsxComponent<S> {
         self.validate_with_context_paths(context_paths)?;
         let scope = self.scope_with_context_scope(state, context_scope)?;
         let component_defaults = self.component_default_props();
-        let component_variants = &self.component_variants;
+        let component_variants = self.component_registry.variants();
         let mut frame = self
             .template
             .render_with_scope_parts_and_component_options(
@@ -1846,7 +1992,7 @@ impl<S> RsxComponent<S> {
                 &scope,
                 None,
                 self.window.clone(),
-                &self.component_templates,
+                self.component_registry.templates(),
                 &component_defaults,
                 component_variants,
             )?;
@@ -2220,11 +2366,11 @@ impl<S> RsxComponent<S> {
             return Ok(());
         };
 
-        if let Some(contract) = self.component_contracts.get(tag) {
+        if let Some(contract) = self.component_registry.contracts().get(tag) {
             contract.validate_invocation(tag, props)?;
         }
 
-        if let Some(component) = self.component_templates.get(tag) {
+        if let Some(component) = self.component_registry.templates().get(tag) {
             if component_stack.iter().any(|name| name == tag) {
                 let mut cycle = component_stack.clone();
                 cycle.push(tag.clone());
@@ -2275,7 +2421,7 @@ impl<S> RsxComponent<S> {
 
         self.validate_props_bindings(props, component_props, coverage)?;
 
-        if let Some(component) = self.component_templates.get(tag) {
+        if let Some(component) = self.component_registry.templates().get(tag) {
             if component_stack.iter().any(|name| name == tag) {
                 let mut cycle = component_stack.clone();
                 cycle.push(tag.clone());
@@ -2338,7 +2484,7 @@ impl<S> RsxComponent<S> {
         component: &str,
         binding: &CompiledBinding,
     ) -> GuiResult<()> {
-        let Some(contract) = self.component_contracts.get(component) else {
+        let Some(contract) = self.component_registry.contracts().get(component) else {
             return Ok(());
         };
         if contract.covers_binding_path(&binding.path) {
@@ -2355,7 +2501,7 @@ impl<S> RsxComponent<S> {
         let mut actions = BTreeSet::new();
         collect_static_action_ids(
             self.template.root(),
-            &self.component_templates,
+            self.component_registry.templates(),
             &mut Vec::new(),
             &mut actions,
         )?;
@@ -2427,7 +2573,7 @@ impl<S> RsxComponent<S> {
     }
 
     fn validate_new_component_name(&self, name: &str) -> GuiResult<()> {
-        if self.component_templates.contains_key(name) {
+        if self.component_registry.templates().contains_key(name) {
             return Err(GuiError::invalid_tree(format!(
                 "RSX component {name:?} was registered more than once"
             )));
@@ -2436,7 +2582,8 @@ impl<S> RsxComponent<S> {
     }
 
     fn component_default_props(&self) -> BTreeMap<String, BTreeMap<String, JsonValue>> {
-        self.component_contracts
+        self.component_registry
+            .contracts()
             .iter()
             .filter(|(_, contract)| !contract.default_props().is_empty())
             .map(|(component, contract)| (component.clone(), contract.default_props().clone()))

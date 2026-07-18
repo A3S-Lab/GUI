@@ -12,6 +12,8 @@ mod date_color_range_panel;
 mod foundation_panel;
 #[path = "overlays_feedback_panel.rsx"]
 mod overlays_feedback_panel;
+#[path = "overview_panel.rsx"]
+mod overview_panel;
 #[path = "section_frame.rsx"]
 mod section_frame;
 #[path = "shell.rsx"]
@@ -32,6 +34,7 @@ pub(super) const PLAYGROUND_RSX_SOURCES: &[&str] = &[
     include_str!("data_panel.rsx"),
     include_str!("date_color_range_panel.rsx"),
     include_str!("overlays_feedback_panel.rsx"),
+    include_str!("overview_panel.rsx"),
 ];
 
 pub fn with_component_playground_components<S: 'static>(
@@ -47,6 +50,7 @@ pub fn with_component_playground_components<S: 'static>(
             "query",
             "selectedValue",
             "activeSection",
+            "overviewActive",
             "foundationActive",
             "controlsActive",
             "collectionsActive",
@@ -68,6 +72,12 @@ pub fn with_component_playground_components<S: 'static>(
         RsxComponentContract::new()
             .required(["title", "description"])
             .default_prop("className", "")?,
+    )?;
+    let component = with_template(
+        component,
+        "OverviewPanel",
+        overview_panel::overview_panel,
+        RsxComponentContract::new().required(["setSection"]),
     )?;
     let component = with_template(
         component,

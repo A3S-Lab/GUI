@@ -55,26 +55,26 @@ pub fn ui_date_range_picker(cx: &mut ComponentCx<UiDateRangePickerProps>) -> RSX
             <Group
                 key="control"
                 data-slot="date-range-picker-control"
-                class="flex h-11 w-full min-w-0 items-center gap-2 rounded-md border border-hairline-strong bg-canvas px-4 focus-within:border-ink focus-within:ring-[3px] focus-within:ring-ring/50"
+                class="flex h-9 w-full min-w-0 items-center rounded-md border border-hairline-strong bg-surface-card focus-within:border-ink focus-within:ring-[2px] focus-within:ring-ink/40"
             >
                 <Input
                     key="start-input"
                     {...props.dateRangePickerStartInputProps}
                     data-slot="date-range-picker-start-input"
-                    class="min-w-0 flex-1 bg-transparent px-1 py-3 text-sm text-ink outline-none placeholder:text-mute md:text-sm"
+                    class="min-w-0 flex-1 bg-transparent px-3 py-1.5 text-sm text-ink outline-none placeholder:text-muted md:text-sm"
                 />
                 <Text key="separator" data-slot="date-range-picker-separator">-</Text>
                 <Input
                     key="end-input"
                     {...props.dateRangePickerEndInputProps}
                     data-slot="date-range-picker-end-input"
-                    class="min-w-0 flex-1 bg-transparent px-1 py-3 text-sm text-ink outline-none placeholder:text-mute md:text-sm"
+                    class="min-w-0 flex-1 bg-transparent px-3 py-1.5 text-sm text-ink outline-none placeholder:text-muted md:text-sm"
                 />
                 <Button
                     key="trigger"
                     {...props.dateRangePickerTriggerProps}
                     data-slot="date-range-picker-trigger"
-                    class="inline-flex h-11 shrink-0 items-center justify-center px-3 text-body transition-colors hover:text-ink"
+                    class="inline-flex h-9 shrink-0 items-center justify-center px-3 text-body hover:text-ink"
                 >
                     Open
                 </Button>

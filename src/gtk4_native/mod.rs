@@ -660,7 +660,19 @@ where
             self.render()?;
         }
         while self.gtk4_root_window_open() && should_continue(self.state()) {
-            self.pump_gtk4_event_while(Gtk4EventWait::Wait, &mut should_continue)?;
+            self.poll_background_updates()?;
+            if !self.gtk4_root_window_open() || !should_continue(self.state()) {
+                break;
+            }
+            let wait = if self.has_pending_background_work() {
+                Gtk4EventWait::Poll
+            } else {
+                Gtk4EventWait::Wait
+            };
+            self.pump_gtk4_event_while(wait, &mut should_continue)?;
+            if self.has_pending_background_work() {
+                std::thread::park_timeout(std::time::Duration::from_millis(16));
+            }
         }
         Ok(())
     }

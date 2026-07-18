@@ -1,5 +1,5 @@
 use crate::host::HostNodeId;
-use crate::native::{NativeElement, NativeRole};
+use crate::native::{effective_input_type, NativeElement, NativeRole, ValueSensitivity};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -382,7 +382,7 @@ impl Default for AccessibilityRelationshipProps {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccessibilityNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -390,6 +390,8 @@ pub struct AccessibilityNode {
     pub role: AccessibilityRole,
     pub label: Option<String>,
     pub value: Option<String>,
+    #[serde(default)]
+    pub value_sensitivity: ValueSensitivity,
     pub relationships: AccessibilityRelationshipProps,
     pub description: AccessibilityDescriptionProps,
     pub structure: AccessibilityStructureProps,
@@ -408,19 +410,119 @@ pub struct AccessibilityNode {
     pub children: Vec<AccessibilityNode>,
 }
 
+impl std::fmt::Debug for AccessibilityNode {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut description = self.description.clone();
+        if self.value_sensitivity.is_sensitive() {
+            description.value_text = None;
+        }
+        formatter
+            .debug_struct("AccessibilityNode")
+            .field("node", &self.node)
+            .field("role", &self.role)
+            .field("label", &self.label)
+            .field(
+                "value",
+                &self.value_sensitivity.redact(self.value.as_deref()),
+            )
+            .field("value_sensitivity", &self.value_sensitivity)
+            .field("relationships", &self.relationships)
+            .field("description", &description)
+            .field("structure", &self.structure)
+            .field("state", &self.state)
+            .field("disabled", &self.disabled)
+            .field("required", &self.required)
+            .field("invalid", &self.invalid)
+            .field("read_only", &self.read_only)
+            .field("multiple", &self.multiple)
+            .field("focused", &self.focused)
+            .field("selected", &self.selected)
+            .field("checked", &self.checked)
+            .field("expanded", &self.expanded)
+            .field("children", &self.children)
+            .finish()
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AccessibilityNodeWire<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    node: Option<HostNodeId>,
+    role: AccessibilityRole,
+    label: Option<&'a str>,
+    value: Option<&'a str>,
+    relationships: &'a AccessibilityRelationshipProps,
+    description: AccessibilityDescriptionProps,
+    structure: &'a AccessibilityStructureProps,
+    state: &'a AccessibilityStateProps,
+    disabled: bool,
+    required: bool,
+    invalid: bool,
+    read_only: bool,
+    multiple: bool,
+    focused: bool,
+    selected: bool,
+    checked: Option<bool>,
+    expanded: Option<bool>,
+    children: &'a [AccessibilityNode],
+}
+
+impl Serialize for AccessibilityNode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut description = self.description.clone();
+        if self.value_sensitivity.is_sensitive() {
+            description.value_text = None;
+        }
+        AccessibilityNodeWire {
+            node: self.node,
+            role: self.role,
+            label: self.label.as_deref(),
+            value: self.value_sensitivity.redact(self.value.as_deref()),
+            relationships: &self.relationships,
+            description,
+            structure: &self.structure,
+            state: &self.state,
+            disabled: self.disabled,
+            required: self.required,
+            invalid: self.invalid,
+            read_only: self.read_only,
+            multiple: self.multiple,
+            focused: self.focused,
+            selected: self.selected,
+            checked: self.checked,
+            expanded: self.expanded,
+            children: &self.children,
+        }
+        .serialize(serializer)
+    }
+}
+
 pub trait AccessibilityTreeHost {
     fn accessibility_tree(&self) -> Option<AccessibilityNode>;
 }
 
 impl AccessibilityNode {
     pub fn from_native(element: &NativeElement) -> Self {
+        let value_sensitivity =
+            ValueSensitivity::from_input_type(effective_input_type(&element.props));
+        let mut description = element.props.accessibility_description.clone();
+        if value_sensitivity.is_sensitive() {
+            description.value_text = None;
+        }
         Self {
             node: None,
             role: accessibility_role(element.role),
             label: element.props.label.clone(),
-            value: element.props.value.clone(),
+            value: value_sensitivity
+                .redact(element.props.value.as_deref())
+                .map(ToOwned::to_owned),
+            value_sensitivity,
             relationships: element.props.accessibility_relationships.clone(),
-            description: element.props.accessibility_description.clone(),
+            description,
             structure: element.props.accessibility_structure.clone(),
             state: element.props.accessibility_state.clone(),
             disabled: element.props.disabled,
@@ -611,5 +713,38 @@ mod tests {
 
         assert!(node.read_only);
         assert!(node.multiple);
+    }
+
+    #[test]
+    fn sensitive_accessibility_nodes_are_defensively_redacted_on_serialize() {
+        let node: AccessibilityNode = serde_json::from_value(serde_json::json!({
+            "role": "textField",
+            "label": "Password",
+            "value": "accessibility-password-secret",
+            "valueSensitivity": "sensitive",
+            "relationships": {},
+            "description": {"valueText": "described-password-secret"},
+            "structure": {},
+            "state": {},
+            "disabled": false,
+            "required": false,
+            "invalid": false,
+            "focused": true,
+            "selected": false,
+            "checked": null,
+            "expanded": null,
+            "children": []
+        }))
+        .unwrap();
+
+        assert_eq!(node.value.as_deref(), Some("accessibility-password-secret"));
+        let wire = serde_json::to_string(&node).unwrap();
+        let debug = format!("{node:?}");
+
+        assert!(!wire.contains("accessibility-password-secret"));
+        assert!(!wire.contains("described-password-secret"));
+        assert!(!wire.contains("valueSensitivity"));
+        assert!(!debug.contains("accessibility-password-secret"));
+        assert!(!debug.contains("described-password-secret"));
     }
 }

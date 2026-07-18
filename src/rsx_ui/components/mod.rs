@@ -3,4 +3,4 @@ mod contract;
 mod registry;
 
 pub use catalog::*;
-pub(crate) use registry::with_builtin_components;
+pub use registry::builtin_component_registry;

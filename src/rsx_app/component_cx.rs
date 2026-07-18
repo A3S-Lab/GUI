@@ -90,7 +90,7 @@ use crate::semantic_ui::{
 };
 use crate::semantic_ui::{use_virtualizer_value, UseVirtualizerProps, VirtualizerProps};
 
-use super::{RsxComponent, RsxResource};
+use super::{ComponentRegistry, RsxComponent, RsxResource};
 
 type ComponentRegistration<S> =
     Box<dyn FnOnce(RsxComponent<S>) -> GuiResult<RsxComponent<S>> + Send>;
@@ -1657,8 +1657,21 @@ impl<S: 'static> ComponentCx<S> {
         cx.into_component(view)
     }
 
-    pub(crate) fn compile_bare<F>(
+    /// Compiles a component without installing the default design-system
+    /// component registry.
+    pub fn compile_bare<F>(frame_id: impl Into<String>, render: F) -> GuiResult<RsxComponent<S>>
+    where
+        F: FnOnce(&mut Self) -> RSX,
+    {
+        let mut cx = Self::new(frame_id);
+        let view = render(&mut cx);
+        cx.into_component_bare(view)
+    }
+
+    /// Compiles a component against an explicitly supplied component registry.
+    pub fn compile_with_registry<F>(
         frame_id: impl Into<String>,
+        registry: ComponentRegistry,
         render: F,
     ) -> GuiResult<RsxComponent<S>>
     where
@@ -1666,7 +1679,7 @@ impl<S: 'static> ComponentCx<S> {
     {
         let mut cx = Self::new(frame_id);
         let view = render(&mut cx);
-        cx.into_component_bare(view)
+        cx.into_component_with_registry(view, registry)
     }
 
     pub fn use_ref<T>(&mut self, initial: T) -> RefHandle<T>
@@ -5369,10 +5382,22 @@ impl<S: 'static> ComponentCx<S> {
         Ok(component)
     }
 
-    fn into_component_bare(self, view: RSX) -> GuiResult<RsxComponent<S>> {
+    pub fn into_component_bare(self, view: RSX) -> GuiResult<RsxComponent<S>> {
+        self.into_component_with_registry(view, ComponentRegistry::new())
+    }
+
+    pub fn into_component_with_registry(
+        self,
+        view: RSX,
+        registry: ComponentRegistry,
+    ) -> GuiResult<RsxComponent<S>> {
         let source = rewrite_registered_bindings(view.as_source(), &self.aliases);
-        let mut component =
-            RsxComponent::from_source_bare(self.frame_id, "component-cx.rsx", &source)?;
+        let mut component = RsxComponent::from_source_with_registry(
+            self.frame_id,
+            "component-cx.rsx",
+            &source,
+            registry,
+        )?;
         for registration in self.registrations {
             component = registration(component)?;
         }

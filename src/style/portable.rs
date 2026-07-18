@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 use crate::geometry::Orientation;
@@ -6,6 +7,19 @@ use serde::{Deserialize, Serialize};
 
 use super::tailwind;
 use super::types::*;
+
+const PORTABLE_STYLE_CACHE_LIMIT: usize = 1024;
+
+thread_local! {
+    static PORTABLE_STYLE_CACHE: RefCell<BTreeMap<PortableStyleCacheKey, PortableStyle>> =
+        RefCell::new(BTreeMap::new());
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct PortableStyleCacheKey {
+    class_name: Option<String>,
+    style: BTreeMap<String, String>,
+}
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -529,6 +543,14 @@ pub struct NativeSizeConstraints {
 
 impl PortableStyle {
     pub fn from_web(web: &WebProps) -> Self {
+        let key = PortableStyleCacheKey {
+            class_name: web.class_name.clone(),
+            style: web.style.clone(),
+        };
+        if let Some(style) = PORTABLE_STYLE_CACHE.with(|cache| cache.borrow().get(&key).cloned()) {
+            return style;
+        }
+
         let mut style = PortableStyle::default();
         if let Some(class_name) = &web.class_name {
             for class in tailwind::ordered_class_tokens(class_name) {
@@ -538,6 +560,15 @@ impl PortableStyle {
         for (property, value) in &web.style {
             style.apply(property, value);
         }
+        PORTABLE_STYLE_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            if cache.len() >= PORTABLE_STYLE_CACHE_LIMIT {
+                if let Some(first) = cache.keys().next().cloned() {
+                    cache.remove(&first);
+                }
+            }
+            cache.insert(key, style.clone());
+        });
         style
     }
 

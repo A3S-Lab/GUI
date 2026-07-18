@@ -31,7 +31,7 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         id: HostNodeId,
         blueprint: &NativeWidgetBlueprint,
     ) -> GuiResult<Self::Handle> {
-        let kind = AppKitWidgetKind::from_widget_class(blueprint.widget_class.as_str())?;
+        let kind = AppKitWidgetKind::from_widget_kind(blueprint.widget_kind);
         let config = blueprint.config();
         let widget = match kind {
             AppKitWidgetKind::Window => {
@@ -155,7 +155,9 @@ impl NativeWidgetSurface for AppKitNativeSurface {
                 AppKitOsWidget::MenuItem(menu_item)
             }
             AppKitWidgetKind::View => {
-                if let Some(orientation) = table_stack_orientation(config.role) {
+                if let Some(orientation) =
+                    appkit_view_stack_orientation(config.role, &config.portable_style)
+                {
                     let stack_view =
                         flipped_stack_view(self.mtm, config_rect(&config, 320.0, 44.0));
                     apply_stack_view_layout(&stack_view, &config.portable_style, Some(orientation));

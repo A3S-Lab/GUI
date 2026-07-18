@@ -55,7 +55,7 @@ pub fn ui_long_pressable(cx: &mut ComponentCx<UiLongPressableProps>) -> RSX {
             data-slot="long-pressable"
             data-pressed={props.isPressed}
             data-long-pressed={props.isLongPressed}
-            class="outline-none transition-colors data-[long-pressed=true]:bg-canvas-soft disabled:pointer-events-none disabled:text-muted-soft focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            class="outline-none data-[long-pressed=true]:bg-canvas-soft disabled:pointer-events-none disabled:text-muted-soft focus-visible:ring-[2px] focus-visible:ring-ink/40"
             className={props.className}
         >
             <Slot key="content" />

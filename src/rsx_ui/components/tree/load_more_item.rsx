@@ -47,7 +47,7 @@ pub fn ui_tree_load_more_item(cx: &mut ComponentCx<UiTreeLoadMoreItemProps>) -> 
             key="root"
             {...props.loadMoreItemProps}
             data-slot="tree-load-more-item"
-            class="flex min-h-10 w-full cursor-default select-none items-center justify-center rounded-md border border-dashed border-hairline-strong bg-canvas px-4 py-2 text-sm font-medium text-body outline-none transition-colors focus:bg-primary focus:text-on-primary disabled:pointer-events-none disabled:text-muted-soft"
+            class="flex min-h-10 w-full cursor-default select-none items-center justify-center rounded-md border border-dashed border-hairline-strong bg-surface-card px-3 py-1.5 text-sm font-medium text-body outline-none focus:bg-ink focus:text-canvas disabled:pointer-events-none disabled:text-muted-soft"
             className={props.className}
         >
             <Slot key="content" />

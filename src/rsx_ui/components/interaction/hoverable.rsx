@@ -30,7 +30,7 @@ pub fn ui_hoverable(cx: &mut ComponentCx<UiHoverableProps>) -> RSX {
             {...props.hoverProps}
             data-slot="hoverable"
             data-hovered={props.isHovered}
-            class="outline-none transition-colors data-[hovered=true]:bg-canvas-soft disabled:pointer-events-none disabled:text-muted-soft"
+            class="outline-none data-[hovered=true]:bg-canvas-soft disabled:pointer-events-none disabled:text-muted-soft"
             className={props.className}
         >
             <Slot key="content" />

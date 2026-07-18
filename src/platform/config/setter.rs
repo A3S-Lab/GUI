@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
-
-use serde::{Deserialize, Serialize};
+use std::fmt;
 
 use crate::accessibility::{
     AccessibilityDescriptionProps, AccessibilityRelationshipProps, AccessibilityRole,
@@ -11,12 +10,14 @@ use crate::html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
 };
+use crate::native::ValueSensitivity;
 use crate::style::PortableStyle;
 
 use super::NativeWidgetConfig;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "value", rename_all = "camelCase")]
+pub const DEFAULT_NATIVE_SETTER_HISTORY_LIMIT: usize = 256;
+
+#[derive(Clone, PartialEq)]
 pub enum NativeWidgetSetter {
     SetAccessibilityRole(AccessibilityRole),
     SetLabel(Option<String>),
@@ -121,6 +122,307 @@ pub enum NativeWidgetSetter {
     SetPortableStyle(PortableStyle),
     SetEvents(BTreeMap<String, String>),
     SetMetadata(BTreeMap<String, String>),
+}
+
+impl fmt::Debug for NativeWidgetSetter {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        macro_rules! debug_payload_variants {
+            ($($variant:ident),+ $(,)?) => {
+                match self {
+                    Self::SetValue(value) => formatter
+                        .debug_struct("SetValue")
+                        .field("has_value", &value.is_some())
+                        .finish(),
+                    Self::SetNonce(value) => formatter
+                        .debug_struct("SetNonce")
+                        .field("has_value", &value.is_some())
+                        .finish(),
+                    Self::SetAccessibilityDescription(description) => {
+                        let mut redacted = description.clone();
+                        let has_value_text = redacted.value_text.is_some();
+                        redacted.value_text = None;
+                        formatter
+                            .debug_struct("SetAccessibilityDescription")
+                            .field("description", &redacted)
+                            .field("has_value_text", &has_value_text)
+                            .finish()
+                    }
+                    Self::SetMetadata(metadata) => {
+                        let keys = metadata.keys().collect::<Vec<_>>();
+                        formatter
+                            .debug_struct("SetMetadata")
+                            .field("entry_count", &metadata.len())
+                            .field("keys", &keys)
+                            .finish()
+                    }
+                    $(Self::$variant(value) => formatter
+                        .debug_tuple(stringify!($variant))
+                        .field(value)
+                        .finish(),)+
+                }
+            };
+        }
+
+        debug_payload_variants!(
+            SetAccessibilityRole,
+            SetLabel,
+            SetAction,
+            SetClassName,
+            SetPlaceholder,
+            SetEnabled,
+            SetVisible,
+            SetRequired,
+            SetInvalid,
+            SetReadOnly,
+            SetMultiple,
+            SetAutoFocus,
+            SetSelected,
+            SetChecked,
+            SetExpanded,
+            SetOrientation,
+            SetMinimum,
+            SetMaximum,
+            SetCurrent,
+            SetStep,
+            SetAutocomplete,
+            SetInputMode,
+            SetEnterKeyHint,
+            SetAutoCapitalize,
+            SetAutoCorrect,
+            SetVirtualKeyboardPolicy,
+            SetPattern,
+            SetMinLength,
+            SetMaxLength,
+            SetRows,
+            SetCols,
+            SetSize,
+            SetTitle,
+            SetWindowResizable,
+            SetHidden,
+            SetLang,
+            SetDir,
+            SetTabIndex,
+            SetExplicitRole,
+            SetAccessKey,
+            SetContentEditable,
+            SetDraggable,
+            SetSpellCheck,
+            SetTranslate,
+            SetInert,
+            SetPopover,
+            SetAnchor,
+            SetCustomElementIs,
+            SetName,
+            SetForm,
+            SetInputType,
+            SetAccept,
+            SetCapture,
+            SetAlt,
+            SetHref,
+            SetSrc,
+            SetSrcset,
+            SetSizes,
+            SetMedia,
+            SetResourceType,
+            SetIntrinsicWidth,
+            SetIntrinsicHeight,
+            SetLoading,
+            SetDecoding,
+            SetFetchPriority,
+            SetCrossOrigin,
+            SetReferrerPolicy,
+            SetPoster,
+            SetControls,
+            SetAutoplay,
+            SetLoopPlayback,
+            SetMuted,
+            SetPlaysInline,
+            SetPreload,
+            SetTrackKind,
+            SetSrclang,
+            SetTrackLabel,
+            SetDefaultTrack,
+            SetList,
+            SetDirname,
+            SetFormAction,
+            SetFormEnctype,
+            SetFormMethod,
+            SetFormTarget,
+            SetFormNoValidate,
+            SetHtmlResourcePolicy,
+            SetHtmlActivation,
+            SetHtmlTextAnnotation,
+            SetHtmlDialog,
+            SetHtmlShadow,
+            SetHtmlMicrodata,
+            SetHtmlFormAssociation,
+            SetHtmlCollection,
+            SetAccessibilityRelationships,
+            SetAccessibilityStructure,
+            SetAccessibilityState,
+            SetWebStyle,
+            SetPortableStyle,
+            SetEvents,
+        )
+    }
+}
+
+impl NativeWidgetSetter {
+    pub fn redacted_for_diagnostics(&self, sensitivity: ValueSensitivity) -> Self {
+        match self {
+            Self::SetValue(_) if sensitivity.is_sensitive() => Self::SetValue(None),
+            Self::SetNonce(_) => Self::SetNonce(None),
+            Self::SetAccessibilityDescription(description) if sensitivity.is_sensitive() => {
+                let mut description = description.clone();
+                description.value_text = None;
+                Self::SetAccessibilityDescription(description)
+            }
+            Self::SetHtmlResourcePolicy(policy) => {
+                Self::SetHtmlResourcePolicy(policy.redacted_for_diagnostics())
+            }
+            Self::SetMetadata(metadata) => {
+                let mut metadata = metadata.clone();
+                sensitivity.redact_metadata_for_diagnostics(&mut metadata);
+                Self::SetMetadata(metadata)
+            }
+            _ => self.clone(),
+        }
+    }
+
+    /// Compare only the config field owned by this setter.
+    ///
+    /// This keeps diff construction linear in the number of setters and avoids
+    /// cloning the full config (including style and metadata maps) per field.
+    pub(crate) fn differs_from(&self, config: &NativeWidgetConfig) -> bool {
+        match self {
+            Self::SetAccessibilityRole(value) => &config.accessibility_role != value,
+            Self::SetLabel(value) => &config.label != value,
+            Self::SetValue(value) => &config.value != value,
+            Self::SetAction(value) => &config.action != value,
+            Self::SetClassName(value) => &config.class_name != value,
+            Self::SetPlaceholder(value) => &config.placeholder != value,
+            Self::SetEnabled(value) => &config.enabled != value,
+            Self::SetVisible(value) => &config.visible != value,
+            Self::SetRequired(value) => &config.required != value,
+            Self::SetInvalid(value) => &config.invalid != value,
+            Self::SetReadOnly(value) => &config.read_only != value,
+            Self::SetMultiple(value) => &config.multiple != value,
+            Self::SetAutoFocus(value) => &config.auto_focus != value,
+            Self::SetSelected(value) => &config.selected != value,
+            Self::SetChecked(value) => &config.checked != value,
+            Self::SetExpanded(value) => &config.expanded != value,
+            Self::SetOrientation(value) => &config.orientation != value,
+            Self::SetMinimum(value) => &config.min != value,
+            Self::SetMaximum(value) => &config.max != value,
+            Self::SetCurrent(value) => &config.current != value,
+            Self::SetStep(value) => &config.step != value,
+            Self::SetAutocomplete(value) => &config.autocomplete != value,
+            Self::SetInputMode(value) => &config.input_mode != value,
+            Self::SetEnterKeyHint(value) => &config.enter_key_hint != value,
+            Self::SetAutoCapitalize(value) => &config.auto_capitalize != value,
+            Self::SetAutoCorrect(value) => &config.auto_correct != value,
+            Self::SetVirtualKeyboardPolicy(value) => &config.virtual_keyboard_policy != value,
+            Self::SetPattern(value) => &config.pattern != value,
+            Self::SetMinLength(value) => &config.min_length != value,
+            Self::SetMaxLength(value) => &config.max_length != value,
+            Self::SetRows(value) => &config.rows != value,
+            Self::SetCols(value) => &config.cols != value,
+            Self::SetSize(value) => &config.size != value,
+            Self::SetTitle(value) => &config.title != value,
+            Self::SetWindowResizable(value) => &config.window_resizable != value,
+            Self::SetHidden(value) => &config.hidden != value,
+            Self::SetLang(value) => &config.lang != value,
+            Self::SetDir(value) => &config.dir != value,
+            Self::SetTabIndex(value) => &config.tab_index != value,
+            Self::SetExplicitRole(value) => &config.explicit_role != value,
+            Self::SetAccessKey(value) => &config.access_key != value,
+            Self::SetContentEditable(value) => &config.content_editable != value,
+            Self::SetDraggable(value) => &config.draggable != value,
+            Self::SetSpellCheck(value) => &config.spell_check != value,
+            Self::SetTranslate(value) => &config.translate != value,
+            Self::SetInert(value) => &config.inert != value,
+            Self::SetPopover(value) => &config.popover != value,
+            Self::SetAnchor(value) => &config.anchor != value,
+            Self::SetCustomElementIs(value) => &config.custom_element_is != value,
+            Self::SetNonce(value) => &config.nonce != value,
+            Self::SetName(value) => &config.name != value,
+            Self::SetForm(value) => &config.form != value,
+            Self::SetInputType(value) => &config.input_type != value,
+            Self::SetAccept(value) => &config.accept != value,
+            Self::SetCapture(value) => &config.capture != value,
+            Self::SetAlt(value) => &config.alt != value,
+            Self::SetHref(value) => &config.href != value,
+            Self::SetSrc(value) => &config.src != value,
+            Self::SetSrcset(value) => &config.srcset != value,
+            Self::SetSizes(value) => &config.sizes != value,
+            Self::SetMedia(value) => &config.media != value,
+            Self::SetResourceType(value) => &config.resource_type != value,
+            Self::SetIntrinsicWidth(value) => &config.intrinsic_width != value,
+            Self::SetIntrinsicHeight(value) => &config.intrinsic_height != value,
+            Self::SetLoading(value) => &config.loading != value,
+            Self::SetDecoding(value) => &config.decoding != value,
+            Self::SetFetchPriority(value) => &config.fetch_priority != value,
+            Self::SetCrossOrigin(value) => &config.cross_origin != value,
+            Self::SetReferrerPolicy(value) => &config.referrer_policy != value,
+            Self::SetPoster(value) => &config.poster != value,
+            Self::SetControls(value) => &config.controls != value,
+            Self::SetAutoplay(value) => &config.autoplay != value,
+            Self::SetLoopPlayback(value) => &config.loop_playback != value,
+            Self::SetMuted(value) => &config.muted != value,
+            Self::SetPlaysInline(value) => &config.plays_inline != value,
+            Self::SetPreload(value) => &config.preload != value,
+            Self::SetTrackKind(value) => &config.track_kind != value,
+            Self::SetSrclang(value) => &config.srclang != value,
+            Self::SetTrackLabel(value) => &config.track_label != value,
+            Self::SetDefaultTrack(value) => &config.default_track != value,
+            Self::SetList(value) => &config.list != value,
+            Self::SetDirname(value) => &config.dirname != value,
+            Self::SetFormAction(value) => &config.form_action != value,
+            Self::SetFormEnctype(value) => &config.form_enctype != value,
+            Self::SetFormMethod(value) => &config.form_method != value,
+            Self::SetFormTarget(value) => &config.form_target != value,
+            Self::SetFormNoValidate(value) => &config.form_no_validate != value,
+            Self::SetHtmlResourcePolicy(value) => &config.html_resource_policy != value,
+            Self::SetHtmlActivation(value) => &config.html_activation != value,
+            Self::SetHtmlTextAnnotation(value) => &config.html_text_annotation != value,
+            Self::SetHtmlDialog(value) => &config.html_dialog != value,
+            Self::SetHtmlShadow(value) => &config.html_shadow != value,
+            Self::SetHtmlMicrodata(value) => &config.html_microdata != value,
+            Self::SetHtmlFormAssociation(value) => &config.html_form_association != value,
+            Self::SetHtmlCollection(value) => &config.html_collection != value,
+            Self::SetAccessibilityRelationships(value) => {
+                &config.accessibility_relationships != value
+            }
+            Self::SetAccessibilityDescription(value) => &config.accessibility_description != value,
+            Self::SetAccessibilityStructure(value) => &config.accessibility_structure != value,
+            Self::SetAccessibilityState(value) => &config.accessibility_state != value,
+            Self::SetWebStyle(value) => &config.web_style != value,
+            Self::SetPortableStyle(value) => &config.portable_style != value,
+            Self::SetEvents(value) => &config.events != value,
+            Self::SetMetadata(value) => &config.metadata != value,
+        }
+    }
+}
+
+pub fn push_widget_setter_history(
+    history: &mut Vec<NativeWidgetSetter>,
+    setters: &[NativeWidgetSetter],
+    sensitivity: ValueSensitivity,
+    limit: usize,
+) {
+    if limit == 0 {
+        history.clear();
+        return;
+    }
+    history.extend(
+        setters
+            .iter()
+            .map(|setter| setter.redacted_for_diagnostics(sensitivity)),
+    );
+    let excess = history.len().saturating_sub(limit);
+    if excess > 0 {
+        history.drain(..excess);
+    }
 }
 
 pub fn apply_widget_setter(config: &mut NativeWidgetConfig, setter: &NativeWidgetSetter) {
@@ -235,7 +537,9 @@ pub fn apply_widget_setter(config: &mut NativeWidgetConfig, setter: &NativeWidge
         NativeWidgetSetter::SetHtmlFormAssociation(value) => {
             config.html_form_association = value.clone();
         }
-        NativeWidgetSetter::SetHtmlCollection(value) => config.html_collection = value.clone(),
+        NativeWidgetSetter::SetHtmlCollection(value) => {
+            config.html_collection = value.clone();
+        }
         NativeWidgetSetter::SetAccessibilityRelationships(value) => {
             config.accessibility_relationships = value.clone();
         }

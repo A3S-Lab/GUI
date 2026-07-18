@@ -25,7 +25,7 @@ pub fn ui_dialog(cx: &mut ComponentCx<UiDialogProps>) -> RSX {
             key="root"
             {...props.overlayProps}
             data-slot="dialog"
-            class="fixed left-1/2 top-1/2 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border border-hairline-strong bg-canvas p-6 text-ink outline-none"
+            class="fixed left-1/2 top-1/2 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-md border border-hairline bg-canvas p-3 text-ink outline-none"
             className={props.className}
             label={props.label}
         >

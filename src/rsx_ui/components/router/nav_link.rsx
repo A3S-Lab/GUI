@@ -43,16 +43,21 @@ pub fn ui_nav_link(cx: &mut ComponentCx<UiNavLinkProps>) -> RSX {
     });
     cx.use_prop("isActive", |props: &UiNavLinkProps| props.is_active);
     cx.use_prop("to", |props: &UiNavLinkProps| props.to.clone());
+    cx.use_prop("onNavigate", |props: &UiNavLinkProps| {
+        props.on_navigate.clone()
+    });
 
     crate::rsx!(
         <a
             key="root"
             {...props.linkProps}
+            href={props.to}
+            onPress={props.onNavigate}
             data-slot="nav-link"
             data-active={props.isActive}
             data-route-to={props.to}
             actionValue={props.to}
-            class="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium text-body outline-none transition-colors hover:bg-surface-strong hover:text-ink focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:text-muted-soft data-[active=true]:bg-surface-strong data-[active=true]:text-ink"
+            class="inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-medium text-body outline-none hover:bg-surface-strong hover:text-ink focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:pointer-events-none disabled:text-muted-soft data-[active=true]:bg-primary data-[active=true]:text-on-primary"
             className={props.className}
         >
             <Slot key="content" />

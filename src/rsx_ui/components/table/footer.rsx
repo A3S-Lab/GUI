@@ -20,7 +20,7 @@ pub fn ui_table_footer(cx: &mut ComponentCx<UiTableFooterProps>) -> RSX {
             data-slot="table-footer"
             {...props.tableSectionProps}
             data-table-section="footer"
-            class="border-t bg-surface-strong/50 font-medium [&>tr]:last:border-b-0"
+            class="border-t border-hairline bg-surface-strong/50 font-medium [&>tr]:last:border-b-0"
             className={props.className}
         >
             <Slot key="content" />

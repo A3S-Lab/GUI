@@ -29,7 +29,7 @@ pub fn ui_list_box(cx: &mut ComponentCx<UiListBoxProps>) -> RSX {
             key="root"
             {...props.selectionProps}
             data-slot="list-box"
-            class="max-h-72 min-w-32 overflow-auto rounded-md border bg-canvas p-1 text-ink outline-none"
+            class="max-h-72 min-w-32 overflow-auto rounded-md border border-hairline-strong bg-surface-card p-1 text-ink outline-none"
             className={props.className}
         >
             <Slot key="content" />

@@ -42,16 +42,20 @@ pub fn ui_navigate_button(cx: &mut ComponentCx<UiNavigateButtonProps>) -> RSX {
     });
     cx.use_prop("isActive", |props: &UiNavigateButtonProps| props.is_active);
     cx.use_prop("to", |props: &UiNavigateButtonProps| props.to.clone());
+    cx.use_prop("onNavigate", |props: &UiNavigateButtonProps| {
+        props.on_navigate.clone()
+    });
 
     crate::rsx!(
         <button
             key="root"
             {...props.buttonProps}
+            onPress={props.onNavigate}
             data-slot="navigate-button"
             data-active={props.isActive}
             data-route-to={props.to}
             actionValue={props.to}
-            class="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-transparent px-3 text-sm font-medium text-body outline-none transition-colors active:bg-surface-strong focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:text-muted-soft data-[active=true]:border-hairline-strong data-[active=true]:bg-canvas data-[active=true]:text-ink"
+            class="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-transparent px-3 text-sm font-medium text-body outline-none active:bg-surface-strong focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:pointer-events-none disabled:text-muted-soft data-[active=true]:border-primary data-[active=true]:bg-primary data-[active=true]:text-on-primary"
             className={props.className}
         >
             <Slot key="content" />

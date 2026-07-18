@@ -7,6 +7,7 @@ pub struct PlaygroundShellProps {
     pub query: String,
     pub selected_value: String,
     pub active_section: String,
+    pub overview_active: bool,
     pub foundation_active: bool,
     pub controls_active: bool,
     pub collections_active: bool,
@@ -35,6 +36,9 @@ pub fn playground_shell(cx: &mut ComponentCx<PlaygroundShellProps>) -> RSX {
     });
     let activeSection = cx.use_prop("activeSection", |props: &PlaygroundShellProps| {
         props.active_section.clone()
+    });
+    let overviewActive = cx.use_prop("overviewActive", |props: &PlaygroundShellProps| {
+        props.overview_active
     });
     let foundationActive = cx.use_prop("foundationActive", |props: &PlaygroundShellProps| {
         props.foundation_active
@@ -80,100 +84,96 @@ pub fn playground_shell(cx: &mut ComponentCx<PlaygroundShellProps>) -> RSX {
             key="root"
             label="A3S GUI component playground"
             orientation="vertical"
-            className="h-[860px] w-[1180px] gap-0 overflow-hidden bg-canvas text-ink"
+            className="h-[860px] w-[1180px] gap-0 overflow-hidden bg-canvas-soft text-ink"
         >
-            <UiHeader key="header" label="Playground header" className="h-24 w-[1180px] border-b border-hairline-strong bg-canvas px-8 py-4">
-                <UiToolbar key="header-row" label="Header actions" orientation="horizontal" className="h-16 w-[1116px] items-center justify-between gap-6 rounded-none border-none bg-transparent p-0">
-                    <UiGroup key="brand-group" label="Playground identity" className="h-16 w-[720px] gap-1">
-                        <UiBadge key="brand-kicker" variant="secondary">A3S GUI</UiBadge>
-                        <UiHeading key="title" level={1} label="Component Playground" className="text-2xl font-semibold leading-tight text-ink" />
-                        <UiDescription key="subtitle" label="A unified DESIGN.md pass across every semantic RSX component." className="text-sm leading-6 text-body" />
+            <UiHeader key="header" label="Playground header" className="h-20 w-[1180px] border-b border-hairline-soft bg-canvas px-6 py-3">
+                <UiToolbar key="header-row" label="Header actions" orientation="horizontal" className="w-[1132px] items-center gap-6 rounded-none border-none bg-transparent p-0">
+                    <UiGroup key="brand-group" label="Playground identity" className="w-[680px] gap-1">
+                        <UiHeading key="title" level={1} label="Component Playground" className="text-lg font-semibold leading-7 text-ink" />
+                        <UiDescription key="subtitle" label="A3S GUI semantic components" className="text-sm leading-5 text-body" />
                     </UiGroup>
-                    <UiToolbar key="header-tools" label="Playground tools" orientation="horizontal" className="h-10 w-[360px] justify-end gap-3 rounded-none border-none bg-transparent p-0">
+                    <UiToolbar key="header-tools" label="Playground tools" orientation="horizontal" className="w-[430px] justify-end gap-3 rounded-none border-none bg-transparent p-0">
                         <UiBadge key="selected" variant="outline">{selectedValue}</UiBadge>
-                        <UiKeyboard key="command-key" label="Open command palette" textValue="Command K" className="rounded-md border border-hairline-strong bg-canvas-soft px-3 py-2 text-sm">Command K</UiKeyboard>
+                        <UiKeyboard key="command-key" label="Open command palette" textValue="Command K" className="rounded-md border border-hairline bg-canvas-soft px-3 py-1.5 text-sm">Command K</UiKeyboard>
                         <UiButton key="record" variant="default" onPress={record}>Record event</UiButton>
                     </UiToolbar>
                 </UiToolbar>
             </UiHeader>
-            <UiToolbar key="body" orientation="horizontal" className="h-[728px] w-[1180px] gap-0 rounded-none border-none bg-transparent p-0">
-                <UiNavigation key="navigation" label="Playground navigation" className="h-[728px] w-60 border-r border-hairline bg-canvas-soft p-5">
-                    <UiToolbar key="nav-stack" orientation="vertical" className="h-[688px] w-[200px] gap-2 rounded-none border-none bg-transparent p-0">
-                        <UiText key="nav-label" label="Sections" className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted" />
-                        <UiSearch key="search" label="Component search" className="mb-3 h-11 w-[200px]">
+            <UiToolbar key="body" orientation="horizontal" className="h-[736px] w-[1180px] gap-0 rounded-none border-none bg-transparent p-0">
+                <UiNavigation key="navigation" label="Playground navigation" className="h-[736px] w-[248px] border-r border-hairline-soft bg-canvas p-3">
+                    <UiToolbar key="nav-stack" orientation="vertical" className="w-[224px] gap-2 rounded-none border-none bg-transparent p-0">
+                        <UiText key="nav-label" label="Components" className="mb-1 text-xs font-semibold text-muted" />
+                        <UiSearch key="search" label="Component search" className="mb-3 w-[224px]">
                             <UiSearchField
                                 key="field"
                                 label="Search components"
                                 value={query}
                                 placeholder="Search components"
                                 onChange={setValue}
-                                className="w-[200px]"
+                                className="w-[224px]"
                             />
                         </UiSearch>
-                        <UiToolbar key="current-section-row" orientation="horizontal" className="h-8 w-[200px] gap-2 rounded-none border-none bg-transparent p-0">
-                            <UiSelectionIndicator key="section-indicator" label="Current section" isSelected={true}>*</UiSelectionIndicator>
-                            <UiText key="current-section-label" label={activeSection} className="text-sm text-body" />
-                        </UiToolbar>
-                        <UiToggleButtonGroup key="view-toggle" label="View mode" value="all" onSelectionChange={setValue} className="mb-2 h-10 w-[200px]">
-                            <UiToggleButton key="all-toggle" isSelected={true} onPress={record} actionValue="all">All</UiToggleButton>
-                            <UiToggleButton key="active-toggle" onPress={record} actionValue="active">Live</UiToggleButton>
-                        </UiToggleButtonGroup>
-                        <UiNavigateButton key="nav-foundation" to="foundation" onNavigate={setSection} isActive={foundationActive} className="h-10 w-[200px] justify-start">
+                        <UiNavigateButton key="nav-overview" to="overview" onNavigate={setSection} isActive={overviewActive} className="h-9 w-[224px] justify-start">
+                            Overview
+                        </UiNavigateButton>
+                        <UiNavigateButton key="nav-foundation" to="foundation" onNavigate={setSection} isActive={foundationActive} className="h-9 w-[224px] justify-start">
                             Foundation
                         </UiNavigateButton>
-                        <UiNavigateButton key="nav-controls" to="controls" onNavigate={setSection} isActive={controlsActive} className="h-10 w-[200px] justify-start">
+                        <UiNavigateButton key="nav-controls" to="controls" onNavigate={setSection} isActive={controlsActive} className="h-9 w-[224px] justify-start">
                             Controls
                         </UiNavigateButton>
-                        <UiNavigateButton key="nav-collections" to="collections" onNavigate={setSection} isActive={collectionsActive} className="h-10 w-[200px] justify-start">
+                        <UiNavigateButton key="nav-collections" to="collections" onNavigate={setSection} isActive={collectionsActive} className="h-9 w-[224px] justify-start">
                             Collections
                         </UiNavigateButton>
-                        <UiNavigateButton key="nav-data" to="data" onNavigate={setSection} isActive={dataActive} className="h-10 w-[200px] justify-start">
+                        <UiNavigateButton key="nav-data" to="data" onNavigate={setSection} isActive={dataActive} className="h-9 w-[224px] justify-start">
                             Data
                         </UiNavigateButton>
-                        <UiNavigateButton key="nav-date-color-range" to="date-color-range" onNavigate={setSection} isActive={dateColorRangeActive} className="h-10 w-[200px] justify-start">
+                        <UiNavigateButton key="nav-date-color-range" to="date-color-range" onNavigate={setSection} isActive={dateColorRangeActive} className="h-9 w-[224px] justify-start">
                             Date, color, range
                         </UiNavigateButton>
-                        <UiNavigateButton key="nav-overlays-feedback" to="overlays-feedback" onNavigate={setSection} isActive={overlaysFeedbackActive} className="h-10 w-[200px] justify-start">
+                        <UiNavigateButton key="nav-overlays-feedback" to="overlays-feedback" onNavigate={setSection} isActive={overlaysFeedbackActive} className="h-9 w-[224px] justify-start">
                             Overlays and files
                         </UiNavigateButton>
                         <UiSeparator key="nav-separator" orientation="horizontal" className="my-3" />
-                        <UiArticle key="status-article" label="Playground status" className="w-[200px] rounded-lg border border-hairline-strong bg-canvas p-4">
-                            <UiHeading key="status-heading" level={3} label="Session" className="text-base font-semibold text-ink" />
-                            <UiText key="count-label" label="Interactions" className="mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted" />
-                            <UiText key="count" label={interactionCount} className="text-2xl font-semibold text-ink" />
-                            <UiText key="event-label" label="Last event" className="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-muted" />
-                            <UiDescription key="event" label={lastEvent} className="text-sm leading-6 text-body" />
+                        <UiArticle key="status-article" label="Playground status" className="w-[224px] gap-1 rounded-md border border-transparent bg-surface-strong p-3">
+                            <UiToolbar key="status-row" orientation="horizontal" className="w-[200px] items-center justify-between gap-3 rounded-none border-none bg-transparent p-0">
+                                <UiText key="status-heading" label="Events" className="text-sm font-medium text-ink" />
+                                <UiText key="count" label={interactionCount} className="text-sm font-semibold text-ink" />
+                            </UiToolbar>
+                            <UiDescription key="event" label={lastEvent} className="text-sm leading-5 text-body" />
                         </UiArticle>
                     </UiToolbar>
                 </UiNavigation>
-                <UiMain key="main" label="Component playground content" className="h-[728px] w-[940px] overflow-y-auto bg-canvas p-7">
-                    <UiSection key="hero-section" label="Playground overview" className="mb-6 h-[116px] w-[884px] rounded-lg border border-hairline-strong bg-canvas p-5">
-                        <UiToolbar key="hero-row" orientation="horizontal" className="h-[76px] w-[844px] items-center justify-between gap-6 rounded-none border-none bg-transparent p-0">
-                            <UiGroup key="hero-copy" label="Playground summary" className="h-[76px] w-[560px] gap-2">
-                                <UiHeading key="hero-heading" level={2} label="Semantic components with one default design language" className="text-xl font-semibold leading-7 text-ink" />
-                                <UiDescription key="hero-description" label="Controls, collections, overlays, and data surfaces now share DESIGN.md colors, radii, spacing, and state treatment." className="text-sm leading-6 text-body" />
-                            </UiGroup>
-                            <UiToolbar key="hero-metrics" orientation="horizontal" className="gap-3 rounded-none border-none bg-transparent p-0">
-                                <UiBadge key="metric-components" variant="secondary">168 components</UiBadge>
-                                <UiBadge key="metric-actions" variant="outline">{interactionCount} events</UiBadge>
-                                <UiBadge key="metric-section" variant="outline">{activeSection}</UiBadge>
-                            </UiToolbar>
-                        </UiToolbar>
-                    </UiSection>
-                    <UiSection key="content-section" label="Current semantic component section" className="w-[884px]">
-                        <UiToolbar key="content-stack" orientation="vertical" className="w-[884px] gap-5 rounded-none border-none bg-transparent p-0">
-                            <Show key="foundation-section" when={foundationActive}><FoundationPanel key="foundation" record={record} setValue={setValue} /></Show>
-                            <Show key="controls-section" when={controlsActive}><ControlsPanel key="controls" record={record} setValue={setValue} selectedValue={selectedValue} /></Show>
-                            <Show key="collections-section" when={collectionsActive}><CollectionsPanel key="collections" record={record} setValue={setValue} selectedValue={selectedValue} /></Show>
-                            <Show key="data-section" when={dataActive}><DataPanel key="data" record={record} setValue={setValue} selectedValue={selectedValue} /></Show>
-                            <Show key="date-color-range-section" when={dateColorRangeActive}><DateColorRangePanel key="date-color-range" record={record} setValue={setValue} /></Show>
-                            <Show key="overlays-feedback-section" when={overlaysFeedbackActive}><OverlaysFeedbackPanel key="overlays-feedback" record={record} setValue={setValue} openOverlay={openOverlay} closeOverlay={closeOverlay} overlayOpen={overlayOpen} /></Show>
-                        </UiToolbar>
-                    </UiSection>
+                <UiMain key="main" label="Component playground content" className="h-[736px] w-[932px] overflow-y-auto bg-canvas p-6">
+                    <UiRouter key="page-router" currentPath={activeSection} className="w-[860px] gap-0">
+                        <UiRoutes key="page-routes" label="Component playground routes" className="w-[860px] gap-0">
+                            <UiRoute key="overview-route" path="overview" label="Overview" isActive={overviewActive}>
+                                <OverviewPanel key="overview" setSection={setSection} />
+                            </UiRoute>
+                            <UiRoute key="foundation-route" path="foundation" label="Foundation" isActive={foundationActive}>
+                                <FoundationPanel key="foundation" record={record} setValue={setValue} />
+                            </UiRoute>
+                            <UiRoute key="controls-route" path="controls" label="Controls" isActive={controlsActive}>
+                                <ControlsPanel key="controls" record={record} setValue={setValue} selectedValue={selectedValue} />
+                            </UiRoute>
+                            <UiRoute key="collections-route" path="collections" label="Collections" isActive={collectionsActive}>
+                                <CollectionsPanel key="collections" record={record} setValue={setValue} selectedValue={selectedValue} />
+                            </UiRoute>
+                            <UiRoute key="data-route" path="data" label="Data" isActive={dataActive}>
+                                <DataPanel key="data" record={record} setValue={setValue} selectedValue={selectedValue} />
+                            </UiRoute>
+                            <UiRoute key="date-color-range-route" path="date-color-range" label="Date, color, and range" isActive={dateColorRangeActive}>
+                                <DateColorRangePanel key="date-color-range" record={record} setValue={setValue} />
+                            </UiRoute>
+                            <UiRoute key="overlays-feedback-route" path="overlays-feedback" label="Overlays and files" isActive={overlaysFeedbackActive}>
+                                <OverlaysFeedbackPanel key="overlays-feedback" record={record} setValue={setValue} openOverlay={openOverlay} closeOverlay={closeOverlay} overlayOpen={overlayOpen} />
+                            </UiRoute>
+                        </UiRoutes>
+                    </UiRouter>
                 </UiMain>
             </UiToolbar>
-            <UiFooter key="footer" label="Playground footer" className="h-9 w-[1180px] border-t border-hairline bg-canvas px-8 py-2">
-                <UiText key="footer-copy" label="A3S GUI semantic components rendered from split RSX files." className="text-sm text-body" />
+            <UiFooter key="footer" label="Playground footer" className="h-11 w-[1180px] border-t border-hairline-soft bg-canvas-soft px-6 py-3">
+                <UiText key="footer-copy" label={activeSection} className="text-sm text-body" />
             </UiFooter>
         </UiToolbar>
     )

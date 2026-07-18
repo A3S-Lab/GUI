@@ -52,27 +52,27 @@ pub fn data_panel(cx: &mut ComponentCx<DataPanelProps>) -> RSX {
                         </UiTableFooter>
                     </UiTable>
                 </UiResizableTableContainer>
-                <UiToolbar key="aliases-tabs" orientation="horizontal" className="grid w-full grid-cols-2 gap-4 rounded-none border-none bg-transparent p-0">
-                    <UiTable key="alias-table" label="Alias table" className="rounded-lg border border-hairline-strong bg-canvas p-3">
-                        <UiTableHeader key="alias-header">
-                            <UiRow key="alias-header-row">
-                                <UiColumn key="alias-key-column" label="Alias" textValue="Alias">Alias</UiColumn>
-                                <UiColumn key="alias-target-column" label="Target" textValue="Target">Target</UiColumn>
-                            </UiRow>
+                <UiToolbar key="details-tabs" orientation="horizontal" className="grid w-full grid-cols-2 gap-4 rounded-none border-none bg-transparent p-0">
+                    <UiTable key="details-table" label="Release detail table" className="rounded-md border border-hairline bg-canvas p-3">
+                        <UiTableHeader key="details-header">
+                            <UiTableRow key="details-header-row">
+                                <UiTableColumn key="details-key-column" label="Metric" textValue="Metric">Metric</UiTableColumn>
+                                <UiTableColumn key="details-value-column" label="Value" textValue="Value">Value</UiTableColumn>
+                            </UiTableRow>
                         </UiTableHeader>
-                        <UiTableBody key="alias-body">
-                            <UiRow key="row-alias-row" isSelected={true}>
-                                <UiCell key="row-alias-cell" textValue="UiRow">UiRow</UiCell>
-                                <UiCell key="row-target-cell" textValue="UiTableRow">UiTableRow</UiCell>
-                            </UiRow>
-                            <UiRow key="cell-alias-row">
-                                <UiCell key="cell-alias-cell" textValue="UiCell">UiCell</UiCell>
-                                <UiCell key="cell-target-cell" textValue="UiTableCell">UiTableCell</UiCell>
-                            </UiRow>
+                        <UiTableBody key="details-body">
+                            <UiTableRow key="latency-row" isSelected={true}>
+                                <UiTableCell key="latency-key-cell" textValue="Render latency">Render latency</UiTableCell>
+                                <UiTableCell key="latency-value-cell" textValue="Stable">Stable</UiTableCell>
+                            </UiTableRow>
+                            <UiTableRow key="coverage-row">
+                                <UiTableCell key="coverage-key-cell" textValue="Coverage">Coverage</UiTableCell>
+                                <UiTableCell key="coverage-value-cell" textValue="Native components">Native components</UiTableCell>
+                            </UiTableRow>
                         </UiTableBody>
                     </UiTable>
                     <UiToolbar key="tabs-stack" orientation="vertical" className="gap-4 rounded-none border-none bg-transparent p-0">
-                        <UiTabs key="tabs" value={selectedValue} onSelectionChange={setValue} className="gap-3 rounded-lg border border-hairline-strong bg-canvas p-4">
+                        <UiTabs key="tabs" value={selectedValue} onSelectionChange={setValue} className="gap-3 rounded-md border border-hairline bg-canvas p-3">
                             <UiTabsList key="tabs-list" label="Settings tabs">
                                 <UiTabsTrigger key="profile-trigger" value="compact">Profile</UiTabsTrigger>
                                 <UiTabsTrigger key="billing-trigger" value="billing">Billing</UiTabsTrigger>
@@ -81,15 +81,15 @@ pub fn data_panel(cx: &mut ComponentCx<DataPanelProps>) -> RSX {
                                 <UiText key="tabs-copy" label="Profile settings" className="text-sm text-ink" />
                             </UiTabsContent>
                         </UiTabs>
-                        <UiTabs key="alias-tabs" value="overview" onSelectionChange={setValue} className="gap-3 rounded-lg border border-hairline-strong bg-canvas p-4">
-                            <UiTabList key="tab-list" label="Alias tabs">
-                                <UiTab key="overview-tab" value="overview">Overview</UiTab>
-                                <UiTab key="events-tab" value="events">Events</UiTab>
-                            </UiTabList>
+                        <UiTabs key="activity-tabs" value="overview" onSelectionChange={setValue} className="gap-3 rounded-md border border-hairline bg-canvas p-3">
+                            <UiTabsList key="activity-tabs-list" label="Activity tabs">
+                                <UiTabsTrigger key="overview-tab" value="overview">Overview</UiTabsTrigger>
+                                <UiTabsTrigger key="events-tab" value="events">Events</UiTabsTrigger>
+                            </UiTabsList>
                             <UiTabPanels key="tab-panels">
-                                <UiTabPanel key="tab-panel" value="overview" className="rounded-md border border-hairline bg-canvas-soft p-3">
-                                    <UiText key="alias-tabs-copy" label="Alias tab panel" className="text-sm text-ink" />
-                                </UiTabPanel>
+                                <UiTabsContent key="activity-tab-panel" value="overview" className="rounded-md border border-hairline bg-canvas-soft p-3">
+                                    <UiText key="activity-tabs-copy" label="Activity tab panel" className="text-sm text-ink" />
+                                </UiTabsContent>
                             </UiTabPanels>
                         </UiTabs>
                     </UiToolbar>

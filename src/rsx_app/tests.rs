@@ -47,6 +47,23 @@ fn rsx_component_hooks_render_state_props_and_reduce_actions() {
     );
 }
 
+#[test]
+fn component_cx_bare_compile_does_not_install_default_components() {
+    let bare = ComponentCx::<()>::compile_bare(
+        "bare",
+        |_cx| crate::rsx!(<UiButton key="button">Bare</UiButton>),
+    )
+    .unwrap();
+    let with_defaults = ComponentCx::<()>::compile(
+        "defaults",
+        |_cx| crate::rsx!(<UiButton key="button">Default</UiButton>),
+    )
+    .unwrap();
+
+    assert!(bare.component_registry().is_empty());
+    assert!(with_defaults.component_registry().contains("UiButton"));
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 struct ComponentHookState {
     count: u32,
@@ -4837,7 +4854,7 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
         let props = cx.use_color_swatch_picker_item(|state: &ColorHookState| {
             crate::semantic_ui::UseColorSwatchPickerItemProps::new()
                 .value(Some(state.color.clone()))
-                .text_value(Some("Violet"))
+                .text_value(Some("Preview"))
                 .selected(state.selected)
         });
         assert_eq!(
@@ -4886,10 +4903,10 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
     }
 
     let state = ColorHookState {
-        color: "#7c3aed".to_string(),
-        hue: 262.0,
-        saturation: 78.0,
-        brightness: 92.0,
+        color: "#8145b5".to_string(),
+        hue: 271.0,
+        saturation: 62.0,
+        brightness: 71.0,
         invalid: true,
         selected: true,
         disabled: true,
@@ -4910,7 +4927,7 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
         props.attributes.get("data-color-space").map(String::as_str),
         Some("srgb")
     );
-    assert_eq!(input.value.as_deref(), Some("#7c3aed"));
+    assert_eq!(input.value.as_deref(), Some("#8145b5"));
     assert_eq!(input.placeholder.as_deref(), Some("#000000"));
     assert_eq!(
         input.events.get("onInput").map(String::as_str),
@@ -4925,7 +4942,7 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
     assert_eq!(props.label.as_deref(), Some("Accent"));
     assert_eq!(
         props.attributes.get("data-value").map(String::as_str),
-        Some("#7c3aed")
+        Some("#8145b5")
     );
     assert_eq!(
         props.events.get("onChange").map(String::as_str),
@@ -4947,11 +4964,11 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
     );
     assert_eq!(
         props.attributes.get("data-x-value").map(String::as_str),
-        Some("78.0")
+        Some("62.0")
     );
     assert_eq!(
         props.attributes.get("data-y-value").map(String::as_str),
-        Some("92.0")
+        Some("71.0")
     );
 
     let frame = ComponentCx::compile("color-slider", color_slider)
@@ -4960,7 +4977,7 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
         .unwrap();
     let props = props_by_key(&frame, "root");
     assert_eq!(props.label.as_deref(), Some("Hue"));
-    assert_eq!(props.value_number, Some(262.0));
+    assert_eq!(props.value_number, Some(271.0));
     assert_eq!(props.min_value, Some(0.0));
     assert_eq!(props.max_value, Some(360.0));
     assert_eq!(props.step_value, Some(1.0));
@@ -4970,7 +4987,7 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
     );
     assert_eq!(
         props.attributes.get("aria-valuenow").map(String::as_str),
-        Some("262.0")
+        Some("271.0")
     );
     assert_eq!(
         props.events.get("onChange").map(String::as_str),
@@ -4988,7 +5005,7 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
     );
     assert_eq!(
         props.attributes.get("data-value").map(String::as_str),
-        Some("262.0")
+        Some("271.0")
     );
 
     let frame = ComponentCx::compile("color-swatch-picker", color_swatch_picker)
@@ -4996,13 +5013,13 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
         .render(&state)
         .unwrap();
     let props = props_by_key(&frame, "root");
-    assert_eq!(props.value.as_deref(), Some("#7c3aed"));
+    assert_eq!(props.value.as_deref(), Some("#8145b5"));
     assert_eq!(
         props
             .attributes
             .get("data-selected-value")
             .map(String::as_str),
-        Some("#7c3aed")
+        Some("#8145b5")
     );
     assert_eq!(
         props.events.get("onSelectionChange").map(String::as_str),
@@ -5014,8 +5031,8 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
         .render(&state)
         .unwrap();
     let props = props_by_key(&frame, "root");
-    assert_eq!(props.value.as_deref(), Some("#7c3aed"));
-    assert_eq!(props.text_value.as_deref(), Some("Violet"));
+    assert_eq!(props.value.as_deref(), Some("#8145b5"));
+    assert_eq!(props.text_value.as_deref(), Some("Preview"));
     assert!(props.is_selected);
     assert_eq!(
         props.attributes.get("data-selected").map(String::as_str),
@@ -5031,7 +5048,7 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
     assert!(props.is_disabled);
     assert_eq!(
         props.attributes.get("data-value").map(String::as_str),
-        Some("#7c3aed")
+        Some("#8145b5")
     );
 
     let frame = ComponentCx::compile("color-thumb", color_thumb)
@@ -5049,11 +5066,11 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
     );
     assert_eq!(
         props.attributes.get("data-x-value").map(String::as_str),
-        Some("78.0")
+        Some("62.0")
     );
     assert_eq!(
         props.attributes.get("data-y-value").map(String::as_str),
-        Some("92.0")
+        Some("71.0")
     );
     assert_eq!(
         props.attributes.get("data-dragging").map(String::as_str),
@@ -5061,7 +5078,7 @@ fn component_cx_color_hooks_return_props_for_view_consumption() {
     );
     assert_eq!(
         props.attributes.get("actionValue").map(String::as_str),
-        Some("#7c3aed")
+        Some("#8145b5")
     );
     assert_eq!(
         props.attributes.get("actionPayload").map(String::as_str),
@@ -6797,7 +6814,7 @@ fn rsx_component_hooks_build_nested_scope_paths() {
     )
     .unwrap()
     .use_state("profile.title", |state: &ProfileState| state.title.clone())
-    .use_prop("title.className", |_state: &ProfileState| "text-foreground");
+    .use_prop("title.className", |_state: &ProfileState| "text-ink");
     let frame = component
         .render(&ProfileState {
             title: "RSX".to_string(),
@@ -6808,7 +6825,7 @@ fn rsx_component_hooks_build_nested_scope_paths() {
         panic!("root element");
     };
     assert_eq!(props.label.as_deref(), Some("RSX"));
-    assert_eq!(props.class_name.as_deref(), Some("text-foreground"));
+    assert_eq!(props.class_name.as_deref(), Some("text-ink"));
 }
 
 #[test]
@@ -7134,7 +7151,7 @@ fn rsx_component_resolves_spread_props_from_prop_hooks() {
         serde_json::json!({
             "label": "Spread label",
             "isDisabled": true,
-            "className": "rounded-md border border-border bg-background",
+            "className": "rounded-md border border-hairline bg-canvas",
             "style": "opacity: 0.5",
             "onPress": "saveDocument",
             "data-source": "spread",
@@ -7155,7 +7172,7 @@ fn rsx_component_resolves_spread_props_from_prop_hooks() {
     assert!(!props.is_disabled);
     assert_eq!(
         props.class_name.as_deref(),
-        Some("rounded-md border border-border bg-background")
+        Some("rounded-md border border-hairline bg-canvas")
     );
     assert_eq!(
         props.events.get("onPress").map(String::as_str),
@@ -8111,9 +8128,9 @@ fn rsx_component_hooks_render_derived_scope_and_memo_aliases() {
     })
     .use_memo("summaryClass", |state: &ListState| {
         if state.items.is_empty() {
-            "text-muted-foreground"
+            "text-body"
         } else {
-            "text-foreground"
+            "text-ink"
         }
     })
     .use_memo("selectedLabel", |state: &ListState| {
@@ -8156,7 +8173,7 @@ fn rsx_component_hooks_render_derived_scope_and_memo_aliases() {
     let CompiledRsxNode::Element { props, .. } = &children[0] else {
         panic!("summary element");
     };
-    assert_eq!(props.class_name.as_deref(), Some("text-foreground"));
+    assert_eq!(props.class_name.as_deref(), Some("text-ink"));
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -8246,9 +8263,9 @@ fn counter_component() -> RsxComponent<CounterState> {
     .use_state("count", |state: &CounterState| state.count)
     .use_prop("counterClass", |state: &CounterState| {
         if state.count == 0 {
-            "text-muted-foreground"
+            "text-body"
         } else {
-            "text-foreground"
+            "text-ink"
         }
     })
     .use_reducer("increment", |state: &mut CounterState, _invocation| {

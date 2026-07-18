@@ -29,7 +29,7 @@ pub fn ui_tree_item(cx: &mut ComponentCx<UiTreeItemProps>) -> RSX {
             key="root"
             {...props.treeItemProps}
             data-slot="tree-item"
-            class="rounded-md px-2 py-1 text-sm outline-none transition-colors hover:bg-surface-strong hover:text-ink data-[selected=true]:bg-surface-strong data-[selected=true]:text-ink"
+            class="rounded-md px-2 py-1 text-sm outline-none hover:bg-surface-strong hover:text-ink data-[selected=true]:bg-surface-strong data-[selected=true]:text-ink"
             className={props.className}
         >
             <Slot key="content" />

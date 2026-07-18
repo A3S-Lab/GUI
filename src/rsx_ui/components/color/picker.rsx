@@ -29,7 +29,7 @@ pub fn ui_color_picker(cx: &mut ComponentCx<UiColorPickerProps>) -> RSX {
             key="root"
             {...props.colorPickerProps}
             data-slot="color-picker"
-            class="grid gap-3 rounded-lg border border-hairline-strong bg-canvas p-4 text-ink"
+            class="grid gap-3 rounded-md border border-hairline bg-canvas p-3 text-ink"
             className={props.className}
         >
             <Slot key="content" />

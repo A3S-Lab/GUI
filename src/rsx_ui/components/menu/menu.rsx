@@ -21,7 +21,7 @@ pub fn ui_menu(cx: &mut ComponentCx<UiMenuProps>) -> RSX {
             key="root"
             {...props.menuProps}
             data-slot="menu"
-            class="min-w-32 overflow-hidden rounded-md border bg-canvas p-1 text-ink"
+            class="min-w-32 overflow-hidden rounded-md border border-hairline-strong bg-surface-card p-1 text-ink"
             className={props.className}
         >
             <Slot key="content" />

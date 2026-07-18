@@ -716,9 +716,9 @@ fn parses_css_border_radius_corners_into_portable_tokens() {
 #[test]
 fn parses_tailwind_border_radius_corner_utilities() {
     let web = WebProps::new().class_name(
-        "rounded-full rounded-t-lg rounded-br-[2rem] rounded-s-sm \
+        "rounded-pill rounded-t-lg rounded-br-[2rem] rounded-s-sm \
              rounded-ee-(--radius-end) md:rounded-ss-xl \
-             hover:rounded-bl-[calc(1rem_+_2px)]",
+             hover:rounded-bl-[calc(1rem_+_2px)] active:rounded-xxl",
     );
 
     let style = PortableStyle::from_web(&web);
@@ -729,11 +729,11 @@ fn parses_tailwind_border_radius_corner_utilities() {
     );
     assert_eq!(
         style.border_radii.top_left,
-        Some(CornerRadius::circular(StyleLength::Points(8.0)))
+        Some(CornerRadius::circular(StyleLength::Points(12.0)))
     );
     assert_eq!(
         style.border_radii.top_right,
-        Some(CornerRadius::circular(StyleLength::Points(8.0)))
+        Some(CornerRadius::circular(StyleLength::Points(12.0)))
     );
     assert_eq!(
         style.border_radii.bottom_right,
@@ -741,11 +741,11 @@ fn parses_tailwind_border_radius_corner_utilities() {
     );
     assert_eq!(
         style.logical_border_radii.start_start,
-        Some(CornerRadius::circular(StyleLength::Points(4.0)))
+        Some(CornerRadius::circular(StyleLength::Points(6.0)))
     );
     assert_eq!(
         style.logical_border_radii.end_start,
-        Some(CornerRadius::circular(StyleLength::Points(4.0)))
+        Some(CornerRadius::circular(StyleLength::Points(6.0)))
     );
     assert_eq!(
         style.logical_border_radii.end_end,
@@ -773,7 +773,7 @@ fn parses_tailwind_border_radius_corner_utilities() {
             .get("md")
             .and_then(|styles| styles.get("border-start-start-radius"))
             .map(String::as_str),
-        Some("12px")
+        Some("16px")
     );
     assert_eq!(
         style
@@ -783,6 +783,33 @@ fn parses_tailwind_border_radius_corner_utilities() {
             .map(String::as_str),
         Some("calc(1rem + 2px)")
     );
+    assert_eq!(
+        style
+            .variant_declarations
+            .get("active")
+            .and_then(|styles| styles.get("border-radius"))
+            .map(String::as_str),
+        Some("24px")
+    );
+}
+
+#[test]
+fn rejects_non_design_radius_aliases() {
+    let web = WebProps::new().class_name("rounded-2xl hover:rounded-3xl active:rounded-4xl");
+
+    let style = PortableStyle::from_web(&web);
+
+    assert_eq!(style.border_radius, None);
+    assert!(style
+        .variant_declarations
+        .get("hover")
+        .and_then(|styles| styles.get("border-radius"))
+        .is_none());
+    assert!(style
+        .variant_declarations
+        .get("active")
+        .and_then(|styles| styles.get("border-radius"))
+        .is_none());
 }
 
 #[test]

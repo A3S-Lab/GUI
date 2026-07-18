@@ -41,7 +41,7 @@ pub fn ui_textarea(cx: &mut ComponentCx<UiTextareaProps>) -> RSX {
             key="root"
             {...props.inputProps}
             data-slot="textarea"
-            class="border-hairline-strong placeholder:text-mute focus-visible:border-ink focus-visible:ring-ring/50 aria-invalid:border-semantic-error flex field-sizing-content min-h-20 w-full rounded-md border bg-canvas px-4 py-3 text-sm text-ink transition-colors outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:bg-surface-strong disabled:text-muted-soft md:text-sm"
+            class="border-hairline-strong placeholder:text-muted focus-visible:border-ink focus-visible:ring-ink/40 aria-invalid:border-semantic-error flex field-sizing-content min-h-20 w-full rounded-md border bg-surface-card px-3 py-1.5 text-sm text-ink outline-none focus-visible:ring-[2px] disabled:cursor-not-allowed disabled:bg-surface-strong disabled:text-muted-soft md:text-sm"
             className={props.className}
             rows={props.rows}
             cols={props.cols}

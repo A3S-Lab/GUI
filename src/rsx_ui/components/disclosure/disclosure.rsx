@@ -27,7 +27,7 @@ pub fn ui_disclosure(cx: &mut ComponentCx<UiDisclosureProps>) -> RSX {
             key="root"
             {...props.disclosureProps}
             data-slot="disclosure"
-            class="rounded-md border border-hairline-strong bg-canvas text-ink"
+            class="rounded-md border border-hairline-strong bg-surface-card text-ink"
             className={props.className}
             label={props.label}
         >

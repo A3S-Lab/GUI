@@ -131,7 +131,7 @@ a3s_gui::rsx!(
       key="run"
       variant="outline"
       size="lg"
-      className="w-full justify-start border-hairline-strong bg-canvas text-ink active:bg-surface-strong"
+      className="w-full justify-start border-hairline-strong bg-surface-card text-ink active:bg-surface-strong"
       onPress={runCommand}
     >
       Run command
@@ -140,20 +140,33 @@ a3s_gui::rsx!(
 ```
 
 Arbitrary values remain available for native views that need exact sizing or
-platform-matched color, for example `w-[396px]`, `bg-[#f3f3f3]`, and
-`font-[Segoe_UI,Inter,-apple-system,system-ui,sans-serif]`.
+platform-matched typography, for example `w-[396px]`, `rounded-[12px]`, and
+`font-[Inter,-apple-system,system-ui,sans-serif]`.
 
 ## Status
 
 | Area | Readiness |
 | --- | --- |
 | Component authoring | Usable with Rust `ComponentCx` hooks, `.rsx` component modules, component contracts, and native state bindings. |
-| `rsx_ui` design system | Usable shadcn-like semantic component set backed by `DESIGN.md` tokens and Rust-owned hooks. |
+| `rsx_ui` design system | Usable `DESIGN.md`-backed component set with Rust-owned hooks. |
 | Headless runtime | Usable for protocol tests, command inspection, reducer loops, and accessibility snapshots. |
+| Strict protocol v1 | Typed, versioned DTOs with ordered revisions/events, retained command-batch resend, exact ACK validation, and sensitive-value redaction. |
+| Native execution | Typed widget IR with frame prepare/commit/ACK, explicit degraded state, and full replay through a fresh executor. |
 | AppKit native surface | Usable for macOS smoke apps with windows, controls, menus, keyboard events, close actions, and native `autoFocus`. |
 | GTK4 native surface | Usable for Linux smoke apps with controls, menus, dialogs, close actions, and scroll containers. |
 | WinUI native surface | Usable for Windows smoke apps with core controls, size hints, resize bounds, focus callbacks, keyboard routing, close actions, and root-window exit. |
 | Product app shell | Dogfood-ready. Production distribution still needs signed installers and longer real-world focus/input hardening. |
+
+## Roadmap
+
+The delivery roadmap is tracked in [`docs/roadmap.md`](docs/roadmap.md). Its
+next phases add a strict typed-message application profile, semantic automation
+and replay, release AOT RSX artifacts, an application-layer capability broker,
+frame performance budgets, and real-platform truth tests.
+
+All new GUI product configuration and capability policy use ACL (`.acl`). The
+application or host validates ACL and passes typed grants into GUI core; the
+configuration parser is not a GUI-core dependency.
 
 ## Install
 
@@ -190,18 +203,55 @@ Native smoke apps:
 # macOS
 cargo run --features appkit-native --example appkit_controls
 cargo run --features appkit-native --example appkit_dogfood
+cargo run --features appkit-native --example appkit_component_playground
 
 # Linux
 cargo run --features gtk4-native --example gtk4_controls
 cargo run --features gtk4-native --example gtk4_dogfood
+cargo run --features gtk4-native --example gtk4_component_playground
 
 # Windows
 cargo run --features winui-native --example winui_controls
 cargo run --features winui-native --example winui_dogfood
+cargo run --features winui-native --example winui_component_playground
 ```
+
+The component playground opens on an Overview atlas by default and lets you
+inspect Foundation, Controls, Collections, Data, Date/Color/Range, and
+Overlays/Files from the left navigation.
+
+## Development
+
+The repository pins Rust 1.95.0 in `rust-toolchain.toml`; rustup selects it when
+commands run from this directory. Reproducible Cargo commands use the committed
+lockfile. Run the complete headless quality gate with:
+
+```bash
+just verify
+```
+
+This checks formatting, high-confidence clippy groups, rustdoc with warnings
+denied, library and example tests, cross-platform planning adapters, and diff
+whitespace. On macOS, Linux, or Windows, `just native-ci` additionally runs the
+matching native feature's library tests and an all-target compile check.
+
+The default feature set includes RSX authoring and the built-in design system.
+The runtime/protocol core is independently buildable without SWC or `rsx_ui`:
+
+```bash
+cargo check --locked --no-default-features --lib
+cargo check --locked --no-default-features --features authoring --lib
+```
+
+Use `authoring` for the RSX parser, `ComponentCx`, and explicit component
+registries. Add `design-system` when the process should install the shared
+built-in `rsx_ui` registry. Native platform features remain orthogonal to these
+authoring layers.
 
 ## Documentation
 
+- [Runtime and protocol architecture](docs/architecture.md)
+- [Native style contract](docs/style-contract.md)
 - [RSX language and hooks](docs/rsx.md)
 - [RSX framework plan](docs/rsx-framework.md)
 - [DESIGN.md](../../DESIGN.md)

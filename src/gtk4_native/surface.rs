@@ -12,7 +12,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         id: HostNodeId,
         blueprint: &NativeWidgetBlueprint,
     ) -> GuiResult<Self::Handle> {
-        let kind = Gtk4WidgetKind::from_widget_class(blueprint.widget_class.as_str())?;
+        let kind = Gtk4WidgetKind::from_widget_kind(blueprint.widget_kind);
         let config = blueprint.config();
         let widget = match kind {
             Gtk4WidgetKind::ApplicationWindow => {
@@ -548,7 +548,7 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
             }
         };
 
-        if kind == Gtk4WidgetKind::Label && blueprint.widget_class == "gtk::Label(tab)" {
+        if blueprint.widget_kind == crate::platform::NativeWidgetKind::Tab {
             self.notebook_tabs
                 .insert(id, Gtk4NotebookTab::from_config(id, &config));
         }

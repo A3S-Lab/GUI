@@ -13,7 +13,7 @@ pub fn ui_button_variants() -> GuiResult<ComponentClassVariants> {
                 ),
                 (
                     "secondary",
-                    "border border-hairline-strong bg-canvas text-ink active:bg-surface-strong",
+                    "border border-hairline-strong bg-surface-card text-ink active:bg-surface-strong",
                 ),
                 (
                     "outline",
@@ -28,8 +28,8 @@ pub fn ui_button_variants() -> GuiResult<ComponentClassVariants> {
                     "h-auto rounded-none border border-transparent bg-transparent px-0 py-0 text-link underline",
                 ),
                 (
-                    "destructive",
-                    "border border-semantic-error bg-semantic-error text-on-primary active:bg-semantic-error/90 \
+                    "error",
+                    "border border-semantic-error bg-semantic-error text-canvas active:bg-semantic-error/90 \
                      focus-visible:ring-semantic-error/20",
                 ),
             ],
@@ -38,10 +38,10 @@ pub fn ui_button_variants() -> GuiResult<ComponentClassVariants> {
             "size",
             "default",
             [
-                ("default", "h-10 px-[18px] py-2 has-[>svg]:px-4"),
-                ("sm", "h-9 gap-1.5 px-3 py-2 has-[>svg]:px-3"),
-                ("lg", "h-11 rounded-md px-5 has-[>svg]:px-4"),
-                ("icon", "size-10 px-0"),
+                ("default", "h-9 px-3 py-1.5 has-[>svg]:px-3"),
+                ("sm", "h-8 gap-1.5 px-2.5 py-1.5 has-[>svg]:px-2.5"),
+                ("lg", "h-10 rounded-md px-3.5 has-[>svg]:px-3"),
+                ("icon", "size-9 px-0"),
             ],
         )
 }
@@ -53,14 +53,14 @@ pub fn ui_badge_variants() -> GuiResult<ComponentClassVariants> {
         [
             (
                 "default",
-                "border-primary bg-primary text-on-primary",
+                "border-hairline-strong bg-surface-card text-ink",
             ),
-            ("secondary", "border-transparent bg-surface-strong text-ink"),
+            ("secondary", "border-transparent bg-surface-strong text-body"),
             (
-                "destructive",
-                "border-semantic-error bg-semantic-error text-on-primary focus-visible:ring-semantic-error/20",
+                "error",
+                "border-semantic-error bg-semantic-error text-canvas focus-visible:ring-semantic-error/20",
             ),
-            ("outline", "border-hairline-strong bg-canvas text-ink"),
+            ("outline", "border-hairline-strong bg-surface-card text-ink"),
         ],
     )
 }

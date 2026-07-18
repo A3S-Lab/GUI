@@ -24,6 +24,9 @@ mod html_microdata;
 mod html_resource_policy;
 mod html_shadow;
 mod html_text_annotation;
+mod value_sensitivity;
+
+pub use value_sensitivity::ValueSensitivity;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ElementKey(String);
@@ -178,7 +181,7 @@ pub enum NativeRole {
     TableCaption,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct NativeProps {
     pub label: Option<String>,
     pub value: Option<String>,
@@ -277,6 +280,43 @@ pub struct NativeProps {
     pub accessibility_state: AccessibilityStateProps,
     pub web: WebProps,
     pub metadata: BTreeMap<String, String>,
+}
+
+impl std::fmt::Debug for NativeProps {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let sensitivity = ValueSensitivity::from_input_type(effective_input_type(self));
+        let mut metadata = self.metadata.clone();
+        sensitivity.redact_metadata_for_diagnostics(&mut metadata);
+        let mut accessibility_description = self.accessibility_description.clone();
+        if sensitivity.is_sensitive() {
+            accessibility_description.value_text = None;
+        }
+        formatter
+            .debug_struct("NativeProps")
+            .field("label", &self.label)
+            .field("value", &sensitivity.redact(self.value.as_deref()))
+            .field("value_sensitivity", &sensitivity)
+            .field("placeholder", &self.placeholder)
+            .field("action", &self.action)
+            .field("disabled", &self.disabled)
+            .field("required", &self.required)
+            .field("invalid", &self.invalid)
+            .field("read_only", &self.read_only)
+            .field("multiple", &self.multiple)
+            .field("auto_focus", &self.auto_focus)
+            .field("selected", &self.selected)
+            .field("checked", &self.checked)
+            .field("expanded", &self.expanded)
+            .field("input_type", &effective_input_type(self))
+            .field("hidden", &self.hidden)
+            .field("inert", &self.inert)
+            .field("accessibility_description", &accessibility_description)
+            .field("class_name", &self.web.class_name)
+            .field("style_declaration_count", &self.web.style.len())
+            .field("event_binding_count", &self.web.events.len())
+            .field("metadata", &metadata)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Default for NativeProps {
@@ -811,6 +851,7 @@ pub(crate) fn normalize_props_for_native_role(
     props: &NativeProps,
 ) -> NativeProps {
     let mut normalized = props.clone();
+    normalized.input_type = effective_input_type(props).map(ToOwned::to_owned);
     normalize_text_value_for_native_role(role, &mut normalized);
 
     if !role_has_ranged_value(role, &normalized) {
@@ -838,6 +879,24 @@ pub(crate) fn normalize_props_for_native_role(
     normalized
 }
 
+/// Resolve the input type from the typed property first, then from the HTML
+/// attribute metadata produced by compiled/protocol nodes.
+pub(crate) fn effective_input_type(props: &NativeProps) -> Option<&str> {
+    props
+        .input_type
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            props
+                .metadata
+                .get("type")
+                .map(String::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+}
+
 fn normalize_text_value_for_native_role(role: NativeRole, props: &mut NativeProps) {
     if role != NativeRole::TextField {
         return;
@@ -854,7 +913,7 @@ pub(crate) fn role_has_ranged_value(role: NativeRole, props: &NativeProps) -> bo
     matches!(
         role,
         NativeRole::Meter | NativeRole::ProgressBar | NativeRole::Slider
-    ) || (role == NativeRole::TextField && is_number_input_type(props.input_type.as_deref()))
+    ) || (role == NativeRole::TextField && is_number_input_type(effective_input_type(props)))
 }
 
 pub(crate) fn is_number_input_type(input_type: Option<&str>) -> bool {

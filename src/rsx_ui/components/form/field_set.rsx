@@ -29,7 +29,7 @@ pub fn ui_field_set(cx: &mut ComponentCx<UiFieldSetProps>) -> RSX {
             key="root"
             {...props.fieldProps}
             data-slot="field-set"
-            class="grid gap-3 rounded-lg border border-hairline-strong p-4"
+            class="grid gap-3 rounded-md border border-hairline p-3"
             className={props.className}
             label={props.label}
         >

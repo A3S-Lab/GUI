@@ -13,6 +13,11 @@ use crate::runtime::GuiRuntime;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+mod diagnostic_redaction;
+mod frame_batch;
+mod setter_history_adapters;
+mod typed_kind;
+
 #[derive(Debug, Default)]
 struct TestWidgetDriver {
     calls: Vec<String>,
@@ -205,15 +210,20 @@ impl NativeHandleAdapter for ThreadBoundHandleAdapter {
         _blueprint: &NativeWidgetBlueprint,
         patch: &NativeWidgetConfigPatch,
     ) -> GuiResult<()> {
-        let label = patch
-            .label
-            .as_ref()
-            .and_then(|change| change.after.as_deref())
+        let setters = patch.setters();
+        let label = setters
+            .iter()
+            .find_map(|setter| match setter {
+                NativeWidgetSetter::SetLabel(value) => value.as_deref(),
+                _ => None,
+            })
             .unwrap_or("<unchanged>");
-        let enabled = patch
-            .enabled
-            .as_ref()
-            .map(|change| change.after.to_string())
+        let enabled = setters
+            .iter()
+            .find_map(|setter| match setter {
+                NativeWidgetSetter::SetEnabled(value) => Some(value.to_string()),
+                _ => None,
+            })
             .unwrap_or_else(|| "unchanged".to_string());
         self.calls.borrow_mut().push(format!(
             "patch:{}:label={label}:enabled={enabled}",
@@ -376,6 +386,35 @@ fn driver_command_executor_delegates_native_commands_to_driver() {
         vec!["create:1:gtk::Button", "root:1"]
     );
     assert_eq!(executor.commands().len(), 2);
+}
+
+#[test]
+fn driver_command_executor_bounds_and_takes_diagnostic_commands() {
+    let mut executor =
+        DriverCommandExecutor::with_command_history_limit(TestWidgetDriver::default(), 3);
+
+    for id in 1..=10 {
+        executor
+            .execute(&PlatformCommand::SetRoot {
+                id: HostNodeId::new(id),
+            })
+            .unwrap();
+    }
+
+    let retained_ids = executor
+        .commands()
+        .iter()
+        .filter_map(|command| match command {
+            PlatformCommand::SetRoot { id } => Some(id.get()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(retained_ids, vec![8, 9, 10]);
+
+    let commands = executor.take_commands();
+    assert_eq!(commands.len(), 3);
+    assert!(executor.commands().is_empty());
+    assert_eq!(executor.driver().calls.len(), 10);
 }
 
 #[test]
@@ -1232,6 +1271,7 @@ fn command_executing_host_dispatches_driver_native_events_to_actions() {
     runtime.actions_mut().register("saveProfile");
 
     let root_id = runtime.render_compiled(&compiled).unwrap();
+    assert!(runtime.host().planning().commands().is_empty());
     runtime
         .host_mut()
         .executor_mut()

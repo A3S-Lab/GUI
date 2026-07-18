@@ -20,7 +20,7 @@ pub fn ui_modal_overlay(cx: &mut ComponentCx<UiModalOverlayProps>) -> RSX {
             key="root"
             {...props.overlayProps}
             data-slot="modal-overlay"
-            class="fixed inset-0 z-50 grid place-items-center bg-canvas/80 p-6 text-ink"
+            class="fixed inset-0 z-50 grid place-items-center bg-surface-card/80 p-3 text-ink"
             className={props.className}
             label={props.label}
         >

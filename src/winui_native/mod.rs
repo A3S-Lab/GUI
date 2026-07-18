@@ -67,7 +67,6 @@ pub enum WinUiEventWait {
     Wait,
 }
 
-#[derive(Debug)]
 pub struct WinUiNativeSurface {
     _package_dependency: PackageDependency,
     root: Option<HostNodeId>,
@@ -97,6 +96,32 @@ pub struct WinUiNativeSurface {
     text_input_max_lengths: Arc<Mutex<BTreeMap<HostNodeId, Option<u32>>>>,
     text_input_read_only: Arc<Mutex<BTreeMap<HostNodeId, bool>>>,
     text_input_values: Arc<Mutex<BTreeMap<HostNodeId, String>>>,
+}
+
+impl std::fmt::Debug for WinUiNativeSurface {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("WinUiNativeSurface")
+            .field("root", &self.root)
+            .field("pending_auto_focus", &self.pending_auto_focus)
+            .field(
+                "events_suppressed",
+                &self.events_suppressed.load(Ordering::Relaxed),
+            )
+            .field("widget_count", &self.widgets.len())
+            .field("dialog_count", &self.dialog_visible.len())
+            .field("dialog_operation_count", &self.dialog_operations.len())
+            .field("container_count", &self.container_children.len())
+            .field("combo_box_count", &self.combo_boxes.len())
+            .field("combo_item_count", &self.combo_items.len())
+            .field("list_count", &self.list_children.len())
+            .field("tab_count", &self.tab_children.len())
+            .field("range_count", &self.ranges.len())
+            .field("text_input_count", &self.text_inputs.len())
+            .field("text_input_config_count", &self.text_input_configs.len())
+            .field("text_input_value_cache", &"<redacted>")
+            .finish_non_exhaustive()
+    }
 }
 
 type ControlsComboBox = Controls::ComboBox;
@@ -839,7 +864,19 @@ where
             self.render()?;
         }
         while self.winui_root_window_open() && should_continue(self.state()) {
-            self.pump_winui_event_while(WinUiEventWait::Wait, &mut should_continue)?;
+            self.poll_background_updates()?;
+            if !self.winui_root_window_open() || !should_continue(self.state()) {
+                break;
+            }
+            let wait = if self.has_pending_background_work() {
+                WinUiEventWait::Poll
+            } else {
+                WinUiEventWait::Wait
+            };
+            self.pump_winui_event_while(wait, &mut should_continue)?;
+            if self.has_pending_background_work() {
+                std::thread::park_timeout(std::time::Duration::from_millis(16));
+            }
         }
         Ok(())
     }

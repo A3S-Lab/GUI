@@ -47,7 +47,7 @@ pub fn ui_list_box_load_more_item(cx: &mut ComponentCx<UiListBoxLoadMoreItemProp
             key="root"
             {...props.loadMoreItemProps}
             data-slot="list-box-load-more-item"
-            class="relative flex w-full cursor-default select-none items-center justify-center rounded-sm px-2 py-1.5 text-sm text-body outline-none transition-colors focus:bg-surface-strong focus:text-ink disabled:pointer-events-none disabled:opacity-50"
+            class="relative flex w-full cursor-default select-none items-center justify-center rounded-sm px-2 py-1.5 text-sm text-body outline-none focus:bg-surface-strong focus:text-ink disabled:pointer-events-none disabled:opacity-50"
             className={props.className}
         >
             <Slot key="content" />

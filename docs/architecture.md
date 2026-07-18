@@ -91,6 +91,69 @@ Non-portable runtime assumptions:
   tokens
 - treating an `HTMLElement` instance as an application object
 
+## Component Definition Registry
+
+Built-in `rsx_ui` definitions are compiled once per process. The default
+registry is a `LazyLock<GuiResult<ComponentRegistry>>`; ordinary
+`RsxComponent` and `ComponentCx` constructors receive a cheap clone after the
+first initialization instead of recompiling every built-in template for every
+page. `ComponentRegistry` stores templates, contracts, and class variants in
+separate immutable `Arc` maps. Clones share those maps, and registering an
+application-specific definition uses `Arc::make_mut` to detach only the map
+being changed. The built-in registry builder itself uses bare compilation, so
+initialization cannot recursively request the default registry.
+
+The constructor family makes registry ownership explicit:
+
+- With `design-system` enabled, `RsxComponent::new`, `from_source`,
+  `from_file`, and `from_template`, and `ComponentCx::compile`, install the
+  shared default registry. An `authoring`-only build uses an empty default and
+  therefore has no hidden `rsx_ui` dependency.
+- The corresponding `*_bare` APIs, including `ComponentCx::compile_bare`, do
+  not install built-in `rsx_ui` definitions.
+- The `*_with_registry` APIs and `ComponentCx::compile_with_registry` accept an
+  explicitly assembled `ComponentRegistry`. `builtin_component_registry()` is
+  available when an application wants to extend the shared defaults once and
+  reuse the resulting copy-on-write registry across its pages.
+
+This is a runtime ownership boundary, not a second component model. All three
+paths produce the same compiled RSX tree and enter the same semantic/native
+lowering pipeline.
+
+## Dependency Direction
+
+Cargo features enforce the authoring/runtime split inside the current crate.
+`authoring` enables SWC-backed RSX parsing and `ComponentCx`; `design-system`
+depends on `authoring` and enables the built-in `rsx_ui` registry. The default
+feature set keeps the existing authoring experience, while
+`cargo check --no-default-features --lib` proves that the runtime, protocol,
+semantic mapper, renderer, and planning core compile without SWC or `rsx_ui`.
+
+The remaining dependencies stay one-way:
+
+- `ComponentCx`, RSX parsing, and `rsx_ui` authoring compile outward-facing
+  syntax into `CompiledRsxNode`; native backends never execute component
+  functions.
+- `rsx_ui` depends on semantic component contracts. The semantic mapper,
+  native IR, renderer, and platform planning layers do not depend on the
+  built-in design-system registry.
+- `src/native.rs`, reconciliation, and `src/platform/` remain independent of OS
+  widget handles. AppKit, GTK4, and WinUI surfaces depend on those portable
+  types and are selected behind their target/feature boundaries.
+- `src/backend/` executes planned commands but does not own product state or
+  product I/O. The serializable host boundary carries data and command records,
+  never component runtime instances or thread-affine native handles.
+- `src/effect.rs` defines an executor seam without depending on Tokio or another
+  application runtime. An application may inject such an executor at the outer
+  edge.
+
+Product applications depend on these layers; the GUI core must not import
+product modules, storage clients, network clients, or process runners.
+New product configuration and capability policy use ACL (`.acl`) exclusively.
+The application or host owns ACL parsing and validation, then passes typed,
+immutable capability grants across the outer boundary. The GUI core owns the
+capability types but must not depend on the ACL parser or its AST.
+
 ## NativeHost Boundary
 
 Every platform adapter implements the same host operations:
@@ -379,6 +442,50 @@ again on a later state-driven render. When those queued dialog close events are
 drained, the surface also releases the retained `ShowAsync` operation for that
 dialog. The backend still observes the root window handle for app-loop shutdown.
 
+## Effects and Application Scheduling
+
+Reducers run synchronously on the UI thread and must remain fast state
+transitions. They must not read files, call network services, wait for child
+processes, create an async runtime, or use `block_on`. Application I/O belongs
+outside the reducer in an application-owned `EffectRuntime` (or another
+injected executor); completed work returns a message/result that is merged into
+state on the UI thread.
+
+`EffectRuntime` provides the implemented supervision boundary:
+
+- in-flight work and the completion channel are both bounded; defaults are 32
+  active effects and 256 queued completions, and `with_limits` configures both
+- spawning beyond the in-flight limit returns a contextual error, while the
+  synchronous completion channel provides backpressure
+- `EffectCancellation` supports cooperative cancellation by id; cancelling or
+  dropping the runtime prevents later completion delivery and signals all
+  active tasks. A cancelled task keeps its in-flight slot until the worker
+  reports termination, so a task that ignores cancellation cannot bypass the
+  concurrency bound
+- the default `ThreadEffectExecutor` catches task panics and converts them into
+  `GuiError` completions. It returns a joinable `EffectWorker`; runtime shutdown
+  disconnects the bounded completion channel and joins every worker, so even a
+  non-cooperative task cannot escape the owning application lifetime
+- `EffectExecutor` and `EffectWaker` let applications provide Tokio-backed work
+  and wake their owning event loop without adding Tokio to the GUI core. A
+  custom executor may return a detached worker only when an external owned task
+  scope provides the equivalent shutdown guarantee
+
+`NativeRuntimeApp::with_background_updates` is the UI-thread integration seam.
+Its poller drains a batch of completed work, mutates application state, and
+returns `BackgroundUpdate`. `poll_background_updates` renders exactly once when
+that batch reports any state change, regardless of how many completions it
+merged, and separately tracks whether more work remains pending.
+
+The AppKit, GTK4, and WinUI `run_*_while` loops use that pending flag to choose
+their event-pump policy. They poll native events while background work remains,
+then park for at most one 16 ms frame instead of busy-spinning.
+`background_effect_waker()` supplies the matching `EffectWaker`, so a completed
+worker unparks the UI thread immediately. When no work is pending the loop uses
+the platform's blocking wait. Each iteration polls background completions
+before the OS event pump and rechecks the root-window and application exit
+predicates before waiting.
+
 ## Host Protocol
 
 The RSX/native host boundary uses serializable protocol types:
@@ -424,6 +531,23 @@ JSON omits `actions`, Rust infers action ids from compiled event props and
 optional `actionLabels`. Explicit `actions`, including an empty list, remain
 authoritative.
 
+Protocol v1 is the strict transport contract. Its request, command,
+accessibility, control-state, event, and response types are dedicated `*V1`
+DTOs with unknown-field rejection; they do not serialize runtime structs behind
+opaque JSON values. A session permanently selects either legacy or strict-v1
+mode on first use. Strict-v1 validates the protocol version, session id, render
+revision, event sequence, command sequence, and acknowledgement before any
+state transition. Each rendered response is retained until its exact ACK;
+retrying the same revision returns the retained response, while later renders
+and events are rejected until delivery is acknowledged. Password values remain
+available to in-process reducers but are removed from commands, accessibility,
+responses, session debug output, and retained diagnostics.
+
+`NativeProtocolApp` remains the convenience state/reducer loop for the legacy
+in-process API. Strict-v1 is deliberately a transport-owned
+`NativeProtocolSession` primitive: the transport owns resend/ACK ordering and
+the product owns reducer, effect, and next-frame orchestration.
+
 When `UiFrame.window` is present, the Rust core wraps the compiled RSX root in
 a `NativeRole::Window`. The same command stream then creates `NSWindow`,
 `Microsoft.UI.Xaml.Window`, or `gtk::ApplicationWindow` before inserting the
@@ -443,10 +567,37 @@ to execute:
 - `{"type": "remove", "id": ...}`
 - `{"type": "setRoot", "id": ...}`
 
+The planning host's command vector is a pending delivery queue, not cumulative
+diagnostic history. `take_commands()` moves all commands produced since the
+previous drain and leaves the queue empty. Legacy session calls therefore
+return only the new commands for each render pass. Strict-v1 moves those
+commands into its retained response and does not release that delivery record
+until ACK.
+
+Diagnostic histories owned by the runtime are bounded independently. Action
+invocations, interaction changes, headless operations, successfully executed
+driver/recording commands, and native setter diagnostics default to the most
+recent 256 entries. Their limits are configurable, zero disables retention
+without disabling dispatch/execution, and the corresponding `take_*` APIs
+transfer retained records out and clear the history. Sensitive control values
+are redacted before retention. Sensitivity is resolved defensively from the
+explicit marker, typed password widget kind, structured input type, or legacy
+`metadata["type"]`. Blueprint serialization, `Debug`, command histories, and
+setter histories use the same decision and remove duplicated `value`,
+`defaultValue`, ARIA-value, and data-value metadata channels. Low-level action
+registry calls redact values by default unless the caller explicitly supplies a
+public sensitivity classification, while runtime/app `Debug` output reports
+types and queue counts rather than live state or event payloads. These histories
+exist for inspection and testing; they are not application event stores.
+Credential-bearing metadata and resource-policy fields, including CSP nonces
+and inline `srcdoc`, are always removed from diagnostic projections regardless
+of control value sensitivity; live rendering and protocol input retain them.
+
 This keeps keyed reconciliation in the Rust core and keeps platform adapters
 focused on native object lifetime and thread-affine UI work.
 `NativeWidgetBlueprint` carries the platform family (`appKit`, `winUI`, `gtk4`),
-native widget class, native role, accessibility role, label/value/action
+typed `NativeWidgetKind`, a diagnostic legacy class name, native role,
+accessibility role, label/value/action
 bindings, semantic control state, Web metadata, event bindings, and parsed
 portable style tokens. It is safe to send to a platform process or language
 binding as JSON.
@@ -472,25 +623,37 @@ multiple-selection state, autofocus state, text-entry hints, text-length hints,
 textarea sizing hints, window resizability, event action ids, metadata, and
 portable style. This keeps AppKit, WinUI, and GTK bindings from reinterpreting
 protocol fields differently.
-`NativeWidgetConfig::diff()` returns a `NativeWidgetConfigPatch` for update
-passes, and `HandleWidgetDriver` stores the last config for each handle so
+`NativeWidgetConfig::diff()` returns an ordered `NativeWidgetSetterBatch` for
+update passes (`NativeWidgetConfigPatch` is only the compatibility alias), and
+`HandleWidgetDriver` stores the last config for each handle so
 `NativeHandleAdapter::update_handle_config()` can apply only changed setters.
-`NativeWidgetConfig::create_setters()` and `NativeWidgetConfigPatch::setters()`
+`NativeWidgetConfig::create_setters()` and `NativeWidgetSetterBatch::setters()`
 produce `NativeWidgetSetter` operations such as `SetLabel`, `SetEnabled`,
 `SetVisible`, `SetPlaceholder`, `SetMinimum`, `SetMaximum`, `SetCurrent`,
 `SetStep`, `SetWindowResizable`, `SetEvents`, `SetPortableStyle`, and
 `SetMetadata`. Platform bindings can map those operations to the corresponding
 AppKit, WinUI, or GTK property setters.
-The feature-gated handle adapters keep a replayable setter log in their handle
-state, so tests exercise the same create/update flow real native bindings will
-map to OS controls.
+The feature-gated handle adapters keep a bounded, redacted setter history in
+their handle state, so tests exercise the same create/update flow real native
+bindings map to OS controls without accumulating secrets or unbounded logs.
 
 `CommandExecutingHost` wraps this command stream around a
-`PlatformCommandExecutor`. `DriverCommandExecutor` is the reusable executor for
-real native backends: it validates that a blueprint targets the driver's backend
-and delegates command effects to `NativeWidgetDriver`. If a backend command
-fails, the host restores the planning snapshot for that command so failed
-creates or updates do not leave the planned tree ahead of the native backend.
+`PlatformCommandExecutor`. A render frame checkpoints planning, prepares its
+complete immutable `PlatformCommandBatch`, commits it, validates the explicit
+`PlatformBatchAck`, and only then consumes the acknowledged queue. Prepare
+failure preserves the exact frame and native state. A commit or invalid ACK is
+conservatively treated as potentially partial: the host enters
+`DegradedNativeState`, rejects incremental work, rolls planning back to the last
+acknowledged snapshot, and requires `recover_with_executor` to replay a full
+create/insert/set-root snapshot into a fresh executor before resuming.
+
+`DriverCommandExecutor` is the reusable executor for real native backends: it
+validates that a blueprint targets the driver's backend and delegates command
+effects to `NativeWidgetDriver`. Platform executors must own their native
+resources and release them when dropped; recovery drops the old partial
+executor before replaying into the replacement so two surfaces are not active
+at once. Real-platform failure-injection and teardown automation remain a
+hardening gate in addition to the deterministic Rust executor tests.
 Create commands must introduce a new host id; duplicate create ids are rejected
 before native handles or recorded backend objects are replaced.
 
@@ -777,244 +940,7 @@ recognition.
 
 ## Style Contract
 
-`WebProps` keeps the original Web style map. `PortableStyle` keeps normalized
-CSS declarations and projects the subset that native adapters can apply
-deterministically:
-
-- `all`
-- `display`, including inline, block, flow-root, contents, list-item, flex,
-  grid, table, ruby, and representable multi-keyword display modes
-- `boxSizing`, `boxDecorationBreak`, `isolation`, `mixBlendMode`
-- `float`, `clear`, `verticalAlign`
-- `tableLayout`, `borderCollapse`, `borderSpacing`, `captionSide`
-- `position`, `anchorName`, `anchorScope`, `positionAnchor`,
-  `positionArea`, `positionTry*`, `positionVisibility`, `inset`,
-  `insetBlock*`, `insetInline*`, `start`, `end`, `top`, `right`, `bottom`,
-  `left`, `zIndex`
-- `visibility`
-- `flexDirection`, `flexWrap`, `flex`, `flexBasis`, `flexGrow`,
-  `flexShrink`, `order`, `readingFlow`, `readingOrder`
-- `alignItems`, `alignContent`, `alignSelf`, `justifyContent`,
-  `justifyItems`, `justifySelf`, `placeContent`, `placeItems`, `placeSelf`
-- `grid`, `gridTemplate*`, `gridAutoColumns`, `gridAutoRows`, `gridAutoFlow`,
-  `gridColumn*`, `gridRow*`, `gridArea`
-- `contain`, `container*`, `content`, `counterReset`, `counterIncrement`,
-  `counterSet`, `quotes`, `stringSet`, `contentVisibility`, and
-  `containIntrinsic*`
-- `width`, `height`, `inlineSize`, `blockSize`, `interpolateSize`, and
-  physical/logical min/max sizes
-- `gap`, `rowGap`, `columnGap`, physical and logical `padding*`, `margin*`,
-  `marginTrim`, and Tailwind `space*` child-spacing metadata
-- `border`, physical and logical `borderWidth`, `borderStyle`,
-  `borderColor`, uniform, physical-corner, and logical-corner `borderRadius`
-- `borderImage`, `borderImageSource`, `borderImageSlice`,
-  `borderImageWidth`, `borderImageOutset`, and `borderImageRepeat`
-- `color`, `background`, `backgroundColor`, `backgroundImage`, `backgroundPosition`,
-  `backgroundSize`, `backgroundRepeat`, `backgroundAttachment`,
-  `backgroundOrigin`, `backgroundClip`, `backgroundBlendMode`
-- `clip`, `clipPath`, `mask*`, and `maskBorder*`
-- `imageRendering`, `imageOrientation`, `imageResolution`, `objectFit`,
-  `objectPosition`, `shapeOutside`, `shapeInside`, `shapeMargin`,
-  `shapePadding`, `shapeImageThreshold`,
-  `listStyleType`, `listStylePosition`, `listStyleImage`, `markerSide`,
-  `columns`, `columnCount`, `columnWidth`, `columnRule*`, `columnSpan`,
-  `columnFill`, `size`, `page`, `pageOrientation`, `bleed`, `marks`,
-  `orphans`, `widows`, `bookmark*`, `footnote*`, `breakBefore`, `breakAfter`,
-  `breakInside`
-- `font`, `fontFamily`, `fontStyle`, `fontSize`, `fontSizeAdjust`,
-  `fontWeight`, `fontStretch`, `fontWidth`, `fontPalette`, `fontLanguageOverride`,
-  `fontKerning`, `fontOpticalSizing`, `WebkitFontSmoothing`,
-  `MozOsxFontSmoothing`, `fontFeatureSettings`, `fontVariationSettings`,
-  `fontVariant*`, `fontSynthesis*`, `lineHeight`, `lineHeightStep`,
-  `blockStep*`, `lineGrid`, `lineSnap`, `boxSnap`, `mathDepth`, `mathShift`,
-  `mathStyle`, `dominantBaseline`,
-  `baselineSource`, `alignmentBaseline`, `baselineShift`, `lineFitEdge`,
-  `inlineSizing`, `initialLetter*`,
-  `letterSpacing`, `wordSpacing`, `tabSize`, `textAlign`, `textAlignAll`,
-  `textAlignLast`, `textGroupAlign`, `textJustify`, `wordSpaceTransform`,
-  `textSizeAdjust`, `WebkitTextSizeAdjust`,
-  `MozTextSizeAdjust`, `MsTextSizeAdjust`, `direction`, `unicodeBidi`,
-  `writingMode`, `textOrientation`,
-  `textCombineUpright`, `textTransform`, `textIndent`, `textWrap`,
-  `textWrapMode`, `textWrapStyle`, `wrapBefore`, `wrapAfter`, `wrapInside`,
-  `linePadding`, `textSpacing`, `textSpacingTrim`, `textAutospace`,
-  `textBox*`, `hangingPunctuation`, `lineClamp`, `blockEllipsis`,
-  `continue`, `maxLines`, `boxOrient`
-- `speak`, `speakAs`, `pause*`, `rest*`, `cue*`, and `voice*`
-- SVG presentation properties such as `fill`, `fillOpacity`, `fillRule`,
-  `clipRule`, `stroke`, `strokeWidth`, `strokeLinecap`, `strokeLinejoin`,
-  `strokeMiterlimit`, `strokeDasharray`, `strokeDashoffset`, `strokeOpacity`,
-  `vectorEffect`, `paintOrder`, `shapeRendering`, `textRendering`,
-  `colorRendering`, `colorInterpolation`, `colorInterpolationFilters`,
-  `marker*`, `stopColor`, `stopOpacity`, `floodColor`, `floodOpacity`, and
-  `lightingColor`
-- `textDecorationLine`, `textDecorationColor`, `textDecorationStyle`,
-  `textDecorationThickness`, `textDecorationSkip*`, `textUnderlineOffset`,
-  `textUnderlinePosition`, `textEmphasisStyle`, `textEmphasisColor`,
-  `textEmphasisPosition`, `textEmphasisSkip`, `rubyAlign`, `rubyPosition`, `rubyMerge`,
-  `rubyOverhang`, `textShadow`, `textOverflow`, `lineBreak`, `whiteSpace`,
-  `whiteSpaceCollapse`, `whiteSpaceTrim`, `wordBreak`, `overflowWrap`,
-  `hyphens`, `hyphenateCharacter`, and `hyphenateLimit*`
-- `overflow`, `overflowX`, `overflowY`, `overflowBlock`, `overflowInline`,
-  `overflowClipMargin`, `overflowAnchor`
-- `emptyCells`
-- `aspectRatio`, `boxShadow`, Tailwind `ring*` and `divide*` metadata,
-  `outline*`, `transform`, `filter`,
-  `backdropFilter`
-- `translate`, `rotate`, `scale`, `transformOrigin`, `transformStyle`,
-  `transformBox`, `offset*`, `backfaceVisibility`, `perspective`,
-  `perspectiveOrigin`
-- filter function components such as blur, brightness, contrast, drop shadow,
-  grayscale, hue rotate, invert, saturate, and sepia
-- backdrop-filter function components such as backdrop blur, brightness,
-  contrast, grayscale, hue rotate, invert, opacity, saturate, and sepia
-- `transition*`, `animation*`, `animationTimeline`, `animationRange*`,
-  `viewTransition*`, `willChange`
-- `colorScheme`, `forcedColorAdjust`, `printColorAdjust`, `colorAdjust`,
-  `fieldSizing`, `appearance`, `accentColor`, `caretColor`, `caret`,
-  `caretAnimation`, `caretShape`, `resize`
-- `scrollBehavior`, `scrollTimeline*`, `viewTimeline*`, `timelineScope`,
-  physical and logical `scrollMargin*`,
-  `scrollPadding*`, `scrollSnap*`, `scrollbarGutter`, `scrollbarWidth`,
-  `scrollbarColor`, `scrollInitialTarget`, `scrollTargetGroup`,
-  `scrollMarkerGroup`, `overscrollBehavior*`, `overscrollBehaviorBlock`,
-  `overscrollBehaviorInline`, `touchAction`, `nav*`, `spatialNavigation*`, and
-  `interactivity`
-- `cursor`, `pointerEvents`, `userSelect`
-- `opacity`
-
-CSS custom properties are stored separately. Tailwind variant utilities are
-stored under `variant_declarations` so state or responsive processing can apply
-them without reparsing `className`. Tailwind important utilities using the `!`
-modifier are evaluated after normal utilities within the same `className`, with
-the original relative order preserved inside each priority group. Tailwind
-arbitrary values decode `_` as a space, preserve escaped `\_` as an underscore,
-keep underscores inside `url(...)` values, and apply the same bracketed-segment
-decoding to arbitrary variant keys. Unsupported style declarations are preserved
-so callers can report unmapped declarations without dropping source data.
-CSS length values that cannot be converted to numeric points or percentages are
-kept as `StyleLength::Css`, including `calc(...)`, `calc-size(...)`,
-`var(...)`, `clamp(...)`, `anchor(...)`, `anchor-size(...)`,
-CSS math functions such as `round(...)`, `hypot(...)`, and `abs(...)`,
-viewport/container units, and sizing keywords such as `min-content`.
-CSS time values that cannot be converted to milliseconds are kept as
-`StyleTime::Css`, including custom properties and CSS math functions.
-CSS colors parse hex, RGB/RGBA, HSL/HSLA, and slash alpha syntax into portable
-RGBA tokens when possible. Native CSS color functions such as `hwb(...)`,
-`lab(...)`, `lch(...)`, `oklab(...)`, `oklch(...)`, `color(...)`,
-`color-mix(...)`, `light-dark(...)`, `contrast-color(...)`, and
-`alpha(...)`, and `device-cmyk(...)` are preserved as function color tokens.
-Tailwind color opacity modifiers are preserved for both base and variant
-utilities, including arbitrary color functions.
-Common Tailwind visual-effect and interaction utilities such as `shadow-*`,
-`shadow-(...)`, `shadow-(color:...)`, `inset-shadow-*`, `ring-*`,
-`inset-ring-*`, `outline-*`, `cursor-*`, `pointer-events-*`, `select-*`,
-`aspect-*`, `mix-blend-*`, `bg-blend-*`, and `mask-*` project into the same
-declaration model.
-Tailwind container marker utilities such as `@container`, `@container-size`,
-and named container forms project into container declarations. Container query
-variants such as `@md:` are stored in `variant_declarations`.
-Common Tailwind formatting and table utilities such as `box-*`,
-`box-decoration-*`, `isolate`, `isolation-auto`, `float-*`, `clear-*`,
-`align-*`, `border-collapse`, `border-separate`, `border-spacing-*`, and
-`caption-*`, plus arbitrary `empty-cells` and `border-image*` properties,
-project into the same declaration model. Tailwind display
-utilities such as `inline-block`, `flow-root`, `contents`, `list-item`,
-`table-*`, `inline-table`, `inline-flex`, and `inline-grid` project into
-portable display tokens. Arbitrary `display` properties project into the same
-display token when the display value has an equivalent portable mode. Tailwind
-screen-reader utilities such as `sr-only` and `not-sr-only` project into their
-generated declaration groups.
-Common Tailwind SVG presentation utilities such as `fill-*`, `stroke-*`, and
-`stroke-{width}`, plus arbitrary SVG marker, rendering, paint server, and
-filter color properties, project into the same declaration model.
-Common Tailwind transform utilities such as `translate-*`, `scale-*`,
-`rotate-*`, `skew-*`, `origin-*`, `perspective-*`, `backface-*`, and
-`transform-*`, plus arbitrary `transform-box` and CSS Motion Path properties,
-project into individual transform properties or the transform function
-pipeline.
-Common Tailwind filter and backdrop-filter utilities such as `blur-*`,
-`brightness-*`, `contrast-*`, `drop-shadow-*`, `grayscale`, `hue-rotate-*`,
-`invert-*`, `saturate-*`, `sepia-*`, and `backdrop-*` project into composable
-filter tokens.
-Common Tailwind Grid utilities such as `grid-cols-*`, `grid-rows-*`,
-`auto-cols-*`, `auto-rows-*`, `grid-flow-*`, `col-*`, and `row-*` project into
-the same declaration model.
-Common Tailwind Flexbox item and box-alignment utilities such as `flex-*`,
-`basis-*`, `grow-*`, `shrink-*`, `order-*`, `content-*`, `self-*`,
-`justify-items-*`, `justify-self-*`, `place-*`, and arbitrary `reading-*`
-properties project into the same declaration model.
-Common Tailwind sizing and child-spacing utilities such as `size-*`,
-`space-x-*`, `space-y-*`, `space-x-reverse`, and `space-y-reverse` project
-into the same declaration model.
-Common Tailwind typography and text utilities such as `font-*`, `italic`,
-`not-italic`, `antialiased`, `subpixel-antialiased`, `tracking-*`,
-`font-stretch-*`, `font-features-*`, arbitrary `font`, `font-width`,
-`font-size-adjust`, `font-palette`, and `font-language-override` properties,
-font variant numeric utilities, arbitrary rhythmic sizing and line-grid
-properties such as `line-height-step`, `block-step*`, `line-grid`,
-`line-snap`, and `box-snap`, arbitrary MathML math properties such as
-`math-depth`, `math-shift`, and `math-style`, `tab-*`, text transform utilities, text decoration
-utilities, `underline-offset-*`, arbitrary `text-decoration-skip*` and
-`text-underline-position` properties, arbitrary `text-emphasis-*` properties,
-arbitrary `text-size-adjust`, `text-combine-upright`, `text-align-last`,
-`text-align-all`, `text-group-align`, `text-justify`, baseline and
-initial-letter properties, `text-wrap-*`, arbitrary `wrap-*`,
-`line-padding`, `text-spacing`, `text-spacing-trim`, `text-autospace`,
-`word-space-transform`,
-`text-box*`, `white-space-collapse`, `white-space-trim`,
-`hanging-punctuation`, hyphenation limit properties, and line-clamp
-longhand properties,
-arbitrary CSS Speech properties such as `speak`, `speak-as`, `pause`, `rest`,
-`cue`, and `voice-*`,
-arbitrary `ruby-*`
-properties, `truncate`, `text-ellipsis`, `text-clip`, `indent-*`, `line-clamp-*`,
-`text-shadow-*`, `text-wrap`, `text-nowrap`,
-`text-balance`, `text-pretty`, `whitespace-*`, `wrap-*`, word-break utilities,
-`hyphens-*`, generated-content utilities such as `content-[...]`,
-`content-(...)`, and `content-none`, and arbitrary `counter-*`, `quotes`, and
-`string-set` properties project into the same declaration model.
-CSS writing-mode arbitrary property utilities, CSS Anchor Positioning arbitrary
-properties such as `anchor-name` and `position-area`, and `ltr:`/`rtl:`
-variants are stored in the same declaration model.
-Arbitrary `all` properties project into cascade reset metadata.
-Common Tailwind background, object, list, columns, and fragmentation utilities
-such as `bg-*`, `object-*`, `list-*`, `list-image-*`, `columns-*`,
-`break-before-*`, `break-after-*`, and `break-inside-*`, plus arbitrary CSS
-background shorthand, image, and shape properties such as `background`,
-`image-rendering`, `shape-outside`, `shape-inside`, and `shape-padding`,
-and arbitrary paged media and list
-properties such as `page`, `orphans`, `widows`, and `marker-side`, plus bookmark
-and footnote properties, plus paged media `size`, `page-orientation`, `bleed`,
-and `marks`, project into the same declaration model.
-Tailwind border radius utilities such as `rounded-*`, `rounded-t-*`,
-`rounded-r-*`, `rounded-b-*`, `rounded-l-*`, `rounded-tl-*`,
-`rounded-tr-*`, `rounded-br-*`, `rounded-bl-*`, `rounded-s-*`,
-`rounded-e-*`, `rounded-ss-*`, `rounded-se-*`, `rounded-ee-*`, and
-`rounded-es-*` project into physical or logical corner radius tokens.
-Tailwind border width, color, and divide utilities such as `border-*`, `border-x-*`,
-`border-y-*`, `border-t-*`, `border-r-*`, `border-b-*`, `border-l-*`,
-`border-s-*`, `border-e-*`, `border-bs-*`, `border-be-*`, `divide-x-*`,
-`divide-y-*`, `divide-*-reverse`, `divide-{color}`, and `divide-{style}`
-project into physical, logical, or native child-divider tokens.
-Common Tailwind motion, interaction, and scroll utilities such as
-`transition-*`, `duration-*`, `delay-*`, `ease-*`, `animate-*`,
-arbitrary animation and scroll-driven animation properties such as
-`animation-composition`, `animation-timeline`, `scroll-timeline`, and
-`view-timeline`, top-layer `overlay` metadata, arbitrary CSS View Transitions
-properties, `will-change-*`, `appearance-*`,
-`accent-*`, `caret-*`, arbitrary `caret`, `caret-animation`, and
-`caret-shape` properties, `resize-*`,
-`scheme-*`, `forced-color-adjust-*`, arbitrary `print-color-adjust`,
-`field-sizing-*`, `scroll-*`, `snap-*`,
-`scrollbar-*`, `scrollbar-gutter-*`, `scrollbar-thumb-*`,
-`scrollbar-track-*`, `overscroll-*`, arbitrary logical overflow, overflow clip
-margin, scroll anchoring, scroll initial target, scroll target groups, scroll
-marker groups, logical overscroll, CSS UI directional navigation, CSS Spatial
-Navigation, CSS UI interactivity, and `touch-*` properties project into the
-same declaration model.
-Tailwind logical direction utilities such as `start-*`, `end-*`, `ms-*`,
-`me-*`, `mbs-*`, `mbe-*`, `mis-*`, `mie-*`, `ps-*`, `pe-*`, `pbs-*`,
-`pbe-*`, `pis-*`, `pie-*`, `scroll-ms-*`, `scroll-me-*`, `scroll-mbs-*`,
-`scroll-mbe-*`, `scroll-ps-*`, `scroll-pe-*`, `scroll-pbs-*`, and
-`scroll-pbe-*` project into logical portable style tokens.
+The detailed portable CSS and Tailwind projection contract lives in
+[`style-contract.md`](style-contract.md). Keeping it separate makes the runtime
+and protocol architecture easier to review while preserving one authoritative
+list of supported native style semantics.

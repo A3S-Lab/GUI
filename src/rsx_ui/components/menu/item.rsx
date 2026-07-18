@@ -49,7 +49,7 @@ pub fn ui_menu_item(cx: &mut ComponentCx<UiMenuItemProps>) -> RSX {
             key="root"
             {...props.menuItemProps}
             data-slot="menu-item"
-            class="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-surface-strong focus:text-ink disabled:pointer-events-none disabled:opacity-50"
+            class="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-surface-strong focus:text-ink disabled:pointer-events-none disabled:opacity-50"
             className={props.className}
             actionPayload={props.actionPayload}
         >

@@ -14,7 +14,7 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         id: HostNodeId,
         blueprint: &NativeWidgetBlueprint,
     ) -> GuiResult<Self::Handle> {
-        let kind = WinUiWidgetKind::from_widget_class(blueprint.widget_class.as_str())?;
+        let kind = WinUiWidgetKind::from_widget_kind(blueprint.widget_kind);
         let config = blueprint.config();
         let widget = match kind {
             WinUiWidgetKind::Window => {

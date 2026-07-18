@@ -62,7 +62,7 @@ pub fn ui_color_thumb(cx: &mut ComponentCx<UiColorThumbProps>) -> RSX {
             key="root"
             {...props.colorThumbProps}
             data-slot="color-thumb"
-            class="absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-canvas bg-canvas ring-1 ring-hairline-strong transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            class="absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-canvas bg-surface-card ring-1 ring-hairline-strong disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-[2px] focus-visible:ring-ink/40"
             className={props.className}
         >
             <Slot key="content" />
