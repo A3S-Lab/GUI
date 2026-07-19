@@ -18,7 +18,7 @@ pub fn ui_popover(cx: &mut ComponentCx<UiPopoverProps>) -> RSX {
             key="root"
             {...props.overlayProps}
             data-slot="popover"
-            class="z-50 min-w-[8rem] overflow-hidden rounded-lg border border-hairline-strong bg-canvas text-ink"
+            class="z-50 min-w-[8rem] overflow-hidden rounded-md border border-hairline bg-canvas text-ink"
             className={props.className}
         >
             <Slot key="content" />

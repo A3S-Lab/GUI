@@ -12,7 +12,7 @@ pub fn ui_badge(cx: &mut ComponentCx<UiBadgeProps>) -> RSX {
         <span
             key="root"
             data-slot="badge"
-            class="inline-flex min-h-6 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap rounded-full border border-transparent bg-surface-strong px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink transition-colors"
+            class="inline-flex min-h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap rounded-md border border-transparent bg-canvas-soft px-2 py-0.5 text-xs font-medium text-body"
             className={props.className}
         >
             <Slot key="content" />

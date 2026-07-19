@@ -57,19 +57,19 @@ pub fn ui_combo_box(cx: &mut ComponentCx<UiComboBoxProps>) -> RSX {
             <Group
                 key="control"
                 data-slot="combo-box-control"
-                class="flex h-11 w-full min-w-0 items-center rounded-md border border-hairline-strong bg-canvas focus-within:border-ink focus-within:ring-[3px] focus-within:ring-ring/50"
+                class="flex h-9 w-full min-w-0 items-center rounded-md border border-hairline-strong bg-surface-card focus-within:border-ink focus-within:ring-[2px] focus-within:ring-ink/40"
             >
                 <Input
                     key="input"
                     {...props.comboBoxInputProps}
                     data-slot="combo-box-input"
-                    class="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-ink outline-none placeholder:text-mute md:text-sm"
+                    class="min-w-0 flex-1 bg-transparent px-3 py-1.5 text-sm text-ink outline-none placeholder:text-muted md:text-sm"
                 />
                 <Button
                     key="trigger"
                     {...props.comboBoxTriggerProps}
                     data-slot="combo-box-trigger"
-                    class="inline-flex h-11 shrink-0 items-center justify-center px-3 text-body transition-colors hover:text-ink"
+                    class="inline-flex h-9 shrink-0 items-center justify-center px-3 text-body hover:text-ink"
                 >
                     Toggle
                 </Button>

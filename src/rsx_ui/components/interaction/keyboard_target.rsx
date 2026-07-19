@@ -30,7 +30,7 @@ pub fn ui_keyboard_target(cx: &mut ComponentCx<UiKeyboardTargetProps>) -> RSX {
             {...props.keyboardInteractionProps}
             data-slot="keyboard-target"
             data-keyboard-active={props.isKeyboardActive}
-            class="outline-none data-[keyboard-active=true]:ring-[3px] data-[keyboard-active=true]:ring-ring/50 disabled:pointer-events-none disabled:text-muted-soft"
+            class="outline-none data-[keyboard-active=true]:ring-[2px] data-[keyboard-active=true]:ring-ink/40 disabled:pointer-events-none disabled:text-muted-soft"
             className={props.className}
         >
             <Slot key="content" />

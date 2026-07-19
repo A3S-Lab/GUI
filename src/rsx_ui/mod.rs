@@ -6,10 +6,11 @@ pub use classes::{
     UI_BADGE_BASE_CLASS, UI_BADGE_CLASS, UI_BUTTON_BASE_CLASS, UI_BUTTON_CLASS,
     UI_BUTTON_DEFAULT_SIZE_CLASS, UI_BUTTON_DEFAULT_VARIANT_CLASS, UI_CARD_CLASS,
     UI_CARD_CONTENT_CLASS, UI_CARD_DESCRIPTION_CLASS, UI_CARD_FOOTER_CLASS, UI_CARD_HEADER_CLASS,
-    UI_CARD_TITLE_CLASS, UI_INPUT_CLASS, UI_SEPARATOR_CLASS, UI_TABS_CLASS, UI_TABS_CONTENT_CLASS,
-    UI_TABS_LIST_CLASS, UI_TABS_TRIGGER_CLASS, UI_TEXTAREA_CLASS,
+    UI_CARD_TITLE_CLASS, UI_FIELD_CONTROL_CLASS, UI_FIELD_CONTROL_INPUT_CLASS,
+    UI_FIELD_CONTROL_TRIGGER_CLASS, UI_INPUT_CLASS, UI_SEPARATOR_CLASS, UI_TABS_CLASS,
+    UI_TABS_CONTENT_CLASS, UI_TABS_LIST_CLASS, UI_TABS_TRIGGER_CLASS, UI_TEXTAREA_CLASS,
 };
-pub(crate) use components::with_builtin_components;
+pub use components::builtin_component_registry;
 pub use components::{
     ui_article, ui_aside, ui_autocomplete, ui_badge, ui_breadcrumb, ui_breadcrumbs, ui_button,
     ui_calendar, ui_calendar_cell, ui_calendar_grid, ui_calendar_grid_body,

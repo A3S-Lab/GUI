@@ -12,7 +12,7 @@ pub fn ui_card(cx: &mut ComponentCx<UiCardProps>) -> RSX {
         <div
             key="root"
             data-slot="card"
-            class="flex flex-col gap-4 rounded-lg border border-hairline-strong bg-canvas p-6 text-ink"
+            class="flex flex-col gap-3 rounded-md border border-hairline bg-canvas p-3 text-ink"
             className={props.className}
         >
             <Slot key="content" />

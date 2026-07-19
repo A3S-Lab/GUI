@@ -11,7 +11,7 @@ use crate::html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
 };
-use crate::native::{NativeProps, NativeRole};
+use crate::native::{NativeProps, NativeRole, ValueSensitivity};
 use crate::style::PortableStyle;
 
 use super::config::NativeWidgetConfig;
@@ -23,6 +23,63 @@ pub enum NativeBackendKind {
     WinUI,
     Gtk4,
     Headless,
+}
+
+/// Backend-independent native primitive selected during platform planning.
+///
+/// Platform drivers map this typed value to an OS widget. `widget_class` remains
+/// on [`NativeWidgetBlueprint`] for diagnostics and legacy protocol consumers;
+/// it must not be parsed to decide which widget to create.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NativeWidgetKind {
+    Window,
+    Container(NativeContainerKind),
+    ScrollContainer,
+    Label,
+    Button,
+    TextInput(NativeTextInputKind),
+    Checkbox,
+    Switch,
+    RadioGroup,
+    Radio,
+    ComboBox,
+    List,
+    ListItem,
+    Tree,
+    TreeItem,
+    Table,
+    Dialog,
+    Popover,
+    Tabs,
+    Tab,
+    Menu,
+    MenuItem,
+    Separator,
+    Slider,
+    Progress,
+    Toolbar,
+    Image,
+    Media,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NativeContainerKind {
+    Linear,
+    Grid,
+    Canvas,
+    Embedded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NativeTextInputKind {
+    SingleLine,
+    Search,
+    Number,
+    Password,
+    Multiline,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -55,15 +112,19 @@ pub struct NativeTextInputHints {
     pub private: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeWidgetBlueprint {
     pub backend: NativeBackendKind,
+    pub widget_kind: NativeWidgetKind,
+    /// Platform class name retained for diagnostics and legacy wire formats.
     pub widget_class: String,
     pub role: NativeRole,
     pub accessibility_role: AccessibilityRole,
     pub label: Option<String>,
     pub value: Option<String>,
+    #[serde(default)]
+    pub value_sensitivity: ValueSensitivity,
     pub action: Option<String>,
     pub class_name: Option<String>,
     pub control_state: NativeControlState,
@@ -73,13 +134,131 @@ pub struct NativeWidgetBlueprint {
     pub metadata: BTreeMap<String, String>,
 }
 
-impl NativeWidgetBlueprint {
-    pub fn config(&self) -> NativeWidgetConfig {
-        NativeWidgetConfig::from_blueprint(self)
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeWidgetBlueprintWire<'a> {
+    backend: NativeBackendKind,
+    widget_kind: NativeWidgetKind,
+    widget_class: &'a str,
+    role: NativeRole,
+    accessibility_role: AccessibilityRole,
+    label: Option<&'a str>,
+    value: Option<&'a str>,
+    #[serde(skip_serializing_if = "ValueSensitivity::is_public")]
+    value_sensitivity: ValueSensitivity,
+    action: Option<&'a str>,
+    class_name: Option<&'a str>,
+    control_state: &'a NativeControlState,
+    style: &'a BTreeMap<String, String>,
+    portable_style: &'a PortableStyle,
+    events: &'a BTreeMap<String, String>,
+    metadata: &'a BTreeMap<String, String>,
+}
+
+impl Serialize for NativeWidgetBlueprint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let value_sensitivity = self.effective_value_sensitivity();
+        let mut control_state = self.control_state.clone();
+        if value_sensitivity.is_sensitive() {
+            control_state.accessibility_description.value_text = None;
+        }
+        let mut metadata = self.metadata.clone();
+        value_sensitivity.redact_metadata(&mut metadata);
+        NativeWidgetBlueprintWire {
+            backend: self.backend,
+            widget_kind: self.widget_kind,
+            widget_class: &self.widget_class,
+            role: self.role,
+            accessibility_role: self.accessibility_role,
+            label: self.label.as_deref(),
+            value: value_sensitivity.redact(self.value.as_deref()),
+            value_sensitivity,
+            action: self.action.as_deref(),
+            class_name: self.class_name.as_deref(),
+            control_state: &control_state,
+            style: &self.style,
+            portable_style: &self.portable_style,
+            events: &self.events,
+            metadata: &metadata,
+        }
+        .serialize(serializer)
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+impl NativeWidgetBlueprint {
+    /// Resolves sensitivity defensively from every supported typed and legacy
+    /// input-type channel. This protects manually assembled low-level values,
+    /// not only blueprints created by a platform adapter.
+    pub fn effective_value_sensitivity(&self) -> ValueSensitivity {
+        if self.value_sensitivity.is_sensitive()
+            || matches!(
+                self.widget_kind,
+                NativeWidgetKind::TextInput(NativeTextInputKind::Password)
+            )
+            || ValueSensitivity::from_input_type(self.control_state.input_type.as_deref())
+                .is_sensitive()
+            || ValueSensitivity::from_input_type(self.metadata.get("type").map(String::as_str))
+                .is_sensitive()
+        {
+            ValueSensitivity::Sensitive
+        } else {
+            ValueSensitivity::Public
+        }
+    }
+
+    pub fn config(&self) -> NativeWidgetConfig {
+        NativeWidgetConfig::from_blueprint(self)
+    }
+
+    /// Clone a blueprint for retained logs, histories, or failure reports.
+    /// Runtime/native state keeps the original value; diagnostics never do.
+    pub fn redacted_for_diagnostics(&self) -> Self {
+        let mut redacted = self.clone();
+        redacted.value_sensitivity = redacted.effective_value_sensitivity();
+        if redacted.value_sensitivity.is_sensitive() {
+            redacted.value = None;
+            redacted.control_state.accessibility_description.value_text = None;
+        }
+        redacted.control_state.nonce = None;
+        redacted.control_state.html_resource_policy = redacted
+            .control_state
+            .html_resource_policy
+            .redacted_for_diagnostics();
+        redacted
+            .value_sensitivity
+            .redact_metadata_for_diagnostics(&mut redacted.metadata);
+        redacted
+    }
+}
+
+impl std::fmt::Debug for NativeWidgetBlueprint {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let redacted = self.redacted_for_diagnostics();
+        formatter
+            .debug_struct("NativeWidgetBlueprint")
+            .field("backend", &redacted.backend)
+            .field("widget_kind", &redacted.widget_kind)
+            .field("widget_class", &redacted.widget_class)
+            .field("role", &redacted.role)
+            .field("accessibility_role", &redacted.accessibility_role)
+            .field("label", &redacted.label)
+            .field("value", &redacted.value)
+            .field("value_sensitivity", &redacted.value_sensitivity)
+            .field("action", &redacted.action)
+            .field("class_name", &redacted.class_name)
+            .field("control_state", &redacted.control_state)
+            .field("style", &redacted.style)
+            .field("portable_style", &redacted.portable_style)
+            .field("events", &redacted.events)
+            .field("metadata", &redacted.metadata)
+            .finish()
+    }
+}
+
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeControlState {
     pub placeholder: Option<String>,
@@ -174,6 +353,36 @@ pub struct NativeControlState {
     pub accessibility_description: AccessibilityDescriptionProps,
     pub accessibility_structure: AccessibilityStructureProps,
     pub accessibility_state: AccessibilityStateProps,
+}
+
+impl std::fmt::Debug for NativeControlState {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut accessibility_description = self.accessibility_description.clone();
+        accessibility_description.value_text = None;
+        formatter
+            .debug_struct("NativeControlState")
+            .field("placeholder", &self.placeholder)
+            .field("disabled", &self.disabled)
+            .field("required", &self.required)
+            .field("invalid", &self.invalid)
+            .field("read_only", &self.read_only)
+            .field("multiple", &self.multiple)
+            .field("auto_focus", &self.auto_focus)
+            .field("selected", &self.selected)
+            .field("checked", &self.checked)
+            .field("expanded", &self.expanded)
+            .field("orientation", &self.orientation)
+            .field("min", &self.min)
+            .field("max", &self.max)
+            .field("current", &self.current)
+            .field("step", &self.step)
+            .field("input_type", &self.input_type)
+            .field("hidden", &self.hidden)
+            .field("inert", &self.inert)
+            .field("accessibility_role", &self.explicit_role)
+            .field("accessibility_description", &accessibility_description)
+            .finish_non_exhaustive()
+    }
 }
 
 impl NativeControlState {

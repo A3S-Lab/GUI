@@ -55,7 +55,7 @@ pub fn ui_number_field(cx: &mut ComponentCx<UiNumberFieldProps>) -> RSX {
                 key="input"
                 {...props.numberFieldInputProps}
                 data-slot="number-field-input"
-                class="h-11 w-full min-w-0 rounded-md border border-hairline-strong bg-canvas px-4 py-3 text-sm text-ink outline-none transition-colors placeholder:text-mute disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-surface-strong disabled:text-muted-soft md:text-sm focus-visible:border-ink focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-semantic-error"
+                class="h-9 w-full min-w-0 rounded-md border border-hairline-strong bg-surface-card px-3 py-1.5 text-sm text-ink outline-none selection:bg-ink selection:text-canvas file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-ink placeholder:text-muted disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-surface-strong disabled:text-muted-soft md:text-sm focus-visible:border-ink focus-visible:ring-[2px] focus-visible:ring-ink/40 aria-invalid:border-semantic-error"
             />
             <Slot key="content" />
         </TextField>

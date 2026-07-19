@@ -16,6 +16,9 @@ use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::renderer::Renderer;
 use crate::web::WebProps;
 
+mod frame_transactions;
+mod setter_history;
+
 #[test]
 fn appkit_blueprint_targets_native_button_not_webview() {
     let element = NativeElement::new("save", NativeRole::Button).with_props(
@@ -407,7 +410,7 @@ fn widget_config_normalizes_blueprint_for_native_setters() {
     let blueprint = WinUiAdapter.blueprint(&element);
     let config = blueprint.config();
 
-    assert_eq!(config.widget_class, "Microsoft.UI.Xaml.Controls.Slider");
+    assert_eq!(blueprint.widget_class, "Microsoft.UI.Xaml.Controls.Slider");
     assert_eq!(config.accessibility_role, AccessibilityRole::Slider);
     assert_eq!(config.label.as_deref(), Some("Volume"));
     assert_eq!(config.value.as_deref(), Some("50"));
@@ -548,15 +551,12 @@ fn widget_config_projects_window_resizable_into_native_setters_and_patches() {
         .contains(&NativeWidgetSetter::SetWindowResizable(Some(false))));
 
     let patch = before.diff(&after);
-    let change = patch.window_resizable.as_ref().unwrap();
-    assert_eq!(change.before, Some(true));
-    assert_eq!(change.after, Some(false));
     assert!(patch
         .setters()
         .contains(&NativeWidgetSetter::SetWindowResizable(Some(false))));
 
     let mut replayed = before;
-    apply_widget_setters(&mut replayed, &patch.setters());
+    patch.replay(&mut replayed);
 
     assert_eq!(replayed.window_resizable, Some(false));
 }
@@ -1298,57 +1298,6 @@ fn widget_config_diff_reports_changed_native_setters() {
     let patch = before.diff(&after);
 
     assert!(unchanged.is_empty());
-    assert_eq!(
-        patch.label.as_ref().map(|change| change.after.as_deref()),
-        Some(Some("Muted"))
-    );
-    assert_eq!(
-        patch.value.as_ref().map(|change| change.after.as_deref()),
-        Some(Some("0"))
-    );
-    assert_eq!(
-        patch.enabled.as_ref().map(|change| change.after),
-        Some(false)
-    );
-    assert_eq!(
-        patch.visible.as_ref().map(|change| change.after),
-        Some(false)
-    );
-    assert_eq!(
-        patch.current.as_ref().map(|change| change.after),
-        Some(Some(0.0))
-    );
-    assert_eq!(
-        patch.step.as_ref().map(|change| change.after),
-        Some(Some(10.0))
-    );
-    assert_eq!(
-        patch.name.as_ref().map(|change| change.after.as_deref()),
-        Some(Some("mute"))
-    );
-    assert_eq!(
-        patch.anchor.as_ref().map(|change| change.after.as_deref()),
-        Some(Some("mute-anchor"))
-    );
-    assert_eq!(
-        patch.nonce.as_ref().map(|change| change.after.as_deref()),
-        Some(Some("nonce-2"))
-    );
-    assert_eq!(
-        patch
-            .form_action
-            .as_ref()
-            .map(|change| change.after.as_deref()),
-        Some(Some("/mute"))
-    );
-    assert_eq!(
-        patch.form_no_validate.as_ref().map(|change| change.after),
-        Some(true)
-    );
-    assert!(patch.min.is_none());
-    assert!(patch.max.is_none());
-    assert!(patch.events.is_none());
-
     let setters = patch.setters();
     assert!(setters.contains(&NativeWidgetSetter::SetLabel(Some("Muted".to_string()))));
     assert!(setters.contains(&NativeWidgetSetter::SetValue(Some("0".to_string()))));
@@ -1373,7 +1322,7 @@ fn widget_config_diff_reports_changed_native_setters() {
 }
 
 #[test]
-fn native_widget_setters_round_trip_as_json() {
+fn native_widget_setters_remain_an_internal_typed_batch() {
     let setters = vec![
         NativeWidgetSetter::SetLabel(Some("Save".to_string())),
         NativeWidgetSetter::SetEnabled(false),
@@ -1429,26 +1378,22 @@ fn native_widget_setters_round_trip_as_json() {
         )])),
     ];
 
-    let json = serde_json::to_string(&setters).unwrap();
-    let decoded: Vec<NativeWidgetSetter> = serde_json::from_str(&json).unwrap();
-
-    assert_eq!(decoded, setters);
-    assert!(json.contains(r#""type":"setLabel""#));
-    assert!(json.contains(r#""type":"setEnabled""#));
-    assert!(json.contains(r#""type":"setCurrent""#));
-    assert!(json.contains(r#""type":"setStep""#));
-    assert!(json.contains(r#""type":"setWindowResizable""#));
-    assert!(json.contains(r#""type":"setEnterKeyHint""#));
-    assert!(json.contains(r#""type":"setAccessibilityRelationships""#));
-    assert!(json.contains(r#""type":"setAccessibilityDescription""#));
-    assert!(json.contains(r#""type":"setAccessibilityStructure""#));
-    assert!(json.contains(r#""type":"setAccessibilityState""#));
-    assert!(json.contains(r#""autocomplete":"inline""#));
-    assert!(json.contains(r#""multiline":false"#));
-    assert!(json.contains(r#""type":"setAnchor""#));
-    assert!(json.contains(r#""type":"setCustomElementIs""#));
-    assert!(json.contains(r#""type":"setNonce""#));
-    assert!(json.contains(r#""onPress":"saveProfile""#));
+    assert!(matches!(
+        setters.first(),
+        Some(NativeWidgetSetter::SetLabel(Some(label))) if label == "Save"
+    ));
+    assert!(setters.contains(&NativeWidgetSetter::SetEnabled(false)));
+    assert!(setters.iter().any(|setter| matches!(
+        setter,
+        NativeWidgetSetter::SetAccessibilityDescription(description)
+            if description.value_text.as_deref() == Some("Ready")
+    )));
+    assert!(
+        setters.contains(&NativeWidgetSetter::SetEvents(BTreeMap::from([(
+            "onPress".to_string(),
+            "saveProfile".to_string(),
+        )])))
+    );
 }
 
 #[test]
@@ -1547,7 +1492,7 @@ fn widget_setters_replay_into_native_config() {
         .config();
     let mut replayed = before.clone();
 
-    apply_widget_setters(&mut replayed, &before.diff(&after).setters());
+    before.diff(&after).replay(&mut replayed);
 
     assert_eq!(replayed.label.as_deref(), Some("Muted"));
     assert!(!replayed.enabled);
@@ -1850,6 +1795,29 @@ fn command_stream_records_native_remove_and_reorder() {
             ..
         } if blueprint.widget_class == "gtk::Button"
     )));
+}
+
+#[test]
+fn platform_planning_host_exposes_commands_as_a_drainable_queue() {
+    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let root = host
+        .create(&NativeElement::new("root", NativeRole::View))
+        .unwrap();
+    host.set_root(root).unwrap();
+
+    let first_batch = host.take_commands();
+    assert_eq!(first_batch.len(), 2);
+    assert!(host.commands().is_empty());
+
+    host.update(root, &NativeProps::new().label("Updated"))
+        .unwrap();
+    let second_batch = host.take_commands();
+    assert_eq!(second_batch.len(), 1);
+    assert!(matches!(
+        &second_batch[0],
+        PlatformCommand::Update { id, .. } if *id == root
+    ));
+    assert!(host.commands().is_empty());
 }
 
 #[test]

@@ -6,7 +6,10 @@ use crate::native::{NativeProps, NativeRole};
 use crate::platform::NativeWidgetBlueprint;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+/// Maximum number of interaction changes retained for diagnostics by default.
+pub const DEFAULT_INTERACTION_CHANGE_HISTORY_LIMIT: usize = 256;
+
+#[derive(Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct InteractionNodeState {
     pub focused: bool,
     pub pressed: bool,
@@ -16,6 +19,20 @@ pub struct InteractionNodeState {
     pub expanded: Option<bool>,
 }
 
+impl std::fmt::Debug for InteractionNodeState {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("InteractionNodeState")
+            .field("focused", &self.focused)
+            .field("pressed", &self.pressed)
+            .field("has_value", &self.value.is_some())
+            .field("selected", &self.selected)
+            .field("checked", &self.checked)
+            .field("expanded", &self.expanded)
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InteractionChange {
     pub node: HostNodeId,
@@ -23,16 +40,44 @@ pub struct InteractionChange {
     pub after: InteractionNodeState,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct InteractionState {
     nodes: BTreeMap<HostNodeId, InteractionNodeState>,
     changes: Vec<InteractionChange>,
+    change_history_limit: usize,
+    next_change_sequence: u64,
+    value_change_sequences: BTreeMap<HostNodeId, u64>,
+    selection_change_sequences: BTreeMap<HostNodeId, u64>,
     focus_history: bool,
+}
+
+impl Default for InteractionState {
+    fn default() -> Self {
+        Self {
+            nodes: BTreeMap::new(),
+            changes: Vec::new(),
+            change_history_limit: DEFAULT_INTERACTION_CHANGE_HISTORY_LIMIT,
+            next_change_sequence: 0,
+            value_change_sequences: BTreeMap::new(),
+            selection_change_sequences: BTreeMap::new(),
+            focus_history: false,
+        }
+    }
 }
 
 impl InteractionState {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Creates interaction state with a bounded diagnostic change history.
+    ///
+    /// A limit of zero disables change history without affecting current interaction state.
+    pub fn with_change_history_limit(change_history_limit: usize) -> Self {
+        Self {
+            change_history_limit,
+            ..Self::default()
+        }
     }
 
     pub fn node(&self, id: HostNodeId) -> Option<&InteractionNodeState> {
@@ -49,6 +94,23 @@ impl InteractionState {
 
     pub fn changes(&self) -> &[InteractionChange] {
         &self.changes
+    }
+
+    pub fn change_history_limit(&self) -> usize {
+        self.change_history_limit
+    }
+
+    /// Takes the retained diagnostic changes without clearing current node state.
+    pub fn take_changes(&mut self) -> Vec<InteractionChange> {
+        std::mem::take(&mut self.changes)
+    }
+
+    pub(crate) fn value_change_sequence(&self, id: HostNodeId) -> Option<u64> {
+        self.value_change_sequences.get(&id).copied()
+    }
+
+    pub(crate) fn selection_change_sequence(&self, id: HostNodeId) -> Option<u64> {
+        self.selection_change_sequences.get(&id).copied()
     }
 
     pub fn sync_node_from_blueprint(&mut self, id: HostNodeId, blueprint: &NativeWidgetBlueprint) {
@@ -70,6 +132,10 @@ impl InteractionState {
         self.nodes.retain(|node, _| mounted_nodes.contains(node));
         self.changes
             .retain(|change| mounted_nodes.contains(&change.node));
+        self.value_change_sequences
+            .retain(|node, _| mounted_nodes.contains(node));
+        self.selection_change_sequences
+            .retain(|node, _| mounted_nodes.contains(node));
     }
 
     pub fn apply_event(
@@ -77,12 +143,29 @@ impl InteractionState {
         blueprint: &NativeWidgetBlueprint,
         event: &NativeEvent,
     ) -> Option<InteractionChange> {
+        self.apply_event_internal(blueprint, event).0
+    }
+
+    pub(crate) fn apply_event_with_changes(
+        &mut self,
+        blueprint: &NativeWidgetBlueprint,
+        event: &NativeEvent,
+    ) -> Vec<InteractionChange> {
+        self.apply_event_internal(blueprint, event).1
+    }
+
+    fn apply_event_internal(
+        &mut self,
+        blueprint: &NativeWidgetBlueprint,
+        event: &NativeEvent,
+    ) -> (Option<InteractionChange>, Vec<InteractionChange>) {
         let before = self
             .nodes
             .get(&event.node)
             .cloned()
             .unwrap_or_else(|| initial_state_from_blueprint(blueprint));
         let mut after = before.clone();
+        let mut changes = Vec::new();
 
         match event.kind {
             NativeEventKind::PressStart => {
@@ -93,7 +176,7 @@ impl InteractionState {
             }
             NativeEventKind::Focus => {
                 self.focus_history = true;
-                self.clear_other_focused_nodes(event.node);
+                self.clear_other_focused_nodes(event.node, &mut changes);
                 after.focused = true;
             }
             NativeEventKind::Blur => {
@@ -112,7 +195,7 @@ impl InteractionState {
         }
 
         if before == after {
-            return None;
+            return (None, changes);
         }
 
         self.nodes.insert(event.node, after.clone());
@@ -121,11 +204,22 @@ impl InteractionState {
             before,
             after,
         };
-        self.changes.push(change.clone());
-        Some(change)
+        let mut history_change = change.clone();
+        if blueprint.effective_value_sensitivity().is_sensitive() {
+            history_change.before.value = None;
+            history_change.after.value = None;
+        }
+        self.record_change(history_change);
+        changes.push(change.clone());
+        (Some(change), changes)
     }
 
-    fn clear_other_focused_nodes(&mut self, focused_node: HostNodeId) {
+    fn clear_other_focused_nodes(
+        &mut self,
+        focused_node: HostNodeId,
+        changes: &mut Vec<InteractionChange>,
+    ) {
+        let mut cleared = Vec::new();
         for (node, state) in &mut self.nodes {
             if *node == focused_node || !state.focused {
                 continue;
@@ -133,13 +227,45 @@ impl InteractionState {
 
             let before = state.clone();
             state.focused = false;
-            self.changes.push(InteractionChange {
+            let mut change = InteractionChange {
                 node: *node,
                 before,
                 after: state.clone(),
-            });
+            };
+            // A focus-only change must not copy an unrelated control value
+            // into diagnostics or an event response.
+            change.before.value = None;
+            change.after.value = None;
+            cleared.push(change);
+        }
+        for change in cleared {
+            self.record_change(change.clone());
+            changes.push(change);
         }
     }
+
+    fn record_change(&mut self, change: InteractionChange) {
+        self.next_change_sequence = self.next_change_sequence.saturating_add(1);
+        if change.before.value != change.after.value && change.after.value.is_some() {
+            self.value_change_sequences
+                .insert(change.node, self.next_change_sequence);
+        }
+        if change.before.selected != change.after.selected && change.after.selected {
+            self.selection_change_sequences
+                .insert(change.node, self.next_change_sequence);
+        }
+        push_bounded(&mut self.changes, change, self.change_history_limit);
+    }
+}
+
+fn push_bounded<T>(items: &mut Vec<T>, item: T, limit: usize) {
+    if limit == 0 {
+        return;
+    }
+    if items.len() == limit {
+        items.remove(0);
+    }
+    items.push(item);
 }
 
 fn initial_state_from_blueprint(blueprint: &NativeWidgetBlueprint) -> InteractionNodeState {

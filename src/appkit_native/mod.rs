@@ -42,6 +42,7 @@ use crate::event::{NativeEvent, NativeEventKind};
 use crate::geometry::Orientation;
 use crate::host::HostNodeId;
 use crate::html::HTML_TAG_METADATA_KEY;
+use crate::native::NativeRole;
 use crate::native_backends::appkit::menu::AppKitMenuRegistry;
 use crate::platform::{
     apply_widget_setter, AppKitAdapter, NativeBackendKind, NativeWidgetBlueprint,
@@ -49,7 +50,8 @@ use crate::platform::{
 };
 use crate::protocol::UiFrame;
 use crate::style::{
-    EdgeInsets, FontWeight, OverflowMode, PortableStyle, StyleColor, StyleLength, TextAlign,
+    DisplayMode, EdgeInsets, FontWeight, OverflowMode, PortableStyle, StyleColor, StyleLength,
+    TextAlign,
 };
 
 mod surface;
@@ -821,7 +823,19 @@ where
             self.render()?;
         }
         while self.appkit_root_window_open() && should_continue(self.state()) {
-            self.pump_appkit_event_while(AppKitEventWait::Wait, &mut should_continue)?;
+            self.poll_background_updates()?;
+            if !self.appkit_root_window_open() || !should_continue(self.state()) {
+                break;
+            }
+            let wait = if self.has_pending_background_work() {
+                AppKitEventWait::Poll
+            } else {
+                AppKitEventWait::Wait
+            };
+            self.pump_appkit_event_while(wait, &mut should_continue)?;
+            if self.has_pending_background_work() {
+                std::thread::park_timeout(std::time::Duration::from_millis(16));
+            }
         }
         Ok(())
     }
@@ -1631,10 +1645,32 @@ fn apply_control_padding(control: &NSControl, style: &PortableStyle) {
         return;
     };
     let view = control.as_super();
-    let current = view.frame().size;
-    let width = (current.width + edge_insets.left + edge_insets.right).max(current.width);
-    let height = (current.height + edge_insets.top + edge_insets.bottom).max(current.height);
-    view.setFrameSize(NSSize::new(width, height));
+    view.setFrameSize(control_size_with_style_padding(
+        view.frame().size,
+        style,
+        edge_insets,
+    ));
+}
+
+fn control_size_with_style_padding(
+    current: NSSize,
+    style: &PortableStyle,
+    edge_insets: NSEdgeInsets,
+) -> NSSize {
+    let constraints = style.native_size_constraints();
+    let padded_width = current.width + edge_insets.left + edge_insets.right;
+    let padded_height = current.height + edge_insets.top + edge_insets.bottom;
+    let width = constraints.width.unwrap_or_else(|| {
+        constraints
+            .min_width
+            .map_or(padded_width, |min| padded_width.max(min))
+    });
+    let height = constraints.height.unwrap_or_else(|| {
+        constraints
+            .min_height
+            .map_or(padded_height, |min| padded_height.max(min))
+    });
+    NSSize::new(width.max(0.0), height.max(0.0))
 }
 
 fn apply_view_portable_style(view: &NSView, style: &PortableStyle) {
@@ -1673,7 +1709,6 @@ fn apply_view_portable_style(view: &NSView, style: &PortableStyle) {
 
 fn style_has_custom_chrome(style: &PortableStyle) -> bool {
     style.background_color.is_some()
-        || style.border_radius.is_some()
         || style.border_color.is_some()
         || border_width_points(style).is_some()
 }
@@ -1998,23 +2033,38 @@ fn apply_stack_view_layout(
     }
 }
 
-fn table_stack_orientation(role: crate::native::NativeRole) -> Option<Orientation> {
-    match role {
-        crate::native::NativeRole::TableSection => Some(Orientation::Vertical),
-        crate::native::NativeRole::TableRow
-        | crate::native::NativeRole::TableCell
-        | crate::native::NativeRole::TableColumn => Some(Orientation::Horizontal),
+fn appkit_view_stack_orientation(role: NativeRole, style: &PortableStyle) -> Option<Orientation> {
+    if let Some(orientation) = table_stack_orientation(role) {
+        return Some(orientation);
+    }
+    if let Some(orientation) = style.flex_direction {
+        return Some(orientation);
+    }
+    match style.display {
+        Some(DisplayMode::Flex | DisplayMode::InlineFlex) => Some(Orientation::Horizontal),
+        Some(DisplayMode::Grid | DisplayMode::InlineGrid) => Some(Orientation::Vertical),
+        _ if style.gap.is_some() || style.row_gap.is_some() || style.column_gap.is_some() => {
+            Some(Orientation::Vertical)
+        }
         _ => None,
     }
 }
 
-fn table_stack_minimum_size(role: crate::native::NativeRole) -> Option<(f64, f64)> {
+fn table_stack_orientation(role: NativeRole) -> Option<Orientation> {
     match role {
-        crate::native::NativeRole::TableSection => Some((240.0, 32.0)),
-        crate::native::NativeRole::TableRow => Some((240.0, 36.0)),
-        crate::native::NativeRole::TableCell | crate::native::NativeRole::TableColumn => {
-            Some((96.0, 36.0))
+        NativeRole::TableSection => Some(Orientation::Vertical),
+        NativeRole::TableRow | NativeRole::TableCell | NativeRole::TableColumn => {
+            Some(Orientation::Horizontal)
         }
+        _ => None,
+    }
+}
+
+fn table_stack_minimum_size(role: NativeRole) -> Option<(f64, f64)> {
+    match role {
+        NativeRole::TableSection => Some((240.0, 32.0)),
+        NativeRole::TableRow => Some((240.0, 36.0)),
+        NativeRole::TableCell | NativeRole::TableColumn => Some((96.0, 36.0)),
         _ => None,
     }
 }
@@ -2297,6 +2347,7 @@ fn appkit_key_value_from_parts(key_code: u16, characters: Option<&str>) -> Strin
 mod tests {
     use super::*;
     use crate::platform::PlatformAdapter;
+    use crate::web::WebProps;
 
     #[test]
     fn truncate_to_max_length_limits_unicode_scalar_values() {
@@ -2366,6 +2417,60 @@ mod tests {
         assert_eq!(stack_insert_index(1, 1), 1);
         assert_eq!(stack_insert_index(2, 2), 2);
         assert_eq!(stack_insert_index(2, 99), 2);
+    }
+
+    #[test]
+    fn appkit_view_stack_orientation_follows_portable_layout_style() {
+        let grid_style = PortableStyle::from_web(&WebProps::new().class_name("grid gap-3"));
+        assert_eq!(
+            appkit_view_stack_orientation(NativeRole::View, &grid_style),
+            Some(Orientation::Vertical)
+        );
+
+        let flex_style = PortableStyle::from_web(&WebProps::new().class_name("flex gap-3"));
+        assert_eq!(
+            appkit_view_stack_orientation(NativeRole::Header, &flex_style),
+            Some(Orientation::Horizontal)
+        );
+
+        let column_style =
+            PortableStyle::from_web(&WebProps::new().class_name("flex flex-col gap-3"));
+        assert_eq!(
+            appkit_view_stack_orientation(NativeRole::View, &column_style),
+            Some(Orientation::Vertical)
+        );
+
+        assert_eq!(
+            appkit_view_stack_orientation(NativeRole::Section, &PortableStyle::default()),
+            None
+        );
+        assert_eq!(
+            appkit_view_stack_orientation(NativeRole::TableRow, &PortableStyle::default()),
+            Some(Orientation::Horizontal)
+        );
+        assert_eq!(
+            appkit_view_stack_orientation(NativeRole::Canvas, &PortableStyle::default()),
+            None
+        );
+    }
+
+    #[test]
+    fn appkit_control_padding_respects_explicit_style_size() {
+        let style =
+            PortableStyle::from_web(&WebProps::new().class_name("h-9 min-w-[96px] px-3 py-1.5"));
+        let size = control_size_with_style_padding(
+            NSSize::new(60.0, 22.0),
+            &style,
+            NSEdgeInsets {
+                top: 6.0,
+                left: 12.0,
+                bottom: 6.0,
+                right: 12.0,
+            },
+        );
+
+        assert_eq!(size.width, 96.0);
+        assert_eq!(size.height, 36.0);
     }
 
     #[test]

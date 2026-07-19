@@ -188,7 +188,7 @@ so a reusable component can keep local guarantees such as `disabled={false}` or
 let mut cx = ComponentCx::<AppState>::new("save");
 cx.use_prop("primaryButton", |_state: &AppState| {
     serde_json::json!({
-        "className": "rounded-full border border-primary bg-primary text-on-primary",
+        "className": "h-10 rounded-md border border-primary bg-primary px-[18px] py-2 text-sm font-medium leading-none text-on-primary",
         "onPress": "saveDocument",
         "data-kind": "primary"
     })
@@ -1427,8 +1427,8 @@ optional payloads, event kind inspection, node ids, or dynamic JSON handling.
 
 ## Design System Components
 
-`rsx_ui` provides a React-inspired Rust component set backed by the Uber-style
-tokens in the repository root `DESIGN.md`. Built-in components are available by
+`rsx_ui` provides a React-inspired Rust component set backed by the repository
+root `DESIGN.md`. Built-in components are available by
 default when a page component is created with `RsxComponent::new`,
 `RsxComponent::from_source`, `RsxComponent::from_file`, or
 `RsxComponent::from_template`:
@@ -1584,11 +1584,8 @@ card parts are under `src/rsx_ui/components/card/`, checkbox parts are under
 - `UiTableHeader`
 - `UiTableBody`
 - `UiTableRow`
-- `UiRow`
 - `UiTableColumn`
-- `UiColumn`
 - `UiTableCell`
-- `UiCell`
 - `UiTableFooter`
 - `UiTableCaption`
 - `UiResizableTableContainer`
@@ -1598,10 +1595,7 @@ card parts are under `src/rsx_ui/components/card/`, checkbox parts are under
 - `UiTabsList`
 - `UiTabsTrigger`
 - `UiTabsContent`
-- `UiTabList`
 - `UiTabPanels`
-- `UiTab`
-- `UiTabPanel`
 - `UiText`
 - `UiTextField`
 - `UiTextarea`
@@ -1666,7 +1660,7 @@ Example:
 </UiCard>
 ```
 
-Tabs use pill-style visual wrappers while preserving native tab semantics:
+Tabs use segmented visual wrappers while preserving native tab semantics:
 
 ```rsx
 <UiTabs key="settings-tabs" value={state.tab} onSelectionChange={setTab}>
@@ -1875,8 +1869,8 @@ native actions and bindings:
     value={state.accent}
     onSelectionChange={setAccent}
   >
-    <UiColorSwatchPickerItem key="violet" value="#7c3aed" textValue="Violet">
-      <UiColorSwatch key="violet-preview" value="#7c3aed" label="Violet" />
+    <UiColorSwatchPickerItem key="preview" value="#8145b5" textValue="Preview">
+      <UiColorSwatch key="preview-swatch" value="#8145b5" label="Preview" />
     </UiColorSwatchPickerItem>
   </UiColorSwatchPicker>
 </UiColorPicker>
@@ -1945,8 +1939,9 @@ logic in Rust hooks, props as data, and the view as a semantic RSX tree:
 These are Rust function components in `.rsx` source modules, written with
 `ComponentCx` hooks and `rsx!` views. They do not execute React components. Each
 component owns a static `DESIGN.md` base class and merges a caller-provided
-`className` onto that base class, matching the useful part of shadcn's
-`cn(base, className)` pattern without JavaScript.
+`className` onto that base class. The base contract and variant contracts are
+owned in Rust, so callers extend one `DESIGN.md` class contract without
+JavaScript helpers.
 
 The visual wrappers lower to the semantic layer before reaching the native host.
 For example, `UiTabs`, `UiTabsList`, `UiTabsTrigger`, and `UiTabsContent` expand
@@ -1955,9 +1950,9 @@ them to native tab roles.
 
 Variant classes are registered in Rust with `ComponentClassVariants`, not by
 running JavaScript `cva` helpers. `UiButton` currently supports `variant`
-(`default`, `secondary`, `outline`, `ghost`, `link`, `destructive`) and `size`
+(`default`, `secondary`, `outline`, `ghost`, `link`, `error`) and `size`
 (`default`, `sm`, `lg`, `icon`). `UiBadge` supports `variant` (`default`,
-`secondary`, `destructive`, `outline`). Unknown variant values fail during RSX
+`secondary`, `error`, `outline`). Unknown variant values fail during RSX
 rendering so invalid component states are caught before they reach the native
 host.
 
@@ -1975,7 +1970,7 @@ utilities are supported.
 >
   <button
     key="save"
-    class="rounded-full border border-primary bg-primary text-on-primary px-5 py-2"
+    class="h-10 rounded-md border border-primary bg-primary px-[18px] py-2 text-sm font-medium leading-none text-on-primary"
     onclick={saveDocument}
   >
     Save
@@ -1984,8 +1979,8 @@ utilities are supported.
 ```
 
 The parser also keeps Tailwind variants as native style variant declarations.
-This covers the shadcn patterns used by Button, Input, Card, Dialog, and
-Dropdown Menu components:
+This covers the variant patterns used by Button, Input, Card, Dialog, and
+Dropdown Menu component contracts:
 
 - State variants such as `hover:*`, `focus-visible:*`, `disabled:*`, and
   `aria-invalid:*`.
@@ -1996,7 +1991,7 @@ Dropdown Menu components:
 - Arbitrary values such as `ring-[3px]`, `transition-colors`, and
   `w-[calc(100%_-_2rem)]`.
 - Tailwind container width tokens such as `sm:max-w-lg`.
-- Common `tailwindcss-animate` shadcn classes such as `animate-in`,
+- Common `tailwindcss-animate` classes such as `animate-in`,
   `animate-out`, `fade-in-0`, `fade-out-0`, `zoom-in-95`, `zoom-out-95`, and
   `slide-in-from-top-2`.
 
@@ -2004,11 +1999,11 @@ Dropdown Menu components:
 <button
   key="save"
   class="
-    inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full
-    border border-primary bg-primary px-3 py-3 text-base font-medium leading-5
+    inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md
+    border border-primary bg-primary px-[18px] py-2 text-sm font-medium leading-none
     text-on-primary transition-colors outline-none
-    active:bg-black-elevated disabled:pointer-events-none disabled:bg-canvas-soft disabled:text-mute
-    focus-visible:ring-ring/50 focus-visible:ring-[3px]
+    active:bg-primary-active disabled:pointer-events-none disabled:bg-surface-strong disabled:text-muted-soft
+    focus-visible:ring-ink/50 focus-visible:ring-[3px]
     aria-invalid:border-semantic-error
     [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4
   "
@@ -2025,47 +2020,59 @@ DOM, CSSOM, or React runtime.
 The contract is covered by focused style tests for representative
 Button, Input, Card, Dialog, and Dropdown Menu class strings. Radix-style
 variants such as `data-[state=open]:*`, `data-[side=bottom]:*`,
-`data-[disabled]:*`, and `data-[variant=destructive]:focus:*` are preserved as
+`data-[disabled]:*`, and `data-[variant=error]:focus:*` are preserved as
 variant keys in the native style IR.
 
 ## Design Tokens
 
-The RSX style parser supports shadcn-compatible semantic color utilities, backed
-by the Uber-style black, white, and gray palette in `DESIGN.md`.
+The RSX style parser supports the semantic color utilities defined in the
+repository root `DESIGN.md`. These names are the canonical token set; older
+third-party aliases are intentionally not parsed.
 
 | Class token | Design value |
 | --- | --- |
-| `background`, `canvas`, `card`, `popover`, `elevated` | `#ffffff` |
-| `foreground`, `ink`, `primary` | `#000000` |
-| `surface-pressed`, `border`, `input`, `hairline` | `#e2e2e2` |
-| `black-elevated` | `#282828` |
-| `canvas-soft`, `surface-soft`, `secondary`, `muted`, `accent` | `#efefef` |
-| `canvas-softer` | `#f3f3f3` |
-| `body`, `muted-foreground` | `#5e5e5e` |
-| `hairline-mid`, `charcoal`, `hairline-strong` | `#4b4b4b` |
-| `mute`, `faint` | `#afafaf` |
-| `ring`, `success`, `destructive`, `error` | `#000000` |
-| `link`, `link-blue` | `#0000ee` |
-
-The usual shadcn foreground pairs are also available, including
-`primary-foreground`, `card-foreground`, `popover-foreground`,
-`secondary-foreground`, `accent-foreground`, `destructive-foreground`, and the
-`sidebar-*` token family.
+| `primary` | `#000000` |
+| `primary-active` | `#1a1a1a` |
+| `text-link` | `#0d74ce` |
+| `text-link-secondary` | `#476cff` |
+| `accent-link-bright` | `#47c2ff` |
+| `canvas` | `#ffffff` |
+| `canvas-soft` | `#fafafa` |
+| `surface-card` | `#ffffff` |
+| `surface-strong` | `#f0f0f3` |
+| `surface-dark` | `#171717` |
+| `surface-dark-elevated` | `#1a1a1a` |
+| `gradient-sky-light` | `#cfe7ff` |
+| `gradient-sky-mid` | `#a8c8e8` |
+| `hairline` | `#f0f0f3` |
+| `hairline-soft` | `#f5f5f7` |
+| `hairline-strong` | `#dcdee0` |
+| `ink` | `#171717` |
+| `body` | `#60646c` |
+| `body-strong` | `#171717` |
+| `muted` | `#999999` |
+| `muted-soft` | `#cccccc` |
+| `on-primary` | `#ffffff` |
+| `on-dark` | `#ffffff` |
+| `on-dark-soft` | `#b0b4ba` |
+| `accent-warning` | `#ab6400` |
+| `accent-preview` | `#8145b5` |
+| `semantic-success` | `#16a34a` |
+| `semantic-error` | `#eb8e90` |
 
 Use these names with Tailwind color prefixes:
 
 - `bg-canvas`
+- `bg-surface-card`
 - `text-ink`
 - `border-hairline`
-- `ring-ring`
-- `bg-canvas`
+- `ring-ink`
 - `bg-canvas-soft`
 - `text-body`
-- `bg-sidebar`
-- `border-sidebar-border`
+- `border-hairline-strong`
 
-Opacity modifiers work with semantic colors, so shadcn classes such as
-`bg-primary/90`, `ring-ring/50`, and `aria-invalid:ring-semantic-error/20` resolve
+Opacity modifiers work with semantic colors, so classes such as
+`bg-primary/90`, `ring-ink/50`, and `aria-invalid:ring-semantic-error/20` resolve
 to native RGBA colors from the same design palette.
 
 ## Rust API

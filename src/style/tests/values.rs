@@ -280,10 +280,10 @@ fn preserves_tailwind_color_opacity_modifiers() {
 }
 
 #[test]
-fn parses_design_semantic_tailwind_colors_from_vercel_style_tokens() {
+fn parses_design_md_semantic_tailwind_colors() {
     let web = WebProps::new().class_name(
-        "bg-background text-foreground border-border caret-ring \
-         ring-ring hover:bg-card focus:text-muted-foreground active:border-sidebar-border",
+        "bg-canvas text-ink border-hairline caret-ink \
+         ring-ink hover:bg-surface-card focus:text-body active:border-hairline-strong",
     );
 
     let style = PortableStyle::from_web(&web);
@@ -347,6 +347,46 @@ fn parses_design_semantic_tailwind_colors_from_vercel_style_tokens() {
             .map(String::as_str),
         Some("rgb(23, 23, 23)")
     );
+    assert_eq!(
+        style
+            .variant_declarations
+            .get("active")
+            .and_then(|styles| styles.get("border-color"))
+            .map(String::as_str),
+        Some("rgb(220, 222, 224)")
+    );
+}
+
+#[test]
+fn rejects_non_design_md_semantic_color_aliases() {
+    let web = WebProps::new().class_name(
+        "bg-background text-foreground border-border caret-ring ring-ring \
+         hover:bg-card focus:text-muted-foreground active:border-sidebar-border \
+         bg-destructive text-destructive text-primary-foreground border-input text-link-blue",
+    );
+
+    let style = PortableStyle::from_web(&web);
+
+    assert_eq!(style.background_color, None);
+    assert_eq!(style.color, None);
+    assert_eq!(style.border_color, None);
+    assert_eq!(style.caret_color, None);
+    assert!(style.custom_properties.get("--tw-ring-color").is_none());
+    assert!(style
+        .variant_declarations
+        .get("hover")
+        .and_then(|styles| styles.get("background-color"))
+        .is_none());
+    assert!(style
+        .variant_declarations
+        .get("focus")
+        .and_then(|styles| styles.get("color"))
+        .is_none());
+    assert!(style
+        .variant_declarations
+        .get("active")
+        .and_then(|styles| styles.get("border-color"))
+        .is_none());
 }
 
 #[test]

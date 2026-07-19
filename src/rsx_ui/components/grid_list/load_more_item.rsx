@@ -47,7 +47,7 @@ pub fn ui_grid_list_load_more_item(cx: &mut ComponentCx<UiGridListLoadMoreItemPr
             key="root"
             {...props.loadMoreItemProps}
             data-slot="grid-list-load-more-item"
-            class="flex min-h-10 w-full cursor-default select-none items-center justify-center rounded-md border border-dashed border-hairline-strong px-3 py-2 text-sm text-body outline-none transition-colors focus:bg-surface-strong focus:text-ink disabled:pointer-events-none disabled:opacity-50"
+            class="flex min-h-10 w-full cursor-default select-none items-center justify-center rounded-md border border-dashed border-hairline-strong px-3 py-1.5 text-sm text-body outline-none focus:bg-surface-strong focus:text-ink disabled:pointer-events-none disabled:opacity-50"
             className={props.className}
         >
             <Slot key="content" />

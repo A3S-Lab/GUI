@@ -2,10 +2,14 @@ use std::collections::BTreeMap;
 
 use crate::error::{GuiError, GuiResult};
 use crate::host::HostNodeId;
+use crate::native::ValueSensitivity;
 use crate::platform::NativeWidgetBlueprint;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+
+/// Maximum number of successful action invocations retained for diagnostics by default.
+pub const DEFAULT_ACTION_INVOCATION_HISTORY_LIMIT: usize = 256;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,12 +30,23 @@ pub enum NativeEventKind {
     Close,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeEvent {
     pub node: HostNodeId,
     pub kind: NativeEventKind,
     pub value: Option<String>,
+}
+
+impl std::fmt::Debug for NativeEvent {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("NativeEvent")
+            .field("node", &self.node)
+            .field("kind", &self.kind)
+            .field("has_value", &self.value.is_some())
+            .finish()
+    }
 }
 
 impl NativeEvent {
@@ -58,13 +73,25 @@ impl NativeEvent {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ActionInvocation {
     pub node: HostNodeId,
     pub action: String,
     pub event: NativeEventKind,
     pub value: Option<String>,
+}
+
+impl std::fmt::Debug for ActionInvocation {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ActionInvocation")
+            .field("node", &self.node)
+            .field("action", &self.action)
+            .field("event", &self.event)
+            .field("has_value", &self.value.is_some())
+            .finish()
+    }
 }
 
 impl ActionInvocation {
@@ -134,15 +161,36 @@ pub struct RegisteredAction {
     pub label: Option<String>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct ActionRegistry {
     actions: BTreeMap<String, RegisteredAction>,
     invocations: Vec<ActionInvocation>,
+    invocation_history_limit: usize,
+}
+
+impl Default for ActionRegistry {
+    fn default() -> Self {
+        Self {
+            actions: BTreeMap::new(),
+            invocations: Vec::new(),
+            invocation_history_limit: DEFAULT_ACTION_INVOCATION_HISTORY_LIMIT,
+        }
+    }
 }
 
 impl ActionRegistry {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Creates a registry with a bounded diagnostic invocation history.
+    ///
+    /// A limit of zero disables invocation history without affecting action dispatch.
+    pub fn with_invocation_history_limit(invocation_history_limit: usize) -> Self {
+        Self {
+            invocation_history_limit,
+            ..Self::default()
+        }
     }
 
     pub fn register(&mut self, id: impl Into<String>) {
@@ -192,7 +240,27 @@ impl ActionRegistry {
         &self.invocations
     }
 
+    pub fn invocation_history_limit(&self) -> usize {
+        self.invocation_history_limit
+    }
+
+    /// Takes the retained diagnostic invocations, leaving the registry empty.
+    pub fn take_invocations(&mut self) -> Vec<ActionInvocation> {
+        std::mem::take(&mut self.invocations)
+    }
+
     pub fn invoke(&mut self, invocation: ActionInvocation) -> GuiResult<()> {
+        // A low-level caller has no blueprint from which sensitivity can be
+        // inferred. Default to a redacted diagnostic record; runtimes that own
+        // the blueprint use the explicit method below.
+        self.invoke_with_sensitivity(invocation, ValueSensitivity::Sensitive)
+    }
+
+    pub fn invoke_with_sensitivity(
+        &mut self,
+        invocation: ActionInvocation,
+        value_sensitivity: ValueSensitivity,
+    ) -> GuiResult<()> {
         let Some(action) = self.registered(&invocation.action) else {
             return Err(GuiError::host(format!(
                 "unregistered action {}",
@@ -205,9 +273,27 @@ impl ActionRegistry {
                 invocation.action
             )));
         }
-        self.invocations.push(invocation);
+        let mut diagnostic_invocation = invocation;
+        if value_sensitivity.is_sensitive() {
+            diagnostic_invocation.value = None;
+        }
+        push_bounded(
+            &mut self.invocations,
+            diagnostic_invocation,
+            self.invocation_history_limit,
+        );
         Ok(())
     }
+}
+
+fn push_bounded<T>(items: &mut Vec<T>, item: T, limit: usize) {
+    if limit == 0 {
+        return;
+    }
+    if items.len() == limit {
+        items.remove(0);
+    }
+    items.push(item);
 }
 
 fn is_false(value: &bool) -> bool {
@@ -847,6 +933,38 @@ mod tests {
                 value: None,
             })
             .is_err());
+    }
+
+    #[test]
+    fn low_level_action_registry_redacts_values_unless_sensitivity_is_explicit() {
+        let mut registry = ActionRegistry::new();
+        registry.register("changeValue");
+
+        registry
+            .invoke(ActionInvocation {
+                node: HostNodeId::new(1),
+                action: "changeValue".to_string(),
+                event: NativeEventKind::Change,
+                value: Some("default-redacted".to_string()),
+            })
+            .unwrap();
+        registry
+            .invoke_with_sensitivity(
+                ActionInvocation {
+                    node: HostNodeId::new(1),
+                    action: "changeValue".to_string(),
+                    event: NativeEventKind::Change,
+                    value: Some("explicit-public".to_string()),
+                },
+                ValueSensitivity::Public,
+            )
+            .unwrap();
+
+        assert_eq!(registry.invocations()[0].value, None);
+        assert_eq!(
+            registry.invocations()[1].value.as_deref(),
+            Some("explicit-public")
+        );
     }
 
     #[test]

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
 use crate::error::{GuiError, GuiResult};
-use crate::host::{HostNodeId, NativeHost};
+use crate::host::{HostFrameAck, HostNodeId, NativeHost};
 use crate::native::{NativeElement, NativeProps};
 
 use super::adapters::{BlueprintHost, PlatformAdapter};
@@ -42,6 +42,32 @@ pub enum PlatformCommand {
     },
 }
 
+impl PlatformCommand {
+    pub fn redacted_for_diagnostics(&self) -> Self {
+        match self {
+            Self::Create { id, blueprint } => Self::Create {
+                id: *id,
+                blueprint: blueprint.redacted_for_diagnostics(),
+            },
+            Self::Update { id, blueprint } => Self::Update {
+                id: *id,
+                blueprint: blueprint.redacted_for_diagnostics(),
+            },
+            Self::InsertChild {
+                parent,
+                child,
+                index,
+            } => Self::InsertChild {
+                parent: *parent,
+                child: *child,
+                index: *index,
+            },
+            Self::Remove { id } => Self::Remove { id: *id },
+            Self::SetRoot { id } => Self::SetRoot { id: *id },
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct PlatformPlanningHost<A: PlatformAdapter> {
     adapter: A,
@@ -49,6 +75,7 @@ pub struct PlatformPlanningHost<A: PlatformAdapter> {
     root: Option<HostNodeId>,
     nodes: BTreeMap<HostNodeId, PlatformPlannedNode>,
     commands: Vec<PlatformCommand>,
+    active_frame: Option<PlatformPlanningCheckpoint>,
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +83,7 @@ pub(crate) struct PlatformPlanningCheckpoint {
     next_id: u64,
     root: Option<HostNodeId>,
     nodes: BTreeMap<HostNodeId, PlatformPlannedNode>,
-    command_len: usize,
+    commands: Vec<PlatformCommand>,
 }
 
 impl<A: PlatformAdapter> PlatformPlanningHost<A> {
@@ -67,6 +94,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
             root: None,
             nodes: BTreeMap::new(),
             commands: Vec::new(),
+            active_frame: None,
         }
     }
 
@@ -86,8 +114,51 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         &self.commands
     }
 
+    /// Takes all pending commands produced since the previous drain.
+    pub fn take_commands(&mut self) -> Vec<PlatformCommand> {
+        std::mem::take(&mut self.commands)
+    }
+
+    /// Acknowledge a successfully committed command prefix.
+    ///
+    /// Commands remain queued throughout prepare/commit and are removed only
+    /// after a matching native acknowledgement.
+    pub(crate) fn acknowledge_commands(&mut self, commands: &[PlatformCommand]) -> GuiResult<()> {
+        if self.commands.len() < commands.len() || self.commands[..commands.len()] != *commands {
+            return Err(GuiError::host(
+                "native command acknowledgement does not match the planning queue",
+            ));
+        }
+        self.commands.drain(..commands.len());
+        Ok(())
+    }
+
+    /// Build a complete replay for a fresh native executor.
+    pub(crate) fn replay_commands(&self) -> Vec<PlatformCommand> {
+        let mut commands = Vec::new();
+        for (id, node) in &self.nodes {
+            commands.push(PlatformCommand::Create {
+                id: *id,
+                blueprint: node.blueprint.clone(),
+            });
+        }
+        for (parent, node) in &self.nodes {
+            for (index, child) in node.children.iter().enumerate() {
+                commands.push(PlatformCommand::InsertChild {
+                    parent: *parent,
+                    child: *child,
+                    index,
+                });
+            }
+        }
+        if let Some(id) = self.root {
+            commands.push(PlatformCommand::SetRoot { id });
+        }
+        commands
+    }
+
     pub fn clear_commands(&mut self) {
-        self.commands.clear();
+        self.take_commands();
     }
 
     pub(crate) fn checkpoint(&self) -> PlatformPlanningCheckpoint {
@@ -95,7 +166,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
             next_id: self.next_id,
             root: self.root,
             nodes: self.nodes.clone(),
-            command_len: self.commands.len(),
+            commands: self.commands.clone(),
         }
     }
 
@@ -103,7 +174,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         self.next_id = checkpoint.next_id;
         self.root = checkpoint.root;
         self.nodes = checkpoint.nodes;
-        self.commands.truncate(checkpoint.command_len);
+        self.commands = checkpoint.commands;
     }
 
     fn allocate_id(&mut self) -> HostNodeId {
@@ -172,14 +243,22 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
             .iter()
             .filter_map(|child| self.accessibility_subtree(*child))
             .collect::<Vec<_>>();
+        let value_sensitivity = node.blueprint.effective_value_sensitivity();
+        let mut description = state.accessibility_description.clone();
+        if value_sensitivity.is_sensitive() {
+            description.value_text = None;
+        }
 
         Some(AccessibilityNode {
             node: Some(id),
             role: node.blueprint.accessibility_role,
             label: node.blueprint.label.clone(),
-            value: node.blueprint.value.clone(),
+            value: value_sensitivity
+                .redact(node.blueprint.value.as_deref())
+                .map(ToOwned::to_owned),
+            value_sensitivity,
             relationships: state.accessibility_relationships.clone(),
-            description: state.accessibility_description.clone(),
+            description,
             structure: state.accessibility_structure.clone(),
             state: state.accessibility_state.clone(),
             disabled: state.disabled,
@@ -209,6 +288,37 @@ impl<A: PlatformAdapter> BlueprintHost for PlatformPlanningHost<A> {
 }
 
 impl<A: PlatformAdapter> NativeHost for PlatformPlanningHost<A> {
+    fn begin_frame(&mut self) -> GuiResult<()> {
+        if self.active_frame.is_some() {
+            return Err(GuiError::host(
+                "a platform planning frame is already active",
+            ));
+        }
+        self.active_frame = Some(self.checkpoint());
+        Ok(())
+    }
+
+    fn commit_frame(&mut self) -> GuiResult<HostFrameAck> {
+        let checkpoint = self
+            .active_frame
+            .take()
+            .ok_or_else(|| GuiError::host("no platform planning frame is active"))?;
+        Ok(HostFrameAck {
+            batch_id: None,
+            applied_operations: self
+                .commands
+                .len()
+                .saturating_sub(checkpoint.commands.len()),
+        })
+    }
+
+    fn rollback_frame(&mut self) -> GuiResult<()> {
+        if let Some(checkpoint) = self.active_frame.take() {
+            self.restore(checkpoint);
+        }
+        Ok(())
+    }
+
     fn create(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
         let id = self.allocate_id();
         let blueprint = self.adapter.blueprint(element);

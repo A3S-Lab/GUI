@@ -27,7 +27,7 @@ pub fn ui_color_swatch_picker_item(cx: &mut ComponentCx<UiColorSwatchPickerItemP
             key="root"
             {...props.colorSwatchPickerItemProps}
             data-slot="color-swatch-picker-item"
-            class="relative flex size-9 cursor-default select-none items-center justify-center rounded-md border border-hairline-strong p-0.5 outline-none transition-colors focus:ring-[3px] focus:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 data-[selected=true]:ring-[3px] data-[selected=true]:ring-ring/50"
+            class="relative flex size-9 cursor-default select-none items-center justify-center rounded-md border border-hairline-strong p-0.5 outline-none focus:ring-[2px] focus:ring-ink/40 disabled:pointer-events-none disabled:opacity-50 data-[selected=true]:ring-[2px] data-[selected=true]:ring-ink/40"
             className={props.className}
         >
             <Slot key="content" />

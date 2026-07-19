@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HtmlResourcePolicyProps {
     pub target: Option<String>,
@@ -23,6 +23,44 @@ pub struct HtmlResourcePolicyProps {
     pub frame_allow_fullscreen: bool,
     pub frame_sandbox: Option<String>,
     pub frame_srcdoc: Option<String>,
+}
+
+impl HtmlResourcePolicyProps {
+    pub(crate) fn redacted_for_diagnostics(&self) -> Self {
+        let mut redacted = self.clone();
+        redacted.nonce = None;
+        redacted.frame_srcdoc = None;
+        redacted
+    }
+}
+
+impl std::fmt::Debug for HtmlResourcePolicyProps {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let redacted = self.redacted_for_diagnostics();
+        formatter
+            .debug_struct("HtmlResourcePolicyProps")
+            .field("target", &redacted.target)
+            .field("download", &redacted.download)
+            .field("ping", &redacted.ping)
+            .field("rel", &redacted.rel)
+            .field("href_lang", &redacted.href_lang)
+            .field("link_as", &redacted.link_as)
+            .field("integrity", &redacted.integrity)
+            .field("blocking", &redacted.blocking)
+            .field("has_nonce", &self.nonce.is_some())
+            .field("image_srcset", &redacted.image_srcset)
+            .field("image_sizes", &redacted.image_sizes)
+            .field("resource_disabled", &redacted.resource_disabled)
+            .field("async_script", &redacted.async_script)
+            .field("defer_script", &redacted.defer_script)
+            .field("no_module", &redacted.no_module)
+            .field("frame_name", &redacted.frame_name)
+            .field("frame_allow", &redacted.frame_allow)
+            .field("frame_allow_fullscreen", &redacted.frame_allow_fullscreen)
+            .field("frame_sandbox", &redacted.frame_sandbox)
+            .field("has_frame_srcdoc", &self.frame_srcdoc.is_some())
+            .finish()
+    }
 }
 
 impl HtmlResourcePolicyProps {

@@ -19,6 +19,9 @@ pub fn component_playground(cx: &mut ComponentCx<ComponentPlaygroundState>) -> R
     let activeSection = cx.use_state("activeSection", |state: &ComponentPlaygroundState| {
         state.active_section.clone()
     });
+    let overviewActive = cx.use_state("overviewActive", |state: &ComponentPlaygroundState| {
+        state.active_section == "overview"
+    });
     let foundationActive = cx.use_state("foundationActive", |state: &ComponentPlaygroundState| {
         state.active_section == "foundation"
     });
@@ -78,6 +81,7 @@ pub fn component_playground(cx: &mut ComponentCx<ComponentPlaygroundState>) -> R
             query={query}
             selectedValue={selectedValue}
             activeSection={activeSection}
+            overviewActive={overviewActive}
             foundationActive={foundationActive}
             controlsActive={controlsActive}
             collectionsActive={collectionsActive}

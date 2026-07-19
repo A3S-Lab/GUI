@@ -25,7 +25,7 @@ pub fn ui_slider_fill(cx: &mut ComponentCx<UiSliderFillProps>) -> RSX {
             key="root"
             {...props.sliderFillProps}
             data-slot="slider-fill"
-            class="absolute inset-y-0 left-0 bg-primary transition-[width,height] data-[orientation=vertical]:inset-x-0 data-[orientation=vertical]:bottom-0 data-[orientation=vertical]:top-auto"
+            class="absolute inset-y-0 left-0 bg-ink transition-[width,height] data-[orientation=vertical]:inset-x-0 data-[orientation=vertical]:bottom-0 data-[orientation=vertical]:top-auto"
             className={props.className}
         >
             <Slot key="content" />

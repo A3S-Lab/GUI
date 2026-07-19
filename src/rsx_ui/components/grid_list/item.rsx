@@ -27,7 +27,7 @@ pub fn ui_grid_list_item(cx: &mut ComponentCx<UiGridListItemProps>) -> RSX {
             key="root"
             {...props.collectionItemProps}
             data-slot="grid-list-item"
-            class="rounded-md border border-hairline-strong bg-canvas p-3 text-ink outline-none transition-colors hover:bg-surface-strong hover:text-ink data-[selected=true]:border-primary data-[selected=true]:bg-surface-strong"
+            class="rounded-md border border-hairline-strong bg-surface-card p-3 text-ink outline-none hover:bg-surface-strong hover:text-ink data-[selected=true]:border-ink data-[selected=true]:bg-surface-strong"
             className={props.className}
         >
             <Slot key="content" />

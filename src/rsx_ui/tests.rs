@@ -1,8 +1,12 @@
 use super::*;
+use std::rc::Rc;
+
 use crate::compiler::{CompiledOrientation, CompiledRsxNode, RsxCompilerBridge};
-use crate::event::{ActionInvocation, NativeEventKind};
+use crate::event::{ActionInvocation, NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
 use crate::native::NativeRole;
+use crate::platform::AppKitAdapter;
+use crate::protocol::{HostEvent, NativeProtocolApp};
 use crate::rsx_app::{ComponentCx, RsxComponent, RsxTemplate, RSX};
 use crate::style::{DisplayMode, PortableStyle, StyleColor};
 use crate::web::WebProps;
@@ -180,7 +184,7 @@ fn run_rsx_stress_test(test: impl FnOnce() + Send + 'static) {
 }
 
 #[test]
-fn rsx_ui_renders_vercel_style_components_from_design_tokens() {
+fn rsx_ui_renders_design_md_components_from_tokens() {
     let component = RsxComponent::new(
         "settings",
         r#"
@@ -245,10 +249,11 @@ fn rsx_ui_renders_vercel_style_components_from_design_tokens() {
     assert_class_contains(card, "w-full");
     assert_class_contains(button, "inline-flex");
     assert_class_contains(button, "bg-primary");
+    assert_class_contains(button, "text-on-primary");
     assert_class_contains(button, "rounded-md");
-    assert_class_contains(button, "h-10");
+    assert_class_contains(button, "h-9");
     assert_class_contains(button, "w-full");
-    assert_class_contains(input, "bg-canvas");
+    assert_class_contains(input, "bg-surface-card");
     assert_class_contains(input, "border-hairline-strong");
     assert_class_contains(input, "rounded-md");
 
@@ -312,7 +317,7 @@ fn rsx_ui_router_components_render_active_route_and_navigation_actions() {
         )
     }
 
-    let component = ComponentCx::compile("router-demo", router_demo).unwrap();
+    let component = Rc::new(ComponentCx::compile("router-demo", router_demo).unwrap());
     let mut state = RouterUiState::default();
 
     let home = component.render(&state).unwrap();
@@ -327,6 +332,7 @@ fn rsx_ui_router_components_render_active_route_and_navigation_actions() {
     .unwrap();
     assert_eq!(attribute_value(home_link, "data-active"), Some("true"));
     assert_eq!(attribute_value(home_link, "actionValue"), Some("/"));
+    assert_eq!(event_value(home_link, "onPress"), Some("navigate"));
     let settings_button = find_element_by_attributes(
         &home.root,
         &[
@@ -343,6 +349,7 @@ fn rsx_ui_router_components_render_active_route_and_navigation_actions() {
         attribute_value(settings_button, "actionValue"),
         Some("/settings")
     );
+    assert_eq!(event_value(settings_button, "onPress"), Some("navigate"));
 
     component
         .reduce(
@@ -364,6 +371,72 @@ fn rsx_ui_router_components_render_active_route_and_navigation_actions() {
 }
 
 #[test]
+fn rsx_ui_navigate_button_routes_press_through_appkit_blueprint() {
+    #[allow(non_snake_case)]
+    fn router_demo(cx: &mut ComponentCx<RouterUiState>) -> RSX {
+        let settingsActive = cx.use_state("settingsActive", |state: &RouterUiState| {
+            state.path == "/settings"
+        });
+        let navigate = cx.use_reducer(
+            "navigate",
+            |state: &mut RouterUiState, invocation: &ActionInvocation| {
+                if let Some(path) = invocation.value() {
+                    state.path = path.to_string();
+                    state.navigations += 1;
+                }
+                Ok(())
+            },
+        );
+
+        crate::rsx!(
+            <UiNavigation key="nav" label="Routes" className="gap-1">
+                <UiNavigateButton key="settings-button" to="/settings" onNavigate={navigate} isActive={settingsActive}>Settings</UiNavigateButton>
+            </UiNavigation>
+        )
+    }
+
+    let component = Rc::new(ComponentCx::compile("router-demo", router_demo).unwrap());
+    let render_component = component.clone();
+    let reduce_component = component.clone();
+    let mut app = NativeProtocolApp::new(
+        AppKitAdapter,
+        RouterUiState::default(),
+        move |state| render_component.render(state),
+        move |state, invocation| reduce_component.reduce(state, invocation),
+    );
+
+    let rendered = app.render().unwrap();
+    let settings_button = app
+        .session()
+        .runtime()
+        .host()
+        .nodes()
+        .iter()
+        .find_map(|(id, node)| {
+            let metadata = &node.blueprint.metadata;
+            (metadata.get("data-route-to").map(String::as_str) == Some("/settings")
+                && metadata.get("actionValue").map(String::as_str) == Some("/settings"))
+            .then_some(*id)
+        })
+        .expect("settings navigate button blueprint");
+
+    let response = app
+        .dispatch_host_event(&HostEvent {
+            frame_id: rendered.frame_id,
+            event: NativeEvent::new(settings_button, NativeEventKind::Press),
+        })
+        .unwrap();
+
+    assert_eq!(response.invocation.as_ref().unwrap().action, "navigate");
+    assert_eq!(
+        response.invocation.as_ref().unwrap().value.as_deref(),
+        Some("/settings")
+    );
+    assert_eq!(app.state().path, "/settings");
+    assert_eq!(app.state().navigations, 1);
+}
+
+#[test]
 fn rsx_ui_components_are_available_without_manual_registration() {
     let template = RsxTemplate::parse(
         r#"
@@ -382,7 +455,7 @@ fn rsx_ui_components_are_available_without_manual_registration() {
 
     assert_class_contains(button, "inline-flex");
     assert_class_contains(button, "border");
-    assert_class_contains(button, "h-10");
+    assert_class_contains(button, "h-8");
 }
 
 #[test]
@@ -421,6 +494,8 @@ fn rsx_ui_component_defaults_use_design_tokens() {
         "bg-border",
         "bg-input",
         "bg-destructive",
+        "bg-surface-pressed",
+        "bg-black-elevated",
         "text-foreground",
         "text-muted-foreground",
         "text-accent-foreground",
@@ -429,12 +504,22 @@ fn rsx_ui_component_defaults_use_design_tokens() {
         "text-primary-foreground",
         "text-destructive",
         "text-destructive-foreground",
+        "text-mute",
         "border-input",
         "border-border",
         "border-background",
         "border-destructive",
+        "border-ring",
+        "outline-ring",
+        "caret-ring",
+        "ring-ring",
         "ring-border",
         "ring-destructive",
+        "link-blue",
+        "link-deep",
+        "link-soft",
+        "sidebar-border",
+        "bg-sidebar",
     ];
 
     let mut violations = Vec::new();
@@ -442,7 +527,7 @@ fn rsx_ui_component_defaults_use_design_tokens() {
         let source = std::fs::read_to_string(&path)
             .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
         for token in forbidden_tokens {
-            if source.contains(token) {
+            if source_contains_class_token(&source, token) {
                 violations.push(format!("{} contains `{token}`", path.display()));
             }
         }
@@ -453,6 +538,20 @@ fn rsx_ui_component_defaults_use_design_tokens() {
         "RSX UI component defaults must use DESIGN.md tokens:\n{}",
         violations.join("\n")
     );
+}
+
+fn source_contains_class_token(source: &str, token: &str) -> bool {
+    source.match_indices(token).any(|(index, _)| {
+        let before = source[..index].chars().next_back();
+        let after = source[index + token.len()..].chars().next();
+
+        before.map_or(true, |ch| !is_class_name_char(ch))
+            && after.map_or(true, |ch| !is_class_name_char(ch))
+    })
+}
+
+fn is_class_name_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_')
 }
 
 fn collect_rsx_component_sources(path: &std::path::Path, sources: &mut Vec<std::path::PathBuf>) {
@@ -476,7 +575,7 @@ fn collect_rsx_component_sources(path: &std::path::Path, sources: &mut Vec<std::
 }
 
 #[test]
-fn rsx_ui_tabs_render_shadcn_classes_and_native_tab_semantics() {
+fn rsx_ui_tabs_render_design_classes_and_native_tab_semantics() {
     let component = RsxComponent::new(
         "tabs",
         r#"
@@ -539,7 +638,7 @@ fn rsx_ui_tabs_render_shadcn_classes_and_native_tab_semantics() {
 
     assert_class_contains(tabs, "flex");
     assert_class_contains(tabs, "w-full");
-    assert_class_contains(list, "bg-surface-strong");
+    assert_class_contains(list, "bg-canvas-soft");
     assert_class_contains(list, "grid-cols-2");
     assert_class_contains(selected, "data-[selected=true]:bg-canvas");
     assert_class_contains(selected, "rounded-sm");
@@ -656,29 +755,29 @@ fn rsx_ui_tab_parts_use_tab_hook_props() {
 }
 
 #[test]
-fn rsx_ui_renders_react_aria_named_aliases_and_collection_parts() {
+fn rsx_ui_renders_collection_interaction_and_structure_parts() {
     run_rsx_stress_test(|| {
         let component = RsxComponent::new(
-            "react-aria-aliases",
+            "collection-interaction-parts",
             r#"
-        <UiGroup key="root" label="Aliases">
+        <UiGroup key="root" label="Interaction parts">
           <UiTabs
             key="tabs"
             value={state.tab}
             onSelectionChange={setTab}
           >
-            <UiTabList key="tab-list">
-              <UiTab
+            <UiTabsList key="tab-list">
+              <UiTabsTrigger
                 key="profile-tab"
                 value="profile"
                 isSelected={state.profileSelected}
               >
                 Profile
-              </UiTab>
-            </UiTabList>
-            <UiTabPanel key="profile-panel" value="profile">
+              </UiTabsTrigger>
+            </UiTabsList>
+            <UiTabsContent key="profile-panel" value="profile">
               <UiText key="profile-copy">Profile panel</UiText>
-            </UiTabPanel>
+            </UiTabsContent>
           </UiTabs>
           <UiTextArea
             key="notes"
@@ -807,23 +906,23 @@ fn rsx_ui_renders_react_aria_named_aliases_and_collection_parts() {
             </UiSharedElement>
           </UiSharedElementTransition>
           <UiTabPanels key="tab-panels">
-            <UiTabPanel key="settings-panel" value="settings">
+            <UiTabsContent key="settings-panel" value="settings">
               Settings
-            </UiTabPanel>
+            </UiTabsContent>
           </UiTabPanels>
-          <UiTable key="alias-table" label="Aliases">
-            <UiTableHeader key="alias-head">
-              <UiRow key="alias-head-row">
-                <UiColumn key="alias-column" textValue="Name">Name</UiColumn>
-              </UiRow>
+          <UiTable key="parts-table" label="Parts">
+            <UiTableHeader key="parts-head">
+              <UiTableRow key="parts-head-row">
+                <UiTableColumn key="parts-column" textValue="Name">Name</UiTableColumn>
+              </UiTableRow>
             </UiTableHeader>
-            <UiTableBody key="alias-body">
-              <UiRow key="alias-row" isSelected={true}>
-                <UiCell key="alias-cell" textValue="Ada">Ada</UiCell>
-              </UiRow>
+            <UiTableBody key="parts-body">
+              <UiTableRow key="parts-row" isSelected={true}>
+                <UiTableCell key="parts-cell" textValue="Ada">Ada</UiTableCell>
+              </UiTableRow>
             </UiTableBody>
           </UiTable>
-          <UiTree key="alias-tree" label="Alias tree">
+          <UiTree key="parts-tree" label="Parts tree">
             <UiTreeLoadMoreItem
               key="tree-load-more"
               label="Load more"
@@ -927,14 +1026,14 @@ fn rsx_ui_renders_react_aria_named_aliases_and_collection_parts() {
         let shared_element =
             find_element_by_attribute(&frame.root, "data-slot", "shared-element").unwrap();
         let tab_panels = find_element_by_attribute(&frame.root, "data-slot", "tab-panels").unwrap();
-        let row_alias = find_element_by_attributes(
+        let table_row = find_element_by_attributes(
             &frame.root,
             &[("data-slot", "table-row"), ("data-selected", "true")],
         )
         .unwrap();
-        let column_alias =
+        let table_column =
             find_element_by_attribute(&frame.root, "data-slot", "table-column").unwrap();
-        let cell_alias = find_element_by_attribute(&frame.root, "data-slot", "table-cell").unwrap();
+        let table_cell = find_element_by_attribute(&frame.root, "data-slot", "table-cell").unwrap();
         let tree_load_more =
             find_element_by_attribute(&frame.root, "data-slot", "tree-load-more-item").unwrap();
         let wheel_track =
@@ -942,15 +1041,15 @@ fn rsx_ui_renders_react_aria_named_aliases_and_collection_parts() {
         let tag_list = find_element_by_attribute(&frame.root, "data-slot", "tag-list").unwrap();
 
         assert_class_contains(drop_indicator, "data-[target=true]:opacity-100");
-        assert_class_contains(pressable, "focus-visible:ring-[3px]");
+        assert_class_contains(pressable, "focus-visible:ring-[2px]");
         assert_class_contains(hoverable, "data-[hovered=true]:bg-canvas-soft");
-        assert_class_contains(keyboard_target, "data-[keyboard-active=true]:ring-[3px]");
+        assert_class_contains(keyboard_target, "data-[keyboard-active=true]:ring-[2px]");
         assert_class_contains(long_pressable, "data-[long-pressed=true]:bg-canvas-soft");
         assert_class_contains(movable, "data-[moving=true]:cursor-grabbing");
         assert_class_contains(draggable, "data-[dragging=true]:opacity-70");
-        assert_class_contains(droppable, "data-[drop-target=true]:ring-[3px]");
-        assert_class_contains(focusable, "focus-visible:ring-[3px]");
-        assert_class_contains(focus_ring, "data-[focus-visible=true]:ring-[3px]");
+        assert_class_contains(droppable, "data-[drop-target=true]:ring-[2px]");
+        assert_class_contains(focusable, "focus-visible:ring-[2px]");
+        assert_class_contains(focus_ring, "data-[focus-visible=true]:ring-[2px]");
         assert_class_contains(focus_scope, "data-[contain=true]:isolate");
         assert_class_contains(visually_hidden, "sr-only");
         assert_class_contains(shared_transition, "contents");
@@ -958,7 +1057,7 @@ fn rsx_ui_renders_react_aria_named_aliases_and_collection_parts() {
         assert_class_contains(tab_panels, "grid");
         assert_class_contains(tree_load_more, "border-dashed");
         assert_class_contains(wheel_track, "rounded-full");
-        assert_class_contains(text_area, "bg-canvas");
+        assert_class_contains(text_area, "bg-surface-card");
 
         assert_eq!(attribute_value(pressable, "data-pressed"), Some("true"));
         assert_eq!(attribute_value(hoverable, "data-hovered"), Some("true"));
@@ -1199,15 +1298,15 @@ fn rsx_ui_renders_react_aria_named_aliases_and_collection_parts() {
             NativeRole::View
         );
         assert_eq!(
-            bridge.lower_to_native(row_alias).unwrap().role,
+            bridge.lower_to_native(table_row).unwrap().role,
             NativeRole::TableRow
         );
         assert_eq!(
-            bridge.lower_to_native(column_alias).unwrap().role,
+            bridge.lower_to_native(table_column).unwrap().role,
             NativeRole::TableColumn
         );
         assert_eq!(
-            bridge.lower_to_native(cell_alias).unwrap().role,
+            bridge.lower_to_native(table_cell).unwrap().role,
             NativeRole::TableCell
         );
         let tree_load_more_native = bridge.lower_to_native(tree_load_more).unwrap();
@@ -3742,7 +3841,7 @@ fn rsx_ui_renders_collection_overlay_and_toggle_primitives_to_native_roles() {
 
     assert_class_contains(combo_box, "grid");
     assert_class_contains(overlay_arrow, "data-[placement=bottom]:border-b");
-    assert_class_contains(toggle_button, "data-[selected=true]:bg-canvas");
+    assert_class_contains(toggle_button, "data-[selected=true]:bg-surface-card");
     assert_class_contains(table, "w-full");
 
     let checkbox_group_native = bridge.lower_to_native(checkbox_group).unwrap();
@@ -4392,7 +4491,7 @@ fn rsx_ui_renders_date_time_primitives_to_native_roles() {
     let description = find_element_by_attribute(&frame.root, "data-slot", "description").unwrap();
 
     assert_class_contains(date_field_input, "border-hairline-strong");
-    assert_class_contains(selected_day, "data-[selected=true]:bg-primary");
+    assert_class_contains(selected_day, "data-[selected=true]:bg-ink");
 
     let date_native = bridge.lower_to_native(date_field).unwrap();
     assert_eq!(date_native.role, NativeRole::TextField);
@@ -4607,12 +4706,12 @@ fn rsx_ui_renders_color_primitives_to_native_roles() {
             onSelectionChange={setColor}
           >
             <UiColorSwatchPickerItem
-              key="violet"
-              value="#7c3aed"
-              textValue="Violet"
-              isSelected={state.violetSelected}
+              key="preview"
+              value="#8145b5"
+              textValue="Preview"
+              isSelected={state.previewSelected}
             >
-              <UiColorSwatch key="violet-swatch" value="#7c3aed" label="Violet" />
+              <UiColorSwatch key="preview-swatch" value="#8145b5" label="Preview" />
             </UiColorSwatchPickerItem>
           </UiColorSwatchPicker>
         </UiColorPicker>
@@ -4623,8 +4722,8 @@ fn rsx_ui_renders_color_primitives_to_native_roles() {
     .use_state("hue", |state: &ColorState| state.hue)
     .use_state("saturation", |state: &ColorState| state.saturation)
     .use_state("brightness", |state: &ColorState| state.brightness)
-    .use_state("violetSelected", |state: &ColorState| {
-        state.color == "#7c3aed"
+    .use_state("previewSelected", |state: &ColorState| {
+        state.color == "#8145b5"
     })
     .use_value_reducer("setColor", |state: &mut ColorState, color: String| {
         state.color = color;
@@ -4637,10 +4736,10 @@ fn rsx_ui_renders_color_primitives_to_native_roles() {
 
     let frame = component
         .render(&ColorState {
-            color: "#7c3aed".to_string(),
-            hue: 262.0,
-            saturation: 78.0,
-            brightness: 92.0,
+            color: "#8145b5".to_string(),
+            hue: 271.0,
+            saturation: 62.0,
+            brightness: 71.0,
         })
         .unwrap();
 
@@ -4658,15 +4757,15 @@ fn rsx_ui_renders_color_primitives_to_native_roles() {
     let swatch_item =
         find_element_by_attribute(&frame.root, "data-slot", "color-swatch-picker-item").unwrap();
 
-    assert_class_contains(picker, "rounded-lg");
+    assert_class_contains(picker, "rounded-md");
     assert_class_contains(area, "h-40");
     assert_class_contains(field_input, "font-mono");
-    assert_class_contains(swatch_item, "data-[selected=true]:ring-[3px]");
+    assert_class_contains(swatch_item, "data-[selected=true]:ring-[2px]");
 
     let picker_native = bridge.lower_to_native(picker).unwrap();
     assert_eq!(picker_native.role, NativeRole::View);
     assert_eq!(picker_native.props.label.as_deref(), Some("Accent color"));
-    assert_eq!(attribute_value(picker, "data-value"), Some("#7c3aed"));
+    assert_eq!(attribute_value(picker, "data-value"), Some("#8145b5"));
     assert_eq!(
         picker_native
             .props
@@ -4685,35 +4784,35 @@ fn rsx_ui_renders_color_primitives_to_native_roles() {
     );
     assert_eq!(attribute_value(area, "data-x-channel"), Some("saturation"));
     assert_eq!(attribute_value(area, "data-y-channel"), Some("brightness"));
-    assert_eq!(attribute_value(area, "data-x-value"), Some("78.0"));
-    assert_eq!(attribute_value(area, "data-y-value"), Some("92.0"));
+    assert_eq!(attribute_value(area, "data-x-value"), Some("62.0"));
+    assert_eq!(attribute_value(area, "data-y-value"), Some("71.0"));
 
     let slider_native = bridge.lower_to_native(slider).unwrap();
     assert_eq!(slider_native.role, NativeRole::Slider);
     assert_eq!(slider_native.props.label.as_deref(), Some("Hue"));
-    assert_eq!(slider_native.props.current, Some(262.0));
+    assert_eq!(slider_native.props.current, Some(271.0));
     assert_eq!(slider_native.props.min, Some(0.0));
     assert_eq!(slider_native.props.max, Some(360.0));
     assert_eq!(slider_native.props.step, Some(1.0));
     assert_eq!(slider_native.props.action.as_deref(), Some("setHue"));
     assert_eq!(attribute_value(slider, "data-channel"), Some("hue"));
-    assert_eq!(attribute_value(slider, "aria-valuenow"), Some("262.0"));
+    assert_eq!(attribute_value(slider, "aria-valuenow"), Some("271.0"));
     let slider_percent = attribute_value(slider, "data-value-percent")
         .unwrap()
         .parse::<f64>()
         .unwrap();
-    assert!((slider_percent - 72.777).abs() < 0.01);
+    assert!((slider_percent - 75.277).abs() < 0.01);
 
     let wheel_native = bridge.lower_to_native(wheel).unwrap();
     assert_eq!(wheel_native.role, NativeRole::View);
     assert_eq!(wheel_native.props.label.as_deref(), Some("Hue wheel"));
     assert_eq!(attribute_value(wheel, "data-channel"), Some("hue"));
-    assert_eq!(attribute_value(wheel, "data-value"), Some("262.0"));
+    assert_eq!(attribute_value(wheel, "data-value"), Some("271.0"));
 
     let field_native = bridge.lower_to_native(field).unwrap();
     assert_eq!(field_native.role, NativeRole::TextField);
     assert_eq!(field_native.props.label.as_deref(), Some("Hex"));
-    assert_eq!(field_native.props.value.as_deref(), Some("#7c3aed"));
+    assert_eq!(field_native.props.value.as_deref(), Some("#8145b5"));
     assert_eq!(field_native.props.action.as_deref(), Some("setColor"));
     assert_eq!(attribute_value(field, "data-color-space"), Some("srgb"));
     let CompiledRsxNode::Element {
@@ -4731,12 +4830,12 @@ fn rsx_ui_renders_color_primitives_to_native_roles() {
     let swatch_native = bridge.lower_to_native(swatch).unwrap();
     assert_eq!(swatch_native.role, NativeRole::View);
     assert_eq!(swatch_native.props.label.as_deref(), Some("Preview"));
-    assert_eq!(attribute_value(swatch, "data-value"), Some("#7c3aed"));
+    assert_eq!(attribute_value(swatch, "data-value"), Some("#8145b5"));
 
     let picker_native = bridge.lower_to_native(swatch_picker).unwrap();
     assert_eq!(picker_native.role, NativeRole::ListBox);
     assert_eq!(picker_native.props.label.as_deref(), Some("Saved colors"));
-    assert_eq!(picker_native.props.value.as_deref(), Some("#7c3aed"));
+    assert_eq!(picker_native.props.value.as_deref(), Some("#8145b5"));
     assert_eq!(
         picker_native
             .props
@@ -4748,7 +4847,7 @@ fn rsx_ui_renders_color_primitives_to_native_roles() {
     );
     assert_eq!(
         attribute_value(swatch_picker, "data-selected-value"),
-        Some("#7c3aed")
+        Some("#8145b5")
     );
     assert_eq!(
         attribute_value(swatch_picker, "data-selection-mode"),
@@ -4757,7 +4856,7 @@ fn rsx_ui_renders_color_primitives_to_native_roles() {
 
     let item_native = bridge.lower_to_native(swatch_item).unwrap();
     assert_eq!(item_native.role, NativeRole::ListBoxItem);
-    assert_eq!(item_native.props.value.as_deref(), Some("#7c3aed"));
+    assert_eq!(item_native.props.value.as_deref(), Some("#8145b5"));
     assert!(item_native.props.selected);
     assert_eq!(attribute_value(swatch_item, "data-selected"), Some("true"));
 }
@@ -4863,9 +4962,9 @@ fn rsx_ui_renders_layout_slider_and_color_parts_to_native_roles() {
     let frame = component
         .render(&ComponentPartsState {
             volume: 42.0,
-            color: "#7c3aed".to_string(),
-            saturation: 78.0,
-            brightness: 92.0,
+            color: "#8145b5".to_string(),
+            saturation: 62.0,
+            brightness: 71.0,
             dragging: true,
             volume_committed: false,
             color_committed: false,
@@ -4884,7 +4983,7 @@ fn rsx_ui_renders_layout_slider_and_color_parts_to_native_roles() {
 
     assert_class_contains(section, "rounded-md");
     assert_class_contains(track, "bg-surface-strong");
-    assert_class_contains(fill, "bg-primary");
+    assert_class_contains(fill, "bg-ink");
     assert_class_contains(thumb, "rounded-full");
     assert_class_contains(color_thumb, "ring-hairline-strong");
 
@@ -4946,11 +5045,11 @@ fn rsx_ui_renders_layout_slider_and_color_parts_to_native_roles() {
             .metadata
             .get("actionValue")
             .map(String::as_str),
-        Some("#7c3aed")
+        Some("#8145b5")
     );
-    assert_eq!(attribute_value(color_thumb, "data-value"), Some("#7c3aed"));
-    assert_eq!(attribute_value(color_thumb, "data-x-value"), Some("78.0"));
-    assert_eq!(attribute_value(color_thumb, "data-y-value"), Some("92.0"));
+    assert_eq!(attribute_value(color_thumb, "data-value"), Some("#8145b5"));
+    assert_eq!(attribute_value(color_thumb, "data-x-value"), Some("62.0"));
+    assert_eq!(attribute_value(color_thumb, "data-y-value"), Some("71.0"));
     assert_eq!(attribute_value(color_thumb, "data-dragging"), Some("true"));
 }
 
@@ -6270,10 +6369,10 @@ fn rsx_ui_button_variants_merge_base_variant_size_and_caller_classes() {
     let button = find_element_by_attribute(&frame.root, "data-slot", "button").unwrap();
 
     assert_class_contains(button, "inline-flex");
-    assert_class_contains(button, "bg-canvas");
+    assert_class_contains(button, "bg-surface-card");
     assert_class_contains(button, "border-hairline-strong");
     assert_class_contains(button, "text-ink");
-    assert_class_contains(button, "h-10");
+    assert_class_contains(button, "h-8");
     assert_class_contains(button, "w-full");
     assert_class_excludes(button, "bg-primary");
 }
@@ -6291,8 +6390,8 @@ fn rsx_ui_badge_variants_render_status_tones() {
 
     assert_class_contains(badge, "inline-flex");
     assert_class_contains(badge, "text-ink");
-    assert_class_contains(badge, "rounded-full");
-    assert_class_contains(badge, "bg-canvas");
+    assert_class_contains(badge, "rounded-md");
+    assert_class_contains(badge, "bg-surface-card");
     assert_class_contains(badge, "uppercase");
 }
 
@@ -6343,6 +6442,13 @@ fn attribute_value<'a>(node: &'a CompiledRsxNode, name: &str) -> Option<&'a str>
         panic!("element node")
     };
     props.attributes.get(name).map(String::as_str)
+}
+
+fn event_value<'a>(node: &'a CompiledRsxNode, name: &str) -> Option<&'a str> {
+    let CompiledRsxNode::Element { props, .. } = node else {
+        panic!("element node")
+    };
+    props.events.get(name).map(String::as_str)
 }
 
 fn find_element_by_attribute<'a>(

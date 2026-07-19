@@ -36,7 +36,7 @@ pub fn ui_link(cx: &mut ComponentCx<UiLinkProps>) -> RSX {
             {...props.linkProps}
             data-slot="link"
             data-pressed={props.isPressed}
-            class="inline-flex items-center gap-1 rounded-sm text-sm font-medium text-link underline-offset-4 outline-none transition-colors hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:text-muted-soft"
+            class="inline-flex items-center gap-1 rounded-sm text-sm font-medium text-link underline-offset-4 outline-none hover:underline focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:pointer-events-none disabled:text-muted-soft"
             className={props.className}
         >
             <Slot key="content" />

@@ -31,7 +31,7 @@ pub fn ui_switch(cx: &mut ComponentCx<UiSwitchProps>) -> RSX {
             key="root"
             {...props.switchProps}
             data-slot="switch"
-            class="peer inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-hairline-strong bg-surface-strong transition-colors outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[checked=true]:border-primary data-[checked=true]:bg-primary aria-invalid:border-semantic-error aria-invalid:ring-semantic-error/20"
+            class="peer inline-flex h-5 w-9 shrink-0 items-center rounded-full border border-hairline-strong bg-surface-strong outline-none focus-visible:border-ink focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:cursor-not-allowed disabled:opacity-50 data-[checked=true]:border-ink data-[checked=true]:bg-ink aria-invalid:border-semantic-error aria-invalid:ring-semantic-error/20"
             className={props.className}
         >
             <Slot key="content" />

@@ -39,7 +39,7 @@ pub fn ui_clipboard_target(cx: &mut ComponentCx<UiClipboardTargetProps>) -> RSX 
             data-slot="clipboard-target"
             aria-label={props.label}
             data-clipboard-disabled={props.isClipboardDisabled}
-            class="outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:text-muted-soft data-[clipboard-disabled=true]:text-muted-soft"
+            class="outline-none focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:pointer-events-none disabled:text-muted-soft data-[clipboard-disabled=true]:text-muted-soft"
             className={props.className}
         >
             <Slot key="content" />

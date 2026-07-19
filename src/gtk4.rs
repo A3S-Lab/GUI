@@ -10,8 +10,9 @@ use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
 use crate::platform::{
-    apply_widget_setters, NativeBackendKind, NativeControlState, NativeWidgetBlueprint,
-    NativeWidgetConfig, NativeWidgetConfigPatch, NativeWidgetSetter,
+    apply_widget_setters, push_widget_setter_history, NativeBackendKind, NativeControlState,
+    NativeTextInputKind, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetConfigPatch,
+    NativeWidgetKind, NativeWidgetSetter, DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -41,6 +42,41 @@ pub enum Gtk4WidgetKind {
 }
 
 impl Gtk4WidgetKind {
+    pub fn from_widget_kind(kind: NativeWidgetKind) -> Self {
+        match kind {
+            NativeWidgetKind::Window => Self::ApplicationWindow,
+            NativeWidgetKind::Container(_)
+            | NativeWidgetKind::RadioGroup
+            | NativeWidgetKind::Tree
+            | NativeWidgetKind::TreeItem
+            | NativeWidgetKind::Table
+            | NativeWidgetKind::Image
+            | NativeWidgetKind::Media => Self::Box,
+            NativeWidgetKind::ScrollContainer => Self::ScrolledWindow,
+            NativeWidgetKind::Label | NativeWidgetKind::Tab => Self::Label,
+            NativeWidgetKind::Button => Self::Button,
+            NativeWidgetKind::TextInput(NativeTextInputKind::Number) => Self::SpinButton,
+            NativeWidgetKind::TextInput(NativeTextInputKind::Multiline) => Self::TextView,
+            NativeWidgetKind::TextInput(_) => Self::Entry,
+            NativeWidgetKind::Checkbox | NativeWidgetKind::Radio => Self::CheckButton,
+            NativeWidgetKind::Switch => Self::Switch,
+            NativeWidgetKind::ComboBox => Self::DropDown,
+            NativeWidgetKind::List => Self::ListBox,
+            NativeWidgetKind::ListItem => Self::ListBoxRow,
+            NativeWidgetKind::Dialog => Self::Dialog,
+            NativeWidgetKind::Popover => Self::Popover,
+            NativeWidgetKind::Tabs => Self::Notebook,
+            NativeWidgetKind::Menu => Self::Menu,
+            NativeWidgetKind::MenuItem => Self::MenuItem,
+            NativeWidgetKind::Separator => Self::Separator,
+            NativeWidgetKind::Slider => Self::Scale,
+            NativeWidgetKind::Progress => Self::ProgressBar,
+            NativeWidgetKind::Toolbar => Self::ToolbarBox,
+        }
+    }
+
+    /// Legacy class-name compatibility. Runtime drivers use `from_widget_kind`.
+    #[deprecated(note = "use Gtk4WidgetKind::from_widget_kind with typed NativeWidgetKind")]
     pub fn from_widget_class(widget_class: &str) -> GuiResult<Self> {
         match widget_class {
             "gtk::ApplicationWindow" => Ok(Gtk4WidgetKind::ApplicationWindow),
@@ -169,7 +205,7 @@ impl Gtk4WidgetKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Gtk4NativeObject {
     pub id: HostNodeId,
     pub kind: Gtk4WidgetKind,
@@ -178,6 +214,21 @@ pub struct Gtk4NativeObject {
     pub action: Option<String>,
     pub control_state: NativeControlState,
     pub children: Vec<HostNodeId>,
+}
+
+impl std::fmt::Debug for Gtk4NativeObject {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("Gtk4NativeObject")
+            .field("id", &self.id)
+            .field("kind", &self.kind)
+            .field("label", &self.label)
+            .field("has_value", &self.value.is_some())
+            .field("action", &self.action)
+            .field("control_state", &self.control_state)
+            .field("children", &self.children)
+            .finish()
+    }
 }
 
 #[derive(Debug, Default)]
@@ -198,9 +249,13 @@ impl Gtk4NativeHandle {
     pub fn state(&self) -> Ref<'_, Gtk4NativeHandleState> {
         self.state.borrow()
     }
+
+    pub fn take_applied_setters(&self) -> Vec<NativeWidgetSetter> {
+        std::mem::take(&mut self.state.borrow_mut().applied_setters)
+    }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Gtk4NativeHandleState {
     pub id: HostNodeId,
     pub kind: Gtk4WidgetKind,
@@ -211,6 +266,23 @@ pub struct Gtk4NativeHandleState {
     pub control_state: NativeControlState,
     pub applied_setters: Vec<NativeWidgetSetter>,
     pub children: Vec<HostNodeId>,
+}
+
+impl std::fmt::Debug for Gtk4NativeHandleState {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("Gtk4NativeHandleState")
+            .field("id", &self.id)
+            .field("kind", &self.kind)
+            .field("config", &self.config)
+            .field("label", &self.label)
+            .field("has_value", &self.value.is_some())
+            .field("action", &self.action)
+            .field("control_state", &self.control_state)
+            .field("applied_setters", &self.applied_setters)
+            .field("children", &self.children)
+            .finish()
+    }
 }
 
 #[derive(Debug, Default)]
@@ -309,14 +381,22 @@ impl NativeHandleAdapter for Gtk4HandleAdapter {
         blueprint: &NativeWidgetBlueprint,
     ) -> GuiResult<Self::Handle> {
         let config = blueprint.config();
+        let setters = config.create_setters();
+        let mut applied_setters = Vec::new();
+        push_widget_setter_history(
+            &mut applied_setters,
+            &setters,
+            blueprint.effective_value_sensitivity(),
+            DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
+        );
         Ok(Gtk4NativeHandle {
             state: Rc::new(RefCell::new(Gtk4NativeHandleState {
                 id,
-                kind: Gtk4WidgetKind::from_widget_class(blueprint.widget_class.as_str())?,
+                kind: Gtk4WidgetKind::from_widget_kind(blueprint.widget_kind),
                 label: config.label.clone(),
                 value: config.value.clone(),
                 action: config.action.clone(),
-                applied_setters: config.create_setters(),
+                applied_setters,
                 config,
                 control_state: blueprint.control_state.clone(),
                 children: Vec::new(),
@@ -331,13 +411,18 @@ impl NativeHandleAdapter for Gtk4HandleAdapter {
         blueprint: &NativeWidgetBlueprint,
     ) -> GuiResult<()> {
         let mut state = handle.state.borrow_mut();
-        state.kind = Gtk4WidgetKind::from_widget_class(blueprint.widget_class.as_str())?;
+        state.kind = Gtk4WidgetKind::from_widget_kind(blueprint.widget_kind);
         state.config = blueprint.config();
         state.label = state.config.label.clone();
         state.value = state.config.value.clone();
         state.action = state.config.action.clone();
         let setters = state.config.create_setters();
-        state.applied_setters.extend(setters);
+        push_widget_setter_history(
+            &mut state.applied_setters,
+            &setters,
+            blueprint.effective_value_sensitivity(),
+            DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
+        );
         state.control_state = blueprint.control_state.clone();
         Ok(())
     }
@@ -350,14 +435,19 @@ impl NativeHandleAdapter for Gtk4HandleAdapter {
         patch: &NativeWidgetConfigPatch,
     ) -> GuiResult<()> {
         let mut state = handle.state.borrow_mut();
-        state.kind = Gtk4WidgetKind::from_widget_class(blueprint.widget_class.as_str())?;
+        state.kind = Gtk4WidgetKind::from_widget_kind(blueprint.widget_kind);
         let setters = patch.setters();
         apply_widget_setters(&mut state.config, &setters);
         state.label = state.config.label.clone();
         state.value = state.config.value.clone();
         state.action = state.config.action.clone();
         state.control_state = blueprint.control_state.clone();
-        state.applied_setters.extend(setters);
+        push_widget_setter_history(
+            &mut state.applied_setters,
+            &setters,
+            blueprint.effective_value_sensitivity(),
+            DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
+        );
         Ok(())
     }
 
@@ -421,7 +511,7 @@ impl NativeWidgetDriver for Gtk4WidgetDriver {
             id,
             Gtk4NativeObject {
                 id,
-                kind: Gtk4WidgetKind::from_widget_class(blueprint.widget_class.as_str())?,
+                kind: Gtk4WidgetKind::from_widget_kind(blueprint.widget_kind),
                 label: blueprint.label.clone(),
                 value: blueprint.value.clone(),
                 action: blueprint.action.clone(),
@@ -441,7 +531,7 @@ impl NativeWidgetDriver for Gtk4WidgetDriver {
             .objects
             .get_mut(&id)
             .ok_or_else(|| GuiError::host(format!("GTK4 object {} missing", id.get())))?;
-        object.kind = Gtk4WidgetKind::from_widget_class(blueprint.widget_class.as_str())?;
+        object.kind = Gtk4WidgetKind::from_widget_kind(blueprint.widget_kind);
         object.label = blueprint.label.clone();
         object.value = blueprint.value.clone();
         object.action = blueprint.action.clone();
@@ -509,436 +599,4 @@ impl NativeWidgetDriver for Gtk4WidgetDriver {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::backend::CommandExecutingHost;
-    use crate::compiler::CompiledRsxNode;
-    use crate::geometry::Orientation;
-    use crate::native::{NativeElement, NativeProps, NativeRole};
-    use crate::platform::{Gtk4Adapter, PlatformAdapter};
-    use crate::runtime::GuiRuntime;
-    use crate::style::{OverflowMode, StyleLength};
-
-    #[test]
-    fn gtk4_widget_driver_reparents_children_and_removes_subtrees() {
-        let mut driver = Gtk4WidgetDriver::default();
-        let root = HostNodeId::new(1);
-        let child = HostNodeId::new(2);
-        let grandchild = HostNodeId::new(3);
-        let second = HostNodeId::new(4);
-        let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
-        let button = Gtk4Adapter.blueprint(&NativeElement::new("button", NativeRole::Button));
-
-        driver.create_widget(root, &container).unwrap();
-        driver.create_widget(child, &container).unwrap();
-        driver.create_widget(grandchild, &button).unwrap();
-        driver.create_widget(second, &container).unwrap();
-        driver.insert_child(root, child, 0).unwrap();
-        driver.insert_child(child, grandchild, 0).unwrap();
-        driver.insert_child(second, child, 0).unwrap();
-
-        assert!(driver.object(root).unwrap().children.is_empty());
-        assert_eq!(driver.object(second).unwrap().children, vec![child]);
-        let error = driver.insert_child(child, second, 0).unwrap_err();
-        assert!(error.to_string().contains("would create a cycle"));
-
-        driver.set_root_widget(second).unwrap();
-        driver.remove_widget(second).unwrap();
-
-        assert!(driver.root().is_none());
-        assert!(driver.object(root).is_some());
-        assert!(driver.object(second).is_none());
-        assert!(driver.object(child).is_none());
-        assert!(driver.object(grandchild).is_none());
-        assert_eq!(driver.objects().len(), 1);
-    }
-
-    #[test]
-    fn gtk4_handle_adapter_clears_previous_parent_on_reparent() {
-        let mut driver = Gtk4HandleDriver::default();
-        let first = HostNodeId::new(1);
-        let second = HostNodeId::new(2);
-        let child = HostNodeId::new(3);
-        let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
-        let button = Gtk4Adapter.blueprint(&NativeElement::new("button", NativeRole::Button));
-
-        driver.create_widget(first, &container).unwrap();
-        driver.create_widget(second, &container).unwrap();
-        driver.create_widget(child, &button).unwrap();
-        driver.insert_child(first, child, 0).unwrap();
-        driver.insert_child(second, child, 0).unwrap();
-
-        assert_eq!(driver.children(first), Some([].as_slice()));
-        assert_eq!(driver.children(second), Some([child].as_slice()));
-        assert!(driver.handle(first).unwrap().state().children.is_empty());
-        assert_eq!(driver.handle(second).unwrap().state().children, vec![child]);
-    }
-
-    #[test]
-    fn gtk4_executor_consumes_compiled_semantic_ui_commands() {
-        let compiled: CompiledRsxNode = serde_json::from_str(
-            r#"
-            {
-              "kind": "element",
-              "key": "save",
-              "tag": "Button",
-              "props": {"isDisabled": true, "events": {"onPress": "saveProfile"}},
-              "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, Gtk4CommandExecutor::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        let root_id = runtime.render_compiled(&compiled).unwrap();
-        let object = runtime.host().executor().driver().object(root_id).unwrap();
-
-        assert_eq!(object.kind, Gtk4WidgetKind::Button);
-        assert_eq!(object.label.as_deref(), Some("Save"));
-        assert_eq!(object.action.as_deref(), Some("saveProfile"));
-        assert!(object.control_state.disabled);
-    }
-
-    #[test]
-    fn gtk4_executor_consumes_compiled_semantic_ui_toolbar_commands() {
-        let compiled: CompiledRsxNode = serde_json::from_str(
-            r#"
-            {
-              "kind": "element",
-              "key": "tools",
-              "tag": "Toolbar",
-              "props": {"aria-orientation": "horizontal"},
-              "children": [
-                {
-                  "kind": "element",
-                  "key": "save",
-                  "tag": "Button",
-                  "props": {"events": {"onPress": "saveDocument"}},
-                  "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-                }
-              ]
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, Gtk4CommandExecutor::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        let root_id = runtime.render_compiled(&compiled).unwrap();
-        let object = runtime.host().executor().driver().object(root_id).unwrap();
-        let child = runtime
-            .host()
-            .executor()
-            .driver()
-            .object(object.children[0])
-            .unwrap();
-
-        assert_eq!(object.kind, Gtk4WidgetKind::ToolbarBox);
-        assert_eq!(
-            object.control_state.orientation,
-            Some(crate::geometry::Orientation::Horizontal)
-        );
-        assert_eq!(child.kind, Gtk4WidgetKind::Button);
-        assert_eq!(child.action.as_deref(), Some("saveDocument"));
-    }
-
-    #[test]
-    fn gtk4_executor_consumes_compiled_semantic_ui_dialog_commands() {
-        let compiled: CompiledRsxNode = serde_json::from_str(
-            r#"
-            {
-              "kind": "element",
-              "key": "preferences",
-              "tag": "Dialog",
-              "props": {"aria-label": "Preferences"},
-              "children": [
-                {
-                  "kind": "element",
-                  "key": "close",
-                  "tag": "Button",
-                  "props": {"events": {"onPress": "closePreferences"}},
-                  "children": [{"kind": "text", "key": "close-text", "value": "Close"}]
-                }
-              ]
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, Gtk4CommandExecutor::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        let root_id = runtime.render_compiled(&compiled).unwrap();
-        let object = runtime.host().executor().driver().object(root_id).unwrap();
-        let child = runtime
-            .host()
-            .executor()
-            .driver()
-            .object(object.children[0])
-            .unwrap();
-
-        assert_eq!(object.kind, Gtk4WidgetKind::Dialog);
-        assert_eq!(object.label.as_deref(), Some("Preferences"));
-        assert_eq!(child.kind, Gtk4WidgetKind::Button);
-        assert_eq!(child.action.as_deref(), Some("closePreferences"));
-    }
-
-    #[test]
-    fn gtk4_executor_consumes_compiled_semantic_ui_popover_commands() {
-        let compiled: CompiledRsxNode = serde_json::from_str(
-            r#"
-            {
-              "kind": "element",
-              "key": "actions-popover",
-              "tag": "Popover",
-              "props": {"aria-label": "Actions"},
-              "children": [
-                {
-                  "kind": "element",
-                  "key": "archive",
-                  "tag": "Button",
-                  "props": {"events": {"onPress": "archiveItem"}},
-                  "children": [{"kind": "text", "key": "archive-text", "value": "Archive"}]
-                }
-              ]
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, Gtk4CommandExecutor::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        let root_id = runtime.render_compiled(&compiled).unwrap();
-        let object = runtime.host().executor().driver().object(root_id).unwrap();
-        let child = runtime
-            .host()
-            .executor()
-            .driver()
-            .object(object.children[0])
-            .unwrap();
-
-        assert_eq!(object.kind, Gtk4WidgetKind::Popover);
-        assert_eq!(object.label.as_deref(), Some("Actions"));
-        assert_eq!(child.kind, Gtk4WidgetKind::Button);
-        assert_eq!(child.action.as_deref(), Some("archiveItem"));
-    }
-
-    #[test]
-    fn gtk4_executor_consumes_compiled_semantic_ui_menu_commands() {
-        let compiled: CompiledRsxNode = serde_json::from_str(
-            r#"
-            {
-              "kind": "element",
-              "key": "file-menu",
-              "tag": "Menu",
-              "children": [
-                {
-                  "kind": "element",
-                  "key": "open",
-                  "tag": "MenuItem",
-                  "props": {"value": "open", "events": {"onPress": "openFile"}},
-                  "children": [{"kind": "text", "key": "open-text", "value": "Open"}]
-                }
-              ]
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, Gtk4CommandExecutor::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        let root_id = runtime.render_compiled(&compiled).unwrap();
-        let object = runtime.host().executor().driver().object(root_id).unwrap();
-        let item = runtime
-            .host()
-            .executor()
-            .driver()
-            .object(object.children[0])
-            .unwrap();
-
-        assert_eq!(object.kind, Gtk4WidgetKind::Menu);
-        assert_eq!(item.kind, Gtk4WidgetKind::MenuItem);
-        assert_eq!(item.label.as_deref(), Some("Open"));
-        assert_eq!(item.value.as_deref(), Some("open"));
-        assert_eq!(item.action.as_deref(), Some("openFile"));
-    }
-
-    #[test]
-    fn gtk4_handle_adapter_stores_thread_bound_native_handles() {
-        let compiled: CompiledRsxNode = serde_json::from_str(
-            r#"
-            {
-              "kind": "element",
-              "key": "save",
-              "tag": "Button",
-              "props": {"isDisabled": true, "events": {"onPress": "saveProfile"}},
-              "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, Gtk4HandleCommandExecutor::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        let root_id = runtime.render_compiled(&compiled).unwrap();
-        let handle = runtime.host().executor().driver().handle(root_id).unwrap();
-        let state = handle.state();
-
-        assert_eq!(state.kind, Gtk4WidgetKind::Button);
-        assert_eq!(state.label.as_deref(), Some("Save"));
-        assert_eq!(state.action.as_deref(), Some("saveProfile"));
-        assert!(state.control_state.disabled);
-        assert!(!state.config.enabled);
-        assert!(state
-            .applied_setters
-            .contains(&NativeWidgetSetter::SetEnabled(false)));
-        assert!(state
-            .applied_setters
-            .contains(&NativeWidgetSetter::SetLabel(Some("Save".to_string()))));
-    }
-
-    #[test]
-    fn gtk4_handle_adapter_applies_update_setters() {
-        let first: CompiledRsxNode = serde_json::from_str(
-            r#"
-            {
-              "kind": "element",
-              "key": "save",
-              "tag": "Button",
-              "props": {"events": {"onPress": "saveProfile"}},
-              "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-            }
-            "#,
-        )
-        .unwrap();
-        let second: CompiledRsxNode = serde_json::from_str(
-            r#"
-            {
-              "kind": "element",
-              "key": "save",
-              "tag": "Button",
-              "props": {"isDisabled": true, "events": {"onPress": "saveProfile"}},
-              "children": [{"kind": "text", "key": "save-text", "value": "Saved"}]
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, Gtk4HandleCommandExecutor::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        let root_id = runtime.render_compiled(&first).unwrap();
-        runtime.render_compiled(&second).unwrap();
-        let handle = runtime.host().executor().driver().handle(root_id).unwrap();
-        let state = handle.state();
-
-        assert_eq!(state.label.as_deref(), Some("Saved"));
-        assert!(!state.config.enabled);
-        assert!(state
-            .applied_setters
-            .contains(&NativeWidgetSetter::SetLabel(Some("Saved".to_string()))));
-        assert!(state
-            .applied_setters
-            .contains(&NativeWidgetSetter::SetEnabled(false)));
-    }
-
-    #[test]
-    fn gtk4_handle_adapter_clears_removed_textarea_sizing_on_rerender() {
-        let mut driver = Gtk4HandleDriver::default();
-        let id = HostNodeId::new(1);
-        let limited = Gtk4Adapter.blueprint(
-            &NativeElement::new("notes", NativeRole::TextField).with_props(
-                NativeProps::new()
-                    .metadata(crate::html::HTML_TAG_METADATA_KEY, "textarea")
-                    .rows(Some(6))
-                    .cols(Some(48)),
-            ),
-        );
-        let unlimited = Gtk4Adapter.blueprint(
-            &NativeElement::new("notes", NativeRole::TextField).with_props(
-                NativeProps::new().metadata(crate::html::HTML_TAG_METADATA_KEY, "textarea"),
-            ),
-        );
-
-        driver.create_widget(id, &limited).unwrap();
-        let initial_setter_count = {
-            let handle = driver.handle(id).unwrap();
-            let state = handle.state();
-            assert_eq!(state.config.rows, Some(6));
-            assert_eq!(state.config.cols, Some(48));
-            state.applied_setters.len()
-        };
-
-        driver.update_widget(id, &unlimited).unwrap();
-
-        let handle = driver.handle(id).unwrap();
-        let state = handle.state();
-        let update_setters = &state.applied_setters[initial_setter_count..];
-
-        assert_eq!(state.config.rows, None);
-        assert_eq!(state.config.cols, None);
-        assert!(update_setters.contains(&NativeWidgetSetter::SetRows(None)));
-        assert!(update_setters.contains(&NativeWidgetSetter::SetCols(None)));
-    }
-
-    #[test]
-    fn gtk4_scroll_handle_adapter_applies_rerender_style_setters() {
-        let first: CompiledRsxNode = serde_json::from_str(
-            r#"
-            {
-              "kind": "element",
-              "key": "shell",
-              "tag": "Toolbar",
-              "props": {
-                "orientation": "vertical",
-                "style": {"overflowY": "auto", "gap": 8, "inlineSize": 320}
-              },
-              "children": [{"kind": "text", "key": "summary", "value": "Ready"}]
-            }
-            "#,
-        )
-        .unwrap();
-        let second: CompiledRsxNode = serde_json::from_str(
-            r#"
-            {
-              "kind": "element",
-              "key": "shell",
-              "tag": "Toolbar",
-              "props": {
-                "orientation": "horizontal",
-                "style": {"overflowX": "scroll", "overflowY": "auto", "gap": 12, "inlineSize": 420}
-              },
-              "children": [{"kind": "text", "key": "summary", "value": "Ready"}]
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, Gtk4HandleCommandExecutor::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        let root_id = runtime.render_compiled(&first).unwrap();
-        let initial_setter_count = {
-            let handle = runtime.host().executor().driver().handle(root_id).unwrap();
-            let state = handle.state();
-            assert_eq!(state.kind, Gtk4WidgetKind::ScrolledWindow);
-            state.applied_setters.len()
-        };
-
-        runtime.render_compiled(&second).unwrap();
-        let handle = runtime.host().executor().driver().handle(root_id).unwrap();
-        let state = handle.state();
-        let update_setters = &state.applied_setters[initial_setter_count..];
-
-        assert_eq!(state.kind, Gtk4WidgetKind::ScrolledWindow);
-        assert!(
-            update_setters.contains(&NativeWidgetSetter::SetOrientation(Some(
-                Orientation::Horizontal
-            )))
-        );
-        assert!(update_setters.iter().any(|setter| matches!(
-            setter,
-            NativeWidgetSetter::SetPortableStyle(style)
-                if style.overflow_x == Some(OverflowMode::Scroll)
-                    && style.gap.as_ref().and_then(StyleLength::points) == Some(12.0)
-        )));
-    }
-}
+mod tests;

@@ -29,7 +29,7 @@ pub fn ui_drop_zone(cx: &mut ComponentCx<UiDropZoneProps>) -> RSX {
             key="root"
             {...props.dropZoneProps}
             data-slot="drop-zone"
-            class="grid min-h-24 place-items-center rounded-lg border border-dashed border-hairline-strong bg-canvas-soft p-6 text-sm text-body transition-colors"
+            class="grid min-h-24 place-items-center rounded-md border border-dashed border-hairline-strong bg-canvas-soft p-3 text-sm text-body"
             className={props.className}
         >
             <Slot key="content" />

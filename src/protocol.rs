@@ -1,18 +1,33 @@
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Deserializer, Serialize};
+#[cfg(feature = "authoring")]
 use serde_json::{json, Value as JsonValue};
 
-use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
-use crate::compiler::{CompiledRsxNode, RsxCompilerBridge};
+use crate::accessibility::{
+    AccessibilityDescriptionProps, AccessibilityNode, AccessibilityRelationshipProps,
+    AccessibilityRole, AccessibilityStateProps, AccessibilityStructureProps, AccessibilityTreeHost,
+};
+use crate::compiler::{
+    CompiledOrientation, CompiledProps, CompiledRsxNode, CompiledStyleValue, RsxCompilerBridge,
+};
 use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, NativeEvent, RegisteredAction};
 use crate::host::{HostNodeId, NativeHost};
 use crate::interaction::InteractionChange;
-use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{BlueprintHost, PlatformAdapter, PlatformCommand, PlatformPlanningHost};
-use crate::runtime::GuiRuntime;
+use crate::native::{NativeElement, NativeProps, NativeRole, ValueSensitivity};
+use crate::platform::{
+    BlueprintHost, NativeControlState, NativeWidgetBlueprint, PlatformAdapter, PlatformCommand,
+    PlatformPlanningHost,
+};
+use crate::runtime::{effective_blueprint_value_sensitivity, GuiRuntime};
+use crate::style::PortableStyle;
 use crate::web::WebProps;
+
+pub const NATIVE_PROTOCOL_VERSION_V1: u32 = 1;
+
+static NEXT_PROTOCOL_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -93,7 +108,7 @@ pub struct RenderedFrame {
     pub root: HostNodeId,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeRenderResponse {
     pub frame_id: String,
@@ -103,6 +118,49 @@ pub struct NativeRenderResponse {
     pub accessibility_tree: Option<AccessibilityNode>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeRenderResponseWire {
+    frame_id: String,
+    root: HostNodeId,
+    commands: Vec<PlatformCommand>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    accessibility_tree: Option<AccessibilityNode>,
+}
+
+impl Serialize for NativeRenderResponse {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut commands = self.commands.clone();
+        let mut sensitive_nodes = BTreeSet::new();
+        for command in &mut commands {
+            let (id, blueprint) = match command {
+                PlatformCommand::Create { id, blueprint }
+                | PlatformCommand::Update { id, blueprint } => (*id, blueprint),
+                _ => continue,
+            };
+            let sensitivity = effective_blueprint_value_sensitivity(blueprint);
+            blueprint.value_sensitivity = sensitivity;
+            if sensitivity.is_sensitive() {
+                blueprint.control_state.accessibility_description.value_text = None;
+                sensitivity.redact_metadata(&mut blueprint.metadata);
+                sensitive_nodes.insert(id);
+            }
+        }
+        let mut accessibility_tree = self.accessibility_tree.clone();
+        redact_accessibility_nodes(accessibility_tree.as_mut(), &sensitive_nodes);
+        NativeRenderResponseWire {
+            frame_id: self.frame_id.clone(),
+            root: self.root,
+            commands,
+            accessibility_tree,
+        }
+        .serialize(serializer)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HostEvent {
@@ -110,16 +168,20 @@ pub struct HostEvent {
     pub event: NativeEvent,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HostEventResponse {
     pub frame_id: String,
     pub invocation: ActionInvocation,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub interaction_changes: Vec<InteractionChange>,
+    #[serde(default, skip)]
+    pub value_sensitivity: ValueSensitivity,
+    #[serde(default, skip)]
+    pub value_node: Option<HostNodeId>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeHostEventResponse {
     pub frame_id: String,
@@ -129,9 +191,13 @@ pub struct NativeHostEventResponse {
     pub accessibility_tree: Option<AccessibilityNode>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub interaction_changes: Vec<InteractionChange>,
+    #[serde(default, skip)]
+    pub value_sensitivity: ValueSensitivity,
+    #[serde(default, skip)]
+    pub value_node: Option<HostNodeId>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeAppEventResponse {
     pub frame_id: String,
@@ -143,7 +209,179 @@ pub struct NativeAppEventResponse {
     pub interaction_changes: Vec<InteractionChange>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub render: Option<NativeRenderResponse>,
+    #[serde(default, skip)]
+    pub value_sensitivity: ValueSensitivity,
+    #[serde(default, skip)]
+    pub value_node: Option<HostNodeId>,
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HostEventResponseWire {
+    frame_id: String,
+    invocation: ActionInvocation,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    interaction_changes: Vec<InteractionChange>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeHostEventResponseWire {
+    frame_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    invocation: Option<ActionInvocation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    accessibility_tree: Option<AccessibilityNode>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    interaction_changes: Vec<InteractionChange>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeAppEventResponseWire {
+    frame_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    invocation: Option<ActionInvocation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    accessibility_tree: Option<AccessibilityNode>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    interaction_changes: Vec<InteractionChange>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    render: Option<NativeRenderResponse>,
+}
+
+impl Serialize for HostEventResponse {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut invocation = self.invocation.clone();
+        let mut interaction_changes = self.interaction_changes.clone();
+        redact_response_values(
+            Some(&mut invocation),
+            &mut interaction_changes,
+            self.value_sensitivity,
+        );
+        HostEventResponseWire {
+            frame_id: self.frame_id.clone(),
+            invocation,
+            interaction_changes,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl Serialize for NativeHostEventResponse {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut invocation = self.invocation.clone();
+        let mut interaction_changes = self.interaction_changes.clone();
+        redact_response_values(
+            invocation.as_mut(),
+            &mut interaction_changes,
+            self.value_sensitivity,
+        );
+        let mut accessibility_tree = self.accessibility_tree.clone();
+        redact_response_accessibility(
+            accessibility_tree.as_mut(),
+            self.value_node,
+            self.value_sensitivity,
+        );
+        NativeHostEventResponseWire {
+            frame_id: self.frame_id.clone(),
+            invocation,
+            accessibility_tree,
+            interaction_changes,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl Serialize for NativeAppEventResponse {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut invocation = self.invocation.clone();
+        let mut interaction_changes = self.interaction_changes.clone();
+        redact_response_values(
+            invocation.as_mut(),
+            &mut interaction_changes,
+            self.value_sensitivity,
+        );
+        let mut accessibility_tree = self.accessibility_tree.clone();
+        redact_response_accessibility(
+            accessibility_tree.as_mut(),
+            self.value_node,
+            self.value_sensitivity,
+        );
+        NativeAppEventResponseWire {
+            frame_id: self.frame_id.clone(),
+            invocation,
+            accessibility_tree,
+            interaction_changes,
+            render: self.render.clone(),
+        }
+        .serialize(serializer)
+    }
+}
+
+fn redact_response_values(
+    invocation: Option<&mut ActionInvocation>,
+    interaction_changes: &mut [InteractionChange],
+    value_sensitivity: ValueSensitivity,
+) {
+    if !value_sensitivity.is_sensitive() {
+        return;
+    }
+    if let Some(invocation) = invocation {
+        invocation.value = None;
+    }
+    for change in interaction_changes {
+        change.before.value = None;
+        change.after.value = None;
+    }
+}
+
+fn redact_response_accessibility(
+    node: Option<&mut AccessibilityNode>,
+    target: Option<HostNodeId>,
+    sensitivity: ValueSensitivity,
+) {
+    let (Some(node), Some(target)) = (node, target) else {
+        return;
+    };
+    if node.node == Some(target) && sensitivity.is_sensitive() {
+        node.value = None;
+        node.description.value_text = None;
+        node.value_sensitivity = ValueSensitivity::Sensitive;
+    }
+    for child in &mut node.children {
+        redact_response_accessibility(Some(child), Some(target), sensitivity);
+    }
+}
+
+fn redact_accessibility_nodes(
+    node: Option<&mut AccessibilityNode>,
+    sensitive_nodes: &BTreeSet<HostNodeId>,
+) {
+    let Some(node) = node else {
+        return;
+    };
+    if node.node.is_some_and(|id| sensitive_nodes.contains(&id)) {
+        node.value = None;
+        node.description.value_text = None;
+        node.value_sensitivity = ValueSensitivity::Sensitive;
+    }
+    for child in &mut node.children {
+        redact_accessibility_nodes(Some(child), sensitive_nodes);
+    }
+}
+
+mod v1;
+pub use v1::*;
 
 impl UiFrame {
     pub fn from_compiled(frame_id: impl Into<String>, root: CompiledRsxNode) -> GuiResult<Self> {
@@ -167,10 +405,12 @@ impl UiFrame {
         Ok(frame)
     }
 
+    #[cfg(feature = "authoring")]
     pub fn from_rsx_source(frame_id: impl Into<String>, source: &str) -> GuiResult<Self> {
         Self::from_rsx_source_parts(frame_id, source, None, None)
     }
 
+    #[cfg(feature = "authoring")]
     pub fn from_rsx_source_with_window(
         frame_id: impl Into<String>,
         source: &str,
@@ -179,6 +419,7 @@ impl UiFrame {
         Self::from_rsx_source_parts(frame_id, source, None, Some(window))
     }
 
+    #[cfg(feature = "authoring")]
     pub fn from_rsx_source_parts(
         frame_id: impl Into<String>,
         source: &str,
@@ -189,6 +430,7 @@ impl UiFrame {
         Self::from_compiled_parts(frame_id, root, actions, window)
     }
 
+    #[cfg(feature = "authoring")]
     pub fn from_rsx_source_with_state(
         frame_id: impl Into<String>,
         source: &str,
@@ -197,6 +439,7 @@ impl UiFrame {
         Self::from_rsx_source_parts_with_state(frame_id, source, state, None, None)
     }
 
+    #[cfg(feature = "authoring")]
     pub fn from_rsx_source_parts_with_state(
         frame_id: impl Into<String>,
         source: &str,
@@ -214,6 +457,7 @@ impl UiFrame {
         Self::from_rsx_source_parts_with_scope(frame_id, source, &scope, actions, window)
     }
 
+    #[cfg(feature = "authoring")]
     pub fn from_rsx_source_with_scope(
         frame_id: impl Into<String>,
         source: &str,
@@ -222,6 +466,7 @@ impl UiFrame {
         Self::from_rsx_source_parts_with_scope(frame_id, source, scope, None, None)
     }
 
+    #[cfg(feature = "authoring")]
     pub fn from_rsx_source_parts_with_scope(
         frame_id: impl Into<String>,
         source: &str,
@@ -515,97 +760,11 @@ fn collect_action_id(
     }
 }
 
-#[derive(Debug)]
-pub struct NativeProtocolSession<A: PlatformAdapter> {
-    runtime: GuiRuntime<PlatformPlanningHost<A>>,
-    active_frame_id: Option<String>,
-    root: Option<HostNodeId>,
-    command_cursor: usize,
-}
-
-impl<A: PlatformAdapter> NativeProtocolSession<A> {
-    pub fn new(adapter: A) -> Self {
-        Self {
-            runtime: GuiRuntime::new(PlatformPlanningHost::new(adapter)),
-            active_frame_id: None,
-            root: None,
-            command_cursor: 0,
-        }
-    }
-
-    pub fn runtime(&self) -> &GuiRuntime<PlatformPlanningHost<A>> {
-        &self.runtime
-    }
-
-    pub fn runtime_mut(&mut self) -> &mut GuiRuntime<PlatformPlanningHost<A>> {
-        &mut self.runtime
-    }
-
-    pub fn active_frame_id(&self) -> Option<&str> {
-        self.active_frame_id.as_deref()
-    }
-
-    pub fn root(&self) -> Option<HostNodeId> {
-        self.root
-    }
-
-    pub fn accessibility_tree(&self) -> Option<AccessibilityNode> {
-        self.runtime.accessibility_tree()
-    }
-
-    pub fn render_frame(&mut self, frame: &UiFrame) -> GuiResult<NativeRenderResponse> {
-        let rendered = frame.render_into(&mut self.runtime)?;
-        self.active_frame_id = Some(rendered.frame_id.clone());
-        self.root = Some(rendered.root);
-        let commands = self.pending_commands();
-        let accessibility_tree = self.runtime.accessibility_tree();
-        Ok(NativeRenderResponse {
-            frame_id: rendered.frame_id,
-            root: rendered.root,
-            commands,
-            accessibility_tree,
-        })
-    }
-
-    pub fn dispatch_host_event(&mut self, event: &HostEvent) -> GuiResult<HostEventResponse> {
-        event.validate()?;
-        self.ensure_active_frame(event)?;
-        event.dispatch_into(&mut self.runtime)
-    }
-
-    pub fn handle_host_event(&mut self, event: &HostEvent) -> GuiResult<NativeHostEventResponse> {
-        event.validate()?;
-        self.ensure_active_frame(event)?;
-        event.handle_into(&mut self.runtime)
-    }
-
-    pub fn pending_commands(&mut self) -> Vec<PlatformCommand> {
-        let commands = self.runtime.host().commands()[self.command_cursor..].to_vec();
-        self.command_cursor = self.runtime.host().commands().len();
-        commands
-    }
-
-    fn ensure_active_frame(&self, event: &HostEvent) -> GuiResult<()> {
-        let active_frame_id = self
-            .active_frame_id
-            .as_deref()
-            .ok_or_else(|| crate::error::GuiError::host("no active native frame"))?;
-        if event.frame_id != active_frame_id {
-            return Err(crate::error::GuiError::host(format!(
-                "native event for frame {} cannot be dispatched into active frame {}",
-                event.frame_id, active_frame_id
-            )));
-        }
-        Ok(())
-    }
-}
-
-impl<A: PlatformAdapter + Default> Default for NativeProtocolSession<A> {
-    fn default() -> Self {
-        Self::new(A::default())
-    }
-}
-
+/// In-process application orchestration for the legacy protocol API.
+///
+/// This type intentionally does not drive protocol v1. Version-1 transports own
+/// a [`NativeProtocolSession`] directly and must follow the render -> command ACK
+/// -> ordered event -> reducer/effect -> next render lifecycle explicitly.
 pub struct NativeProtocolApp<A: PlatformAdapter, S, F, R> {
     session: NativeProtocolSession<A>,
     state: S,
@@ -705,6 +864,8 @@ where
             accessibility_tree,
             interaction_changes: response.interaction_changes,
             render: Some(render),
+            value_sensitivity: response.value_sensitivity,
+            value_node: response.value_node,
         })
     }
 
@@ -726,6 +887,8 @@ where
             accessibility_tree,
             interaction_changes: response.interaction_changes,
             render,
+            value_sensitivity: response.value_sensitivity,
+            value_node: response.value_node,
         })
     }
 }
@@ -753,6 +916,8 @@ impl HostEvent {
             frame_id: self.frame_id.clone(),
             invocation,
             interaction_changes: handled.interaction_changes,
+            value_sensitivity: handled.value_sensitivity,
+            value_node: Some(self.event.node),
         })
     }
 
@@ -768,2872 +933,12 @@ impl HostEvent {
             invocation: handled.invocation,
             accessibility_tree,
             interaction_changes: handled.interaction_changes,
+            value_sensitivity: handled.value_sensitivity,
+            value_node: Some(self.event.node),
         })
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::accessibility::AccessibilityRole;
-    use crate::backend::{CommandExecutingHost, RecordingBackend};
-    use crate::event::NativeEventKind;
-    use crate::host::HeadlessHost;
-    use crate::platform::{Gtk4Adapter, NativeWidgetSetter};
-
-    #[derive(Default)]
-    struct FailingUpdateHost {
-        inner: HeadlessHost,
-        fail_updates: bool,
-    }
-
-    impl NativeHost for FailingUpdateHost {
-        fn create(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
-            self.inner.create(element)
-        }
-
-        fn update(&mut self, id: HostNodeId, props: &NativeProps) -> GuiResult<()> {
-            if self.fail_updates {
-                return Err(GuiError::host("forced host update failure"));
-            }
-            self.inner.update(id, props)
-        }
-
-        fn insert_child(
-            &mut self,
-            parent: HostNodeId,
-            child: HostNodeId,
-            index: usize,
-        ) -> GuiResult<()> {
-            self.inner.insert_child(parent, child, index)
-        }
-
-        fn remove(&mut self, id: HostNodeId) -> GuiResult<()> {
-            self.inner.remove(id)
-        }
-
-        fn set_root(&mut self, id: HostNodeId) -> GuiResult<()> {
-            self.inner.set_root(id)
-        }
-    }
-
-    #[derive(Debug, Clone, PartialEq, Default)]
-    struct CounterState {
-        count: u32,
-    }
-
-    fn counter_frame(state: &CounterState) -> GuiResult<UiFrame> {
-        serde_json::from_value(serde_json::json!({
-            "frameId": "counter",
-            "actions": [{"id": "increment"}],
-            "root": {
-                "kind": "element",
-                "key": "increment",
-                "tag": "Button",
-                "props": {"events": {"onPress": "increment"}},
-                "children": [
-                    {
-                        "kind": "text",
-                        "key": "label",
-                        "value": format!("Count {}", state.count)
-                    }
-                ]
-            }
-        }))
-        .map_err(|error| GuiError::invalid_tree(format!("invalid counter frame: {error}")))
-    }
-
-    fn counter_reduce(state: &mut CounterState, invocation: &ActionInvocation) -> GuiResult<()> {
-        match invocation.action.as_str() {
-            "increment" => {
-                state.count += 1;
-                Ok(())
-            }
-            other => Err(GuiError::host(format!("unexpected action {other}"))),
-        }
-    }
-
-    fn rsx_counter_frame(state: &CounterState) -> GuiResult<UiFrame> {
-        let state = serde_json::json!({ "count": state.count });
-        UiFrame::from_rsx_source_with_state(
-            "rsx-counter",
-            r#"
-            <Button key="increment" onPress={increment}>
-              Count {state.count}
-            </Button>
-            "#,
-            &state,
-        )
-    }
-
-    #[test]
-    fn native_protocol_app_reduces_actions_and_renders_next_frame() {
-        let mut app = NativeProtocolApp::new(
-            Gtk4Adapter,
-            CounterState::default(),
-            counter_frame,
-            counter_reduce,
-        );
-        let rendered = app.render().unwrap();
-
-        let response = app
-            .dispatch_host_event(&HostEvent {
-                frame_id: "counter".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
-            })
-            .unwrap();
-
-        assert_eq!(app.state().count, 1);
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .map(|action| action.action.as_str()),
-            Some("increment")
-        );
-        assert!(response.render.is_some());
-        assert_eq!(response.render.as_ref().unwrap().root, rendered.root);
-    }
-
-    #[test]
-    fn native_protocol_app_resolves_rsx_state_bindings_after_reducer() {
-        let mut app = NativeProtocolApp::new(
-            Gtk4Adapter,
-            CounterState::default(),
-            rsx_counter_frame,
-            counter_reduce,
-        );
-        let rendered = app.render().unwrap();
-        assert_eq!(
-            rendered
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.label.as_deref()),
-            Some("Count 0")
-        );
-
-        let response = app
-            .dispatch_host_event(&HostEvent {
-                frame_id: "rsx-counter".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
-            })
-            .unwrap();
-
-        assert_eq!(app.state().count, 1);
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .map(|action| action.action.as_str()),
-            Some("increment")
-        );
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.label.as_deref()),
-            Some("Count 1")
-        );
-    }
-
-    #[test]
-    fn native_protocol_app_handles_state_only_events_without_rerendering() {
-        let mut app = NativeProtocolApp::new(
-            Gtk4Adapter,
-            CounterState::default(),
-            counter_frame,
-            counter_reduce,
-        );
-        let rendered = app.render().unwrap();
-
-        let response = app
-            .handle_host_event(&HostEvent {
-                frame_id: "counter".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Focus),
-            })
-            .unwrap();
-
-        assert_eq!(app.state().count, 0);
-        assert!(response.invocation.is_none());
-        assert!(response.render.is_none());
-        assert_eq!(response.interaction_changes.len(), 1);
-        assert!(response.accessibility_tree.unwrap().focused);
-    }
-
-    #[test]
-    fn protocol_renders_frame_and_dispatches_native_event_to_action() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "frame-1",
-              "actions": [{"id": "saveProfile", "label": "Save profile"}],
-              "window": {"title": "Profile", "width": 420, "height": 320},
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"events": {"onPress": "saveProfile"}},
-                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        let rendered = frame.render_into(&mut runtime).unwrap();
-        let button = runtime
-            .host()
-            .planning()
-            .node(rendered.root)
-            .unwrap()
-            .children[0];
-        let response = HostEvent {
-            frame_id: rendered.frame_id.clone(),
-            event: NativeEvent::new(button, NativeEventKind::Press),
-        }
-        .dispatch_into(&mut runtime)
-        .unwrap();
-
-        assert_eq!(rendered.frame_id, "frame-1");
-        assert_eq!(response.frame_id, "frame-1");
-        assert_eq!(response.invocation.action, "saveProfile");
-        assert_eq!(runtime.actions().invocations().len(), 1);
-    }
-
-    #[test]
-    fn rsx_source_frame_renders_tailwind_to_native_widgets_without_node_or_bun() {
-        let frame = UiFrame::from_rsx_source(
-            "rsx-native",
-            r##"
-            <Toolbar key="root" orientation="vertical" className="min-w-[920px] gap-2 bg-[#efefef] p-3">
-              <Button key="save" onPress={saveDocument} className="rounded-md border border-[#ebebeb]">
-                Save
-              </Button>
-            </Toolbar>
-            "##,
-        )
-        .unwrap();
-        assert_eq!(frame.actions.len(), 1);
-        assert_eq!(frame.actions[0].id, "saveDocument");
-
-        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
-        let mut runtime = GuiRuntime::new(host);
-        let rendered = frame.render_into(&mut runtime).unwrap();
-        let root = runtime.host().planning().node(rendered.root).unwrap();
-
-        assert_eq!(root.blueprint.widget_class, "gtk::Box(toolbar)");
-        assert_eq!(
-            root.blueprint.class_name.as_deref(),
-            Some("min-w-[920px] gap-2 bg-[#efefef] p-3")
-        );
-        assert!(root.blueprint.portable_style.min_width.is_some());
-        assert!(root.blueprint.portable_style.background_color.is_some());
-
-        let button = root.children[0];
-        let response = HostEvent {
-            frame_id: rendered.frame_id.clone(),
-            event: NativeEvent::new(button, NativeEventKind::Press),
-        }
-        .dispatch_into(&mut runtime)
-        .unwrap();
-
-        assert_eq!(response.frame_id, "rsx-native");
-        assert_eq!(response.invocation.action, "saveDocument");
-    }
-
-    #[test]
-    fn rsx_source_frame_rejects_unresolved_state_bindings() {
-        let error =
-            UiFrame::from_rsx_source("unresolved", r#"<Text key="title" label={state.title} />"#)
-                .unwrap_err();
-
-        assert!(error.to_string().contains(
-            "cannot render unresolved RSX state/props/derived/context/resource bindings"
-        ));
-    }
-
-    #[test]
-    fn ui_frame_render_preserves_action_scope_after_failed_native_render() {
-        let first: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"events": {"onPress": "saveProfile"}},
-                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let second: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "deleteProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"events": {"onPress": "deleteProfile"}},
-                "children": [{"kind": "text", "key": "save-text", "value": "Delete"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut runtime = GuiRuntime::new(FailingUpdateHost::default());
-
-        first.render_into(&mut runtime).unwrap();
-        assert!(runtime.actions().contains("saveProfile"));
-        runtime.host_mut().fail_updates = true;
-        let error = second.render_into(&mut runtime).unwrap_err();
-
-        assert!(error.to_string().contains("forced host update failure"));
-        assert!(runtime.actions().contains("saveProfile"));
-        assert!(!runtime.actions().contains("deleteProfile"));
-    }
-
-    #[test]
-    fn native_protocol_session_returns_incremental_native_commands() {
-        let first: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"events": {"onPress": "saveProfile"}},
-                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let second: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"events": {"onPress": "saveProfile"}},
-                "children": [{"kind": "text", "key": "save-text", "value": "Saved"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let first_response = session.render_frame(&first).unwrap();
-        let second_response = session.render_frame(&second).unwrap();
-
-        assert_eq!(first_response.frame_id, "profile");
-        assert_eq!(session.active_frame_id(), Some("profile"));
-        assert_eq!(session.root(), Some(first_response.root));
-        assert!(first_response.commands.iter().any(|command| matches!(
-            command,
-            crate::platform::PlatformCommand::Create {
-                blueprint,
-                ..
-            } if blueprint.widget_class == "gtk::Button"
-                && blueprint.label.as_deref() == Some("Save")
-        )));
-        assert!(first_response.commands.iter().any(|command| {
-            matches!(command, crate::platform::PlatformCommand::SetRoot { .. })
-        }));
-        assert_eq!(second_response.root, first_response.root);
-        assert!(second_response.commands.iter().any(|command| matches!(
-            command,
-            crate::platform::PlatformCommand::Update {
-                id,
-                blueprint,
-            } if *id == first_response.root && blueprint.label.as_deref() == Some("Saved")
-        )));
-        assert!(second_response.commands.iter().all(|command| {
-            !matches!(command, crate::platform::PlatformCommand::Create { .. })
-        }));
-        assert!(session.pending_commands().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_ignores_stale_host_events_after_rerender_removes_node() {
-        let first: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "toolbar",
-                "tag": "Toolbar",
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "save",
-                    "tag": "Button",
-                    "props": {"events": {"onPress": "saveProfile"}},
-                    "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-                  },
-                  {
-                    "kind": "element",
-                    "key": "cancel",
-                    "tag": "Button",
-                    "children": [{"kind": "text", "key": "cancel-text", "value": "Cancel"}]
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let second: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "toolbar",
-                "tag": "Toolbar",
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "cancel",
-                    "tag": "Button",
-                    "children": [{"kind": "text", "key": "cancel-text", "value": "Cancel"}]
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let first_response = session.render_frame(&first).unwrap();
-        let save = session
-            .runtime()
-            .host()
-            .node(first_response.root)
-            .unwrap()
-            .children[0];
-        session.render_frame(&second).unwrap();
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(save, NativeEventKind::Press),
-            })
-            .unwrap();
-
-        let accessibility = response.accessibility_tree.unwrap();
-        assert!(response.invocation.is_none());
-        assert!(response.interaction_changes.is_empty());
-        assert!(session.runtime().host().node(save).is_none());
-        assert_eq!(accessibility.children.len(), 1);
-        assert_eq!(accessibility.children[0].label.as_deref(), Some("Cancel"));
-    }
-
-    #[test]
-    fn native_protocol_session_rejects_invalid_frame_contracts() {
-        let valid: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "valid",
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let empty_frame_id: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "",
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button"
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let text_root: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "text-root",
-              "root": {"kind": "text", "key": "text-0", "value": "Loose text"}
-            }
-            "#,
-        )
-        .unwrap();
-        let empty_action: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "empty-action",
-              "actions": [{"id": ""}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button"
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let duplicate_action: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "duplicate-action",
-              "actions": [{"id": "saveProfile"}, {"id": "saveProfile", "label": "Save"}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button"
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let empty_element_key: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "empty-element-key",
-              "root": {
-                "kind": "element",
-                "key": "",
-                "tag": "Button"
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let empty_element_tag: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "empty-element-tag",
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": ""
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let empty_text_key: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "empty-text-key",
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "children": [{"kind": "text", "key": "", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let duplicate_child_key: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "duplicate-child-key",
-              "root": {
-                "kind": "element",
-                "key": "toolbar",
-                "tag": "Toolbar",
-                "children": [
-                  {"kind": "element", "key": "save", "tag": "Button"},
-                  {"kind": "element", "key": "save", "tag": "Button"}
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let negative_width: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "negative-width",
-              "window": {"title": "Profile", "width": -1},
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button"
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let inverted_width_bounds: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "inverted-width-bounds",
-              "window": {"title": "Profile", "minWidth": 800, "maxWidth": 640},
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button"
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let width_below_minimum: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "width-below-minimum",
-              "window": {"title": "Profile", "width": 320, "minWidth": 640},
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button"
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut non_finite_window = valid.clone();
-        non_finite_window.frame_id = "non-finite-window".to_string();
-        non_finite_window.window = Some(WindowOptions {
-            title: "Profile".to_string(),
-            on_close: None,
-            width: Some(f64::NAN),
-            height: None,
-            min_width: None,
-            min_height: None,
-            max_width: None,
-            max_height: None,
-            resizable: true,
-        });
-
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&valid).unwrap();
-
-        let error = session.render_frame(&empty_frame_id).unwrap_err();
-        assert!(error.to_string().contains("non-empty string frame id"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&text_root).unwrap_err();
-        assert!(error.to_string().contains("one root element"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&empty_action).unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("frame actions need non-empty string ids"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&duplicate_action).unwrap_err();
-        assert!(error.to_string().contains("frame actions need unique ids"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&empty_element_key).unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("compiled elements need non-empty keys"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&empty_element_tag).unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("compiled elements need non-empty tags"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&empty_text_key).unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("compiled text nodes need non-empty keys"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&duplicate_child_key).unwrap_err();
-        assert!(error.to_string().contains("sibling nodes need unique keys"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&negative_width).unwrap_err();
-        assert!(error.to_string().contains("positive finite number"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&inverted_width_bounds).unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("window.minWidth cannot be greater than window.maxWidth"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&width_below_minimum).unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("window.width cannot be smaller than window.minWidth"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-
-        let error = session.render_frame(&non_finite_window).unwrap_err();
-        assert!(error.to_string().contains("positive finite number"));
-        assert_eq!(session.active_frame_id(), Some("valid"));
-        assert_eq!(session.root(), Some(rendered.root));
-        assert!(session.pending_commands().is_empty());
-    }
-
-    #[test]
-    fn ui_frame_rejects_null_optional_protocol_fields() {
-        let actions_null = serde_json::from_str::<UiFrame>(
-            r#"
-            {
-              "frameId": "actions-null",
-              "actions": null,
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button"
-              }
-            }
-            "#,
-        )
-        .unwrap_err();
-
-        assert!(actions_null
-            .to_string()
-            .contains("a3s-gui frame actions cannot be null"));
-
-        let window_null = serde_json::from_str::<UiFrame>(
-            r#"
-            {
-              "frameId": "window-null",
-              "window": null,
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button"
-              }
-            }
-            "#,
-        )
-        .unwrap_err();
-
-        assert!(window_null
-            .to_string()
-            .contains("a3s-gui frame window cannot be null"));
-    }
-
-    #[test]
-    fn native_protocol_session_updates_window_style_options() {
-        let first: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "window": {"title": "Profile", "width": 640, "height": 480},
-              "root": {
-                "kind": "element",
-                "key": "content",
-                "tag": "Group",
-                "children": [{"kind": "text", "key": "text", "value": "Profile"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let second: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "window": {
-                "title": "Profile",
-                "width": 800,
-                "height": 560,
-                "minWidth": 520,
-                "minHeight": 360
-              },
-              "root": {
-                "kind": "element",
-                "key": "content",
-                "tag": "Group",
-                "children": [{"kind": "text", "key": "text", "value": "Profile"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let first_response = session.render_frame(&first).unwrap();
-        let second_response = session.render_frame(&second).unwrap();
-
-        assert_eq!(second_response.root, first_response.root);
-        assert!(second_response.commands.iter().any(|command| matches!(
-            command,
-            crate::platform::PlatformCommand::Update { id, blueprint }
-                if *id == first_response.root
-                    && blueprint
-                        .portable_style
-                        .width
-                        .as_ref()
-                        .and_then(|value| value.points()) == Some(800.0)
-                    && blueprint
-                        .portable_style
-                        .height
-                        .as_ref()
-                        .and_then(|value| value.points()) == Some(560.0)
-                    && blueprint
-                        .portable_style
-                        .min_width
-                        .as_ref()
-                        .and_then(|value| value.points()) == Some(520.0)
-                    && blueprint
-                        .portable_style
-                        .min_height
-                        .as_ref()
-                        .and_then(|value| value.points()) == Some(360.0)
-        )));
-        assert!(second_response.commands.iter().all(|command| {
-            !matches!(command, crate::platform::PlatformCommand::Create { .. })
-        }));
-    }
-
-    #[test]
-    fn native_protocol_session_returns_rendered_accessibility_tree() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {
-                  "isReadOnly": true,
-                  "attributes": {
-                    "aria-label": "Save profile",
-                    "aria-describedby": "save-help",
-                    "aria-description": "Writes profile changes",
-                    "aria-pressed": "false"
-                  }
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let response = session.render_frame(&frame).unwrap();
-        let accessibility = response.accessibility_tree.as_ref().unwrap();
-
-        assert_eq!(accessibility.node, Some(response.root));
-        assert_eq!(accessibility.role, AccessibilityRole::Button);
-        assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
-        assert!(accessibility.read_only);
-        assert!(!accessibility.focused);
-        assert_eq!(
-            accessibility.relationships.described_by.as_deref(),
-            Some("save-help")
-        );
-        assert_eq!(
-            accessibility.description.description.as_deref(),
-            Some("Writes profile changes")
-        );
-        assert_eq!(accessibility.state.pressed.as_deref(), Some("false"));
-        assert_eq!(session.accessibility_tree(), response.accessibility_tree);
-
-        let json = serde_json::to_string(&response).unwrap();
-        assert!(json.contains(r#""accessibilityTree""#));
-        assert!(json.contains(r#""role":"button""#));
-        assert!(json.contains(r#""readOnly":true"#));
-    }
-
-    #[test]
-    fn native_protocol_session_projects_auto_focus_on_render() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {
-                  "attributes": {
-                    "aria-label": "Save profile",
-                    "autoFocus": "true"
-                  }
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let response = session.render_frame(&frame).unwrap();
-        let accessibility = response.accessibility_tree.as_ref().unwrap();
-
-        assert_eq!(accessibility.node, Some(response.root));
-        assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
-        assert!(accessibility.focused);
-        assert!(session.runtime().interactions().changes().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_skips_disabled_subtree_auto_focus() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "tools",
-                "tag": "Toolbar",
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "review-gate",
-                    "tag": "FieldSet",
-                    "props": {"isDisabled": true, "label": "Review gate"},
-                    "children": [
-                      {
-                        "kind": "element",
-                        "key": "finish-review",
-                        "tag": "Button",
-                        "props": {
-                          "attributes": {
-                            "aria-label": "Complete review",
-                            "autoFocus": "true"
-                          }
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "kind": "element",
-                    "key": "title",
-                    "tag": "TextField",
-                    "props": {
-                      "attributes": {
-                        "aria-label": "Task title",
-                        "autoFocus": "true"
-                      }
-                    }
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let response = session.render_frame(&frame).unwrap();
-        let accessibility = response.accessibility_tree.as_ref().unwrap();
-
-        assert_eq!(accessibility.children.len(), 2);
-        assert_eq!(
-            accessibility.children[0].children[0].label.as_deref(),
-            Some("Complete review")
-        );
-        assert!(!accessibility.children[0].children[0].focused);
-        assert_eq!(
-            accessibility.children[1].label.as_deref(),
-            Some("Task title")
-        );
-        assert!(accessibility.children[1].focused);
-        assert!(session.runtime().interactions().changes().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_omits_hidden_accessibility_subtrees() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "tools",
-                "tag": "Toolbar",
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "save",
-                    "tag": "Button",
-                    "props": {"label": "Save"}
-                  },
-                  {
-                    "kind": "element",
-                    "key": "archive",
-                    "tag": "Button",
-                    "props": {
-                      "label": "Archive",
-                      "attributes": {"hidden": "true"}
-                    }
-                  },
-                  {
-                    "kind": "element",
-                    "key": "preview",
-                    "tag": "Button",
-                    "props": {
-                      "label": "Preview",
-                      "attributes": {"aria-hidden": "true"}
-                    }
-                  },
-                  {
-                    "kind": "element",
-                    "key": "details",
-                    "tag": "Button",
-                    "props": {
-                      "label": "Details",
-                      "style": {"display": "none"}
-                    }
-                  },
-                  {
-                    "kind": "element",
-                    "key": "filters",
-                    "tag": "Button",
-                    "props": {
-                      "label": "Filters",
-                      "style": {"visibility": "hidden"}
-                    }
-                  },
-                  {
-                    "kind": "element",
-                    "key": "summary",
-                    "tag": "Button",
-                    "props": {
-                      "label": "Summary",
-                      "style": {"contentVisibility": "hidden"}
-                    }
-                  },
-                  {
-                    "kind": "element",
-                    "key": "activity",
-                    "tag": "Button",
-                    "props": {
-                      "label": "Activity",
-                      "style": {"interactivity": "inert"}
-                    }
-                  },
-                  {
-                    "kind": "element",
-                    "key": "dialog",
-                    "tag": "dialog",
-                    "children": [
-                      {"kind": "text", "key": "dialog-text", "value": "Dialog"}
-                    ]
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let response = session.render_frame(&frame).unwrap();
-        let accessibility = response.accessibility_tree.as_ref().unwrap();
-
-        assert_eq!(accessibility.children.len(), 1);
-        assert_eq!(accessibility.children[0].label.as_deref(), Some("Save"));
-    }
-
-    #[test]
-    fn native_protocol_session_dispatches_active_frame_events() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"events": {"onPress": "saveProfile"}},
-                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
-            })
-            .unwrap();
-        let error = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "other".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
-            })
-            .unwrap_err();
-        let empty_frame_error = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: String::new(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
-            })
-            .unwrap_err();
-        let zero_node_error = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(HostNodeId::new(0), NativeEventKind::Press),
-            })
-            .unwrap_err();
-
-        assert_eq!(response.invocation.action, "saveProfile");
-        assert!(error.to_string().contains("active frame profile"));
-        assert!(empty_frame_error.to_string().contains("non-empty frame id"));
-        assert!(zero_node_error.to_string().contains("non-zero node id"));
-        assert_eq!(session.runtime().actions().invocations().len(), 1);
-    }
-
-    #[test]
-    fn ui_frame_infers_actions_from_compiled_event_props_when_actions_are_omitted() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "toolbar",
-                "tag": "Toolbar",
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "save",
-                    "tag": "Button",
-                    "props": {"events": {"onPress": "saveProfile"}},
-                    "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-                  },
-                  {
-                    "kind": "element",
-                    "key": "save-labeled",
-                    "tag": "Button",
-                    "props": {
-                      "events": {"onClick": "saveProfile"},
-                      "actionLabels": {"saveProfile": "Save profile"}
-                    },
-                    "children": [{"kind": "text", "key": "save-labeled-text", "value": "Save labeled"}]
-                  },
-                  {
-                    "kind": "element",
-                    "key": "query",
-                    "tag": "Input",
-                    "props": {
-                      "events": {"onKeyDown": "handleSearchKey"},
-                      "actionLabels": {"handleSearchKey": "Handle search key"}
-                    }
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let rendered = session.render_frame(&frame).unwrap();
-        let toolbar = session.runtime().host().node(rendered.root).unwrap();
-        let save = toolbar.children[0];
-        let response = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(save, NativeEventKind::Press),
-            })
-            .unwrap();
-
-        assert_eq!(
-            frame.actions,
-            vec![
-                UiAction {
-                    id: "saveProfile".to_string(),
-                    disabled: false,
-                    label: Some("Save profile".to_string()),
-                },
-                UiAction {
-                    id: "handleSearchKey".to_string(),
-                    disabled: false,
-                    label: Some("Handle search key".to_string()),
-                },
-            ]
-        );
-        assert_eq!(response.invocation.action, "saveProfile");
-        assert_eq!(
-            session
-                .runtime()
-                .actions()
-                .registered("saveProfile")
-                .and_then(|action| action.label.as_deref()),
-            Some("Save profile")
-        );
-    }
-
-    #[test]
-    fn explicit_ui_frame_actions_override_compiled_event_inference() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "explicitAction", "label": "Explicit action"}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {
-                  "events": {"onPress": "saveProfile"},
-                  "actionLabels": {"saveProfile": "Save profile"}
-                },
-                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-
-        assert_eq!(
-            frame.actions,
-            vec![UiAction {
-                id: "explicitAction".to_string(),
-                disabled: false,
-                label: Some("Explicit action".to_string()),
-            }]
-        );
-    }
-
-    #[test]
-    fn native_protocol_session_dispatches_keyboard_events() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "search",
-              "actions": [{"id": "handleSearchKey"}],
-              "root": {
-                "kind": "element",
-                "key": "query",
-                "tag": "Input",
-                "props": {"events": {"onKeyDown": "handleSearchKey"}}
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "search".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::KeyDown).value(" Return "),
-            })
-            .unwrap();
-
-        assert_eq!(response.invocation.action, "handleSearchKey");
-        assert_eq!(response.invocation.event, NativeEventKind::KeyDown);
-        assert_eq!(response.invocation.value.as_deref(), Some("Enter"));
-        assert!(response.interaction_changes.is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_routes_activation_keys_to_press_actions() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"events": {"onPress": "saveProfile"}},
-                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::KeyDown).value("Enter"),
-            })
-            .unwrap();
-
-        assert_eq!(response.invocation.action, "saveProfile");
-        assert_eq!(response.invocation.event, NativeEventKind::KeyDown);
-        assert_eq!(response.invocation.value.as_deref(), Some("Enter"));
-        assert!(response.interaction_changes.is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_routes_space_key_to_toggle_actions() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setNotifications"}],
-              "root": {
-                "kind": "element",
-                "key": "notifications",
-                "tag": "Switch",
-                "props": {
-                  "isChecked": false,
-                  "events": {"onChange": "setNotifications"}
-                },
-                "children": [{"kind": "text", "key": "label", "value": "Notifications"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::KeyDown).value(" "),
-            })
-            .unwrap();
-
-        assert_eq!(response.invocation.action, "setNotifications");
-        assert_eq!(response.invocation.event, NativeEventKind::Toggle);
-        assert_eq!(response.invocation.value.as_deref(), Some("true"));
-        assert_eq!(response.interaction_changes[0].after.checked, Some(true));
-    }
-
-    #[test]
-    fn native_protocol_session_canonicalizes_boolean_event_payloads() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setNotifications"}, {"id": "setFocus"}],
-              "root": {
-                "kind": "element",
-                "key": "notifications",
-                "tag": "Switch",
-                "props": {
-                  "isChecked": false,
-                  "events": {
-                    "onChange": "setNotifications",
-                    "onFocusChange": "setFocus"
-                  }
-                },
-                "children": [{"kind": "text", "key": "label", "value": "Notifications"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let focus = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Focus).value("maybe"),
-            })
-            .unwrap();
-
-        assert_eq!(focus.invocation.action, "setFocus");
-        assert_eq!(focus.invocation.value.as_deref(), Some("true"));
-        assert_eq!(focus.interaction_changes[0].after.focused, true);
-
-        let toggle = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Toggle).value("not-a-bool"),
-            })
-            .unwrap();
-
-        assert_eq!(toggle.invocation.action, "setNotifications");
-        assert_eq!(toggle.invocation.value.as_deref(), Some("true"));
-        assert_eq!(toggle.interaction_changes[0].after.checked, Some(true));
-    }
-
-    #[test]
-    fn native_protocol_session_canonicalizes_boolean_change_payloads() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setNotifications"}],
-              "root": {
-                "kind": "element",
-                "key": "notifications",
-                "tag": "Switch",
-                "props": {
-                  "isChecked": false,
-                  "events": {"onChange": "setNotifications"}
-                },
-                "children": [{"kind": "text", "key": "label", "value": "Notifications"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let first = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("1"),
-            })
-            .unwrap();
-        let second = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("not-a-bool"),
-            })
-            .unwrap();
-
-        assert_eq!(first.invocation.action, "setNotifications");
-        assert_eq!(first.invocation.value.as_deref(), Some("true"));
-        assert_eq!(first.interaction_changes[0].after.checked, Some(true));
-        assert_eq!(second.invocation.value.as_deref(), Some("false"));
-        assert_eq!(second.interaction_changes[0].after.checked, Some(false));
-    }
-
-    #[test]
-    fn native_protocol_session_preserves_ancestor_key_down_handlers() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "handleRowKey"}, {"id": "setNotifications"}],
-              "root": {
-                "kind": "element",
-                "key": "row",
-                "tag": "Group",
-                "props": {"events": {"onKeyDown": "handleRowKey"}},
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "notifications",
-                    "tag": "Switch",
-                    "props": {
-                      "isChecked": false,
-                      "events": {"onChange": "setNotifications"}
-                    },
-                    "children": [{"kind": "text", "key": "label", "value": "Notifications"}]
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-        let switch = session
-            .runtime()
-            .host()
-            .node(rendered.root)
-            .unwrap()
-            .children[0];
-
-        let response = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(switch, NativeEventKind::KeyDown).value(" "),
-            })
-            .unwrap();
-
-        assert_eq!(response.invocation.action, "handleRowKey");
-        assert_eq!(response.invocation.event, NativeEventKind::KeyDown);
-        assert!(response.interaction_changes.is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_replaces_registered_actions_on_render() {
-        let first: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"events": {"onPress": "saveProfile"}},
-                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let second: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"events": {"onPress": "saveProfile"}},
-                "children": [{"kind": "text", "key": "save-text", "value": "Saved"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let first_response = session.render_frame(&first).unwrap();
-        assert!(session.runtime().actions().contains("saveProfile"));
-        session.render_frame(&second).unwrap();
-        assert!(!session.runtime().actions().contains("saveProfile"));
-        let error = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(first_response.root, NativeEventKind::Press),
-            })
-            .unwrap_err();
-
-        assert!(error
-            .to_string()
-            .contains("unregistered action saveProfile"));
-    }
-
-    #[test]
-    fn native_protocol_session_rejects_disabled_registered_actions() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile", "disabled": true}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"events": {"onPress": "saveProfile"}},
-                "children": [{"kind": "text", "key": "save-text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        assert!(session.runtime().actions().is_disabled("saveProfile"));
-        let error = session
-            .dispatch_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
-            })
-            .unwrap_err();
-
-        assert!(error.to_string().contains("disabled action saveProfile"));
-        assert!(session.runtime().actions().invocations().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_handles_state_event_without_action() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {"attributes": {"aria-label": "Save profile"}}
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Focus),
-            })
-            .unwrap();
-        let accessibility = response.accessibility_tree.as_ref().unwrap();
-
-        assert!(response.invocation.is_none());
-        assert_eq!(accessibility.node, Some(rendered.root));
-        assert!(accessibility.focused);
-        assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
-        assert_eq!(response.interaction_changes.len(), 1);
-        assert_eq!(response.interaction_changes[0].node, rendered.root);
-        assert!(response.interaction_changes[0].after.focused);
-    }
-
-    #[test]
-    fn native_protocol_session_suppresses_disabled_user_events() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "props": {
-                  "isDisabled": true,
-                  "events": {"onPress": "saveProfile"}
-                },
-                "children": [{"kind": "text", "key": "label", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Press),
-            })
-            .unwrap();
-
-        assert!(response.invocation.is_none());
-        assert!(response.interaction_changes.is_empty());
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .map(|tree| tree.disabled),
-            Some(true)
-        );
-        assert!(session.runtime().actions().invocations().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_suppresses_disabled_subtree_user_events() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "review-gate",
-                "tag": "FieldSet",
-                "props": {"isDisabled": true, "label": "Review gate"},
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "save",
-                    "tag": "Button",
-                    "props": {"events": {"onPress": "saveProfile"}},
-                    "children": [{"kind": "text", "key": "label", "value": "Save"}]
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-        let save = session
-            .runtime()
-            .host()
-            .node(rendered.root)
-            .unwrap()
-            .children[0];
-
-        let press = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(save, NativeEventKind::Press),
-            })
-            .unwrap();
-        let key = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(save, NativeEventKind::KeyDown).value("Enter"),
-            })
-            .unwrap();
-
-        assert!(press.invocation.is_none());
-        assert!(press.interaction_changes.is_empty());
-        assert!(key.invocation.is_none());
-        assert!(key.interaction_changes.is_empty());
-        assert_eq!(
-            press.accessibility_tree.as_ref().map(|tree| tree.disabled),
-            Some(true)
-        );
-        assert!(session.runtime().actions().invocations().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_suppresses_inert_subtree_events() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "tools",
-                "tag": "Toolbar",
-                "props": {"attributes": {"inert": "true"}},
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "save",
-                    "tag": "Button",
-                    "props": {"events": {"onPress": "saveProfile"}},
-                    "children": [{"kind": "text", "key": "label", "value": "Save"}]
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-        let save = session
-            .runtime()
-            .host()
-            .node(rendered.root)
-            .unwrap()
-            .children[0];
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(save, NativeEventKind::Press),
-            })
-            .unwrap();
-
-        assert!(response.invocation.is_none());
-        assert!(response.interaction_changes.is_empty());
-        assert!(session.runtime().actions().invocations().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_suppresses_css_inert_subtree_events() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "saveProfile"}],
-              "root": {
-                "kind": "element",
-                "key": "tools",
-                "tag": "Toolbar",
-                "props": {"style": {"interactivity": "inert"}},
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "save",
-                    "tag": "Button",
-                    "props": {"events": {"onPress": "saveProfile"}},
-                    "children": [{"kind": "text", "key": "label", "value": "Save"}]
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-        let save = session
-            .runtime()
-            .host()
-            .node(rendered.root)
-            .unwrap()
-            .children[0];
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(save, NativeEventKind::Press),
-            })
-            .unwrap();
-
-        assert!(response.invocation.is_none());
-        assert!(response.interaction_changes.is_empty());
-        assert!(response.accessibility_tree.is_none());
-        assert!(session.runtime().actions().invocations().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_suppresses_read_only_value_events() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setName"}],
-              "root": {
-                "kind": "element",
-                "key": "name",
-                "tag": "TextField",
-                "props": {
-                  "value": "Ada",
-                  "isReadOnly": true,
-                  "events": {"onChange": "setName"}
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("Grace"),
-            })
-            .unwrap();
-
-        assert!(response.invocation.is_none());
-        assert!(response.interaction_changes.is_empty());
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("Ada")
-        );
-        assert!(session.runtime().actions().invocations().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_suppresses_read_only_selection_events() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setTheme"}],
-              "root": {
-                "kind": "element",
-                "key": "theme",
-                "tag": "Select",
-                "props": {
-                  "label": "Theme",
-                  "isReadOnly": true,
-                  "events": {"onSelectionChange": "setTheme"}
-                },
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "compact",
-                    "tag": "ListBoxItem",
-                    "props": {"label": "Compact", "value": "compact"}
-                  },
-                  {
-                    "kind": "element",
-                    "key": "comfortable",
-                    "tag": "ListBoxItem",
-                    "props": {
-                      "label": "Comfortable",
-                      "value": "comfortable",
-                      "isSelected": true
-                    }
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let inferred = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::SelectionChange),
-            })
-            .unwrap();
-        let explicit = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::SelectionChange)
-                    .value("compact"),
-            })
-            .unwrap();
-
-        assert!(inferred.invocation.is_none());
-        assert!(inferred.interaction_changes.is_empty());
-        assert_eq!(
-            inferred
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("comfortable")
-        );
-        assert!(explicit.invocation.is_none());
-        assert!(explicit.interaction_changes.is_empty());
-        assert_eq!(
-            explicit
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("comfortable")
-        );
-        assert!(session.runtime().actions().invocations().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_suppresses_read_only_ancestor_selection_value_events() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setTheme"}],
-              "root": {
-                "kind": "element",
-                "key": "theme",
-                "tag": "RadioGroup",
-                "props": {
-                  "label": "Theme",
-                  "isReadOnly": true,
-                  "events": {"onSelectionChange": "setTheme"}
-                },
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "light",
-                    "tag": "Radio",
-                    "props": {
-                      "label": "Light",
-                      "value": "light",
-                      "isSelected": true,
-                      "isChecked": true
-                    }
-                  },
-                  {
-                    "kind": "element",
-                    "key": "dark",
-                    "tag": "Radio",
-                    "props": {"label": "Dark", "value": "dark"}
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-        let dark = session
-            .runtime()
-            .host()
-            .node(rendered.root)
-            .unwrap()
-            .children[1];
-
-        let selection = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(dark, NativeEventKind::SelectionChange),
-            })
-            .unwrap();
-        let toggle = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(dark, NativeEventKind::Toggle),
-            })
-            .unwrap();
-
-        assert!(selection.invocation.is_none());
-        assert!(selection.interaction_changes.is_empty());
-        assert!(toggle.invocation.is_none());
-        assert!(toggle.interaction_changes.is_empty());
-        let accessibility = toggle.accessibility_tree.as_ref().unwrap();
-        assert_eq!(accessibility.value.as_deref(), Some("light"));
-        assert!(accessibility.children[0].selected);
-        assert_eq!(accessibility.children[0].checked, Some(true));
-        assert!(!accessibility.children[1].selected);
-        assert_eq!(accessibility.children[1].checked, Some(false));
-        assert!(session.runtime().actions().invocations().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_infers_container_selection_value_from_selected_child() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setTheme"}],
-              "root": {
-                "kind": "element",
-                "key": "theme",
-                "tag": "Select",
-                "props": {
-                  "label": "Theme",
-                  "events": {"onSelectionChange": "setTheme"}
-                },
-                "children": [
-                  {
-                    "kind": "element",
-                    "key": "compact",
-                    "tag": "ListBoxItem",
-                    "props": {"label": "Compact", "value": "compact"}
-                  },
-                  {
-                    "kind": "element",
-                    "key": "comfortable",
-                    "tag": "ListBoxItem",
-                    "props": {
-                      "label": "Comfortable",
-                      "value": "comfortable",
-                      "isSelected": true
-                    }
-                  }
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::SelectionChange).value(""),
-            })
-            .unwrap();
-
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .and_then(|invocation| invocation.value.as_deref()),
-            Some("comfortable")
-        );
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("comfortable")
-        );
-        assert_eq!(
-            session.runtime().actions().invocations()[0]
-                .value
-                .as_deref(),
-            Some("comfortable")
-        );
-    }
-
-    #[test]
-    fn native_protocol_session_clamps_text_change_values_to_max_length() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setName"}],
-              "root": {
-                "kind": "element",
-                "key": "name",
-                "tag": "TextField",
-                "props": {
-                  "value": "Ada",
-                  "attributes": {"maxLength": "3"},
-                  "events": {"onChange": "setName"}
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("aé日b"),
-            })
-            .unwrap();
-
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .and_then(|invocation| invocation.value.as_deref()),
-            Some("aé日")
-        );
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("aé日")
-        );
-        assert_eq!(
-            session.runtime().actions().invocations()[0]
-                .value
-                .as_deref(),
-            Some("aé日")
-        );
-    }
-
-    #[test]
-    fn native_protocol_session_clamps_initial_text_value_to_max_length_before_rendering() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "name",
-                "tag": "TextField",
-                "props": {
-                  "value": "aé日b",
-                  "attributes": {"maxLength": "3"}
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let response = session.render_frame(&frame).unwrap();
-        let blueprint = &session
-            .runtime()
-            .host()
-            .node(response.root)
-            .unwrap()
-            .blueprint;
-
-        assert_eq!(blueprint.control_state.max_length, Some(3));
-        assert_eq!(blueprint.value.as_deref(), Some("aé日"));
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("aé日")
-        );
-    }
-
-    #[test]
-    fn native_protocol_session_clamps_slider_change_values_to_range_bounds() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setEstimate"}],
-              "root": {
-                "kind": "element",
-                "key": "estimate",
-                "tag": "Slider",
-                "props": {
-                  "minValue": 1,
-                  "maxValue": 12,
-                  "valueNumber": 6,
-                  "events": {"onChange": "setEstimate"}
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value(" 99 "),
-            })
-            .unwrap();
-
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .and_then(|invocation| invocation.value.as_deref()),
-            Some("12")
-        );
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("12")
-        );
-        assert_eq!(
-            session.runtime().actions().invocations()[0]
-                .value
-                .as_deref(),
-            Some("12")
-        );
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value(" 0 "),
-            })
-            .unwrap();
-
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .and_then(|invocation| invocation.value.as_deref()),
-            Some("1")
-        );
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("1")
-        );
-        assert_eq!(
-            session.runtime().actions().invocations()[1]
-                .value
-                .as_deref(),
-            Some("1")
-        );
-    }
-
-    #[test]
-    fn native_protocol_session_clamps_number_input_change_values_to_range_bounds() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setEstimate"}],
-              "root": {
-                "kind": "element",
-                "key": "estimate",
-                "tag": "input",
-                "props": {
-                  "inputType": "number",
-                  "minValue": 1,
-                  "maxValue": 12,
-                  "valueNumber": 6,
-                  "events": {"onChange": "setEstimate"}
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value(" 99 "),
-            })
-            .unwrap();
-
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .and_then(|invocation| invocation.value.as_deref()),
-            Some("12")
-        );
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("12")
-        );
-        assert_eq!(
-            session.runtime().actions().invocations()[0]
-                .value
-                .as_deref(),
-            Some("12")
-        );
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value(" 0 "),
-            })
-            .unwrap();
-
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .and_then(|invocation| invocation.value.as_deref()),
-            Some("1")
-        );
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("1")
-        );
-        assert_eq!(
-            session.runtime().actions().invocations()[1]
-                .value
-                .as_deref(),
-            Some("1")
-        );
-    }
-
-    #[test]
-    fn native_protocol_session_suppresses_invalid_numeric_change_values() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setEstimate"}],
-              "root": {
-                "kind": "element",
-                "key": "estimate",
-                "tag": "Slider",
-                "props": {
-                  "minValue": 1,
-                  "maxValue": 12,
-                  "valueNumber": 6,
-                  "events": {"onChange": "setEstimate"}
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change)
-                    .value("not-a-number"),
-            })
-            .unwrap();
-
-        assert!(response.invocation.is_none());
-        assert!(response.interaction_changes.is_empty());
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("6")
-        );
-        assert!(session.runtime().actions().invocations().is_empty());
-    }
-
-    #[test]
-    fn native_protocol_session_snaps_ranged_change_values_to_step() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "actions": [{"id": "setVolume"}],
-              "root": {
-                "kind": "element",
-                "key": "volume",
-                "tag": "Slider",
-                "props": {
-                  "minValue": 0,
-                  "maxValue": 100,
-                  "valueNumber": 50,
-                  "stepValue": 5,
-                  "events": {"onChange": "setVolume"}
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-        let rendered = session.render_frame(&frame).unwrap();
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("43"),
-            })
-            .unwrap();
-
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .and_then(|invocation| invocation.value.as_deref()),
-            Some("45")
-        );
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("45")
-        );
-        assert_eq!(
-            session.runtime().actions().invocations()[0]
-                .value
-                .as_deref(),
-            Some("45")
-        );
-
-        let response = session
-            .handle_host_event(&HostEvent {
-                frame_id: "profile".to_string(),
-                event: NativeEvent::new(rendered.root, NativeEventKind::Change).value("42"),
-            })
-            .unwrap();
-
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .and_then(|invocation| invocation.value.as_deref()),
-            Some("40")
-        );
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("40")
-        );
-        assert_eq!(
-            session.runtime().actions().invocations()[1]
-                .value
-                .as_deref(),
-            Some("40")
-        );
-    }
-
-    #[test]
-    fn native_protocol_session_normalizes_initial_ranged_values_before_rendering() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "volume",
-                "tag": "Slider",
-                "props": {
-                  "minValue": 0,
-                  "maxValue": 100,
-                  "valueNumber": 43,
-                  "stepValue": 5
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let response = session.render_frame(&frame).unwrap();
-        let blueprint = &session
-            .runtime()
-            .host()
-            .node(response.root)
-            .unwrap()
-            .blueprint;
-
-        assert_eq!(blueprint.control_state.current, Some(45.0));
-        assert_eq!(blueprint.value.as_deref(), Some("45"));
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("45")
-        );
-    }
-
-    #[test]
-    fn native_protocol_session_normalizes_initial_number_input_values_before_rendering() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "estimate",
-                "tag": "input",
-                "props": {
-                  "inputType": "number",
-                  "minValue": 1,
-                  "maxValue": 12,
-                  "valueNumber": 99
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let response = session.render_frame(&frame).unwrap();
-        let blueprint = &session
-            .runtime()
-            .host()
-            .node(response.root)
-            .unwrap()
-            .blueprint;
-
-        assert_eq!(blueprint.control_state.current, Some(12.0));
-        assert_eq!(blueprint.value.as_deref(), Some("12"));
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("12")
-        );
-    }
-
-    #[test]
-    fn native_protocol_session_omits_invalid_initial_numeric_values() {
-        let range_frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "volume",
-                "tag": "input",
-                "props": {
-                  "attributes": {"type": "range", "defaultValue": "not-a-number"},
-                  "minValue": 0,
-                  "maxValue": 100
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let response = session.render_frame(&range_frame).unwrap();
-        let blueprint = &session
-            .runtime()
-            .host()
-            .node(response.root)
-            .unwrap()
-            .blueprint;
-
-        assert_eq!(blueprint.role, NativeRole::Slider);
-        assert_eq!(blueprint.control_state.current, None);
-        assert_eq!(blueprint.value, None);
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            None
-        );
-
-        let number_frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "estimate",
-                "tag": "input",
-                "props": {
-                  "attributes": {"type": "number", "value": ""},
-                  "minValue": 1,
-                  "maxValue": 12
-                }
-              }
-            }
-            "#,
-        )
-        .unwrap();
-
-        let response = session.render_frame(&number_frame).unwrap();
-        let blueprint = &session
-            .runtime()
-            .host()
-            .node(response.root)
-            .unwrap()
-            .blueprint;
-
-        assert_eq!(blueprint.role, NativeRole::TextField);
-        assert_eq!(blueprint.control_state.current, None);
-        assert_eq!(blueprint.value, None);
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            None
-        );
-    }
-
-    #[test]
-    fn native_protocol_session_projects_textarea_default_value_attributes() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "profile",
-              "root": {
-                "kind": "element",
-                "key": "notes",
-                "tag": "textarea",
-                "props": {
-                  "attributes": {"defaultValue": "Draft notes"}
-                },
-                "children": [
-                  {"kind": "text", "key": "notes-text", "value": "Ignored child text"}
-                ]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let mut session = NativeProtocolSession::new(Gtk4Adapter);
-
-        let response = session.render_frame(&frame).unwrap();
-        let blueprint = &session
-            .runtime()
-            .host()
-            .node(response.root)
-            .unwrap()
-            .blueprint;
-
-        assert_eq!(blueprint.role, NativeRole::TextField);
-        assert_eq!(blueprint.value.as_deref(), Some("Draft notes"));
-        assert_eq!(
-            response
-                .accessibility_tree
-                .as_ref()
-                .and_then(|tree| tree.value.as_deref()),
-            Some("Draft notes")
-        );
-    }
-
-    #[test]
-    fn protocol_window_options_wrap_root_in_native_window() {
-        let frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "frame-window",
-              "window": {
-                "title": "A3S Profile",
-                "onClose": "closeWindow",
-                "width": 640,
-                "height": 480,
-                "minWidth": 480,
-                "minHeight": 320,
-                "maxWidth": 1280,
-                "maxHeight": 960
-              },
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "children": [{"kind": "text", "key": "text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        assert_eq!(
-            frame
-                .window
-                .as_ref()
-                .and_then(|window| window.on_close.as_deref()),
-            Some("closeWindow")
-        );
-        assert!(frame
-            .actions
-            .iter()
-            .any(|action| action.id == "closeWindow"));
-        let rendered = frame.render_into(&mut runtime).unwrap();
-        let window = runtime.host().planning().node(rendered.root).unwrap();
-
-        assert_eq!(window.blueprint.widget_class, "gtk::ApplicationWindow");
-        assert_eq!(window.blueprint.label.as_deref(), Some("A3S Profile"));
-        assert_eq!(
-            window.blueprint.events.get("onClose").map(String::as_str),
-            Some("closeWindow")
-        );
-        assert_eq!(
-            window
-                .blueprint
-                .metadata
-                .get("data-a3s-window-resizable")
-                .map(String::as_str),
-            Some("true")
-        );
-        assert_eq!(window.blueprint.config().window_resizable, Some(true));
-        assert_eq!(
-            window
-                .blueprint
-                .portable_style
-                .width
-                .as_ref()
-                .and_then(|value| value.points()),
-            Some(640.0)
-        );
-        assert_eq!(
-            window
-                .blueprint
-                .portable_style
-                .height
-                .as_ref()
-                .and_then(|value| value.points()),
-            Some(480.0)
-        );
-        assert_eq!(
-            window
-                .blueprint
-                .portable_style
-                .min_width
-                .as_ref()
-                .and_then(|value| value.points()),
-            Some(480.0)
-        );
-        assert_eq!(
-            window
-                .blueprint
-                .portable_style
-                .min_height
-                .as_ref()
-                .and_then(|value| value.points()),
-            Some(320.0)
-        );
-        assert_eq!(
-            window
-                .blueprint
-                .portable_style
-                .max_width
-                .as_ref()
-                .and_then(|value| value.points()),
-            Some(1280.0)
-        );
-        assert_eq!(
-            window
-                .blueprint
-                .portable_style
-                .max_height
-                .as_ref()
-                .and_then(|value| value.points()),
-            Some(960.0)
-        );
-        assert_eq!(window.children.len(), 1);
-        let close = runtime
-            .dispatch_native_event(NativeEvent::new(rendered.root, NativeEventKind::Close))
-            .unwrap();
-        assert_eq!(close.action, "closeWindow");
-        assert_eq!(close.event, NativeEventKind::Close);
-
-        let fixed_frame: UiFrame = serde_json::from_str(
-            r#"
-            {
-              "frameId": "fixed-window",
-              "window": {"title": "Fixed", "resizable": false},
-              "root": {
-                "kind": "element",
-                "key": "save",
-                "tag": "Button",
-                "children": [{"kind": "text", "key": "text", "value": "Save"}]
-              }
-            }
-            "#,
-        )
-        .unwrap();
-        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
-        let mut runtime = GuiRuntime::new(host);
-
-        let rendered = fixed_frame.render_into(&mut runtime).unwrap();
-        let window = runtime.host().planning().node(rendered.root).unwrap();
-        let config = window.blueprint.config();
-
-        assert_eq!(config.window_resizable, Some(false));
-        assert_eq!(
-            config
-                .metadata
-                .get("data-a3s-window-resizable")
-                .map(String::as_str),
-            Some("false")
-        );
-        assert!(config
-            .create_setters()
-            .contains(&NativeWidgetSetter::SetWindowResizable(Some(false))));
-    }
-
-    #[test]
-    fn protocol_types_round_trip_as_json() {
-        let event = HostEvent {
-            frame_id: "frame-2".to_string(),
-            event: NativeEvent::new(HostNodeId::new(42), NativeEventKind::KeyDown).value("Enter"),
-        };
-
-        let json = serde_json::to_string(&event).unwrap();
-        let decoded: HostEvent = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(decoded, event);
-        assert!(json.contains(r#""kind":"keyDown""#));
-
-        let legacy_response: NativeRenderResponse =
-            serde_json::from_str(r#"{"frameId":"legacy","root":1,"commands":[]}"#).unwrap();
-        assert!(legacy_response.accessibility_tree.is_none());
-
-        let legacy_event_response: NativeHostEventResponse =
-            serde_json::from_str(r#"{"frameId":"legacy"}"#).unwrap();
-        assert!(legacy_event_response.invocation.is_none());
-        assert!(legacy_event_response.accessibility_tree.is_none());
-        assert!(legacy_event_response.interaction_changes.is_empty());
-    }
-}
+#[path = "protocol/tests/mod.rs"]
+mod tests;

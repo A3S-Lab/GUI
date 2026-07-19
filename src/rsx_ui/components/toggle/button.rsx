@@ -37,7 +37,7 @@ pub fn ui_toggle_button(cx: &mut ComponentCx<UiToggleButtonProps>) -> RSX {
             key="root"
             {...props.toggleButtonProps}
             data-slot="toggle-button"
-            class="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-transparent bg-transparent px-3 text-sm font-medium text-ink outline-none transition-colors active:bg-surface-strong focus-visible:border-ink focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:text-muted-soft data-[selected=true]:bg-canvas data-[selected=true]:text-ink"
+            class="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-transparent bg-transparent px-3 text-sm font-medium text-ink outline-none active:bg-surface-strong focus-visible:border-ink focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:pointer-events-none disabled:text-muted-soft data-[selected=true]:bg-surface-card data-[selected=true]:text-ink"
             className={props.className}
         >
             <Slot key="content" />

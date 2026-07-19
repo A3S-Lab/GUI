@@ -60,10 +60,45 @@ The app model is the Rust equivalent of React's one-way data flow:
 - `RsxRouter` selects active pages, provides route context, runs route
   lifecycle hooks, and supports a persistent layout outlet.
 
+Reducers are synchronous UI-thread state transitions. A reducer must not do
+filesystem or network I/O, wait for a child process, create an async runtime,
+or call `block_on`. Long-running work belongs in an application-owned
+`EffectRuntime` or another injected executor, and its completion is merged back
+into state on the UI thread.
+
+`EffectRuntime` bounds both active work and its completion channel (32 and 256
+by default), rejects new work at the in-flight limit, and provides cooperative
+cancellation. Dropping it cancels every active task. The default
+`ThreadEffectExecutor` catches task panics and reports them as error
+completions; applications can implement `EffectExecutor` for Tokio or another
+runtime and supply an `EffectWaker` for their event loop.
+
+### Component Registry
+
+The built-in component registry is initialized once per process through
+`LazyLock`. A `ComponentRegistry` clone shares immutable `Arc` maps for compiled
+templates, contracts, and variants. Adding an application definition uses
+copy-on-write and detaches only the map that changes, so creating a page does
+not recompile or deep-copy the full design system.
+
+Registry selection is part of the authoring API:
+
+- with `design-system` enabled, the standard `RsxComponent` constructors and
+  `ComponentCx::compile` use the shared default registry; an `authoring`-only
+  build starts with an empty registry
+- `*_bare` constructors and `ComponentCx::compile_bare` install no built-in
+  `rsx_ui` definitions
+- `*_with_registry` constructors and `ComponentCx::compile_with_registry` use
+  an explicitly supplied registry, including a cloned and application-extended
+  `builtin_component_registry()`
+
+All variants produce the same `RsxComponent`; the choice controls definition
+ownership, not rendering semantics.
+
 ### Design System
 
 The first design-system layer is `rsx_ui`, a React-inspired Rust RSX component set
-backed by the Uber-style tokens in the repository root `DESIGN.md`.
+backed by the repository root `DESIGN.md`.
 
 This layer makes reusable `.rsx` Rust function components available by default
 instead of asking every page to copy long class strings:
@@ -186,21 +221,15 @@ Related primitives are grouped by component family in the source tree, such as
 - `UiTableHeader`
 - `UiTableBody`
 - `UiTableRow`
-- `UiRow`
 - `UiTableColumn`
-- `UiColumn`
 - `UiTableCell`
-- `UiCell`
 - `UiTableFooter`
 - `UiTableCaption`
 - `UiTabs`
 - `UiTabsList`
 - `UiTabsTrigger`
 - `UiTabsContent`
-- `UiTabList`
 - `UiTabPanels`
-- `UiTab`
-- `UiTabPanel`
 - `UiText`
 - `UiTextField`
 - `UiTextarea`
@@ -238,8 +267,8 @@ The file parser can extract the final `rsx!(...)` view from these Rust modules
 and rewrite common hook aliases such as `let title = cx.use_prop("title", ...)`
 or `let save = cx.use_reducer("save", ...)` into static native bindings/actions.
 Static base classes and Rust-side `ComponentClassVariants` merge with caller
-`className`, matching the important parts of shadcn's `cn(...)` and variant
-behavior without JavaScript.
+`className`, giving each component one `DESIGN.md` base contract plus explicit
+Rust variants without JavaScript.
 
 `rsx_ui` sits above the semantic mapper. It should not own accessibility or
 platform-control behavior directly; components such as `UiTabs` expand to
@@ -248,16 +277,15 @@ through the native semantic layer.
 
 ### Style
 
-The style layer parses Tailwind/shadcn-compatible class strings into
-`PortableStyle`. It should keep expanding toward the subset used by real
-component contracts:
+The style layer parses Tailwind-style class strings into `PortableStyle`. It
+should keep expanding toward the subset used by real component contracts:
 
 - semantic colors and opacity modifiers
 - spacing, sizing, radius, border, ring, shadow, typography, and layout tokens
 - state variants such as `hover`, `focus-visible`, `disabled`, and
   `aria-invalid`
 - data variants used by Radix-style components
-- structural variants used by shadcn SVG and slot patterns
+- structural variants used by SVG and slot patterns
 
 ### Native Runtime
 
@@ -265,7 +293,41 @@ The runtime remains native-first. It registers actions, routes native events,
 maintains interaction state, exposes accessibility trees, and sends platform
 commands to AppKit, GTK, WinUI, or test backends.
 
-## Milestones
+`NativeRuntimeApp::with_background_updates` integrates completed effects with
+the UI loop. One poll may merge many completions into state, but it produces at
+most one render for that batch. `BackgroundUpdate` reports state change and
+pending work separately. The three native loops poll instead of blocking while
+work remains, briefly yield between polls, and return to a platform blocking
+wait when idle.
+
+Diagnostic retention is deliberately bounded. Action invocations, interaction
+changes, and executed driver commands keep at most 256 entries by default and
+offer configurable limits plus take/drain APIs. `PlatformPlanningHost` commands
+have different semantics: they are pending commands since the previous
+`take_commands()` call, not an accumulating history.
+
+### Dependency Rules
+
+- `authoring` owns the SWC-backed parser and `ComponentCx`; `design-system`
+  adds `rsx_ui`. The no-default-features library build is the CI-enforced core
+  boundary and contains neither dependency.
+- RSX/`ComponentCx` and `rsx_ui` compile into `CompiledRsxNode`; native
+  surfaces do not execute component code.
+- `rsx_ui` sits above semantic contracts. Semantic/native IR, reconciliation,
+  and platform planning do not depend on the default design-system registry.
+- Platform-neutral IR and planning contain no OS handles. Feature-gated native
+  surfaces depend inward on those records and own thread-affine widgets.
+- The backend layer executes commands but does not own product state or I/O.
+- The effect core depends only on its executor trait, not on Tokio. Product
+  applications inject I/O and executor implementations at the outer boundary.
+- Protocol and command boundaries carry serializable records, never component
+  runtime objects or native widget handles.
+
+## Framework Milestones
+
+The cross-cutting runtime, automation, capability, performance, and platform
+delivery plan is tracked in [`roadmap.md`](roadmap.md). These milestones cover
+the RSX framework and design-system portion of that plan.
 
 ### M1 - Core RSX App Model
 
@@ -331,9 +393,14 @@ behavior should remain native runtime concerns.
 
 ### M5 - Authoring Tooling
 
-Later.
+Status: planned across the 31-90 day roadmap.
 
+- `a3s gui check` for RSX syntax, bindings, action ids, component contracts,
+  ACL capability policy, and platform requirements without opening a surface
+- build-time `CompiledRsxNode` artifacts consumed by runtime-only releases
+- a debug watcher that preserves model/widget identity and the last-good frame
 - template discovery and source maps for multi-file `.rsx`
+- source span and template/import provenance queries
 - diagnostics that point at component contract violations
 - static RSX diagnostics that help React developers migrate simple component
   shapes by hand without introducing a JavaScript runtime

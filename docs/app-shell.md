@@ -71,13 +71,22 @@ just verify
 ```
 
 `just verify` runs formatting, Rust tests, example tests, platform planning
-tests, and whitespace checks.
+tests, clippy correctness/suspicious checks, rustdoc with warnings denied, and
+whitespace checks. The crate pins Rust 1.95.0 through `rust-toolchain.toml`, and
+Cargo-based verification uses `Cargo.lock` via `--locked`.
 
 The repository CI runs `just verify` on Linux, then runs host-native AppKit,
-GTK4, and WinUI compile checks plus dogfood regression tests on the matching
-operating systems. Pushes to `main` and manual workflow runs also build, stage,
-validate, and upload compressed unsigned native dogfood bundles for manual
-platform QA.
+GTK4, and WinUI library tests plus all-target checks with the corresponding
+native feature on the matching operating systems. Headless example tests cover
+the shared dogfood regression once instead of repeating it in every native job.
+Pushes to `main` and manual workflow runs also build, stage, validate, and upload
+compressed unsigned native dogfood bundles for manual platform QA.
+
+Run the same native compile-and-test gate on the current host with:
+
+```bash
+just native-ci
+```
 
 Use the headless dogfood session when changing protocol, reducer, or rendering
 logic:
@@ -152,10 +161,19 @@ matching backend compiles and can host the dogfood surface.
 ## Current Hardening Gaps
 
 The app shell is usable for dogfood and smoke applications. Before treating it as
-a stable production surface, keep hardening these areas:
+a stable production surface, keep hardening these areas. Scheduled delivery and
+acceptance gates are tracked in [`roadmap.md`](roadmap.md):
 
 - signed installers and automated app package generation for each product
 - broader resize, focus, and text input edge cases under longer real-world forms
 - native-platform automation for dogfood menu, dialog, and keyboard interaction
   flows beyond compile-time checks
 - WinUI programmatic focus once the underlying safe API is available
+- direct OS-native wake messages for externally started work while an otherwise
+  idle loop is inside the platform's blocking wait; pending work already uses a
+  joinable effect waker plus a bounded 16 ms park fallback
+- interruptible SDK calls for fast shutdown; the default effect scope now joins
+  non-cooperative work, which prevents lifetime escape but may wait for an
+  already-running SDK call to return
+- native failure-injection proving that executor teardown closes every partial
+  AppKit, GTK4, and WinUI surface before full replay

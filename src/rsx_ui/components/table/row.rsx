@@ -18,7 +18,7 @@ pub fn ui_table_row(cx: &mut ComponentCx<UiTableRowProps>) -> RSX {
             key="root"
             {...props.tableRowProps}
             data-slot="table-row"
-            class="border-b border-hairline transition-colors hover:bg-surface-strong/50 data-[selected=true]:bg-surface-strong"
+            class="border-b border-hairline hover:bg-surface-strong/50 data-[selected=true]:bg-surface-strong"
             className={props.className}
         >
             <Slot key="content" />

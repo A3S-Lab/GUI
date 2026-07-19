@@ -11,13 +11,12 @@ fn variant<'a>(style: &'a PortableStyle, key: &str, property: &str) -> Option<&'
 #[test]
 fn parses_design_button_component_class_contract() {
     let web = WebProps::new().class_name(
-        "inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md \
-         border border-primary bg-primary px-[18px] py-2 text-sm font-medium leading-none \
-         text-on-primary transition-colors disabled:pointer-events-none \
-         disabled:bg-surface-strong disabled:text-muted-soft [&_svg]:pointer-events-none \
+        "inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md \
+         border border-primary bg-primary px-3 py-1.5 text-sm font-medium leading-none \
+         text-on-primary disabled:pointer-events-none disabled:text-muted-soft [&_svg]:pointer-events-none \
          [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none \
-         active:bg-primary-active focus-visible:ring-[3px] focus-visible:ring-ring/50 \
-         aria-invalid:border-semantic-error has-[>svg]:px-4",
+         active:bg-primary-active focus-visible:ring-[2px] focus-visible:ring-ink/40 \
+         aria-invalid:border-semantic-error has-[>svg]:px-3",
     );
 
     let style = PortableStyle::from_web(&web);
@@ -30,11 +29,11 @@ fn parses_design_button_component_class_contract() {
     assert_eq!(style.border_radius, Some(StyleLength::Points(8.0)));
     assert_eq!(style.font_weight, Some(FontWeight::Number(500)));
     assert_eq!(style.flex_shrink.as_deref(), Some("0"));
-    assert_eq!(style.height, Some(StyleLength::Points(40.0)));
-    assert_eq!(style.padding.left, Some(StyleLength::Points(18.0)));
-    assert_eq!(style.padding.right, Some(StyleLength::Points(18.0)));
-    assert_eq!(style.padding.top, Some(StyleLength::Points(8.0)));
-    assert_eq!(style.padding.bottom, Some(StyleLength::Points(8.0)));
+    assert_eq!(style.height, Some(StyleLength::Points(36.0)));
+    assert_eq!(style.padding.left, Some(StyleLength::Points(12.0)));
+    assert_eq!(style.padding.right, Some(StyleLength::Points(12.0)));
+    assert_eq!(style.padding.top, Some(StyleLength::Points(6.0)));
+    assert_eq!(style.padding.bottom, Some(StyleLength::Points(6.0)));
     assert_eq!(
         style.background_color,
         Some(StyleColor::Rgba {
@@ -53,14 +52,8 @@ fn parses_design_button_component_class_contract() {
             alpha: 255,
         })
     );
-    assert_eq!(
-        style.transition_property.as_deref(),
-        Some("color, background-color, border-color, outline-color, text-decoration-color, fill, stroke")
-    );
-    assert_eq!(
-        style.transition_duration,
-        Some(StyleTime::Milliseconds(150.0))
-    );
+    assert_eq!(style.transition_property, None);
+    assert_eq!(style.transition_duration, None);
     assert_eq!(
         style.declarations.get("outline").map(String::as_str),
         Some("2px solid transparent")
@@ -68,10 +61,6 @@ fn parses_design_button_component_class_contract() {
     assert!(style.custom_properties.get("--tw-shadow").is_none());
 
     assert_eq!(variant(&style, "disabled", "pointer-events"), Some("none"));
-    assert_eq!(
-        variant(&style, "disabled", "background-color"),
-        Some("rgb(240, 240, 243)")
-    );
     assert_eq!(
         variant(&style, "disabled", "color"),
         Some("rgb(204, 204, 204)")
@@ -88,11 +77,11 @@ fn parses_design_button_component_class_contract() {
     );
     assert_eq!(
         variant(&style, "focus-visible", "--tw-ring-color"),
-        Some("rgba(23, 23, 23, 0.5)")
+        Some("rgba(23, 23, 23, 0.4)")
     );
     assert_eq!(
         variant(&style, "focus-visible", "--tw-ring-shadow"),
-        Some("0 0 0 3px")
+        Some("0 0 0 2px")
     );
     assert_eq!(
         variant(&style, "aria-invalid", "border-color"),
@@ -104,25 +93,25 @@ fn parses_design_button_component_class_contract() {
     );
     assert_eq!(
         variant(&style, "has-[>svg]", "padding-inline"),
-        Some("16px")
+        Some("12px")
     );
 }
 
 #[test]
 fn parses_design_input_component_class_contract() {
     let web = WebProps::new().class_name(
-        "h-11 w-full min-w-0 rounded-md border border-hairline-strong bg-canvas px-4 py-3 \
-         text-sm text-ink transition-colors outline-none selection:bg-primary \
-         selection:text-on-primary file:inline-flex file:h-7 file:border-0 \
+        "h-9 w-full min-w-0 rounded-md border border-hairline-strong bg-surface-card px-3 py-1.5 \
+         text-sm text-ink outline-none selection:bg-ink \
+         selection:text-canvas file:inline-flex file:h-7 file:border-0 \
          file:bg-transparent file:text-sm file:font-medium file:text-ink \
-         placeholder:text-mute disabled:pointer-events-none disabled:cursor-not-allowed \
+         placeholder:text-muted disabled:pointer-events-none disabled:cursor-not-allowed \
          disabled:bg-surface-strong disabled:text-muted-soft md:text-sm focus-visible:border-ink \
-         focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-semantic-error",
+         focus-visible:ring-[2px] focus-visible:ring-ink/40 aria-invalid:border-semantic-error",
     );
 
     let style = PortableStyle::from_web(&web);
 
-    assert_eq!(style.height, Some(StyleLength::Points(44.0)));
+    assert_eq!(style.height, Some(StyleLength::Points(36.0)));
     assert_eq!(style.width, Some(StyleLength::Percent(100.0)));
     assert_eq!(style.min_width, Some(StyleLength::Points(0.0)));
     assert_eq!(style.border_radius, Some(StyleLength::Points(8.0)));
@@ -145,16 +134,13 @@ fn parses_design_input_component_class_contract() {
             alpha: 255,
         })
     );
-    assert_eq!(style.padding.left, Some(StyleLength::Points(16.0)));
-    assert_eq!(style.padding.top, Some(StyleLength::Points(12.0)));
+    assert_eq!(style.padding.left, Some(StyleLength::Points(12.0)));
+    assert_eq!(style.padding.top, Some(StyleLength::Points(6.0)));
     assert_eq!(style.font_size, Some(StyleLength::Points(14.0)));
-    assert_eq!(
-        style.transition_property.as_deref(),
-        Some("color, background-color, border-color, outline-color, text-decoration-color, fill, stroke")
-    );
+    assert_eq!(style.transition_property, None);
     assert_eq!(
         variant(&style, "selection", "background-color"),
-        Some("rgb(0, 0, 0)")
+        Some("rgb(23, 23, 23)")
     );
     assert_eq!(
         variant(&style, "selection", "color"),
@@ -179,14 +165,14 @@ fn parses_design_input_component_class_contract() {
     assert_eq!(variant(&style, "md", "font-size"), Some("0.875rem"));
     assert_eq!(
         variant(&style, "focus-visible", "--tw-ring-color"),
-        Some("rgba(23, 23, 23, 0.5)")
+        Some("rgba(23, 23, 23, 0.4)")
     );
 }
 
 #[test]
 fn parses_design_card_component_class_contract() {
     let card = PortableStyle::from_web(&WebProps::new().class_name(
-        "flex flex-col gap-4 rounded-lg border border-hairline-strong bg-canvas p-6 text-ink",
+        "flex flex-col gap-3 rounded-md border border-hairline bg-canvas p-3 text-ink",
     ));
 
     assert_eq!(card.display, Some(DisplayMode::Flex));
@@ -194,15 +180,15 @@ fn parses_design_card_component_class_contract() {
         card.flex_direction,
         Some(crate::geometry::Orientation::Vertical)
     );
-    assert_eq!(card.gap, Some(StyleLength::Points(16.0)));
-    assert_eq!(card.border_radius, Some(StyleLength::Points(12.0)));
+    assert_eq!(card.gap, Some(StyleLength::Points(12.0)));
+    assert_eq!(card.border_radius, Some(StyleLength::Points(8.0)));
     assert_eq!(card.border_width.top, Some(StyleLength::Points(1.0)));
     assert_eq!(
         card.border_color,
         Some(StyleColor::Rgba {
-            red: 0xdc,
-            green: 0xde,
-            blue: 0xe0,
+            red: 0xf0,
+            green: 0xf0,
+            blue: 0xf3,
             alpha: 255,
         })
     );
@@ -215,14 +201,14 @@ fn parses_design_card_component_class_contract() {
             alpha: 255,
         })
     );
-    assert_eq!(card.padding.top, Some(StyleLength::Points(24.0)));
-    assert_eq!(card.padding.bottom, Some(StyleLength::Points(24.0)));
+    assert_eq!(card.padding.top, Some(StyleLength::Points(12.0)));
+    assert_eq!(card.padding.bottom, Some(StyleLength::Points(12.0)));
     assert_eq!(card.font_weight, None);
     assert!(card.box_shadow.is_none());
 
     let header = PortableStyle::from_web(&WebProps::new().class_name(
         "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 \
-         has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-4",
+         has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-3",
     ));
 
     assert_eq!(header.container_type, Some(ContainerType::InlineSize));
@@ -241,7 +227,7 @@ fn parses_design_card_component_class_contract() {
     );
     assert_eq!(
         variant(&header, "[.border-b]", "padding-bottom"),
-        Some("16px")
+        Some("12px")
     );
 
     let action = PortableStyle::from_web(
@@ -293,12 +279,8 @@ fn parses_design_dialog_component_class_contract() {
     );
 
     let content = PortableStyle::from_web(&WebProps::new().class_name(
-        "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] \
-         translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-canvas \
-         p-6 text-ink duration-200 outline-none data-[state=closed]:animate-out \
-         data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 \
-         data-[state=open]:animate-in data-[state=open]:fade-in-0 \
-         data-[state=open]:zoom-in-95 sm:max-w-lg",
+        "fixed left-1/2 top-1/2 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 \
+         gap-4 rounded-md border border-hairline bg-canvas p-3 text-ink outline-none",
     ));
 
     assert_eq!(content.position, Some(PositionMode::Fixed));
@@ -306,25 +288,12 @@ fn parses_design_dialog_component_class_contract() {
     assert_eq!(content.inset.left, Some(StyleLength::Percent(50.0)));
     assert_eq!(content.display, Some(DisplayMode::Grid));
     assert_eq!(content.width, Some(StyleLength::Percent(100.0)));
-    assert_eq!(
-        content.max_width,
-        Some(StyleLength::Css("calc(100%-2rem)".to_string()))
-    );
+    assert_eq!(content.max_width, Some(StyleLength::Points(512.0)));
     assert_eq!(content.translate.as_deref(), Some("-50% -50%"));
     assert_eq!(content.gap, Some(StyleLength::Points(16.0)));
-    assert_eq!(
-        content.animation_duration,
-        Some(StyleTime::Milliseconds(200.0))
-    );
-    assert_eq!(
-        variant(&content, "data-[state=closed]", "--tw-exit-scale"),
-        Some("0.95")
-    );
-    assert_eq!(
-        variant(&content, "data-[state=open]", "--tw-enter-scale"),
-        Some("0.95")
-    );
-    assert_eq!(variant(&content, "sm", "max-width"), Some("32rem"));
+    assert_eq!(content.border_radius, Some(StyleLength::Points(8.0)));
+    assert_eq!(content.padding.top, Some(StyleLength::Points(12.0)));
+    assert_eq!(content.animation_duration, None);
 }
 
 #[test]
@@ -332,7 +301,7 @@ fn parses_design_dropdown_menu_component_class_contract() {
     let content = PortableStyle::from_web(&WebProps::new().class_name(
         "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-[8rem] \
          origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden \
-         overflow-y-auto rounded-md border bg-canvas p-1 text-ink \
+         overflow-y-auto rounded-md border bg-surface-card p-1 text-ink \
          data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 \
          data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 \
          data-[state=closed]:animate-out data-[state=closed]:fade-out-0 \
@@ -385,10 +354,10 @@ fn parses_design_dropdown_menu_component_class_contract() {
         "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm \
          outline-hidden select-none focus:bg-surface-strong focus:text-ink \
          data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 \
-         data-[variant=destructive]:text-semantic-error \
-         data-[variant=destructive]:focus:bg-semantic-error/10 \
-         data-[variant=destructive]:focus:text-semantic-error \
-         dark:data-[variant=destructive]:focus:bg-semantic-error/20 \
+         data-[variant=error]:text-semantic-error \
+         data-[variant=error]:focus:bg-semantic-error/10 \
+         data-[variant=error]:focus:text-semantic-error \
+         dark:data-[variant=error]:focus:bg-semantic-error/20 \
          [&_svg]:pointer-events-none [&_svg]:shrink-0 \
          [&_svg:not([class*='size-'])]:size-4 \
          [&_svg:not([class*='text-'])]:text-body",
@@ -407,19 +376,11 @@ fn parses_design_dropdown_menu_component_class_contract() {
     );
     assert_eq!(variant(&item, "data-[inset]", "padding-left"), Some("32px"));
     assert_eq!(
-        variant(
-            &item,
-            "data-[variant=destructive]:focus",
-            "background-color"
-        ),
+        variant(&item, "data-[variant=error]:focus", "background-color"),
         Some("rgba(235, 142, 144, 0.1)")
     );
     assert_eq!(
-        variant(
-            &item,
-            "dark:data-[variant=destructive]:focus",
-            "background-color"
-        ),
+        variant(&item, "dark:data-[variant=error]:focus", "background-color"),
         Some("rgba(235, 142, 144, 0.2)")
     );
     assert_eq!(

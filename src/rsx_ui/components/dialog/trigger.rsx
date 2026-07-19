@@ -61,7 +61,7 @@ pub fn ui_dialog_trigger(cx: &mut ComponentCx<UiDialogTriggerProps>) -> RSX {
             {...props.overlayTriggerProps}
             data-slot="dialog-trigger"
             data-pressed={props.isPressed}
-            class="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-primary bg-primary px-[18px] py-2 text-sm font-medium leading-none text-on-primary transition-colors active:bg-primary-active disabled:pointer-events-none disabled:bg-surface-strong disabled:text-muted-soft focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            class="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-hairline-strong bg-surface-card px-3 py-1.5 text-sm font-medium leading-none text-ink disabled:pointer-events-none disabled:text-muted-soft [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none active:bg-surface-strong focus-visible:ring-[2px] focus-visible:ring-ink/40 aria-invalid:border-semantic-error has-[>svg]:px-3"
             className={props.className}
             aria-haspopup="dialog"
         >

@@ -34,7 +34,7 @@ pub fn ui_focusable(cx: &mut ComponentCx<UiFocusableProps>) -> RSX {
             {...props.focusProps}
             data-slot="focusable"
             data-focused={props.isFocused}
-            class="outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:text-muted-soft data-[focused=true]:ring-[3px] data-[focused=true]:ring-ring/50"
+            class="outline-none focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:pointer-events-none disabled:text-muted-soft data-[focused=true]:ring-[2px] data-[focused=true]:ring-ink/40"
             className={props.className}
         >
             <Slot key="content" />

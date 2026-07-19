@@ -38,7 +38,7 @@ pub fn ui_breadcrumb(cx: &mut ComponentCx<UiBreadcrumbProps>) -> RSX {
             {...props.linkProps}
             data-slot="breadcrumb"
             data-pressed={props.isPressed}
-            class="inline-flex items-center rounded-sm text-body outline-none transition-colors hover:text-ink focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+            class="inline-flex items-center rounded-sm text-body outline-none hover:text-ink focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:pointer-events-none disabled:opacity-50"
             className={props.className}
         >
             <Slot key="content" />

@@ -27,7 +27,7 @@ pub fn ui_list_box_item(cx: &mut ComponentCx<UiListBoxItemProps>) -> RSX {
             key="root"
             {...props.collectionItemProps}
             data-slot="list-box-item"
-            class="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-surface-strong focus:text-ink disabled:pointer-events-none disabled:opacity-50 data-[selected=true]:bg-surface-strong data-[selected=true]:text-ink"
+            class="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-surface-strong focus:text-ink disabled:pointer-events-none disabled:opacity-50 data-[selected=true]:bg-surface-strong data-[selected=true]:text-ink"
             className={props.className}
         >
             <Slot key="content" />

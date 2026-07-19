@@ -16,7 +16,7 @@ impl Default for ComponentPlaygroundState {
             interaction_count: 0,
             query: "native gui".to_string(),
             selected_value: "compact".to_string(),
-            active_section: "foundation".to_string(),
+            active_section: "overview".to_string(),
             overlay_open: false,
             last_event: "Ready".to_string(),
         }
@@ -50,7 +50,10 @@ impl ComponentPlaygroundState {
     }
 
     pub fn set_section(&mut self, section: &str) {
+        if self.active_section == section {
+            return;
+        }
         self.active_section = section.to_string();
-        self.record(&format!("Opened {section}"));
+        self.record(&format!("Opened {}", section.replace('-', " ")));
     }
 }

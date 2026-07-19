@@ -71,7 +71,7 @@ pub fn ui_column_resizer(cx: &mut ComponentCx<UiColumnResizerProps>) -> RSX {
             data-min-value={props.minValue}
             data-max-value={props.maxValue}
             data-pressed={props.isPressed}
-            class="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none bg-transparent outline-none transition-colors hover:bg-hairline focus-visible:bg-ring disabled:pointer-events-none disabled:opacity-50 data-[resizing=true]:bg-ring"
+            class="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none bg-transparent outline-none hover:bg-hairline focus-visible:bg-ink disabled:pointer-events-none disabled:opacity-50 data-[resizing=true]:bg-ink"
             className={props.className}
         >
             <Slot key="content" />

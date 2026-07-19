@@ -409,15 +409,15 @@ pub(super) fn tailwind_utility_declarations(class: &str) -> BTreeMap<String, Str
         "aspect-video" => Some(("aspect-ratio", "16 / 9".to_string())),
         "rounded" => Some(("border-radius", "4px".to_string())),
         "rounded-none" => Some(("border-radius", "0px".to_string())),
-        "rounded-xs" => Some(("border-radius", "2px".to_string())),
+        "rounded-xs" => Some(("border-radius", "4px".to_string())),
         "rounded-sm" => Some(("border-radius", "6px".to_string())),
         "rounded-md" => Some(("border-radius", "8px".to_string())),
         "rounded-lg" => Some(("border-radius", "12px".to_string())),
         "rounded-xl" => Some(("border-radius", "16px".to_string())),
-        "rounded-2xl" => Some(("border-radius", "16px".to_string())),
-        "rounded-3xl" => Some(("border-radius", "24px".to_string())),
-        "rounded-4xl" => Some(("border-radius", "32px".to_string())),
-        "rounded-full" => Some(("border-radius", "calc(infinity * 1px)".to_string())),
+        "rounded-xxl" => Some(("border-radius", "24px".to_string())),
+        "rounded-pill" | "rounded-full" => {
+            Some(("border-radius", "calc(infinity * 1px)".to_string()))
+        }
         _ => None,
     };
     if let Some((property, value)) = declaration {

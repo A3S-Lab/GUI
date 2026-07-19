@@ -199,7 +199,7 @@ pub(in crate::style) fn tailwind_radius_declarations(
     let mut declarations = BTreeMap::new();
     let suffix = class.strip_prefix("rounded")?;
     let (physical, logical, value) = if suffix.is_empty() {
-        (Some(CornerSelection::All), None, "sm")
+        (Some(CornerSelection::All), None, "xs")
     } else {
         let suffix = suffix.strip_prefix('-')?;
         if let Some(value) = suffix.strip_prefix("ss-") {
@@ -258,18 +258,13 @@ pub(in crate::style) fn tailwind_radius_value(value: &str) -> Option<StyleLength
     }
     match value {
         "none" => Some(StyleLength::Points(0.0)),
-        "xs" => Some(StyleLength::Points(2.0)),
-        "sm" => Some(StyleLength::Points(4.0)),
-        "md" => Some(StyleLength::Points(6.0)),
-        "lg" => Some(StyleLength::Points(8.0)),
-        "xl" => Some(StyleLength::Points(12.0)),
-        "2xl" => Some(StyleLength::Points(16.0)),
-        "3xl" => Some(StyleLength::Points(24.0)),
-        "4xl" => Some(StyleLength::Points(32.0)),
-        "full" => Some(StyleLength::Css("calc(infinity * 1px)".to_string())),
-        _ if is_tailwind_identifier(value) => {
-            Some(StyleLength::Css(format!("var(--radius-{value})")))
-        }
+        "xs" => Some(StyleLength::Points(4.0)),
+        "sm" => Some(StyleLength::Points(6.0)),
+        "md" => Some(StyleLength::Points(8.0)),
+        "lg" => Some(StyleLength::Points(12.0)),
+        "xl" => Some(StyleLength::Points(16.0)),
+        "xxl" => Some(StyleLength::Points(24.0)),
+        "pill" | "full" => Some(StyleLength::Css("calc(infinity * 1px)".to_string())),
         _ => None,
     }
 }

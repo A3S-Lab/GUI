@@ -12,11 +12,40 @@ mod overlays;
 mod range;
 mod router;
 
+use std::sync::LazyLock;
+
+#[cfg(test)]
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use crate::compiler::ComponentClassVariants;
 use crate::error::GuiResult;
-use crate::rsx_app::{ComponentCx, RsxComponent, RsxComponentContract, RSX};
+use crate::rsx_app::{ComponentCx, ComponentRegistry, RsxComponent, RsxComponentContract, RSX};
 
-pub(crate) fn with_builtin_components<S>(component: RsxComponent<S>) -> GuiResult<RsxComponent<S>> {
+static BUILTIN_COMPONENT_REGISTRY: LazyLock<GuiResult<ComponentRegistry>> =
+    LazyLock::new(build_builtin_component_registry);
+
+#[cfg(test)]
+static BUILTIN_COMPONENT_REGISTRY_INITIALIZATIONS: AtomicUsize = AtomicUsize::new(0);
+
+/// Returns the process-wide registry of compiled built-in UI components.
+///
+/// The returned value is a cheap clone backed by the same immutable maps.
+pub fn builtin_component_registry() -> GuiResult<ComponentRegistry> {
+    match &*BUILTIN_COMPONENT_REGISTRY {
+        Ok(registry) => Ok(registry.clone()),
+        Err(error) => Err(error.clone()),
+    }
+}
+
+fn build_builtin_component_registry() -> GuiResult<ComponentRegistry> {
+    #[cfg(test)]
+    BUILTIN_COMPONENT_REGISTRY_INITIALIZATIONS.fetch_add(1, Ordering::SeqCst);
+
+    let component = RsxComponent::<()>::new_bare("a3s-builtin-component-registry", "<Fragment />")?;
+    compile_builtin_components(component).map(RsxComponent::into_component_registry)
+}
+
+fn compile_builtin_components<S>(component: RsxComponent<S>) -> GuiResult<RsxComponent<S>> {
     let component = controls::with_input_components(component)?;
     let component = color::with_color_components(component)?;
     let component = foundation::with_foundation_components(component)?;
@@ -59,5 +88,25 @@ where
     match variants {
         Some(variants) => component.use_component_class_variants(name, variants),
         None => Ok(component),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builtin_component_registry_is_initialized_once_and_shared() {
+        let first = RsxComponent::<()>::new("first", "<Fragment />").unwrap();
+        let after_first = BUILTIN_COMPONENT_REGISTRY_INITIALIZATIONS.load(Ordering::SeqCst);
+        let second = RsxComponent::<()>::new("second", "<Fragment />").unwrap();
+        let after_second = BUILTIN_COMPONENT_REGISTRY_INITIALIZATIONS.load(Ordering::SeqCst);
+
+        assert_eq!(after_first, 1);
+        assert_eq!(after_second, after_first);
+        assert!(!first.component_registry().is_empty());
+        assert!(first
+            .component_registry()
+            .shares_compiled_definitions_with(second.component_registry()));
     }
 }
