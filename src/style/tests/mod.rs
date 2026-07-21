@@ -1,10 +1,10 @@
 mod backgrounds;
 mod box_model;
 mod cascade;
+mod design;
 mod layout;
 mod masking;
 mod motion;
-mod shadcn;
 mod speech;
 mod svg;
 mod typography_tailwind;

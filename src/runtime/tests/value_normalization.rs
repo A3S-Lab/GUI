@@ -1,0 +1,467 @@
+use super::super::*;
+use crate::native::{NativeElement, NativeProps, NativeRole};
+use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::web::WebProps;
+
+#[test]
+fn runtime_clamps_text_change_values_to_max_length() {
+    let element = NativeElement::new("name", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Name")
+            .value("Ada")
+            .max_length(Some(3))
+            .web(WebProps::new().on_change("setName")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setName");
+
+    let root_id = runtime.render_native(&element).unwrap();
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                .value("aé日b"),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some("aé日"));
+    assert_eq!(
+        handled
+            .invocation
+            .as_ref()
+            .and_then(|invocation| invocation.value.as_deref()),
+        Some("aé日")
+    );
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("aé日")
+    );
+    assert_eq!(
+        runtime.actions().invocations()[0].value.as_deref(),
+        Some("aé日")
+    );
+}
+
+#[test]
+fn runtime_clamps_initial_text_value_to_max_length_before_rendering() {
+    let element = NativeElement::new("name", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Name")
+            .value("aé日b")
+            .max_length(Some(3)),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+
+    let root_id = runtime.render_native(&element).unwrap();
+    let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+    assert_eq!(blueprint.control_state.max_length, Some(3));
+    assert_eq!(blueprint.value.as_deref(), Some("aé日"));
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("aé日")
+    );
+
+    let updated = NativeElement::new("name", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Name")
+            .value("Ada Lovelace")
+            .max_length(Some(3)),
+    );
+    runtime.render_native(&updated).unwrap();
+    let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+    assert_eq!(blueprint.value.as_deref(), Some("Ada"));
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("Ada")
+    );
+}
+
+#[test]
+fn runtime_clamps_slider_change_values_to_range_bounds() {
+    let element = NativeElement::new("estimate", NativeRole::Slider).with_props(
+        NativeProps::new()
+            .label("Estimate")
+            .range(Some(1.0), Some(12.0), Some(6.0))
+            .web(WebProps::new().on_change("setEstimate")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setEstimate");
+
+    let root_id = runtime.render_native(&element).unwrap();
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                .value(" 99 "),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some("12"));
+    assert_eq!(
+        handled
+            .invocation
+            .as_ref()
+            .and_then(|invocation| invocation.value.as_deref()),
+        Some("12")
+    );
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("12")
+    );
+    assert_eq!(
+        runtime.actions().invocations()[0].value.as_deref(),
+        Some("12")
+    );
+
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                .value(" 0 "),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some("1"));
+    assert_eq!(
+        handled
+            .invocation
+            .as_ref()
+            .and_then(|invocation| invocation.value.as_deref()),
+        Some("1")
+    );
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("1")
+    );
+    assert_eq!(
+        runtime.actions().invocations()[1].value.as_deref(),
+        Some("1")
+    );
+}
+
+#[test]
+fn runtime_clamps_number_input_change_values_to_range_bounds() {
+    let element = NativeElement::new("estimate", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Estimate")
+            .input_type("number")
+            .range(Some(1.0), Some(12.0), Some(6.0))
+            .web(WebProps::new().on_change("setEstimate")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setEstimate");
+
+    let root_id = runtime.render_native(&element).unwrap();
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                .value(" 99 "),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some("12"));
+    assert_eq!(
+        handled
+            .invocation
+            .as_ref()
+            .and_then(|invocation| invocation.value.as_deref()),
+        Some("12")
+    );
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("12")
+    );
+    assert_eq!(
+        runtime.actions().invocations()[0].value.as_deref(),
+        Some("12")
+    );
+
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                .value(" 0 "),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some("1"));
+    assert_eq!(
+        handled
+            .invocation
+            .as_ref()
+            .and_then(|invocation| invocation.value.as_deref()),
+        Some("1")
+    );
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("1")
+    );
+    assert_eq!(
+        runtime.actions().invocations()[1].value.as_deref(),
+        Some("1")
+    );
+}
+
+#[test]
+fn runtime_snaps_ranged_change_values_to_step() {
+    let element = NativeElement::new("volume", NativeRole::Slider).with_props(
+        NativeProps::new()
+            .label("Volume")
+            .range(Some(0.0), Some(100.0), Some(50.0))
+            .step(Some(5.0))
+            .web(WebProps::new().on_change("setVolume")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setVolume");
+
+    let root_id = runtime.render_native(&element).unwrap();
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                .value("43"),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some("45"));
+    assert_eq!(
+        handled
+            .invocation
+            .as_ref()
+            .and_then(|invocation| invocation.value.as_deref()),
+        Some("45")
+    );
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("45")
+    );
+    assert_eq!(
+        runtime.actions().invocations()[0].value.as_deref(),
+        Some("45")
+    );
+
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                .value("42"),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some("40"));
+    assert_eq!(
+        handled
+            .invocation
+            .as_ref()
+            .and_then(|invocation| invocation.value.as_deref()),
+        Some("40")
+    );
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("40")
+    );
+    assert_eq!(
+        runtime.actions().invocations()[1].value.as_deref(),
+        Some("40")
+    );
+}
+
+#[test]
+fn runtime_suppresses_invalid_numeric_change_values() {
+    let slider = NativeElement::new("volume", NativeRole::Slider).with_props(
+        NativeProps::new()
+            .label("Volume")
+            .range(Some(0.0), Some(100.0), Some(6.0))
+            .web(WebProps::new().on_change("setVolume")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setVolume");
+
+    let root_id = runtime.render_native(&slider).unwrap();
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                .value("not-a-number"),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some("not-a-number"));
+    assert!(handled.invocation.is_none());
+    assert!(handled.interaction_changes.is_empty());
+    assert!(runtime.actions().invocations().is_empty());
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("6")
+    );
+
+    let number_input = NativeElement::new("estimate", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Estimate")
+            .input_type("number")
+            .range(Some(1.0), Some(12.0), Some(6.0))
+            .web(WebProps::new().on_change("setEstimate")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setEstimate");
+
+    let root_id = runtime.render_native(&number_input).unwrap();
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::Change)
+                .value(" "),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some(" "));
+    assert!(handled.invocation.is_none());
+    assert!(handled.interaction_changes.is_empty());
+    assert!(runtime.actions().invocations().is_empty());
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("6")
+    );
+}
+
+#[test]
+fn runtime_normalizes_initial_ranged_values_before_rendering() {
+    let element = NativeElement::new("volume", NativeRole::Slider).with_props(
+        NativeProps::new()
+            .label("Volume")
+            .range(Some(0.0), Some(100.0), Some(43.0))
+            .step(Some(5.0)),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+
+    let root_id = runtime.render_native(&element).unwrap();
+    let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+    assert_eq!(blueprint.control_state.current, Some(45.0));
+    assert_eq!(blueprint.value.as_deref(), Some("45"));
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("45")
+    );
+
+    let updated = NativeElement::new("volume", NativeRole::Slider).with_props(
+        NativeProps::new()
+            .label("Volume")
+            .range(Some(0.0), Some(100.0), Some(17.0))
+            .step(Some(5.0)),
+    );
+    runtime.render_native(&updated).unwrap();
+    let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+    assert_eq!(blueprint.control_state.current, Some(15.0));
+    assert_eq!(blueprint.value.as_deref(), Some("15"));
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("15")
+    );
+}
+
+#[test]
+fn runtime_normalizes_initial_number_input_values_before_rendering() {
+    let element = NativeElement::new("estimate", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Estimate")
+            .input_type("number")
+            .range(Some(1.0), Some(12.0), Some(99.0)),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+
+    let root_id = runtime.render_native(&element).unwrap();
+    let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+    assert_eq!(blueprint.control_state.current, Some(12.0));
+    assert_eq!(blueprint.value.as_deref(), Some("12"));
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().value.as_deref(),
+        Some("12")
+    );
+}
+
+#[test]
+fn runtime_omits_invalid_initial_numeric_values_before_rendering() {
+    let slider = NativeElement::new("volume", NativeRole::Slider).with_props(
+        NativeProps::new()
+            .label("Volume")
+            .value("not-a-number")
+            .range(Some(0.0), Some(100.0), None),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+
+    let root_id = runtime.render_native(&slider).unwrap();
+    let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+    assert_eq!(blueprint.control_state.current, None);
+    assert_eq!(blueprint.value, None);
+    assert_eq!(runtime.accessibility_tree().unwrap().value, None);
+
+    let number_input = NativeElement::new("estimate", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Estimate")
+            .value(" ")
+            .input_type("number")
+            .range(Some(1.0), Some(12.0), None),
+    );
+    let root_id = runtime.render_native(&number_input).unwrap();
+    let blueprint = &runtime.host().node(root_id).unwrap().blueprint;
+
+    assert_eq!(blueprint.control_state.current, None);
+    assert_eq!(blueprint.value, None);
+    assert_eq!(runtime.accessibility_tree().unwrap().value, None);
+}
+
+#[test]
+fn runtime_event_number_parser_trims_values_without_coercing_empty_input() {
+    assert_eq!(parse_event_number(" 42 "), Some(42.0));
+    assert_eq!(parse_event_number("\t0.5\n"), Some(0.5));
+    assert_eq!(parse_event_number(" "), None);
+    assert_eq!(parse_event_number("not-a-number"), None);
+}
+
+#[test]
+fn runtime_event_bool_parser_canonicalizes_common_native_payloads() {
+    assert_eq!(parse_event_bool(Some(" true ")), Some(true));
+    assert_eq!(parse_event_bool(Some("ON")), Some(true));
+    assert_eq!(parse_event_bool(Some("1")), Some(true));
+    assert_eq!(parse_event_bool(Some(" false ")), Some(false));
+    assert_eq!(parse_event_bool(Some("OFF")), Some(false));
+    assert_eq!(parse_event_bool(Some("0")), Some(false));
+    assert_eq!(parse_event_bool(Some("maybe")), None);
+    assert_eq!(parse_event_bool(None), None);
+}
+
+#[test]
+fn runtime_suppresses_read_only_keyboard_toggle_normalization() {
+    let element = NativeElement::new("notifications", NativeRole::Switch).with_props(
+        NativeProps::new()
+            .label("Notifications")
+            .read_only(true)
+            .checked(false)
+            .web(WebProps::new().on_change("setNotifications")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setNotifications");
+
+    let root_id = runtime.render_native(&element).unwrap();
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(root_id, crate::event::NativeEventKind::KeyDown)
+                .value(" "),
+        )
+        .unwrap();
+
+    assert!(handled.invocation.is_none());
+    assert_eq!(handled.event.kind, crate::event::NativeEventKind::Toggle);
+    assert!(handled.interaction_changes.is_empty());
+    assert_eq!(runtime.accessibility_tree().unwrap().checked, Some(false));
+    assert!(runtime.actions().invocations().is_empty());
+}

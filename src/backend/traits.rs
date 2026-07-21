@@ -6,8 +6,81 @@ use crate::platform::{
     PlatformCommand,
 };
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlatformCommandBatch {
+    pub id: u64,
+    pub commands: Vec<PlatformCommand>,
+}
+
+impl PlatformCommandBatch {
+    pub fn new(id: u64, commands: Vec<PlatformCommand>) -> Self {
+        Self { id, commands }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.commands.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlatformBatchAck {
+    pub batch_id: u64,
+    pub prepared_commands: usize,
+    pub applied_commands: usize,
+}
+
+impl PlatformBatchAck {
+    pub fn committed(batch: &PlatformCommandBatch) -> Self {
+        Self {
+            batch_id: batch.id,
+            prepared_commands: batch.commands.len(),
+            applied_commands: batch.commands.len(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PlatformBatchFailure {
+    pub batch_id: u64,
+    pub applied_commands: usize,
+    pub failed_command: usize,
+    /// A command may mutate an OS object before returning an error. Commit
+    /// failures are therefore conservatively treated as potentially partial.
+    pub native_state_may_be_partial: bool,
+    pub error: crate::error::GuiError,
+}
+
+/// Executes native command batches and owns the native resources they create.
+///
+/// Implementations must release all owned OS windows, widgets, registrations,
+/// and callbacks from `Drop`. Degraded recovery drops the old executor before
+/// preparing its replacement so two native surfaces never coexist.
 pub trait PlatformCommandExecutor {
     fn execute(&mut self, command: &PlatformCommand) -> GuiResult<()>;
+
+    /// Validate an entire frame before mutating native state.
+    fn prepare_batch(&mut self, _batch: &PlatformCommandBatch) -> GuiResult<()> {
+        Ok(())
+    }
+
+    /// Commit a prepared frame and return an explicit acknowledgement.
+    fn commit_batch(
+        &mut self,
+        batch: &PlatformCommandBatch,
+    ) -> Result<PlatformBatchAck, PlatformBatchFailure> {
+        for (index, command) in batch.commands.iter().enumerate() {
+            if let Err(error) = self.execute(command) {
+                return Err(PlatformBatchFailure {
+                    batch_id: batch.id,
+                    applied_commands: index,
+                    failed_command: index,
+                    native_state_may_be_partial: true,
+                    error,
+                });
+            }
+        }
+        Ok(PlatformBatchAck::committed(batch))
+    }
 }
 
 pub trait NativeEventSource {

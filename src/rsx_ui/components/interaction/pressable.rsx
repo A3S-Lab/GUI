@@ -51,7 +51,7 @@ pub fn ui_pressable(cx: &mut ComponentCx<UiPressableProps>) -> RSX {
             {...props.pressProps}
             data-slot="pressable"
             data-pressed={props.isPressed}
-            class="outline-none transition-colors disabled:pointer-events-none disabled:text-muted-soft focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            class="outline-none disabled:pointer-events-none disabled:text-muted-soft focus-visible:ring-[2px] focus-visible:ring-ink/40"
             className={props.className}
         >
             <Slot key="content" />

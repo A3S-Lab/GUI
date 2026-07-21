@@ -25,7 +25,7 @@ pub fn ui_disclosure_summary(cx: &mut ComponentCx<UiDisclosureSummaryProps>) -> 
             key="root"
             {...props.disclosureTriggerProps}
             data-slot="disclosure-summary"
-            class="flex min-h-10 cursor-default items-center justify-between gap-3 rounded-md border border-hairline bg-canvas px-4 py-2 text-sm font-medium text-ink outline-none transition-colors active:bg-surface-strong focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:text-muted-soft"
+            class="flex min-h-9 cursor-default items-center justify-between gap-3 rounded-md border border-hairline bg-surface-card px-3 py-1.5 text-sm font-medium text-ink outline-none active:bg-surface-strong focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:pointer-events-none disabled:text-muted-soft"
             className={props.className}
         >
             <Slot key="content" />

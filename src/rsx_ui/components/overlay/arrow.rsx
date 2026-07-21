@@ -19,7 +19,7 @@ pub fn ui_overlay_arrow(cx: &mut ComponentCx<UiOverlayArrowProps>) -> RSX {
             key="root"
             data-slot="overlay-arrow"
             data-placement={props.placement}
-            class="size-2 rotate-45 border-l border-t border-hairline-strong bg-canvas data-[placement=bottom]:border-b data-[placement=bottom]:border-r data-[placement=bottom]:border-l-0 data-[placement=bottom]:border-t-0"
+            class="size-2 rotate-45 border-l border-t border-hairline-strong bg-surface-card data-[placement=bottom]:border-b data-[placement=bottom]:border-r data-[placement=bottom]:border-l-0 data-[placement=bottom]:border-t-0"
             className={props.className}
         >
             <Slot key="content" />

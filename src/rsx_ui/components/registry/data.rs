@@ -52,23 +52,7 @@ pub(super) fn with_data_components<S>(component: RsxComponent<S>) -> GuiResult<R
     )?;
     let component = with_builtin_template(
         component,
-        "UiRow",
-        ui_table_row,
-        passthrough_contract()?.default_prop("isSelected", false)?,
-        None,
-    )?;
-    let component = with_builtin_template(
-        component,
         "UiTableColumn",
-        ui_table_column,
-        passthrough_contract()?
-            .default_prop("label", "")?
-            .default_prop("textValue", "")?,
-        None,
-    )?;
-    let component = with_builtin_template(
-        component,
-        "UiColumn",
         ui_table_column,
         passthrough_contract()?
             .default_prop("label", "")?
@@ -92,15 +76,6 @@ pub(super) fn with_data_components<S>(component: RsxComponent<S>) -> GuiResult<R
     let component = with_builtin_template(
         component,
         "UiTableCell",
-        ui_table_cell,
-        passthrough_contract()?
-            .default_prop("label", "")?
-            .default_prop("textValue", "")?,
-        None,
-    )?;
-    let component = with_builtin_template(
-        component,
-        "UiCell",
         ui_table_cell,
         passthrough_contract()?
             .default_prop("label", "")?
@@ -151,16 +126,6 @@ pub(super) fn with_data_components<S>(component: RsxComponent<S>) -> GuiResult<R
     )?;
     let component = with_builtin_template(
         component,
-        "UiTabList",
-        ui_tabs_list,
-        passthrough_contract()?
-            .default_prop("label", "")?
-            .default_prop("orientation", "horizontal")?
-            .default_prop("isDisabled", false)?,
-        None,
-    )?;
-    let component = with_builtin_template(
-        component,
         "UiTabPanels",
         ui_tab_panels,
         passthrough_contract()?,
@@ -175,21 +140,7 @@ pub(super) fn with_data_components<S>(component: RsxComponent<S>) -> GuiResult<R
     )?;
     let component = with_builtin_template(
         component,
-        "UiTab",
-        ui_tabs_trigger,
-        passthrough_contract()?.default_prop("value", "")?,
-        None,
-    )?;
-    let component = with_builtin_template(
-        component,
         "UiTabsContent",
-        ui_tabs_content,
-        passthrough_contract()?.default_prop("value", "")?,
-        None,
-    )?;
-    let component = with_builtin_template(
-        component,
-        "UiTabPanel",
         ui_tabs_content,
         passthrough_contract()?.default_prop("value", "")?,
         None,

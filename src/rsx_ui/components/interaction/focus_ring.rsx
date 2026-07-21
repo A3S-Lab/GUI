@@ -40,7 +40,7 @@ pub fn ui_focus_ring(cx: &mut ComponentCx<UiFocusRingProps>) -> RSX {
             data-focused={props.isFocused}
             data-focus-visible={props.isFocusVisible}
             data-focus-within={props.isFocusWithin}
-            class="outline-none transition-shadow data-[focus-visible=true]:ring-[3px] data-[focus-visible=true]:ring-ring/50 data-[focus-visible=true]:ring-offset-2 data-[focus-within=true]:ring-[3px] data-[focus-within=true]:ring-ring/30 disabled:pointer-events-none disabled:text-muted-soft"
+            class="outline-none transition-shadow data-[focus-visible=true]:ring-[2px] data-[focus-visible=true]:ring-ink/40 data-[focus-visible=true]:ring-offset-2 data-[focus-within=true]:ring-[2px] data-[focus-within=true]:ring-ink/30 disabled:pointer-events-none disabled:text-muted-soft"
             className={props.className}
         >
             <Slot key="content" />

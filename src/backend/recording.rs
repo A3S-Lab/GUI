@@ -3,13 +3,17 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
-use crate::platform::{NativeControlState, PlatformCommand};
+use crate::platform::{NativeControlState, NativeWidgetKind, PlatformCommand};
 
 use super::traits::{NativeEventSource, PlatformCommandExecutor};
+
+pub const DEFAULT_RECORDING_COMMAND_HISTORY_LIMIT: usize = 256;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RecordedNativeObject {
     pub id: HostNodeId,
+    pub widget_kind: NativeWidgetKind,
+    /// Diagnostic/legacy class name; execution is driven by `widget_kind`.
     pub widget_class: String,
     pub label: Option<String>,
     pub value: Option<String>,
@@ -18,15 +22,32 @@ pub struct RecordedNativeObject {
     pub children: Vec<HostNodeId>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct RecordingBackend {
     root: Option<HostNodeId>,
     objects: BTreeMap<HostNodeId, RecordedNativeObject>,
     commands: Vec<PlatformCommand>,
+    command_history_limit: usize,
     events: Vec<NativeEvent>,
 }
 
+impl Default for RecordingBackend {
+    fn default() -> Self {
+        Self::with_command_history_limit(DEFAULT_RECORDING_COMMAND_HISTORY_LIMIT)
+    }
+}
+
 impl RecordingBackend {
+    pub fn with_command_history_limit(command_history_limit: usize) -> Self {
+        Self {
+            root: None,
+            objects: BTreeMap::new(),
+            commands: Vec::new(),
+            command_history_limit,
+            events: Vec::new(),
+        }
+    }
+
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
     }
@@ -41,6 +62,14 @@ impl RecordingBackend {
 
     pub fn commands(&self) -> &[PlatformCommand] {
         &self.commands
+    }
+
+    pub fn command_history_limit(&self) -> usize {
+        self.command_history_limit
+    }
+
+    pub fn take_commands(&mut self) -> Vec<PlatformCommand> {
+        std::mem::take(&mut self.commands)
     }
 
     pub fn push_native_event(&mut self, event: NativeEvent) {
@@ -111,10 +140,12 @@ impl PlatformCommandExecutor for RecordingBackend {
                         id.get()
                     )));
                 }
+                let blueprint = blueprint.redacted_for_diagnostics();
                 self.objects.insert(
                     *id,
                     RecordedNativeObject {
                         id: *id,
+                        widget_kind: blueprint.widget_kind,
                         widget_class: blueprint.widget_class.clone(),
                         label: blueprint.label.clone(),
                         value: blueprint.value.clone(),
@@ -125,9 +156,11 @@ impl PlatformCommandExecutor for RecordingBackend {
                 );
             }
             PlatformCommand::Update { id, blueprint } => {
+                let blueprint = blueprint.redacted_for_diagnostics();
                 let object = self.objects.get_mut(id).ok_or_else(|| {
                     GuiError::host(format!("backend object {} missing", id.get()))
                 })?;
+                object.widget_kind = blueprint.widget_kind;
                 object.widget_class = blueprint.widget_class.clone();
                 object.label = blueprint.label.clone();
                 object.value = blueprint.value.clone();
@@ -186,7 +219,12 @@ impl PlatformCommandExecutor for RecordingBackend {
                 self.root = Some(*id);
             }
         }
-        self.commands.push(command.clone());
+        if self.command_history_limit > 0 {
+            if self.commands.len() == self.command_history_limit {
+                self.commands.remove(0);
+            }
+            self.commands.push(command.redacted_for_diagnostics());
+        }
         Ok(())
     }
 }

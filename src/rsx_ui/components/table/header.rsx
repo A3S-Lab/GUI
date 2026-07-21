@@ -20,7 +20,7 @@ pub fn ui_table_header(cx: &mut ComponentCx<UiTableHeaderProps>) -> RSX {
             data-slot="table-header"
             {...props.tableSectionProps}
             data-table-section="header"
-            class="[&_tr]:border-b"
+            class="[&_tr]:border-b [&_tr]:border-hairline"
             className={props.className}
         >
             <Slot key="content" />

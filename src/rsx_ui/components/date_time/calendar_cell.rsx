@@ -39,7 +39,7 @@ pub fn ui_calendar_cell(cx: &mut ComponentCx<UiCalendarCellProps>) -> RSX {
             key="root"
             {...props.calendarCellProps}
             data-slot="calendar-cell"
-            class="inline-flex h-8 w-8 items-center justify-center rounded-md text-sm outline-none transition-colors hover:bg-surface-strong hover:text-ink focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 data-[selected=true]:bg-primary data-[selected=true]:text-on-primary data-[today=true]:border data-[today=true]:border-ring data-[outside-month=true]:text-body data-[unavailable=true]:line-through"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-md text-sm outline-none hover:bg-surface-strong hover:text-ink focus-visible:border-ink focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:pointer-events-none disabled:opacity-50 data-[selected=true]:bg-ink data-[selected=true]:text-canvas data-[today=true]:border data-[today=true]:border-ink data-[outside-month=true]:text-body data-[unavailable=true]:line-through"
             className={props.className}
         >
             <Slot key="content" />

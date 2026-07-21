@@ -44,14 +44,13 @@ pub fn ui_button(cx: &mut ComponentCx<UiButtonProps>) -> RSX {
     cx.use_prop("className", |props: &UiButtonProps| {
         props.class_name.clone()
     });
-
     crate::rsx!(
         <button
             key="root"
             {...props.buttonProps}
             data-slot="button"
             data-pressed={props.isPressed}
-            class="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-[18px] py-2 text-sm font-medium leading-none transition-colors disabled:pointer-events-none disabled:bg-surface-strong disabled:text-muted-soft [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-semantic-error"
+            class="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium leading-none disabled:pointer-events-none disabled:text-muted-soft [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-[2px] focus-visible:ring-ink/40 aria-invalid:border-semantic-error"
             className={props.className}
         >
             <Slot key="content" />

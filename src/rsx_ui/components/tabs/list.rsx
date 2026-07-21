@@ -25,7 +25,7 @@ pub fn ui_tabs_list(cx: &mut ComponentCx<UiTabsListProps>) -> RSX {
             key="root"
             {...props.tabListProps}
             data-slot="tabs-list"
-            class="inline-flex h-10 w-fit items-center justify-center rounded-md border border-hairline bg-surface-strong p-1 text-body"
+            class="inline-flex h-9 w-fit items-center justify-center rounded-md border border-hairline bg-canvas-soft p-0.5 text-body"
             className={props.className}
         >
             <Slot key="content" />

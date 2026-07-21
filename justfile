@@ -9,11 +9,11 @@ default:
 
 # Build the default headless crate
 build:
-    cargo build
+    cargo build --locked
 
 # Build release artifacts for the default headless crate
 release:
-    cargo build --release
+    cargo build --locked --release
 
 # Build the native dogfood release artifact for this operating system
 release-native:
@@ -22,13 +22,13 @@ release-native:
 
     case "$(uname -s)" in
         Darwin)
-            cargo build --release --features appkit-native --example appkit_dogfood
+            cargo build --locked --release --features appkit-native --example appkit_dogfood
             ;;
         Linux)
-            cargo build --release --features gtk4-native --example gtk4_dogfood
+            cargo build --locked --release --features gtk4-native --example gtk4_dogfood
             ;;
         MINGW*|MSYS*|CYGWIN*|Windows_NT)
-            cargo build --release --target x86_64-pc-windows-msvc --features winui-native --example winui_dogfood
+            cargo build --locked --release --target x86_64-pc-windows-msvc --features winui-native --example winui_dogfood
             ;;
         *)
             echo "unsupported operating system for native GUI release builds: $(uname -s)" >&2
@@ -91,7 +91,7 @@ bundle-appkit:
         exit 1
     fi
 
-    cargo build --release --features appkit-native --example appkit_dogfood
+    cargo build --locked --release --features appkit-native --example appkit_dogfood
 
     bundle_dir="target/release/bundle/A3SGuiDogfood.app"
     rm -rf "$bundle_dir"
@@ -147,7 +147,7 @@ bundle-gtk4:
         exit 1
     fi
 
-    cargo build --release --features gtk4-native --example gtk4_dogfood
+    cargo build --locked --release --features gtk4-native --example gtk4_dogfood
 
     bundle_dir="target/release/bundle/a3s-gui-dogfood-linux"
     rm -rf "$bundle_dir"
@@ -202,7 +202,7 @@ bundle-winui:
             ;;
     esac
 
-    cargo build --release --target x86_64-pc-windows-msvc --features winui-native --example winui_dogfood
+    cargo build --locked --release --target x86_64-pc-windows-msvc --features winui-native --example winui_dogfood
 
     bundle_dir="target/release/bundle/a3s-gui-dogfood-windows"
     rm -rf "$bundle_dir"
@@ -247,7 +247,7 @@ check-bundle-winui:
 
 # Check all planning adapters without native OS bindings
 check-platforms:
-    cargo check --features appkit,winui,gtk4
+    cargo check --locked --all-targets --features appkit,winui,gtk4
 
 # Check the native backend that matches this operating system
 check-native:
@@ -256,13 +256,13 @@ check-native:
 
     case "$(uname -s)" in
         Darwin)
-            cargo check --features appkit-native --example appkit_dogfood
+            cargo check --locked --all-targets --features appkit-native
             ;;
         Linux)
-            cargo check --features gtk4-native --example gtk4_dogfood
+            cargo check --locked --all-targets --features gtk4-native
             ;;
         MINGW*|MSYS*|CYGWIN*|Windows_NT)
-            cargo check --features winui-native --example winui_dogfood
+            cargo check --locked --all-targets --features winui-native
             ;;
         *)
             echo "unsupported operating system for native GUI checks: $(uname -s)" >&2
@@ -272,7 +272,7 @@ check-native:
 
 # Check the Windows dogfood target from any host with the target installed
 check-winui:
-    cargo check --target x86_64-pc-windows-msvc --features winui-native --example winui_dogfood
+    cargo check --locked --all-targets --target x86_64-pc-windows-msvc --features winui-native
 
 # ============================================================================
 # Test
@@ -280,26 +280,63 @@ check-winui:
 
 # Run the default Rust test suite
 test:
-    cargo test
+    cargo test --locked
 
 # Run protocol and native runtime examples as tests
 test-examples:
-    cargo test --examples
+    cargo test --locked --examples
 
 # Run adapter planning tests without native OS bindings
 test-platforms:
-    cargo test --features appkit,winui,gtk4
+    cargo test --locked --features appkit,winui,gtk4
+
+# Prove the runtime core builds without SWC or the built-in design system
+check-core:
+    cargo check --locked --no-default-features --lib
+    cargo check --locked --no-default-features --features authoring --lib
+
+# Run native-feature library tests for this operating system
+test-native:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    case "$(uname -s)" in
+        Darwin)
+            cargo test --locked --lib --features appkit-native
+            ;;
+        Linux)
+            cargo test --locked --lib --features gtk4-native
+            ;;
+        MINGW*|MSYS*|CYGWIN*|Windows_NT)
+            cargo test --locked --lib --features winui-native
+            ;;
+        *)
+            echo "unsupported operating system for native GUI tests: $(uname -s)" >&2
+            exit 1
+            ;;
+    esac
+
+# Run the complete host-native CI gate locally
+native-ci: test-native check-native
+
+# Lint every target and deny high-confidence Clippy and Rust warnings
+clippy:
+    cargo clippy --locked --all-targets --features appkit,winui,gtk4 -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused
+
+# Build crate documentation and fail on rustdoc warnings
+doc-check:
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --document-private-items
 
 # Run the full local verification suite
-verify: fmt-check test test-examples test-platforms diff-check
+verify: fmt-check check-core clippy doc-check test test-examples test-platforms diff-check
 
 # Run dogfood reducer and protocol-boundary regression tests
 dogfood-regression:
-    cargo test --example dogfood_session -- --nocapture
+    cargo test --locked --example dogfood_session -- --nocapture
 
 # Run one Rust test filter with output
 test-one TEST:
-    cargo test {{TEST}} -- --nocapture
+    cargo test --locked {{ TEST }} -- --nocapture
 
 # ============================================================================
 # Formatting
@@ -323,7 +360,7 @@ diff-check:
 
 # Run the headless dogfood session
 dogfood:
-    cargo run --example dogfood_session
+    cargo run --locked --example dogfood_session
 
 # Run the native dogfood app for this operating system
 dogfood-native:
@@ -332,13 +369,13 @@ dogfood-native:
 
     case "$(uname -s)" in
         Darwin)
-            cargo run --features appkit-native --example appkit_dogfood
+            cargo run --locked --features appkit-native --example appkit_dogfood
             ;;
         Linux)
-            cargo run --features gtk4-native --example gtk4_dogfood
+            cargo run --locked --features gtk4-native --example gtk4_dogfood
             ;;
         MINGW*|MSYS*|CYGWIN*|Windows_NT)
-            cargo run --features winui-native --example winui_dogfood
+            cargo run --locked --features winui-native --example winui_dogfood
             ;;
         *)
             echo "unsupported operating system for native GUI dogfood: $(uname -s)" >&2
@@ -353,13 +390,13 @@ controls-native:
 
     case "$(uname -s)" in
         Darwin)
-            cargo run --features appkit-native --example appkit_controls
+            cargo run --locked --features appkit-native --example appkit_controls
             ;;
         Linux)
-            cargo run --features gtk4-native --example gtk4_controls
+            cargo run --locked --features gtk4-native --example gtk4_controls
             ;;
         MINGW*|MSYS*|CYGWIN*|Windows_NT)
-            cargo run --features winui-native --example winui_controls
+            cargo run --locked --features winui-native --example winui_controls
             ;;
         *)
             echo "unsupported operating system for native GUI controls: $(uname -s)" >&2
@@ -374,13 +411,13 @@ calculator:
 
     case "$(uname -s)" in
         Darwin)
-            cargo run --features appkit-native --example appkit_calculator
+            cargo run --locked --features appkit-native --example appkit_calculator
             ;;
         Linux)
-            cargo run --features gtk4-native --example gtk4_calculator
+            cargo run --locked --features gtk4-native --example gtk4_calculator
             ;;
         MINGW*|MSYS*|CYGWIN*|Windows_NT)
-            cargo run --features winui-native --example winui_calculator
+            cargo run --locked --features winui-native --example winui_calculator
             ;;
         *)
             echo "unsupported operating system for native GUI calculator: $(uname -s)" >&2
@@ -395,13 +432,13 @@ playground:
 
     case "$(uname -s)" in
         Darwin)
-            cargo run --features appkit-native --example appkit_component_playground
+            cargo run --locked --features appkit-native --example appkit_component_playground
             ;;
         Linux)
-            cargo run --features gtk4-native --example gtk4_component_playground
+            cargo run --locked --features gtk4-native --example gtk4_component_playground
             ;;
         MINGW*|MSYS*|CYGWIN*|Windows_NT)
-            cargo run --features winui-native --example winui_component_playground
+            cargo run --locked --features winui-native --example winui_component_playground
             ;;
         *)
             echo "unsupported operating system for native GUI component playground: $(uname -s)" >&2

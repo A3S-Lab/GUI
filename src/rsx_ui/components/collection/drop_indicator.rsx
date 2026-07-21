@@ -23,7 +23,7 @@ pub fn ui_drop_indicator(cx: &mut ComponentCx<UiDropIndicatorProps>) -> RSX {
             key="root"
             {...props.dropIndicatorProps}
             data-slot="drop-indicator"
-            class="bg-primary opacity-0 transition-opacity data-[target=true]:opacity-100 data-[orientation=horizontal]:h-0.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-0.5"
+            class="bg-ink opacity-0 transition-opacity data-[target=true]:opacity-100 data-[orientation=horizontal]:h-0.5 data-[orientation=horizontal]:w-full data-[orientation=vertical]:h-full data-[orientation=vertical]:w-0.5"
             className={props.className}
         />
     )

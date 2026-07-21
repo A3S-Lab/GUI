@@ -78,15 +78,15 @@ impl PortableStyle {
             "justify-evenly" => self.justify_content = Some(JustifyContent::SpaceEvenly),
             "rounded" => self.border_radius = Some(StyleLength::Points(4.0)),
             "rounded-none" => self.border_radius = Some(StyleLength::Points(0.0)),
-            "rounded-xs" => self.border_radius = Some(StyleLength::Points(2.0)),
+            "rounded-xs" => self.border_radius = Some(StyleLength::Points(4.0)),
             "rounded-sm" => self.border_radius = Some(StyleLength::Points(6.0)),
             "rounded-md" => self.border_radius = Some(StyleLength::Points(8.0)),
             "rounded-lg" => self.border_radius = Some(StyleLength::Points(12.0)),
             "rounded-xl" => self.border_radius = Some(StyleLength::Points(16.0)),
-            "rounded-2xl" => self.border_radius = Some(StyleLength::Points(16.0)),
-            "rounded-3xl" => self.border_radius = Some(StyleLength::Points(24.0)),
-            "rounded-4xl" => self.border_radius = Some(StyleLength::Points(32.0)),
-            "rounded-full" => {
+            "rounded-xxl" => {
+                self.border_radius = Some(StyleLength::Points(24.0));
+            }
+            "rounded-pill" | "rounded-full" => {
                 self.border_radius = Some(StyleLength::Css("calc(infinity * 1px)".to_string()));
             }
             _ => self.apply_tailwind_prefixed_utility(class),

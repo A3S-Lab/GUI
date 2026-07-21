@@ -23,13 +23,13 @@ pub fn date_color_range_panel(cx: &mut ComponentCx<DateColorRangePanelProps>) ->
         >
             <UiToolbar key="root-stack" orientation="vertical" className="w-full gap-5 rounded-none border-none bg-transparent p-0">
                 <UiToolbar key="date-grid" orientation="horizontal" className="grid w-full grid-cols-3 gap-4 rounded-none border-none bg-transparent p-0">
-                    <UiGroup key="date-pickers" label="Date pickers" className="gap-3 rounded-lg border border-hairline-strong bg-canvas p-4">
+                    <UiGroup key="date-pickers" label="Date pickers" className="gap-3 rounded-md border border-hairline bg-canvas p-3">
                         <UiDatePicker key="date-picker" label="Date picker" value="2026-07-07" placeholder="Date" onChange={setValue} onOpenChange={record} isOpen={false} className="w-full" />
                         <UiDateRangePicker key="date-range-picker" label="Range picker" startValue="2026-07-07" endValue="2026-07-14" placeholder="Range" onStartChange={setValue} onEndChange={setValue} onOpenChange={record} isOpen={false} className="w-full" />
-                        <UiCalendarMonthPicker key="calendar-month-picker" label="Month" value="July" onSelectionChange={setValue} className="h-10 w-full rounded-md border border-hairline-strong bg-canvas px-3 py-2">July</UiCalendarMonthPicker>
-                        <UiCalendarYearPicker key="calendar-year-picker" label="Year" value="2026" onSelectionChange={setValue} className="h-10 w-full rounded-md border border-hairline-strong bg-canvas px-3 py-2">2026</UiCalendarYearPicker>
+                        <UiCalendarMonthPicker key="calendar-month-picker" label="Month" value="July" onSelectionChange={setValue} className="h-10 w-full rounded-md border border-hairline bg-canvas px-3 py-1.5">July</UiCalendarMonthPicker>
+                        <UiCalendarYearPicker key="calendar-year-picker" label="Year" value="2026" onSelectionChange={setValue} className="h-10 w-full rounded-md border border-hairline bg-canvas px-3 py-1.5">2026</UiCalendarYearPicker>
                     </UiGroup>
-                    <UiCalendar key="calendar" label="July 2026" value="2026-07-07" onChange={setValue} className="rounded-lg border border-hairline-strong bg-canvas p-4">
+                    <UiCalendar key="calendar" label="July 2026" value="2026-07-07" onChange={setValue} className="rounded-md border border-hairline bg-canvas p-3">
                         <UiCalendarHeading key="calendar-heading" label="July 2026" level={3} />
                         <UiCalendarGrid key="calendar-grid" label="July 2026">
                             <UiCalendarGridHeader key="calendar-grid-header">
@@ -43,7 +43,7 @@ pub fn date_color_range_panel(cx: &mut ComponentCx<DateColorRangePanelProps>) ->
                             </UiCalendarGridBody>
                         </UiCalendarGrid>
                     </UiCalendar>
-                    <UiRangeCalendar key="range-calendar" label="Sprint range" startValue="2026-07-07" endValue="2026-07-14" onChange={setValue} className="rounded-lg border border-hairline-strong bg-canvas p-4">
+                    <UiRangeCalendar key="range-calendar" label="Sprint range" startValue="2026-07-07" endValue="2026-07-14" onChange={setValue} className="rounded-md border border-hairline bg-canvas p-3">
                         <UiCalendarHeading key="range-calendar-heading" label="Sprint range" level={3} />
                         <UiCalendarGrid key="range-calendar-grid" label="Sprint range">
                             <UiCalendarGridBody key="range-calendar-body">
@@ -54,7 +54,7 @@ pub fn date_color_range_panel(cx: &mut ComponentCx<DateColorRangePanelProps>) ->
                     </UiRangeCalendar>
                 </UiToolbar>
                 <UiToolbar key="color-range-grid" orientation="horizontal" className="grid w-full grid-cols-2 gap-4 rounded-none border-none bg-transparent p-0">
-                    <UiGroup key="color-group" label="Color controls" className="gap-3 rounded-lg border border-hairline-strong bg-canvas p-4">
+                    <UiGroup key="color-group" label="Color controls" className="gap-3 rounded-md border border-hairline bg-canvas p-3">
                         <UiColorPicker key="color-picker" label="Accent" value="#000000" onChange={setValue} className="w-full">
                             <UiColorSwatch key="picker-swatch" label="Black" value="#000000" />
                         </UiColorPicker>
@@ -77,7 +77,7 @@ pub fn date_color_range_panel(cx: &mut ComponentCx<DateColorRangePanelProps>) ->
                             </UiColorSwatchPickerItem>
                         </UiColorSwatchPicker>
                     </UiGroup>
-                    <UiGroup key="range-group" label="Range controls" className="gap-4 rounded-lg border border-hairline-strong bg-canvas p-4">
+                    <UiGroup key="range-group" label="Range controls" className="gap-4 rounded-md border border-hairline bg-canvas p-3">
                         <UiSlider key="slider" label="Volume" valueNumber={64} minValue={0} maxValue={100} stepValue={1} onChange={setValue} className="w-full">
                             <UiSliderTrack key="slider-track" orientation="horizontal">
                                 <UiSliderFill key="slider-fill" orientation="horizontal" valueNumber={64} />

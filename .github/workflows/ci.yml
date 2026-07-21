@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  RUST_TOOLCHAIN: "1.95.0"
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -25,9 +28,8 @@ jobs:
       - name: Install Rust
         shell: bash
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-          rustup component add rustfmt
+          rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal --component clippy,rustfmt
+          rustup default "${RUST_TOOLCHAIN}"
 
       - name: Install just
         shell: bash
@@ -46,10 +48,13 @@ jobs:
         include:
           - name: AppKit
             os: macos-latest
+            feature: appkit-native
           - name: GTK4
             os: ubuntu-latest
+            feature: gtk4-native
           - name: WinUI
             os: windows-latest
+            feature: winui-native
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -57,8 +62,8 @@ jobs:
       - name: Install Rust
         shell: bash
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
+          rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal --component clippy,rustfmt
+          rustup default "${RUST_TOOLCHAIN}"
 
       - name: Install Windows target
         if: runner.os == 'Windows'
@@ -72,17 +77,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-4-dev pkg-config
 
-      - name: Install just
+      - name: Test native library
         shell: bash
-        run: cargo install just --locked
+        run: cargo test --locked --lib --features "${{ matrix.feature }}"
 
-      - name: Check host native backend
+      - name: Check all native targets
         shell: bash
-        run: just check-native
-
-      - name: Run dogfood regression
-        shell: bash
-        run: just dogfood-regression
+        run: cargo check --locked --all-targets --features "${{ matrix.feature }}"
 
   bundle-smoke:
     name: Bundle Smoke (${{ matrix.name }})
@@ -114,8 +115,8 @@ jobs:
       - name: Install Rust
         shell: bash
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup default stable
+          rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal --component clippy,rustfmt
+          rustup default "${RUST_TOOLCHAIN}"
 
       - name: Install Windows target
         if: runner.os == 'Windows'

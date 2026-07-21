@@ -1,7 +1,5 @@
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
-
 use crate::accessibility::{
     AccessibilityDescriptionProps, AccessibilityRelationshipProps, AccessibilityRole,
     AccessibilityStateProps, AccessibilityStructureProps,
@@ -16,19 +14,25 @@ use crate::style::PortableStyle;
 
 use super::types::{
     NativeBackendKind, NativeTextInputHints, NativeTextInputPurpose, NativeWidgetBlueprint,
+    NativeWidgetKind,
 };
 
 mod patch;
 mod setter;
 
-pub use patch::{NativeConfigValueChange, NativeWidgetConfigPatch};
-pub use setter::{apply_widget_setter, apply_widget_setters, NativeWidgetSetter};
+pub use patch::{
+    NativeConfigValueChange, NativeWidgetConfigPatch, NativeWidgetReplacement,
+    NativeWidgetSetterBatch,
+};
+pub use setter::{
+    apply_widget_setter, apply_widget_setters, push_widget_setter_history, NativeWidgetSetter,
+    DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
+};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, PartialEq)]
 pub struct NativeWidgetConfig {
     pub backend: NativeBackendKind,
-    pub widget_class: String,
+    pub widget_kind: NativeWidgetKind,
     pub role: NativeRole,
     pub accessibility_role: AccessibilityRole,
     pub label: Option<String>,
@@ -135,12 +139,48 @@ pub struct NativeWidgetConfig {
     pub metadata: BTreeMap<String, String>,
 }
 
+impl std::fmt::Debug for NativeWidgetConfig {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut accessibility_description = self.accessibility_description.clone();
+        let has_accessibility_value_text = accessibility_description.value_text.is_some();
+        accessibility_description.value_text = None;
+        let metadata_keys = self.metadata.keys().collect::<Vec<_>>();
+        formatter
+            .debug_struct("NativeWidgetConfig")
+            .field("backend", &self.backend)
+            .field("widget_kind", &self.widget_kind)
+            .field("role", &self.role)
+            .field("accessibility_role", &self.accessibility_role)
+            .field("label", &self.label)
+            .field("has_value", &self.value.is_some())
+            .field("action", &self.action)
+            .field("class_name", &self.class_name)
+            .field("placeholder", &self.placeholder)
+            .field("enabled", &self.enabled)
+            .field("visible", &self.visible)
+            .field("selected", &self.selected)
+            .field("checked", &self.checked)
+            .field("expanded", &self.expanded)
+            .field("input_type", &self.input_type)
+            .field("accessibility_description", &accessibility_description)
+            .field(
+                "has_accessibility_value_text",
+                &has_accessibility_value_text,
+            )
+            .field("style_declaration_count", &self.web_style.len())
+            .field("event_binding_count", &self.events.len())
+            .field("metadata_entry_count", &self.metadata.len())
+            .field("metadata_keys", &metadata_keys)
+            .finish_non_exhaustive()
+    }
+}
+
 impl NativeWidgetConfig {
     pub fn from_blueprint(blueprint: &NativeWidgetBlueprint) -> Self {
         let state = &blueprint.control_state;
         Self {
             backend: blueprint.backend,
-            widget_class: blueprint.widget_class.clone(),
+            widget_kind: blueprint.widget_kind,
             role: blueprint.role,
             accessibility_role: blueprint.accessibility_role,
             label: blueprint.label.clone(),

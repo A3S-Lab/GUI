@@ -20,7 +20,7 @@ pub fn ui_tooltip(cx: &mut ComponentCx<UiTooltipProps>) -> RSX {
             key="root"
             {...props.overlayProps}
             data-slot="tooltip"
-            class="z-50 max-w-xs rounded-md border border-hairline-strong bg-canvas px-3 py-1.5 text-xs text-ink"
+            class="z-50 max-w-xs rounded-md border border-hairline-strong bg-surface-card px-3 py-1.5 text-xs text-ink"
             className={props.className}
             label={props.label}
         >

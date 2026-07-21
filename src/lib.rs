@@ -17,6 +17,9 @@ pub mod appkit_native;
 pub mod backend;
 pub mod compiler;
 mod css_text;
+#[cfg(feature = "authoring")]
+mod default_components;
+pub mod effect;
 pub mod error;
 pub mod event;
 pub mod geometry;
@@ -37,8 +40,11 @@ mod native_backends;
 pub mod platform;
 pub mod protocol;
 pub mod renderer;
+#[cfg(feature = "authoring")]
 pub mod rsx;
+#[cfg(feature = "authoring")]
 pub mod rsx_app;
+#[cfg(feature = "design-system")]
 pub mod rsx_ui;
 pub mod runtime;
 pub mod semantic_ui;
@@ -54,7 +60,9 @@ pub use accessibility::{
     AccessibilityDescriptionProps, AccessibilityNode, AccessibilityRelationshipProps,
     AccessibilityRole, AccessibilityStateProps, AccessibilityStructureProps, AccessibilityTreeHost,
 };
-pub use app::{NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse};
+pub use app::{
+    BackgroundUpdate, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
+};
 #[cfg(all(feature = "appkit", target_os = "macos"))]
 pub use appkit::{
     AppKitCommandExecutor, AppKitHandleAdapter, AppKitHandleCommandExecutor, AppKitHandleDriver,
@@ -68,17 +76,25 @@ pub use appkit_native::{
     AppKitRuntimeApp, AppKitRuntimeHost,
 };
 pub use backend::{
-    CommandExecutingHost, DriverCommandExecutor, HandleWidgetDriver, NativeEventHost,
-    NativeEventSource, NativeHandleAdapter, NativeWidgetDriver, NativeWidgetSurface,
+    CommandExecutingHost, DegradedNativeState, DriverCommandExecutor, HandleWidgetDriver,
+    NativeEventHost, NativeEventSource, NativeHandleAdapter, NativeWidgetDriver,
+    NativeWidgetSurface, PlatformBatchAck, PlatformBatchFailure, PlatformCommandBatch,
     PlatformCommandExecutor, RecordedNativeObject, RecordingBackend, SurfaceHandleAdapter,
+    DEFAULT_DRIVER_COMMAND_HISTORY_LIMIT, DEFAULT_RECORDING_COMMAND_HISTORY_LIMIT,
 };
 pub use compiler::{
     CompiledBinding, CompiledBindingSource, CompiledProps, CompiledRsxNode, ComponentClassVariants,
     RsxCompilerBridge,
 };
+pub use effect::{
+    Effect, EffectCancellation, EffectCompletion, EffectExecutor, EffectId, EffectRuntime,
+    EffectWaker, EffectWorker, ThreadEffectExecutor, DEFAULT_EFFECT_IN_FLIGHT_LIMIT,
+    DEFAULT_EFFECT_QUEUE_CAPACITY,
+};
 pub use error::{GuiError, GuiResult};
 pub use event::{
     ActionInvocation, ActionRegistry, EventRouter, NativeEvent, NativeEventKind, RegisteredAction,
+    DEFAULT_ACTION_INVOCATION_HISTORY_LIMIT,
 };
 pub use geometry::{Orientation, Rect, Size};
 #[cfg(feature = "gtk4")]
@@ -92,118 +108,132 @@ pub use gtk4_native::{
     Gtk4NativeSurfaceCommandExecutor, Gtk4NativeSurfaceDriver, Gtk4NotebookTab, Gtk4OsHandle,
     Gtk4OsWidget, Gtk4RuntimeApp, Gtk4RuntimeHost,
 };
-pub use host::{HeadlessHost, HostNodeId, HostOperation, NativeHost};
+pub use host::{
+    HeadlessHost, HostFrameAck, HostNodeId, HostOperation, NativeHost,
+    DEFAULT_HEADLESS_OPERATION_HISTORY_LIMIT,
+};
 pub use html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
     HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS, HTML_TAG_METADATA_KEY,
 };
-pub use interaction::{InteractionChange, InteractionNodeState, InteractionState};
-pub use native::{ElementKey, NativeElement, NativeProps, NativeRole};
+pub use interaction::{
+    InteractionChange, InteractionNodeState, InteractionState,
+    DEFAULT_INTERACTION_CHANGE_HISTORY_LIMIT,
+};
+pub use native::{ElementKey, NativeElement, NativeProps, NativeRole, ValueSensitivity};
 pub use platform::{
-    native_widget_name, AppKitAdapter, BlueprintHost, Gtk4Adapter, NativeBackendKind,
-    NativeConfigValueChange, NativeControlState, NativeWidgetBlueprint, NativeWidgetConfig,
-    NativeWidgetConfigPatch, NativeWidgetSetter, PlatformAdapter, PlatformCommand,
-    PlatformPlannedNode, PlatformPlanningHost, WinUiAdapter,
+    native_widget_kind, native_widget_name, widget_blueprint, AppKitAdapter, BlueprintHost,
+    Gtk4Adapter, NativeBackendKind, NativeConfigValueChange, NativeContainerKind,
+    NativeControlState, NativeTextInputKind, NativeWidgetBlueprint, NativeWidgetConfig,
+    NativeWidgetConfigPatch, NativeWidgetKind, NativeWidgetReplacement, NativeWidgetSetter,
+    NativeWidgetSetterBatch, PlatformAdapter, PlatformCommand, PlatformPlannedNode,
+    PlatformPlanningHost, WinUiAdapter, DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
 };
-pub use protocol::{
-    HostEvent, HostEventResponse, NativeAppEventResponse, NativeHostEventResponse,
-    NativeProtocolApp, NativeProtocolSession, NativeRenderResponse, RenderedFrame, UiAction,
-    UiFrame, WindowOptions,
-};
+pub use protocol::*;
 pub use renderer::Renderer;
+#[cfg(feature = "authoring")]
 pub use rsx::{parse_rsx, parse_rsx_file, parse_rsx_source};
+#[cfg(feature = "authoring")]
 pub use rsx_app::BreadcrumbsHook;
+#[cfg(feature = "authoring")]
 pub use rsx_app::FormHook;
+#[cfg(feature = "authoring")]
 pub use rsx_app::{
     ActionHandle, ActionStateHandle, ActionStateSnapshot, AutocompleteHook, ButtonHook,
     CalendarCellHook, CalendarHook, CheckboxGroupHook, ClipboardHook, CollectionHook,
     CollectionItemHook, CollectionSectionHook, ColorAreaHook, ColorFieldHook, ColorPickerHook,
     ColorSliderHook, ColorSwatchHook, ColorSwatchPickerHook, ColorSwatchPickerItemHook,
-    ColorThumbHook, ColorWheelHook, ComboBoxDisplayHook, ComboBoxHook, ComponentCx, ContextHandle,
-    DateFieldHook, DateInputHook, DatePickerHook, DateRangePickerHook, DateSegmentHook,
-    DerivedHandle, DisclosureGroupHook, DisclosureHook, DropIndicatorHook, DropZoneHook,
-    EffectEventHandle, FieldErrorHook, FieldHook, FileTriggerHook, FocusRingHook, FocusScopeHook,
-    FocusableHook, FormStatusSnapshot, GridListHeaderHook, GroupHook, HeadingHook, I18nHook,
-    KeyboardHook, LabelHook, LegendHook, ListBoxHeaderHook, LoadMoreItemHook, MenuHook,
-    MenuItemHook, NumberFieldHook, OptimisticHandle, OverlayHook, PressHook, PropHandle,
-    RadioGroupHook, RadioHook, RangeCalendarHook, RangeHook, ReactiveHandle, RefHandle,
-    ResourceHandle, RsxActionTransition, RsxComponent, RsxComponentContract, RsxDebugValue,
-    RsxResource, RsxRouteTransition, RsxRouter, RsxTemplate, SelectDisplayHook, SelectHook,
-    SelectionIndicatorHook, SelectorHandle, SeparatorHook, SliderFillHook, SliderOutputHook,
-    SliderTrackHook, StateHandle, SyncExternalStore, SyncExternalStoreSubscription, TabHook,
-    TabListHook, TabPanelHook, TableCaptionHook, TableCellHook, TableColumnHook, TableHook,
-    TableRowHook, TableSectionHook, TextFieldHook, TextHook, TimeFieldHook, ToggleButtonGroupHook,
-    ToggleButtonHook, ToggleHook, ToolbarHook, TreeHeaderHook, TreeHook, TreeItemHook,
-    VirtualizerHook, VisuallyHiddenHook, RSX,
+    ColorThumbHook, ColorWheelHook, ComboBoxDisplayHook, ComboBoxHook, ComponentCx,
+    ComponentRegistry, ContextHandle, DateFieldHook, DateInputHook, DatePickerHook,
+    DateRangePickerHook, DateSegmentHook, DerivedHandle, DisclosureGroupHook, DisclosureHook,
+    DropIndicatorHook, DropZoneHook, EffectEventHandle, FieldErrorHook, FieldHook, FileTriggerHook,
+    FocusRingHook, FocusScopeHook, FocusableHook, FormStatusSnapshot, GridListHeaderHook,
+    GroupHook, HeadingHook, I18nHook, KeyboardHook, LabelHook, LegendHook, ListBoxHeaderHook,
+    LoadMoreItemHook, MenuHook, MenuItemHook, NumberFieldHook, OptimisticHandle, OverlayHook,
+    PressHook, PropHandle, RadioGroupHook, RadioHook, RangeCalendarHook, RangeHook, ReactiveHandle,
+    RefHandle, ResourceHandle, RsxActionTransition, RsxComponent, RsxComponentContract,
+    RsxDebugValue, RsxResource, RsxRouteTransition, RsxRouter, RsxTemplate, SelectDisplayHook,
+    SelectHook, SelectionIndicatorHook, SelectorHandle, SeparatorHook, SliderFillHook,
+    SliderOutputHook, SliderTrackHook, StateHandle, SyncExternalStore,
+    SyncExternalStoreSubscription, TabHook, TabListHook, TabPanelHook, TableCaptionHook,
+    TableCellHook, TableColumnHook, TableHook, TableRowHook, TableSectionHook, TextFieldHook,
+    TextHook, TimeFieldHook, ToggleButtonGroupHook, ToggleButtonHook, ToggleHook, ToolbarHook,
+    TreeHeaderHook, TreeHook, TreeItemHook, VirtualizerHook, VisuallyHiddenHook, RSX,
 };
+#[cfg(feature = "authoring")]
 pub use rsx_app::{DragHook, DropHook};
+#[cfg(feature = "authoring")]
 pub use rsx_app::{HoverHook, KeyboardInteractionHook, LongPressHook, MoveHook};
+#[cfg(feature = "design-system")]
 pub use rsx_ui::{
-    ui_article, ui_aside, ui_autocomplete, ui_badge, ui_badge_variants, ui_breadcrumb,
-    ui_breadcrumbs, ui_button, ui_button_variants, ui_calendar, ui_calendar_cell, ui_calendar_grid,
-    ui_calendar_grid_body, ui_calendar_grid_header, ui_calendar_header_cell, ui_calendar_heading,
-    ui_calendar_month_picker, ui_calendar_year_picker, ui_card, ui_card_content,
-    ui_card_description, ui_card_footer, ui_card_header, ui_card_title, ui_checkbox,
-    ui_checkbox_group, ui_clipboard_target, ui_color_area, ui_color_field, ui_color_picker,
-    ui_color_slider, ui_color_swatch, ui_color_swatch_picker, ui_color_swatch_picker_item,
-    ui_color_thumb, ui_color_wheel, ui_column_resizer, ui_combo_box, ui_date_field, ui_date_input,
-    ui_date_picker, ui_date_range_picker, ui_date_segment, ui_description, ui_dialog,
-    ui_dialog_trigger, ui_disclosure, ui_disclosure_group, ui_disclosure_panel,
-    ui_disclosure_summary, ui_drop_zone, ui_field_error, ui_field_set, ui_file_trigger,
-    ui_focus_ring, ui_focus_scope, ui_footer, ui_form, ui_grid_list, ui_grid_list_header,
-    ui_grid_list_item, ui_grid_list_load_more_item, ui_grid_list_section, ui_group, ui_header,
-    ui_heading, ui_i18n_provider, ui_input, ui_keyboard, ui_label, ui_legend, ui_link, ui_list_box,
-    ui_list_box_header, ui_list_box_item, ui_list_box_load_more_item, ui_list_box_section, ui_main,
-    ui_menu, ui_menu_item, ui_menu_section, ui_menu_trigger, ui_meter, ui_modal, ui_modal_overlay,
-    ui_navigation, ui_number_field, ui_overlay_arrow, ui_popover, ui_progress_bar, ui_radio,
-    ui_radio_group, ui_range_calendar, ui_resizable_table_container, ui_search, ui_search_field,
-    ui_section, ui_select, ui_select_value, ui_selection_indicator, ui_separator, ui_slider,
-    ui_slider_fill, ui_slider_output, ui_slider_thumb, ui_slider_track, ui_submenu_trigger,
-    ui_switch, ui_table, ui_table_body, ui_table_caption, ui_table_cell, ui_table_column,
-    ui_table_footer, ui_table_header, ui_table_load_more_item, ui_table_row, ui_tabs,
-    ui_tabs_content, ui_tabs_list, ui_tabs_trigger, ui_tag, ui_tag_group, ui_text, ui_text_field,
-    ui_textarea, ui_time_field, ui_toast, ui_toast_region, ui_toggle_button,
-    ui_toggle_button_group, ui_toolbar, ui_tooltip, ui_tooltip_trigger, ui_tree, ui_tree_header,
-    ui_tree_item, ui_tree_item_content, ui_tree_load_more_item, ui_tree_section, ui_virtualizer,
-    UiArticleProps, UiAsideProps, UiAutocompleteProps, UiBadgeProps, UiBreadcrumbProps,
-    UiBreadcrumbsProps, UiButtonProps, UiCalendarCellProps, UiCalendarGridBodyProps,
-    UiCalendarGridHeaderProps, UiCalendarGridProps, UiCalendarHeaderCellProps,
-    UiCalendarHeadingProps, UiCalendarMonthPickerProps, UiCalendarProps, UiCalendarYearPickerProps,
-    UiCardContentProps, UiCardDescriptionProps, UiCardFooterProps, UiCardHeaderProps, UiCardProps,
-    UiCardTitleProps, UiCheckboxGroupProps, UiCheckboxProps, UiClipboardTargetProps,
-    UiColorAreaProps, UiColorFieldProps, UiColorPickerProps, UiColorSliderProps,
-    UiColorSwatchPickerItemProps, UiColorSwatchPickerProps, UiColorSwatchProps, UiColorThumbProps,
-    UiColorWheelProps, UiColumnResizerProps, UiComboBoxProps, UiDateFieldProps, UiDateInputProps,
-    UiDatePickerProps, UiDateRangePickerProps, UiDateSegmentProps, UiDescriptionProps,
-    UiDialogProps, UiDialogTriggerProps, UiDisclosureGroupProps, UiDisclosurePanelProps,
-    UiDisclosureProps, UiDisclosureSummaryProps, UiDropZoneProps, UiFieldErrorProps,
-    UiFieldSetProps, UiFileTriggerProps, UiFocusRingProps, UiFocusScopeProps, UiFooterProps,
-    UiFormProps, UiGridListHeaderProps, UiGridListItemProps, UiGridListLoadMoreItemProps,
-    UiGridListProps, UiGridListSectionProps, UiGroupProps, UiHeaderProps, UiHeadingProps,
-    UiI18nProviderProps, UiInputProps, UiKeyboardProps, UiLabelProps, UiLegendProps, UiLinkProps,
-    UiListBoxHeaderProps, UiListBoxItemProps, UiListBoxLoadMoreItemProps, UiListBoxProps,
-    UiListBoxSectionProps, UiMainProps, UiMenuItemProps, UiMenuProps, UiMenuSectionProps,
-    UiMenuTriggerProps, UiMeterProps, UiModalOverlayProps, UiModalProps, UiNavigationProps,
-    UiNumberFieldProps, UiOverlayArrowProps, UiPopoverProps, UiProgressBarProps, UiRadioGroupProps,
-    UiRadioProps, UiRangeCalendarProps, UiResizableTableContainerProps, UiSearchFieldProps,
-    UiSearchProps, UiSectionProps, UiSelectProps, UiSelectValueProps, UiSelectionIndicatorProps,
-    UiSeparatorProps, UiSliderFillProps, UiSliderOutputProps, UiSliderProps, UiSliderThumbProps,
-    UiSliderTrackProps, UiSubmenuTriggerProps, UiSwitchProps, UiTableBodyProps,
-    UiTableCaptionProps, UiTableCellProps, UiTableColumnProps, UiTableFooterProps,
-    UiTableHeaderProps, UiTableLoadMoreItemProps, UiTableProps, UiTableRowProps,
-    UiTabsContentProps, UiTabsListProps, UiTabsProps, UiTabsTriggerProps, UiTagGroupProps,
-    UiTagProps, UiTextFieldProps, UiTextProps, UiTextareaProps, UiTimeFieldProps, UiToastProps,
-    UiToastRegionProps, UiToggleButtonGroupProps, UiToggleButtonProps, UiToolbarProps,
-    UiTooltipProps, UiTooltipTriggerProps, UiTreeHeaderProps, UiTreeItemContentProps,
-    UiTreeItemProps, UiTreeLoadMoreItemProps, UiTreeProps, UiTreeSectionProps, UiVirtualizerProps,
-    UI_BADGE_BASE_CLASS, UI_BADGE_CLASS, UI_BUTTON_BASE_CLASS, UI_BUTTON_CLASS,
-    UI_BUTTON_DEFAULT_SIZE_CLASS, UI_BUTTON_DEFAULT_VARIANT_CLASS, UI_CARD_CLASS,
-    UI_CARD_CONTENT_CLASS, UI_CARD_DESCRIPTION_CLASS, UI_CARD_FOOTER_CLASS, UI_CARD_HEADER_CLASS,
-    UI_CARD_TITLE_CLASS, UI_INPUT_CLASS, UI_SEPARATOR_CLASS, UI_TABS_CLASS, UI_TABS_CONTENT_CLASS,
-    UI_TABS_LIST_CLASS, UI_TABS_TRIGGER_CLASS, UI_TEXTAREA_CLASS,
+    builtin_component_registry, ui_article, ui_aside, ui_autocomplete, ui_badge, ui_badge_variants,
+    ui_breadcrumb, ui_breadcrumbs, ui_button, ui_button_variants, ui_calendar, ui_calendar_cell,
+    ui_calendar_grid, ui_calendar_grid_body, ui_calendar_grid_header, ui_calendar_header_cell,
+    ui_calendar_heading, ui_calendar_month_picker, ui_calendar_year_picker, ui_card,
+    ui_card_content, ui_card_description, ui_card_footer, ui_card_header, ui_card_title,
+    ui_checkbox, ui_checkbox_group, ui_clipboard_target, ui_color_area, ui_color_field,
+    ui_color_picker, ui_color_slider, ui_color_swatch, ui_color_swatch_picker,
+    ui_color_swatch_picker_item, ui_color_thumb, ui_color_wheel, ui_column_resizer, ui_combo_box,
+    ui_date_field, ui_date_input, ui_date_picker, ui_date_range_picker, ui_date_segment,
+    ui_description, ui_dialog, ui_dialog_trigger, ui_disclosure, ui_disclosure_group,
+    ui_disclosure_panel, ui_disclosure_summary, ui_drop_zone, ui_field_error, ui_field_set,
+    ui_file_trigger, ui_focus_ring, ui_focus_scope, ui_footer, ui_form, ui_grid_list,
+    ui_grid_list_header, ui_grid_list_item, ui_grid_list_load_more_item, ui_grid_list_section,
+    ui_group, ui_header, ui_heading, ui_i18n_provider, ui_input, ui_keyboard, ui_label, ui_legend,
+    ui_link, ui_list_box, ui_list_box_header, ui_list_box_item, ui_list_box_load_more_item,
+    ui_list_box_section, ui_main, ui_menu, ui_menu_item, ui_menu_section, ui_menu_trigger,
+    ui_meter, ui_modal, ui_modal_overlay, ui_navigation, ui_number_field, ui_overlay_arrow,
+    ui_popover, ui_progress_bar, ui_radio, ui_radio_group, ui_range_calendar,
+    ui_resizable_table_container, ui_search, ui_search_field, ui_section, ui_select,
+    ui_select_value, ui_selection_indicator, ui_separator, ui_slider, ui_slider_fill,
+    ui_slider_output, ui_slider_thumb, ui_slider_track, ui_submenu_trigger, ui_switch, ui_table,
+    ui_table_body, ui_table_caption, ui_table_cell, ui_table_column, ui_table_footer,
+    ui_table_header, ui_table_load_more_item, ui_table_row, ui_tabs, ui_tabs_content, ui_tabs_list,
+    ui_tabs_trigger, ui_tag, ui_tag_group, ui_text, ui_text_field, ui_textarea, ui_time_field,
+    ui_toast, ui_toast_region, ui_toggle_button, ui_toggle_button_group, ui_toolbar, ui_tooltip,
+    ui_tooltip_trigger, ui_tree, ui_tree_header, ui_tree_item, ui_tree_item_content,
+    ui_tree_load_more_item, ui_tree_section, ui_virtualizer, UiArticleProps, UiAsideProps,
+    UiAutocompleteProps, UiBadgeProps, UiBreadcrumbProps, UiBreadcrumbsProps, UiButtonProps,
+    UiCalendarCellProps, UiCalendarGridBodyProps, UiCalendarGridHeaderProps, UiCalendarGridProps,
+    UiCalendarHeaderCellProps, UiCalendarHeadingProps, UiCalendarMonthPickerProps, UiCalendarProps,
+    UiCalendarYearPickerProps, UiCardContentProps, UiCardDescriptionProps, UiCardFooterProps,
+    UiCardHeaderProps, UiCardProps, UiCardTitleProps, UiCheckboxGroupProps, UiCheckboxProps,
+    UiClipboardTargetProps, UiColorAreaProps, UiColorFieldProps, UiColorPickerProps,
+    UiColorSliderProps, UiColorSwatchPickerItemProps, UiColorSwatchPickerProps, UiColorSwatchProps,
+    UiColorThumbProps, UiColorWheelProps, UiColumnResizerProps, UiComboBoxProps, UiDateFieldProps,
+    UiDateInputProps, UiDatePickerProps, UiDateRangePickerProps, UiDateSegmentProps,
+    UiDescriptionProps, UiDialogProps, UiDialogTriggerProps, UiDisclosureGroupProps,
+    UiDisclosurePanelProps, UiDisclosureProps, UiDisclosureSummaryProps, UiDropZoneProps,
+    UiFieldErrorProps, UiFieldSetProps, UiFileTriggerProps, UiFocusRingProps, UiFocusScopeProps,
+    UiFooterProps, UiFormProps, UiGridListHeaderProps, UiGridListItemProps,
+    UiGridListLoadMoreItemProps, UiGridListProps, UiGridListSectionProps, UiGroupProps,
+    UiHeaderProps, UiHeadingProps, UiI18nProviderProps, UiInputProps, UiKeyboardProps,
+    UiLabelProps, UiLegendProps, UiLinkProps, UiListBoxHeaderProps, UiListBoxItemProps,
+    UiListBoxLoadMoreItemProps, UiListBoxProps, UiListBoxSectionProps, UiMainProps,
+    UiMenuItemProps, UiMenuProps, UiMenuSectionProps, UiMenuTriggerProps, UiMeterProps,
+    UiModalOverlayProps, UiModalProps, UiNavigationProps, UiNumberFieldProps, UiOverlayArrowProps,
+    UiPopoverProps, UiProgressBarProps, UiRadioGroupProps, UiRadioProps, UiRangeCalendarProps,
+    UiResizableTableContainerProps, UiSearchFieldProps, UiSearchProps, UiSectionProps,
+    UiSelectProps, UiSelectValueProps, UiSelectionIndicatorProps, UiSeparatorProps,
+    UiSliderFillProps, UiSliderOutputProps, UiSliderProps, UiSliderThumbProps, UiSliderTrackProps,
+    UiSubmenuTriggerProps, UiSwitchProps, UiTableBodyProps, UiTableCaptionProps, UiTableCellProps,
+    UiTableColumnProps, UiTableFooterProps, UiTableHeaderProps, UiTableLoadMoreItemProps,
+    UiTableProps, UiTableRowProps, UiTabsContentProps, UiTabsListProps, UiTabsProps,
+    UiTabsTriggerProps, UiTagGroupProps, UiTagProps, UiTextFieldProps, UiTextProps,
+    UiTextareaProps, UiTimeFieldProps, UiToastProps, UiToastRegionProps, UiToggleButtonGroupProps,
+    UiToggleButtonProps, UiToolbarProps, UiTooltipProps, UiTooltipTriggerProps, UiTreeHeaderProps,
+    UiTreeItemContentProps, UiTreeItemProps, UiTreeLoadMoreItemProps, UiTreeProps,
+    UiTreeSectionProps, UiVirtualizerProps, UI_BADGE_BASE_CLASS, UI_BADGE_CLASS,
+    UI_BUTTON_BASE_CLASS, UI_BUTTON_CLASS, UI_BUTTON_DEFAULT_SIZE_CLASS,
+    UI_BUTTON_DEFAULT_VARIANT_CLASS, UI_CARD_CLASS, UI_CARD_CONTENT_CLASS,
+    UI_CARD_DESCRIPTION_CLASS, UI_CARD_FOOTER_CLASS, UI_CARD_HEADER_CLASS, UI_CARD_TITLE_CLASS,
+    UI_INPUT_CLASS, UI_SEPARATOR_CLASS, UI_TABS_CLASS, UI_TABS_CONTENT_CLASS, UI_TABS_LIST_CLASS,
+    UI_TABS_TRIGGER_CLASS, UI_TEXTAREA_CLASS,
 };
+#[cfg(feature = "design-system")]
 pub use rsx_ui::{ui_draggable, ui_droppable, UiDraggableProps, UiDroppableProps};
+#[cfg(feature = "design-system")]
 pub use rsx_ui::{
     ui_hoverable, ui_keyboard_target, ui_long_pressable, ui_movable, UiHoverableProps,
     UiKeyboardTargetProps, UiLongPressableProps, UiMovableProps,

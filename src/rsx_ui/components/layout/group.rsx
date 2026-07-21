@@ -56,7 +56,7 @@ pub fn ui_group(cx: &mut ComponentCx<UiGroupProps>) -> RSX {
             data-focused={props.isFocused}
             data-focus-visible={props.isFocusVisible}
             data-focus-within={props.isFocusWithin}
-            class="grid gap-2 outline-none transition-colors data-[hovered=true]:bg-canvas-soft data-[focus-within=true]:ring-[3px] data-[focus-within=true]:ring-ring/30 data-[focus-visible=true]:ring-[3px] data-[focus-visible=true]:ring-ring/50 data-[disabled=true]:pointer-events-none data-[disabled=true]:text-muted-soft data-[invalid=true]:text-semantic-error data-[readonly=true]:opacity-80"
+            class="grid gap-2 outline-none data-[hovered=true]:bg-canvas-soft data-[focus-within=true]:ring-[2px] data-[focus-within=true]:ring-ink/30 data-[focus-visible=true]:ring-[2px] data-[focus-visible=true]:ring-ink/40 data-[disabled=true]:pointer-events-none data-[disabled=true]:text-muted-soft data-[invalid=true]:text-semantic-error data-[readonly=true]:opacity-80"
             className={props.className}
         >
             <Slot key="content" />

@@ -47,7 +47,7 @@ pub fn ui_virtualizer(cx: &mut ComponentCx<UiVirtualizerProps>) -> RSX {
             data-slot="virtualizer"
             data-scrolling={props.isScrolling}
             data-disabled={props.isDisabled}
-            class="grid min-h-0 overflow-auto rounded-md border border-hairline-strong bg-canvas text-ink outline-none transition-colors data-[scrolling=true]:border-ring data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50"
+            class="grid min-h-0 overflow-auto rounded-md border border-hairline-strong bg-surface-card text-ink outline-none data-[scrolling=true]:border-ink data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50"
             className={props.className}
         >
             <Slot key="content" />

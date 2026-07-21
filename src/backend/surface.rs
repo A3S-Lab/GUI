@@ -84,7 +84,7 @@ impl<S: NativeWidgetSurface> NativeHandleAdapter for SurfaceHandleAdapter<S> {
         _blueprint: &NativeWidgetBlueprint,
         patch: &NativeWidgetConfigPatch,
     ) -> GuiResult<()> {
-        self.apply_setters(id, handle, &patch.setters())
+        self.apply_setters(id, handle, patch.as_setters())
     }
 
     fn insert_child_handle(

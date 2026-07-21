@@ -204,6 +204,12 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
             .ok_or_else(|| GuiError::host(format!("native config {} missing", id.get())))?;
         let after = blueprint.config();
         let patch = before.diff(&after);
+        if let Some(replacement) = patch.replacement() {
+            return Err(GuiError::host(format!(
+                "native widget {} changed identity ({replacement:?}); recreate it instead of applying setters",
+                id.get()
+            )));
+        }
         self.adapter
             .update_handle_config(id, &handle, blueprint, &patch)?;
         self.configs.insert(id, after);

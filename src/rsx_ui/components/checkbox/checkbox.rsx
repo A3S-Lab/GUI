@@ -33,7 +33,7 @@ pub fn ui_checkbox(cx: &mut ComponentCx<UiCheckboxProps>) -> RSX {
             key="root"
             {...props.checkboxProps}
             data-slot="checkbox"
-            class="peer size-4 shrink-0 rounded-[4px] border border-hairline-strong outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[checked=true]:border-primary data-[checked=true]:bg-primary data-[checked=true]:text-on-primary aria-invalid:border-semantic-error aria-invalid:ring-semantic-error/20"
+            class="peer size-4 shrink-0 rounded-[4px] border border-hairline-strong outline-none focus-visible:border-ink focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:cursor-not-allowed disabled:opacity-50 data-[checked=true]:border-ink data-[checked=true]:bg-ink data-[checked=true]:text-canvas aria-invalid:border-semantic-error aria-invalid:ring-semantic-error/20"
             className={props.className}
         >
             <Slot key="content" />

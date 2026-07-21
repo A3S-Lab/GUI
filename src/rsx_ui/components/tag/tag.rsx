@@ -27,7 +27,7 @@ pub fn ui_tag(cx: &mut ComponentCx<UiTagProps>) -> RSX {
             key="root"
             {...props.collectionItemProps}
             data-slot="tag"
-            class="inline-flex min-h-7 items-center gap-1 rounded-full border border-transparent bg-surface-strong px-2.5 py-1 text-xs font-medium text-ink outline-none transition-colors active:bg-surface-pressed data-[selected=true]:bg-primary data-[selected=true]:text-on-primary disabled:pointer-events-none disabled:text-muted-soft"
+            class="inline-flex min-h-7 items-center gap-1 rounded-xs border border-transparent bg-surface-strong px-2.5 py-1 text-xs font-medium text-ink outline-none active:bg-surface-strong data-[selected=true]:bg-ink data-[selected=true]:text-canvas disabled:pointer-events-none disabled:text-muted-soft"
             className={props.className}
             onRemove={props.onRemove}
         >

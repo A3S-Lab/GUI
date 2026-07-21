@@ -24,7 +24,7 @@ pub fn ui_disclosure_panel(cx: &mut ComponentCx<UiDisclosurePanelProps>) -> RSX 
             key="root"
             {...props.disclosurePanelProps}
             data-slot="disclosure-panel"
-            class="grid gap-2 px-4 pb-4 text-sm text-body"
+            class="grid gap-2 px-3 pb-3 text-sm text-body"
             className={props.className}
             label={props.label}
         >

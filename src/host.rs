@@ -2,9 +2,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::accessibility::{accessibility_role, AccessibilityNode, AccessibilityTreeHost};
 use crate::error::{GuiError, GuiResult};
-use crate::native::{NativeElement, NativeProps, NativeRole};
+use crate::native::{
+    effective_input_type, NativeElement, NativeProps, NativeRole, ValueSensitivity,
+};
 use crate::style::PortableStyle;
 use serde::{Deserialize, Serialize};
+
+/// Maximum number of headless host operations retained for diagnostics by default.
+pub const DEFAULT_HEADLESS_OPERATION_HISTORY_LIMIT: usize = 256;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -20,7 +25,30 @@ impl HostNodeId {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct HostFrameAck {
+    pub batch_id: Option<u64>,
+    pub applied_operations: usize,
+}
+
 pub trait NativeHost {
+    /// Start a render frame. Hosts that support transactional planning defer
+    /// native execution until `commit_frame`.
+    fn begin_frame(&mut self) -> GuiResult<()> {
+        Ok(())
+    }
+
+    /// Prepare, commit, and acknowledge the operations accumulated by the
+    /// active frame.
+    fn commit_frame(&mut self) -> GuiResult<HostFrameAck> {
+        Ok(HostFrameAck::default())
+    }
+
+    /// End an unsuccessful frame and restore its logical planning state.
+    fn rollback_frame(&mut self) -> GuiResult<()> {
+        Ok(())
+    }
+
     fn create(&mut self, element: &NativeElement) -> GuiResult<HostNodeId>;
     fn update(&mut self, id: HostNodeId, props: &NativeProps) -> GuiResult<()>;
     fn insert_child(
@@ -67,15 +95,35 @@ pub struct HeadlessNode {
     pub children: Vec<HostNodeId>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct HeadlessHost {
     next_id: u64,
     root: Option<HostNodeId>,
     nodes: BTreeMap<HostNodeId, HeadlessNode>,
     operations: Vec<HostOperation>,
+    operation_history_limit: usize,
+}
+
+impl Default for HeadlessHost {
+    fn default() -> Self {
+        Self::with_operation_history_limit(DEFAULT_HEADLESS_OPERATION_HISTORY_LIMIT)
+    }
 }
 
 impl HeadlessHost {
+    /// Creates a headless host with a bounded diagnostic operation history.
+    ///
+    /// A zero limit disables history without affecting the mounted node tree.
+    pub fn with_operation_history_limit(operation_history_limit: usize) -> Self {
+        Self {
+            next_id: 0,
+            root: None,
+            nodes: BTreeMap::new(),
+            operations: Vec::new(),
+            operation_history_limit,
+        }
+    }
+
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
     }
@@ -92,8 +140,24 @@ impl HeadlessHost {
         &self.operations
     }
 
+    pub fn operation_history_limit(&self) -> usize {
+        self.operation_history_limit
+    }
+
+    pub fn take_operations(&mut self) -> Vec<HostOperation> {
+        std::mem::take(&mut self.operations)
+    }
+
     pub fn clear_operations(&mut self) {
         self.operations.clear();
+    }
+
+    fn record_operation(&mut self, operation: HostOperation) {
+        push_bounded(
+            &mut self.operations,
+            operation,
+            self.operation_history_limit,
+        );
     }
 
     fn allocate_id(&mut self) -> HostNodeId {
@@ -160,14 +224,23 @@ impl HeadlessHost {
             .iter()
             .filter_map(|child| self.accessibility_subtree(*child))
             .collect::<Vec<_>>();
+        let value_sensitivity =
+            ValueSensitivity::from_input_type(effective_input_type(&node.props));
+        let mut description = node.props.accessibility_description.clone();
+        if value_sensitivity.is_sensitive() {
+            description.value_text = None;
+        }
 
         Some(AccessibilityNode {
             node: Some(id),
             role: accessibility_role(node.role),
             label: node.props.label.clone(),
-            value: node.props.value.clone(),
+            value: value_sensitivity
+                .redact(node.props.value.as_deref())
+                .map(ToOwned::to_owned),
+            value_sensitivity,
             relationships: node.props.accessibility_relationships.clone(),
-            description: node.props.accessibility_description.clone(),
+            description,
             structure: node.props.accessibility_structure.clone(),
             state: node.props.accessibility_state.clone(),
             disabled: node.props.disabled,
@@ -212,7 +285,7 @@ impl NativeHost for HeadlessHost {
                 children: Vec::new(),
             },
         );
-        self.operations.push(HostOperation::Create {
+        self.record_operation(HostOperation::Create {
             id,
             role: element.role,
             label: element.props.label.clone(),
@@ -226,10 +299,13 @@ impl NativeHost for HeadlessHost {
             .get_mut(&id)
             .ok_or_else(|| GuiError::host(format!("unknown host node id {}", id.get())))?;
         node.props = props.clone();
-        self.operations.push(HostOperation::Update {
+        let value_sensitivity = ValueSensitivity::from_input_type(effective_input_type(props));
+        self.record_operation(HostOperation::Update {
             id,
             label: props.label.clone(),
-            value: props.value.clone(),
+            value: value_sensitivity
+                .redact(props.value.as_deref())
+                .map(ToOwned::to_owned),
         });
         Ok(())
     }
@@ -265,7 +341,7 @@ impl NativeHost for HeadlessHost {
             .ok_or_else(|| GuiError::host(format!("unknown host node id {}", parent.get())))?;
         let index = index.min(parent_node.children.len());
         parent_node.children.insert(index, child);
-        self.operations.push(HostOperation::InsertChild {
+        self.record_operation(HostOperation::InsertChild {
             parent,
             child,
             index,
@@ -289,21 +365,54 @@ impl NativeHost for HeadlessHost {
         {
             self.root = None;
         }
-        self.operations.push(HostOperation::Remove { id });
+        self.record_operation(HostOperation::Remove { id });
         Ok(())
     }
 
     fn set_root(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.ensure_node(id)?;
         self.root = Some(id);
-        self.operations.push(HostOperation::SetRoot { id });
+        self.record_operation(HostOperation::SetRoot { id });
         Ok(())
     }
+}
+
+fn push_bounded<T>(items: &mut Vec<T>, item: T, limit: usize) {
+    if limit == 0 {
+        return;
+    }
+    if items.len() == limit {
+        items.remove(0);
+    }
+    items.push(item);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn headless_operation_history_is_bounded_and_redacts_password_values() {
+        let mut host = HeadlessHost::with_operation_history_limit(2);
+        let id = host
+            .create(&NativeElement::new("password", NativeRole::TextField))
+            .unwrap();
+        for value in ["first-secret", "second-secret", "third-secret"] {
+            host.update(
+                id,
+                &NativeProps::new().metadata("type", "password").value(value),
+            )
+            .unwrap();
+        }
+
+        assert_eq!(host.operations().len(), 2);
+        assert!(host
+            .operations()
+            .iter()
+            .all(|operation| matches!(operation, HostOperation::Update { value: None, .. })));
+        assert_eq!(host.take_operations().len(), 2);
+        assert!(host.operations().is_empty());
+    }
 
     #[test]
     fn headless_host_reparents_child_without_duplicate_parent_links() {

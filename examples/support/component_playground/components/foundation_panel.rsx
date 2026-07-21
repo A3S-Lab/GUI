@@ -22,7 +22,7 @@ pub fn foundation_panel(cx: &mut ComponentCx<FoundationPanelProps>) -> RSX {
             description="Typography, links, cards, focus scopes, and low-level interaction primitives."
         >
             <UiToolbar key="grid" orientation="vertical" className="w-[836px] gap-5 rounded-none border-none bg-transparent p-0">
-                <UiCard key="typography-card" className="w-[836px] p-4">
+                <UiCard key="typography-card" className="w-[836px] p-3">
                     <UiCardHeader key="card-header" className="gap-1 p-0">
                         <UiCardTitle key="card-title">Project summary</UiCardTitle>
                         <UiCardDescription key="card-description">A composed card using the foundation primitives.</UiCardDescription>
@@ -50,39 +50,39 @@ pub fn foundation_panel(cx: &mut ComponentCx<FoundationPanelProps>) -> RSX {
                     </UiCardFooter>
                 </UiCard>
                 <UiToolbar key="interaction-grid" orientation="horizontal" className="h-[232px] w-[836px] gap-4 rounded-none border-none bg-transparent p-0">
-                    <UiGroup key="interaction-group" label="Interaction primitives" className="h-[232px] w-[410px] gap-3 rounded-lg border border-hairline-strong bg-canvas p-4">
-                        <UiPressable key="pressable" onPress={record} isPressed={true} className="h-10 w-[378px] rounded-md border border-hairline-strong px-3 py-2">Pressable action</UiPressable>
-                        <UiHoverable key="hoverable" isHovered={true} className="h-10 w-[378px] rounded-md border border-hairline-strong px-3 py-2">Hoverable row</UiHoverable>
-                        <UiKeyboardTarget key="keyboard-target" onKeyDown={record} isKeyboardActive={true} tabIndex={0} className="h-10 w-[378px] rounded-md border border-hairline-strong px-3 py-2">Keyboard target</UiKeyboardTarget>
-                        <UiClipboardTarget key="clipboard" label="Copy token" onCopy={record} copyValue="a3s-token" className="h-10 w-[378px] rounded-md border border-hairline-strong px-3 py-2">Clipboard target</UiClipboardTarget>
+                    <UiGroup key="interaction-group" label="Interaction primitives" className="h-[232px] w-[410px] gap-3 rounded-md border border-hairline bg-canvas p-3">
+                        <UiPressable key="pressable" onPress={record} isPressed={true} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Pressable action</UiPressable>
+                        <UiHoverable key="hoverable" isHovered={true} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Hoverable row</UiHoverable>
+                        <UiKeyboardTarget key="keyboard-target" onKeyDown={record} isKeyboardActive={true} tabIndex={0} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Keyboard target</UiKeyboardTarget>
+                        <UiClipboardTarget key="clipboard" label="Copy token" onCopy={record} copyValue="a3s-token" className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Clipboard target</UiClipboardTarget>
                     </UiGroup>
-                    <UiGroup key="motion-group" label="Focus and motion primitives" className="h-[232px] w-[410px] gap-3 rounded-lg border border-hairline-strong bg-canvas p-4">
-                        <UiLongPressable key="long-pressable" onLongPress={record} isLongPressed={true} className="h-10 w-[378px] rounded-md border border-hairline-strong px-3 py-2">Long pressable</UiLongPressable>
-                        <UiMovable key="movable" onMove={record} isMoving={true} xDelta={8} yDelta={4} className="h-10 w-[378px] rounded-md border border-hairline-strong px-3 py-2">Movable surface</UiMovable>
-                        <UiFocusable key="focusable" onFocus={record} isFocused={true} tabIndex={0} className="h-10 w-[378px] rounded-md border border-hairline-strong px-3 py-2">Focusable region</UiFocusable>
-                        <UiFocusRing key="focus-ring" isFocused={true} isFocusVisible={true} tabIndex={0} className="h-10 w-[378px] rounded-md border border-hairline-strong px-3 py-2">Focus ring</UiFocusRing>
+                    <UiGroup key="motion-group" label="Focus and motion primitives" className="h-[232px] w-[410px] gap-3 rounded-md border border-hairline bg-canvas p-3">
+                        <UiLongPressable key="long-pressable" onLongPress={record} isLongPressed={true} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Long pressable</UiLongPressable>
+                        <UiMovable key="movable" onMove={record} isMoving={true} xDelta={8} yDelta={4} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Movable surface</UiMovable>
+                        <UiFocusable key="focusable" onFocus={record} isFocused={true} tabIndex={0} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Focusable region</UiFocusable>
+                        <UiFocusRing key="focus-ring" isFocused={true} isFocusVisible={true} tabIndex={0} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Focus ring</UiFocusRing>
                     </UiGroup>
                 </UiToolbar>
                 <UiToolbar key="support-grid" orientation="horizontal" className="h-[260px] w-[836px] gap-4 rounded-none border-none bg-transparent p-0">
-                    <UiFocusScope key="focus-scope" contain={true} restoreFocus={true} className="h-[260px] w-[410px] gap-4 rounded-lg border border-hairline-strong bg-canvas p-4">
+                    <UiFocusScope key="focus-scope" contain={true} restoreFocus={true} className="h-[260px] w-[410px] gap-4 rounded-md border border-hairline bg-canvas p-3">
                         <UiI18nProvider key="i18n" locale="en-US" direction="ltr" className="w-[378px] rounded-md border border-hairline bg-canvas-soft p-3">
                             <UiText key="i18n-text" label="Locale aware content" className="text-sm text-ink" />
                         </UiI18nProvider>
                         <UiVisuallyHidden key="hidden" label="Screen reader status" textValue="Hidden accessible status" />
                         <UiSharedElementTransition key="transition" id="hero-card" isTransitioning={true}>
                             <UiSharedElement key="shared" id="hero-card">
-                                <UiCard key="shared-card" className="w-[378px] p-4">
+                                <UiCard key="shared-card" className="w-[378px] p-3">
                                     <UiText key="shared-text" label="Shared element transition" className="text-sm text-ink" />
                                 </UiCard>
                             </UiSharedElement>
                         </UiSharedElementTransition>
                     </UiFocusScope>
-                    <UiGroup key="textareas" label="Long-form input" className="h-[260px] w-[410px] gap-4 rounded-lg border border-hairline-strong bg-canvas p-4">
+                    <UiGroup key="textareas" label="Long-form input" className="h-[260px] w-[410px] gap-4 rounded-md border border-hairline bg-canvas p-3">
                         <UiTextarea key="textarea" value="Release notes" placeholder="Notes" onChange={setValue} className="h-24 w-[378px]" />
                         <UiTextArea key="text-area" value="Follow-up checklist" placeholder="Checklist" onChange={setValue} className="h-24 w-[378px]" />
                     </UiGroup>
                 </UiToolbar>
-                <UiRouter key="router-card" currentPath="/components" className="rounded-lg border border-hairline-strong bg-canvas p-4">
+                <UiRouter key="router-card" currentPath="/components" className="rounded-md border border-hairline bg-canvas p-3">
                     <UiNavigation key="router-nav" label="Router navigation" className="gap-2">
                         <UiNavLink key="router-home-link" to="/" onNavigate={record} isActive={false}>Home</UiNavLink>
                         <UiNavigateButton key="router-components-button" to="/components" onNavigate={record} isActive={true}>Components</UiNavigateButton>

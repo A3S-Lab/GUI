@@ -61,7 +61,7 @@ pub fn ui_slider_thumb(cx: &mut ComponentCx<UiSliderThumbProps>) -> RSX {
             data-value-number={props.valueNumber}
             data-dragging={props.isDragging}
             data-pressed={props.isPressed}
-            class="block size-4 rounded-full border border-primary bg-canvas transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            class="block size-4 rounded-full border border-ink bg-surface-card disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-[2px] focus-visible:ring-ink/40"
             className={props.className}
         >
             <Slot key="content" />

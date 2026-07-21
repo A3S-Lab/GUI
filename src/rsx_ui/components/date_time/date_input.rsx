@@ -29,7 +29,7 @@ pub fn ui_date_input(cx: &mut ComponentCx<UiDateInputProps>) -> RSX {
             key="root"
             {...props.dateInputProps}
             data-slot="date-input"
-            class="inline-flex h-11 min-w-0 items-center rounded-md border border-hairline-strong bg-canvas px-4 py-3 text-sm text-ink outline-none transition-colors focus-within:border-ink focus-within:ring-[3px] focus-within:ring-ring/50 aria-invalid:border-semantic-error"
+            class="flex h-9 w-full min-w-0 items-center rounded-md border border-hairline-strong bg-surface-card focus-within:border-ink focus-within:ring-[2px] focus-within:ring-ink/40"
             className={props.className}
         >
             <Slot key="content" />

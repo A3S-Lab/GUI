@@ -55,7 +55,7 @@ pub fn ui_submenu_trigger(cx: &mut ComponentCx<UiSubmenuTriggerProps>) -> RSX {
             data-slot="submenu-trigger"
             data-pressed={props.isPressed}
             data-open={props.isOpen}
-            class="relative flex cursor-default select-none items-center justify-between gap-6 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-surface-strong focus:text-ink disabled:pointer-events-none disabled:opacity-50"
+            class="relative flex cursor-default select-none items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-surface-strong focus:text-ink disabled:pointer-events-none disabled:opacity-50"
             className={props.className}
         >
             <Slot key="content" />

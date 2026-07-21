@@ -25,7 +25,7 @@ pub fn ui_radio(cx: &mut ComponentCx<UiRadioProps>) -> RSX {
             key="root"
             {...props.radioProps}
             data-slot="radio"
-            class="aspect-square size-4 shrink-0 rounded-full border border-hairline-strong text-primary outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[selected=true]:border-primary data-[selected=true]:bg-primary"
+            class="aspect-square size-4 shrink-0 rounded-full border border-hairline-strong text-ink outline-none focus-visible:border-ink focus-visible:ring-[2px] focus-visible:ring-ink/40 disabled:cursor-not-allowed disabled:opacity-50 data-[selected=true]:border-ink data-[selected=true]:bg-ink"
             className={props.className}
         >
             <Slot key="content" />

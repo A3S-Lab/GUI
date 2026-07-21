@@ -14,7 +14,7 @@ pub fn ui_card_footer(cx: &mut ComponentCx<UiCardFooterProps>) -> RSX {
         <div
             key="root"
             data-slot="card-footer"
-            class="flex items-center [.border-t]:pt-4"
+            class="flex items-center [.border-t]:pt-3"
             className={props.className}
         >
             <Slot key="content" />
