@@ -147,9 +147,10 @@ Target: days 15-45. Status: planned after M0.
 - Define `AutomationSnapshotV1` plus `press`, `type`, `key`, `focus`, and
   semantic `assert` operations over stable node identifiers and accessibility
   roles.
-- Add an automation journal for input messages, effect requests/completions,
-  clock reads, revisions, ACKs, recovery, and optional model/native/
-  accessibility fingerprints.
+- Add a transport-neutral automation journal for input messages, effects,
+  clock reads, revisions, ACKs, recovery, and selected fingerprints. Expose it
+  through strict protocol v1 and a CLI adapter; file-based automation may be an
+  adapter, but is not the core protocol.
 - Generate the initial Story registry from the existing component registry.
   Do not maintain a second handwritten list of built-in components.
 - Define `PlatformCapability` and
