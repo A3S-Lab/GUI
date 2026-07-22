@@ -15,6 +15,8 @@ pub struct InteractionNodeState {
     pub focused: bool,
     #[serde(default)]
     pub focus_visible: bool,
+    #[serde(default)]
+    pub focus_within: bool,
     pub pressed: bool,
     #[serde(default)]
     pub long_pressed: bool,
@@ -37,6 +39,7 @@ impl std::fmt::Debug for InteractionNodeState {
         formatter
             .debug_struct("InteractionNodeState")
             .field("focused", &self.focused)
+            .field("focus_within", &self.focus_within)
             .field("pressed", &self.pressed)
             .field("has_value", &self.value.is_some())
             .field("selected", &self.selected)
@@ -143,6 +146,7 @@ impl InteractionState {
             (
                 state.focused,
                 state.focus_visible,
+                state.focus_within,
                 state.pressed,
                 state.long_pressed,
                 state.moving,
@@ -155,6 +159,7 @@ impl InteractionState {
         if let Some((
             focused,
             focus_visible,
+            focus_within,
             pressed,
             long_pressed,
             moving,
@@ -165,6 +170,7 @@ impl InteractionState {
         {
             state.focused = focused;
             state.focus_visible = focus_visible;
+            state.focus_within = focus_within;
             state.pressed = pressed;
             state.long_pressed = long_pressed;
             state.moving = moving;
@@ -186,6 +192,7 @@ impl InteractionState {
             (
                 state.focused,
                 state.focus_visible,
+                state.focus_within,
                 state.pressed,
                 state.long_pressed,
                 state.moving,
@@ -202,6 +209,7 @@ impl InteractionState {
         if let Some((
             focused,
             focus_visible,
+            focus_within,
             pressed,
             long_pressed,
             moving,
@@ -212,6 +220,7 @@ impl InteractionState {
         {
             state.focused = focused;
             state.focus_visible = focus_visible;
+            state.focus_within = focus_within;
             state.pressed = pressed;
             state.long_pressed = long_pressed;
             state.moving = moving;
@@ -263,6 +272,7 @@ impl InteractionState {
             (
                 state.focused,
                 state.focus_visible,
+                state.focus_within,
                 state.pressed,
                 state.long_pressed,
                 state.moving,
@@ -276,6 +286,7 @@ impl InteractionState {
         if let Some((
             focused,
             focus_visible,
+            focus_within,
             pressed,
             long_pressed,
             moving,
@@ -286,6 +297,7 @@ impl InteractionState {
         {
             state.focused = focused;
             state.focus_visible = focus_visible;
+            state.focus_within = focus_within;
             state.pressed = pressed;
             state.long_pressed = long_pressed;
             state.moving = moving;
@@ -331,6 +343,38 @@ impl InteractionState {
             .or_insert_with(|| initial_state_from_props(props));
         state.focused = true;
         state.focus_visible = true;
+    }
+
+    pub(crate) fn set_focus_within(
+        &mut self,
+        id: HostNodeId,
+        blueprint: &NativeWidgetBlueprint,
+        focus_within: bool,
+    ) -> Option<InteractionChange> {
+        let before = self
+            .nodes
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| initial_state_from_blueprint(blueprint));
+        let mut after = before.clone();
+        after.focus_within = focus_within;
+        if before == after {
+            return None;
+        }
+
+        self.nodes.insert(id, after.clone());
+        let change = InteractionChange {
+            node: id,
+            before,
+            after,
+        };
+        let mut history_change = change.clone();
+        if blueprint.effective_value_sensitivity().is_sensitive() {
+            history_change.before.value = None;
+            history_change.after.value = None;
+        }
+        self.record_change(history_change);
+        Some(change)
     }
 
     pub fn retain_nodes(&mut self, mounted_nodes: &BTreeSet<HostNodeId>) {
@@ -584,6 +628,7 @@ fn initial_state_from_blueprint(blueprint: &NativeWidgetBlueprint) -> Interactio
     InteractionNodeState {
         focused: false,
         focus_visible: false,
+        focus_within: false,
         pressed: false,
         long_pressed: false,
         moving: false,
@@ -601,6 +646,7 @@ fn initial_state_from_props(props: &NativeProps) -> InteractionNodeState {
     InteractionNodeState {
         focused: false,
         focus_visible: false,
+        focus_within: false,
         pressed: false,
         long_pressed: false,
         moving: false,

@@ -886,6 +886,15 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
           >
             Focus ring
           </UiFocusRing>
+          <UiFocusWithin
+            key="focus-within"
+            isFocusWithin={true}
+            onFocusWithin={setFocus}
+            onBlurWithin={setFocus}
+            onFocusWithinChange={setFocus}
+          >
+            Focus within
+          </UiFocusWithin>
           <UiFocusScope
             key="focus-scope"
             contain={true}
@@ -1020,6 +1029,8 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
         let droppable = find_element_by_attribute(&frame.root, "data-slot", "droppable").unwrap();
         let focusable = find_element_by_attribute(&frame.root, "data-slot", "focusable").unwrap();
         let focus_ring = find_element_by_attribute(&frame.root, "data-slot", "focus-ring").unwrap();
+        let focus_within =
+            find_element_by_attribute(&frame.root, "data-slot", "focus-within").unwrap();
         let focus_scope =
             find_element_by_attribute(&frame.root, "data-slot", "focus-scope").unwrap();
         let visually_hidden =
@@ -1054,6 +1065,7 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
         assert_class_contains(droppable, "data-[drop-target=true]:ring-[2px]");
         assert_class_contains(focusable, "focus-visible:ring-[2px]");
         assert_class_contains(focus_ring, "data-[focus-visible=true]:ring-[2px]");
+        assert_class_contains(focus_within, "data-[focus-within=true]:ring-[2px]");
         assert_class_contains(focus_scope, "data-[contain=true]:isolate");
         assert_class_contains(visually_hidden, "sr-only");
         assert_class_contains(shared_transition, "contents");
@@ -1294,6 +1306,26 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
                 .web
                 .events
                 .get("onFocusChange")
+                .map(String::as_str),
+            Some("setFocus")
+        );
+        let focus_within_native = bridge.lower_to_native(focus_within).unwrap();
+        assert_eq!(focus_within_native.role, NativeRole::View);
+        assert_eq!(
+            focus_within_native
+                .props
+                .web
+                .events
+                .get("onFocusWithin")
+                .map(String::as_str),
+            Some("setFocus")
+        );
+        assert_eq!(
+            focus_within_native
+                .props
+                .web
+                .events
+                .get("onBlurWithin")
                 .map(String::as_str),
             Some("setFocus")
         );
@@ -5935,6 +5967,9 @@ fn rsx_ui_group_uses_group_hook_props() {
             on_focus: None,
             on_blur: None,
             on_focus_change: Some("setFocus".to_string()),
+            on_focus_within: Some("setFocus".to_string()),
+            on_blur_within: None,
+            on_focus_within_change: Some("setFocus".to_string()),
             is_disabled: true,
             is_invalid: true,
             is_read_only: true,

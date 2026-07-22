@@ -111,9 +111,10 @@ pub use file::{
     UseFileTriggerResult,
 };
 pub use focusable::{
-    use_focus_ring, use_focus_ring_value, use_focus_scope, use_focus_scope_value, use_focusable,
-    use_focusable_value, FocusProps, FocusRingProps, FocusScopeProps, UseFocusRingProps,
-    UseFocusRingResult, UseFocusScopeProps, UseFocusScopeResult, UseFocusableProps,
+    use_focus_ring, use_focus_ring_value, use_focus_scope, use_focus_scope_value, use_focus_within,
+    use_focus_within_value, use_focusable, use_focusable_value, FocusProps, FocusRingProps,
+    FocusScopeProps, FocusWithinProps, UseFocusRingProps, UseFocusRingResult, UseFocusScopeProps,
+    UseFocusScopeResult, UseFocusWithinProps, UseFocusWithinResult, UseFocusableProps,
     UseFocusableResult,
 };
 pub use form::{use_form, use_form_value, FormProps, UseFormProps, UseFormResult};

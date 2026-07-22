@@ -120,6 +120,8 @@ mod file_trigger;
 mod focus_ring;
 #[path = "interaction/focus_scope.rsx"]
 mod focus_scope;
+#[path = "interaction/focus_within.rsx"]
+mod focus_within;
 #[path = "interaction/focusable.rsx"]
 mod focusable;
 #[path = "layout/footer.rsx"]
@@ -382,6 +384,7 @@ pub use field_set::{ui_field_set, UiFieldSetProps};
 pub use file_trigger::{ui_file_trigger, UiFileTriggerProps};
 pub use focus_ring::{ui_focus_ring, UiFocusRingProps};
 pub use focus_scope::{ui_focus_scope, UiFocusScopeProps};
+pub use focus_within::{ui_focus_within, UiFocusWithinProps};
 pub use focusable::{ui_focusable, UiFocusableProps};
 pub use footer::{ui_footer, UiFooterProps};
 pub use form::{ui_form, UiFormProps};

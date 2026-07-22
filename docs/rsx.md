@@ -571,6 +571,7 @@ Semantic UI projections:
 | Hook family | Examples | Exposed data |
 | --- | --- | --- |
 | Press and links | `use_press`, `use_button`, `use_link` | Press state, link props, labels, disabled state, native activation metadata. |
+| Focus | `use_focus`, `use_focus_within`, `use_focus_ring` | Direct-target focus state, subtree focus-within state, and modality-aware focus visibility. |
 | Collections and navigation | `use_breadcrumbs`, `use_collection`, `use_virtualizer` | Collection props, item counts, empty state, windowed collection metadata. |
 | Layout and groups | `use_landmark`, `use_group`, `use_disclosure_group` | Landmark props, grouped focus/hover state, disclosure metadata. |
 | Clipboard, drag, and drop | `use_clipboard`, `use_drag`, `use_drop` | Native clipboard, drag source, and drop target contracts. |
@@ -1520,6 +1521,7 @@ card parts are under `src/rsx_ui/components/card/`, checkbox parts are under
 - `UiFieldError`
 - `UiFileTrigger`
 - `UiFocusable`
+- `UiFocusWithin`
 - `UiFooter`
 - `UiForm`
 - `UiGridList`

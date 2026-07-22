@@ -319,7 +319,13 @@ up back to serialized action identifiers such as `onClick`, `onLongPress`,
 `onMoveStart`, `onMove`, `onMoveEnd`, `onChange`, `onInput`, `onFocusChange`,
 `onAction`, `onExpandedChange`, `onKeyDown`, and `onKeyUp`.
 Focus and blur events always carry canonical `true` and `false` payloads for
-`onFocusChange`. Toggle events for checked or expanded controls canonicalize
+`onFocusChange`. These direct focus callbacks are target-only. The runtime
+separately derives `onFocusWithin`, `onBlurWithin`, and
+`onFocusWithinChange` from the focused target and its `relatedTarget`, routing
+them only across entered or exited subtree boundaries. Consecutive native
+blur/focus events are linked before dispatch so focus movement between sibling
+descendants preserves their ancestor's focus-within state. Toggle events for
+checked or expanded controls canonicalize
 native boolean strings such as `1`, `0`, `on`, and `off`; invalid toggle
 payloads fall back to the next state derived from the current rendered or
 interactive state. Boolean change events for checked controls use that same

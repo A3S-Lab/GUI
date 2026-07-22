@@ -60,6 +60,7 @@ pub fn foundation_panel(cx: &mut ComponentCx<FoundationPanelProps>) -> RSX {
                         <UiLongPressable key="long-pressable" onLongPress={record} isLongPressed={true} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Long pressable</UiLongPressable>
                         <UiMovable key="movable" onMove={record} isMoving={true} xDelta={8} yDelta={4} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Movable surface</UiMovable>
                         <UiFocusable key="focusable" onFocus={record} isFocused={true} tabIndex={0} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Focusable region</UiFocusable>
+                        <UiFocusWithin key="focus-within" onFocusWithin={record} isFocusWithin={true} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Focus-within region</UiFocusWithin>
                         <UiFocusRing key="focus-ring" isFocused={true} isFocusVisible={true} tabIndex={0} className="h-10 w-[378px] rounded-md border border-hairline px-3 py-1.5">Focus ring</UiFocusRing>
                     </UiGroup>
                 </UiToolbar>

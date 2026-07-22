@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::host::HostNodeId;
+
 /// The input modality that produced a semantic native event.
 ///
 /// This mirrors the interaction methods exposed by React Aria press events,
@@ -128,6 +130,12 @@ pub struct NativeEventContext {
     /// this raw key event, so routing must not synthesize a second press.
     #[serde(default, skip_serializing_if = "is_false")]
     pub handled_activation: bool,
+    /// The focus target on the opposite side of a focus transition. For a
+    /// blur this is the node receiving focus; for a focus this is the node
+    /// that previously held it. `None` represents an application boundary or
+    /// a native source that cannot resolve the opposite target.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub related_target: Option<HostNodeId>,
 }
 
 impl NativeEventContext {
@@ -140,6 +148,7 @@ impl NativeEventContext {
             repeat: false,
             click_count: 0,
             handled_activation: false,
+            related_target: None,
         }
     }
 
@@ -178,6 +187,11 @@ impl NativeEventContext {
         self
     }
 
+    pub const fn related_target(mut self, target: HostNodeId) -> Self {
+        self.related_target = Some(target);
+        self
+    }
+
     pub fn is_empty(&self) -> bool {
         self.modality == NativeInputModality::Unknown
             && self.modifiers.is_empty()
@@ -186,6 +200,7 @@ impl NativeEventContext {
             && !self.repeat
             && self.click_count == 0
             && !self.handled_activation
+            && self.related_target.is_none()
     }
 }
 
@@ -218,7 +233,8 @@ mod tests {
             .delta(-1.5, 2.0)
             .repeat(true)
             .click_count(2)
-            .handled_activation(true);
+            .handled_activation(true)
+            .related_target(crate::host::HostNodeId::new(42));
 
         let json = serde_json::to_value(context).unwrap();
         assert_eq!(json["modality"], "pen");
@@ -229,6 +245,7 @@ mod tests {
         assert_eq!(json["repeat"], true);
         assert_eq!(json["clickCount"], 2);
         assert_eq!(json["handledActivation"], true);
+        assert_eq!(json["relatedTarget"], 42);
         assert_eq!(
             serde_json::from_value::<NativeEventContext>(json).unwrap(),
             context

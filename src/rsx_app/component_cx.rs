@@ -20,27 +20,28 @@ use crate::semantic_ui::{
     use_date_segment_value, use_description_value, use_disclosure_group_value,
     use_disclosure_value, use_drag_value, use_drop_value, use_drop_zone_value,
     use_field_error_value, use_field_value, use_file_trigger_value, use_focus_ring_value,
-    use_focus_scope_value, use_focusable_value, use_form_value, use_grid_list_header_value,
-    use_group_value, use_heading_value, use_i18n_value, use_keyboard_value, use_label_value,
-    use_legend_value, use_link_value, use_list_box_header_value, use_load_more_item_value,
-    use_menu_item_value, use_menu_value, use_overlay_value, use_press_value, use_radio_group_value,
-    use_radio_value, use_range_calendar_value, use_range_value, use_select_display_value,
-    use_select_value, use_selection_value, use_submenu_trigger_value, use_switch_value,
-    use_tab_list_value, use_tab_panel_value, use_tab_value, use_table_caption_value,
-    use_table_cell_value, use_table_column_value, use_table_row_value, use_table_section_value,
-    use_table_value, use_text_field_value, use_text_value, use_time_field_value,
-    use_toggle_button_group_value, use_toggle_button_value, use_toggle_value,
-    use_tree_header_value, use_tree_item_value, use_tree_value, use_visually_hidden_value,
-    AutocompleteProps, BreadcrumbsProps, ButtonProps, CalendarCellProps, CalendarProps,
-    CheckboxGroupProps, CheckboxProps, CollectionItemProps, CollectionProps, CollectionSectionKind,
-    CollectionSectionProps, ColorAreaProps, ColorFieldInputProps, ColorFieldProps,
-    ColorPickerProps, ColorRangeProps, ColorSwatchPickerItemProps, ColorSwatchPickerProps,
-    ColorSwatchProps, ColorThumbProps, ComboBoxInputProps, ComboBoxProps, DateFieldInputProps,
-    DateFieldProps, DateInputProps, DatePickerInputProps, DatePickerProps, DatePickerTriggerProps,
-    DateRangePickerInputProps, DateRangePickerProps, DateSegmentProps, DisclosureGroupProps,
-    DisclosurePanelProps, DisclosureProps, DisclosureTriggerProps, DragButtonProps, DragProps,
-    DropButtonProps, DropProps, DropZoneProps, FieldProps, FileTriggerProps, FocusProps,
-    FocusRingProps, FocusScopeProps, FormProps, GroupProps, HeadingProps, I18nProps, LinkProps,
+    use_focus_scope_value, use_focus_within_value, use_focusable_value, use_form_value,
+    use_grid_list_header_value, use_group_value, use_heading_value, use_i18n_value,
+    use_keyboard_value, use_label_value, use_legend_value, use_link_value,
+    use_list_box_header_value, use_load_more_item_value, use_menu_item_value, use_menu_value,
+    use_overlay_value, use_press_value, use_radio_group_value, use_radio_value,
+    use_range_calendar_value, use_range_value, use_select_display_value, use_select_value,
+    use_selection_value, use_submenu_trigger_value, use_switch_value, use_tab_list_value,
+    use_tab_panel_value, use_tab_value, use_table_caption_value, use_table_cell_value,
+    use_table_column_value, use_table_row_value, use_table_section_value, use_table_value,
+    use_text_field_value, use_text_value, use_time_field_value, use_toggle_button_group_value,
+    use_toggle_button_value, use_toggle_value, use_tree_header_value, use_tree_item_value,
+    use_tree_value, use_visually_hidden_value, AutocompleteProps, BreadcrumbsProps, ButtonProps,
+    CalendarCellProps, CalendarProps, CheckboxGroupProps, CheckboxProps, CollectionItemProps,
+    CollectionProps, CollectionSectionKind, CollectionSectionProps, ColorAreaProps,
+    ColorFieldInputProps, ColorFieldProps, ColorPickerProps, ColorRangeProps,
+    ColorSwatchPickerItemProps, ColorSwatchPickerProps, ColorSwatchProps, ColorThumbProps,
+    ComboBoxInputProps, ComboBoxProps, DateFieldInputProps, DateFieldProps, DateInputProps,
+    DatePickerInputProps, DatePickerProps, DatePickerTriggerProps, DateRangePickerInputProps,
+    DateRangePickerProps, DateSegmentProps, DisclosureGroupProps, DisclosurePanelProps,
+    DisclosureProps, DisclosureTriggerProps, DragButtonProps, DragProps, DropButtonProps,
+    DropProps, DropZoneProps, FieldProps, FileTriggerProps, FocusProps, FocusRingProps,
+    FocusScopeProps, FocusWithinProps, FormProps, GroupProps, HeadingProps, I18nProps, LinkProps,
     LoadMoreItemProps, MenuItemProps, MenuProps, OverlayProps, OverlayTriggerProps, PressProps,
     RadioGroupProps, RadioProps, RangeCalendarProps, RangeInputProps, RangeProps, SelectProps,
     SelectValueProps, SelectionInputTriggerProps, SelectionProps, SubmenuTriggerProps, SwitchProps,
@@ -55,15 +56,15 @@ use crate::semantic_ui::{
     UseColorThumbProps, UseComboBoxDisplayProps, UseComboBoxProps, UseDateFieldProps,
     UseDateInputProps, UseDatePickerProps, UseDateRangePickerProps, UseDateSegmentProps,
     UseDisclosureGroupProps, UseDisclosureProps, UseDragProps, UseDropProps, UseDropZoneProps,
-    UseFieldProps, UseFileTriggerProps, UseFocusRingProps, UseFocusScopeProps, UseFocusableProps,
-    UseFormProps, UseGroupProps, UseHeadingProps, UseI18nProps, UseLinkProps, UseLoadMoreItemProps,
-    UseMenuItemProps, UseMenuProps, UseOverlayProps, UsePressProps, UseRadioGroupProps,
-    UseRadioProps, UseRangeCalendarProps, UseRangeProps, UseSelectDisplayProps, UseSelectProps,
-    UseSelectionProps, UseSubmenuTriggerProps, UseSwitchProps, UseTabListProps, UseTabPanelProps,
-    UseTabProps, UseTableCaptionProps, UseTableCellProps, UseTableColumnProps, UseTableProps,
-    UseTableRowProps, UseTableSectionProps, UseTextFieldProps, UseTextProps, UseTimeFieldProps,
-    UseToggleButtonGroupProps, UseToggleButtonProps, UseToggleProps, UseTreeItemProps,
-    UseTreeProps,
+    UseFieldProps, UseFileTriggerProps, UseFocusRingProps, UseFocusScopeProps, UseFocusWithinProps,
+    UseFocusableProps, UseFormProps, UseGroupProps, UseHeadingProps, UseI18nProps, UseLinkProps,
+    UseLoadMoreItemProps, UseMenuItemProps, UseMenuProps, UseOverlayProps, UsePressProps,
+    UseRadioGroupProps, UseRadioProps, UseRangeCalendarProps, UseRangeProps, UseSelectDisplayProps,
+    UseSelectProps, UseSelectionProps, UseSubmenuTriggerProps, UseSwitchProps, UseTabListProps,
+    UseTabPanelProps, UseTabProps, UseTableCaptionProps, UseTableCellProps, UseTableColumnProps,
+    UseTableProps, UseTableRowProps, UseTableSectionProps, UseTextFieldProps, UseTextProps,
+    UseTimeFieldProps, UseToggleButtonGroupProps, UseToggleButtonProps, UseToggleProps,
+    UseTreeItemProps, UseTreeProps,
 };
 use crate::semantic_ui::{
     use_clipboard_value, use_hover_value, use_keyboard_interaction_value, use_long_press_value,
@@ -828,6 +829,12 @@ pub struct VirtualizerHook {
 pub struct FocusableHook {
     pub focus_props: PropHandle<FocusProps>,
     pub is_focused: PropHandle<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FocusWithinHook {
+    pub focus_within_props: PropHandle<FocusWithinProps>,
+    pub is_focus_within: PropHandle<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2784,6 +2791,22 @@ impl<S: 'static> ComponentCx<S> {
         FocusableHook {
             focus_props: PropHandle::new("focusProps"),
             is_focused: PropHandle::new("isFocused"),
+        }
+    }
+
+    pub fn use_focus_within<F>(&mut self, selector: F) -> FocusWithinHook
+    where
+        F: Fn(&S) -> UseFocusWithinProps + Send + Sync + 'static,
+    {
+        let selector: Arc<dyn Fn(&S) -> UseFocusWithinProps + Send + Sync> = Arc::new(selector);
+        for path in ["focusWithinProps", "isFocusWithin"] {
+            self.use_semantic_part(path, &selector, focus_within_value_part);
+        }
+        self.register_prop_aliases(&["focusWithinProps", "isFocusWithin"]);
+
+        FocusWithinHook {
+            focus_within_props: PropHandle::new("focusWithinProps"),
+            is_focus_within: PropHandle::new("isFocusWithin"),
         }
     }
 
@@ -5671,6 +5694,11 @@ fn virtualizer_value_part(props: UseVirtualizerProps, part: &str) -> GuiResult<J
 
 fn focusable_value_part(props: UseFocusableProps, part: &str) -> GuiResult<JsonValue> {
     let value = use_focusable_value(props)?;
+    Ok(value.get(part).cloned().unwrap_or(JsonValue::Null))
+}
+
+fn focus_within_value_part(props: UseFocusWithinProps, part: &str) -> GuiResult<JsonValue> {
+    let value = use_focus_within_value(props)?;
     Ok(value.get(part).cloned().unwrap_or(JsonValue::Null))
 }
 

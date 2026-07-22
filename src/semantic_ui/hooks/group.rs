@@ -14,6 +14,9 @@ pub struct UseGroupProps {
     on_focus: Option<String>,
     on_blur: Option<String>,
     on_focus_change: Option<String>,
+    on_focus_within: Option<String>,
+    on_blur_within: Option<String>,
+    on_focus_within_change: Option<String>,
     is_disabled: bool,
     is_invalid: bool,
     is_read_only: bool,
@@ -62,6 +65,21 @@ impl UseGroupProps {
 
     pub fn on_focus_change(mut self, action: Option<impl Into<String>>) -> Self {
         self.on_focus_change = non_empty(action);
+        self
+    }
+
+    pub fn on_focus_within(mut self, action: Option<impl Into<String>>) -> Self {
+        self.on_focus_within = non_empty(action);
+        self
+    }
+
+    pub fn on_blur_within(mut self, action: Option<impl Into<String>>) -> Self {
+        self.on_blur_within = non_empty(action);
+        self
+    }
+
+    pub fn on_focus_within_change(mut self, action: Option<impl Into<String>>) -> Self {
+        self.on_focus_within_change = non_empty(action);
         self
     }
 
@@ -146,6 +164,12 @@ pub struct GroupProps {
     pub on_blur: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_focus_change: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_focus_within: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_blur_within: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_focus_within_change: Option<String>,
     #[serde(rename = "autoFocus", skip_serializing_if = "is_false")]
     pub auto_focus: bool,
     #[serde(skip_serializing_if = "is_false")]
@@ -197,6 +221,9 @@ pub fn use_group(props: UseGroupProps) -> UseGroupResult {
             on_focus: props.on_focus,
             on_blur: props.on_blur,
             on_focus_change: props.on_focus_change,
+            on_focus_within: props.on_focus_within,
+            on_blur_within: props.on_blur_within,
+            on_focus_within_change: props.on_focus_within_change,
             auto_focus: props.auto_focus,
             disabled: props.is_disabled,
             aria_disabled: props.is_disabled,

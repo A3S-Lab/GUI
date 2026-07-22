@@ -93,14 +93,21 @@ The first shared interaction milestone is available in the portable runtime:
   Arrow keys emit a complete one-unit keyboard lifecycle and suppress native
   default or collection navigation. Move callbacks receive normalized
   modality, modifiers, position, repeat state, and `context.delta`.
-- `InteractionState` tracks pressed, long-pressed, hovered, focused, and focus-visible state.
-  It keeps transient state across keyed blueprint synchronization.
+- `InteractionState` tracks pressed, long-pressed, hovered, focused,
+  focus-within, and focus-visible state. It keeps transient state across keyed
+  blueprint synchronization.
 - Keyboard and virtual focus display focus-visible state; pointer presses clear
   it. Touch does not create hover state.
 - `use_press`, press-capable semantic hooks, built-in RSX components, and the
   RSX compiler expose `onPressUp` alongside the existing press lifecycle.
 - Event routing supports explicit hover lifecycle handlers and falls back to
   `onHoverChange` with canonical boolean values.
+- Direct `onFocus`, `onBlur`, and `onFocusChange` handlers run only for the
+  focused target. `use_focus_within`, `UiFocusWithin`, and the
+  `onFocusWithin`/`onBlurWithin`/`onFocusWithinChange` handlers independently
+  observe subtree entry and exit. Adjacent native blur/focus events are linked
+  through `relatedTarget`, so moving between descendants does not churn an
+  ancestor's focus-within state.
 - `FocusManager` derives focusable and tabbable order from the mounted keyed
   tree, models nested focus scopes, provides first/last/next/previous
   navigation, resolves containment, and directs scope autofocus to a
@@ -253,6 +260,7 @@ existence of a platform object:
 | Move | AppKit mouse/pen drag events, GTK4 `GestureDrag`, and WinUI mouse/touch/pen pointer capture use one incremental move state machine. All three normalize Arrow keys to a complete keyboard lifecycle and prevent the underlying native default. |
 | Native menu activation | AppKit and GTK4 menu items emit terminal press only because their menu models do not expose a mounted generic view event source. |
 | Hover and typed modality | View-backed widgets; explicit exceptions are reported for AppKit non-view wrappers/items, GTK4 menu items, and the WinUI window wrapper. |
+| Focus within | Portable runtime routing on AppKit, GTK4, WinUI, and headless hosts. Native blur/focus batches are linked with `relatedTarget`; direct focus callbacks remain target-only while focus-within callbacks run only when a subtree boundary is crossed. |
 | Focus events, scopes, and `autoFocus` | Native focusable control roles listed in the capability manifest. Runtime navigation, restoration, and post-mount `autoFocus` all emit typed `requestFocus` commands; contained scopes redirect escaping native focus. AppKit uses `makeFirstResponder`, GTK4 uses `grab_focus`, and WinUI calls the fixed `IUIElement::Focus(Programmatic)` ABI through an isolated adapter because the generated binding leaves that method unwrapped. |
 | Selection and item action | Select/combo box, list box/tree, and tabs/tab list. GTK4 and WinUI ListBox callbacks provide complete native selection snapshots; AppKit modifier-aware row activation and all stable-key aggregation remain in the portable keyed-runtime layer. ListBox/Tree item `onAction(key)` separation and collection keyboard navigation are shared across adapters. |
 
