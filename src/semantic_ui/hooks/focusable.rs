@@ -183,7 +183,7 @@ impl Default for UseFocusScopeProps {
             restore_focus: false,
             auto_focus: false,
             is_disabled: false,
-            tab_index: 0,
+            tab_index: -1,
         }
     }
 }
@@ -280,7 +280,7 @@ pub struct FocusRingProps {
 pub struct FocusScopeProps {
     #[serde(rename = "tabIndex")]
     pub tab_index: i32,
-    #[serde(rename = "autoFocus", skip_serializing_if = "is_false")]
+    #[serde(rename = "data-auto-focus", skip_serializing_if = "is_false")]
     pub auto_focus: bool,
     #[serde(skip_serializing_if = "is_false")]
     pub inert: bool,

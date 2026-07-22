@@ -4,6 +4,8 @@ use crate::native::{NativeElement, NativeProps, NativeRole};
 
 use super::{SemanticComponent, SemanticElement, SemanticProps};
 
+mod tree;
+
 #[derive(Debug, Clone)]
 pub struct SemanticMapper;
 
@@ -367,12 +369,8 @@ impl SemanticMapper {
                 NativeRole::ListBoxItem,
                 self.best_label(element)?,
             )),
-            SemanticComponent::Tree => self.map_container(element, NativeRole::Tree),
-            SemanticComponent::TreeItem => Ok(simple_leaf(
-                element,
-                NativeRole::TreeItem,
-                self.best_label(element)?,
-            )),
+            SemanticComponent::Tree => self.map_tree(element),
+            SemanticComponent::TreeItem => self.map_tree_item_row(element, None, 1, 1, 1),
             SemanticComponent::Dialog => self.map_container_with_label(element, NativeRole::Dialog),
             SemanticComponent::Popover => self.map_container(element, NativeRole::Popover),
             SemanticComponent::Tabs => self.map_tabs(element),

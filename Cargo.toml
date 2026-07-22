@@ -95,6 +95,8 @@ gtk4 = []
 gtk4-native = ["gtk4", "dep:gtk4_crate"]
 
 [dependencies]
+icu_collator = "2.2.1"
+icu_locale_core = "2.2.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 swc_atoms = "9.0.3"
@@ -137,6 +139,7 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = [
     "NSTabView",
     "NSTabViewItem",
     "NSTextField",
+    "NSTrackingArea",
     "NSUserInterfaceLayout",
     "NSView",
     "NSViewController",
@@ -149,6 +152,7 @@ objc2-foundation = { version = "0.3.2", default-features = false, features = [
     "NSObject",
     "NSRunLoop",
     "NSString",
+    "NSTimer",
 ], optional = true }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
     "CALayer",
@@ -163,15 +167,18 @@ gtk4_crate = { package = "gtk4", version = "0.11.4", optional = true }
 windows = { version = "0.62.0", optional = true, features = [
     "Foundation",
     "Win32_Foundation",
+    "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
 windows-core = { version = "0.62.0", optional = true }
 winui3 = { package = "winio-winui3", version = "0.4.2", optional = true, features = [
     "UI_Composition",
+    "UI_Dispatching",
     "UI_Xaml",
     "UI_Xaml_Controls",
     "UI_Xaml_Controls_Primitives",
+    "UI_Xaml_Input",
     "UI_Xaml_Markup",
     "native",
 ] }

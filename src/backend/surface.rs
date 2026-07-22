@@ -107,6 +107,10 @@ impl<S: NativeWidgetSurface> NativeHandleAdapter for SurfaceHandleAdapter<S> {
         self.surface.set_native_root(id, handle)
     }
 
+    fn request_focus_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
+        self.surface.request_native_focus(id, handle)
+    }
+
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         self.surface.take_native_events()
     }

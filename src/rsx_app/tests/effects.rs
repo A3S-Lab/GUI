@@ -790,8 +790,10 @@ fn rsx_component_rejects_orphan_action_effects_before_direct_reduce() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "increment".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )

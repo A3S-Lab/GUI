@@ -104,6 +104,9 @@ pub(super) fn with_popover_tooltip_components<S>(
         ui_tooltip_trigger,
         passthrough_contract()?
             .default_prop("onPress", "")?
+            .default_prop("onPressStart", "")?
+            .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isOpen", false)?
             .default_prop("actionValue", "")?
             .default_prop_value("actionPayload", JsonValue::Null)?,
@@ -121,6 +124,9 @@ pub(super) fn with_overlay_trigger_components<S>(
         ui_dialog_trigger,
         passthrough_contract()?
             .default_prop("onPress", "")?
+            .default_prop("onPressStart", "")?
+            .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isOpen", false)?
             .default_prop("actionValue", "")?
             .default_prop_value("actionPayload", JsonValue::Null)?,

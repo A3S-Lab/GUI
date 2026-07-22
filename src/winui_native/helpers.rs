@@ -418,23 +418,6 @@ pub(super) fn apply_portable_style(widget: &WinUiOsWidget, style: &PortableStyle
     Ok(())
 }
 
-pub(super) fn register_press(
-    id: HostNodeId,
-    button: &Controls::Button,
-    events: &WinUiEventQueue,
-) -> GuiResult<()> {
-    let events = Arc::clone(events);
-    let handler = RoutedEventHandler::new(move |_, _| {
-        push_event(&events, NativeEvent::new(id, NativeEventKind::Press));
-        Ok(())
-    });
-    map_winui(
-        "failed to register WinUI button press handler",
-        button.Click(&handler),
-    )?;
-    Ok(())
-}
-
 pub(super) fn register_text_change(
     id: HostNodeId,
     text_box: &Controls::TextBox,
@@ -663,18 +646,37 @@ pub(super) fn register_list_selection(
     id: HostNodeId,
     list_box: &Controls::ListBox,
     events: &WinUiEventQueue,
+    suppressed: Arc<AtomicBool>,
+    values_by_list: Arc<Mutex<BTreeMap<HostNodeId, Vec<String>>>>,
 ) -> GuiResult<()> {
     let events = Arc::clone(events);
     let event_list_box = list_box.clone();
     let handler = Controls::SelectionChangedEventHandler::new(move |_, _| {
-        let value = event_list_box
-            .SelectedIndex()
-            .map(|index| index.to_string())
-            .unwrap_or_default();
-        push_event(
-            &events,
-            NativeEvent::new(id, NativeEventKind::SelectionChange).value(value),
-        );
+        if !suppressed.load(Ordering::SeqCst) {
+            let selected_items = event_list_box.SelectedItems()?;
+            let items = event_list_box.Items()?;
+            let values = values_by_list
+                .lock()
+                .ok()
+                .and_then(|values| values.get(&id).cloned())
+                .unwrap_or_default();
+            let mut selected_values = Vec::new();
+            for selected_index in 0..selected_items.Size()? {
+                let selected_item = selected_items.GetAt(selected_index)?;
+                let mut item_index = 0;
+                if items.IndexOf(&selected_item, &mut item_index)? {
+                    if let Some(value) = values.get(item_index as usize) {
+                        selected_values.push(value.clone());
+                    }
+                }
+            }
+            let value =
+                serde_json::to_string(&selected_values).unwrap_or_else(|_| "[]".to_string());
+            push_event(
+                &events,
+                NativeEvent::new(id, NativeEventKind::SelectionChange).value(value),
+            );
+        }
         Ok(())
     });
     map_winui(

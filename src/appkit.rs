@@ -1,4 +1,4 @@
-use std::cell::{Ref, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
@@ -318,6 +318,7 @@ pub struct AppKitNativeObject {
 #[derive(Debug, Default)]
 pub struct AppKitWidgetDriver {
     root: Option<HostNodeId>,
+    focused: Option<HostNodeId>,
     objects: BTreeMap<HostNodeId, AppKitNativeObject>,
     events: Vec<NativeEvent>,
 }
@@ -349,7 +350,15 @@ pub struct AppKitNativeHandleState {
 }
 
 #[derive(Debug, Default)]
-pub struct AppKitHandleAdapter;
+pub struct AppKitHandleAdapter {
+    focused: Rc<Cell<Option<HostNodeId>>>,
+}
+
+impl AppKitHandleAdapter {
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused.get()
+    }
+}
 
 pub type AppKitHandleDriver = HandleWidgetDriver<AppKitHandleAdapter>;
 pub type AppKitHandleCommandExecutor = DriverCommandExecutor<AppKitHandleDriver>;
@@ -357,6 +366,10 @@ pub type AppKitHandleCommandExecutor = DriverCommandExecutor<AppKitHandleDriver>
 impl AppKitWidgetDriver {
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused
     }
 
     pub fn object(&self, id: HostNodeId) -> Option<&AppKitNativeObject> {
@@ -526,12 +539,26 @@ impl NativeHandleAdapter for AppKitHandleAdapter {
         Ok(())
     }
 
-    fn remove_handle(&mut self, _id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
+    fn remove_handle(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
         handle.state.borrow_mut().children.clear();
+        if self.focused.get() == Some(id) {
+            self.focused.set(None);
+        }
         Ok(())
     }
 
     fn set_root_handle(&mut self, _id: HostNodeId, _handle: &Self::Handle) -> GuiResult<()> {
+        Ok(())
+    }
+
+    fn request_focus_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
+        if handle.state.borrow().id != id {
+            return Err(GuiError::host(format!(
+                "AppKit handle id does not match focus target {}",
+                id.get()
+            )));
+        }
+        self.focused.set(Some(id));
         Ok(())
     }
 }
@@ -633,12 +660,24 @@ impl NativeWidgetDriver for AppKitWidgetDriver {
         {
             self.root = None;
         }
+        if self
+            .focused
+            .is_some_and(|focused| removed_ids.contains(&focused))
+        {
+            self.focused = None;
+        }
         Ok(())
     }
 
     fn set_root_widget(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.ensure_object(id)?;
         self.root = Some(id);
+        Ok(())
+    }
+
+    fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
+        self.ensure_object(id)?;
+        self.focused = Some(id);
         Ok(())
     }
 }

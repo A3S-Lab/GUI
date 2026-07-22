@@ -50,6 +50,7 @@ struct TestNativeSurface {
 struct FailingCommandExecutor {
     fail_creates: bool,
     fail_updates: bool,
+    fail_focus: bool,
 }
 
 impl PlatformCommandExecutor for FailingCommandExecutor {
@@ -60,6 +61,9 @@ impl PlatformCommandExecutor for FailingCommandExecutor {
             }
             PlatformCommand::Update { .. } if self.fail_updates => {
                 Err(GuiError::host("forced backend update failure"))
+            }
+            PlatformCommand::RequestFocus { .. } if self.fail_focus => {
+                Err(GuiError::host("forced backend focus failure"))
             }
             _ => Ok(()),
         }
@@ -154,6 +158,13 @@ impl NativeWidgetSurface for TestNativeSurface {
         self.calls
             .borrow_mut()
             .push(format!("root:{}:{}", id.get(), handle.widget_class));
+        Ok(())
+    }
+
+    fn request_native_focus(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
+        self.calls
+            .borrow_mut()
+            .push(format!("focus:{}:{}", id.get(), handle.widget_class));
         Ok(())
     }
 
@@ -298,6 +309,13 @@ impl NativeHandleAdapter for ThreadBoundHandleAdapter {
             .push(format!("root:{}:{}", id.get(), handle.widget_class));
         Ok(())
     }
+
+    fn request_focus_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
+        self.calls
+            .borrow_mut()
+            .push(format!("focus:{}:{}", id.get(), handle.widget_class));
+        Ok(())
+    }
 }
 
 impl NativeWidgetDriver for TestWidgetDriver {
@@ -345,6 +363,11 @@ impl NativeWidgetDriver for TestWidgetDriver {
         self.calls.push(format!("root:{}", id.get()));
         Ok(())
     }
+
+    fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
+        self.calls.push(format!("focus:{}", id.get()));
+        Ok(())
+    }
 }
 
 impl NativeEventSource for TestWidgetDriver {
@@ -370,12 +393,17 @@ fn driver_command_executor_delegates_native_commands_to_driver() {
             id: HostNodeId::new(1),
         })
         .unwrap();
+    executor
+        .execute(&PlatformCommand::RequestFocus {
+            id: HostNodeId::new(1),
+        })
+        .unwrap();
 
     assert_eq!(
         executor.driver().calls,
-        vec!["create:1:gtk::Button", "root:1"]
+        vec!["create:1:gtk::Button", "root:1", "focus:1"]
     );
-    assert_eq!(executor.commands().len(), 2);
+    assert_eq!(executor.commands().len(), 3);
 }
 
 #[test]
@@ -431,6 +459,11 @@ fn handle_widget_driver_accepts_thread_bound_native_handles() {
             id: HostNodeId::new(1),
         })
         .unwrap();
+    executor
+        .execute(&PlatformCommand::RequestFocus {
+            id: HostNodeId::new(2),
+        })
+        .unwrap();
 
     assert_eq!(
         calls.borrow().as_slice(),
@@ -439,9 +472,11 @@ fn handle_widget_driver_accepts_thread_bound_native_handles() {
             "create:2:gtk::Button",
             "insert:1:gtk::Box:2:gtk::Button:0",
             "root:1:gtk::Box",
+            "focus:2:gtk::Button",
         ]
     );
     assert_eq!(executor.driver().root(), Some(HostNodeId::new(1)));
+    assert_eq!(executor.driver().focused(), Some(HostNodeId::new(2)));
     assert_eq!(executor.driver().handles().len(), 2);
     assert_eq!(executor.driver().configs().len(), 2);
 }
@@ -1294,6 +1329,60 @@ fn command_executing_host_rolls_back_planning_after_backend_update_failure() {
         .commands()
         .iter()
         .any(|command| matches!(command, PlatformCommand::Update { .. })));
+}
+
+#[test]
+fn command_executing_host_rolls_back_programmatic_focus_after_backend_failure() {
+    let host = CommandExecutingHost::new(Gtk4Adapter, FailingCommandExecutor::default());
+    let mut runtime = GuiRuntime::new(host);
+    let button = runtime
+        .render_native(&NativeElement::new("save", NativeRole::Button))
+        .unwrap();
+    runtime.host_mut().executor_mut().fail_focus = true;
+
+    let error = runtime.request_focus(button).unwrap_err();
+
+    assert!(error.to_string().contains("forced backend focus failure"));
+    assert!(runtime.host().planning().focused().is_none());
+    assert!(!runtime
+        .host()
+        .planning()
+        .commands()
+        .iter()
+        .any(|command| matches!(command, PlatformCommand::RequestFocus { .. })));
+}
+
+#[test]
+fn command_executing_host_rolls_back_auto_focus_after_backend_failure() {
+    let host = CommandExecutingHost::new(
+        Gtk4Adapter,
+        FailingCommandExecutor {
+            fail_focus: true,
+            ..FailingCommandExecutor::default()
+        },
+    );
+    let mut runtime = GuiRuntime::new(host);
+
+    let error = runtime
+        .render_native(
+            &NativeElement::new("save", NativeRole::Button)
+                .with_props(NativeProps::new().auto_focus(true)),
+        )
+        .unwrap_err();
+
+    assert!(error.to_string().contains("forced backend focus failure"));
+    assert!(runtime.host().planning().focused().is_none());
+    let mounted = runtime.host().planning().root().unwrap();
+    assert!(!runtime
+        .host()
+        .planning()
+        .commands()
+        .iter()
+        .any(|command| matches!(command, PlatformCommand::RequestFocus { .. })));
+    assert!(runtime
+        .interactions()
+        .node(mounted)
+        .is_none_or(|state| !state.focused));
 }
 
 #[test]

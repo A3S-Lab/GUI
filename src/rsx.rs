@@ -2009,6 +2009,10 @@ fn normalize_event_name(name: &str) -> String {
     match name {
         "onclick" => "onClick",
         "onpress" => "onPress",
+        "onpressstart" => "onPressStart",
+        "onpressend" => "onPressEnd",
+        "onpressup" => "onPressUp",
+        "onpresschange" => "onPressChange",
         "onchange" => "onChange",
         "oninput" => "onInput",
         "onselectionchange" => "onSelectionChange",

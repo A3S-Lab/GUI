@@ -3,8 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
+use crate::capability::{CapabilityHost, NativeCapabilities};
 use crate::error::{GuiError, GuiResult};
-use crate::host::{HostNodeId, NativeHost};
+use crate::host::{HostNodeId, NativeHost, ProgrammaticFocusHost};
 use crate::native::{NativeElement, NativeProps};
 
 use super::adapters::{BlueprintHost, PlatformAdapter};
@@ -40,6 +41,9 @@ pub enum PlatformCommand {
     SetRoot {
         id: HostNodeId,
     },
+    RequestFocus {
+        id: HostNodeId,
+    },
 }
 
 #[derive(Debug)]
@@ -47,6 +51,7 @@ pub struct PlatformPlanningHost<A: PlatformAdapter> {
     adapter: A,
     next_id: u64,
     root: Option<HostNodeId>,
+    focused: Option<HostNodeId>,
     nodes: BTreeMap<HostNodeId, PlatformPlannedNode>,
     commands: Vec<PlatformCommand>,
 }
@@ -55,6 +60,7 @@ pub struct PlatformPlanningHost<A: PlatformAdapter> {
 pub(crate) struct PlatformPlanningCheckpoint {
     next_id: u64,
     root: Option<HostNodeId>,
+    focused: Option<HostNodeId>,
     nodes: BTreeMap<HostNodeId, PlatformPlannedNode>,
     command_len: usize,
 }
@@ -65,6 +71,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
             adapter,
             next_id: 0,
             root: None,
+            focused: None,
             nodes: BTreeMap::new(),
             commands: Vec::new(),
         }
@@ -72,6 +79,10 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
 
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused
     }
 
     pub fn node(&self, id: HostNodeId) -> Option<&PlatformPlannedNode> {
@@ -86,6 +97,10 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         &self.commands
     }
 
+    pub fn capabilities(&self) -> NativeCapabilities {
+        self.adapter.capabilities()
+    }
+
     pub fn clear_commands(&mut self) {
         self.commands.clear();
     }
@@ -94,6 +109,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         PlatformPlanningCheckpoint {
             next_id: self.next_id,
             root: self.root,
+            focused: self.focused,
             nodes: self.nodes.clone(),
             command_len: self.commands.len(),
         }
@@ -102,6 +118,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
     pub(crate) fn restore(&mut self, checkpoint: PlatformPlanningCheckpoint) {
         self.next_id = checkpoint.next_id;
         self.root = checkpoint.root;
+        self.focused = checkpoint.focused;
         self.nodes = checkpoint.nodes;
         self.commands.truncate(checkpoint.command_len);
     }
@@ -193,6 +210,12 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
             expanded: state.expanded,
             children,
         })
+    }
+}
+
+impl<A: PlatformAdapter> CapabilityHost for PlatformPlanningHost<A> {
+    fn native_capabilities(&self) -> NativeCapabilities {
+        self.capabilities()
     }
 }
 
@@ -294,6 +317,12 @@ impl<A: PlatformAdapter> NativeHost for PlatformPlanningHost<A> {
         {
             self.root = None;
         }
+        if self
+            .focused
+            .is_some_and(|focused| removed_ids.contains(&focused))
+        {
+            self.focused = None;
+        }
         self.commands.push(PlatformCommand::Remove { id });
         Ok(())
     }
@@ -302,6 +331,19 @@ impl<A: PlatformAdapter> NativeHost for PlatformPlanningHost<A> {
         self.ensure_node(id)?;
         self.root = Some(id);
         self.commands.push(PlatformCommand::SetRoot { id });
+        Ok(())
+    }
+
+    fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {
+        Some(self)
+    }
+}
+
+impl<A: PlatformAdapter> ProgrammaticFocusHost for PlatformPlanningHost<A> {
+    fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
+        self.ensure_node(id)?;
+        self.focused = Some(id);
+        self.commands.push(PlatformCommand::RequestFocus { id });
         Ok(())
     }
 }

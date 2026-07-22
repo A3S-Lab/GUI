@@ -8,6 +8,7 @@ pub struct UiSliderThumbProps {
     pub on_press: Option<String>,
     pub on_press_start: Option<String>,
     pub on_press_end: Option<String>,
+    pub on_press_up: Option<String>,
     pub is_disabled: bool,
     pub is_pressed: bool,
     pub is_dragging: bool,
@@ -23,6 +24,7 @@ impl Default for UiSliderThumbProps {
             on_press: None,
             on_press_start: None,
             on_press_end: None,
+            on_press_up: None,
             is_disabled: false,
             is_pressed: false,
             is_dragging: false,
@@ -40,6 +42,7 @@ pub fn ui_slider_thumb(cx: &mut ComponentCx<UiSliderThumbProps>) -> RSX {
             .on_press(props.on_press.clone())
             .on_press_start(props.on_press_start.clone())
             .on_press_end(props.on_press_end.clone())
+            .on_press_up(props.on_press_up.clone())
             .action_value(Some(props.action_value.clone()))
             .action_payload(props.action_payload.clone())
             .disabled(props.is_disabled)

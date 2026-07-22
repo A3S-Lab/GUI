@@ -55,6 +55,7 @@ pub(super) fn with_foundation_components<S>(
             .default_prop("onPress", "")?
             .default_prop("onPressStart", "")?
             .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isDisabled", false)?
             .default_prop("isPressed", false)?
             .default_prop("actionValue", "")?
@@ -69,6 +70,7 @@ pub(super) fn with_foundation_components<S>(
             .default_prop("onPress", "")?
             .default_prop("onPressStart", "")?
             .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isDisabled", false)?
             .default_prop("isPressed", false)?
             .default_prop("actionValue", "")?
@@ -124,6 +126,8 @@ pub(super) fn with_foundation_components<S>(
             .default_prop("onLongPress", "")?
             .default_prop("actionValue", "")?
             .default_prop_value("actionPayload", JsonValue::Null)?
+            .default_prop("accessibilityDescription", "")?
+            .default_prop("threshold", 500_u64)?
             .default_prop("isDisabled", false)?
             .default_prop("isPressed", false)?
             .default_prop("isLongPressed", false)?,
@@ -182,7 +186,7 @@ pub(super) fn with_foundation_components<S>(
             .default_prop("restoreFocus", false)?
             .default_prop("autoFocus", false)?
             .default_prop("isDisabled", false)?
-            .default_prop("tabIndex", 0_i32)?,
+            .default_prop("tabIndex", -1_i32)?,
         None,
     )?;
     let component = with_builtin_template(
@@ -235,6 +239,7 @@ pub(super) fn with_foundation_components<S>(
             .default_prop("onPress", "")?
             .default_prop("onPressStart", "")?
             .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isDisabled", false)?
             .default_prop("isPressed", false)?
             .default_prop("actionValue", "")?

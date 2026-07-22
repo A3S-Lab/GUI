@@ -2,6 +2,7 @@ use serde::Serialize;
 use serde_json::Value as JsonValue;
 
 use crate::error::{GuiError, GuiResult};
+use crate::i18n::{direction_for_locale, direction_name};
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UseI18nProps {
@@ -57,7 +58,8 @@ pub fn use_i18n(props: UseI18nProps) -> UseI18nResult {
     let direction = props.direction.or_else(|| {
         locale
             .as_deref()
-            .and_then(inferred_direction)
+            .map(direction_for_locale)
+            .map(direction_name)
             .map(str::to_string)
     });
     let is_rtl = direction.as_deref() == Some("rtl");
@@ -79,22 +81,4 @@ pub fn use_i18n_value(props: UseI18nProps) -> GuiResult<JsonValue> {
     serde_json::to_value(use_i18n(props)).map_err(|error| {
         GuiError::invalid_tree(format!("semantic use_i18n hook did not serialize: {error}"))
     })
-}
-
-fn inferred_direction(locale: &str) -> Option<&'static str> {
-    let language = locale
-        .split(['-', '_'])
-        .next()
-        .unwrap_or(locale)
-        .to_ascii_lowercase();
-    if matches!(
-        language.as_str(),
-        "ar" | "arc" | "dv" | "fa" | "he" | "iw" | "ks" | "ku" | "ps" | "sd" | "ug" | "ur" | "yi"
-    ) {
-        Some("rtl")
-    } else if language.is_empty() {
-        None
-    } else {
-        Some("ltr")
-    }
 }

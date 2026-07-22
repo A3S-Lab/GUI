@@ -33,12 +33,12 @@ pub use component_cx::{
     LinkHook, ListBoxHeaderHook, LoadMoreItemHook, LongPressHook, MenuHook, MenuItemHook, MoveHook,
     NumberFieldHook, OptimisticHandle, OverlayHook, PressHook, PropHandle, RadioGroupHook,
     RadioHook, RangeCalendarHook, RangeHook, ReactiveHandle, RefHandle, ResourceHandle,
-    SelectDisplayHook, SelectHook, SelectionIndicatorHook, SelectorHandle, SeparatorHook,
-    SliderFillHook, SliderOutputHook, SliderTrackHook, StateHandle, SyncExternalStore,
-    SyncExternalStoreSubscription, TabHook, TabListHook, TabPanelHook, TableCaptionHook,
-    TableCellHook, TableColumnHook, TableHook, TableRowHook, TableSectionHook, TextFieldHook,
-    TextHook, TimeFieldHook, ToggleButtonGroupHook, ToggleButtonHook, ToggleHook, ToolbarHook,
-    TreeHeaderHook, TreeHook, TreeItemHook, VirtualizerHook, VisuallyHiddenHook, RSX,
+    SelectDisplayHook, SelectHook, SelectionHook, SelectionIndicatorHook, SelectorHandle,
+    SeparatorHook, SliderFillHook, SliderOutputHook, SliderTrackHook, StateHandle,
+    SyncExternalStore, SyncExternalStoreSubscription, TabHook, TabListHook, TabPanelHook,
+    TableCaptionHook, TableCellHook, TableColumnHook, TableHook, TableRowHook, TableSectionHook,
+    TextFieldHook, TextHook, TimeFieldHook, ToggleButtonGroupHook, ToggleButtonHook, ToggleHook,
+    ToolbarHook, TreeHeaderHook, TreeHook, TreeItemHook, VirtualizerHook, VisuallyHiddenHook, RSX,
 };
 
 use hooks::{
@@ -3477,6 +3477,9 @@ fn canonical_component_prop_name(prop: impl Into<String>) -> String {
         "type" | "inputType" => "inputType".to_string(),
         "onclick" => "onClick".to_string(),
         "onpress" => "onPress".to_string(),
+        "onpressstart" => "onPressStart".to_string(),
+        "onpressend" => "onPressEnd".to_string(),
+        "onpressup" => "onPressUp".to_string(),
         "onchange" => "onChange".to_string(),
         "oninput" => "onInput".to_string(),
         "onselectionchange" => "onSelectionChange".to_string(),

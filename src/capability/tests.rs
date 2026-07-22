@@ -1,0 +1,234 @@
+use super::*;
+use crate::native::{NativeElement, NativeProps, NativeRole};
+use crate::web::WebProps;
+
+#[test]
+fn activation_roles_report_the_shared_native_press_contract() {
+    for backend in [
+        NativeBackendKind::AppKit,
+        NativeBackendKind::Gtk4,
+        NativeBackendKind::WinUI,
+    ] {
+        let capabilities = NativeCapabilities::for_backend(backend);
+        for role in [
+            NativeRole::Button,
+            NativeRole::DisclosureSummary,
+            NativeRole::ListBoxItem,
+            NativeRole::TreeItem,
+        ] {
+            assert_eq!(
+                capabilities.support(NativeCapabilityFeature::Press, Some(role)),
+                CapabilitySupport::Native
+            );
+            assert_eq!(
+                capabilities.support(NativeCapabilityFeature::PressLifecycle, Some(role)),
+                CapabilitySupport::Native
+            );
+            assert_eq!(
+                capabilities.support(NativeCapabilityFeature::LongPress, Some(role)),
+                CapabilitySupport::Native
+            );
+        }
+    }
+}
+
+#[test]
+fn native_menu_capabilities_match_each_backend_event_source() {
+    for backend in [NativeBackendKind::AppKit, NativeBackendKind::Gtk4] {
+        let capabilities = NativeCapabilities::for_backend(backend);
+        assert_eq!(
+            capabilities.support(NativeCapabilityFeature::Press, Some(NativeRole::MenuItem)),
+            CapabilitySupport::Native
+        );
+        for feature in [
+            NativeCapabilityFeature::PressLifecycle,
+            NativeCapabilityFeature::LongPress,
+            NativeCapabilityFeature::Move,
+            NativeCapabilityFeature::InputModality,
+            NativeCapabilityFeature::Hover,
+        ] {
+            assert_eq!(
+                capabilities.support(feature, Some(NativeRole::MenuItem)),
+                CapabilitySupport::Unsupported
+            );
+        }
+    }
+
+    let winui = NativeCapabilities::for_backend(NativeBackendKind::WinUI);
+    assert_eq!(
+        winui.support(
+            NativeCapabilityFeature::PressLifecycle,
+            Some(NativeRole::MenuItem)
+        ),
+        CapabilitySupport::Native
+    );
+}
+
+#[test]
+fn move_capability_tracks_generic_native_event_sources() {
+    let target = NativeElement::new("target", NativeRole::View)
+        .with_props(NativeProps::new().web(WebProps::new().event("onMove", "moveTarget")));
+    for backend in [
+        NativeBackendKind::AppKit,
+        NativeBackendKind::Gtk4,
+        NativeBackendKind::WinUI,
+    ] {
+        let capabilities = NativeCapabilities::for_backend(backend);
+        assert_eq!(
+            capabilities.support(NativeCapabilityFeature::Move, Some(NativeRole::View)),
+            CapabilitySupport::Native
+        );
+        assert!(capabilities.audit_tree(&target).is_empty());
+    }
+
+    let appkit = NativeCapabilities::for_backend(NativeBackendKind::AppKit);
+    assert_eq!(
+        appkit.support(NativeCapabilityFeature::Move, Some(NativeRole::Popover)),
+        CapabilitySupport::Unsupported
+    );
+    let headless = NativeCapabilities::default();
+    assert_eq!(
+        headless.support(NativeCapabilityFeature::Move, Some(NativeRole::View)),
+        CapabilitySupport::Portable
+    );
+}
+
+#[test]
+fn audit_reports_portable_and_unsupported_requested_behavior() {
+    let tree = NativeElement::new("root", NativeRole::View)
+        .with_props(NativeProps::new().lang("ar-EG"))
+        .child(
+            NativeElement::new("item", NativeRole::Tab).with_props(
+                NativeProps::new().web(
+                    WebProps::new()
+                        .on_press_start("start")
+                        .on_hover_change("hover"),
+                ),
+            ),
+        );
+    let capabilities = NativeCapabilities::for_backend(NativeBackendKind::Gtk4);
+
+    let issues = capabilities.audit_tree(&tree);
+
+    assert!(issues.iter().any(|issue| {
+        issue.path == "root"
+            && issue.feature == NativeCapabilityFeature::Locale
+            && issue.support == CapabilitySupport::Portable
+    }));
+    assert!(issues.iter().any(|issue| {
+        issue.path == "root/item"
+            && issue.feature == NativeCapabilityFeature::PressLifecycle
+            && issue.support == CapabilitySupport::Unsupported
+    }));
+    assert!(!issues
+        .iter()
+        .any(|issue| issue.feature == NativeCapabilityFeature::Hover));
+}
+
+#[test]
+fn collection_action_items_have_no_native_capability_gap() {
+    for backend in [
+        NativeBackendKind::AppKit,
+        NativeBackendKind::Gtk4,
+        NativeBackendKind::WinUI,
+    ] {
+        let item = NativeElement::new("item", NativeRole::ListBoxItem).with_props(
+            NativeProps::new().metadata(crate::selection::COLLECTION_ACTION_METADATA_KEY, "true"),
+        );
+        assert!(NativeCapabilities::for_backend(backend)
+            .audit_tree(&item)
+            .is_empty());
+    }
+}
+
+#[test]
+fn native_selection_and_focus_are_reported_only_for_supported_roles() {
+    let capabilities = NativeCapabilities::for_backend(NativeBackendKind::AppKit);
+
+    assert_eq!(
+        capabilities.support(
+            NativeCapabilityFeature::Selection,
+            Some(NativeRole::ListBox)
+        ),
+        CapabilitySupport::Native
+    );
+    assert_eq!(
+        capabilities.support(NativeCapabilityFeature::Selection, Some(NativeRole::View)),
+        CapabilitySupport::Unsupported
+    );
+    assert_eq!(
+        capabilities.support(
+            NativeCapabilityFeature::FocusEvents,
+            Some(NativeRole::TextField)
+        ),
+        CapabilitySupport::Native
+    );
+    assert_eq!(
+        capabilities.support(NativeCapabilityFeature::FocusEvents, Some(NativeRole::Tab)),
+        CapabilitySupport::Unsupported
+    );
+}
+
+#[test]
+fn programmatic_focus_capability_matches_the_native_binding() {
+    for backend in [
+        NativeBackendKind::AppKit,
+        NativeBackendKind::Gtk4,
+        NativeBackendKind::WinUI,
+    ] {
+        let capabilities = NativeCapabilities::for_backend(backend);
+        assert_eq!(
+            capabilities.support(
+                NativeCapabilityFeature::ProgrammaticFocus,
+                Some(NativeRole::Button)
+            ),
+            CapabilitySupport::Native
+        );
+        assert_eq!(
+            capabilities.support(
+                NativeCapabilityFeature::ProgrammaticFocus,
+                Some(NativeRole::View)
+            ),
+            CapabilitySupport::Unsupported
+        );
+        for role in [NativeRole::ListBoxItem, NativeRole::TreeItem] {
+            assert_eq!(
+                capabilities.support(NativeCapabilityFeature::ProgrammaticFocus, Some(role)),
+                CapabilitySupport::Native
+            );
+            assert_eq!(
+                capabilities.support(NativeCapabilityFeature::FocusEvents, Some(role)),
+                CapabilitySupport::Native
+            );
+        }
+    }
+
+    let winui = NativeCapabilities::for_backend(NativeBackendKind::WinUI);
+    assert_eq!(
+        winui.support(
+            NativeCapabilityFeature::ProgrammaticFocus,
+            Some(NativeRole::Button)
+        ),
+        CapabilitySupport::Native
+    );
+    assert_eq!(
+        winui.support(
+            NativeCapabilityFeature::ProgrammaticFocus,
+            Some(NativeRole::Tab)
+        ),
+        CapabilitySupport::Native
+    );
+}
+
+#[test]
+fn manifest_round_trips_with_an_explicit_ir_version() {
+    let capabilities = NativeCapabilities::for_backend(NativeBackendKind::AppKit);
+    let json = serde_json::to_value(&capabilities).unwrap();
+
+    assert_eq!(json["irVersion"], NATIVE_IR_VERSION);
+    assert_eq!(json["backend"], "appKit");
+    assert_eq!(
+        serde_json::from_value::<NativeCapabilities>(json).unwrap(),
+        capabilities
+    );
+}

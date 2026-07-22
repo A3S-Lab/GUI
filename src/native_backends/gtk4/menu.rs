@@ -11,7 +11,7 @@ use crate::host::HostNodeId;
 use crate::platform::NativeWidgetConfig;
 
 #[derive(Debug, Clone)]
-pub(crate) struct Gtk4Menu {
+pub struct Gtk4Menu {
     pub(crate) model: gio::Menu,
     pub(crate) bar: gtk::PopoverMenuBar,
 }
@@ -25,7 +25,7 @@ impl Gtk4Menu {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Gtk4MenuItem {
+pub struct Gtk4MenuItem {
     pub(crate) item: gio::MenuItem,
     pub(crate) action_name: String,
     pub(crate) label: String,

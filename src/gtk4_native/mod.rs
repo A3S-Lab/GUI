@@ -5,7 +5,9 @@ use std::rc::Rc;
 use gtk::prelude::*;
 use gtk4_crate as gtk;
 
-use crate::app::{NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse};
+use crate::app::{
+    ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
+};
 use crate::backend::{
     CommandExecutingHost, DriverCommandExecutor, HandleWidgetDriver, NativeWidgetSurface,
     SurfaceHandleAdapter,
@@ -15,7 +17,8 @@ use crate::event::{native_key_value, NativeEvent, NativeEventKind};
 use crate::geometry::Orientation;
 use crate::gtk4::Gtk4WidgetKind;
 use crate::host::HostNodeId;
-use crate::native_backends::gtk4::menu::{Gtk4Menu, Gtk4MenuItem, Gtk4MenuRegistry};
+use crate::native_backends::gtk4::menu::Gtk4MenuRegistry;
+pub use crate::native_backends::gtk4::menu::{Gtk4Menu, Gtk4MenuItem};
 use crate::platform::{
     apply_widget_setter, Gtk4Adapter, NativeBackendKind, NativeTextInputHints,
     NativeTextInputPurpose, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter,
@@ -23,7 +26,17 @@ use crate::platform::{
 use crate::protocol::UiFrame;
 use crate::style::{OverflowMode, StyleLength};
 
+mod hierarchy;
+mod interaction;
+mod mount;
+mod propagation;
 mod surface;
+mod types;
+mod update;
+
+use surface::set_widget_title;
+use types::*;
+pub use types::{Gtk4DropDownItem, Gtk4NotebookTab, Gtk4OsHandle, Gtk4OsWidget};
 
 pub type Gtk4NativeSurfaceAdapter = SurfaceHandleAdapter<Gtk4NativeSurface>;
 pub type Gtk4NativeSurfaceDriver = HandleWidgetDriver<Gtk4NativeSurfaceAdapter>;
@@ -41,9 +54,11 @@ pub enum Gtk4EventWait {
 pub struct Gtk4NativeSurface {
     application: gtk::Application,
     root: Option<HostNodeId>,
-    pending_auto_focus: Option<HostNodeId>,
     events: Rc<RefCell<Vec<NativeEvent>>>,
     events_suppressed: Rc<RefCell<bool>>,
+    activation_contexts: Rc<RefCell<BTreeMap<HostNodeId, crate::input::NativeEventContext>>>,
+    interaction_nodes: interaction::Gtk4InteractionNodes,
+    keyboard_presses: interaction::Gtk4KeyboardPresses,
     closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
     dialog_visible: BTreeMap<HostNodeId, bool>,
     widgets: BTreeMap<HostNodeId, gtk::Widget>,
@@ -54,6 +69,8 @@ pub struct Gtk4NativeSurface {
     drop_down_item_parents: BTreeMap<HostNodeId, HostNodeId>,
     drop_down_selected_values: BTreeMap<HostNodeId, Option<String>>,
     drop_down_values: Rc<RefCell<BTreeMap<HostNodeId, Vec<String>>>>,
+    list_item_parents: BTreeMap<HostNodeId, HostNodeId>,
+    list_values: Rc<RefCell<BTreeMap<HostNodeId, Vec<String>>>>,
     notebooks: BTreeMap<HostNodeId, gtk::Notebook>,
     notebook_tabs: BTreeMap<HostNodeId, Gtk4NotebookTab>,
     notebook_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
@@ -93,9 +110,11 @@ impl Gtk4NativeSurface {
         Self {
             application,
             root: None,
-            pending_auto_focus: None,
             events: Rc::new(RefCell::new(Vec::new())),
             events_suppressed: Rc::new(RefCell::new(false)),
+            activation_contexts: Rc::new(RefCell::new(BTreeMap::new())),
+            interaction_nodes: Rc::new(RefCell::new(BTreeMap::new())),
+            keyboard_presses: Rc::new(RefCell::new(crate::event::KeyboardPressState::default())),
             closed_windows: Rc::new(RefCell::new(BTreeSet::new())),
             dialog_visible: BTreeMap::new(),
             widgets: BTreeMap::new(),
@@ -106,6 +125,8 @@ impl Gtk4NativeSurface {
             drop_down_item_parents: BTreeMap::new(),
             drop_down_selected_values: BTreeMap::new(),
             drop_down_values: Rc::new(RefCell::new(BTreeMap::new())),
+            list_item_parents: BTreeMap::new(),
+            list_values: Rc::new(RefCell::new(BTreeMap::new())),
             notebooks: BTreeMap::new(),
             notebook_tabs: BTreeMap::new(),
             notebook_children: BTreeMap::new(),
@@ -229,64 +250,6 @@ impl Gtk4NativeSurface {
         result
     }
 
-    fn install_key_events(&self, id: HostNodeId, widget: &Gtk4OsWidget) {
-        let Some(widget) = widget.as_widget() else {
-            return;
-        };
-
-        let controller = gtk::EventControllerKey::new();
-        let events = self.events.clone();
-        let events_suppressed = self.events_suppressed.clone();
-        controller.connect_key_pressed(move |_, key, keycode, _| {
-            push_event(
-                &events,
-                &events_suppressed,
-                NativeEvent::new(id, NativeEventKind::KeyDown).value(gtk_key_value(key, keycode)),
-            );
-            gtk::glib::Propagation::Proceed
-        });
-
-        let events = self.events.clone();
-        let events_suppressed = self.events_suppressed.clone();
-        controller.connect_key_released(move |_, key, keycode, _| {
-            push_event(
-                &events,
-                &events_suppressed,
-                NativeEvent::new(id, NativeEventKind::KeyUp).value(gtk_key_value(key, keycode)),
-            );
-        });
-
-        widget.add_controller(controller);
-    }
-
-    fn request_auto_focus(&mut self, id: HostNodeId, widget: &Gtk4OsWidget) {
-        if self.pending_auto_focus.is_none() {
-            self.pending_auto_focus = Some(id);
-        }
-        self.focus_auto_focus_widget(id, widget);
-    }
-
-    fn focus_pending_auto_focus(&mut self) {
-        let Some(id) = self.pending_auto_focus else {
-            return;
-        };
-        let Some(widget) = self.widgets.get(&id).cloned() else {
-            return;
-        };
-        if widget.grab_focus() {
-            self.pending_auto_focus = None;
-        }
-    }
-
-    fn focus_auto_focus_widget(&mut self, id: HostNodeId, widget: &Gtk4OsWidget) {
-        if self.pending_auto_focus != Some(id) {
-            return;
-        }
-        if widget.as_widget().is_some_and(|widget| widget.grab_focus()) {
-            self.pending_auto_focus = None;
-        }
-    }
-
     fn update_drop_down_item_label(
         &mut self,
         id: HostNodeId,
@@ -301,7 +264,9 @@ impl Gtk4NativeSurface {
             item.value = label.clone();
         }
         item.label = label;
-        self.rebuild_drop_down_for_item(id)
+        self.rebuild_drop_down_for_item(id)?;
+        self.sync_list_values_for_item(id);
+        Ok(())
     }
 
     fn update_drop_down_item_value(
@@ -314,7 +279,9 @@ impl Gtk4NativeSurface {
             .entry(id)
             .or_insert_with(|| fallback.clone())
             .value = value;
-        self.rebuild_drop_down_for_item(id)
+        self.rebuild_drop_down_for_item(id)?;
+        self.sync_list_values_for_item(id);
+        Ok(())
     }
 
     fn update_drop_down_item_selected(
@@ -335,6 +302,44 @@ impl Gtk4NativeSurface {
             self.rebuild_drop_down(parent)?;
         }
         Ok(())
+    }
+
+    fn sync_list_values_for_item(&self, item: HostNodeId) {
+        if let Some(parent) = self.list_item_parents.get(&item).copied() {
+            self.sync_list_values(parent);
+        }
+    }
+
+    fn sync_list_values(&self, list: HostNodeId) {
+        let values = self
+            .container_children
+            .get(&list)
+            .into_iter()
+            .flatten()
+            .filter_map(|child| self.drop_down_items.get(child))
+            .map(|item| item.value.clone())
+            .collect();
+        self.list_values.borrow_mut().insert(list, values);
+    }
+
+    fn update_list_item_selected(&self, item: HostNodeId, row: &gtk::ListBoxRow, selected: bool) {
+        let Some(parent) = self.list_item_parents.get(&item) else {
+            return;
+        };
+        let Some(list_box) = self
+            .widgets
+            .get(parent)
+            .and_then(|widget| widget.downcast_ref::<gtk::ListBox>())
+        else {
+            return;
+        };
+        self.suppress_events(|| {
+            if selected {
+                list_box.select_row(Some(row));
+            } else {
+                list_box.unselect_row(row);
+            }
+        });
     }
 
     fn rebuild_drop_down(&mut self, id: HostNodeId) -> GuiResult<()> {
@@ -577,6 +582,34 @@ impl Gtk4EventWait {
     }
 }
 
+fn gtk4_runtime_root_window_open<S, F, R>(
+    app: &NativeRuntimeApp<Gtk4RuntimeHost, S, F, R>,
+) -> bool {
+    app.runtime()
+        .host()
+        .executor()
+        .driver()
+        .adapter()
+        .surface()
+        .root_window_open()
+}
+
+fn pump_gtk4_os_event(wait: Gtk4EventWait) -> bool {
+    let context = gtk::glib::MainContext::default();
+    if wait.may_block() || context.pending() {
+        context.iteration(wait.may_block());
+        true
+    } else {
+        false
+    }
+}
+
+impl<S, F, R> NativeRuntimeApp<Gtk4RuntimeHost, S, F, R> {
+    pub fn gtk4_root_window_open(&self) -> bool {
+        gtk4_runtime_root_window_open(self)
+    }
+}
+
 impl<S, F, R> NativeRuntimeApp<Gtk4RuntimeHost, S, F, R>
 where
     F: Fn(&S) -> GuiResult<UiFrame>,
@@ -633,9 +666,7 @@ where
         if !should_continue(self.state()) {
             return Ok(batch);
         }
-        let context = gtk::glib::MainContext::default();
-        if wait.may_block() || context.pending() {
-            context.iteration(wait.may_block());
+        if pump_gtk4_os_event(wait) {
             batch.extend(self.handle_pending_native_event_batch_while(&mut should_continue)?);
         }
         Ok(batch)
@@ -643,16 +674,6 @@ where
 
     pub fn run_gtk4(&mut self) -> GuiResult<()> {
         self.run_gtk4_while(|_| true)
-    }
-
-    pub fn gtk4_root_window_open(&self) -> bool {
-        self.runtime()
-            .host()
-            .executor()
-            .driver()
-            .adapter()
-            .surface()
-            .root_window_open()
     }
 
     pub fn run_gtk4_while(&mut self, mut should_continue: impl FnMut(&S) -> bool) -> GuiResult<()> {
@@ -664,512 +685,4 @@ where
         }
         Ok(())
     }
-}
-
-#[derive(Debug, Clone)]
-struct Gtk4DropDownState {
-    drop_down: gtk::DropDown,
-    model: gtk::StringList,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-struct Gtk4RangeState {
-    min: Option<f64>,
-    max: Option<f64>,
-    current: Option<f64>,
-    step: Option<f64>,
-}
-
-impl Gtk4RangeState {
-    fn from_config(config: &NativeWidgetConfig) -> Self {
-        Self {
-            min: config.min,
-            max: config.max,
-            current: config.current,
-            step: config.step,
-        }
-    }
-
-    fn lower(self) -> f64 {
-        self.min.unwrap_or(0.0)
-    }
-
-    fn upper(self) -> f64 {
-        self.max.unwrap_or(100.0)
-    }
-
-    fn current(self) -> f64 {
-        self.current.unwrap_or_else(|| self.lower())
-    }
-
-    fn step(self) -> f64 {
-        self.step.filter(|value| *value > 0.0).unwrap_or(1.0)
-    }
-
-    fn spin_button_digits(self) -> u32 {
-        [self.min, self.max, self.current, self.step]
-            .into_iter()
-            .flatten()
-            .map(gtk_number_digits)
-            .max()
-            .unwrap_or(0)
-    }
-}
-
-fn gtk_number_digits(value: f64) -> u32 {
-    if !value.is_finite() || value.fract().abs() < f64::EPSILON {
-        return 0;
-    }
-
-    let mut scaled = value.abs();
-    for digits in 1..=6 {
-        scaled *= 10.0;
-        if (scaled - scaled.round()).abs() < 1e-9 {
-            return digits;
-        }
-    }
-    6
-}
-
-fn parse_gtk_number_value(value: Option<&str>) -> Option<f64> {
-    value
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .and_then(|value| value.parse::<f64>().ok())
-        .filter(|value| value.is_finite())
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-struct Gtk4TextInputSizing {
-    rows: Option<u32>,
-    cols: Option<u32>,
-    size: Option<u32>,
-    has_explicit_width: bool,
-    has_explicit_height: bool,
-}
-
-impl Gtk4TextInputSizing {
-    fn from_config(config: &NativeWidgetConfig) -> Self {
-        Self {
-            rows: config.rows,
-            cols: config.cols,
-            size: config.size,
-            has_explicit_width: style_sets_gtk_width(&config.portable_style),
-            has_explicit_height: style_sets_gtk_height(&config.portable_style),
-        }
-    }
-
-    fn hinted_width_chars(self) -> Option<i32> {
-        self.size
-            .or(self.cols)
-            .filter(|value| *value > 0)
-            .map(u32_to_i32)
-    }
-
-    fn hinted_width_points(self) -> Option<i32> {
-        self.cols
-            .filter(|value| *value > 0)
-            .map(|columns| (columns as f64 * 8.0 + 28.0).max(80.0))
-            .map(points_to_i32)
-    }
-
-    fn hinted_height_points(self) -> Option<i32> {
-        self.rows
-            .filter(|value| *value > 0)
-            .map(|rows| (rows as f64 * 20.0 + 18.0).max(64.0))
-            .map(points_to_i32)
-    }
-
-    fn text_view_size_request(self, current_width: i32, current_height: i32) -> (i32, i32) {
-        let width = if self.has_explicit_width {
-            current_width
-        } else {
-            self.hinted_width_points().unwrap_or(-1)
-        };
-        let height = if self.has_explicit_height {
-            current_height
-        } else {
-            self.hinted_height_points().unwrap_or(-1)
-        };
-        (width, height)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Gtk4OsHandle {
-    pub id: HostNodeId,
-    pub kind: Gtk4WidgetKind,
-    pub widget: Gtk4OsWidget,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Gtk4DropDownItem {
-    pub label: String,
-    pub value: String,
-    pub selected: bool,
-}
-
-impl Gtk4DropDownItem {
-    fn from_config(config: &NativeWidgetConfig) -> Self {
-        let label = config
-            .label
-            .clone()
-            .or_else(|| config.value.clone())
-            .unwrap_or_default();
-        let value = config.value.clone().unwrap_or_else(|| label.clone());
-        Self {
-            label,
-            value,
-            selected: config.selected,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Gtk4NotebookTab {
-    pub label: String,
-    pub value: String,
-    pub selected: bool,
-    pub panel: Option<HostNodeId>,
-}
-
-impl Gtk4NotebookTab {
-    fn from_config(id: HostNodeId, config: &NativeWidgetConfig) -> Self {
-        let label = config
-            .label
-            .clone()
-            .or_else(|| config.value.clone())
-            .unwrap_or_else(|| id.get().to_string());
-        let value = config.value.clone().unwrap_or_else(|| label.clone());
-        Self {
-            label,
-            value,
-            selected: config.selected,
-            panel: None,
-        }
-    }
-
-    fn fallback(id: HostNodeId) -> Self {
-        let label = id.get().to_string();
-        Self {
-            label: label.clone(),
-            value: label,
-            selected: false,
-            panel: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum Gtk4OsWidget {
-    ApplicationWindow(gtk::ApplicationWindow),
-    Box(gtk::Box),
-    Label(gtk::Label),
-    Button(gtk::Button),
-    Entry(gtk::Entry),
-    SearchEntry(gtk::SearchEntry),
-    PasswordEntry(gtk::PasswordEntry),
-    SpinButton(gtk::SpinButton),
-    TextView(gtk::TextView),
-    CheckButton(gtk::CheckButton),
-    Switch(gtk::Switch),
-    DropDown(gtk::DropDown),
-    ListBox(gtk::ListBox),
-    ScrolledWindow {
-        scrolled_window: gtk::ScrolledWindow,
-        content: gtk::Box,
-    },
-    ListBoxRow {
-        row: gtk::ListBoxRow,
-        label: gtk::Label,
-        item: Gtk4DropDownItem,
-    },
-    Dialog(gtk::Dialog),
-    Popover(gtk::Popover),
-    Menu(Gtk4Menu),
-    MenuItem(Gtk4MenuItem),
-    Notebook(gtk::Notebook),
-    Separator(gtk::Separator),
-    Scale(gtk::Scale),
-    ProgressBar(gtk::ProgressBar),
-}
-
-impl Gtk4OsWidget {
-    fn as_widget(&self) -> Option<gtk::Widget> {
-        match self {
-            Gtk4OsWidget::ApplicationWindow(window) => Some(window.clone().upcast()),
-            Gtk4OsWidget::Box(box_) => Some(box_.clone().upcast()),
-            Gtk4OsWidget::Label(label) => Some(label.clone().upcast()),
-            Gtk4OsWidget::Button(button) => Some(button.clone().upcast()),
-            Gtk4OsWidget::Entry(entry) => Some(entry.clone().upcast()),
-            Gtk4OsWidget::SearchEntry(entry) => Some(entry.clone().upcast()),
-            Gtk4OsWidget::PasswordEntry(entry) => Some(entry.clone().upcast()),
-            Gtk4OsWidget::SpinButton(spin_button) => Some(spin_button.clone().upcast()),
-            Gtk4OsWidget::TextView(text_view) => Some(text_view.clone().upcast()),
-            Gtk4OsWidget::CheckButton(check_button) => Some(check_button.clone().upcast()),
-            Gtk4OsWidget::Switch(switch) => Some(switch.clone().upcast()),
-            Gtk4OsWidget::DropDown(drop_down) => Some(drop_down.clone().upcast()),
-            Gtk4OsWidget::ListBox(list_box) => Some(list_box.clone().upcast()),
-            Gtk4OsWidget::ScrolledWindow {
-                scrolled_window, ..
-            } => Some(scrolled_window.clone().upcast()),
-            Gtk4OsWidget::ListBoxRow { row, .. } => Some(row.clone().upcast()),
-            Gtk4OsWidget::Dialog(dialog) => Some(dialog.clone().upcast()),
-            Gtk4OsWidget::Popover(popover) => Some(popover.clone().upcast()),
-            Gtk4OsWidget::Menu(menu) => Some(menu.bar.clone().upcast()),
-            Gtk4OsWidget::Notebook(notebook) => Some(notebook.clone().upcast()),
-            Gtk4OsWidget::Separator(separator) => Some(separator.clone().upcast()),
-            Gtk4OsWidget::Scale(scale) => Some(scale.clone().upcast()),
-            Gtk4OsWidget::ProgressBar(progress_bar) => Some(progress_bar.clone().upcast()),
-            Gtk4OsWidget::MenuItem(_) => None,
-        }
-    }
-}
-fn push_event(
-    events: &Rc<RefCell<Vec<NativeEvent>>>,
-    events_suppressed: &Rc<RefCell<bool>>,
-    event: NativeEvent,
-) {
-    if !*events_suppressed.borrow() {
-        events.borrow_mut().push(event);
-    }
-}
-
-fn gtk_key_value(key: gtk::gdk::Key, keycode: u32) -> String {
-    key.name()
-        .map(|name| native_key_value(name.as_str()))
-        .filter(|value| !value.is_empty())
-        .or_else(|| key.to_unicode().map(|value| value.to_string()))
-        .unwrap_or_else(|| keycode.to_string())
-}
-
-fn config_orientation(config: &NativeWidgetConfig) -> Option<gtk::Orientation> {
-    config
-        .orientation
-        .or(config.portable_style.flex_direction)
-        .map(gtk_orientation)
-}
-
-fn gtk_orientation(orientation: Orientation) -> gtk::Orientation {
-    match orientation {
-        Orientation::Horizontal => gtk::Orientation::Horizontal,
-        Orientation::Vertical => gtk::Orientation::Vertical,
-    }
-}
-
-fn gtk_input_purpose(purpose: NativeTextInputPurpose) -> gtk::InputPurpose {
-    match purpose {
-        NativeTextInputPurpose::FreeForm => gtk::InputPurpose::FreeForm,
-        NativeTextInputPurpose::Alpha => gtk::InputPurpose::Alpha,
-        NativeTextInputPurpose::Digits => gtk::InputPurpose::Digits,
-        NativeTextInputPurpose::Number => gtk::InputPurpose::Number,
-        NativeTextInputPurpose::Phone => gtk::InputPurpose::Phone,
-        NativeTextInputPurpose::Url => gtk::InputPurpose::Url,
-        NativeTextInputPurpose::Email => gtk::InputPurpose::Email,
-        NativeTextInputPurpose::Name => gtk::InputPurpose::Name,
-        NativeTextInputPurpose::Password => gtk::InputPurpose::Password,
-        NativeTextInputPurpose::Pin => gtk::InputPurpose::Pin,
-        NativeTextInputPurpose::Terminal => gtk::InputPurpose::Terminal,
-    }
-}
-
-fn gtk_input_hints(hints: NativeTextInputHints) -> gtk::InputHints {
-    let mut gtk_hints = gtk::InputHints::NONE;
-    match hints.spellcheck {
-        Some(true) => gtk_hints.insert(gtk::InputHints::SPELLCHECK),
-        Some(false) => gtk_hints.insert(gtk::InputHints::NO_SPELLCHECK),
-        None => {}
-    }
-    if hints.word_completion {
-        gtk_hints.insert(gtk::InputHints::WORD_COMPLETION);
-    }
-    if hints.lowercase {
-        gtk_hints.insert(gtk::InputHints::LOWERCASE);
-    }
-    if hints.uppercase_chars {
-        gtk_hints.insert(gtk::InputHints::UPPERCASE_CHARS);
-    }
-    if hints.uppercase_words {
-        gtk_hints.insert(gtk::InputHints::UPPERCASE_WORDS);
-    }
-    if hints.uppercase_sentences {
-        gtk_hints.insert(gtk::InputHints::UPPERCASE_SENTENCES);
-    }
-    if hints.inhibit_osk {
-        gtk_hints.insert(gtk::InputHints::INHIBIT_OSK);
-    }
-    match hints.emoji {
-        Some(true) => gtk_hints.insert(gtk::InputHints::EMOJI),
-        Some(false) => gtk_hints.insert(gtk::InputHints::NO_EMOJI),
-        None => {}
-    }
-    if hints.private {
-        gtk_hints.insert(gtk::InputHints::PRIVATE);
-    }
-    gtk_hints
-}
-
-fn config_dimension(value: Option<f64>, default: i32) -> i32 {
-    value.map(points_to_i32).unwrap_or(default)
-}
-
-fn gtk4_scroll_policy(value: Option<OverflowMode>) -> gtk::PolicyType {
-    match value {
-        Some(OverflowMode::Scroll) => gtk::PolicyType::Always,
-        Some(OverflowMode::Hidden | OverflowMode::Clip) => gtk::PolicyType::Never,
-        Some(OverflowMode::Visible | OverflowMode::Auto) | None => gtk::PolicyType::Automatic,
-    }
-}
-
-fn apply_widget_size(widget: &gtk::Widget, style: &crate::style::PortableStyle) {
-    let size = style.native_size_constraints();
-    let width = size
-        .width
-        .or(size.min_width)
-        .map(points_to_i32)
-        .unwrap_or(-1);
-    let height = size
-        .height
-        .or(size.min_height)
-        .map(points_to_i32)
-        .unwrap_or(-1);
-    if width >= 0 || height >= 0 {
-        widget.set_size_request(width, height);
-    }
-}
-
-fn style_sets_gtk_width(style: &crate::style::PortableStyle) -> bool {
-    let size = style.native_size_constraints();
-    size.width.or(size.min_width).is_some()
-}
-
-fn style_sets_gtk_height(style: &crate::style::PortableStyle) -> bool {
-    let size = style.native_size_constraints();
-    size.height.or(size.min_height).is_some()
-}
-
-fn config_is_password(config: &NativeWidgetConfig) -> bool {
-    config
-        .input_type
-        .as_deref()
-        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
-}
-
-fn config_is_search(config: &NativeWidgetConfig) -> bool {
-    config
-        .input_type
-        .as_deref()
-        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("search"))
-}
-
-fn u32_to_i32(value: u32) -> i32 {
-    i32::try_from(value).unwrap_or(i32::MAX)
-}
-
-fn text_buffer_text(buffer: &gtk::TextBuffer) -> String {
-    let (start, end) = buffer.bounds();
-    buffer.text(&start, &end, true).to_string()
-}
-
-fn truncate_to_max_length(value: &str, max_length: Option<u32>) -> String {
-    let Some(max_length) = max_length else {
-        return value.to_string();
-    };
-    let max_length = max_length as usize;
-    if value.chars().count() <= max_length {
-        value.to_string()
-    } else {
-        value.chars().take(max_length).collect()
-    }
-}
-
-fn set_text_buffer_text(buffer: &gtk::TextBuffer, value: &str, max_length: Option<u32>) {
-    buffer.set_text(&truncate_to_max_length(value, max_length));
-}
-
-fn set_progress_bar_fraction(progress_bar: &gtk::ProgressBar, range: Gtk4RangeState) {
-    let min = range.lower();
-    let max = range.upper();
-    let current = range.current();
-    let range = max - min;
-    let fraction = if range.abs() < f64::EPSILON {
-        0.0
-    } else {
-        ((current - min) / range).clamp(0.0, 1.0)
-    };
-    progress_bar.set_fraction(fraction);
-}
-
-fn clear_pending_auto_focus(pending_auto_focus: &mut Option<HostNodeId>, id: HostNodeId) {
-    if *pending_auto_focus == Some(id) {
-        *pending_auto_focus = None;
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn truncate_to_max_length_limits_unicode_scalar_values() {
-        assert_eq!(truncate_to_max_length("abcdef", Some(3)), "abc");
-        assert_eq!(truncate_to_max_length("aé日b", Some(3)), "aé日");
-        assert_eq!(truncate_to_max_length("abc", None), "abc");
-        assert_eq!(truncate_to_max_length("abc", Some(0)), "");
-    }
-
-    #[test]
-    fn gtk4_text_input_sizing_resets_removed_text_view_hints() {
-        let sizing = Gtk4TextInputSizing {
-            rows: None,
-            cols: None,
-            size: None,
-            has_explicit_width: false,
-            has_explicit_height: false,
-        };
-
-        assert_eq!(sizing.hinted_width_points(), None);
-        assert_eq!(sizing.hinted_height_points(), None);
-        assert_eq!(sizing.text_view_size_request(412, 138), (-1, -1));
-    }
-
-    #[test]
-    fn gtk4_text_view_sizing_preserves_explicit_axis_requests() {
-        let sizing = Gtk4TextInputSizing {
-            rows: Some(6),
-            cols: None,
-            size: None,
-            has_explicit_width: true,
-            has_explicit_height: false,
-        };
-
-        assert_eq!(sizing.text_view_size_request(320, -1), (320, 138));
-    }
-
-    #[test]
-    fn gtk4_pending_auto_focus_only_clears_matching_node() {
-        let first = HostNodeId::new(3);
-        let second = HostNodeId::new(4);
-        let mut pending = Some(first);
-
-        clear_pending_auto_focus(&mut pending, second);
-        assert_eq!(pending, Some(first));
-
-        clear_pending_auto_focus(&mut pending, first);
-        assert_eq!(pending, None);
-    }
-}
-
-fn points_to_i32(value: f64) -> i32 {
-    if value.is_finite() {
-        value.round().clamp(i32::MIN as f64, i32::MAX as f64) as i32
-    } else {
-        -1
-    }
-}
-
-fn index_to_i32(index: usize) -> GuiResult<i32> {
-    index
-        .try_into()
-        .map_err(|_| GuiError::host("GTK4 child index overflow"))
 }

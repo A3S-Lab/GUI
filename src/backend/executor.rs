@@ -77,6 +77,9 @@ impl<D: NativeWidgetDriver> PlatformCommandExecutor for DriverCommandExecutor<D>
             PlatformCommand::SetRoot { id } => {
                 self.driver.set_root_widget(*id)?;
             }
+            PlatformCommand::RequestFocus { id } => {
+                self.driver.request_focus(*id)?;
+            }
         }
         self.commands.push(command.clone());
         Ok(())

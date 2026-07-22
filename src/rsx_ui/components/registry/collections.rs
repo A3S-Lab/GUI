@@ -4,7 +4,7 @@ use crate::error::GuiResult;
 use crate::rsx_app::RsxComponent;
 
 use super::super::catalog::*;
-use super::super::contract::passthrough_contract;
+use super::super::contract::{passthrough_contract, selection_contract};
 use super::with_builtin_template;
 
 pub(super) fn with_selection_input_components<S>(
@@ -14,44 +14,35 @@ pub(super) fn with_selection_input_components<S>(
         component,
         "UiSelect",
         ui_select,
-        passthrough_contract()?
+        selection_contract()?
             .default_prop("label", "")?
-            .default_prop("value", "")?
             .default_prop("placeholder", "")?
-            .default_prop("selectionMode", "single")?
             .default_prop("isOpen", false)?
-            .default_prop("onOpenChange", "")?
-            .default_prop("onSelectionChange", "")?,
+            .default_prop("onOpenChange", "")?,
         None,
     )?;
     let component = with_builtin_template(
         component,
         "UiComboBox",
         ui_combo_box,
-        passthrough_contract()?
+        selection_contract()?
             .default_prop("label", "")?
-            .default_prop("value", "")?
             .default_prop("inputValue", "")?
             .default_prop("placeholder", "")?
             .default_prop("onChange", "")?
-            .default_prop("selectionMode", "single")?
             .default_prop("isOpen", false)?
-            .default_prop("onOpenChange", "")?
-            .default_prop("onSelectionChange", "")?,
+            .default_prop("onOpenChange", "")?,
         None,
     )?;
     let component = with_builtin_template(
         component,
         "UiAutocomplete",
         ui_autocomplete,
-        passthrough_contract()?
+        selection_contract()?
             .default_prop("label", "")?
-            .default_prop("value", "")?
             .default_prop("inputValue", "")?
             .default_prop("placeholder", "")?
-            .default_prop("onChange", "")?
-            .default_prop("selectionMode", "single")?
-            .default_prop("onSelectionChange", "")?,
+            .default_prop("onChange", "")?,
         None,
     )?;
     let component = with_builtin_template(
@@ -93,10 +84,7 @@ pub(super) fn with_collection_components<S>(
         component,
         "UiListBox",
         ui_list_box,
-        passthrough_contract()?
-            .default_prop("value", "")?
-            .default_prop("selectionMode", "single")?
-            .default_prop("onSelectionChange", "")?,
+        selection_contract()?,
         None,
     )?;
     let component = with_builtin_template(
@@ -142,11 +130,7 @@ pub(super) fn with_collection_components<S>(
         component,
         "UiGridList",
         ui_grid_list,
-        passthrough_contract()?
-            .default_prop("label", "")?
-            .default_prop("value", "")?
-            .default_prop("selectionMode", "single")?
-            .default_prop("onSelectionChange", "")?,
+        selection_contract()?.default_prop("label", "")?,
         None,
     )?;
     let component = with_builtin_template(
@@ -192,22 +176,14 @@ pub(super) fn with_collection_components<S>(
         component,
         "UiTagGroup",
         ui_tag_group,
-        passthrough_contract()?
-            .default_prop("label", "")?
-            .default_prop("value", "")?
-            .default_prop("selectionMode", "single")?
-            .default_prop("onSelectionChange", "")?,
+        selection_contract()?.default_prop("label", "")?,
         None,
     )?;
     let component = with_builtin_template(
         component,
         "UiTagList",
         ui_tag_list,
-        passthrough_contract()?
-            .default_prop("label", "")?
-            .default_prop("value", "")?
-            .default_prop("selectionMode", "single")?
-            .default_prop("onSelectionChange", "")?,
+        selection_contract()?.default_prop("label", "")?,
         None,
     )?;
     let component = with_builtin_template(
@@ -225,11 +201,11 @@ pub(super) fn with_collection_components<S>(
         component,
         "UiTree",
         ui_tree,
-        passthrough_contract()?
+        selection_contract()?
             .default_prop("label", "")?
-            .default_prop("value", "")?
-            .default_prop("selectionMode", "single")?
-            .default_prop("onSelectionChange", "")?,
+            .default_prop_value("expandedKeys", serde_json::Value::Null)?
+            .default_prop_value("defaultExpandedKeys", serde_json::Value::Null)?
+            .default_prop("onExpandedChange", "")?,
         None,
     )?;
     let component = with_builtin_template(
@@ -256,6 +232,7 @@ pub(super) fn with_collection_components<S>(
             .default_prop("value", "")?
             .default_prop("textValue", "")?
             .default_prop("isExpanded", false)?
+            .default_prop("hasChildItems", false)?
             .default_prop("isSelected", false)?,
         None,
     )?;
@@ -287,7 +264,7 @@ pub(super) fn with_menu_components<S>(component: RsxComponent<S>) -> GuiResult<R
         component,
         "UiMenu",
         ui_menu,
-        passthrough_contract()?
+        selection_contract()?
             .default_prop("label", "")?
             .default_prop("isDisabled", false)?,
         None,
@@ -298,6 +275,9 @@ pub(super) fn with_menu_components<S>(component: RsxComponent<S>) -> GuiResult<R
         ui_menu_trigger,
         passthrough_contract()?
             .default_prop("onPress", "")?
+            .default_prop("onPressStart", "")?
+            .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isOpen", false)?
             .default_prop("actionValue", "")?
             .default_prop_value("actionPayload", JsonValue::Null)?,
@@ -318,6 +298,7 @@ pub(super) fn with_menu_components<S>(component: RsxComponent<S>) -> GuiResult<R
             .default_prop("onPress", "")?
             .default_prop("onPressStart", "")?
             .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isDisabled", false)?
             .default_prop("isPressed", false)?
             .default_prop("isOpen", false)?

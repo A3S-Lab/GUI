@@ -247,12 +247,14 @@ metadata.
 
 `GuiRuntime` is the public orchestration API. It accepts compiled RSX trees,
 supported semantic component trees, or native IR trees and renders them into any
-`NativeHost`. `InteractionState` updates platform-independent focus, value,
-checked, selected, and expanded state from native events before action routing.
-`EventRouter` maps native events such as press, change, focus, toggle,
-selection change, key down, and key up back to serialized action identifiers
-such as `onClick`, `onChange`, `onInput`, `onFocusChange`,
-`onExpandedChange`, `onKeyDown`, and `onKeyUp`.
+`NativeHost`. `InteractionState` updates platform-independent focus, press,
+long-press, movement and its latest incremental delta, value, checked,
+selected, and expanded state from native events before action routing.
+`EventRouter` maps native events such as press, long-press, move lifecycle,
+collection action, change, focus, toggle, selection change, key down, and key
+up back to serialized action identifiers such as `onClick`, `onLongPress`,
+`onMoveStart`, `onMove`, `onMoveEnd`, `onChange`, `onInput`, `onFocusChange`,
+`onAction`, `onExpandedChange`, `onKeyDown`, and `onKeyUp`.
 Focus and blur events always carry canonical `true` and `false` payloads for
 `onFocusChange`. Toggle events for checked or expanded controls canonicalize
 native boolean strings such as `1`, `0`, `on`, and `off`; invalid toggle
@@ -266,11 +268,96 @@ controls without an explicit key-down handler on that route, keyboard
 activation is normalized before routing: Space toggles checkboxes and switches,
 Space selects radios, and Enter or Space toggles expanded controls and selects
 listbox items or tabs.
+Before that activation fallback, the mounted selection registry resolves
+collection navigation for ListBox, Menu, Tree, Tabs/TabList, and RadioGroup.
+Arrow keys follow the collection orientation and inherited text direction;
+Home and PageUp move to the first focusable item, while End and PageDown move to
+the last. Fully disabled items are skipped, items disabled only for selection
+remain focusable, and `shouldFocusWrap` controls end-to-start navigation except
+for Tabs and RadioGroup, which wrap by default. Focus movement is issued through
+the same constrained `RequestFocus` capability as imperative navigation.
+Replace-selection ListBox and Tree collections select as focus moves, toggle
+collections move focus only, radio navigation selects, and Menu navigation is
+focus-only. Tabs select on focus unless `keyboardActivation="manual"` is set.
+Shift extends multiple selection; Control or Command moves focus without
+selection. Multiple ListBox and Tree collections map Control/Command+A to the
+explicit `all` selection and Escape to an empty selection. Escape defaults to
+that clear behavior, can be released with `escapeKeyBehavior="none"`, and still
+honors `disallowEmptySelection`. These commands route through the collection
+root as complete stable-key snapshots, including normal action failure rollback.
+Explicit `onKeyDown` bindings on the target route take precedence over all
+built-in collection handling. Page movement deliberately uses collection
+boundaries until portable native layout geometry is available.
+Collection `onAction` is a separate semantic channel from selection. The
+mounted registry projects an internal action marker onto owned ListBoxItem and
+TreeItem rows so native adapters capture a press lifecycle without copying the
+root callback onto each item. The runtime then bubbles `Action` from the item
+to the collection root with the stable item key. Enter invokes action while
+Space selects. Mouse replace behavior selects on the first click and invokes
+action on the second; touch, pen, and virtual activation invoke action directly.
+For touch and pen, holding through the long-press threshold selects the item
+and enters a persistent touch-selection mode. Subsequent taps select instead
+of acting until the selection becomes empty. The shared recognizer uses an
+AppKit `NSTimer`, GTK main-loop timeout, or WinUI
+`DispatcherQueueTimer` to deliver the terminal event at the threshold. Release
+also evaluates elapsed time as a fallback if a platform timer cannot be
+scheduled. Threshold recognition first ends long-press-start, then cancels the
+active press and any active move lifecycle before routing the terminal
+long-press event, so a later release cannot also activate the item.
+When an action gesture also causes a native collection to select a row, a
+single-use suppression token restores the mounted stable-key snapshot before
+any selection callback is routed. `disabledBehavior="selection"` therefore
+blocks selection while retaining action, whereas a fully disabled item blocks
+both.
+Tree adds a portable hierarchy over that collection kernel. Semantic nested
+`TreeItem` nodes are flattened in preorder for native mounting, while stable
+parent keys and accessibility level/position/set-size metadata preserve their
+logical structure. Controlled `expandedKeys` is reapplied on every render;
+`defaultExpandedKeys` seeds state once and then survives keyed rerenders.
+Collapsed descendants are projected as hidden host rows and are excluded from
+arrow navigation, boundaries, typeahead, focus candidates, and accessibility
+projection. In LTR, Right expands a collapsed parent or enters its first visible
+child, and Left collapses an expanded parent or focuses its parent. RTL mirrors
+those keys. Expansion emits the complete key set through the Tree root's
+`onExpandedChange`; host projection and mounted state roll back together if the
+action fails. If controlled state hides the focused row during a rerender, focus
+moves to the nearest visible ancestor.
+Printable keys on ListBox, Menu, Tree, Select, and ComboBox items enter a
+500 ms typeahead buffer owned by the mounted collection. Search uses explicit
+`textValue` first, then the accessible label and value, and begins at the
+current item before wrapping. ICU4X applies the inherited BCP 47 locale with
+search collation at primary strength, matching React Aria's case- and
+accent-insensitive behavior without reducing international text to ASCII.
+The buffer is retained with stable collection identity across keyed rerenders.
+Control and Command shortcuts do not enter it; fully disabled items are
+skipped, while items disabled only for selection can still receive focus but
+do not emit a selection action. AppKit reads the produced character, GTK4
+prefers the GDK Unicode scalar over its symbolic key name, and WinUI uses
+`ToUnicode` with the active keyboard layout and the non-mutating flag before
+falling back to a stable virtual-key name. Full IME and dead-key composition
+remains an adapter conformance gap.
+AppKit keeps logical item identity separate from the collection selection
+target: a row button is registered as the ListBoxItem or TreeItem responder,
+while activation reports the selected value to the owning collection.
+Programmatic item focus resolves that logical id to the current concrete row,
+and row reconstruction restores the responder without changing logical focus.
+GTK4 and WinUI mount Tree roles through focusable list/list-item primitives for
+this flattened native projection. AppKit rebuilds its row list without hidden
+descendants. Hierarchy and expansion semantics remain in the portable keyed
+runtime, so adapter widget choice does not change the keyboard contract.
 Native event routing tries the target widget first, then mounted ancestors, so
-child widget callbacks can reach container-level handlers. Selection events with
-missing or empty values are normalized from the selected child's value or label;
-native selection-container events also infer the current selected child when the
-host callback does not include a useful payload.
+child widget callbacks can reach container-level handlers. Native `Close` is
+target-scoped so closing a nested dialog cannot also close its containing
+window. A selection-container
+array is authoritative: it replaces the previous selection after native values
+are resolved to stable element keys, then projects the complete state to every
+affected row before action dispatch. GTK4 and WinUI native ListBox callbacks
+produce these arrays from all currently selected rows. AppKit sends the row
+value with its modifier context and the portable selection manager produces the
+same aggregate snapshot. Scalar selection values remain compatibility input.
+Selection events with missing or empty values are normalized from the selected
+child's value or label; native selection-container events also infer the current
+selected child when the host callback does not include a useful payload.
 Text-field change values are clamped to `maxLength`. Initial, rerendered, and
 event-provided number-input and ranged-control values are clamped to min/max
 range bounds and snapped to step hints before platform rendering, interaction
@@ -309,11 +396,28 @@ ListBox selection projection uses that multiple-selection flag to keep existing
 selected children in multi-select lists while single-select lists follow the
 latest selected child. On the first render without prior focus history, the
 first `autoFocus` control in a renderable, non-disabled subtree initializes
-runtime focus state for accessibility projection. Real native surfaces also
-receive the same `autoFocus` setter: AppKit and GTK request platform focus after
-the target is attached to a root window, while the current WinUI binding records
-the target and continues to rely on WinUI focus callbacks because
-`winio-winui3` 0.4.2 does not expose a safe programmatic focus method.
+runtime focus state for accessibility projection. After the complete tree is
+mounted and its root is attached, the runtime resolves the actual focusable
+target and emits the same typed `RequestFocus` command used by imperative
+navigation. `autoFocus` is therefore not a native widget setter. AppKit uses
+`makeFirstResponder`, GTK4 uses `grab_focus`, and WinUI calls the fixed
+`IUIElement::Focus(Programmatic)` ABI through a small audited adapter because
+`winio-winui3` 0.4.2 leaves that method unwrapped.
+Imperative focus navigation uses a separate `ProgrammaticFocusHost` capability
+and a serialized `PlatformCommand::RequestFocus` operation rather than a
+widget-property setter. `GuiRuntime` validates mounted focusability, resolves
+first/last/next/previous order, and constrains requests to the active contained
+scope before issuing the command. AppKit maps it to `makeFirstResponder`, GTK4
+maps it to `grab_focus`, and WinUI maps it to `IUIElement::Focus` with the
+programmatic focus state. Native focus callbacks still authoritatively update
+interaction state and route focus actions. When that callback omits modality,
+the matching imperative request supplies a one-shot `virtual` modality so
+focus-visible state remains deterministic. The runtime retains the last native
+focus owner across the blur/focus transition, redirects focus events that
+escape an active contained scope, and records the pre-mount focus owner for
+each restore-enabled scope. When nested scopes unmount, valid restoration
+targets unwind from the innermost scope outward through the same imperative
+host capability.
 Non-focus interaction state is
 revision-scoped: after a successful rerender, controlled values from the new
 blueprint supersede stale local event state while focus remains preserved until
@@ -351,7 +455,17 @@ results, including events that only update runtime or accessibility state.
 `GuiRuntime<H>`, drains pending native events from hosts that implement
 `NativeEventHost`, applies action invocations to application state through a
 reducer, and renders the next `UiFrame` back into the same host after
-state-changing events. `handle_pending_native_events_while` stops draining the
+state-changing events. Existing reducers return `GuiResult<()>` and therefore
+continue through the complete target-to-ancestor route. Propagation-aware apps
+use `new_with_propagation` and return `ActionPropagation` from the reducer. A
+`Stop` result is sticky for that native event: every callback registered on the
+same `currentTarget` still runs in deterministic order, then callbacks on
+ancestors are discarded. The retained invocation prefix is reflected in both
+the response and `ActionRegistry` history, and event responses expose
+`propagationStoppedAt` for inspection. `NativeProtocolApp` implements the same
+contract at the serialized host boundary.
+
+`handle_pending_native_events_while` stops draining the
 current native event batch as soon as the supplied state predicate returns
 false, which keeps queued follow-up events from mutating state after an app-level
 close action. `handle_pending_native_event_batch_while` uses the same behavior
@@ -367,7 +481,9 @@ pump and use the same bounded drain while stopping their `run_*_while` loops
 when the root window closes or the state predicate exits. Their
 `pump_*_event_batch_while` helpers combine the pre-pump and post-pump A3S event
 drains into one `NativeRuntimeEventBatch`, which gives native automation a
-single assertion point for OS event pump cycles.
+single assertion point for OS event pump cycles. Each backend also exposes
+`*_with_propagation` constructors and propagation-aware pump/run variants so
+the opt-in contract is preserved through the real OS event loop.
 Window close lifecycle events use the same action path. `UiFrame.window.onClose`
 wraps the rendered root in a native window with an `onClose` event binding, and
 `NativeEventKind::Close` dispatches that action id. AppKit and GTK native
@@ -586,9 +702,9 @@ Feature-gated platform executor surfaces:
   native orientation and step hints and enqueue ranged `NativeEventKind::Change`
   records with the current double value, while `NSProgressIndicator` is updated
   by setter-driven ranged state.
-  `autoFocus` requests are deferred until the target view is attached to a
-  window, then applied with `makeFirstResponder` so the opened window starts on
-  the intended native control when AppKit accepts the responder.
+  Runtime `autoFocus` commands arrive after the target view is attached to a
+  window and use `makeFirstResponder`, so the opened window starts on the
+  intended native control when AppKit accepts the responder.
   The AppKit event pump also maps key-down and key-up `NSEvent` records to the
   focused native node, normalizes common AppKit key codes, and falls back to the
   root node for window-level keyboard routes.
@@ -659,9 +775,9 @@ Feature-gated platform executor surfaces:
   `winio-winui3` 0.4.2 does not expose strong `KeyRoutedEvent` registration
   methods, keyboard events target the currently focused A3S node tracked from
   WinUI focus callbacks, falling back to the root surface for window-level
-  routes. The same binding version also leaves programmatic `Focus` unwrapped,
-  so `autoFocus` is tracked as a pending target and cleared only when WinUI
-  reports matching native focus.
+  routes. The same binding version leaves programmatic `Focus` unwrapped; the
+  native surface bridges its fixed WinRT ABI from an adjacent public vtable
+  method and still uses WinUI focus callbacks as the observable event source.
   Window close requests are observed through the HWND message path: the surface
   installs a close-event subclass on each WinUI window and enqueues
   `NativeEventKind::Close` when `WM_CLOSE` arrives. Content dialogs register
@@ -721,9 +837,8 @@ Feature-gated platform executor surfaces:
   selection-change events through the same `NativeEventSource` and action
   routing path as AppKit. GTK widgets also attach `EventControllerKey`
   controllers so native key-down and key-up events carry normalized key values
-  through that same queue. `autoFocus` requests are deferred until the target
-  widget is attached, then applied with `grab_focus` when GTK accepts the focus
-  change.
+  through that same queue. Runtime `autoFocus` commands arrive after the target
+  widget is attached and use `grab_focus` when GTK accepts the focus change.
   `Gtk4RuntimeApp` provides the embedded app loop for this backend: it registers
   a GTK application, renders into `Gtk4NativeSurface`, pumps the default GLib
   main context, drains queued A3S native events, runs the application reducer,

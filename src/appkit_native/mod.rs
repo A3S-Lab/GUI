@@ -15,21 +15,25 @@ use objc2_app_kit::{
     NSAutoresizingMaskOptions, NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSButton,
     NSColor, NSComboBox, NSComboBoxDelegate, NSControl, NSControlStateValue,
     NSControlStateValueOff, NSControlStateValueOn, NSControlTextEditingDelegate, NSEvent,
-    NSEventMask, NSEventType, NSFont, NSLayoutAttribute, NSLayoutConstraint,
+    NSEventMask, NSEventModifierFlags, NSEventType, NSFont, NSLayoutAttribute, NSLayoutConstraint,
     NSLayoutConstraintOrientation, NSLayoutPriorityDefaultLow, NSLayoutPriorityRequired,
-    NSLayoutRelation, NSMenu, NSMenuItem, NSPanel, NSPopover, NSPopoverBehavior,
-    NSProgressIndicator, NSProgressIndicatorStyle, NSResponder, NSRunningApplication, NSScrollView,
-    NSSearchField, NSSearchFieldDelegate, NSSecureTextField, NSSlider, NSStackView,
-    NSStackViewDistribution, NSSwitch, NSTabView, NSTabViewDelegate, NSTabViewItem, NSTextField,
-    NSTextFieldDelegate, NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow,
-    NSWindowDelegate, NSWindowStyleMask,
+    NSLayoutRelation, NSMenu, NSMenuItem, NSPanel, NSPointingDeviceType, NSPopover,
+    NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSResponder,
+    NSRunningApplication, NSScrollView, NSSearchField, NSSearchFieldDelegate, NSSecureTextField,
+    NSSlider, NSStackView, NSStackViewDistribution, NSSwitch, NSTabView, NSTabViewDelegate,
+    NSTabViewItem, NSTextField, NSTextFieldDelegate, NSTrackingArea, NSTrackingAreaOptions,
+    NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow, NSWindowDelegate,
+    NSWindowStyleMask,
 };
 use objc2_foundation::{
     NSDate, NSDefaultRunLoopMode, NSEdgeInsets, NSInteger, NSNotification, NSObject,
-    NSObjectProtocol, NSPoint, NSRect, NSRectEdge, NSSize, NSString,
+    NSObjectProtocol, NSPoint, NSRect, NSRectEdge, NSRunLoop, NSRunLoopCommonModes, NSSize,
+    NSString, NSTimer,
 };
 
-use crate::app::{NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse};
+use crate::app::{
+    ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
+};
 use crate::appkit::{
     appkit_text_input_hints, AppKitTextInputHints, AppKitTextInputTrait, AppKitWidgetKind,
 };
@@ -38,7 +42,7 @@ use crate::backend::{
     SurfaceHandleAdapter,
 };
 use crate::error::{GuiError, GuiResult};
-use crate::event::{NativeEvent, NativeEventKind};
+use crate::event::{virtual_press_events, NativeEvent, NativeEventKind};
 use crate::geometry::Orientation;
 use crate::host::HostNodeId;
 use crate::html::HTML_TAG_METADATA_KEY;
@@ -52,7 +56,32 @@ use crate::style::{
     EdgeInsets, FontWeight, OverflowMode, PortableStyle, StyleColor, StyleLength, TextAlign,
 };
 
+mod action;
+mod controls;
+mod hierarchy;
+mod interaction;
+mod mount;
+mod propagation;
+mod style;
 mod surface;
+mod types;
+mod update;
+mod window;
+
+use action::AppKitActionTarget;
+use controls::*;
+use style::*;
+use surface::{appkit_horizontal_scroll_enabled, appkit_vertical_scroll_enabled, set_widget_title};
+use types::{
+    focus_appkit_view, focus_appkit_widget, install_window_content_view, AppKitListRow,
+    AppKitListViewState, AppKitSizeConstraints,
+};
+pub use types::{
+    AppKitComboBoxItem, AppKitOsHandle, AppKitOsWidget, AppKitPopoverState, AppKitScrollViewState,
+};
+#[cfg(test)]
+use window::push_window_close_event_once;
+use window::{flipped_stack_view, flipped_view, AppKitWindowDelegate};
 
 pub type AppKitNativeSurfaceAdapter = SurfaceHandleAdapter<AppKitNativeSurface>;
 pub type AppKitNativeSurfaceDriver = HandleWidgetDriver<AppKitNativeSurfaceAdapter>;
@@ -74,9 +103,13 @@ pub struct AppKitNativeSurface {
     mtm: MainThreadMarker,
     _application: Retained<NSApplication>,
     root: Option<HostNodeId>,
-    pending_auto_focus: Option<HostNodeId>,
     events: Rc<RefCell<Vec<NativeEvent>>>,
     focused_node: Rc<Cell<Option<HostNodeId>>>,
+    activation_contexts: interaction::AppKitActivationContexts,
+    interaction_nodes: BTreeMap<HostNodeId, interaction::AppKitInteractionRegistration>,
+    keyboard_presses: RefCell<crate::event::KeyboardPressState>,
+    pointer_press: Rc<RefCell<Option<interaction::AppKitPointerPress>>>,
+    hovered_pointer: RefCell<Option<interaction::AppKitHoverTarget>>,
     closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
     dialog_visible: BTreeMap<HostNodeId, bool>,
     popover_visible: BTreeMap<HostNodeId, bool>,
@@ -121,9 +154,13 @@ impl AppKitNativeSurface {
             mtm,
             _application: application,
             root: None,
-            pending_auto_focus: None,
             events: Rc::new(RefCell::new(Vec::new())),
             focused_node: Rc::new(Cell::new(None)),
+            activation_contexts: Rc::new(RefCell::new(BTreeMap::new())),
+            interaction_nodes: BTreeMap::new(),
+            keyboard_presses: RefCell::new(crate::event::KeyboardPressState::default()),
+            pointer_press: Rc::new(RefCell::new(None)),
+            hovered_pointer: RefCell::new(None),
             closed_windows: Rc::new(RefCell::new(BTreeSet::new())),
             dialog_visible: BTreeMap::new(),
             popover_visible: BTreeMap::new(),
@@ -395,56 +432,13 @@ impl AppKitNativeSurface {
         self.responder_nodes.remove(&responder_key(view.as_super()));
     }
 
-    fn request_auto_focus(&mut self, id: HostNodeId, widget: &AppKitOsWidget) {
-        if self.pending_auto_focus.is_none() {
-            self.pending_auto_focus = Some(id);
-        }
-        self.focus_auto_focus_widget(id, widget);
-    }
-
-    fn focus_pending_auto_focus(&mut self) {
-        let Some(id) = self.pending_auto_focus else {
-            return;
-        };
-        let Some(widget) = self.widgets.get(&id).cloned() else {
-            return;
-        };
-        self.focus_auto_focus_widget(id, &widget);
-    }
-
-    fn focus_auto_focus_widget(&mut self, id: HostNodeId, widget: &AppKitOsWidget) {
-        if self.pending_auto_focus != Some(id) || !focus_appkit_widget(widget) {
-            return;
-        }
-        self.pending_auto_focus = None;
-        self.focused_node.set(Some(id));
-    }
-
     fn node_for_key_event(&self, event: &NSEvent) -> Option<HostNodeId> {
         event
             .window(self.mtm)
             .and_then(|window| window.firstResponder())
-            .and_then(|responder| {
-                self.responder_nodes
-                    .get(&responder_key(&responder))
-                    .copied()
-            })
+            .and_then(|responder| self.node_for_responder(&responder))
             .or_else(|| self.focused_node.get())
             .or(self.root)
-    }
-
-    fn enqueue_key_event(&self, event: &NSEvent) {
-        let kind = match event.r#type() {
-            event_type if event_type == NSEventType::KeyDown => NativeEventKind::KeyDown,
-            event_type if event_type == NSEventType::KeyUp => NativeEventKind::KeyUp,
-            _ => return,
-        };
-
-        if let Some(node) = self.node_for_key_event(event) {
-            self.events
-                .borrow_mut()
-                .push(NativeEvent::new(node, kind).value(appkit_key_value(event)));
-        }
     }
 
     fn update_option_item_label(
@@ -508,6 +502,19 @@ impl AppKitNativeSurface {
         self.rebuild_for_option_item(id)
     }
 
+    fn update_option_item_visible(
+        &mut self,
+        id: HostNodeId,
+        fallback: &AppKitComboBoxItem,
+        visible: bool,
+    ) -> GuiResult<()> {
+        self.combo_items
+            .entry(id)
+            .or_insert_with(|| fallback.clone())
+            .visible = visible;
+        self.rebuild_for_option_item(id)
+    }
+
     fn rebuild_for_option_item(&mut self, item: HostNodeId) -> GuiResult<()> {
         if let Some(parent) = self.combo_item_parents.get(&item).copied() {
             self.rebuild_combo_box(parent)?;
@@ -527,10 +534,14 @@ impl AppKitNativeSurface {
         combo_box.removeAllItems();
 
         let mut selected_value = None;
-        for (index, child) in children.iter().enumerate() {
+        let mut index = 0_usize;
+        for child in &children {
             let Some(item) = self.combo_items.get(child) else {
                 continue;
             };
+            if !item.visible {
+                continue;
+            }
             let value = ns_string(&item.value);
             unsafe {
                 combo_box.insertItemWithObjectValue_atIndex(
@@ -543,6 +554,7 @@ impl AppKitNativeSurface {
             if item.selected && selected_value.is_none() {
                 selected_value = Some(item.value.clone());
             }
+            index = index.saturating_add(1);
         }
 
         let selected_value = selected_value.or_else(|| {
@@ -574,13 +586,18 @@ impl AppKitNativeSurface {
             let Some(item) = self.combo_items.get(&child).cloned() else {
                 continue;
             };
+            if !item.visible {
+                continue;
+            }
             let selected =
                 item.selected || (!previous_value.is_empty() && item.value == previous_value);
             let row = AppKitListRow::new(
+                child,
                 id,
                 item,
                 selected,
                 self.events.clone(),
+                self.activation_contexts.clone(),
                 self.focused_node.clone(),
                 self.mtm,
             );
@@ -591,122 +608,23 @@ impl AppKitNativeSurface {
             state
                 .stack_view
                 .insertArrangedSubview_atIndex(row.button_view(), index);
-            self.register_view_responder(id, row.button_view());
+            self.register_view_responder(child, row.button_view());
             rows.push(row);
         }
         *state.rows.borrow_mut() = rows;
+        if let Some(focused) = self
+            .focused_node
+            .get()
+            .filter(|focused| self.list_item_parents.get(focused).copied() == Some(id))
+        {
+            if let Some(row) = state.rows.borrow().iter().find(|row| row.node == focused) {
+                focus_appkit_view(row.button_view());
+            }
+        }
         if let Some(AppKitOsWidget::ListView(scroll_view)) = self.widgets.get(&id) {
             apply_list_view_layout(scroll_view, &state, &state.style);
         }
         Ok(())
-    }
-}
-
-fn clear_pending_auto_focus(pending_auto_focus: &mut Option<HostNodeId>, id: HostNodeId) {
-    if *pending_auto_focus == Some(id) {
-        *pending_auto_focus = None;
-    }
-}
-
-#[derive(Debug, Clone)]
-struct AppKitWindowDelegateIvars {
-    node: HostNodeId,
-    events: Rc<RefCell<Vec<NativeEvent>>>,
-    closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
-}
-
-define_class!(
-    #[unsafe(super(NSView))]
-    #[thread_kind = MainThreadOnly]
-    #[derive(Debug)]
-    struct AppKitFlippedView;
-
-    impl AppKitFlippedView {
-        #[unsafe(method(isFlipped))]
-        fn is_flipped(&self) -> bool {
-            true
-        }
-    }
-);
-
-define_class!(
-    #[unsafe(super(NSStackView))]
-    #[thread_kind = MainThreadOnly]
-    #[derive(Debug)]
-    struct AppKitFlippedStackView;
-
-    impl AppKitFlippedStackView {
-        #[unsafe(method(isFlipped))]
-        fn is_flipped(&self) -> bool {
-            true
-        }
-    }
-);
-
-fn flipped_view(mtm: MainThreadMarker, frame: NSRect) -> Retained<NSView> {
-    let view = AppKitFlippedView::alloc(mtm).set_ivars(());
-    let view: Retained<AppKitFlippedView> = unsafe { msg_send![super(view), initWithFrame: frame] };
-    view.into_super()
-}
-
-fn flipped_stack_view(mtm: MainThreadMarker, frame: NSRect) -> Retained<NSStackView> {
-    let stack_view = AppKitFlippedStackView::alloc(mtm).set_ivars(());
-    let stack_view: Retained<AppKitFlippedStackView> =
-        unsafe { msg_send![super(stack_view), initWithFrame: frame] };
-    stack_view.into_super()
-}
-
-define_class!(
-    #[unsafe(super(NSObject))]
-    #[thread_kind = MainThreadOnly]
-    #[ivars = AppKitWindowDelegateIvars]
-    #[derive(Debug)]
-    struct AppKitWindowDelegate;
-
-    unsafe impl NSObjectProtocol for AppKitWindowDelegate {}
-
-    unsafe impl NSWindowDelegate for AppKitWindowDelegate {
-        #[unsafe(method(windowShouldClose:))]
-        fn window_should_close(&self, _sender: &NSWindow) -> bool {
-            true
-        }
-
-        #[unsafe(method(windowWillClose:))]
-        fn window_will_close(&self, _notification: &NSNotification) {
-            push_window_close_event_once(
-                self.ivars().node,
-                &self.ivars().events,
-                &self.ivars().closed_windows,
-            );
-        }
-    }
-);
-
-impl AppKitWindowDelegate {
-    fn new(
-        node: HostNodeId,
-        events: Rc<RefCell<Vec<NativeEvent>>>,
-        closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
-        mtm: MainThreadMarker,
-    ) -> Retained<Self> {
-        let this = Self::alloc(mtm).set_ivars(AppKitWindowDelegateIvars {
-            node,
-            events,
-            closed_windows,
-        });
-        unsafe { msg_send![super(this), init] }
-    }
-}
-
-fn push_window_close_event_once(
-    node: HostNodeId,
-    events: &Rc<RefCell<Vec<NativeEvent>>>,
-    closed_windows: &Rc<RefCell<BTreeSet<HostNodeId>>>,
-) {
-    if closed_windows.borrow_mut().insert(node) {
-        events
-            .borrow_mut()
-            .push(NativeEvent::new(node, NativeEventKind::Close));
     }
 }
 
@@ -716,6 +634,58 @@ impl AppKitEventWait {
             Self::Poll => NSDate::distantPast(),
             Self::Wait => NSDate::distantFuture(),
         }
+    }
+}
+
+fn appkit_runtime_root_window_open<S, F, R>(
+    app: &NativeRuntimeApp<AppKitRuntimeHost, S, F, R>,
+) -> bool {
+    app.runtime()
+        .host()
+        .executor()
+        .driver()
+        .adapter()
+        .surface()
+        .root_window_open()
+}
+
+fn pump_appkit_os_event<S, F, R>(
+    app: &mut NativeRuntimeApp<AppKitRuntimeHost, S, F, R>,
+    wait: AppKitEventWait,
+) -> GuiResult<bool> {
+    let expiration = wait.expiration();
+    let event = app
+        .runtime()
+        .host()
+        .executor()
+        .driver()
+        .adapter()
+        .surface()
+        .application()
+        .nextEventMatchingMask_untilDate_inMode_dequeue(
+            NSEventMask::Any,
+            Some(&expiration),
+            unsafe { NSDefaultRunLoopMode },
+            true,
+        );
+
+    let Some(event) = event else {
+        return Ok(false);
+    };
+    let surface = app.runtime().host().executor().driver().adapter().surface();
+    let previous_focus = surface.focus_before_event(&event);
+    let prevent_default = surface.enqueue_interaction_event(&event);
+    if !prevent_default {
+        surface.application().sendEvent(&event);
+    }
+    surface.finish_interaction_event(&event, previous_focus);
+    surface.application().updateWindows();
+    Ok(true)
+}
+
+impl<S, F, R> NativeRuntimeApp<AppKitRuntimeHost, S, F, R> {
+    pub fn appkit_root_window_open(&self) -> bool {
+        appkit_runtime_root_window_open(self)
     }
 }
 
@@ -766,33 +736,7 @@ where
         if !should_continue(self.state()) {
             return Ok(batch);
         }
-        let expiration = wait.expiration();
-        let event = self
-            .runtime()
-            .host()
-            .executor()
-            .driver()
-            .adapter()
-            .surface()
-            .application()
-            .nextEventMatchingMask_untilDate_inMode_dequeue(
-                NSEventMask::Any,
-                Some(&expiration),
-                unsafe { NSDefaultRunLoopMode },
-                true,
-            );
-
-        if let Some(event) = event {
-            let surface = self
-                .runtime()
-                .host()
-                .executor()
-                .driver()
-                .adapter()
-                .surface();
-            surface.enqueue_key_event(&event);
-            surface.application().sendEvent(&event);
-            surface.application().updateWindows();
+        if pump_appkit_os_event(self, wait)? {
             batch.extend(self.handle_pending_native_event_batch_while(&mut should_continue)?);
         }
 
@@ -801,16 +745,6 @@ where
 
     pub fn run_appkit(&mut self) -> GuiResult<()> {
         self.run_appkit_while(|_| true)
-    }
-
-    pub fn appkit_root_window_open(&self) -> bool {
-        self.runtime()
-            .host()
-            .executor()
-            .driver()
-            .adapter()
-            .surface()
-            .root_window_open()
     }
 
     pub fn run_appkit_while(
@@ -837,6 +771,7 @@ impl AppKitComboBoxItem {
             label,
             value,
             selected: config.selected,
+            visible: config.visible,
             style: config.portable_style.clone(),
         }
     }
@@ -846,1618 +781,4 @@ fn non_empty_config_string(value: Option<&String>) -> Option<String> {
     value
         .filter(|value| !value.trim().is_empty())
         .map(ToOwned::to_owned)
-}
-
-#[derive(Debug, Clone)]
-struct AppKitActionTargetIvars {
-    node: HostNodeId,
-    events: Rc<RefCell<Vec<NativeEvent>>>,
-    focused_node: Rc<Cell<Option<HostNodeId>>>,
-    selection_value: Option<String>,
-    max_length: Cell<Option<u32>>,
-    suppress_text_change: Cell<bool>,
-}
-
-define_class!(
-    #[unsafe(super(NSObject))]
-    #[thread_kind = MainThreadOnly]
-    #[ivars = AppKitActionTargetIvars]
-    #[derive(Debug)]
-    struct AppKitActionTarget;
-
-    impl AppKitActionTarget {
-        #[unsafe(method(a3sGuiPress:))]
-        fn press(&self, _sender: &AnyObject) {
-            let kind = if self.ivars().selection_value.is_some() {
-                NativeEventKind::SelectionChange
-            } else {
-                NativeEventKind::Press
-            };
-            let mut event = NativeEvent::new(self.ivars().node, kind);
-            if let Some(value) = &self.ivars().selection_value {
-                event = event.value(value.clone());
-            }
-            self.ivars().events.borrow_mut().push(event);
-        }
-
-        #[unsafe(method(a3sGuiToggle:))]
-        fn toggle(&self, sender: &AnyObject) {
-            self.ivars().events.borrow_mut().push(
-                NativeEvent::new(self.ivars().node, NativeEventKind::Toggle)
-                    .value(control_checked_value(sender).to_string()),
-            );
-        }
-
-        #[unsafe(method(a3sGuiChange:))]
-        fn change(&self, sender: &AnyObject) {
-            self.ivars().events.borrow_mut().push(
-                NativeEvent::new(self.ivars().node, NativeEventKind::Change)
-                    .value(control_double_value(sender).to_string()),
-            );
-        }
-    }
-
-    unsafe impl NSObjectProtocol for AppKitActionTarget {}
-
-    unsafe impl NSControlTextEditingDelegate for AppKitActionTarget {
-        #[unsafe(method(controlTextDidBeginEditing:))]
-        fn control_text_did_begin_editing(&self, _notification: &NSNotification) {
-            self.ivars().focused_node.set(Some(self.ivars().node));
-            self.ivars()
-                .events
-                .borrow_mut()
-                .push(NativeEvent::new(self.ivars().node, NativeEventKind::Focus));
-        }
-
-        #[unsafe(method(controlTextDidChange:))]
-        fn control_text_did_change(&self, notification: &NSNotification) {
-            if self.ivars().suppress_text_change.get() {
-                return;
-            }
-
-            let value = notification
-                .object()
-                .and_then(|object| object.downcast::<NSControl>().ok())
-                .map(|control| {
-                    let raw_value = control.stringValue().to_string();
-                    let value = truncate_to_max_length(&raw_value, self.max_length());
-                    if value != raw_value {
-                        self.ivars().suppress_text_change.set(true);
-                        control.setStringValue(&ns_string(&value));
-                        self.ivars().suppress_text_change.set(false);
-                    }
-                    value
-                })
-                .unwrap_or_default();
-            self.ivars().events.borrow_mut().push(
-                NativeEvent::new(self.ivars().node, NativeEventKind::Change).value(value),
-            );
-        }
-
-        #[unsafe(method(controlTextDidEndEditing:))]
-        fn control_text_did_end_editing(&self, _notification: &NSNotification) {
-            if self.ivars().focused_node.get() == Some(self.ivars().node) {
-                self.ivars().focused_node.set(None);
-            }
-            self.ivars()
-                .events
-                .borrow_mut()
-                .push(NativeEvent::new(self.ivars().node, NativeEventKind::Blur));
-        }
-    }
-
-    unsafe impl NSTextFieldDelegate for AppKitActionTarget {}
-
-    unsafe impl NSSearchFieldDelegate for AppKitActionTarget {}
-
-    unsafe impl NSComboBoxDelegate for AppKitActionTarget {
-        #[unsafe(method(comboBoxSelectionDidChange:))]
-        fn combo_box_selection_did_change(&self, notification: &NSNotification) {
-            let value = notification
-                .object()
-                .and_then(|object| object.downcast::<NSComboBox>().ok())
-                .map(|combo_box| combo_box_selected_value(&combo_box))
-                .unwrap_or_default();
-            self.ivars().events.borrow_mut().push(
-                NativeEvent::new(self.ivars().node, NativeEventKind::SelectionChange)
-                    .value(value),
-            );
-        }
-    }
-
-    unsafe impl NSTabViewDelegate for AppKitActionTarget {
-        #[unsafe(method(tabView:didSelectTabViewItem:))]
-        fn tab_view_did_select_tab_view_item(
-            &self,
-            _tab_view: &NSTabView,
-            tab_view_item: Option<&NSTabViewItem>,
-        ) {
-            let value = tab_view_item
-                .map(|item| item.label().to_string())
-                .unwrap_or_default();
-            self.ivars().events.borrow_mut().push(
-                NativeEvent::new(self.ivars().node, NativeEventKind::SelectionChange)
-                    .value(value),
-            );
-        }
-    }
-);
-
-impl AppKitActionTarget {
-    fn new(
-        node: HostNodeId,
-        events: Rc<RefCell<Vec<NativeEvent>>>,
-        focused_node: Rc<Cell<Option<HostNodeId>>>,
-        mtm: MainThreadMarker,
-    ) -> Retained<Self> {
-        let this = Self::alloc(mtm).set_ivars(AppKitActionTargetIvars {
-            node,
-            events,
-            focused_node,
-            selection_value: None,
-            max_length: Cell::new(None),
-            suppress_text_change: Cell::new(false),
-        });
-        unsafe { msg_send![super(this), init] }
-    }
-
-    fn new_selection(
-        node: HostNodeId,
-        events: Rc<RefCell<Vec<NativeEvent>>>,
-        focused_node: Rc<Cell<Option<HostNodeId>>>,
-        selection_value: String,
-        mtm: MainThreadMarker,
-    ) -> Retained<Self> {
-        let this = Self::alloc(mtm).set_ivars(AppKitActionTargetIvars {
-            node,
-            events,
-            focused_node,
-            selection_value: Some(selection_value),
-            max_length: Cell::new(None),
-            suppress_text_change: Cell::new(false),
-        });
-        unsafe { msg_send![super(this), init] }
-    }
-
-    fn as_any_object(&self) -> &AnyObject {
-        self.as_super().as_super()
-    }
-
-    fn max_length(&self) -> Option<u32> {
-        self.ivars().max_length.get()
-    }
-
-    fn set_max_length(&self, max_length: Option<u32>) {
-        self.ivars().max_length.set(max_length);
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct AppKitOsHandle {
-    pub id: HostNodeId,
-    pub kind: AppKitWidgetKind,
-    pub selected: bool,
-    pub widget: AppKitOsWidget,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct AppKitComboBoxItem {
-    pub label: String,
-    pub value: String,
-    pub selected: bool,
-    pub style: PortableStyle,
-}
-
-#[derive(Debug, Clone)]
-struct AppKitListViewState {
-    stack_view: Retained<NSStackView>,
-    rows: Rc<RefCell<Vec<AppKitListRow>>>,
-    style: PortableStyle,
-}
-
-#[derive(Debug, Clone)]
-struct AppKitListRow {
-    button: Retained<NSButton>,
-    _label: Retained<NSTextField>,
-    _target: Retained<AppKitActionTarget>,
-    _constraints: Vec<Retained<NSLayoutConstraint>>,
-    value: String,
-}
-
-impl AppKitListRow {
-    fn new(
-        parent: HostNodeId,
-        item: AppKitComboBoxItem,
-        selected: bool,
-        events: Rc<RefCell<Vec<NativeEvent>>>,
-        focused_node: Rc<Cell<Option<HostNodeId>>>,
-        mtm: MainThreadMarker,
-    ) -> Self {
-        let label_text = if item.label.trim().is_empty() {
-            item.value.as_str()
-        } else {
-            item.label.as_str()
-        };
-        let title = ns_string(label_text);
-        let target = AppKitActionTarget::new_selection(
-            parent,
-            events,
-            focused_node,
-            item.value.clone(),
-            mtm,
-        );
-        let empty_title = ns_string("");
-        let button = unsafe {
-            NSButton::buttonWithTitle_target_action(
-                &empty_title,
-                Some(target.as_any_object()),
-                Some(sel!(a3sGuiPress:)),
-                mtm,
-            )
-        };
-        let row_width = row_width_from_style(&item.style);
-        let row_height = row_height_from_style(&item.style);
-        button.setBordered(false);
-        button.setContentTintColor(Some(&NSColor::labelColor()));
-        button
-            .as_super()
-            .setFont(Some(&NSFont::systemFontOfSize(13.0)));
-        button
-            .as_super()
-            .as_super()
-            .setFrameSize(NSSize::new(row_width, row_height));
-        button
-            .as_super()
-            .as_super()
-            .setTranslatesAutoresizingMaskIntoConstraints(false);
-        button.setState(appkit_state(selected));
-        let label = NSTextField::labelWithString(&title, mtm);
-        label
-            .as_super()
-            .setFont(Some(&NSFont::systemFontOfSize(13.0)));
-        label.setTextColor(Some(&NSColor::labelColor()));
-        let left = edge_length_points(item.style.padding.left.as_ref()).unwrap_or(8.0);
-        let right = edge_length_points(item.style.padding.right.as_ref()).unwrap_or(left);
-        let label_height = 17.0;
-        let label_y = ((row_height - label_height) / 2.0).max(0.0);
-        label.as_super().as_super().setFrame(NSRect::new(
-            NSPoint::new(left, label_y),
-            NSSize::new((row_width - left - right).max(24.0), label_height),
-        ));
-        button
-            .as_super()
-            .as_super()
-            .addSubview(label.as_super().as_super());
-        let height_constraint = size_constraint(
-            button.as_super().as_super(),
-            NSLayoutAttribute::Height,
-            NSLayoutRelation::Equal,
-            row_height,
-        );
-        let width_constraint = size_constraint(
-            button.as_super().as_super(),
-            NSLayoutAttribute::Width,
-            NSLayoutRelation::Equal,
-            row_width,
-        );
-        height_constraint.setActive(true);
-        width_constraint.setActive(true);
-        Self {
-            button,
-            _label: label,
-            _target: target,
-            _constraints: vec![height_constraint, width_constraint],
-            value: item.value,
-        }
-    }
-
-    fn button_view(&self) -> &NSView {
-        self.button.as_super().as_super()
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct AppKitPopoverState {
-    popover: Retained<NSPopover>,
-    content_view_controller: Retained<NSViewController>,
-    content_view: Retained<NSView>,
-}
-
-#[derive(Debug, Clone)]
-pub struct AppKitScrollViewState {
-    scroll_view: Retained<NSScrollView>,
-    stack_view: Retained<NSStackView>,
-}
-
-#[derive(Debug, Clone)]
-struct AppKitSizeConstraints {
-    active_constraints: Vec<Retained<NSLayoutConstraint>>,
-}
-
-#[derive(Debug, Clone)]
-pub enum AppKitOsWidget {
-    Window(Retained<NSWindow>),
-    Panel(Retained<NSPanel>),
-    Popover(AppKitPopoverState),
-    Menu(Retained<NSMenu>),
-    MenuItem(Retained<NSMenuItem>),
-    View(Retained<NSView>),
-    StackView(Retained<NSStackView>),
-    Button(Retained<NSButton>),
-    Switch(Retained<NSSwitch>),
-    ComboBox(Retained<NSComboBox>),
-    ComboBoxItem(AppKitComboBoxItem),
-    ListView(Retained<NSScrollView>),
-    ScrollView(AppKitScrollViewState),
-    Slider(Retained<NSSlider>),
-    ProgressIndicator(Retained<NSProgressIndicator>),
-    TabView(Retained<NSTabView>),
-    TabViewItem(Retained<NSTabViewItem>),
-    Box(Retained<NSBox>),
-    TextField(Retained<NSTextField>),
-    SearchField(Retained<NSSearchField>),
-    SecureTextField(Retained<NSSecureTextField>),
-}
-
-impl AppKitOsWidget {
-    fn as_responder(&self) -> Option<&NSResponder> {
-        match self {
-            AppKitOsWidget::Window(window) => Some(window.as_super()),
-            AppKitOsWidget::Panel(panel) => Some(panel.as_super().as_super()),
-            _ => self.as_view().map(NSView::as_super),
-        }
-    }
-
-    fn as_view(&self) -> Option<&NSView> {
-        match self {
-            AppKitOsWidget::Window(_)
-            | AppKitOsWidget::Panel(_)
-            | AppKitOsWidget::Popover(_)
-            | AppKitOsWidget::Menu(_)
-            | AppKitOsWidget::MenuItem(_) => None,
-            AppKitOsWidget::View(view) => Some(view),
-            AppKitOsWidget::StackView(stack_view) => Some(stack_view.as_super()),
-            AppKitOsWidget::Button(button) => Some(button.as_super().as_super()),
-            AppKitOsWidget::Switch(switch) => Some(switch.as_super().as_super()),
-            AppKitOsWidget::ComboBox(combo_box) => Some(combo_box.as_super().as_super().as_super()),
-            AppKitOsWidget::ListView(scroll_view) => Some(scroll_view.as_super()),
-            AppKitOsWidget::ScrollView(state) => Some(state.scroll_view.as_super()),
-            AppKitOsWidget::Slider(slider) => Some(slider.as_super().as_super()),
-            AppKitOsWidget::ProgressIndicator(progress) => Some(progress.as_super()),
-            AppKitOsWidget::TabView(tab_view) => Some(tab_view.as_super()),
-            AppKitOsWidget::Box(box_) => Some(box_.as_super()),
-            AppKitOsWidget::TextField(text_field) => Some(text_field.as_super().as_super()),
-            AppKitOsWidget::SearchField(text_field) => {
-                Some(text_field.as_super().as_super().as_super())
-            }
-            AppKitOsWidget::SecureTextField(text_field) => {
-                Some(text_field.as_super().as_super().as_super())
-            }
-            AppKitOsWidget::ComboBoxItem(_) | AppKitOsWidget::TabViewItem(_) => None,
-        }
-    }
-
-    fn as_control(&self) -> Option<&objc2_app_kit::NSControl> {
-        match self {
-            AppKitOsWidget::Button(button) => Some(button.as_super()),
-            AppKitOsWidget::Switch(switch) => Some(switch.as_super()),
-            AppKitOsWidget::ComboBox(combo_box) => Some(combo_box.as_super().as_super()),
-            AppKitOsWidget::Slider(slider) => Some(slider.as_super()),
-            AppKitOsWidget::TextField(text_field) => Some(text_field.as_super()),
-            AppKitOsWidget::SearchField(text_field) => Some(text_field.as_super().as_super()),
-            AppKitOsWidget::SecureTextField(text_field) => Some(text_field.as_super().as_super()),
-            AppKitOsWidget::Window(_)
-            | AppKitOsWidget::Panel(_)
-            | AppKitOsWidget::Popover(_)
-            | AppKitOsWidget::Menu(_)
-            | AppKitOsWidget::MenuItem(_)
-            | AppKitOsWidget::View(_)
-            | AppKitOsWidget::StackView(_)
-            | AppKitOsWidget::ComboBoxItem(_)
-            | AppKitOsWidget::ListView(_)
-            | AppKitOsWidget::ScrollView(_)
-            | AppKitOsWidget::TabView(_)
-            | AppKitOsWidget::TabViewItem(_)
-            | AppKitOsWidget::Box(_)
-            | AppKitOsWidget::ProgressIndicator(_) => None,
-        }
-    }
-}
-
-fn focus_appkit_widget(widget: &AppKitOsWidget) -> bool {
-    let Some(responder) = widget.as_responder() else {
-        return false;
-    };
-
-    if let Some(view) = widget.as_view() {
-        return view
-            .window()
-            .is_some_and(|window| window.makeFirstResponder(Some(responder)));
-    }
-
-    match widget {
-        AppKitOsWidget::Window(window) => window.makeFirstResponder(Some(responder)),
-        AppKitOsWidget::Panel(panel) => panel.as_super().makeFirstResponder(Some(responder)),
-        _ => false,
-    }
-}
-
-fn install_window_content_view(window: &NSWindow, child: &NSView) {
-    let size = window.contentLayoutRect().size;
-    child.setFrame(NSRect::new(NSPoint::new(0.0, 0.0), size));
-    child.setAutoresizingMask(flexible_view_mask());
-    window.setContentView(Some(child));
-    child.setNeedsLayout(true);
-    child.layoutSubtreeIfNeeded();
-    window.displayIfNeeded();
-}
-
-fn flexible_view_mask() -> NSAutoresizingMaskOptions {
-    let mut mask = NSAutoresizingMaskOptions::ViewWidthSizable;
-    mask.insert(NSAutoresizingMaskOptions::ViewHeightSizable);
-    mask
-}
-
-fn config_rect(config: &NativeWidgetConfig, default_width: f64, default_height: f64) -> NSRect {
-    NSRect::new(
-        NSPoint::new(0.0, 0.0),
-        config_size(config, default_width, default_height),
-    )
-}
-
-fn config_rect_for_orientation(
-    config: &NativeWidgetConfig,
-    orientation: Orientation,
-    horizontal_width: f64,
-    horizontal_height: f64,
-    vertical_width: f64,
-    vertical_height: f64,
-) -> NSRect {
-    let (width, height) = match orientation {
-        Orientation::Horizontal => (horizontal_width, horizontal_height),
-        Orientation::Vertical => (vertical_width, vertical_height),
-    };
-    config_rect(config, width, height)
-}
-
-fn separator_size(orientation: Orientation) -> NSSize {
-    match orientation {
-        Orientation::Horizontal => NSSize::new(160.0, 1.0),
-        Orientation::Vertical => NSSize::new(1.0, 160.0),
-    }
-}
-
-fn slider_size_for_orientation(config: &NativeWidgetConfig, orientation: Orientation) -> NSSize {
-    config_rect_for_orientation(config, orientation, 180.0, 24.0, 24.0, 180.0).size
-}
-
-fn apply_slider_orientation(slider: &NSSlider, orientation: Orientation) {
-    slider.setVertical(matches!(orientation, Orientation::Vertical));
-}
-
-fn config_size(config: &NativeWidgetConfig, default_width: f64, default_height: f64) -> NSSize {
-    let size = config.portable_style.native_size_constraints();
-    let width = size.width.unwrap_or(default_width);
-    let height = size.height.unwrap_or(default_height);
-    NSSize::new(width, height)
-}
-
-fn size_constraint(
-    view: &NSView,
-    attribute: NSLayoutAttribute,
-    relation: NSLayoutRelation,
-    constant: f64,
-) -> Retained<NSLayoutConstraint> {
-    unsafe {
-        NSLayoutConstraint::constraintWithItem_attribute_relatedBy_toItem_attribute_multiplier_constant(
-            view.as_super().as_super().as_super(),
-            attribute,
-            relation,
-            None,
-            NSLayoutAttribute::NotAnAttribute,
-            1.0,
-            constant,
-        )
-    }
-}
-
-fn config_text_input_size(config: &NativeWidgetConfig) -> NSSize {
-    let sizing = AppKitTextInputSizing::from_config(config);
-    let width = sizing
-        .explicit_width
-        .or_else(|| sizing.hinted_width())
-        .unwrap_or(APPKIT_TEXT_INPUT_DEFAULT_WIDTH);
-    let height = sizing
-        .explicit_height
-        .or_else(|| sizing.hinted_height())
-        .unwrap_or(APPKIT_TEXT_INPUT_DEFAULT_HEIGHT);
-    NSSize::new(width, height)
-}
-
-fn apply_text_field_hints(text_field: &NSTextField, hints: AppKitTextInputHints) {
-    if let Some(enabled) = hints.automatic_text_completion_enabled {
-        text_field.setAutomaticTextCompletionEnabled(enabled);
-    }
-    text_field.setAllowsCharacterPickerTouchBarItem(hints.character_picker_enabled);
-    set_spell_checking_trait(text_field, hints.spell_checking);
-    set_autocorrection_trait(text_field, hints.autocorrection);
-    set_text_replacement_trait(text_field, hints.text_replacement);
-    set_text_completion_trait(text_field, hints.text_completion);
-    set_inline_prediction_trait(text_field, hints.inline_prediction);
-}
-
-fn set_spell_checking_trait(text_field: &NSTextField, value: AppKitTextInputTrait) {
-    if text_field.respondsToSelector(sel!(setSpellCheckingType:)) {
-        let value = appkit_text_input_trait_value(value);
-        unsafe {
-            let _: () = msg_send![text_field, setSpellCheckingType: value];
-        }
-    }
-}
-
-fn set_autocorrection_trait(text_field: &NSTextField, value: AppKitTextInputTrait) {
-    if text_field.respondsToSelector(sel!(setAutocorrectionType:)) {
-        let value = appkit_text_input_trait_value(value);
-        unsafe {
-            let _: () = msg_send![text_field, setAutocorrectionType: value];
-        }
-    }
-}
-
-fn set_text_replacement_trait(text_field: &NSTextField, value: AppKitTextInputTrait) {
-    if text_field.respondsToSelector(sel!(setTextReplacementType:)) {
-        let value = appkit_text_input_trait_value(value);
-        unsafe {
-            let _: () = msg_send![text_field, setTextReplacementType: value];
-        }
-    }
-}
-
-fn set_text_completion_trait(text_field: &NSTextField, value: AppKitTextInputTrait) {
-    if text_field.respondsToSelector(sel!(setTextCompletionType:)) {
-        let value = appkit_text_input_trait_value(value);
-        unsafe {
-            let _: () = msg_send![text_field, setTextCompletionType: value];
-        }
-    }
-}
-
-fn set_inline_prediction_trait(text_field: &NSTextField, value: AppKitTextInputTrait) {
-    if text_field.respondsToSelector(sel!(setInlinePredictionType:)) {
-        let value = appkit_text_input_trait_value(value);
-        unsafe {
-            let _: () = msg_send![text_field, setInlinePredictionType: value];
-        }
-    }
-}
-
-fn appkit_text_input_trait_value(value: AppKitTextInputTrait) -> NSInteger {
-    match value {
-        AppKitTextInputTrait::Default => 0,
-        AppKitTextInputTrait::No => 1,
-        AppKitTextInputTrait::Yes => 2,
-    }
-}
-
-fn apply_widget_portable_style(
-    widget: &AppKitOsWidget,
-    kind: AppKitWidgetKind,
-    style: &PortableStyle,
-) {
-    match widget {
-        AppKitOsWidget::Window(window) => {
-            if let Some(color) = style
-                .background_color
-                .as_ref()
-                .and_then(ns_color_from_style_color)
-            {
-                window.setBackgroundColor(Some(&color));
-            }
-            if let Some(content_view) = window.contentView() {
-                apply_view_portable_style(&content_view, style);
-            }
-        }
-        AppKitOsWidget::Panel(panel) => {
-            if let Some(color) = style
-                .background_color
-                .as_ref()
-                .and_then(ns_color_from_style_color)
-            {
-                panel.as_super().setBackgroundColor(Some(&color));
-            }
-            if let Some(content_view) = panel.as_super().contentView() {
-                apply_view_portable_style(&content_view, style);
-            }
-        }
-        AppKitOsWidget::Popover(state) => {
-            apply_view_portable_style(&state.content_view, style);
-        }
-        AppKitOsWidget::StackView(stack_view) => {
-            apply_stack_view_portable_visuals(stack_view, style);
-        }
-        AppKitOsWidget::ScrollView(state) => {
-            apply_scroll_view_portable_visuals(state, style);
-        }
-        AppKitOsWidget::Button(button) => {
-            apply_button_portable_style(button, style);
-        }
-        AppKitOsWidget::TextField(text_field) => {
-            apply_text_field_portable_style(text_field, kind, style);
-        }
-        AppKitOsWidget::SearchField(text_field) => {
-            apply_text_field_portable_style(text_field.as_super(), kind, style);
-        }
-        AppKitOsWidget::SecureTextField(text_field) => {
-            apply_text_field_portable_style(text_field.as_super(), kind, style);
-        }
-        _ => {
-            if let Some(view) = widget.as_view() {
-                apply_view_portable_style(view, style);
-            }
-            if let Some(control) = widget.as_control() {
-                apply_control_typography(control, style);
-            }
-        }
-    }
-}
-
-fn apply_stack_view_portable_visuals(stack_view: &NSStackView, style: &PortableStyle) {
-    apply_view_portable_style(stack_view.as_super(), style);
-    if let Some(edge_insets) = ns_edge_insets_from_style(&style.padding) {
-        stack_view.setEdgeInsets(edge_insets);
-    }
-}
-
-fn apply_scroll_view_portable_visuals(state: &AppKitScrollViewState, style: &PortableStyle) {
-    apply_view_portable_style(state.scroll_view.as_super(), style);
-    apply_view_portable_style(state.stack_view.as_super(), style);
-    if let Some(color) = style
-        .background_color
-        .as_ref()
-        .and_then(ns_color_from_style_color)
-    {
-        state.scroll_view.setDrawsBackground(true);
-        state.scroll_view.setBackgroundColor(&color);
-        let clip_view = state.scroll_view.contentView();
-        clip_view.setDrawsBackground(true);
-        clip_view.setBackgroundColor(&color);
-    }
-    if let Some(edge_insets) = ns_edge_insets_from_style(&style.padding) {
-        state.scroll_view.setContentInsets(edge_insets);
-        state.stack_view.setEdgeInsets(edge_insets);
-    }
-}
-
-fn apply_list_view_portable_visuals(
-    scroll_view: &NSScrollView,
-    state: &AppKitListViewState,
-    style: &PortableStyle,
-) {
-    apply_view_portable_style(scroll_view.as_super(), style);
-    apply_view_portable_style(state.stack_view.as_super(), style);
-    if let Some(color) = style
-        .background_color
-        .as_ref()
-        .and_then(ns_color_from_style_color)
-    {
-        scroll_view.setDrawsBackground(true);
-        scroll_view.setBackgroundColor(&color);
-        let clip_view = scroll_view.contentView();
-        clip_view.setDrawsBackground(true);
-        clip_view.setBackgroundColor(&color);
-    }
-    scroll_view.setContentInsets(zero_edge_insets());
-    state
-        .stack_view
-        .setEdgeInsets(ns_edge_insets_from_style(&style.padding).unwrap_or_else(zero_edge_insets));
-}
-
-fn zero_edge_insets() -> NSEdgeInsets {
-    NSEdgeInsets {
-        top: 0.0,
-        left: 0.0,
-        bottom: 0.0,
-        right: 0.0,
-    }
-}
-
-fn apply_text_field_portable_style(
-    text_field: &NSTextField,
-    kind: AppKitWidgetKind,
-    style: &PortableStyle,
-) {
-    apply_control_typography(text_field.as_super(), style);
-    if let Some(alignment) = style.text_align.map(appkit_text_alignment) {
-        unsafe {
-            let _: () = msg_send![text_field, setAlignment: alignment];
-        }
-    }
-    if let Some(color) = style.color.as_ref().and_then(ns_color_from_style_color) {
-        text_field.setTextColor(Some(&color));
-    }
-    if let Some(background) = style
-        .background_color
-        .as_ref()
-        .and_then(ns_color_from_style_color)
-    {
-        text_field.setDrawsBackground(true);
-        text_field.setBackgroundColor(Some(&background));
-    }
-    if kind == AppKitWidgetKind::Label {
-        text_field.setBordered(false);
-    }
-    apply_view_portable_style(text_field.as_super().as_super(), style);
-}
-
-fn appkit_text_alignment(alignment: TextAlign) -> NSInteger {
-    match alignment {
-        TextAlign::Start => 0,
-        TextAlign::End => 1,
-        TextAlign::Center => 2,
-        TextAlign::Justify => 3,
-    }
-}
-
-fn apply_button_portable_style(button: &NSButton, style: &PortableStyle) {
-    apply_control_typography(button.as_super(), style);
-    if let Some(color) = style.color.as_ref().and_then(ns_color_from_style_color) {
-        button.setContentTintColor(Some(&color));
-    }
-    if style_has_custom_chrome(style) {
-        button.setBordered(false);
-    }
-    button.as_super().sizeToFit();
-    apply_control_padding(button.as_super(), style);
-    apply_view_portable_style(button.as_super().as_super(), style);
-}
-
-fn apply_control_typography(control: &NSControl, style: &PortableStyle) {
-    if style.font_size.is_none() && style.font_weight.is_none() && style.font_family.is_none() {
-        return;
-    }
-    let font_size = style_font_size_points(style).unwrap_or_else(|| {
-        control
-            .font()
-            .as_ref()
-            .map(|font| font.pointSize())
-            .unwrap_or(13.0)
-    });
-    let font = ns_font_from_style(style, font_size);
-    control.setFont(Some(&font));
-}
-
-fn apply_control_padding(control: &NSControl, style: &PortableStyle) {
-    let Some(edge_insets) = ns_edge_insets_from_style(&style.padding) else {
-        return;
-    };
-    let view = control.as_super();
-    let current = view.frame().size;
-    let width = (current.width + edge_insets.left + edge_insets.right).max(current.width);
-    let height = (current.height + edge_insets.top + edge_insets.bottom).max(current.height);
-    view.setFrameSize(NSSize::new(width, height));
-}
-
-fn apply_view_portable_style(view: &NSView, style: &PortableStyle) {
-    if !style_has_custom_chrome(style) && style.opacity.is_none() {
-        return;
-    }
-    view.setWantsLayer(true);
-    let Some(layer) = view.layer() else {
-        return;
-    };
-    if let Some(color) = style
-        .background_color
-        .as_ref()
-        .and_then(ns_color_from_style_color)
-    {
-        let cg_color = color.CGColor();
-        layer.setBackgroundColor(Some(&cg_color));
-    }
-    if let Some(opacity) = style.opacity {
-        layer.setOpacity(opacity.clamp(0.0, 1.0) as f32);
-    }
-    if let Some(radius) = border_radius_points(style) {
-        layer.setCornerRadius(radius);
-        layer.setMasksToBounds(radius > 0.0);
-    }
-    if let Some(width) = border_width_points(style) {
-        layer.setBorderWidth(width);
-        let color = first_border_color(style)
-            .and_then(ns_color_from_style_color)
-            .unwrap_or_else(neutral_border_color);
-        let cg_color = color.CGColor();
-        layer.setBorderColor(Some(&cg_color));
-    }
-    view.setNeedsDisplay(true);
-}
-
-fn style_has_custom_chrome(style: &PortableStyle) -> bool {
-    style.background_color.is_some()
-        || style.border_radius.is_some()
-        || style.border_color.is_some()
-        || border_width_points(style).is_some()
-}
-
-fn ns_edge_insets_from_style(edge_insets: &EdgeInsets) -> Option<NSEdgeInsets> {
-    let top = edge_length_points(edge_insets.top.as_ref());
-    let right = edge_length_points(edge_insets.right.as_ref());
-    let bottom = edge_length_points(edge_insets.bottom.as_ref());
-    let left = edge_length_points(edge_insets.left.as_ref());
-    if top.is_none() && right.is_none() && bottom.is_none() && left.is_none() {
-        return None;
-    }
-    Some(NSEdgeInsets {
-        top: top.unwrap_or(0.0),
-        left: left.unwrap_or(0.0),
-        bottom: bottom.unwrap_or(0.0),
-        right: right.unwrap_or(0.0),
-    })
-}
-
-fn edge_length_points(length: Option<&StyleLength>) -> Option<f64> {
-    length
-        .and_then(StyleLength::points)
-        .filter(|value| value.is_finite() && *value >= 0.0)
-}
-
-fn border_width_points(style: &PortableStyle) -> Option<f64> {
-    let mut width = 0.0_f64;
-    let mut found = false;
-    for length in [
-        style.border_width.top.as_ref(),
-        style.border_width.right.as_ref(),
-        style.border_width.bottom.as_ref(),
-        style.border_width.left.as_ref(),
-        style.logical_border_width.block_start.as_ref(),
-        style.logical_border_width.block_end.as_ref(),
-        style.logical_border_width.inline_start.as_ref(),
-        style.logical_border_width.inline_end.as_ref(),
-    ] {
-        if let Some(points) = edge_length_points(length) {
-            found = true;
-            width = width.max(points);
-        }
-    }
-    found.then_some(width)
-}
-
-fn border_radius_points(style: &PortableStyle) -> Option<f64> {
-    style
-        .border_radius
-        .as_ref()
-        .and_then(StyleLength::points)
-        .filter(|value| value.is_finite() && *value >= 0.0)
-}
-
-fn style_font_size_points(style: &PortableStyle) -> Option<f64> {
-    style
-        .font_size
-        .as_ref()
-        .and_then(StyleLength::points)
-        .filter(|value| value.is_finite() && *value > 0.0)
-}
-
-fn ns_font_from_style(style: &PortableStyle, font_size: f64) -> Retained<NSFont> {
-    let mono = style
-        .font_family
-        .as_deref()
-        .is_some_and(|family| family.to_ascii_lowercase().contains("mono"));
-    if mono {
-        if let Some(font) = NSFont::userFixedPitchFontOfSize(font_size) {
-            return font;
-        }
-    }
-    if font_weight_is_bold(style.font_weight.as_ref()) {
-        NSFont::boldSystemFontOfSize(font_size)
-    } else {
-        NSFont::systemFontOfSize(font_size)
-    }
-}
-
-fn font_weight_is_bold(weight: Option<&FontWeight>) -> bool {
-    match weight {
-        Some(FontWeight::Number(value)) => *value >= 600,
-        Some(FontWeight::Keyword(value)) => {
-            matches!(
-                value.trim().to_ascii_lowercase().as_str(),
-                "bold" | "bolder"
-            )
-        }
-        None => false,
-    }
-}
-
-fn first_border_color(style: &PortableStyle) -> Option<&StyleColor> {
-    style
-        .border_color
-        .as_ref()
-        .or(style.border_colors.top.as_ref())
-        .or(style.border_colors.right.as_ref())
-        .or(style.border_colors.bottom.as_ref())
-        .or(style.border_colors.left.as_ref())
-        .or(style.logical_border_colors.block_start.as_ref())
-        .or(style.logical_border_colors.block_end.as_ref())
-        .or(style.logical_border_colors.inline_start.as_ref())
-        .or(style.logical_border_colors.inline_end.as_ref())
-}
-
-fn ns_color_from_style_color(color: &StyleColor) -> Option<Retained<NSColor>> {
-    match color {
-        StyleColor::Rgba {
-            red,
-            green,
-            blue,
-            alpha,
-        } => Some(ns_color(*red, *green, *blue, *alpha)),
-        StyleColor::Keyword(keyword) => match keyword.trim().to_ascii_lowercase().as_str() {
-            "black" => Some(ns_color(0, 0, 0, 255)),
-            "white" => Some(ns_color(255, 255, 255, 255)),
-            "transparent" => Some(ns_color(0, 0, 0, 0)),
-            _ => None,
-        },
-        StyleColor::Function(_) => None,
-    }
-}
-
-fn neutral_border_color() -> Retained<NSColor> {
-    ns_color(229, 229, 229, 255)
-}
-
-fn ns_color(red: u8, green: u8, blue: u8, alpha: u8) -> Retained<NSColor> {
-    NSColor::colorWithSRGBRed_green_blue_alpha(
-        f64::from(red) / 255.0,
-        f64::from(green) / 255.0,
-        f64::from(blue) / 255.0,
-        f64::from(alpha) / 255.0,
-    )
-}
-
-fn apply_window_portable_style(window: &NSWindow, style: &crate::style::PortableStyle) {
-    let size = style.native_size_constraints();
-    if size.width.is_some() || size.height.is_some() {
-        let current = window
-            .contentView()
-            .map(|view| view.frame().size)
-            .unwrap_or_else(|| window.contentLayoutRect().size);
-        window.setContentSize(NSSize::new(
-            size.width.unwrap_or(current.width),
-            size.height.unwrap_or(current.height),
-        ));
-    }
-
-    if size.min_width.is_some() || size.min_height.is_some() {
-        let current = window.minSize();
-        window.setMinSize(NSSize::new(
-            size.min_width.unwrap_or(current.width),
-            size.min_height.unwrap_or(current.height),
-        ));
-    }
-
-    if size.max_width.is_some() || size.max_height.is_some() {
-        let current = window.maxSize();
-        window.setMaxSize(NSSize::new(
-            size.max_width.unwrap_or(current.width),
-            size.max_height.unwrap_or(current.height),
-        ));
-    }
-}
-
-fn activate_current_application() {
-    let options = {
-        let mut options = NSApplicationActivationOptions::ActivateAllWindows;
-        #[allow(deprecated)]
-        {
-            options.insert(NSApplicationActivationOptions::ActivateIgnoringOtherApps);
-        }
-        options
-    };
-    let _ = NSRunningApplication::currentApplication().activateWithOptions(options);
-}
-
-fn apply_scroll_view_layout(state: &AppKitScrollViewState, style: &PortableStyle) {
-    state
-        .scroll_view
-        .setHasVerticalScroller(appkit_vertical_scroll_enabled_for_style(style));
-    state
-        .scroll_view
-        .setHasHorizontalScroller(appkit_horizontal_scroll_enabled_for_style(style));
-    apply_stack_view_layout(&state.stack_view, style, None);
-
-    let size = style.native_size_constraints();
-    if size.width.is_some() || size.height.is_some() {
-        let current = state.stack_view.frame().size;
-        state.stack_view.setFrameSize(NSSize::new(
-            size.width.unwrap_or(current.width.max(120.0)),
-            size.height.unwrap_or(current.height.max(32.0)),
-        ));
-    }
-    scroll_view_to_top(state);
-}
-
-fn apply_list_view_layout(
-    scroll_view: &NSScrollView,
-    state: &AppKitListViewState,
-    style: &PortableStyle,
-) {
-    scroll_view.setHasVerticalScroller(appkit_vertical_scroll_enabled_for_style(style));
-    scroll_view.setHasHorizontalScroller(false);
-    scroll_view.setAutohidesScrollers(true);
-    apply_stack_view_layout(&state.stack_view, style, Some(Orientation::Vertical));
-    apply_list_view_portable_visuals(scroll_view, state, style);
-    resize_list_view_document(scroll_view, state, style);
-}
-
-fn resize_list_view_document(
-    scroll_view: &NSScrollView,
-    state: &AppKitListViewState,
-    style: &PortableStyle,
-) {
-    let constraints = style.native_size_constraints();
-    let current = scroll_view.as_super().frame().size;
-    let width = constraints
-        .width
-        .or(constraints.min_width)
-        .unwrap_or_else(|| current.width.max(APPKIT_LIST_DEFAULT_WIDTH));
-    let implicit_height = implicit_list_view_height(state, style);
-    let height = constraints.height.unwrap_or_else(|| {
-        constraints
-            .min_height
-            .map(|min_height| implicit_height.max(min_height))
-            .unwrap_or(implicit_height)
-    });
-    let height = constraints
-        .max_height
-        .map(|max_height| height.min(max_height))
-        .unwrap_or(height)
-        .max(APPKIT_LIST_MIN_HEIGHT);
-    let document_height = implicit_height.max(height);
-    let document_width = width.max(APPKIT_LIST_DEFAULT_WIDTH + horizontal_padding_points(style));
-    scroll_view
-        .as_super()
-        .setFrameSize(NSSize::new(width, height));
-    state
-        .stack_view
-        .setFrameSize(NSSize::new(document_width, document_height));
-    scroll_view_to_top_view(scroll_view, state.stack_view.as_super());
-}
-
-fn implicit_list_view_height(state: &AppKitListViewState, style: &PortableStyle) -> f64 {
-    let arranged_count = state.stack_view.arrangedSubviews().count();
-    let rows = state.rows.borrow();
-    let row_count = rows.len().max(arranged_count);
-    let rows_height = if rows.is_empty() {
-        APPKIT_LIST_MIN_HEIGHT
-    } else {
-        rows.iter()
-            .map(|row| {
-                row.button_view()
-                    .frame()
-                    .size
-                    .height
-                    .max(APPKIT_LIST_ROW_HEIGHT)
-            })
-            .sum::<f64>()
-    };
-    let rows_height = if row_count > rows.len() {
-        rows_height + ((row_count - rows.len()) as f64 * APPKIT_LIST_ROW_HEIGHT)
-    } else {
-        rows_height
-    };
-    (rows_height + vertical_padding_points(style)).max(APPKIT_LIST_MIN_HEIGHT)
-}
-
-fn vertical_padding_points(style: &PortableStyle) -> f64 {
-    edge_length_points(style.padding.top.as_ref()).unwrap_or(0.0)
-        + edge_length_points(style.padding.bottom.as_ref()).unwrap_or(0.0)
-}
-
-fn horizontal_padding_points(style: &PortableStyle) -> f64 {
-    edge_length_points(style.padding.left.as_ref()).unwrap_or(0.0)
-        + edge_length_points(style.padding.right.as_ref()).unwrap_or(0.0)
-}
-
-fn row_width_from_style(style: &PortableStyle) -> f64 {
-    let constraints = style.native_size_constraints();
-    constraints
-        .width
-        .or(constraints.min_width)
-        .unwrap_or(APPKIT_LIST_DEFAULT_WIDTH)
-        .max(80.0)
-}
-
-fn row_height_from_style(style: &PortableStyle) -> f64 {
-    let constraints = style.native_size_constraints();
-    let padded_height = 17.0 + vertical_padding_points(style);
-    constraints
-        .height
-        .or(constraints.min_height)
-        .unwrap_or(padded_height.max(APPKIT_LIST_ROW_HEIGHT))
-        .max(APPKIT_LIST_MIN_HEIGHT)
-}
-
-fn apply_stack_view_layout(
-    stack_view: &NSStackView,
-    style: &PortableStyle,
-    orientation: Option<Orientation>,
-) {
-    let orientation = orientation.or(style.flex_direction);
-    if let Some(orientation) = orientation {
-        stack_view.setOrientation(appkit_stack_orientation(orientation));
-    }
-    stack_view.setDistribution(NSStackViewDistribution::Fill);
-    stack_view.setAlignment(appkit_stack_alignment(
-        orientation.unwrap_or_else(|| orientation_from_appkit_stack(stack_view)),
-    ));
-    let gap = style
-        .gap
-        .as_ref()
-        .and_then(StyleLength::points)
-        .unwrap_or(0.0);
-    unsafe {
-        let _: () = msg_send![stack_view, setSpacing: gap];
-    }
-}
-
-fn table_stack_orientation(role: crate::native::NativeRole) -> Option<Orientation> {
-    match role {
-        crate::native::NativeRole::TableSection => Some(Orientation::Vertical),
-        crate::native::NativeRole::TableRow
-        | crate::native::NativeRole::TableCell
-        | crate::native::NativeRole::TableColumn => Some(Orientation::Horizontal),
-        _ => None,
-    }
-}
-
-fn table_stack_minimum_size(role: crate::native::NativeRole) -> Option<(f64, f64)> {
-    match role {
-        crate::native::NativeRole::TableSection => Some((240.0, 32.0)),
-        crate::native::NativeRole::TableRow => Some((240.0, 36.0)),
-        crate::native::NativeRole::TableCell | crate::native::NativeRole::TableColumn => {
-            Some((96.0, 36.0))
-        }
-        _ => None,
-    }
-}
-
-fn stack_arranged_insert_index(stack_view: &NSStackView, requested: usize) -> GuiResult<NSInteger> {
-    let existing = stack_view.arrangedSubviews().count();
-    let index = stack_insert_index(existing, requested);
-    index
-        .try_into()
-        .map_err(|_| GuiError::host("AppKit stack view child insertion index overflow"))
-}
-
-fn stack_insert_index(existing: usize, requested: usize) -> usize {
-    requested.min(existing)
-}
-
-fn orientation_from_appkit_stack(stack_view: &NSStackView) -> Orientation {
-    if stack_view.orientation() == NSUserInterfaceLayoutOrientation::Vertical {
-        Orientation::Vertical
-    } else {
-        Orientation::Horizontal
-    }
-}
-
-fn appkit_stack_alignment(orientation: Orientation) -> NSLayoutAttribute {
-    match orientation {
-        Orientation::Horizontal => NSLayoutAttribute::Top,
-        Orientation::Vertical => NSLayoutAttribute::Leading,
-    }
-}
-
-fn appkit_vertical_scroll_enabled_for_style(style: &PortableStyle) -> bool {
-    scroll_enabled(style.overflow_y)
-        || scroll_enabled(style.overflow_block)
-        || (!scroll_enabled(style.overflow_x) && !scroll_enabled(style.overflow_inline))
-}
-
-fn appkit_horizontal_scroll_enabled_for_style(style: &PortableStyle) -> bool {
-    scroll_enabled(style.overflow_x) || scroll_enabled(style.overflow_inline)
-}
-
-fn scroll_enabled(value: Option<OverflowMode>) -> bool {
-    matches!(value, Some(OverflowMode::Auto | OverflowMode::Scroll))
-}
-
-fn appkit_stack_orientation(orientation: Orientation) -> NSUserInterfaceLayoutOrientation {
-    match orientation {
-        Orientation::Horizontal => NSUserInterfaceLayoutOrientation::Horizontal,
-        Orientation::Vertical => NSUserInterfaceLayoutOrientation::Vertical,
-    }
-}
-
-fn configure_scroll_document(scroll_view: &NSScrollView, stack_view: &NSStackView) {
-    stack_view
-        .as_super()
-        .setAutoresizingMask(NSAutoresizingMaskOptions::ViewWidthSizable);
-    scroll_view.setDocumentView(Some(stack_view.as_super()));
-}
-
-fn scroll_view_to_top(state: &AppKitScrollViewState) {
-    scroll_view_to_top_view(&state.scroll_view, state.stack_view.as_super());
-}
-
-fn scroll_view_to_top_view(scroll_view: &NSScrollView, document_view: &NSView) {
-    let clip_view = scroll_view.contentView();
-    let top_y = if document_view.isFlipped() {
-        0.0
-    } else {
-        let clip_height = clip_view.bounds().size.height.max(0.0);
-        let document_height = document_view.frame().size.height.max(0.0);
-        (document_height - clip_height).max(0.0)
-    };
-    clip_view.scrollToPoint(NSPoint::new(0.0, top_y));
-    scroll_view.reflectScrolledClipView(&clip_view);
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-struct AppKitRangeState {
-    min: Option<f64>,
-    max: Option<f64>,
-    current: Option<f64>,
-    step: Option<f64>,
-}
-
-impl AppKitRangeState {
-    fn from_config(config: &NativeWidgetConfig) -> Self {
-        Self {
-            min: config.min,
-            max: config.max,
-            current: config.current,
-            step: config.step,
-        }
-    }
-
-    fn lower(self) -> f64 {
-        self.min.unwrap_or(0.0)
-    }
-
-    fn upper(self) -> f64 {
-        self.max.unwrap_or(100.0)
-    }
-
-    fn current(self) -> f64 {
-        self.current.unwrap_or_else(|| self.lower())
-    }
-
-    fn step(self) -> Option<f64> {
-        self.step.filter(|value| value.is_finite() && *value > 0.0)
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-struct AppKitTextInputSizing {
-    rows: Option<u32>,
-    cols: Option<u32>,
-    size: Option<u32>,
-    explicit_width: Option<f64>,
-    explicit_height: Option<f64>,
-}
-
-impl AppKitTextInputSizing {
-    fn from_config(config: &NativeWidgetConfig) -> Self {
-        let size = config.portable_style.native_size_constraints();
-        Self {
-            rows: config.rows,
-            cols: config.cols,
-            size: config.size,
-            explicit_width: size.width,
-            explicit_height: size.height,
-        }
-    }
-
-    fn hinted_width(self) -> Option<f64> {
-        if self.explicit_width.is_some() {
-            return None;
-        }
-        self.size
-            .or(self.cols)
-            .filter(|value| *value > 0)
-            .map(|columns| APPKIT_TEXT_INPUT_MIN_WIDTH.max(columns as f64 * 8.0 + 28.0))
-    }
-
-    fn hinted_height(self) -> Option<f64> {
-        if self.explicit_height.is_some() {
-            return None;
-        }
-        self.rows
-            .filter(|value| *value > 0)
-            .map(|rows| (rows as f64 * 20.0 + 18.0).max(64.0))
-    }
-}
-
-fn config_is_textarea(config: &NativeWidgetConfig) -> bool {
-    config
-        .metadata
-        .get(HTML_TAG_METADATA_KEY)
-        .is_some_and(|tag| tag == "textarea")
-}
-
-fn config_is_password(config: &NativeWidgetConfig) -> bool {
-    config
-        .input_type
-        .as_deref()
-        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("password"))
-}
-
-fn config_is_search(config: &NativeWidgetConfig) -> bool {
-    config
-        .input_type
-        .as_deref()
-        .is_some_and(|input_type| input_type.trim().eq_ignore_ascii_case("search"))
-}
-
-fn apply_progress_range(progress: &NSProgressIndicator, range: AppKitRangeState) {
-    progress.setMinValue(range.lower());
-    progress.setMaxValue(range.upper());
-    progress.setDoubleValue(range.current());
-}
-
-fn apply_slider_step(slider: &NSSlider, range: AppKitRangeState) {
-    let Some(step) = range.step() else {
-        slider.setAllowsTickMarkValuesOnly(false);
-        slider.setNumberOfTickMarks(0);
-        slider.setAltIncrementValue(0.0);
-        return;
-    };
-
-    slider.setAltIncrementValue(step);
-    let span = range.upper() - range.lower();
-    let ticks = (span / step).round() + 1.0;
-    if span.is_finite()
-        && span > 0.0
-        && ticks >= 2.0
-        && ticks <= MAX_APPKIT_SLIDER_TICK_MARKS as f64
-    {
-        slider.setNumberOfTickMarks(ticks as NSInteger);
-        slider.setAllowsTickMarkValuesOnly(true);
-    } else {
-        slider.setNumberOfTickMarks(0);
-        slider.setAllowsTickMarkValuesOnly(false);
-    }
-}
-
-fn truncate_to_max_length(value: &str, max_length: Option<u32>) -> String {
-    let Some(max_length) = max_length else {
-        return value.to_string();
-    };
-    let max_length = max_length as usize;
-    if value.chars().count() <= max_length {
-        value.to_string()
-    } else {
-        value.chars().take(max_length).collect()
-    }
-}
-
-fn set_control_string_value(control: &NSControl, value: &str, max_length: Option<u32>) {
-    control.setStringValue(&ns_string(&truncate_to_max_length(value, max_length)));
-}
-
-fn apply_control_max_length(control: &NSControl, max_length: Option<u32>) {
-    let value = control.stringValue().to_string();
-    set_control_string_value(control, &value, max_length);
-}
-
-fn parse_f64(value: &str) -> Option<f64> {
-    value.trim().parse::<f64>().ok()
-}
-
-fn ns_string(value: &str) -> Retained<NSString> {
-    NSString::from_str(value)
-}
-
-fn ns_string_as_any(value: &NSString) -> &AnyObject {
-    value.as_super().as_super()
-}
-
-fn responder_key(responder: &NSResponder) -> usize {
-    responder as *const NSResponder as usize
-}
-
-fn appkit_key_value(event: &NSEvent) -> String {
-    let characters = event
-        .charactersIgnoringModifiers()
-        .or_else(|| event.characters())
-        .map(|characters| characters.to_string());
-    appkit_key_value_from_parts(event.keyCode(), characters.as_deref())
-}
-
-fn appkit_key_value_from_parts(key_code: u16, characters: Option<&str>) -> String {
-    match key_code {
-        36 | 76 => return "Enter".to_string(),
-        48 => return "Tab".to_string(),
-        49 => return " ".to_string(),
-        51 => return "Backspace".to_string(),
-        53 => return "Escape".to_string(),
-        115 => return "Home".to_string(),
-        116 => return "PageUp".to_string(),
-        117 => return "Delete".to_string(),
-        119 => return "End".to_string(),
-        121 => return "PageDown".to_string(),
-        123 => return "ArrowLeft".to_string(),
-        124 => return "ArrowRight".to_string(),
-        125 => return "ArrowDown".to_string(),
-        126 => return "ArrowUp".to_string(),
-        _ => {}
-    }
-
-    let raw = characters.unwrap_or_default();
-    match raw {
-        "\r" | "\n" => "Enter".to_string(),
-        "\t" | "\u{19}" => "Tab".to_string(),
-        "\u{1b}" => "Escape".to_string(),
-        "\u{7f}" | "\u{8}" => "Backspace".to_string(),
-        " " => " ".to_string(),
-        value => crate::event::native_key_value(value),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::platform::PlatformAdapter;
-
-    #[test]
-    fn truncate_to_max_length_limits_unicode_scalar_values() {
-        let unicode_value = format!("a{}{}b", '\u{e9}', '\u{4e2d}');
-        let unicode_prefix = format!("a{}{}", '\u{e9}', '\u{4e2d}');
-        assert_eq!(truncate_to_max_length("abcdef", Some(3)), "abc");
-        assert_eq!(
-            truncate_to_max_length(&unicode_value, Some(3)),
-            unicode_prefix
-        );
-        assert_eq!(truncate_to_max_length("abc", None), "abc");
-        assert_eq!(truncate_to_max_length("abc", Some(0)), "");
-    }
-
-    #[test]
-    fn appkit_key_value_normalizes_special_keys() {
-        assert_eq!(appkit_key_value_from_parts(36, Some("\r")), "Enter");
-        assert_eq!(appkit_key_value_from_parts(48, Some("\t")), "Tab");
-        assert_eq!(appkit_key_value_from_parts(49, Some(" ")), " ");
-        assert_eq!(appkit_key_value_from_parts(51, Some("\u{7f}")), "Backspace");
-        assert_eq!(appkit_key_value_from_parts(53, Some("\u{1b}")), "Escape");
-        assert_eq!(appkit_key_value_from_parts(123, None), "ArrowLeft");
-        assert_eq!(appkit_key_value_from_parts(124, None), "ArrowRight");
-        assert_eq!(appkit_key_value_from_parts(125, None), "ArrowDown");
-        assert_eq!(appkit_key_value_from_parts(126, None), "ArrowUp");
-        assert_eq!(appkit_key_value_from_parts(0, Some("a")), "a");
-    }
-
-    #[test]
-    fn appkit_window_close_events_are_queued_once_per_window() {
-        let events = Rc::new(RefCell::new(Vec::new()));
-        let closed_windows = Rc::new(RefCell::new(BTreeSet::new()));
-        let first = HostNodeId::new(7);
-        let second = HostNodeId::new(9);
-
-        push_window_close_event_once(first, &events, &closed_windows);
-        push_window_close_event_once(first, &events, &closed_windows);
-        push_window_close_event_once(second, &events, &closed_windows);
-
-        assert_eq!(
-            *events.borrow(),
-            vec![
-                NativeEvent::new(first, NativeEventKind::Close),
-                NativeEvent::new(second, NativeEventKind::Close)
-            ]
-        );
-        assert!(closed_windows.borrow().contains(&first));
-        assert!(closed_windows.borrow().contains(&second));
-    }
-
-    #[test]
-    fn appkit_pending_auto_focus_only_clears_matching_node() {
-        let first = HostNodeId::new(3);
-        let second = HostNodeId::new(4);
-        let mut pending = Some(first);
-
-        clear_pending_auto_focus(&mut pending, second);
-        assert_eq!(pending, Some(first));
-
-        clear_pending_auto_focus(&mut pending, first);
-        assert_eq!(pending, None);
-    }
-
-    #[test]
-    fn appkit_stack_insert_index_preserves_protocol_order() {
-        assert_eq!(stack_insert_index(0, 0), 0);
-        assert_eq!(stack_insert_index(1, 1), 1);
-        assert_eq!(stack_insert_index(2, 2), 2);
-        assert_eq!(stack_insert_index(2, 99), 2);
-    }
-
-    #[test]
-    fn appkit_text_input_sizing_resets_removed_rows_to_default_height() {
-        let sizing = AppKitTextInputSizing {
-            rows: None,
-            cols: Some(48),
-            size: None,
-            explicit_width: None,
-            explicit_height: None,
-        };
-
-        assert_eq!(sizing.hinted_width(), Some(412.0));
-        assert_eq!(sizing.hinted_height(), None);
-
-        let config = NativeWidgetConfig {
-            rows: None,
-            cols: Some(48),
-            ..AppKitAdapter
-                .blueprint(&crate::native::NativeElement::new(
-                    "notes",
-                    crate::native::NativeRole::TextField,
-                ))
-                .config()
-        };
-        let size = config_text_input_size(&config);
-
-        assert_eq!(size.width, 412.0);
-        assert_eq!(size.height, APPKIT_TEXT_INPUT_DEFAULT_HEIGHT);
-    }
-}
-
-fn set_combo_box_value(combo_box: &NSComboBox, value: Option<&str>) {
-    let value = ns_string(value.unwrap_or(""));
-    unsafe {
-        let object = ns_string_as_any(&value);
-        if combo_box.indexOfItemWithObjectValue(object) >= 0 {
-            combo_box.selectItemWithObjectValue(Some(object));
-        }
-    }
-    combo_box.as_super().as_super().setStringValue(&value);
-}
-
-fn combo_box_selected_value(combo_box: &NSComboBox) -> String {
-    combo_box
-        .objectValueOfSelectedItem()
-        .and_then(|value| value.downcast::<NSString>().ok())
-        .map(|value| value.to_string())
-        .unwrap_or_else(|| combo_box.as_super().as_super().stringValue().to_string())
-}
-
-fn list_view_selected_value(state: &AppKitListViewState) -> String {
-    state
-        .rows
-        .borrow()
-        .iter()
-        .find(|row| row.button.state() == NSControlStateValueOn)
-        .map(|row| row.value.clone())
-        .unwrap_or_default()
-}
-
-fn appkit_state(value: bool) -> NSControlStateValue {
-    if value {
-        NSControlStateValueOn
-    } else {
-        NSControlStateValueOff
-    }
-}
-
-fn set_button_checked(button: &NSButton, value: bool) {
-    button.setState(appkit_state(value));
-}
-
-fn set_switch_checked(switch: &NSSwitch, value: bool) {
-    switch.setState(appkit_state(value));
-}
-
-fn control_checked_value(sender: &AnyObject) -> bool {
-    sender
-        .downcast_ref::<NSButton>()
-        .map(|button| button.state() == NSControlStateValueOn)
-        .or_else(|| {
-            sender
-                .downcast_ref::<NSSwitch>()
-                .map(|switch| switch.state() == NSControlStateValueOn)
-        })
-        .unwrap_or(false)
-}
-
-fn control_double_value(sender: &AnyObject) -> f64 {
-    sender
-        .downcast_ref::<NSControl>()
-        .map(NSControl::doubleValue)
-        .unwrap_or_default()
 }

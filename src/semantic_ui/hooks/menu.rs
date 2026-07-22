@@ -1,14 +1,18 @@
+use std::collections::BTreeSet;
+
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 
 use crate::error::{GuiError, GuiResult};
+use crate::selection::{CollectionKey, Selection};
 
+use super::selection::{use_selection, UseSelectionProps};
 use super::serde_helpers::is_false;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UseMenuProps {
     label: Option<String>,
-    is_disabled: bool,
+    selection: UseSelectionProps,
 }
 
 impl UseMenuProps {
@@ -21,8 +25,67 @@ impl UseMenuProps {
         self
     }
 
+    pub fn value(mut self, value: Option<impl Into<String>>) -> Self {
+        self.selection = self.selection.value(value);
+        self
+    }
+
+    pub fn selected_keys(mut self, selected_keys: impl Into<Option<Selection>>) -> Self {
+        self.selection = self.selection.selected_keys(selected_keys);
+        self
+    }
+
+    pub fn default_selected_keys(mut self, selected_keys: impl Into<Option<Selection>>) -> Self {
+        self.selection = self.selection.default_selected_keys(selected_keys);
+        self
+    }
+
+    pub fn disabled_keys<I, K>(mut self, disabled_keys: I) -> Self
+    where
+        I: IntoIterator<Item = K>,
+        K: Into<CollectionKey>,
+    {
+        self.selection = self.selection.disabled_keys(disabled_keys);
+        self
+    }
+
+    pub fn on_selection_change(mut self, action: Option<impl Into<String>>) -> Self {
+        self.selection = self.selection.on_selection_change(action);
+        self
+    }
+
     pub fn disabled(mut self, disabled: bool) -> Self {
-        self.is_disabled = disabled;
+        self.selection = self.selection.disabled(disabled);
+        self
+    }
+
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.selection = self.selection.read_only(read_only);
+        self
+    }
+
+    pub fn selection_mode(mut self, selection_mode: Option<impl Into<String>>) -> Self {
+        self.selection = self.selection.selection_mode(selection_mode);
+        self
+    }
+
+    pub fn selection_behavior(mut self, selection_behavior: Option<impl AsRef<str>>) -> Self {
+        self.selection = self.selection.selection_behavior(selection_behavior);
+        self
+    }
+
+    pub fn disabled_behavior(mut self, disabled_behavior: Option<impl AsRef<str>>) -> Self {
+        self.selection = self.selection.disabled_behavior(disabled_behavior);
+        self
+    }
+
+    pub fn disallow_empty_selection(mut self, disallow: bool) -> Self {
+        self.selection = self.selection.disallow_empty_selection(disallow);
+        self
+    }
+
+    pub fn should_focus_wrap(mut self, should_wrap: bool) -> Self {
+        self.selection = self.selection.should_focus_wrap(should_wrap);
         self
     }
 }
@@ -33,6 +96,14 @@ pub struct UseMenuResult {
     pub menu_props: MenuProps,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_value: Option<String>,
+    pub selected_keys: Selection,
+    pub selection_mode: &'static str,
+    pub selection_behavior: &'static str,
+    pub disabled_behavior: &'static str,
+    pub is_disabled: bool,
+    pub is_read_only: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -43,10 +114,44 @@ pub struct MenuProps {
     pub label: Option<String>,
     #[serde(rename = "aria-label", skip_serializing_if = "Option::is_none")]
     pub aria_label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+    #[serde(rename = "selectedKeys", skip_serializing_if = "Option::is_none")]
+    pub selected_keys: Option<Selection>,
+    #[serde(
+        rename = "defaultSelectedKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_selected_keys: Option<Selection>,
+    #[serde(rename = "disabledKeys", skip_serializing_if = "BTreeSet::is_empty")]
+    pub disabled_keys: BTreeSet<CollectionKey>,
+    #[serde(rename = "selectionBehavior")]
+    pub selection_behavior: &'static str,
+    #[serde(rename = "disabledBehavior")]
+    pub disabled_behavior: &'static str,
+    #[serde(rename = "disallowEmptySelection", skip_serializing_if = "is_false")]
+    pub disallow_empty_selection: bool,
+    #[serde(rename = "shouldFocusWrap", skip_serializing_if = "is_false")]
+    pub should_focus_wrap: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_selection_change: Option<String>,
     #[serde(skip_serializing_if = "is_false")]
     pub disabled: bool,
     #[serde(rename = "aria-disabled", skip_serializing_if = "is_false")]
     pub aria_disabled: bool,
+    #[serde(rename = "readOnly", skip_serializing_if = "is_false")]
+    pub read_only: bool,
+    #[serde(rename = "aria-readonly", skip_serializing_if = "is_false")]
+    pub aria_read_only: bool,
+    #[serde(
+        rename = "data-selected-value",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data_selected_value: Option<String>,
+    #[serde(rename = "data-selection-mode")]
+    pub data_selection_mode: &'static str,
+    #[serde(rename = "aria-multiselectable", skip_serializing_if = "is_false")]
+    pub aria_multiselectable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -98,6 +203,7 @@ pub struct UseSubmenuTriggerProps {
     on_press: Option<String>,
     on_press_start: Option<String>,
     on_press_end: Option<String>,
+    on_press_up: Option<String>,
     action_value: Option<String>,
     action_payload: JsonValue,
     is_disabled: bool,
@@ -111,6 +217,7 @@ impl Default for UseSubmenuTriggerProps {
             on_press: None,
             on_press_start: None,
             on_press_end: None,
+            on_press_up: None,
             action_value: None,
             action_payload: JsonValue::Null,
             is_disabled: false,
@@ -137,6 +244,11 @@ impl UseSubmenuTriggerProps {
 
     pub fn on_press_end(mut self, action: Option<impl Into<String>>) -> Self {
         self.on_press_end = non_empty(action);
+        self
+    }
+
+    pub fn on_press_up(mut self, action: Option<impl Into<String>>) -> Self {
+        self.on_press_up = non_empty(action);
         self
     }
 
@@ -223,6 +335,8 @@ pub struct SubmenuTriggerProps {
     pub on_press_start: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_press_end: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_press_up: Option<String>,
     #[serde(rename = "actionValue", skip_serializing_if = "Option::is_none")]
     pub action_value: Option<String>,
     #[serde(rename = "actionPayload", skip_serializing_if = "JsonValue::is_null")]
@@ -242,14 +356,37 @@ pub struct SubmenuTriggerProps {
 }
 
 pub fn use_menu(props: UseMenuProps) -> UseMenuResult {
+    let selection = use_selection(props.selection);
+    let selection_props = selection.selection_props;
     UseMenuResult {
         label: props.label.clone(),
+        selected_value: selection.selected_value,
+        selected_keys: selection.selected_keys,
+        selection_mode: selection.selection_mode,
+        selection_behavior: selection.selection_behavior,
+        disabled_behavior: selection.disabled_behavior,
+        is_disabled: selection_props.disabled,
+        is_read_only: selection_props.read_only,
         menu_props: MenuProps {
             role: "menu",
             label: props.label.clone(),
             aria_label: props.label,
-            disabled: props.is_disabled,
-            aria_disabled: props.is_disabled,
+            value: selection_props.value,
+            selected_keys: selection_props.selected_keys,
+            default_selected_keys: selection_props.default_selected_keys,
+            disabled_keys: selection_props.disabled_keys,
+            selection_behavior: selection_props.selection_behavior,
+            disabled_behavior: selection_props.disabled_behavior,
+            disallow_empty_selection: selection_props.disallow_empty_selection,
+            should_focus_wrap: selection_props.should_focus_wrap,
+            on_selection_change: selection_props.on_selection_change,
+            disabled: selection_props.disabled,
+            aria_disabled: selection_props.aria_disabled,
+            read_only: selection_props.read_only,
+            aria_read_only: selection_props.aria_read_only,
+            data_selected_value: selection_props.data_selected_value,
+            data_selection_mode: selection_props.data_selection_mode,
+            aria_multiselectable: selection_props.aria_multiselectable,
         },
     }
 }
@@ -286,6 +423,7 @@ pub fn use_submenu_trigger(props: UseSubmenuTriggerProps) -> UseSubmenuTriggerRe
             on_press: props.on_press,
             on_press_start: props.on_press_start,
             on_press_end: props.on_press_end,
+            on_press_up: props.on_press_up,
             action_value: props.action_value,
             action_payload: props.action_payload,
             disabled: props.is_disabled,

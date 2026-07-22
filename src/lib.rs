@@ -15,10 +15,12 @@ pub mod appkit;
 #[cfg(all(feature = "appkit-native", target_os = "macos"))]
 pub mod appkit_native;
 pub mod backend;
+pub mod capability;
 pub mod compiler;
 mod css_text;
 pub mod error;
 pub mod event;
+pub mod focus;
 pub mod geometry;
 #[cfg(feature = "gtk4")]
 pub mod gtk4;
@@ -26,6 +28,8 @@ pub mod gtk4;
 pub mod gtk4_native;
 pub mod host;
 pub mod html;
+pub mod i18n;
+pub mod input;
 pub mod interaction;
 pub mod native;
 #[cfg(any(
@@ -41,6 +45,7 @@ pub mod rsx;
 pub mod rsx_app;
 pub mod rsx_ui;
 pub mod runtime;
+pub mod selection;
 pub mod semantic_ui;
 pub mod style;
 pub mod svg;
@@ -51,10 +56,14 @@ pub mod winui;
 pub mod winui_native;
 
 pub use accessibility::{
-    AccessibilityDescriptionProps, AccessibilityNode, AccessibilityRelationshipProps,
-    AccessibilityRole, AccessibilityStateProps, AccessibilityStructureProps, AccessibilityTreeHost,
+    AccessibilityConformanceIssue, AccessibilityConformanceReport, AccessibilityDescriptionProps,
+    AccessibilityIssueCode, AccessibilityIssueSeverity, AccessibilityNode,
+    AccessibilityRelationshipProps, AccessibilityRole, AccessibilityStateProps,
+    AccessibilityStructureProps, AccessibilityTreeHost,
 };
-pub use app::{NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse};
+pub use app::{
+    ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
+};
 #[cfg(all(feature = "appkit", target_os = "macos"))]
 pub use appkit::{
     AppKitCommandExecutor, AppKitHandleAdapter, AppKitHandleCommandExecutor, AppKitHandleDriver,
@@ -72,6 +81,10 @@ pub use backend::{
     NativeEventSource, NativeHandleAdapter, NativeWidgetDriver, NativeWidgetSurface,
     PlatformCommandExecutor, RecordedNativeObject, RecordingBackend, SurfaceHandleAdapter,
 };
+pub use capability::{
+    CapabilityHost, CapabilitySupport, NativeCapabilities, NativeCapabilityFeature,
+    NativeCapabilityIssue, NativeFeatureCapability, NativeRoleCapabilities, NATIVE_IR_VERSION,
+};
 pub use compiler::{
     CompiledBinding, CompiledBindingSource, CompiledProps, CompiledRsxNode, ComponentClassVariants,
     RsxCompilerBridge,
@@ -80,6 +93,7 @@ pub use error::{GuiError, GuiResult};
 pub use event::{
     ActionInvocation, ActionRegistry, EventRouter, NativeEvent, NativeEventKind, RegisteredAction,
 };
+pub use focus::{FocusManager, FocusNavigationMode, NativeFocusScope};
 pub use geometry::{Orientation, Rect, Size};
 #[cfg(feature = "gtk4")]
 pub use gtk4::{
@@ -88,16 +102,18 @@ pub use gtk4::{
 };
 #[cfg(all(feature = "gtk4-native", target_os = "linux"))]
 pub use gtk4_native::{
-    Gtk4DropDownItem, Gtk4EventWait, Gtk4NativeSurface, Gtk4NativeSurfaceAdapter,
-    Gtk4NativeSurfaceCommandExecutor, Gtk4NativeSurfaceDriver, Gtk4NotebookTab, Gtk4OsHandle,
-    Gtk4OsWidget, Gtk4RuntimeApp, Gtk4RuntimeHost,
+    Gtk4DropDownItem, Gtk4EventWait, Gtk4Menu, Gtk4MenuItem, Gtk4NativeSurface,
+    Gtk4NativeSurfaceAdapter, Gtk4NativeSurfaceCommandExecutor, Gtk4NativeSurfaceDriver,
+    Gtk4NotebookTab, Gtk4OsHandle, Gtk4OsWidget, Gtk4RuntimeApp, Gtk4RuntimeHost,
 };
-pub use host::{HeadlessHost, HostNodeId, HostOperation, NativeHost};
+pub use host::{HeadlessHost, HostNodeId, HostOperation, NativeHost, ProgrammaticFocusHost};
 pub use html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
     HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS, HTML_TAG_METADATA_KEY,
 };
+pub use i18n::{direction_for_locale, direction_name, I18nManager, LocaleContext};
+pub use input::{NativeEventContext, NativeEventPosition, NativeInputModality, NativeKeyModifiers};
 pub use interaction::{InteractionChange, InteractionNodeState, InteractionState};
 pub use native::{ElementKey, NativeElement, NativeProps, NativeRole};
 pub use platform::{
@@ -111,7 +127,7 @@ pub use protocol::{
     NativeProtocolApp, NativeProtocolSession, NativeRenderResponse, RenderedFrame, UiAction,
     UiFrame, WindowOptions,
 };
-pub use renderer::Renderer;
+pub use renderer::{MountedNodeSnapshot, Renderer};
 pub use rsx::{parse_rsx, parse_rsx_file, parse_rsx_source};
 pub use rsx_app::BreadcrumbsHook;
 pub use rsx_app::FormHook;
@@ -130,12 +146,12 @@ pub use rsx_app::{
     RadioGroupHook, RadioHook, RangeCalendarHook, RangeHook, ReactiveHandle, RefHandle,
     ResourceHandle, RsxActionTransition, RsxComponent, RsxComponentContract, RsxDebugValue,
     RsxResource, RsxRouteTransition, RsxRouter, RsxTemplate, SelectDisplayHook, SelectHook,
-    SelectionIndicatorHook, SelectorHandle, SeparatorHook, SliderFillHook, SliderOutputHook,
-    SliderTrackHook, StateHandle, SyncExternalStore, SyncExternalStoreSubscription, TabHook,
-    TabListHook, TabPanelHook, TableCaptionHook, TableCellHook, TableColumnHook, TableHook,
-    TableRowHook, TableSectionHook, TextFieldHook, TextHook, TimeFieldHook, ToggleButtonGroupHook,
-    ToggleButtonHook, ToggleHook, ToolbarHook, TreeHeaderHook, TreeHook, TreeItemHook,
-    VirtualizerHook, VisuallyHiddenHook, RSX,
+    SelectionHook, SelectionIndicatorHook, SelectorHandle, SeparatorHook, SliderFillHook,
+    SliderOutputHook, SliderTrackHook, StateHandle, SyncExternalStore,
+    SyncExternalStoreSubscription, TabHook, TabListHook, TabPanelHook, TableCaptionHook,
+    TableCellHook, TableColumnHook, TableHook, TableRowHook, TableSectionHook, TextFieldHook,
+    TextHook, TimeFieldHook, ToggleButtonGroupHook, ToggleButtonHook, ToggleHook, ToolbarHook,
+    TreeHeaderHook, TreeHook, TreeItemHook, VirtualizerHook, VisuallyHiddenHook, RSX,
 };
 pub use rsx_app::{DragHook, DropHook};
 pub use rsx_app::{HoverHook, KeyboardInteractionHook, LongPressHook, MoveHook};
@@ -209,6 +225,10 @@ pub use rsx_ui::{
     UiKeyboardTargetProps, UiLongPressableProps, UiMovableProps,
 };
 pub use runtime::{GuiRuntime, HandledNativeEvent};
+pub use selection::{
+    CollectionItem, CollectionKey, DisabledBehavior, EscapeKeyBehavior, KeyedCollection, Selection,
+    SelectionBehavior, SelectionManager,
+};
 pub use semantic_ui::{
     use_autocomplete, use_autocomplete_value, use_button, use_button_value, use_calendar,
     use_calendar_cell, use_calendar_cell_value, use_calendar_value, use_checkbox,

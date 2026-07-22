@@ -44,6 +44,9 @@ pub(super) fn with_range_components<S>(component: RsxComponent<S>) -> GuiResult<
         passthrough_contract()?
             .default_prop("valueNumber", 0.0)?
             .default_prop("onPress", "")?
+            .default_prop("onPressStart", "")?
+            .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isDragging", false)?
             .default_prop("actionValue", "")?
             .default_prop_value("actionPayload", JsonValue::Null)?,

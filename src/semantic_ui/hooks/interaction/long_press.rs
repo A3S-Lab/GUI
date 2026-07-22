@@ -13,6 +13,8 @@ pub struct UseLongPressProps {
     on_long_press: Option<String>,
     action_value: Option<String>,
     action_payload: JsonValue,
+    accessibility_description: Option<String>,
+    threshold: u64,
     is_disabled: bool,
     is_pressed: bool,
     is_long_pressed: bool,
@@ -26,6 +28,8 @@ impl Default for UseLongPressProps {
             on_long_press: None,
             action_value: None,
             action_payload: JsonValue::Null,
+            accessibility_description: None,
+            threshold: 500,
             is_disabled: false,
             is_pressed: false,
             is_long_pressed: false,
@@ -60,6 +64,19 @@ impl UseLongPressProps {
 
     pub fn action_payload(mut self, action_payload: JsonValue) -> Self {
         self.action_payload = action_payload;
+        self
+    }
+
+    pub fn accessibility_description(
+        mut self,
+        accessibility_description: Option<impl Into<String>>,
+    ) -> Self {
+        self.accessibility_description = non_empty(accessibility_description);
+        self
+    }
+
+    pub fn threshold(mut self, threshold: u64) -> Self {
+        self.threshold = threshold.clamp(1, 60_000);
         self
     }
 
@@ -103,6 +120,9 @@ pub struct LongPressProps {
     pub action_value: Option<String>,
     #[serde(rename = "actionPayload", skip_serializing_if = "JsonValue::is_null")]
     pub action_payload: JsonValue,
+    #[serde(rename = "aria-description", skip_serializing_if = "Option::is_none")]
+    pub accessibility_description: Option<String>,
+    pub threshold: u64,
     #[serde(skip_serializing_if = "is_false")]
     pub disabled: bool,
     #[serde(rename = "aria-disabled", skip_serializing_if = "is_false")]
@@ -125,6 +145,8 @@ pub fn use_long_press(props: UseLongPressProps) -> UseLongPressResult {
             on_long_press: props.on_long_press,
             action_value: props.action_value,
             action_payload: props.action_payload,
+            accessibility_description: props.accessibility_description,
+            threshold: props.threshold,
             disabled: props.is_disabled,
             aria_disabled: props.is_disabled,
             data_pressed: props.is_pressed,

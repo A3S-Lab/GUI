@@ -158,4 +158,4 @@ a stable production surface, keep hardening these areas:
 - broader resize, focus, and text input edge cases under longer real-world forms
 - native-platform automation for dogfood menu, dialog, and keyboard interaction
   flows beyond compile-time checks
-- WinUI programmatic focus once the underlying safe API is available
+- Windows smoke automation for the isolated WinUI programmatic-focus ABI bridge

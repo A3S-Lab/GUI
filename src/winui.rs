@@ -1,4 +1,4 @@
-use std::cell::{Ref, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
@@ -152,8 +152,11 @@ impl WinUiWidgetKind {
             "Microsoft.UI.Xaml.Controls.RadioButtons" => Ok(WinUiWidgetKind::RadioButtons),
             "Microsoft.UI.Xaml.Controls.RadioButton" => Ok(WinUiWidgetKind::RadioButton),
             "Microsoft.UI.Xaml.Controls.ComboBox" => Ok(WinUiWidgetKind::ComboBox),
-            "Microsoft.UI.Xaml.Controls.ListView" => Ok(WinUiWidgetKind::ListView),
-            "Microsoft.UI.Xaml.Controls.ListViewItem" => Ok(WinUiWidgetKind::ListViewItem),
+            "Microsoft.UI.Xaml.Controls.ListView" | "Microsoft.UI.Xaml.Controls.TreeView" => {
+                Ok(WinUiWidgetKind::ListView)
+            }
+            "Microsoft.UI.Xaml.Controls.ListViewItem"
+            | "Microsoft.UI.Xaml.Controls.TreeViewItem" => Ok(WinUiWidgetKind::ListViewItem),
             "Microsoft.UI.Xaml.Controls.ScrollViewer+StackPanel" => {
                 Ok(WinUiWidgetKind::ScrollViewer)
             }
@@ -302,6 +305,7 @@ pub struct WinUiNativeObject {
 #[derive(Debug, Default)]
 pub struct WinUiWidgetDriver {
     root: Option<HostNodeId>,
+    focused: Option<HostNodeId>,
     objects: BTreeMap<HostNodeId, WinUiNativeObject>,
     events: Vec<NativeEvent>,
 }
@@ -333,7 +337,15 @@ pub struct WinUiNativeHandleState {
 }
 
 #[derive(Debug, Default)]
-pub struct WinUiHandleAdapter;
+pub struct WinUiHandleAdapter {
+    focused: Rc<Cell<Option<HostNodeId>>>,
+}
+
+impl WinUiHandleAdapter {
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused.get()
+    }
+}
 
 pub type WinUiHandleDriver = HandleWidgetDriver<WinUiHandleAdapter>;
 pub type WinUiHandleCommandExecutor = DriverCommandExecutor<WinUiHandleDriver>;
@@ -341,6 +353,10 @@ pub type WinUiHandleCommandExecutor = DriverCommandExecutor<WinUiHandleDriver>;
 impl WinUiWidgetDriver {
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused
     }
 
     pub fn object(&self, id: HostNodeId) -> Option<&WinUiNativeObject> {
@@ -510,12 +526,26 @@ impl NativeHandleAdapter for WinUiHandleAdapter {
         Ok(())
     }
 
-    fn remove_handle(&mut self, _id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
+    fn remove_handle(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
         handle.state.borrow_mut().children.clear();
+        if self.focused.get() == Some(id) {
+            self.focused.set(None);
+        }
         Ok(())
     }
 
     fn set_root_handle(&mut self, _id: HostNodeId, _handle: &Self::Handle) -> GuiResult<()> {
+        Ok(())
+    }
+
+    fn request_focus_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
+        if handle.state.borrow().id != id {
+            return Err(GuiError::host(format!(
+                "WinUI handle id does not match focus target {}",
+                id.get()
+            )));
+        }
+        self.focused.set(Some(id));
         Ok(())
     }
 }
@@ -617,12 +647,24 @@ impl NativeWidgetDriver for WinUiWidgetDriver {
         {
             self.root = None;
         }
+        if self
+            .focused
+            .is_some_and(|focused| removed_ids.contains(&focused))
+        {
+            self.focused = None;
+        }
         Ok(())
     }
 
     fn set_root_widget(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.ensure_object(id)?;
         self.root = Some(id);
+        Ok(())
+    }
+
+    fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
+        self.ensure_object(id)?;
+        self.focused = Some(id);
         Ok(())
     }
 }
@@ -637,6 +679,21 @@ mod tests {
     use crate::platform::{PlatformAdapter, WinUiAdapter};
     use crate::runtime::GuiRuntime;
     use crate::style::{OverflowMode, StyleLength};
+
+    #[test]
+    fn winui_tree_blueprints_mount_through_flat_list_primitives() {
+        let tree = WinUiAdapter.blueprint(&NativeElement::new("tree", NativeRole::Tree));
+        let item = WinUiAdapter.blueprint(&NativeElement::new("item", NativeRole::TreeItem));
+
+        assert_eq!(
+            WinUiWidgetKind::from_widget_class(tree.widget_class.as_str()).unwrap(),
+            WinUiWidgetKind::ListView
+        );
+        assert_eq!(
+            WinUiWidgetKind::from_widget_class(item.widget_class.as_str()).unwrap(),
+            WinUiWidgetKind::ListViewItem
+        );
+    }
 
     #[test]
     fn winui_max_length_value_maps_protocol_limits_to_winui_contract() {

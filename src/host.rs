@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::accessibility::{accessibility_role, AccessibilityNode, AccessibilityTreeHost};
+use crate::capability::{CapabilityHost, NativeCapabilities};
 use crate::error::{GuiError, GuiResult};
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::style::PortableStyle;
@@ -32,6 +33,19 @@ pub trait NativeHost {
     /// Remove a host node and its complete descendant subtree.
     fn remove(&mut self, id: HostNodeId) -> GuiResult<()>;
     fn set_root(&mut self, id: HostNodeId) -> GuiResult<()>;
+
+    /// Returns the host's imperative focus capability when available.
+    fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {
+        None
+    }
+}
+
+/// Host capability for moving the platform's actual keyboard focus.
+///
+/// This is separate from [`NativeHost`] so render-only hosts do not need to
+/// claim support for an imperative operation they cannot perform.
+pub trait ProgrammaticFocusHost {
+    fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()>;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -57,6 +71,9 @@ pub enum HostOperation {
     SetRoot {
         id: HostNodeId,
     },
+    RequestFocus {
+        id: HostNodeId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -71,6 +88,7 @@ pub struct HeadlessNode {
 pub struct HeadlessHost {
     next_id: u64,
     root: Option<HostNodeId>,
+    focused: Option<HostNodeId>,
     nodes: BTreeMap<HostNodeId, HeadlessNode>,
     operations: Vec<HostOperation>,
 }
@@ -78,6 +96,10 @@ pub struct HeadlessHost {
 impl HeadlessHost {
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused
     }
 
     pub fn node(&self, id: HostNodeId) -> Option<&HeadlessNode> {
@@ -200,6 +222,12 @@ impl AccessibilityTreeHost for HeadlessHost {
     }
 }
 
+impl CapabilityHost for HeadlessHost {
+    fn native_capabilities(&self) -> NativeCapabilities {
+        NativeCapabilities::for_backend(crate::platform::NativeBackendKind::Headless)
+    }
+}
+
 impl NativeHost for HeadlessHost {
     fn create(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
         let id = self.allocate_id();
@@ -289,6 +317,12 @@ impl NativeHost for HeadlessHost {
         {
             self.root = None;
         }
+        if self
+            .focused
+            .is_some_and(|focused| removed_ids.contains(&focused))
+        {
+            self.focused = None;
+        }
         self.operations.push(HostOperation::Remove { id });
         Ok(())
     }
@@ -297,6 +331,19 @@ impl NativeHost for HeadlessHost {
         self.ensure_node(id)?;
         self.root = Some(id);
         self.operations.push(HostOperation::SetRoot { id });
+        Ok(())
+    }
+
+    fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {
+        Some(self)
+    }
+}
+
+impl ProgrammaticFocusHost for HeadlessHost {
+    fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
+        self.ensure_node(id)?;
+        self.focused = Some(id);
+        self.operations.push(HostOperation::RequestFocus { id });
         Ok(())
     }
 }
@@ -378,5 +425,27 @@ mod tests {
             host.operations().last(),
             Some(&HostOperation::Remove { id: root })
         );
+    }
+
+    #[test]
+    fn headless_host_tracks_programmatic_focus_and_clears_removed_targets() {
+        let mut host = HeadlessHost::default();
+        let root = host
+            .create(&NativeElement::new("root", NativeRole::View))
+            .unwrap();
+        let button = host
+            .create(&NativeElement::new("button", NativeRole::Button))
+            .unwrap();
+        host.insert_child(root, button, 0).unwrap();
+
+        host.request_focus(button).unwrap();
+        assert_eq!(host.focused(), Some(button));
+        assert_eq!(
+            host.operations().last(),
+            Some(&HostOperation::RequestFocus { id: button })
+        );
+
+        host.remove(root).unwrap();
+        assert!(host.focused().is_none());
     }
 }

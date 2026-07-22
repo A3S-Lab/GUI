@@ -3,7 +3,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value as JsonValue};
 
-use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
+use crate::accessibility::{
+    AccessibilityConformanceIssue, AccessibilityNode, AccessibilityTreeHost,
+};
+use crate::app::{reduce_invocation_batch, ActionPropagation};
+use crate::capability::{NativeCapabilities, NativeCapabilityIssue};
 use crate::compiler::{CompiledRsxNode, RsxCompilerBridge};
 use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, NativeEvent, RegisteredAction};
@@ -101,6 +105,12 @@ pub struct NativeRenderResponse {
     pub commands: Vec<PlatformCommand>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accessibility_tree: Option<AccessibilityNode>,
+    #[serde(default)]
+    pub capabilities: NativeCapabilities,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capability_issues: Vec<NativeCapabilityIssue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub accessibility_issues: Vec<AccessibilityConformanceIssue>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -116,6 +126,8 @@ pub struct HostEventResponse {
     pub frame_id: String,
     pub invocation: ActionInvocation,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invocations: Vec<ActionInvocation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub interaction_changes: Vec<InteractionChange>,
 }
 
@@ -123,6 +135,9 @@ pub struct HostEventResponse {
 #[serde(rename_all = "camelCase")]
 pub struct NativeHostEventResponse {
     pub frame_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invocations: Vec<ActionInvocation>,
+    /// First invocation retained for compatibility with single-action clients.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invocation: Option<ActionInvocation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -135,12 +150,17 @@ pub struct NativeHostEventResponse {
 #[serde(rename_all = "camelCase")]
 pub struct NativeAppEventResponse {
     pub frame_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invocations: Vec<ActionInvocation>,
+    /// First invocation retained for compatibility with single-action clients.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invocation: Option<ActionInvocation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accessibility_tree: Option<AccessibilityNode>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub interaction_changes: Vec<InteractionChange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub propagation_stopped_at: Option<HostNodeId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub render: Option<NativeRenderResponse>,
 }
@@ -559,11 +579,21 @@ impl<A: PlatformAdapter> NativeProtocolSession<A> {
         self.root = Some(rendered.root);
         let commands = self.pending_commands();
         let accessibility_tree = self.runtime.accessibility_tree();
+        let accessibility_issues = accessibility_tree
+            .as_ref()
+            .map(crate::accessibility::AccessibilityConformanceReport::validate)
+            .map(|report| report.issues)
+            .unwrap_or_default();
+        let capabilities = self.runtime.capabilities();
+        let capability_issues = capabilities.audit_mounted(&self.runtime.mounted_snapshot());
         Ok(NativeRenderResponse {
             frame_id: rendered.frame_id,
             root: rendered.root,
             commands,
             accessibility_tree,
+            capabilities,
+            capability_issues,
+            accessibility_issues,
         })
     }
 
@@ -645,7 +675,31 @@ where
             cleanup_effect: None,
         }
     }
+}
 
+impl<A, S, F, R> NativeProtocolApp<A, S, F, R>
+where
+    A: PlatformAdapter,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<ActionPropagation>,
+{
+    pub fn new_with_propagation(adapter: A, state: S, frame_builder: F, action_reducer: R) -> Self {
+        Self {
+            session: NativeProtocolSession::new(adapter),
+            state,
+            frame_builder,
+            action_reducer,
+            render_effect: None,
+            cleanup_effect: None,
+        }
+    }
+}
+
+impl<A, S, F, R> NativeProtocolApp<A, S, F, R>
+where
+    A: PlatformAdapter,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+{
     pub fn with_render_effect(
         mut self,
         effect: impl FnMut(&mut S) -> GuiResult<()> + 'static,
@@ -693,17 +747,28 @@ where
         }
         Ok(())
     }
+}
 
+impl<A, S, F, R> NativeProtocolApp<A, S, F, R>
+where
+    A: PlatformAdapter,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<()>,
+{
     pub fn dispatch_host_event(&mut self, event: &HostEvent) -> GuiResult<NativeAppEventResponse> {
         let response = self.session.dispatch_host_event(event)?;
-        (self.action_reducer)(&mut self.state, &response.invocation)?;
+        for invocation in &response.invocations {
+            (self.action_reducer)(&mut self.state, invocation)?;
+        }
         let render = self.render()?;
         let accessibility_tree = render.accessibility_tree.clone();
         Ok(NativeAppEventResponse {
             frame_id: response.frame_id,
             invocation: Some(response.invocation),
+            invocations: response.invocations,
             accessibility_tree,
             interaction_changes: response.interaction_changes,
+            propagation_stopped_at: None,
             render: Some(render),
         })
     }
@@ -713,8 +778,10 @@ where
         let mut render = None;
         let mut accessibility_tree = response.accessibility_tree;
 
-        if let Some(invocation) = response.invocation.as_ref() {
+        for invocation in &response.invocations {
             (self.action_reducer)(&mut self.state, invocation)?;
+        }
+        if !response.invocations.is_empty() {
             let rendered = self.render()?;
             accessibility_tree = rendered.accessibility_tree.clone();
             render = Some(rendered);
@@ -723,8 +790,108 @@ where
         Ok(NativeAppEventResponse {
             frame_id: response.frame_id,
             invocation: response.invocation,
+            invocations: response.invocations,
             accessibility_tree,
             interaction_changes: response.interaction_changes,
+            propagation_stopped_at: None,
+            render,
+        })
+    }
+}
+
+impl<A, S, F, R> NativeProtocolApp<A, S, F, R>
+where
+    A: PlatformAdapter,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<ActionPropagation>,
+{
+    pub fn dispatch_host_event_with_propagation(
+        &mut self,
+        event: &HostEvent,
+    ) -> GuiResult<NativeAppEventResponse> {
+        let invocation_checkpoint = self.session.runtime().actions().invocations().len();
+        let mut response = self.session.dispatch_host_event(event)?;
+        let routed_invocations = response.invocations.len();
+        let propagation_stopped_at = match reduce_invocation_batch(
+            &mut self.state,
+            &mut self.action_reducer,
+            &mut response.invocations,
+        ) {
+            Ok(stopped_at) => stopped_at,
+            Err(error) => {
+                self.session
+                    .runtime_mut()
+                    .actions_mut()
+                    .truncate_invocations(invocation_checkpoint);
+                return Err(error);
+            }
+        };
+        if response.invocations.len() != routed_invocations {
+            self.session
+                .runtime_mut()
+                .actions_mut()
+                .truncate_invocations(invocation_checkpoint + response.invocations.len());
+        }
+        let invocation = response.invocations.first().cloned().ok_or_else(|| {
+            GuiError::host("native event has no registered RSX action after propagation")
+        })?;
+        let render = self.render()?;
+        let accessibility_tree = render.accessibility_tree.clone();
+
+        Ok(NativeAppEventResponse {
+            frame_id: response.frame_id,
+            invocation: Some(invocation),
+            invocations: response.invocations,
+            accessibility_tree,
+            interaction_changes: response.interaction_changes,
+            propagation_stopped_at,
+            render: Some(render),
+        })
+    }
+
+    pub fn handle_host_event_with_propagation(
+        &mut self,
+        event: &HostEvent,
+    ) -> GuiResult<NativeAppEventResponse> {
+        let invocation_checkpoint = self.session.runtime().actions().invocations().len();
+        let mut response = self.session.handle_host_event(event)?;
+        let routed_invocations = response.invocations.len();
+        let propagation_stopped_at = match reduce_invocation_batch(
+            &mut self.state,
+            &mut self.action_reducer,
+            &mut response.invocations,
+        ) {
+            Ok(stopped_at) => stopped_at,
+            Err(error) => {
+                self.session
+                    .runtime_mut()
+                    .actions_mut()
+                    .truncate_invocations(invocation_checkpoint);
+                return Err(error);
+            }
+        };
+        if response.invocations.len() != routed_invocations {
+            self.session
+                .runtime_mut()
+                .actions_mut()
+                .truncate_invocations(invocation_checkpoint + response.invocations.len());
+        }
+
+        let mut render = None;
+        let mut accessibility_tree = response.accessibility_tree;
+        if !response.invocations.is_empty() {
+            let rendered = self.render()?;
+            accessibility_tree = rendered.accessibility_tree.clone();
+            render = Some(rendered);
+        }
+
+        Ok(NativeAppEventResponse {
+            frame_id: response.frame_id,
+            invocation: response.invocations.first().cloned(),
+            invocations: response.invocations,
+            accessibility_tree,
+            interaction_changes: response.interaction_changes,
+            propagation_stopped_at,
             render,
         })
     }
@@ -752,6 +919,7 @@ impl HostEvent {
         Ok(HostEventResponse {
             frame_id: self.frame_id.clone(),
             invocation,
+            invocations: handled.invocations,
             interaction_changes: handled.interaction_changes,
         })
     }
@@ -766,11 +934,16 @@ impl HostEvent {
         Ok(NativeHostEventResponse {
             frame_id: self.frame_id.clone(),
             invocation: handled.invocation,
+            invocations: handled.invocations,
             accessibility_tree,
             interaction_changes: handled.interaction_changes,
         })
     }
 }
+
+#[cfg(test)]
+#[path = "protocol/multi_action_tests.rs"]
+mod multi_action_tests;
 
 #[cfg(test)]
 mod tests {
@@ -1708,6 +1881,10 @@ mod tests {
         assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
         assert!(accessibility.focused);
         assert!(session.runtime().interactions().changes().is_empty());
+        assert!(matches!(
+            response.commands.last(),
+            Some(crate::platform::PlatformCommand::RequestFocus { id }) if *id == response.root
+        ));
     }
 
     #[test]
@@ -2798,7 +2975,7 @@ mod tests {
     }
 
     #[test]
-    fn native_protocol_session_infers_container_selection_value_from_selected_child() {
+    fn native_protocol_session_suppresses_redundant_container_selection_event() {
         let frame: UiFrame = serde_json::from_str(
             r#"
             {
@@ -2845,13 +3022,8 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(
-            response
-                .invocation
-                .as_ref()
-                .and_then(|invocation| invocation.value.as_deref()),
-            Some("comfortable")
-        );
+        assert!(response.invocation.is_none());
+        assert!(response.invocations.is_empty());
         assert_eq!(
             response
                 .accessibility_tree
@@ -2859,12 +3031,7 @@ mod tests {
                 .and_then(|tree| tree.value.as_deref()),
             Some("comfortable")
         );
-        assert_eq!(
-            session.runtime().actions().invocations()[0]
-                .value
-                .as_deref(),
-            Some("comfortable")
-        );
+        assert!(session.runtime().actions().invocations().is_empty());
     }
 
     #[test]
@@ -3629,11 +3796,40 @@ mod tests {
         let legacy_response: NativeRenderResponse =
             serde_json::from_str(r#"{"frameId":"legacy","root":1,"commands":[]}"#).unwrap();
         assert!(legacy_response.accessibility_tree.is_none());
+        assert_eq!(
+            legacy_response.capabilities.ir_version,
+            crate::capability::NATIVE_IR_VERSION
+        );
 
         let legacy_event_response: NativeHostEventResponse =
             serde_json::from_str(r#"{"frameId":"legacy"}"#).unwrap();
         assert!(legacy_event_response.invocation.is_none());
         assert!(legacy_event_response.accessibility_tree.is_none());
         assert!(legacy_event_response.interaction_changes.is_empty());
+    }
+
+    #[test]
+    fn native_render_response_advertises_versioned_capabilities_and_gaps() {
+        let frame = UiFrame::from_rsx_source(
+            "capabilities",
+            r#"<div key="save" onPressStart={startSave}>Save</div>"#,
+        )
+        .unwrap();
+        let mut session = NativeProtocolSession::new(Gtk4Adapter);
+
+        let response = session.render_frame(&frame).unwrap();
+
+        assert_eq!(
+            response.capabilities.backend,
+            crate::platform::NativeBackendKind::Gtk4
+        );
+        assert_eq!(
+            response.capabilities.ir_version,
+            crate::capability::NATIVE_IR_VERSION
+        );
+        assert!(response.capability_issues.iter().any(|issue| {
+            issue.feature == crate::capability::NativeCapabilityFeature::PressLifecycle
+                && issue.support == crate::capability::CapabilitySupport::Unsupported
+        }));
     }
 }

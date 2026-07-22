@@ -87,8 +87,10 @@ mod tests {
                 &mut state,
                 &ActionInvocation {
                     node: HostNodeId::new(1),
+                    current_target: None,
                     action: "setSection".to_string(),
                     event: NativeEventKind::Press,
+                    context: Default::default(),
                     value: Some("controls".to_string()),
                 },
             )

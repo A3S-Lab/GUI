@@ -21,6 +21,7 @@ pub struct RecordedNativeObject {
 #[derive(Debug, Default)]
 pub struct RecordingBackend {
     root: Option<HostNodeId>,
+    focused: Option<HostNodeId>,
     objects: BTreeMap<HostNodeId, RecordedNativeObject>,
     commands: Vec<PlatformCommand>,
     events: Vec<NativeEvent>,
@@ -29,6 +30,10 @@ pub struct RecordingBackend {
 impl RecordingBackend {
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused
     }
 
     pub fn object(&self, id: HostNodeId) -> Option<&RecordedNativeObject> {
@@ -180,10 +185,20 @@ impl PlatformCommandExecutor for RecordingBackend {
                 {
                     self.root = None;
                 }
+                if self
+                    .focused
+                    .is_some_and(|focused| removed_ids.contains(&focused))
+                {
+                    self.focused = None;
+                }
             }
             PlatformCommand::SetRoot { id } => {
                 self.ensure_object(*id)?;
                 self.root = Some(*id);
+            }
+            PlatformCommand::RequestFocus { id } => {
+                self.ensure_object(*id)?;
+                self.focused = Some(*id);
             }
         }
         self.commands.push(command.clone());

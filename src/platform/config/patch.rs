@@ -42,7 +42,6 @@ pub struct NativeWidgetConfigPatch {
     pub invalid: Option<NativeConfigValueChange<bool>>,
     pub read_only: Option<NativeConfigValueChange<bool>>,
     pub multiple: Option<NativeConfigValueChange<bool>>,
-    pub auto_focus: Option<NativeConfigValueChange<bool>>,
     pub selected: Option<NativeConfigValueChange<bool>>,
     pub checked: Option<NativeConfigValueChange<Option<bool>>>,
     pub expanded: Option<NativeConfigValueChange<Option<bool>>>,
@@ -154,7 +153,6 @@ impl NativeWidgetConfigPatch {
             invalid: diff_value(&before.invalid, &after.invalid),
             read_only: diff_value(&before.read_only, &after.read_only),
             multiple: diff_value(&before.multiple, &after.multiple),
-            auto_focus: diff_value(&before.auto_focus, &after.auto_focus),
             selected: diff_value(&before.selected, &after.selected),
             checked: diff_value(&before.checked, &after.checked),
             expanded: diff_value(&before.expanded, &after.expanded),
@@ -313,11 +311,6 @@ impl NativeWidgetConfigPatch {
             &mut setters,
             &self.multiple,
             NativeWidgetSetter::SetMultiple,
-        );
-        push_setter(
-            &mut setters,
-            &self.auto_focus,
-            NativeWidgetSetter::SetAutoFocus,
         );
         push_setter(
             &mut setters,

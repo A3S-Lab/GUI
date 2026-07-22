@@ -7,6 +7,9 @@ use crate::native::{
     normalize_props_for_native_role, ElementKey, NativeElement, NativeProps, NativeRole,
 };
 
+mod snapshot;
+pub use snapshot::MountedNodeSnapshot;
+
 #[derive(Debug, Clone, PartialEq)]
 struct MountedNode {
     id: HostNodeId,
@@ -164,6 +167,58 @@ impl Renderer {
             .map(|mounted| mounted.children.iter().map(|child| child.id).collect())
             .unwrap_or_default()
     }
+
+    pub(crate) fn update_mounted_props<H: NativeHost>(
+        &mut self,
+        updates: &BTreeMap<HostNodeId, NativeProps>,
+        host: &mut H,
+    ) -> GuiResult<()> {
+        let Some(root) = self.root.as_ref() else {
+            return if updates.is_empty() {
+                Ok(())
+            } else {
+                Err(GuiError::host(
+                    "cannot update props without a mounted native tree",
+                ))
+            };
+        };
+        let mut previous = Vec::new();
+        for (node, props) in updates {
+            let mounted = find_mounted_node(root, *node).ok_or_else(|| {
+                GuiError::host(format!("unknown mounted native node id {}", node.get()))
+            })?;
+            if native_widget_shape(mounted.role, &mounted.props)
+                != native_widget_shape(mounted.role, props)
+            {
+                return Err(GuiError::host(format!(
+                    "cannot update native widget shape in place for node {}",
+                    node.get()
+                )));
+            }
+            if mounted.props != *props {
+                previous.push((*node, mounted.props.clone(), props.clone()));
+            }
+        }
+
+        let mut applied = 0;
+        for (node, _, props) in &previous {
+            if let Err(error) = host.update(*node, props) {
+                for (rollback_node, rollback_props, _) in previous[..applied].iter().rev() {
+                    let _ = host.update(*rollback_node, rollback_props);
+                }
+                return Err(error);
+            }
+            applied += 1;
+        }
+        if let Some(root) = self.root.as_mut() {
+            for (node, _, props) in previous {
+                if let Some(mounted) = find_mounted_node_mut(root, node) {
+                    mounted.props = props;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 fn normalize_native_element(element: &NativeElement) -> NativeElement {
@@ -269,6 +324,15 @@ fn find_mounted_node(node: &MountedNode, target: HostNodeId) -> Option<&MountedN
     node.children
         .iter()
         .find_map(|child| find_mounted_node(child, target))
+}
+
+fn find_mounted_node_mut(node: &mut MountedNode, target: HostNodeId) -> Option<&mut MountedNode> {
+    if node.id == target {
+        return Some(node);
+    }
+    node.children
+        .iter_mut()
+        .find_map(|child| find_mounted_node_mut(child, target))
 }
 
 fn collect_ancestor_ids(

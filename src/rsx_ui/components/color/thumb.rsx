@@ -8,6 +8,7 @@ pub struct UiColorThumbProps {
     pub on_press: Option<String>,
     pub on_press_start: Option<String>,
     pub on_press_end: Option<String>,
+    pub on_press_up: Option<String>,
     pub is_disabled: bool,
     pub is_pressed: bool,
     pub is_dragging: bool,
@@ -25,6 +26,7 @@ impl Default for UiColorThumbProps {
             on_press: None,
             on_press_start: None,
             on_press_end: None,
+            on_press_up: None,
             is_disabled: false,
             is_pressed: false,
             is_dragging: false,
@@ -49,6 +51,7 @@ pub fn ui_color_thumb(cx: &mut ComponentCx<UiColorThumbProps>) -> RSX {
             .on_press(props.on_press.clone())
             .on_press_start(props.on_press_start.clone())
             .on_press_end(props.on_press_end.clone())
+            .on_press_up(props.on_press_up.clone())
             .disabled(props.is_disabled)
             .pressed(props.is_pressed)
             .dragging(props.is_dragging)

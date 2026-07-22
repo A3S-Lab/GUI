@@ -37,8 +37,10 @@ mod tests {
     fn invocation(action: &str, value: &str) -> ActionInvocation {
         ActionInvocation {
             node: HostNodeId::new(1),
+            current_target: None,
             action: action.to_string(),
             event: NativeEventKind::Press,
+            context: Default::default(),
             value: Some(value.to_string()),
         }
     }

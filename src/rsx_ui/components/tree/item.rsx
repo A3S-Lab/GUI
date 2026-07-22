@@ -9,6 +9,7 @@ pub struct UiTreeItemProps {
     pub is_expanded: bool,
     pub is_selected: bool,
     pub is_disabled: bool,
+    pub has_child_items: bool,
 }
 
 pub fn ui_tree_item(cx: &mut ComponentCx<UiTreeItemProps>) -> RSX {
@@ -18,7 +19,8 @@ pub fn ui_tree_item(cx: &mut ComponentCx<UiTreeItemProps>) -> RSX {
             .text_value(Some(props.text_value.clone()))
             .selected(props.is_selected)
             .disabled(props.is_disabled)
-            .expanded(Some(props.is_expanded))
+            .expanded((props.has_child_items || props.is_expanded).then_some(props.is_expanded))
+            .has_child_items(props.has_child_items)
     });
     cx.use_prop("className", |props: &UiTreeItemProps| {
         props.class_name.clone()

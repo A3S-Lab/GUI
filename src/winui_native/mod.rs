@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use windows::Foundation::PropertyValue;
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyboardState, ToUnicode};
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, GetMessageW, PeekMessageW, TranslateMessage, MSG, PM_REMOVE, WM_KEYDOWN,
     WM_KEYUP, WM_QUIT, WM_SYSKEYDOWN, WM_SYSKEYUP,
@@ -15,16 +16,19 @@ use winui3::Microsoft::UI::Xaml as xaml;
 use xaml::Controls::{self, Primitives};
 use xaml::{Markup, RoutedEventHandler, Visibility};
 
-use crate::app::{NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse};
+use crate::app::{
+    ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
+};
 use crate::backend::{
     CommandExecutingHost, DriverCommandExecutor, HandleWidgetDriver, NativeWidgetSurface,
     SurfaceHandleAdapter,
 };
 use crate::error::{GuiError, GuiResult};
-use crate::event::{NativeEvent, NativeEventKind};
+use crate::event::{KeyboardPressState, NativeEvent, NativeEventKind};
 use crate::geometry::Orientation as A3sOrientation;
 use crate::host::HostNodeId;
 use crate::html::HTML_TAG_METADATA_KEY;
+use crate::input::{NativeEventContext, NativeInputModality, NativeKeyModifiers};
 use crate::native_backends::winui::menu as winui_menu;
 use crate::platform::{
     apply_widget_setter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig,
@@ -42,10 +46,21 @@ use window::{
     set_winui_window_resizable, winui_window_is_open,
 };
 
+mod event_loop;
+mod focus;
 mod helpers;
+mod hierarchy;
+mod interaction;
+mod mount;
+mod propagation;
 mod surface;
 mod types;
+mod update;
 mod window;
+
+use event_loop::{pump_winui_message, winui_key_event_kind, winui_key_value};
+use focus::focus_winui_element;
+use surface::winui_scroll_visibility;
 
 const WINUI_TEXT_INPUT_DEFAULT_WIDTH: f64 = f64::NAN;
 const WINUI_TEXT_INPUT_DEFAULT_HEIGHT: f64 = f64::NAN;
@@ -54,6 +69,8 @@ const WINUI_TEXT_INPUT_MIN_HEIGHT: f64 = 64.0;
 
 type WinUiEventQueue = Arc<Mutex<Vec<NativeEvent>>>;
 type WinUiFocusedNode = Arc<Mutex<Option<HostNodeId>>>;
+type WinUiActivationContexts = Arc<Mutex<BTreeMap<HostNodeId, NativeEventContext>>>;
+type WinUiPendingActivationCleanup = Arc<Mutex<BTreeSet<HostNodeId>>>;
 
 pub type WinUiNativeSurfaceAdapter = SurfaceHandleAdapter<WinUiNativeSurface>;
 pub type WinUiNativeSurfaceDriver = HandleWidgetDriver<WinUiNativeSurfaceAdapter>;
@@ -71,10 +88,14 @@ pub enum WinUiEventWait {
 pub struct WinUiNativeSurface {
     _package_dependency: PackageDependency,
     root: Option<HostNodeId>,
-    pending_auto_focus: Option<HostNodeId>,
     events: WinUiEventQueue,
     events_suppressed: Arc<AtomicBool>,
     focused_node: WinUiFocusedNode,
+    key_modifiers: Mutex<NativeKeyModifiers>,
+    activation_contexts: WinUiActivationContexts,
+    pending_activation_cleanup: WinUiPendingActivationCleanup,
+    interaction_nodes: BTreeMap<HostNodeId, Arc<Mutex<interaction::WinUiInteractionRegistration>>>,
+    keyboard_presses: Mutex<KeyboardPressState>,
     widgets: BTreeMap<HostNodeId, WinUiOsWidget>,
     dialog_visible: BTreeMap<HostNodeId, bool>,
     open_dialogs: Arc<Mutex<BTreeSet<HostNodeId>>>,
@@ -87,6 +108,8 @@ pub struct WinUiNativeSurface {
     combo_selected_values: BTreeMap<HostNodeId, Option<String>>,
     combo_values: Arc<Mutex<BTreeMap<HostNodeId, Vec<String>>>>,
     list_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
+    list_item_parents: BTreeMap<HostNodeId, HostNodeId>,
+    list_values: Arc<Mutex<BTreeMap<HostNodeId, Vec<String>>>>,
     tab_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     tab_items: BTreeMap<HostNodeId, WinUiTabItem>,
     tab_selected_values: BTreeMap<HostNodeId, Option<String>>,
@@ -118,10 +141,14 @@ impl WinUiNativeSurface {
         Self {
             _package_dependency: package_dependency,
             root: None,
-            pending_auto_focus: None,
             events: Arc::new(Mutex::new(Vec::new())),
             events_suppressed: Arc::new(AtomicBool::new(false)),
             focused_node: Arc::new(Mutex::new(None)),
+            key_modifiers: Mutex::new(NativeKeyModifiers::new()),
+            activation_contexts: Arc::new(Mutex::new(BTreeMap::new())),
+            pending_activation_cleanup: Arc::new(Mutex::new(BTreeSet::new())),
+            interaction_nodes: BTreeMap::new(),
+            keyboard_presses: Mutex::new(KeyboardPressState::default()),
             widgets: BTreeMap::new(),
             dialog_visible: BTreeMap::new(),
             open_dialogs: Arc::new(Mutex::new(BTreeSet::new())),
@@ -134,6 +161,8 @@ impl WinUiNativeSurface {
             combo_selected_values: BTreeMap::new(),
             combo_values: Arc::new(Mutex::new(BTreeMap::new())),
             list_children: BTreeMap::new(),
+            list_item_parents: BTreeMap::new(),
+            list_values: Arc::new(Mutex::new(BTreeMap::new())),
             tab_children: BTreeMap::new(),
             tab_items: BTreeMap::new(),
             tab_selected_values: BTreeMap::new(),
@@ -175,34 +204,45 @@ impl WinUiNativeSurface {
             .or(self.root)
     }
 
-    fn request_auto_focus(&mut self, id: HostNodeId) {
-        if self.pending_auto_focus.is_none() {
-            self.pending_auto_focus = Some(id);
-        }
-        self.clear_satisfied_auto_focus();
-    }
-
-    fn clear_satisfied_auto_focus(&mut self) {
-        let Some(id) = self.pending_auto_focus else {
-            return;
-        };
-        let is_focused = self.focused_node.lock().ok().and_then(|focused| *focused) == Some(id);
-        if is_focused {
-            self.pending_auto_focus = None;
-        }
-    }
-
-    pub(crate) fn enqueue_key_message(&self, message: &MSG) {
+    pub(crate) fn enqueue_key_message(&self, message: &MSG) -> Option<(HostNodeId, bool)> {
         let Some(kind) = winui_key_event_kind(message.message) else {
-            return;
+            return None;
         };
-        let Some(node) = self.key_event_target() else {
-            return;
+        let key = winui_key_value(message);
+        let node = (kind == NativeEventKind::KeyUp)
+            .then(|| interaction::active_keyboard_target(&self.keyboard_presses, &key))
+            .flatten()
+            .or_else(|| self.key_event_target());
+        let Some(node) = node else {
+            return None;
         };
-        push_event(
-            &self.events,
-            NativeEvent::new(node, kind).value(winui_key_value_from_virtual_key(message.wParam.0)),
-        );
+        let context = interaction::keyboard_event_context(message, kind, &self.key_modifiers);
+        let registration = self
+            .interaction_nodes
+            .get(&node)
+            .and_then(|registration| registration.lock().ok().map(|registration| *registration));
+        if registration.is_some_and(|registration| registration.awaits_native_activation()) {
+            interaction::remember_activation_context(&self.activation_contexts, node, context);
+        }
+        let events = registration
+            .map(|registration| {
+                interaction::keyboard_events(
+                    node,
+                    key.clone(),
+                    kind,
+                    context,
+                    registration,
+                    &self.keyboard_presses,
+                )
+            })
+            .unwrap_or_else(|| vec![NativeEvent::new(node, kind).value(key).context(context)]);
+        let prevent_default = events
+            .iter()
+            .any(|event| event.kind == NativeEventKind::MoveStart);
+        for event in events {
+            push_event(&self.events, event);
+        }
+        Some((node, prevent_default))
     }
 
     pub fn into_driver(self) -> WinUiNativeSurfaceDriver {
@@ -353,7 +393,9 @@ impl WinUiNativeSurface {
             item.value = label.clone();
         }
         item.label = label;
-        self.rebuild_combo_for_item(id)
+        self.rebuild_combo_for_item(id)?;
+        self.sync_list_values_for_item(id);
+        Ok(())
     }
 
     fn update_combo_item_value(
@@ -366,7 +408,9 @@ impl WinUiNativeSurface {
             .entry(id)
             .or_insert_with(|| fallback.clone())
             .value = value;
-        self.rebuild_combo_for_item(id)
+        self.rebuild_combo_for_item(id)?;
+        self.sync_list_values_for_item(id);
+        Ok(())
     }
 
     fn update_combo_item_selected(
@@ -387,6 +431,26 @@ impl WinUiNativeSurface {
             self.rebuild_combo_box(parent)?;
         }
         Ok(())
+    }
+
+    fn sync_list_values_for_item(&self, item: HostNodeId) {
+        if let Some(parent) = self.list_item_parents.get(&item).copied() {
+            self.sync_list_values(parent);
+        }
+    }
+
+    fn sync_list_values(&self, list: HostNodeId) {
+        let values = self
+            .list_children
+            .get(&list)
+            .into_iter()
+            .flatten()
+            .filter_map(|child| self.combo_items.get(child))
+            .map(|item| item.value.clone())
+            .collect();
+        if let Ok(mut list_values) = self.list_values.lock() {
+            list_values.insert(list, values);
+        }
     }
 
     fn rebuild_combo_box(&mut self, id: HostNodeId) -> GuiResult<()> {
@@ -676,15 +740,20 @@ impl WinUiNativeSurface {
         if let Some((parent, index)) = child_position(&self.list_children, id) {
             if let Some(parent_widget) = self.widgets.get(&parent).cloned() {
                 if let Some(collection) = parent_widget.items_collection()? {
-                    map_winui(
-                        "failed to remove WinUI items child",
-                        collection.RemoveAt(to_u32(index)?),
-                    )?;
+                    let native_index = to_u32(index)?;
+                    self.suppress_events(|| {
+                        map_winui(
+                            "failed to remove WinUI items child",
+                            collection.RemoveAt(native_index),
+                        )
+                    })?;
                 }
             }
             if let Some(children) = self.list_children.get_mut(&parent) {
                 children.remove(index);
             }
+            self.list_item_parents.remove(&id);
+            self.sync_list_values(parent);
         }
 
         if let Some((parent, index)) = child_position(&self.tab_children, id) {
@@ -754,6 +823,38 @@ impl WinUiNativeSurface {
     }
 }
 
+fn winui_runtime_root_window_open<S, F, R>(
+    app: &NativeRuntimeApp<WinUiRuntimeHost, S, F, R>,
+) -> bool {
+    app.runtime()
+        .host()
+        .executor()
+        .driver()
+        .adapter()
+        .surface()
+        .root_window_open()
+}
+
+fn pump_winui_os_event<S, F, R>(
+    app: &mut NativeRuntimeApp<WinUiRuntimeHost, S, F, R>,
+    wait: WinUiEventWait,
+) -> GuiResult<bool> {
+    let surface = app
+        .runtime_mut()
+        .host_mut()
+        .executor_mut()
+        .driver_mut()
+        .adapter_mut()
+        .surface_mut();
+    pump_winui_message(surface, wait)
+}
+
+impl<S, F, R> NativeRuntimeApp<WinUiRuntimeHost, S, F, R> {
+    pub fn winui_root_window_open(&self) -> bool {
+        winui_runtime_root_window_open(self)
+    }
+}
+
 impl<S, F, R> NativeRuntimeApp<WinUiRuntimeHost, S, F, R>
 where
     F: Fn(&S) -> GuiResult<UiFrame>,
@@ -801,17 +902,7 @@ where
         if !should_continue(self.state()) {
             return Ok(batch);
         }
-        let pumped = {
-            let surface = self
-                .runtime_mut()
-                .host_mut()
-                .executor_mut()
-                .driver_mut()
-                .adapter_mut()
-                .surface_mut();
-            pump_winui_message(surface, wait)?
-        };
-        if pumped {
+        if pump_winui_os_event(self, wait)? {
             batch.extend(self.handle_pending_native_event_batch_while(&mut should_continue)?);
         }
         Ok(batch)
@@ -819,16 +910,6 @@ where
 
     pub fn run_winui(&mut self) -> GuiResult<()> {
         self.run_winui_while(|_| true)
-    }
-
-    pub fn winui_root_window_open(&self) -> bool {
-        self.runtime()
-            .host()
-            .executor()
-            .driver()
-            .adapter()
-            .surface()
-            .root_window_open()
     }
 
     pub fn run_winui_while(
@@ -842,131 +923,5 @@ where
             self.pump_winui_event_while(WinUiEventWait::Wait, &mut should_continue)?;
         }
         Ok(())
-    }
-}
-
-fn clear_pending_auto_focus(pending_auto_focus: &mut Option<HostNodeId>, id: HostNodeId) {
-    if *pending_auto_focus == Some(id) {
-        *pending_auto_focus = None;
-    }
-}
-
-fn pump_winui_message(surface: &WinUiNativeSurface, wait: WinUiEventWait) -> GuiResult<bool> {
-    let mut message = MSG::default();
-    let received = match wait {
-        WinUiEventWait::Poll => unsafe {
-            PeekMessageW(&mut message, None, 0, 0, PM_REMOVE).as_bool()
-        },
-        WinUiEventWait::Wait => {
-            let result = unsafe { GetMessageW(&mut message, None, 0, 0) };
-            if result.0 == -1 {
-                return Err(GuiError::host("failed to read WinUI window message"));
-            }
-            result.as_bool()
-        }
-    };
-    if !received {
-        return Ok(false);
-    }
-    if message.message != WM_QUIT {
-        surface.enqueue_key_message(&message);
-        unsafe {
-            let _ = TranslateMessage(&message);
-            DispatchMessageW(&message);
-        }
-    }
-    Ok(true)
-}
-
-fn winui_key_event_kind(message: u32) -> Option<NativeEventKind> {
-    match message {
-        WM_KEYDOWN | WM_SYSKEYDOWN => Some(NativeEventKind::KeyDown),
-        WM_KEYUP | WM_SYSKEYUP => Some(NativeEventKind::KeyUp),
-        _ => None,
-    }
-}
-
-fn winui_key_value_from_virtual_key(virtual_key: usize) -> String {
-    match virtual_key {
-        0x08 => "Backspace".to_string(),
-        0x09 => "Tab".to_string(),
-        0x0D => "Enter".to_string(),
-        0x10 => "Shift".to_string(),
-        0x11 => "Control".to_string(),
-        0x12 => "Alt".to_string(),
-        0x1B => "Escape".to_string(),
-        0x20 => " ".to_string(),
-        0x21 => "PageUp".to_string(),
-        0x22 => "PageDown".to_string(),
-        0x23 => "End".to_string(),
-        0x24 => "Home".to_string(),
-        0x25 => "ArrowLeft".to_string(),
-        0x26 => "ArrowUp".to_string(),
-        0x27 => "ArrowRight".to_string(),
-        0x28 => "ArrowDown".to_string(),
-        0x2D => "Insert".to_string(),
-        0x2E => "Delete".to_string(),
-        0x30..=0x39 | 0x41..=0x5A => char::from_u32(virtual_key as u32)
-            .map(|value| value.to_string())
-            .unwrap_or_else(|| format!("VirtualKey:{virtual_key}")),
-        0x5B | 0x5C => "Meta".to_string(),
-        0x60..=0x69 => (virtual_key - 0x60).to_string(),
-        0x70..=0x87 => format!("F{}", virtual_key - 0x6F),
-        _ => format!("VirtualKey:{virtual_key}"),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn winui_key_event_kind_maps_key_messages() {
-        assert_eq!(
-            winui_key_event_kind(WM_KEYDOWN),
-            Some(NativeEventKind::KeyDown)
-        );
-        assert_eq!(winui_key_event_kind(WM_KEYUP), Some(NativeEventKind::KeyUp));
-        assert_eq!(
-            winui_key_event_kind(WM_SYSKEYDOWN),
-            Some(NativeEventKind::KeyDown)
-        );
-        assert_eq!(
-            winui_key_event_kind(WM_SYSKEYUP),
-            Some(NativeEventKind::KeyUp)
-        );
-        assert_eq!(winui_key_event_kind(WM_QUIT), None);
-    }
-
-    #[test]
-    fn winui_key_value_normalizes_common_virtual_keys() {
-        assert_eq!(winui_key_value_from_virtual_key(0x0D), "Enter");
-        assert_eq!(winui_key_value_from_virtual_key(0x09), "Tab");
-        assert_eq!(winui_key_value_from_virtual_key(0x20), " ");
-        assert_eq!(winui_key_value_from_virtual_key(0x08), "Backspace");
-        assert_eq!(winui_key_value_from_virtual_key(0x1B), "Escape");
-        assert_eq!(winui_key_value_from_virtual_key(0x24), "Home");
-        assert_eq!(winui_key_value_from_virtual_key(0x23), "End");
-        assert_eq!(winui_key_value_from_virtual_key(0x25), "ArrowLeft");
-        assert_eq!(winui_key_value_from_virtual_key(0x26), "ArrowUp");
-        assert_eq!(winui_key_value_from_virtual_key(0x27), "ArrowRight");
-        assert_eq!(winui_key_value_from_virtual_key(0x28), "ArrowDown");
-        assert_eq!(winui_key_value_from_virtual_key(0x41), "A");
-        assert_eq!(winui_key_value_from_virtual_key(0x31), "1");
-        assert_eq!(winui_key_value_from_virtual_key(0x70), "F1");
-        assert_eq!(winui_key_value_from_virtual_key(0xFF), "VirtualKey:255");
-    }
-
-    #[test]
-    fn winui_pending_auto_focus_only_clears_matching_node() {
-        let first = HostNodeId::new(3);
-        let second = HostNodeId::new(4);
-        let mut pending = Some(first);
-
-        clear_pending_auto_focus(&mut pending, second);
-        assert_eq!(pending, Some(first));
-
-        clear_pending_auto_focus(&mut pending, first);
-        assert_eq!(pending, None);
     }
 }

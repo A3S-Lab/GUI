@@ -6,6 +6,7 @@ pub struct UiRadioGroupProps {
     pub class_name: String,
     pub label: String,
     pub value: String,
+    pub default_value: String,
     pub on_selection_change: String,
     pub is_disabled: bool,
     pub is_required: bool,
@@ -19,6 +20,7 @@ pub fn ui_radio_group(cx: &mut ComponentCx<UiRadioGroupProps>) -> RSX {
         UseRadioGroupProps::new()
             .label(Some(props.label.clone()))
             .value(Some(props.value.clone()))
+            .default_value(Some(props.default_value.clone()))
             .on_selection_change(Some(props.on_selection_change.clone()))
             .disabled(props.is_disabled)
             .required(props.is_required)

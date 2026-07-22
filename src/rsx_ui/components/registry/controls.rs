@@ -17,6 +17,7 @@ pub(super) fn with_input_components<S>(component: RsxComponent<S>) -> GuiResult<
             .default_prop("onPress", "")?
             .default_prop("onPressStart", "")?
             .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isDisabled", false)?
             .default_prop("isPressed", false)?
             .default_prop("actionValue", "")?
@@ -212,6 +213,7 @@ pub(super) fn with_form_components<S>(component: RsxComponent<S>) -> GuiResult<R
         passthrough_contract()?
             .default_prop("label", "")?
             .default_prop("value", "")?
+            .default_prop("defaultValue", "")?
             .default_prop("selectionMode", "single")?
             .default_prop("onSelectionChange", "")?
             .default_prop("isDisabled", false)?
