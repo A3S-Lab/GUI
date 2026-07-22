@@ -18,7 +18,8 @@ object graph at the host boundary.
   native runtime can preserve the same mental model.
 - A React Aria-inspired native interaction kernel with typed input modality,
   press lifecycle, long press, pointer/keyboard move gestures, hover state,
-  modality-aware focus visibility, and mounted
+  modality-aware focus visibility, direct-target focus callbacks,
+  subtree-aware focus-within boundaries, and mounted
   stable-key selection with native aggregate snapshots, independent
   `onAction(key)` item activation, select-all/clear keyboard commands,
   touch/pen long-press selection entry, collection keyboard navigation,

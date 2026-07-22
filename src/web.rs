@@ -127,6 +127,18 @@ impl WebProps {
         self.event("onFocusChange", action)
     }
 
+    pub fn on_focus_within(self, action: impl Into<String>) -> Self {
+        self.event("onFocusWithin", action)
+    }
+
+    pub fn on_blur_within(self, action: impl Into<String>) -> Self {
+        self.event("onBlurWithin", action)
+    }
+
+    pub fn on_focus_within_change(self, action: impl Into<String>) -> Self {
+        self.event("onFocusWithinChange", action)
+    }
+
     pub fn on_toggle(self, action: impl Into<String>) -> Self {
         self.event("onToggle", action)
     }

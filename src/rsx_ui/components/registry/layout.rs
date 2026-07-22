@@ -109,6 +109,9 @@ pub(super) fn with_group_component<S>(component: RsxComponent<S>) -> GuiResult<R
             .default_prop("onFocus", "")?
             .default_prop("onBlur", "")?
             .default_prop("onFocusChange", "")?
+            .default_prop("onFocusWithin", "")?
+            .default_prop("onBlurWithin", "")?
+            .default_prop("onFocusWithinChange", "")?
             .default_prop("isDisabled", false)?
             .default_prop("isInvalid", false)?
             .default_prop("isReadOnly", false)?

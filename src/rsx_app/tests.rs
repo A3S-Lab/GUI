@@ -2059,6 +2059,67 @@ fn component_cx_focusable_hook_returns_focus_props_for_view_consumption() {
 }
 
 #[test]
+fn component_cx_focus_within_hook_returns_boundary_props_for_view_consumption() {
+    fn focus_within(cx: &mut ComponentCx<FocusState>) -> RSX {
+        let action = cx.use_reducer("setFocusWithin", |state: &mut FocusState, invocation| {
+            state.focus_changes += 1;
+            state.focus_within = invocation.value.as_deref() == Some("true");
+            Ok(())
+        });
+        let change_action = action.clone();
+        let props = cx.use_focus_within(move |state: &FocusState| {
+            crate::semantic_ui::UseFocusWithinProps::new()
+                .on_focus_within(Some(&action))
+                .on_blur_within(Some(&action))
+                .on_focus_within_change(Some(&change_action))
+                .focus_within(state.focus_within)
+        });
+        assert_eq!(
+            props.focus_within_props.binding_path(),
+            "props.focusWithinProps"
+        );
+        assert_eq!(props.is_focus_within.binding_path(), "props.isFocusWithin");
+
+        crate::rsx!(
+            <Group
+              key="root"
+              {...props.focusWithinProps}
+              data-within={props.isFocusWithin}
+            >
+              Focus within
+            </Group>
+        )
+    }
+
+    let component = ComponentCx::compile("focus-within", focus_within).unwrap();
+    let state = FocusState {
+        focus_within: true,
+        ..FocusState::default()
+    };
+    let frame = component.render(&state).unwrap();
+    let CompiledRsxNode::Element { props, .. } = &frame.root else {
+        panic!("focus within element");
+    };
+
+    assert_eq!(
+        props.events.get("onFocusWithin").map(String::as_str),
+        Some("setFocusWithin")
+    );
+    assert_eq!(
+        props.events.get("onBlurWithin").map(String::as_str),
+        Some("setFocusWithin")
+    );
+    assert_eq!(
+        props.events.get("onFocusWithinChange").map(String::as_str),
+        Some("setFocusWithin")
+    );
+    assert_eq!(
+        props.attributes.get("data-within").map(String::as_str),
+        Some("true")
+    );
+}
+
+#[test]
 fn component_cx_focus_ring_and_scope_hooks_return_props_for_view_consumption() {
     fn focus_ring(cx: &mut ComponentCx<FocusState>) -> RSX {
         let focus_action = cx.use_reducer("setFocus", |state: &mut FocusState, invocation| {

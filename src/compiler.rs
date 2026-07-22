@@ -25,17 +25,17 @@ use crate::semantic_ui::{
     use_date_segment_value, use_description_value, use_disclosure_group_value,
     use_disclosure_value, use_drag_value, use_drop_value, use_drop_zone_value,
     use_field_error_value, use_field_value, use_file_trigger_value, use_focus_ring_value,
-    use_focus_scope_value, use_focusable_value, use_form_value, use_grid_list_header_value,
-    use_group_value, use_heading_value, use_i18n_value, use_keyboard_value, use_label_value,
-    use_landmark_value, use_legend_value, use_link_value, use_list_box_header_value,
-    use_load_more_item_value, use_menu_item_value, use_menu_value, use_overlay_value,
-    use_press_value, use_radio_group_value, use_radio_value, use_range_calendar_value,
-    use_range_value, use_select_display_value, use_select_value, use_selection_value,
-    use_submenu_trigger_value, use_switch_value, use_tab_list_value, use_tab_panel_value,
-    use_tab_value, use_table_caption_value, use_table_cell_value, use_table_column_value,
-    use_table_row_value, use_table_section_value, use_table_value, use_text_field_value,
-    use_text_value, use_time_field_value, use_toast_region_value, use_toast_value,
-    use_toggle_button_group_value, use_toggle_button_value, use_toggle_value,
+    use_focus_scope_value, use_focus_within_value, use_focusable_value, use_form_value,
+    use_grid_list_header_value, use_group_value, use_heading_value, use_i18n_value,
+    use_keyboard_value, use_label_value, use_landmark_value, use_legend_value, use_link_value,
+    use_list_box_header_value, use_load_more_item_value, use_menu_item_value, use_menu_value,
+    use_overlay_value, use_press_value, use_radio_group_value, use_radio_value,
+    use_range_calendar_value, use_range_value, use_select_display_value, use_select_value,
+    use_selection_value, use_submenu_trigger_value, use_switch_value, use_tab_list_value,
+    use_tab_panel_value, use_tab_value, use_table_caption_value, use_table_cell_value,
+    use_table_column_value, use_table_row_value, use_table_section_value, use_table_value,
+    use_text_field_value, use_text_value, use_time_field_value, use_toast_region_value,
+    use_toast_value, use_toggle_button_group_value, use_toggle_button_value, use_toggle_value,
     use_tree_header_value, use_tree_item_value, use_tree_value, use_visually_hidden_value,
     CollectionSectionKind, SemanticElement, SemanticMapper, TableSectionKind, UseAutocompleteProps,
     UseBreadcrumbsProps, UseButtonProps, UseCalendarCellProps, UseCalendarProps,
@@ -46,10 +46,10 @@ use crate::semantic_ui::{
     UseDateFieldProps, UseDateInputProps, UseDatePickerProps, UseDateRangePickerProps,
     UseDateSegmentProps, UseDisclosureGroupProps, UseDisclosureProps, UseDragProps, UseDropProps,
     UseDropZoneProps, UseFieldProps, UseFileTriggerProps, UseFocusRingProps, UseFocusScopeProps,
-    UseFocusableProps, UseFormProps, UseGroupProps, UseHeadingProps, UseI18nProps,
-    UseLandmarkProps, UseLinkProps, UseLoadMoreItemProps, UseMenuItemProps, UseMenuProps,
-    UseOverlayProps, UsePressProps, UseRadioGroupProps, UseRadioProps, UseRangeCalendarProps,
-    UseRangeProps, UseSelectDisplayProps, UseSelectProps, UseSelectionProps,
+    UseFocusWithinProps, UseFocusableProps, UseFormProps, UseGroupProps, UseHeadingProps,
+    UseI18nProps, UseLandmarkProps, UseLinkProps, UseLoadMoreItemProps, UseMenuItemProps,
+    UseMenuProps, UseOverlayProps, UsePressProps, UseRadioGroupProps, UseRadioProps,
+    UseRangeCalendarProps, UseRangeProps, UseSelectDisplayProps, UseSelectProps, UseSelectionProps,
     UseSubmenuTriggerProps, UseSwitchProps, UseTabListProps, UseTabPanelProps, UseTabProps,
     UseTableCaptionProps, UseTableCellProps, UseTableColumnProps, UseTableProps, UseTableRowProps,
     UseTableSectionProps, UseTextFieldProps, UseTextProps, UseTimeFieldProps, UseToastProps,
@@ -1083,6 +1083,16 @@ fn props_scope_value(props: &CompiledProps) -> JsonValue {
             focus_ring,
             &["focusRingProps"],
             &["isFocused", "isFocusVisible", "isFocusWithin"],
+        );
+    }
+
+    if let Ok(focus_within) = focus_within_scope_value(props) {
+        insert_hook_scope(
+            &mut scope,
+            "focusWithin",
+            focus_within,
+            &["focusWithinProps"],
+            &["isFocusWithin"],
         );
     }
 
@@ -2581,6 +2591,11 @@ fn group_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             .on_focus(non_empty_prop_action(props.events.get("onFocus")))
             .on_blur(non_empty_prop_action(props.events.get("onBlur")))
             .on_focus_change(non_empty_prop_action(props.events.get("onFocusChange")))
+            .on_focus_within(non_empty_prop_action(props.events.get("onFocusWithin")))
+            .on_blur_within(non_empty_prop_action(props.events.get("onBlurWithin")))
+            .on_focus_within_change(non_empty_prop_action(
+                props.events.get("onFocusWithinChange"),
+            ))
             .disabled(props.is_disabled)
             .invalid(props.is_invalid)
             .read_only(props.is_read_only)
@@ -2704,6 +2719,22 @@ fn focusable_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             )
             .auto_focus(bool_attribute_value(props, &["autoFocus", "autofocus"]).unwrap_or(false))
             .tab_index(i32_attribute_value(props, &["tabIndex", "tabindex"]).unwrap_or(0)),
+    )
+}
+
+fn focus_within_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
+    use_focus_within_value(
+        UseFocusWithinProps::new()
+            .on_focus_within(non_empty_prop_action(props.events.get("onFocusWithin")))
+            .on_blur_within(non_empty_prop_action(props.events.get("onBlurWithin")))
+            .on_focus_within_change(non_empty_prop_action(
+                props.events.get("onFocusWithinChange"),
+            ))
+            .disabled(props.is_disabled)
+            .focus_within(
+                bool_attribute_value(props, &["isFocusWithin", "data-focus-within"])
+                    .unwrap_or(false),
+            ),
     )
 }
 
@@ -4720,6 +4751,9 @@ fn normalize_event_name(name: &str) -> String {
         "onfocus" => "onFocus",
         "onblur" => "onBlur",
         "onfocuschange" => "onFocusChange",
+        "onfocuswithin" => "onFocusWithin",
+        "onblurwithin" => "onBlurWithin",
+        "onfocuswithinchange" => "onFocusWithinChange",
         "ontoggle" => "onToggle",
         "onexpandedchange" => "onExpandedChange",
         "onhoverstart" => "onHoverStart",

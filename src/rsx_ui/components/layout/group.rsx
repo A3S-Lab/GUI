@@ -11,6 +11,9 @@ pub struct UiGroupProps {
     pub on_focus: Option<String>,
     pub on_blur: Option<String>,
     pub on_focus_change: Option<String>,
+    pub on_focus_within: Option<String>,
+    pub on_blur_within: Option<String>,
+    pub on_focus_within_change: Option<String>,
     pub is_disabled: bool,
     pub is_invalid: bool,
     pub is_read_only: bool,
@@ -32,6 +35,9 @@ pub fn ui_group(cx: &mut ComponentCx<UiGroupProps>) -> RSX {
             .on_focus(props.on_focus.clone())
             .on_blur(props.on_blur.clone())
             .on_focus_change(props.on_focus_change.clone())
+            .on_focus_within(props.on_focus_within.clone())
+            .on_blur_within(props.on_blur_within.clone())
+            .on_focus_within_change(props.on_focus_within_change.clone())
             .disabled(props.is_disabled)
             .invalid(props.is_invalid)
             .read_only(props.is_read_only)

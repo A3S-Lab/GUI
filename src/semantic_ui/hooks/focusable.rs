@@ -71,11 +71,58 @@ impl UseFocusableProps {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct UseFocusWithinProps {
+    on_focus_within: Option<String>,
+    on_blur_within: Option<String>,
+    on_focus_within_change: Option<String>,
+    is_disabled: bool,
+    is_focus_within: bool,
+}
+
+impl UseFocusWithinProps {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn on_focus_within(mut self, action: Option<impl Into<String>>) -> Self {
+        self.on_focus_within = action.map(Into::into).filter(|action| !action.is_empty());
+        self
+    }
+
+    pub fn on_blur_within(mut self, action: Option<impl Into<String>>) -> Self {
+        self.on_blur_within = action.map(Into::into).filter(|action| !action.is_empty());
+        self
+    }
+
+    pub fn on_focus_within_change(mut self, action: Option<impl Into<String>>) -> Self {
+        self.on_focus_within_change = action.map(Into::into).filter(|action| !action.is_empty());
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.is_disabled = disabled;
+        self
+    }
+
+    pub fn focus_within(mut self, focus_within: bool) -> Self {
+        self.is_focus_within = focus_within;
+        self
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UseFocusableResult {
     pub is_focused: bool,
     pub focus_props: FocusProps,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UseFocusWithinResult {
+    pub is_focus_within: bool,
+    pub focus_within_props: FocusWithinProps,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -252,6 +299,23 @@ pub struct FocusProps {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FocusWithinProps {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_focus_within: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_blur_within: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_focus_within_change: Option<String>,
+    #[serde(skip_serializing_if = "is_false")]
+    pub disabled: bool,
+    #[serde(rename = "aria-disabled", skip_serializing_if = "is_false")]
+    pub aria_disabled: bool,
+    #[serde(rename = "data-focus-within")]
+    pub data_focus_within: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FocusRingProps {
     #[serde(rename = "tabIndex")]
     pub tab_index: i32,
@@ -315,6 +379,20 @@ pub fn use_focusable(props: UseFocusableProps) -> UseFocusableResult {
     }
 }
 
+pub fn use_focus_within(props: UseFocusWithinProps) -> UseFocusWithinResult {
+    UseFocusWithinResult {
+        is_focus_within: props.is_focus_within,
+        focus_within_props: FocusWithinProps {
+            on_focus_within: props.on_focus_within,
+            on_blur_within: props.on_blur_within,
+            on_focus_within_change: props.on_focus_within_change,
+            disabled: props.is_disabled,
+            aria_disabled: props.is_disabled,
+            data_focus_within: props.is_focus_within,
+        },
+    }
+}
+
 pub fn use_focus_ring(props: UseFocusRingProps) -> UseFocusRingResult {
     let tab_index = if props.is_disabled {
         -1
@@ -371,6 +449,14 @@ pub fn use_focusable_value(props: UseFocusableProps) -> GuiResult<JsonValue> {
     })
 }
 
+pub fn use_focus_within_value(props: UseFocusWithinProps) -> GuiResult<JsonValue> {
+    serde_json::to_value(use_focus_within(props)).map_err(|error| {
+        GuiError::invalid_tree(format!(
+            "semantic use_focus_within hook did not serialize: {error}"
+        ))
+    })
+}
+
 pub fn use_focus_ring_value(props: UseFocusRingProps) -> GuiResult<JsonValue> {
     serde_json::to_value(use_focus_ring(props)).map_err(|error| {
         GuiError::invalid_tree(format!(
@@ -385,4 +471,30 @@ pub fn use_focus_scope_value(props: UseFocusScopeProps) -> GuiResult<JsonValue> 
             "semantic use_focus_scope hook did not serialize: {error}"
         ))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn focus_within_serializes_boundary_handlers_and_state() {
+        let value = use_focus_within_value(
+            UseFocusWithinProps::new()
+                .on_focus_within(Some("enterGroup"))
+                .on_blur_within(Some("leaveGroup"))
+                .on_focus_within_change(Some("setGroupFocus"))
+                .focus_within(true),
+        )
+        .unwrap();
+
+        assert_eq!(value["isFocusWithin"], true);
+        assert_eq!(value["focusWithinProps"]["onFocusWithin"], "enterGroup");
+        assert_eq!(value["focusWithinProps"]["onBlurWithin"], "leaveGroup");
+        assert_eq!(
+            value["focusWithinProps"]["onFocusWithinChange"],
+            "setGroupFocus"
+        );
+        assert_eq!(value["focusWithinProps"]["data-focus-within"], true);
+    }
 }

@@ -112,6 +112,15 @@ impl NativeEvent {
                 "a3s-gui native event movement deltas need finite coordinates",
             ));
         }
+        if self
+            .context
+            .related_target
+            .is_some_and(|target| target.get() == 0)
+        {
+            return Err(GuiError::host(
+                "a3s-gui native event related target needs a non-zero node id",
+            ));
+        }
         Ok(())
     }
 
@@ -165,6 +174,37 @@ impl NativeEvent {
             | NativeEventKind::Move
             | NativeEventKind::MoveEnd => NativeInputModality::Mouse,
             _ => NativeInputModality::Unknown,
+        }
+    }
+}
+
+/// Adds the opposite focus target to adjacent native blur/focus pairs.
+///
+/// Native toolkits generally expose focus loss and focus gain as separate
+/// callbacks. Linking them before portable dispatch lets focus-within avoid a
+/// false exit/re-entry when focus moves between descendants of one subtree.
+pub(crate) fn link_focus_transitions(events: &mut [NativeEvent]) {
+    if events.len() < 2 {
+        return;
+    }
+
+    for index in 0..events.len() - 1 {
+        let (left_kind, left_node) = (events[index].kind, events[index].node);
+        let (right_kind, right_node) = (events[index + 1].kind, events[index + 1].node);
+        let is_transition = matches!(
+            (left_kind, right_kind),
+            (NativeEventKind::Blur, NativeEventKind::Focus)
+                | (NativeEventKind::Focus, NativeEventKind::Blur)
+        );
+        if !is_transition || left_node == right_node {
+            continue;
+        }
+
+        if events[index].context.related_target.is_none() {
+            events[index].context.related_target = Some(right_node);
+        }
+        if events[index + 1].context.related_target.is_none() {
+            events[index + 1].context.related_target = Some(left_node);
         }
     }
 }
@@ -314,6 +354,25 @@ impl EventRouter {
                     .value
                     .clone()
                     .or_else(|| static_action_value(blueprint)),
+            })
+            .collect()
+    }
+
+    pub(crate) fn route_focus_within_for_current_target(
+        &self,
+        blueprint: &NativeWidgetBlueprint,
+        event: &NativeEvent,
+        current_target: HostNodeId,
+    ) -> Vec<ActionInvocation> {
+        focus_within_actions_for_event(blueprint, event)
+            .into_iter()
+            .map(|action| ActionInvocation {
+                node: event.node,
+                current_target: (current_target != event.node).then_some(current_target),
+                action: action.to_string(),
+                event: event.kind,
+                context: event.context,
+                value: event.value.clone(),
             })
             .collect()
     }
@@ -620,6 +679,30 @@ fn actions_for_event<'a>(
         .flatten()
         .collect(),
         _ => action_for_event(blueprint, event).into_iter().collect(),
+    }
+}
+
+fn focus_within_actions_for_event<'a>(
+    blueprint: &'a NativeWidgetBlueprint,
+    event: &NativeEvent,
+) -> Vec<&'a str> {
+    let events = &blueprint.events;
+    match event.kind {
+        NativeEventKind::Focus => [
+            non_empty_action(events.get("onFocusWithin")),
+            non_empty_action(events.get("onFocusWithinChange")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect(),
+        NativeEventKind::Blur => [
+            non_empty_action(events.get("onBlurWithin")),
+            non_empty_action(events.get("onFocusWithinChange")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect(),
+        _ => Vec::new(),
     }
 }
 

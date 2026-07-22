@@ -270,7 +270,7 @@ mod tests {
             missing.is_empty(),
             "component playground is missing registered components: {missing:?}"
         );
-        assert_eq!(registered.len(), 162);
+        assert_eq!(registered.len(), 163);
     }
 
     #[test]

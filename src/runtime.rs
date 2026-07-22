@@ -28,6 +28,13 @@ mod accessibility;
 
 type RoutedBlueprint = (HostNodeId, NativeWidgetBlueprint);
 
+#[derive(Debug, Clone)]
+struct FocusWithinTransition {
+    node: HostNodeId,
+    blueprint: NativeWidgetBlueprint,
+    focused: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HandledNativeEvent {
@@ -405,12 +412,20 @@ impl<H: NativeHost> GuiRuntime<H> {
                 }
             }
         }
-        let invocations = self.route_event(blueprint, route_blueprints, &event);
+        let focus_within_transitions =
+            self.focus_within_transitions(blueprint, route_blueprints, &event);
+        let invocations = self.route_event(
+            blueprint,
+            route_blueprints,
+            &focus_within_transitions,
+            &event,
+        );
         let interaction_snapshot = (!invocations.is_empty()).then(|| {
             (
                 self.interaction_state.clone(),
                 self.interaction_revisions.clone(),
                 selection_snapshot,
+                self.focus_owner,
             )
         });
         let interaction_blueprint = (blueprint.value_sensitivity != value_sensitivity).then(|| {
@@ -418,11 +433,21 @@ impl<H: NativeHost> GuiRuntime<H> {
             blueprint.value_sensitivity = value_sensitivity;
             blueprint
         });
-        let interaction_changes = self
+        let mut interaction_changes = self
             .interaction_state
             .apply_event_with_changes(interaction_blueprint.as_ref().unwrap_or(blueprint), &event);
-        if event.kind == crate::event::NativeEventKind::Focus {
-            self.focus_owner = Some(event.node);
+        for transition in &focus_within_transitions {
+            if let Some(change) = self.interaction_state.set_focus_within(
+                transition.node,
+                &transition.blueprint,
+                transition.focused,
+            ) {
+                interaction_changes.push(change);
+            }
+        }
+        match event.kind {
+            crate::event::NativeEventKind::Focus => self.focus_owner = Some(event.node),
+            _ => {}
         }
         if let Some(update) = &selection_update {
             self.apply_mounted_selection_update(update);
@@ -432,11 +457,16 @@ impl<H: NativeHost> GuiRuntime<H> {
             .action_registry
             .invoke_all_with_sensitivity(&invocations, value_sensitivity)
         {
-            if let Some((interaction_state, interaction_revisions, selection_snapshot)) =
-                interaction_snapshot
+            if let Some((
+                interaction_state,
+                interaction_revisions,
+                selection_snapshot,
+                focus_owner,
+            )) = interaction_snapshot
             {
                 self.interaction_state = interaction_state;
                 self.interaction_revisions = interaction_revisions;
+                self.focus_owner = focus_owner;
                 if let Some(selection_snapshot) = selection_snapshot {
                     self.selection_registry = selection_snapshot;
                     let _ = self.project_mounted_selection_to_host();
@@ -458,6 +488,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         &self,
         blueprint: &NativeWidgetBlueprint,
         route_blueprints: &[RoutedBlueprint],
+        focus_within_transitions: &[FocusWithinTransition],
         event: &NativeEvent,
     ) -> Vec<ActionInvocation> {
         let mut invocations = self
@@ -466,14 +497,76 @@ impl<H: NativeHost> GuiRuntime<H> {
         if event.kind == crate::event::NativeEventKind::Close {
             return invocations;
         }
-        for (current_target, route_blueprint) in route_blueprints {
-            invocations.extend(self.event_router.route_all_for_current_target(
-                route_blueprint,
-                event,
-                *current_target,
-            ));
+        if !matches!(
+            event.kind,
+            crate::event::NativeEventKind::Focus | crate::event::NativeEventKind::Blur
+        ) {
+            for (current_target, route_blueprint) in route_blueprints {
+                invocations.extend(self.event_router.route_all_for_current_target(
+                    route_blueprint,
+                    event,
+                    *current_target,
+                ));
+            }
+        }
+        for transition in focus_within_transitions {
+            if has_focus_within_handler(&transition.blueprint) {
+                invocations.extend(self.event_router.route_focus_within_for_current_target(
+                    &transition.blueprint,
+                    event,
+                    transition.node,
+                ));
+            }
         }
         invocations
+    }
+
+    fn focus_within_transitions(
+        &self,
+        blueprint: &NativeWidgetBlueprint,
+        route_blueprints: &[RoutedBlueprint],
+        event: &NativeEvent,
+    ) -> Vec<FocusWithinTransition> {
+        let focused = match event.kind {
+            crate::event::NativeEventKind::Focus => true,
+            crate::event::NativeEventKind::Blur => false,
+            _ => return Vec::new(),
+        };
+        let related_target = event.context.related_target.or_else(|| {
+            (event.kind == crate::event::NativeEventKind::Focus)
+                .then_some(self.focus_owner.filter(|owner| {
+                    self.interaction_state
+                        .node(*owner)
+                        .is_some_and(|state| state.focused)
+                }))
+                .flatten()
+        });
+        let mut related_path = BTreeSet::new();
+        if let Some(related_target) = related_target {
+            related_path.insert(related_target);
+            related_path.extend(self.renderer.ancestor_ids(related_target));
+        }
+
+        std::iter::once((event.node, blueprint))
+            .chain(
+                route_blueprints
+                    .iter()
+                    .map(|(node, blueprint)| (*node, blueprint)),
+            )
+            .filter(|(node, blueprint)| {
+                !related_path.contains(node)
+                    && (has_focus_within_handler(blueprint)
+                        || self
+                            .interaction_state
+                            .node(*node)
+                            .is_some_and(|state| state.focus_within))
+            })
+            .map(|(node, blueprint)| FocusWithinTransition {
+                node,
+                blueprint: blueprint.clone(),
+                focused,
+            })
+            .collect()
     }
 
     fn normalize_event_value(
@@ -1473,6 +1566,18 @@ fn can_retain_interactions(props: &NativeProps) -> bool {
         && !style.makes_native_widget_inert()
 }
 
+fn has_focus_within_handler(blueprint: &NativeWidgetBlueprint) -> bool {
+    !blueprint.control_state.disabled
+        && ["onFocusWithin", "onBlurWithin", "onFocusWithinChange"]
+            .into_iter()
+            .any(|name| {
+                blueprint
+                    .events
+                    .get(name)
+                    .is_some_and(|action| !action.is_empty())
+            })
+}
+
 fn is_disabled_user_event(
     blueprint: &NativeWidgetBlueprint,
     route_blueprints: &[RoutedBlueprint],
@@ -1579,7 +1684,8 @@ impl<H: NativeHost + BlueprintHost + NativeEventHost> GuiRuntime<H> {
     }
 
     pub fn handle_pending_native_event_results(&mut self) -> GuiResult<Vec<HandledNativeEvent>> {
-        let events = self.host.take_native_events();
+        let mut events = self.host.take_native_events();
+        crate::event::link_focus_transitions(&mut events);
         let mut handled = Vec::new();
         for event in events {
             handled.push(self.handle_native_event_with_changes(event)?);
@@ -1603,6 +1709,10 @@ mod collection_navigation_tests;
 #[cfg(test)]
 #[path = "runtime/i18n_tests.rs"]
 mod i18n_tests;
+
+#[cfg(test)]
+#[path = "runtime/focus_within_tests.rs"]
+mod focus_within_tests;
 
 #[cfg(test)]
 #[path = "runtime/accessibility_conformance_tests.rs"]

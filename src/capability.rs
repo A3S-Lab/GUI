@@ -16,6 +16,7 @@ pub enum NativeCapabilityFeature {
     InputModality,
     Hover,
     FocusEvents,
+    FocusWithin,
     AutoFocus,
     ProgrammaticFocus,
     Selection,
@@ -184,6 +185,11 @@ impl NativeCapabilities {
                 Feature::FocusEvents,
                 if headless { Portable } else { Unsupported },
                 (!headless).then_some("native focusability is role-specific"),
+            ),
+            NativeFeatureCapability::new(
+                Feature::FocusWithin,
+                Portable,
+                Some("the runtime derives subtree boundaries from linked native focus transitions"),
             ),
             NativeFeatureCapability::new(
                 Feature::AutoFocus,
@@ -522,6 +528,12 @@ fn requested_features(props: &NativeProps) -> Vec<NativeCapabilityFeature> {
     }
     if has_event(props, &["onFocus", "onBlur", "onFocusChange"]) {
         features.push(Feature::FocusEvents);
+    }
+    if has_event(
+        props,
+        &["onFocusWithin", "onBlurWithin", "onFocusWithinChange"],
+    ) {
+        features.push(Feature::FocusWithin);
     }
     if props.auto_focus {
         features.push(Feature::AutoFocus);

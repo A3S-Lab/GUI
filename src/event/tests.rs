@@ -289,6 +289,26 @@ fn routes_native_focus_and_blur_to_focus_change_alias() {
 }
 
 #[test]
+fn links_adjacent_native_focus_transitions_without_overwriting_context() {
+    let first = HostNodeId::new(13);
+    let second = HostNodeId::new(14);
+    let mut events = vec![
+        NativeEvent::new(first, NativeEventKind::Blur)
+            .modality(crate::input::NativeInputModality::Keyboard),
+        NativeEvent::new(second, NativeEventKind::Focus),
+    ];
+
+    link_focus_transitions(&mut events);
+
+    assert_eq!(events[0].context.related_target, Some(second));
+    assert_eq!(events[1].context.related_target, Some(first));
+    assert_eq!(
+        events[0].context.modality,
+        crate::input::NativeInputModality::Keyboard
+    );
+}
+
+#[test]
 fn routes_native_selection_change_to_semantic_ui_selection_action() {
     let element = NativeElement::new("project", NativeRole::Select)
         .with_props(NativeProps::new().web(WebProps::new().on_selection_change("setProject")));

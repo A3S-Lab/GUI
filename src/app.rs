@@ -593,6 +593,7 @@ where
         let host_events = self.runtime.host_mut().take_native_events();
         let host_events_drained = host_events.len();
         self.pending_native_events.extend(host_events);
+        crate::event::link_focus_transitions(self.pending_native_events.make_contiguous());
         let queued_native_events = self.pending_native_events.len();
         let mut responses = Vec::with_capacity(queued_native_events);
         let mut stopped_by_predicate = false;
@@ -664,6 +665,7 @@ where
         let host_events = self.runtime.host_mut().take_native_events();
         let host_events_drained = host_events.len();
         self.pending_native_events.extend(host_events);
+        crate::event::link_focus_transitions(self.pending_native_events.make_contiguous());
         let queued_native_events = self.pending_native_events.len();
         let mut responses = Vec::with_capacity(queued_native_events);
         let mut stopped_by_predicate = false;

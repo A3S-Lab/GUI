@@ -179,6 +179,18 @@ pub(super) fn with_foundation_components<S>(
     )?;
     let component = with_builtin_template(
         component,
+        "UiFocusWithin",
+        ui_focus_within,
+        passthrough_contract()?
+            .default_prop("onFocusWithin", "")?
+            .default_prop("onBlurWithin", "")?
+            .default_prop("onFocusWithinChange", "")?
+            .default_prop("isDisabled", false)?
+            .default_prop("isFocusWithin", false)?,
+        None,
+    )?;
+    let component = with_builtin_template(
+        component,
         "UiFocusScope",
         ui_focus_scope,
         passthrough_contract()?
