@@ -13,6 +13,7 @@ use components::component_from_rsx_tag;
 
 use crate::error::{GuiError, GuiResult};
 use crate::native::NativeElement;
+use crate::selection::Selection;
 use crate::semantic_ui::{
     use_autocomplete_value, use_breadcrumbs_value, use_button_value, use_calendar_cell_value,
     use_calendar_value, use_checkbox_group_value, use_checkbox_value, use_collection_item_value,
@@ -1369,6 +1370,7 @@ fn props_scope_value(props: &CompiledProps) -> JsonValue {
                 "isSelected",
                 "isDisabled",
                 "isExpanded",
+                "hasChildItems",
             ],
         );
     }
@@ -2066,6 +2068,7 @@ fn props_scope_value(props: &CompiledProps) -> JsonValue {
             &[
                 "label",
                 "selectedValue",
+                "expandedKeys",
                 "selectionMode",
                 "isDisabled",
                 "isReadOnly",
@@ -2343,6 +2346,7 @@ fn press_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             ))
             .on_press_start(non_empty_prop_action(props.events.get("onPressStart")))
             .on_press_end(non_empty_prop_action(props.events.get("onPressEnd")))
+            .on_press_up(non_empty_prop_action(props.events.get("onPressUp")))
             .action_value(non_empty_attribute(props, &["actionValue"]))
             .action_payload(action_payload_value(props))
             .disabled(props.is_disabled)
@@ -2358,6 +2362,7 @@ fn button_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             ))
             .on_press_start(non_empty_prop_action(props.events.get("onPressStart")))
             .on_press_end(non_empty_prop_action(props.events.get("onPressEnd")))
+            .on_press_up(non_empty_prop_action(props.events.get("onPressUp")))
             .action_value(non_empty_attribute(props, &["actionValue"]))
             .action_payload(action_payload_value(props))
             .disabled(props.is_disabled)
@@ -2382,6 +2387,7 @@ fn link_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             ))
             .on_press_start(non_empty_prop_action(props.events.get("onPressStart")))
             .on_press_end(non_empty_prop_action(props.events.get("onPressEnd")))
+            .on_press_up(non_empty_prop_action(props.events.get("onPressUp")))
             .action_value(non_empty_attribute(props, &["actionValue"]))
             .action_payload(action_payload_value(props))
             .disabled(props.is_disabled)
@@ -2455,6 +2461,15 @@ fn long_press_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             ))
             .action_value(non_empty_attribute(props, &["actionValue"]))
             .action_payload(action_payload_value(props))
+            .accessibility_description(non_empty_attribute(
+                props,
+                &["accessibilityDescription", "aria-description"],
+            ))
+            .threshold(
+                usize_attribute_value(props, &["threshold", "data-long-press-threshold"])
+                    .unwrap_or(500)
+                    .min(60_000) as u64,
+            )
             .disabled(props.is_disabled)
             .pressed(bool_attribute_value(props, &["isPressed", "pressed"]).unwrap_or(false))
             .long_pressed(
@@ -2726,7 +2741,7 @@ fn focus_scope_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             )
             .auto_focus(bool_attribute_value(props, &["autoFocus", "autofocus"]).unwrap_or(false))
             .disabled(props.is_disabled)
-            .tab_index(i32_attribute_value(props, &["tabIndex", "tabindex"]).unwrap_or(0)),
+            .tab_index(i32_attribute_value(props, &["tabIndex", "tabindex"]).unwrap_or(-1)),
     )
 }
 
@@ -2830,11 +2845,40 @@ fn overlay_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
 }
 
 fn menu_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
-    use_menu_value(
-        UseMenuProps::new()
-            .label(props.label.clone().or_else(|| props.aria_label.clone()))
-            .disabled(props.is_disabled),
-    )
+    let mut menu_props = UseMenuProps::new()
+        .label(props.label.clone().or_else(|| props.aria_label.clone()))
+        .value(props.value.clone())
+        .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
+        .disabled(props.is_disabled)
+        .read_only(props.is_read_only)
+        .selection_mode(non_empty_attribute(
+            props,
+            &["selectionMode", "data-selection-mode"],
+        ))
+        .selection_behavior(non_empty_attribute(
+            props,
+            &["selectionBehavior", "data-selection-behavior"],
+        ))
+        .disabled_behavior(non_empty_attribute(
+            props,
+            &["disabledBehavior", "data-disabled-behavior"],
+        ))
+        .disallow_empty_selection(selection_disallows_empty(props))
+        .should_focus_wrap(selection_should_focus_wrap(props));
+    if let Some(selected_keys) = selection_attribute(props, &["selectedKeys", "data-selected-keys"])
+    {
+        menu_props = menu_props.selected_keys(selected_keys);
+    }
+    if let Some(default_selected_keys) = selection_attribute(
+        props,
+        &["defaultSelectedKeys", "data-default-selected-keys"],
+    ) {
+        menu_props = menu_props.default_selected_keys(default_selected_keys);
+    }
+    if let Some(disabled_keys) = selection_disabled_keys_attribute(props) {
+        menu_props = menu_props.disabled_keys(disabled_keys);
+    }
+    use_menu_value(menu_props)
 }
 
 fn menu_item_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
@@ -2866,6 +2910,7 @@ fn submenu_trigger_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             ))
             .on_press_start(non_empty_prop_action(props.events.get("onPressStart")))
             .on_press_end(non_empty_prop_action(props.events.get("onPressEnd")))
+            .on_press_up(non_empty_prop_action(props.events.get("onPressUp")))
             .action_value(non_empty_attribute(props, &["actionValue"]))
             .action_payload(action_payload_value(props))
             .disabled(props.is_disabled)
@@ -2919,6 +2964,8 @@ fn collection_item_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
 }
 
 fn tree_item_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
+    let has_child_items =
+        bool_attribute_value(props, &["hasChildItems", "data-has-child-items"]).unwrap_or(false);
     use_tree_item_value(
         UseTreeItemProps::new()
             .value(props.value.clone())
@@ -2931,7 +2978,8 @@ fn tree_item_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             )
             .selected(props.is_selected)
             .disabled(props.is_disabled)
-            .expanded(props.is_expanded),
+            .expanded(props.is_expanded)
+            .has_child_items(has_child_items),
     )
 }
 
@@ -2981,6 +3029,10 @@ fn radio_group_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
         UseRadioGroupProps::new()
             .label(props.label.clone().or_else(|| props.aria_label.clone()))
             .value(props.value.clone())
+            .default_value(non_empty_attribute(
+                props,
+                &["defaultValue", "data-default-value"],
+            ))
             .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
             .disabled(props.is_disabled)
             .required(props.is_required)
@@ -3485,18 +3537,39 @@ fn color_wheel_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
 }
 
 fn color_swatch_picker_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
-    use_color_swatch_picker_value(
-        UseColorSwatchPickerProps::new()
-            .label(props.label.clone().or_else(|| props.aria_label.clone()))
-            .value(props.value.clone())
-            .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
-            .disabled(props.is_disabled)
-            .read_only(props.is_read_only)
-            .selection_mode(non_empty_attribute(
-                props,
-                &["selectionMode", "data-selection-mode"],
-            )),
-    )
+    let mut picker_props = UseColorSwatchPickerProps::new()
+        .label(props.label.clone().or_else(|| props.aria_label.clone()))
+        .value(props.value.clone())
+        .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
+        .disabled(props.is_disabled)
+        .read_only(props.is_read_only)
+        .selection_mode(non_empty_attribute(
+            props,
+            &["selectionMode", "data-selection-mode"],
+        ))
+        .selection_behavior(non_empty_attribute(
+            props,
+            &["selectionBehavior", "data-selection-behavior"],
+        ))
+        .disabled_behavior(non_empty_attribute(
+            props,
+            &["disabledBehavior", "data-disabled-behavior"],
+        ))
+        .disallow_empty_selection(selection_disallows_empty(props));
+    if let Some(selected_keys) = selection_attribute(props, &["selectedKeys", "data-selected-keys"])
+    {
+        picker_props = picker_props.selected_keys(selected_keys);
+    }
+    if let Some(default_selected_keys) = selection_attribute(
+        props,
+        &["defaultSelectedKeys", "data-default-selected-keys"],
+    ) {
+        picker_props = picker_props.default_selected_keys(default_selected_keys);
+    }
+    if let Some(disabled_keys) = selection_disabled_keys_attribute(props) {
+        picker_props = picker_props.disabled_keys(disabled_keys);
+    }
+    use_color_swatch_picker_value(picker_props)
 }
 
 fn color_swatch_picker_item_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
@@ -3538,6 +3611,7 @@ fn color_thumb_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             )
             .on_press_start(non_empty_prop_action(props.events.get("onPressStart")))
             .on_press_end(non_empty_prop_action(props.events.get("onPressEnd")))
+            .on_press_up(non_empty_prop_action(props.events.get("onPressUp")))
             .disabled(props.is_disabled)
             .pressed(bool_attribute_value(props, &["isPressed", "data-pressed"]).unwrap_or(false))
             .dragging(
@@ -3548,77 +3622,140 @@ fn color_thumb_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
 }
 
 fn combo_box_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
-    use_combo_box_value(
-        UseComboBoxProps::new()
-            .label(props.label.clone().or_else(|| props.aria_label.clone()))
-            .value(props.value.clone())
-            .input_value(input_value_attribute(props).or_else(|| props.value.clone()))
-            .placeholder(props.placeholder.clone())
-            .on_change(
-                non_empty_prop_action(props.events.get("onChange"))
-                    .or_else(|| non_empty_prop_action(props.events.get("onInput"))),
-            )
-            .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
-            .on_open_change(
-                non_empty_prop_action(props.events.get("onOpenChange"))
-                    .or_else(|| non_empty_prop_action(props.events.get("onPress"))),
-            )
-            .open(open_attribute_value(props))
-            .disabled(props.is_disabled)
-            .required(props.is_required)
-            .invalid(props.is_invalid)
-            .read_only(props.is_read_only)
-            .selection_mode(non_empty_attribute(
-                props,
-                &["selectionMode", "data-selection-mode"],
-            )),
-    )
+    let mut combo_box_props = UseComboBoxProps::new()
+        .label(props.label.clone().or_else(|| props.aria_label.clone()))
+        .value(props.value.clone())
+        .input_value(input_value_attribute(props).or_else(|| props.value.clone()))
+        .placeholder(props.placeholder.clone())
+        .on_change(
+            non_empty_prop_action(props.events.get("onChange"))
+                .or_else(|| non_empty_prop_action(props.events.get("onInput"))),
+        )
+        .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
+        .on_open_change(
+            non_empty_prop_action(props.events.get("onOpenChange"))
+                .or_else(|| non_empty_prop_action(props.events.get("onPress"))),
+        )
+        .open(open_attribute_value(props))
+        .disabled(props.is_disabled)
+        .required(props.is_required)
+        .invalid(props.is_invalid)
+        .read_only(props.is_read_only)
+        .selection_mode(non_empty_attribute(
+            props,
+            &["selectionMode", "data-selection-mode"],
+        ))
+        .selection_behavior(non_empty_attribute(
+            props,
+            &["selectionBehavior", "data-selection-behavior"],
+        ))
+        .disabled_behavior(non_empty_attribute(
+            props,
+            &["disabledBehavior", "data-disabled-behavior"],
+        ))
+        .disallow_empty_selection(selection_disallows_empty(props));
+    if let Some(selected_keys) = selection_attribute(props, &["selectedKeys", "data-selected-keys"])
+    {
+        combo_box_props = combo_box_props.selected_keys(selected_keys);
+    }
+    if let Some(default_selected_keys) = selection_attribute(
+        props,
+        &["defaultSelectedKeys", "data-default-selected-keys"],
+    ) {
+        combo_box_props = combo_box_props.default_selected_keys(default_selected_keys);
+    }
+    if let Some(disabled_keys) = selection_disabled_keys_attribute(props) {
+        combo_box_props = combo_box_props.disabled_keys(disabled_keys);
+    }
+    use_combo_box_value(combo_box_props)
 }
 
 fn autocomplete_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
-    use_autocomplete_value(
-        UseAutocompleteProps::new()
-            .label(props.label.clone().or_else(|| props.aria_label.clone()))
-            .value(props.value.clone())
-            .input_value(input_value_attribute(props).or_else(|| props.value.clone()))
-            .placeholder(props.placeholder.clone())
-            .on_change(
-                non_empty_prop_action(props.events.get("onChange"))
-                    .or_else(|| non_empty_prop_action(props.events.get("onInput"))),
-            )
-            .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
-            .disabled(props.is_disabled)
-            .required(props.is_required)
-            .invalid(props.is_invalid)
-            .read_only(props.is_read_only)
-            .selection_mode(non_empty_attribute(
-                props,
-                &["selectionMode", "data-selection-mode"],
-            )),
-    )
+    let mut autocomplete_props = UseAutocompleteProps::new()
+        .label(props.label.clone().or_else(|| props.aria_label.clone()))
+        .value(props.value.clone())
+        .input_value(input_value_attribute(props).or_else(|| props.value.clone()))
+        .placeholder(props.placeholder.clone())
+        .on_change(
+            non_empty_prop_action(props.events.get("onChange"))
+                .or_else(|| non_empty_prop_action(props.events.get("onInput"))),
+        )
+        .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
+        .disabled(props.is_disabled)
+        .required(props.is_required)
+        .invalid(props.is_invalid)
+        .read_only(props.is_read_only)
+        .selection_mode(non_empty_attribute(
+            props,
+            &["selectionMode", "data-selection-mode"],
+        ))
+        .selection_behavior(non_empty_attribute(
+            props,
+            &["selectionBehavior", "data-selection-behavior"],
+        ))
+        .disabled_behavior(non_empty_attribute(
+            props,
+            &["disabledBehavior", "data-disabled-behavior"],
+        ))
+        .disallow_empty_selection(selection_disallows_empty(props));
+    if let Some(selected_keys) = selection_attribute(props, &["selectedKeys", "data-selected-keys"])
+    {
+        autocomplete_props = autocomplete_props.selected_keys(selected_keys);
+    }
+    if let Some(default_selected_keys) = selection_attribute(
+        props,
+        &["defaultSelectedKeys", "data-default-selected-keys"],
+    ) {
+        autocomplete_props = autocomplete_props.default_selected_keys(default_selected_keys);
+    }
+    if let Some(disabled_keys) = selection_disabled_keys_attribute(props) {
+        autocomplete_props = autocomplete_props.disabled_keys(disabled_keys);
+    }
+    use_autocomplete_value(autocomplete_props)
 }
 
 fn select_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
-    use_select_value(
-        UseSelectProps::new()
-            .label(props.label.clone().or_else(|| props.aria_label.clone()))
-            .value(props.value.clone())
-            .placeholder(props.placeholder.clone())
-            .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
-            .on_open_change(
-                non_empty_prop_action(props.events.get("onOpenChange"))
-                    .or_else(|| non_empty_prop_action(props.events.get("onPress"))),
-            )
-            .open(open_attribute_value(props))
-            .disabled(props.is_disabled)
-            .required(props.is_required)
-            .invalid(props.is_invalid)
-            .read_only(props.is_read_only)
-            .selection_mode(non_empty_attribute(
-                props,
-                &["selectionMode", "data-selection-mode"],
-            )),
-    )
+    let mut select_props = UseSelectProps::new()
+        .label(props.label.clone().or_else(|| props.aria_label.clone()))
+        .value(props.value.clone())
+        .placeholder(props.placeholder.clone())
+        .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
+        .on_open_change(
+            non_empty_prop_action(props.events.get("onOpenChange"))
+                .or_else(|| non_empty_prop_action(props.events.get("onPress"))),
+        )
+        .open(open_attribute_value(props))
+        .disabled(props.is_disabled)
+        .required(props.is_required)
+        .invalid(props.is_invalid)
+        .read_only(props.is_read_only)
+        .selection_mode(non_empty_attribute(
+            props,
+            &["selectionMode", "data-selection-mode"],
+        ))
+        .selection_behavior(non_empty_attribute(
+            props,
+            &["selectionBehavior", "data-selection-behavior"],
+        ))
+        .disabled_behavior(non_empty_attribute(
+            props,
+            &["disabledBehavior", "data-disabled-behavior"],
+        ))
+        .disallow_empty_selection(selection_disallows_empty(props));
+    if let Some(selected_keys) = selection_attribute(props, &["selectedKeys", "data-selected-keys"])
+    {
+        select_props = select_props.selected_keys(selected_keys);
+    }
+    if let Some(default_selected_keys) = selection_attribute(
+        props,
+        &["defaultSelectedKeys", "data-default-selected-keys"],
+    ) {
+        select_props = select_props.default_selected_keys(default_selected_keys);
+    }
+    if let Some(disabled_keys) = selection_disabled_keys_attribute(props) {
+        select_props = select_props.disabled_keys(disabled_keys);
+    }
+    use_select_value(select_props)
 }
 
 fn select_display_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
@@ -3638,32 +3775,101 @@ fn combo_box_display_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> 
 }
 
 fn selection_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
-    use_selection_value(
-        UseSelectionProps::new()
-            .value(props.value.clone())
-            .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
-            .disabled(props.is_disabled)
-            .read_only(props.is_read_only)
-            .selection_mode(non_empty_attribute(
-                props,
-                &["selectionMode", "data-selection-mode"],
-            )),
-    )
+    let mut selection_props = UseSelectionProps::new()
+        .value(props.value.clone())
+        .on_action(non_empty_prop_action(props.events.get("onAction")))
+        .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
+        .disabled(props.is_disabled)
+        .read_only(props.is_read_only)
+        .selection_mode(non_empty_attribute(
+            props,
+            &["selectionMode", "data-selection-mode"],
+        ))
+        .selection_behavior(non_empty_attribute(
+            props,
+            &["selectionBehavior", "data-selection-behavior"],
+        ))
+        .disabled_behavior(non_empty_attribute(
+            props,
+            &["disabledBehavior", "data-disabled-behavior"],
+        ))
+        .disallow_empty_selection(selection_disallows_empty(props))
+        .should_focus_wrap(selection_should_focus_wrap(props))
+        .escape_key_behavior(selection_escape_key_behavior(props));
+
+    if let Some(selected_keys) = selection_attribute(props, &["selectedKeys", "data-selected-keys"])
+    {
+        selection_props = selection_props.selected_keys(selected_keys);
+    }
+    if let Some(default_selected_keys) = selection_attribute(
+        props,
+        &["defaultSelectedKeys", "data-default-selected-keys"],
+    ) {
+        selection_props = selection_props.default_selected_keys(default_selected_keys);
+    }
+    if let Some(disabled_keys) = selection_disabled_keys_attribute(props) {
+        selection_props = selection_props.disabled_keys(disabled_keys);
+    }
+
+    use_selection_value(selection_props)
 }
 
 fn tree_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
-    use_tree_value(
-        UseTreeProps::new()
-            .label(props.label.clone().or_else(|| props.aria_label.clone()))
-            .value(props.value.clone())
-            .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
-            .disabled(props.is_disabled)
-            .read_only(props.is_read_only)
-            .selection_mode(non_empty_attribute(
-                props,
-                &["selectionMode", "data-selection-mode"],
-            )),
-    )
+    let mut tree_props = UseTreeProps::new()
+        .label(props.label.clone().or_else(|| props.aria_label.clone()))
+        .value(props.value.clone())
+        .on_action(non_empty_prop_action(props.events.get("onAction")))
+        .on_selection_change(non_empty_prop_action(props.events.get("onSelectionChange")))
+        .disabled(props.is_disabled)
+        .read_only(props.is_read_only)
+        .selection_mode(non_empty_attribute(
+            props,
+            &["selectionMode", "data-selection-mode"],
+        ))
+        .selection_behavior(non_empty_attribute(
+            props,
+            &["selectionBehavior", "data-selection-behavior"],
+        ))
+        .disabled_behavior(non_empty_attribute(
+            props,
+            &["disabledBehavior", "data-disabled-behavior"],
+        ))
+        .disallow_empty_selection(selection_disallows_empty(props))
+        .should_focus_wrap(selection_should_focus_wrap(props))
+        .escape_key_behavior(selection_escape_key_behavior(props))
+        .on_expanded_change(non_empty_prop_action(props.events.get("onExpandedChange")));
+
+    if let Some(selected_keys) = selection_attribute(props, &["selectedKeys", "data-selected-keys"])
+    {
+        tree_props = tree_props.selected_keys(selected_keys);
+    }
+    if let Some(default_selected_keys) = selection_attribute(
+        props,
+        &["defaultSelectedKeys", "data-default-selected-keys"],
+    ) {
+        tree_props = tree_props.default_selected_keys(default_selected_keys);
+    }
+    if let Some(disabled_keys) = selection_disabled_keys_attribute(props) {
+        tree_props = tree_props.disabled_keys(disabled_keys);
+    }
+    if let Some(expanded_keys) = collection_key_set_attribute(
+        props,
+        &["expandedKeys", "expanded-keys", "data-expanded-keys"],
+    ) {
+        tree_props = tree_props.expanded_keys(expanded_keys);
+    }
+    if let Some(default_expanded_keys) = collection_key_set_attribute(
+        props,
+        &[
+            "defaultExpandedKeys",
+            "default-expanded-keys",
+            "data-default-expanded-keys",
+        ],
+    ) {
+        tree_props = tree_props.default_expanded_keys(default_expanded_keys);
+    }
+
+    use_tree_value(tree_props)
 }
 
 fn disclosure_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
@@ -3880,6 +4086,7 @@ fn toggle_button_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             ))
             .on_press_start(non_empty_prop_action(props.events.get("onPressStart")))
             .on_press_end(non_empty_prop_action(props.events.get("onPressEnd")))
+            .on_press_up(non_empty_prop_action(props.events.get("onPressUp")))
             .action_value(non_empty_attribute(props, &["actionValue"]))
             .action_payload(action_payload_value(props))
             .selected(props.is_selected)
@@ -3976,6 +4183,50 @@ fn non_empty_attribute(props: &CompiledProps, names: &[&str]) -> Option<String> 
             .filter(|value| !value.is_empty())
             .cloned()
     })
+}
+
+fn selection_attribute(props: &CompiledProps, names: &[&str]) -> Option<Selection> {
+    names.iter().find_map(|name| {
+        props.attributes.get(*name).and_then(|value| {
+            let value = value.trim();
+            if value.is_empty() || value.eq_ignore_ascii_case("null") {
+                return None;
+            }
+            serde_json::from_str(value)
+                .ok()
+                .or_else(|| serde_json::from_value(JsonValue::String(value.to_string())).ok())
+        })
+    })
+}
+
+fn selection_disabled_keys_attribute(
+    props: &CompiledProps,
+) -> Option<BTreeSet<crate::selection::CollectionKey>> {
+    selection_attribute(props, &["disabledKeys", "data-disabled-keys"])
+        .and_then(|selection| selection.explicit_keys().cloned())
+}
+
+fn collection_key_set_attribute(
+    props: &CompiledProps,
+    names: &[&str],
+) -> Option<BTreeSet<crate::selection::CollectionKey>> {
+    selection_attribute(props, names).and_then(|selection| selection.explicit_keys().cloned())
+}
+
+fn selection_disallows_empty(props: &CompiledProps) -> bool {
+    bool_attribute_value(
+        props,
+        &["disallowEmptySelection", "data-disallow-empty-selection"],
+    )
+    .unwrap_or(false)
+}
+
+fn selection_should_focus_wrap(props: &CompiledProps) -> bool {
+    bool_attribute_value(props, &["shouldFocusWrap", "data-should-focus-wrap"]).unwrap_or(false)
+}
+
+fn selection_escape_key_behavior(props: &CompiledProps) -> Option<String> {
+    non_empty_attribute(props, &["escapeKeyBehavior", "data-escape-key-behavior"])
 }
 
 fn input_value_attribute(props: &CompiledProps) -> Option<String> {
@@ -4402,6 +4653,16 @@ impl CompiledProps {
             "max" | "maxValue" => self.max_value = Some(binding_number(property, value)?),
             "step" | "stepValue" => self.step_value = Some(binding_number(property, value)?),
             "valueNumber" => self.value_number = Some(binding_number(property, value)?),
+            "selectedKeys"
+            | "defaultSelectedKeys"
+            | "disabledKeys"
+            | "expandedKeys"
+            | "defaultExpandedKeys" => {
+                self.attributes.insert(
+                    property.to_string(),
+                    binding_payload_string(property, value)?,
+                );
+            }
             other if other.starts_with("on") => {
                 self.events.insert(
                     normalize_event_name(other),
@@ -4449,6 +4710,10 @@ fn normalize_event_name(name: &str) -> String {
     match name {
         "onclick" => "onClick",
         "onpress" => "onPress",
+        "onpressstart" => "onPressStart",
+        "onpressend" => "onPressEnd",
+        "onpressup" => "onPressUp",
+        "onpresschange" => "onPressChange",
         "onchange" => "onChange",
         "oninput" => "onInput",
         "onselectionchange" => "onSelectionChange",

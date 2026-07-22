@@ -83,6 +83,26 @@ impl WebProps {
         self.event("onPressEnd", action)
     }
 
+    pub fn on_press_up(self, action: impl Into<String>) -> Self {
+        self.event("onPressUp", action)
+    }
+
+    pub fn on_press_change(self, action: impl Into<String>) -> Self {
+        self.event("onPressChange", action)
+    }
+
+    pub fn on_hover_start(self, action: impl Into<String>) -> Self {
+        self.event("onHoverStart", action)
+    }
+
+    pub fn on_hover_end(self, action: impl Into<String>) -> Self {
+        self.event("onHoverEnd", action)
+    }
+
+    pub fn on_hover_change(self, action: impl Into<String>) -> Self {
+        self.event("onHoverChange", action)
+    }
+
     pub fn on_change(self, action: impl Into<String>) -> Self {
         self.event("onChange", action)
     }

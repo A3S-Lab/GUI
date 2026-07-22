@@ -597,12 +597,13 @@ fn widget_config_preserves_html_form_control_hints() {
             .form_no_validate(true),
     );
 
-    let config = AppKitAdapter.blueprint(&element).config();
+    let blueprint = AppKitAdapter.blueprint(&element);
+    assert!(blueprint.control_state.auto_focus);
+    let config = blueprint.config();
     let setters = config.create_setters();
 
     assert!(config.read_only);
     assert!(config.multiple);
-    assert!(config.auto_focus);
     assert_eq!(config.autocomplete.as_deref(), Some("email"));
     assert_eq!(config.input_mode.as_deref(), Some("email"));
     assert_eq!(config.enter_key_hint.as_deref(), Some("send"));
@@ -631,7 +632,6 @@ fn widget_config_preserves_html_form_control_hints() {
     assert!(config.form_no_validate);
     assert!(setters.contains(&NativeWidgetSetter::SetReadOnly(true)));
     assert!(setters.contains(&NativeWidgetSetter::SetMultiple(true)));
-    assert!(setters.contains(&NativeWidgetSetter::SetAutoFocus(true)));
     assert!(setters.contains(&NativeWidgetSetter::SetAutocomplete(Some(
         "email".to_string()
     ))));
@@ -1871,4 +1871,17 @@ fn platform_commands_round_trip_as_native_backend_json() {
     assert_eq!(blueprint.control_state.max, Some(100.0));
     assert_eq!(blueprint.control_state.current, Some(50.0));
     assert_eq!(blueprint.control_state.step, Some(5.0));
+}
+
+#[test]
+fn programmatic_focus_command_round_trips_through_json() {
+    let command = PlatformCommand::RequestFocus {
+        id: HostNodeId::new(42),
+    };
+
+    let json = serde_json::to_string(&command).unwrap();
+    let decoded: PlatformCommand = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(decoded, command);
+    assert_eq!(json, r#"{"type":"requestFocus","id":42}"#);
 }

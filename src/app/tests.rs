@@ -362,9 +362,11 @@ fn native_runtime_event_batch_merges_sequential_drains() {
         responses: vec![NativeRuntimeEventResponse {
             frame_id: "queue".to_string(),
             event: NativeEvent::new(HostNodeId::new(1), NativeEventKind::Press),
+            invocations: Vec::new(),
             invocation: None,
             accessibility_tree: None,
             interaction_changes: Vec::new(),
+            propagation_stopped_at: None,
             render: None,
             value_sensitivity: ValueSensitivity::Public,
         }],

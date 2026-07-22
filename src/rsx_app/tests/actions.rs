@@ -603,8 +603,10 @@ fn rsx_component_rejects_disabled_actions_before_direct_reduce() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "saveDocument".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -718,8 +720,10 @@ fn rsx_component_rejects_duplicate_action_hooks_before_direct_reduce() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "saveDocument".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )

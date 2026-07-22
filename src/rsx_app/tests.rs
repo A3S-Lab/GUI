@@ -132,8 +132,10 @@ fn rsx_view_template_uses_rust_component_hooks() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "increment".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -176,8 +178,10 @@ fn component_cx_compiles_counter_function_with_logic_data_view_split() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "increment".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -347,8 +351,10 @@ fn component_cx_use_action_state_and_form_status_track_action_results() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "submit".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -369,8 +375,10 @@ fn component_cx_use_action_state_and_form_status_track_action_results() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "submit".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -422,8 +430,10 @@ fn component_cx_accepts_requested_counter_shape_without_explicit_key() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "increment".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -455,8 +465,10 @@ fn component_cx_view_can_consume_explicit_state_scope() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "increment".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -582,8 +594,10 @@ fn component_cx_use_reactive_exposes_nested_state_object() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "rename".to_string(),
                 event: NativeEventKind::Change,
+                context: Default::default(),
                 value: Some("Grace".to_string()),
             },
         )
@@ -598,8 +612,10 @@ fn component_cx_use_reactive_exposes_nested_state_object() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "enable_dark".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -718,8 +734,10 @@ fn component_cx_owns_lifecycle_effect_and_action_state_hooks() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "click".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -1087,8 +1105,10 @@ fn component_cx_press_hook_returns_props_consumed_by_rsx_view() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "press".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -1190,8 +1210,10 @@ fn component_cx_link_hook_returns_props_consumed_by_rsx_view() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "open".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -1662,8 +1684,10 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "keyDown".to_string(),
                 event: NativeEventKind::KeyDown,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -1675,8 +1699,10 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "copy".to_string(),
                 event: NativeEventKind::Copy,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -1804,8 +1830,10 @@ fn component_cx_file_hooks_return_file_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "dropFiles".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -1907,8 +1935,10 @@ fn component_cx_form_hook_returns_form_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "submit".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -2015,8 +2045,10 @@ fn component_cx_focusable_hook_returns_focus_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "setFocus".to_string(),
                 event: NativeEventKind::Blur,
+                context: Default::default(),
                 value: Some("false".to_string()),
             },
         )
@@ -2136,8 +2168,10 @@ fn component_cx_focus_ring_and_scope_hooks_return_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "setFocus".to_string(),
                 event: NativeEventKind::Blur,
+                context: Default::default(),
                 value: Some("false".to_string()),
             },
         )
@@ -2168,7 +2202,7 @@ fn component_cx_focus_ring_and_scope_hooks_return_props_for_view_consumption() {
         Some("false")
     );
     assert_eq!(
-        props.attributes.get("autoFocus").map(String::as_str),
+        props.attributes.get("data-auto-focus").map(String::as_str),
         Some("true")
     );
     assert_eq!(
@@ -2291,8 +2325,10 @@ fn component_cx_group_hook_returns_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "setFocus".to_string(),
                 event: NativeEventKind::Blur,
+                context: Default::default(),
                 value: Some("false".to_string()),
             },
         )
@@ -2748,8 +2784,10 @@ fn component_cx_overlay_hook_returns_overlay_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "toggleOverlay".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -2763,8 +2801,10 @@ fn component_cx_overlay_hook_returns_overlay_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(2),
+                current_target: None,
                 action: "closeOverlay".to_string(),
                 event: NativeEventKind::Close,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -2880,8 +2920,10 @@ fn component_cx_menu_hooks_return_menu_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "activateItem".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -2987,8 +3029,10 @@ fn component_cx_submenu_trigger_hook_returns_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "toggleSubmenu".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -3292,8 +3336,10 @@ fn component_cx_load_more_item_hook_returns_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "loadMore".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -5108,7 +5154,20 @@ fn component_cx_selection_hook_returns_selection_props_for_view_consumption() {
         });
         assert_eq!(props.selection_props.binding_path(), "props.selectionProps");
         assert_eq!(props.selected_value.binding_path(), "props.selectedValue");
+        assert_eq!(props.selected_keys.binding_path(), "props.selectedKeys");
         assert_eq!(props.selection_mode.binding_path(), "props.selectionMode");
+        assert_eq!(
+            props.selection_behavior.binding_path(),
+            "props.selectionBehavior"
+        );
+        assert_eq!(
+            props.disabled_behavior.binding_path(),
+            "props.disabledBehavior"
+        );
+        assert_eq!(
+            props.escape_key_behavior.binding_path(),
+            "props.escapeKeyBehavior"
+        );
 
         crate::rsx!(
             <ListBox
@@ -5133,6 +5192,10 @@ fn component_cx_selection_hook_returns_selection_props_for_view_consumption() {
     };
 
     assert_eq!(props.value.as_deref(), Some("alpha"));
+    assert_eq!(
+        props.attributes.get("selectedKeys").map(String::as_str),
+        Some("[\"alpha\"]")
+    );
     assert_eq!(
         props.events.get("onSelectionChange").map(String::as_str),
         Some("selectItem")
@@ -5172,8 +5235,10 @@ fn component_cx_selection_hook_returns_selection_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "selectItem".to_string(),
                 event: NativeEventKind::SelectionChange,
+                context: Default::default(),
                 value: Some("beta".to_string()),
             },
         )
@@ -5496,8 +5561,10 @@ fn component_cx_selection_input_hooks_return_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(2),
+                current_target: None,
                 action: "setInput".to_string(),
                 event: NativeEventKind::Change,
+                context: Default::default(),
                 value: Some("gr".to_string()),
             },
         )
@@ -5619,8 +5686,10 @@ fn component_cx_disclosure_hook_returns_disclosure_props_for_view_consumption() 
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "toggle".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -5760,8 +5829,10 @@ fn component_cx_disclosure_group_hook_returns_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "setExpandedKeys".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: Some("advanced".to_string()),
             },
         )
@@ -5883,8 +5954,10 @@ fn component_cx_range_hook_returns_range_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "setValue".to_string(),
                 event: NativeEventKind::Change,
+                context: Default::default(),
                 value: Some("7.5".to_string()),
             },
         )
@@ -5998,8 +6071,10 @@ fn component_cx_number_field_hook_returns_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "setQuantity".to_string(),
                 event: NativeEventKind::Change,
+                context: Default::default(),
                 value: Some("7.5".to_string()),
             },
         )
@@ -6181,8 +6256,10 @@ fn component_cx_toggle_hook_returns_toggle_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "setChecked".to_string(),
                 event: NativeEventKind::Change,
+                context: Default::default(),
                 value: Some("false".to_string()),
             },
         )
@@ -6275,8 +6352,10 @@ fn component_cx_checkbox_hook_returns_checkbox_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "setAccepted".to_string(),
                 event: NativeEventKind::Change,
+                context: Default::default(),
                 value: Some("false".to_string()),
             },
         )
@@ -6359,8 +6438,10 @@ fn component_cx_switch_hook_returns_switch_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "setEnabled".to_string(),
                 event: NativeEventKind::Change,
+                context: Default::default(),
                 value: Some("false".to_string()),
             },
         )
@@ -6466,8 +6547,10 @@ fn component_cx_toggle_button_hooks_return_props_for_view_consumption() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "pressToggle".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: None,
             },
         )
@@ -6582,8 +6665,10 @@ fn component_cx_text_field_hook_returns_field_and_input_props_for_view_consumpti
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(2),
+                current_target: None,
                 action: "setValue".to_string(),
                 event: NativeEventKind::Change,
+                context: Default::default(),
                 value: Some("beta".to_string()),
             },
         )

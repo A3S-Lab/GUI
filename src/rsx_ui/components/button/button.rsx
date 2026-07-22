@@ -8,6 +8,7 @@ pub struct UiButtonProps {
     pub on_press: Option<String>,
     pub on_press_start: Option<String>,
     pub on_press_end: Option<String>,
+    pub on_press_up: Option<String>,
     pub is_disabled: bool,
     pub is_pressed: bool,
     pub class_name: String,
@@ -21,6 +22,7 @@ impl Default for UiButtonProps {
             on_press: None,
             on_press_start: None,
             on_press_end: None,
+            on_press_up: None,
             is_disabled: false,
             is_pressed: false,
             class_name: String::new(),
@@ -36,6 +38,7 @@ pub fn ui_button(cx: &mut ComponentCx<UiButtonProps>) -> RSX {
             .on_press(props.on_press.clone())
             .on_press_start(props.on_press_start.clone())
             .on_press_end(props.on_press_end.clone())
+            .on_press_up(props.on_press_up.clone())
             .action_value(Some(props.action_value.clone()))
             .action_payload(props.action_payload.clone())
             .disabled(props.is_disabled)

@@ -16,12 +16,25 @@ object graph at the host boundary.
 
 - Rust `ComponentCx` function components with React-aligned hook names where the
   native runtime can preserve the same mental model.
+- A React Aria-inspired native interaction kernel with typed input modality,
+  press lifecycle, long press, pointer/keyboard move gestures, hover state,
+  modality-aware focus visibility, and mounted
+  stable-key selection with native aggregate snapshots, independent
+  `onAction(key)` item activation, select-all/clear keyboard commands,
+  touch/pen long-press selection entry, collection keyboard navigation,
+  hierarchical tree expansion, inherited locale/direction, versioned capability
+  reporting, shared native event-source state machines, and accessibility
+  conformance checks.
+  Role-edge input parity, layout-aware collection page movement, IME/dead-key
+  conformance, remaining native focus conformance, and locale formatting are
+  still in progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.
 - Static RSX lowering for elements, fragments, text, attributes, spreads,
   bindings, slots, action ids, and built-in semantic components.
-- Native reducer loop that routes platform events back to stable action ids.
+- Native reducer loop that routes platform events back to stable action ids,
+  with opt-in deterministic ancestor propagation control.
 - Tailwind-compatible style parsing into platform-neutral `PortableStyle`.
 - Built-in `rsx_ui` semantic components for controls, overlays, routing,
   collections, layout, feedback, color, date/time, drag/drop, and data views.
@@ -152,9 +165,9 @@ platform-matched typography, for example `w-[396px]`, `rounded-[12px]`, and
 | Headless runtime | Usable for protocol tests, command inspection, reducer loops, and accessibility snapshots. |
 | Strict protocol v1 | Typed, versioned DTOs with ordered revisions/events, retained command-batch resend, exact ACK validation, and sensitive-value redaction. |
 | Native execution | Typed widget IR with frame prepare/commit/ACK, explicit degraded state, and full replay through a fresh executor. |
-| AppKit native surface | Usable for macOS smoke apps with windows, controls, menus, keyboard events, close actions, and native `autoFocus`. |
-| GTK4 native surface | Usable for Linux smoke apps with controls, menus, dialogs, close actions, and scroll containers. |
-| WinUI native surface | Usable for Windows smoke apps with core controls, size hints, resize bounds, focus callbacks, keyboard routing, close actions, and root-window exit. |
+| AppKit native surface | Usable for macOS smoke apps with role-aware press/hover/focus/key translation, controls, menus, close actions, and typed post-mount `autoFocus`. |
+| GTK4 native surface | Usable for Linux smoke apps with role-aware press/hover/focus/key translation, controls, menus, dialogs, and scroll containers. |
+| WinUI native surface | Usable for Windows smoke apps with role-aware press/hover/focus/key translation, typed programmatic focus and post-mount `autoFocus`, core controls, resize bounds, close actions, and root-window exit. |
 | Product app shell | Dogfood-ready. Production distribution still needs signed installers and longer real-world focus/input hardening. |
 
 ## Roadmap
@@ -252,6 +265,7 @@ authoring layers.
 
 - [Runtime and protocol architecture](docs/architecture.md)
 - [Native style contract](docs/style-contract.md)
+- [React Aria native direction and conformance status](docs/react-aria-native.md)
 - [RSX language and hooks](docs/rsx.md)
 - [RSX framework plan](docs/rsx-framework.md)
 - [DESIGN.md](../../DESIGN.md)

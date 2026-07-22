@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 
@@ -8,6 +8,7 @@ use serde_json::Value as JsonValue;
 
 use crate::error::{GuiError, GuiResult};
 use crate::event::ActionInvocation;
+use crate::selection::{CollectionKey, Selection};
 use crate::semantic_ui::{
     use_autocomplete_value, use_breadcrumbs_value, use_button_value, use_calendar_cell_value,
     use_calendar_value, use_checkbox_group_value, use_checkbox_value, use_collection_item_value,
@@ -976,6 +977,13 @@ pub struct LoadMoreItemHook {
 pub struct MenuHook {
     pub menu_props: PropHandle<MenuProps>,
     pub label: PropHandle<Option<String>>,
+    pub selected_value: PropHandle<Option<String>>,
+    pub selected_keys: PropHandle<Selection>,
+    pub selection_mode: PropHandle<String>,
+    pub selection_behavior: PropHandle<String>,
+    pub disabled_behavior: PropHandle<String>,
+    pub is_disabled: PropHandle<bool>,
+    pub is_read_only: PropHandle<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1344,7 +1352,10 @@ pub struct ColorSwatchPickerHook {
     pub color_swatch_picker_props: PropHandle<ColorSwatchPickerProps>,
     pub label: PropHandle<Option<String>>,
     pub selected_value: PropHandle<Option<String>>,
+    pub selected_keys: PropHandle<Selection>,
     pub selection_mode: PropHandle<String>,
+    pub selection_behavior: PropHandle<String>,
+    pub disabled_behavior: PropHandle<String>,
     pub is_disabled: PropHandle<bool>,
     pub is_read_only: PropHandle<bool>,
 }
@@ -1384,9 +1395,12 @@ pub struct ComboBoxHook {
     pub combo_box_trigger_props: PropHandle<SelectionInputTriggerProps>,
     pub label: PropHandle<Option<String>>,
     pub selected_value: PropHandle<Option<String>>,
+    pub selected_keys: PropHandle<Selection>,
     pub input_value: PropHandle<Option<String>>,
     pub placeholder: PropHandle<Option<String>>,
     pub selection_mode: PropHandle<String>,
+    pub selection_behavior: PropHandle<String>,
+    pub disabled_behavior: PropHandle<String>,
     pub is_open: PropHandle<bool>,
     pub is_disabled: PropHandle<bool>,
     pub is_required: PropHandle<bool>,
@@ -1400,9 +1414,12 @@ pub struct AutocompleteHook {
     pub autocomplete_input_props: PropHandle<ComboBoxInputProps>,
     pub label: PropHandle<Option<String>>,
     pub selected_value: PropHandle<Option<String>>,
+    pub selected_keys: PropHandle<Selection>,
     pub input_value: PropHandle<Option<String>>,
     pub placeholder: PropHandle<Option<String>>,
     pub selection_mode: PropHandle<String>,
+    pub selection_behavior: PropHandle<String>,
+    pub disabled_behavior: PropHandle<String>,
     pub is_disabled: PropHandle<bool>,
     pub is_required: PropHandle<bool>,
     pub is_invalid: PropHandle<bool>,
@@ -1415,8 +1432,11 @@ pub struct SelectHook {
     pub select_trigger_props: PropHandle<SelectionInputTriggerProps>,
     pub label: PropHandle<Option<String>>,
     pub selected_value: PropHandle<Option<String>>,
+    pub selected_keys: PropHandle<Selection>,
     pub placeholder: PropHandle<Option<String>>,
     pub selection_mode: PropHandle<String>,
+    pub selection_behavior: PropHandle<String>,
+    pub disabled_behavior: PropHandle<String>,
     pub is_open: PropHandle<bool>,
     pub is_disabled: PropHandle<bool>,
     pub is_required: PropHandle<bool>,
@@ -1451,7 +1471,11 @@ pub struct OverlayHook {
 pub struct SelectionHook {
     pub selection_props: PropHandle<SelectionProps>,
     pub selected_value: PropHandle<Option<String>>,
+    pub selected_keys: PropHandle<Selection>,
     pub selection_mode: PropHandle<String>,
+    pub selection_behavior: PropHandle<String>,
+    pub disabled_behavior: PropHandle<String>,
+    pub escape_key_behavior: PropHandle<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1459,7 +1483,12 @@ pub struct TreeHook {
     pub tree_props: PropHandle<TreeProps>,
     pub label: PropHandle<Option<String>>,
     pub selected_value: PropHandle<Option<String>>,
+    pub selected_keys: PropHandle<Selection>,
+    pub expanded_keys: PropHandle<BTreeSet<CollectionKey>>,
     pub selection_mode: PropHandle<String>,
+    pub selection_behavior: PropHandle<String>,
+    pub disabled_behavior: PropHandle<String>,
+    pub escape_key_behavior: PropHandle<String>,
     pub is_disabled: PropHandle<bool>,
     pub is_read_only: PropHandle<bool>,
 }
@@ -1472,6 +1501,7 @@ pub struct TreeItemHook {
     pub is_selected: PropHandle<bool>,
     pub is_disabled: PropHandle<bool>,
     pub is_expanded: PropHandle<Option<bool>>,
+    pub has_child_items: PropHandle<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3127,21 +3157,37 @@ impl<S: 'static> ComponentCx<S> {
         F: Fn(&S) -> UseMenuProps + Send + Sync + 'static,
     {
         let selector: Arc<dyn Fn(&S) -> UseMenuProps + Send + Sync> = Arc::new(selector);
-        let props_selector = Arc::clone(&selector);
-        self.use_prop_value("menuProps", move |state| {
-            menu_value_part((props_selector)(state), "menuProps")
-        });
-        let label_selector = Arc::clone(&selector);
-        self.use_prop_value("label", move |state| {
-            menu_value_part((label_selector)(state), "label")
-        });
-
-        self.register_alias("menuProps", BindingAlias::Props("menuProps".to_string()));
-        self.register_alias("label", BindingAlias::Props("label".to_string()));
+        for path in [
+            "menuProps",
+            "label",
+            "selectedValue",
+            "selectedKeys",
+            "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
+        ] {
+            self.use_semantic_part(path, &selector, menu_value_part);
+        }
+        self.register_prop_aliases(&[
+            "menuProps",
+            "label",
+            "selectedValue",
+            "selectedKeys",
+            "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
+        ]);
 
         MenuHook {
             menu_props: PropHandle::new("menuProps"),
             label: PropHandle::new("label"),
+            selected_value: PropHandle::new("selectedValue"),
+            selected_keys: PropHandle::new("selectedKeys"),
+            selection_mode: PropHandle::new("selectionMode"),
+            selection_behavior: PropHandle::new("selectionBehavior"),
+            disabled_behavior: PropHandle::new("disabledBehavior"),
+            is_disabled: PropHandle::new("menuProps.disabled"),
+            is_read_only: PropHandle::new("menuProps.readOnly"),
         }
     }
 
@@ -4454,7 +4500,10 @@ impl<S: 'static> ComponentCx<S> {
             "colorSwatchPickerProps",
             "label",
             "selectedValue",
+            "selectedKeys",
             "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
             "isDisabled",
             "isReadOnly",
         ] {
@@ -4464,7 +4513,10 @@ impl<S: 'static> ComponentCx<S> {
             "colorSwatchPickerProps",
             "label",
             "selectedValue",
+            "selectedKeys",
             "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
             "isDisabled",
             "isReadOnly",
         ]);
@@ -4473,7 +4525,10 @@ impl<S: 'static> ComponentCx<S> {
             color_swatch_picker_props: PropHandle::new("colorSwatchPickerProps"),
             label: PropHandle::new("label"),
             selected_value: PropHandle::new("selectedValue"),
+            selected_keys: PropHandle::new("selectedKeys"),
             selection_mode: PropHandle::new("selectionMode"),
+            selection_behavior: PropHandle::new("selectionBehavior"),
+            disabled_behavior: PropHandle::new("disabledBehavior"),
             is_disabled: PropHandle::new("isDisabled"),
             is_read_only: PropHandle::new("isReadOnly"),
         }
@@ -4577,9 +4632,12 @@ impl<S: 'static> ComponentCx<S> {
             "comboBoxTriggerProps",
             "label",
             "selectedValue",
+            "selectedKeys",
             "inputValue",
             "placeholder",
             "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
             "isOpen",
             "isDisabled",
             "isRequired",
@@ -4594,9 +4652,12 @@ impl<S: 'static> ComponentCx<S> {
             "comboBoxTriggerProps",
             "label",
             "selectedValue",
+            "selectedKeys",
             "inputValue",
             "placeholder",
             "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
             "isOpen",
             "isDisabled",
             "isRequired",
@@ -4610,9 +4671,12 @@ impl<S: 'static> ComponentCx<S> {
             combo_box_trigger_props: PropHandle::new("comboBoxTriggerProps"),
             label: PropHandle::new("label"),
             selected_value: PropHandle::new("selectedValue"),
+            selected_keys: PropHandle::new("selectedKeys"),
             input_value: PropHandle::new("inputValue"),
             placeholder: PropHandle::new("placeholder"),
             selection_mode: PropHandle::new("selectionMode"),
+            selection_behavior: PropHandle::new("selectionBehavior"),
+            disabled_behavior: PropHandle::new("disabledBehavior"),
             is_open: PropHandle::new("isOpen"),
             is_disabled: PropHandle::new("isDisabled"),
             is_required: PropHandle::new("isRequired"),
@@ -4631,9 +4695,12 @@ impl<S: 'static> ComponentCx<S> {
             "autocompleteInputProps",
             "label",
             "selectedValue",
+            "selectedKeys",
             "inputValue",
             "placeholder",
             "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
             "isDisabled",
             "isRequired",
             "isInvalid",
@@ -4646,9 +4713,12 @@ impl<S: 'static> ComponentCx<S> {
             "autocompleteInputProps",
             "label",
             "selectedValue",
+            "selectedKeys",
             "inputValue",
             "placeholder",
             "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
             "isDisabled",
             "isRequired",
             "isInvalid",
@@ -4660,9 +4730,12 @@ impl<S: 'static> ComponentCx<S> {
             autocomplete_input_props: PropHandle::new("autocompleteInputProps"),
             label: PropHandle::new("label"),
             selected_value: PropHandle::new("selectedValue"),
+            selected_keys: PropHandle::new("selectedKeys"),
             input_value: PropHandle::new("inputValue"),
             placeholder: PropHandle::new("placeholder"),
             selection_mode: PropHandle::new("selectionMode"),
+            selection_behavior: PropHandle::new("selectionBehavior"),
+            disabled_behavior: PropHandle::new("disabledBehavior"),
             is_disabled: PropHandle::new("isDisabled"),
             is_required: PropHandle::new("isRequired"),
             is_invalid: PropHandle::new("isInvalid"),
@@ -4680,8 +4753,11 @@ impl<S: 'static> ComponentCx<S> {
             "selectTriggerProps",
             "label",
             "selectedValue",
+            "selectedKeys",
             "placeholder",
             "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
             "isOpen",
             "isDisabled",
             "isRequired",
@@ -4695,8 +4771,11 @@ impl<S: 'static> ComponentCx<S> {
             "selectTriggerProps",
             "label",
             "selectedValue",
+            "selectedKeys",
             "placeholder",
             "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
             "isOpen",
             "isDisabled",
             "isRequired",
@@ -4709,8 +4788,11 @@ impl<S: 'static> ComponentCx<S> {
             select_trigger_props: PropHandle::new("selectTriggerProps"),
             label: PropHandle::new("label"),
             selected_value: PropHandle::new("selectedValue"),
+            selected_keys: PropHandle::new("selectedKeys"),
             placeholder: PropHandle::new("placeholder"),
             selection_mode: PropHandle::new("selectionMode"),
+            selection_behavior: PropHandle::new("selectionBehavior"),
+            disabled_behavior: PropHandle::new("disabledBehavior"),
             is_open: PropHandle::new("isOpen"),
             is_disabled: PropHandle::new("isDisabled"),
             is_required: PropHandle::new("isRequired"),
@@ -4834,9 +4916,25 @@ impl<S: 'static> ComponentCx<S> {
         self.use_prop_value("selectedValue", move |state| {
             selection_value_part((selected_value_selector)(state), "selectedValue")
         });
+        let selected_keys_selector = Arc::clone(&selector);
+        self.use_prop_value("selectedKeys", move |state| {
+            selection_value_part((selected_keys_selector)(state), "selectedKeys")
+        });
         let selection_mode_selector = Arc::clone(&selector);
         self.use_prop_value("selectionMode", move |state| {
             selection_value_part((selection_mode_selector)(state), "selectionMode")
+        });
+        let selection_behavior_selector = Arc::clone(&selector);
+        self.use_prop_value("selectionBehavior", move |state| {
+            selection_value_part((selection_behavior_selector)(state), "selectionBehavior")
+        });
+        let disabled_behavior_selector = Arc::clone(&selector);
+        self.use_prop_value("disabledBehavior", move |state| {
+            selection_value_part((disabled_behavior_selector)(state), "disabledBehavior")
+        });
+        let escape_key_behavior_selector = Arc::clone(&selector);
+        self.use_prop_value("escapeKeyBehavior", move |state| {
+            selection_value_part((escape_key_behavior_selector)(state), "escapeKeyBehavior")
         });
 
         self.register_alias(
@@ -4848,14 +4946,34 @@ impl<S: 'static> ComponentCx<S> {
             BindingAlias::Props("selectedValue".to_string()),
         );
         self.register_alias(
+            "selectedKeys",
+            BindingAlias::Props("selectedKeys".to_string()),
+        );
+        self.register_alias(
             "selectionMode",
             BindingAlias::Props("selectionMode".to_string()),
+        );
+        self.register_alias(
+            "selectionBehavior",
+            BindingAlias::Props("selectionBehavior".to_string()),
+        );
+        self.register_alias(
+            "disabledBehavior",
+            BindingAlias::Props("disabledBehavior".to_string()),
+        );
+        self.register_alias(
+            "escapeKeyBehavior",
+            BindingAlias::Props("escapeKeyBehavior".to_string()),
         );
 
         SelectionHook {
             selection_props: PropHandle::new("selectionProps"),
             selected_value: PropHandle::new("selectedValue"),
+            selected_keys: PropHandle::new("selectedKeys"),
             selection_mode: PropHandle::new("selectionMode"),
+            selection_behavior: PropHandle::new("selectionBehavior"),
+            disabled_behavior: PropHandle::new("disabledBehavior"),
+            escape_key_behavior: PropHandle::new("escapeKeyBehavior"),
         }
     }
 
@@ -4868,7 +4986,12 @@ impl<S: 'static> ComponentCx<S> {
             "treeProps",
             "label",
             "selectedValue",
+            "selectedKeys",
+            "expandedKeys",
             "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
+            "escapeKeyBehavior",
             "isDisabled",
             "isReadOnly",
         ] {
@@ -4878,7 +5001,12 @@ impl<S: 'static> ComponentCx<S> {
             "treeProps",
             "label",
             "selectedValue",
+            "selectedKeys",
+            "expandedKeys",
             "selectionMode",
+            "selectionBehavior",
+            "disabledBehavior",
+            "escapeKeyBehavior",
             "isDisabled",
             "isReadOnly",
         ]);
@@ -4887,7 +5015,12 @@ impl<S: 'static> ComponentCx<S> {
             tree_props: PropHandle::new("treeProps"),
             label: PropHandle::new("label"),
             selected_value: PropHandle::new("selectedValue"),
+            selected_keys: PropHandle::new("selectedKeys"),
+            expanded_keys: PropHandle::new("expandedKeys"),
             selection_mode: PropHandle::new("selectionMode"),
+            selection_behavior: PropHandle::new("selectionBehavior"),
+            disabled_behavior: PropHandle::new("disabledBehavior"),
+            escape_key_behavior: PropHandle::new("escapeKeyBehavior"),
             is_disabled: PropHandle::new("isDisabled"),
             is_read_only: PropHandle::new("isReadOnly"),
         }
@@ -4905,6 +5038,7 @@ impl<S: 'static> ComponentCx<S> {
             "isSelected",
             "isDisabled",
             "isExpanded",
+            "hasChildItems",
         ] {
             self.use_semantic_part(path, &selector, tree_item_value_part);
         }
@@ -4915,6 +5049,7 @@ impl<S: 'static> ComponentCx<S> {
             "isSelected",
             "isDisabled",
             "isExpanded",
+            "hasChildItems",
         ]);
 
         TreeItemHook {
@@ -4924,6 +5059,7 @@ impl<S: 'static> ComponentCx<S> {
             is_selected: PropHandle::new("isSelected"),
             is_disabled: PropHandle::new("isDisabled"),
             is_expanded: PropHandle::new("isExpanded"),
+            has_child_items: PropHandle::new("hasChildItems"),
         }
     }
 

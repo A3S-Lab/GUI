@@ -9,6 +9,7 @@ use super::serde_helpers::is_false;
 pub struct UseRadioGroupProps {
     label: Option<String>,
     value: Option<String>,
+    default_value: Option<String>,
     on_selection_change: Option<String>,
     is_disabled: bool,
     is_required: bool,
@@ -29,6 +30,11 @@ impl UseRadioGroupProps {
 
     pub fn value(mut self, value: Option<impl Into<String>>) -> Self {
         self.value = value.map(Into::into).filter(|value| !value.is_empty());
+        self
+    }
+
+    pub fn default_value(mut self, value: Option<impl Into<String>>) -> Self {
+        self.default_value = value.map(Into::into).filter(|value| !value.is_empty());
         self
     }
 
@@ -90,6 +96,8 @@ pub struct RadioGroupProps {
     pub aria_label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
+    #[serde(rename = "defaultValue", skip_serializing_if = "Option::is_none")]
+    pub default_value: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_selection_change: Option<String>,
     #[serde(skip_serializing_if = "is_false")]
@@ -200,10 +208,11 @@ pub struct RadioProps {
 
 pub fn use_radio_group(props: UseRadioGroupProps) -> UseRadioGroupResult {
     let selection_mode = props.selection_mode.unwrap_or_else(|| "single".to_string());
+    let selected_value = props.value.clone().or_else(|| props.default_value.clone());
 
     UseRadioGroupResult {
         label: props.label.clone(),
-        selected_value: props.value.clone(),
+        selected_value: selected_value.clone(),
         selection_mode: selection_mode.clone(),
         is_disabled: props.is_disabled,
         is_required: props.is_required,
@@ -214,6 +223,7 @@ pub fn use_radio_group(props: UseRadioGroupProps) -> UseRadioGroupResult {
             label: props.label.clone(),
             aria_label: props.label,
             value: props.value.clone(),
+            default_value: props.default_value,
             on_selection_change: props.on_selection_change,
             disabled: props.is_disabled,
             aria_disabled: props.is_disabled,
@@ -222,7 +232,7 @@ pub fn use_radio_group(props: UseRadioGroupProps) -> UseRadioGroupResult {
             aria_invalid: props.is_invalid,
             read_only: props.is_read_only,
             aria_read_only: props.is_read_only,
-            data_selected_value: props.value,
+            data_selected_value: selected_value,
             data_selection_mode: selection_mode,
         },
     }

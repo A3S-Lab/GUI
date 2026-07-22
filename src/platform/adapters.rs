@@ -1,3 +1,4 @@
+use crate::capability::NativeCapabilities;
 use crate::host::HostNodeId;
 use crate::native::NativeElement;
 
@@ -6,6 +7,10 @@ use super::widget_names::widget_blueprint;
 
 pub trait PlatformAdapter: Send + Sync {
     fn kind(&self) -> NativeBackendKind;
+
+    fn capabilities(&self) -> NativeCapabilities {
+        NativeCapabilities::for_backend(self.kind())
+    }
 
     fn blueprint(&self, element: &NativeElement) -> NativeWidgetBlueprint {
         widget_blueprint(self.kind(), element)

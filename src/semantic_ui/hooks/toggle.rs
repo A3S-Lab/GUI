@@ -20,6 +20,7 @@ pub struct UseToggleButtonProps {
     on_press: Option<String>,
     on_press_start: Option<String>,
     on_press_end: Option<String>,
+    on_press_up: Option<String>,
     action_value: Option<String>,
     action_payload: JsonValue,
     is_selected: bool,
@@ -33,6 +34,7 @@ impl Default for UseToggleButtonProps {
             on_press: None,
             on_press_start: None,
             on_press_end: None,
+            on_press_up: None,
             action_value: None,
             action_payload: JsonValue::Null,
             is_selected: false,
@@ -59,6 +61,11 @@ impl UseToggleButtonProps {
 
     pub fn on_press_end(mut self, action: Option<impl Into<String>>) -> Self {
         self.on_press_end = non_empty(action);
+        self
+    }
+
+    pub fn on_press_up(mut self, action: Option<impl Into<String>>) -> Self {
+        self.on_press_up = non_empty(action);
         self
     }
 
@@ -294,6 +301,8 @@ pub struct ToggleButtonProps {
     pub on_press_start: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_press_end: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_press_up: Option<String>,
     #[serde(rename = "actionValue", skip_serializing_if = "Option::is_none")]
     pub action_value: Option<String>,
     #[serde(rename = "actionPayload", skip_serializing_if = "JsonValue::is_null")]
@@ -388,6 +397,7 @@ pub fn use_toggle_button(props: UseToggleButtonProps) -> UseToggleButtonResult {
             on_press: props.on_press,
             on_press_start: props.on_press_start,
             on_press_end: props.on_press_end,
+            on_press_up: props.on_press_up,
             action_value: props.action_value,
             action_payload: props.action_payload,
             selected: props.is_selected,

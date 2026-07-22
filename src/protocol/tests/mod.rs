@@ -77,6 +77,7 @@ fn counter_reduce(state: &mut CounterState, invocation: &ActionInvocation) -> Gu
     }
 }
 
+#[cfg(feature = "authoring")]
 fn rsx_counter_frame(state: &CounterState) -> GuiResult<UiFrame> {
     let state = serde_json::json!({ "count": state.count });
     UiFrame::from_rsx_source_with_state(

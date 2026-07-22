@@ -2,7 +2,7 @@ use crate::error::GuiResult;
 use crate::rsx_app::RsxComponent;
 
 use super::super::catalog::*;
-use super::super::contract::passthrough_contract;
+use super::super::contract::{passthrough_contract, selection_contract};
 use super::with_builtin_template;
 
 pub(super) fn with_date_time_components<S>(
@@ -115,22 +115,14 @@ pub(super) fn with_date_time_components<S>(
         component,
         "UiCalendarMonthPicker",
         ui_calendar_month_picker,
-        passthrough_contract()?
-            .default_prop("label", "Month")?
-            .default_prop("value", "")?
-            .default_prop("selectionMode", "single")?
-            .default_prop("onSelectionChange", "")?,
+        selection_contract()?.default_prop("label", "Month")?,
         None,
     )?;
     let component = with_builtin_template(
         component,
         "UiCalendarYearPicker",
         ui_calendar_year_picker,
-        passthrough_contract()?
-            .default_prop("label", "Year")?
-            .default_prop("value", "")?
-            .default_prop("selectionMode", "single")?
-            .default_prop("onSelectionChange", "")?,
+        selection_contract()?.default_prop("label", "Year")?,
         None,
     )?;
     Ok(component)

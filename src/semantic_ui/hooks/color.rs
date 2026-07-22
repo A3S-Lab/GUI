@@ -5,6 +5,14 @@ use crate::error::{GuiError, GuiResult};
 
 use super::serde_helpers::is_false;
 
+mod swatch_picker;
+pub use swatch_picker::{
+    use_color_swatch_picker, use_color_swatch_picker_item, use_color_swatch_picker_item_value,
+    use_color_swatch_picker_value, ColorSwatchPickerItemProps, ColorSwatchPickerProps,
+    UseColorSwatchPickerItemProps, UseColorSwatchPickerItemResult, UseColorSwatchPickerProps,
+    UseColorSwatchPickerResult,
+};
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UseColorFieldProps {
     label: Option<String>,
@@ -448,160 +456,6 @@ pub struct ColorRangeProps {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct UseColorSwatchPickerProps {
-    label: Option<String>,
-    value: Option<String>,
-    on_selection_change: Option<String>,
-    is_disabled: bool,
-    is_read_only: bool,
-    selection_mode: Option<String>,
-}
-
-impl UseColorSwatchPickerProps {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn label(mut self, label: Option<impl Into<String>>) -> Self {
-        self.label = non_empty(label);
-        self
-    }
-
-    pub fn value(mut self, value: Option<impl Into<String>>) -> Self {
-        self.value = non_empty(value);
-        self
-    }
-
-    pub fn on_selection_change(mut self, action: Option<impl Into<String>>) -> Self {
-        self.on_selection_change = non_empty(action);
-        self
-    }
-
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.is_disabled = disabled;
-        self
-    }
-
-    pub fn read_only(mut self, read_only: bool) -> Self {
-        self.is_read_only = read_only;
-        self
-    }
-
-    pub fn selection_mode(mut self, selection_mode: Option<impl Into<String>>) -> Self {
-        self.selection_mode = non_empty(selection_mode);
-        self
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UseColorSwatchPickerResult {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub selected_value: Option<String>,
-    pub selection_mode: String,
-    pub is_disabled: bool,
-    pub is_read_only: bool,
-    pub color_swatch_picker_props: ColorSwatchPickerProps,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ColorSwatchPickerProps {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_selection_change: Option<String>,
-    #[serde(skip_serializing_if = "is_false")]
-    pub disabled: bool,
-    #[serde(rename = "aria-disabled", skip_serializing_if = "is_false")]
-    pub aria_disabled: bool,
-    #[serde(rename = "readOnly", skip_serializing_if = "is_false")]
-    pub read_only: bool,
-    #[serde(rename = "aria-readonly", skip_serializing_if = "is_false")]
-    pub aria_read_only: bool,
-    #[serde(
-        rename = "data-selected-value",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub data_selected_value: Option<String>,
-    #[serde(rename = "data-selection-mode")]
-    pub data_selection_mode: String,
-    #[serde(rename = "aria-multiselectable", skip_serializing_if = "is_false")]
-    pub aria_multiselectable: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct UseColorSwatchPickerItemProps {
-    value: Option<String>,
-    text_value: Option<String>,
-    is_selected: bool,
-    is_disabled: bool,
-}
-
-impl UseColorSwatchPickerItemProps {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn value(mut self, value: Option<impl Into<String>>) -> Self {
-        self.value = non_empty(value);
-        self
-    }
-
-    pub fn text_value(mut self, text_value: Option<impl Into<String>>) -> Self {
-        self.text_value = non_empty(text_value);
-        self
-    }
-
-    pub fn selected(mut self, selected: bool) -> Self {
-        self.is_selected = selected;
-        self
-    }
-
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.is_disabled = disabled;
-        self
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UseColorSwatchPickerItemResult {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub text_value: Option<String>,
-    pub is_selected: bool,
-    pub is_disabled: bool,
-    pub color_swatch_picker_item_props: ColorSwatchPickerItemProps,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ColorSwatchPickerItemProps {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub text_value: Option<String>,
-    #[serde(rename = "data-value", skip_serializing_if = "Option::is_none")]
-    pub data_value: Option<String>,
-    #[serde(skip_serializing_if = "is_false")]
-    pub selected: bool,
-    #[serde(rename = "aria-selected", skip_serializing_if = "is_false")]
-    pub aria_selected: bool,
-    #[serde(rename = "data-selected")]
-    pub data_selected: bool,
-    #[serde(skip_serializing_if = "is_false")]
-    pub disabled: bool,
-    #[serde(rename = "aria-disabled", skip_serializing_if = "is_false")]
-    pub aria_disabled: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UseColorSwatchProps {
     label: Option<String>,
     value: Option<String>,
@@ -663,6 +517,7 @@ pub struct UseColorThumbProps {
     on_press: Option<String>,
     on_press_start: Option<String>,
     on_press_end: Option<String>,
+    on_press_up: Option<String>,
     is_disabled: bool,
     is_pressed: bool,
     is_dragging: bool,
@@ -679,6 +534,7 @@ impl Default for UseColorThumbProps {
             on_press: None,
             on_press_start: None,
             on_press_end: None,
+            on_press_up: None,
             is_disabled: false,
             is_pressed: false,
             is_dragging: false,
@@ -728,6 +584,11 @@ impl UseColorThumbProps {
 
     pub fn on_press_end(mut self, action: Option<impl Into<String>>) -> Self {
         self.on_press_end = non_empty(action);
+        self
+    }
+
+    pub fn on_press_up(mut self, action: Option<impl Into<String>>) -> Self {
+        self.on_press_up = non_empty(action);
         self
     }
 
@@ -787,6 +648,8 @@ pub struct ColorThumbProps {
     pub on_press_start: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_press_end: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_press_up: Option<String>,
     #[serde(skip_serializing_if = "is_false")]
     pub disabled: bool,
     #[serde(rename = "aria-disabled", skip_serializing_if = "is_false")]
@@ -883,57 +746,6 @@ pub fn use_color_wheel(props: UseColorRangeProps) -> UseColorWheelResult {
     }
 }
 
-pub fn use_color_swatch_picker(props: UseColorSwatchPickerProps) -> UseColorSwatchPickerResult {
-    let selection_mode = match props.selection_mode.as_deref() {
-        Some("none") => "none",
-        Some("multiple") => "multiple",
-        _ => "single",
-    }
-    .to_string();
-    let is_multiple = selection_mode == "multiple";
-
-    UseColorSwatchPickerResult {
-        label: props.label.clone(),
-        selected_value: props.value.clone(),
-        selection_mode: selection_mode.clone(),
-        is_disabled: props.is_disabled,
-        is_read_only: props.is_read_only,
-        color_swatch_picker_props: ColorSwatchPickerProps {
-            label: props.label,
-            value: props.value.clone(),
-            on_selection_change: props.on_selection_change,
-            disabled: props.is_disabled,
-            aria_disabled: props.is_disabled,
-            read_only: props.is_read_only,
-            aria_read_only: props.is_read_only,
-            data_selected_value: props.value,
-            data_selection_mode: selection_mode,
-            aria_multiselectable: is_multiple,
-        },
-    }
-}
-
-pub fn use_color_swatch_picker_item(
-    props: UseColorSwatchPickerItemProps,
-) -> UseColorSwatchPickerItemResult {
-    UseColorSwatchPickerItemResult {
-        value: props.value.clone(),
-        text_value: props.text_value.clone(),
-        is_selected: props.is_selected,
-        is_disabled: props.is_disabled,
-        color_swatch_picker_item_props: ColorSwatchPickerItemProps {
-            value: props.value.clone(),
-            text_value: props.text_value,
-            data_value: props.value,
-            selected: props.is_selected,
-            aria_selected: props.is_selected,
-            data_selected: props.is_selected,
-            disabled: props.is_disabled,
-            aria_disabled: props.is_disabled,
-        },
-    }
-}
-
 pub fn use_color_swatch(props: UseColorSwatchProps) -> UseColorSwatchResult {
     UseColorSwatchResult {
         label: props.label.clone(),
@@ -973,6 +785,7 @@ pub fn use_color_thumb(props: UseColorThumbProps) -> UseColorThumbResult {
             on_press: props.on_press,
             on_press_start: props.on_press_start,
             on_press_end: props.on_press_end,
+            on_press_up: props.on_press_up,
             disabled: props.is_disabled,
             aria_disabled: props.is_disabled,
         },
@@ -997,19 +810,6 @@ pub fn use_color_slider_value(props: UseColorRangeProps) -> GuiResult<JsonValue>
 
 pub fn use_color_wheel_value(props: UseColorRangeProps) -> GuiResult<JsonValue> {
     serialize_hook("use_color_wheel", use_color_wheel(props))
-}
-
-pub fn use_color_swatch_picker_value(props: UseColorSwatchPickerProps) -> GuiResult<JsonValue> {
-    serialize_hook("use_color_swatch_picker", use_color_swatch_picker(props))
-}
-
-pub fn use_color_swatch_picker_item_value(
-    props: UseColorSwatchPickerItemProps,
-) -> GuiResult<JsonValue> {
-    serialize_hook(
-        "use_color_swatch_picker_item",
-        use_color_swatch_picker_item(props),
-    )
 }
 
 pub fn use_color_swatch_value(props: UseColorSwatchProps) -> GuiResult<JsonValue> {

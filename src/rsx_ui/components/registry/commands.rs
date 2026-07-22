@@ -23,6 +23,9 @@ pub(super) fn with_command_components<S>(component: RsxComponent<S>) -> GuiResul
         ui_toggle_button,
         passthrough_contract()?
             .default_prop("onPress", "")?
+            .default_prop("onPressStart", "")?
+            .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isSelected", false)?
             .default_prop("actionValue", "")?
             .default_prop_value("actionPayload", JsonValue::Null)?,

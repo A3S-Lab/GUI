@@ -88,7 +88,8 @@ impl<D: NativeWidgetDriver> PlatformCommandExecutor for DriverCommandExecutor<D>
                 | PlatformCommand::Update { blueprint, .. } => self.ensure_backend(blueprint)?,
                 PlatformCommand::InsertChild { .. }
                 | PlatformCommand::Remove { .. }
-                | PlatformCommand::SetRoot { .. } => {}
+                | PlatformCommand::SetRoot { .. }
+                | PlatformCommand::RequestFocus { .. } => {}
             }
         }
         Ok(())
@@ -116,6 +117,9 @@ impl<D: NativeWidgetDriver> PlatformCommandExecutor for DriverCommandExecutor<D>
             }
             PlatformCommand::SetRoot { id } => {
                 self.driver.set_root_widget(*id)?;
+            }
+            PlatformCommand::RequestFocus { id } => {
+                self.driver.request_focus(*id)?;
             }
         }
         push_bounded(

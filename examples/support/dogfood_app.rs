@@ -262,15 +262,40 @@ pub fn dogfood_reduce(state: &mut DogfoodState, invocation: &ActionInvocation) -
         "focusNotes" => focus_field(state, "notes"),
         "blurNotes" => blur_field(state, "notes"),
         "setPriority" => {
-            state.priority = value_or(invocation, "Normal");
+            state.priority = selection_label(
+                invocation,
+                "Normal",
+                &[
+                    ("priority-low", "Low"),
+                    ("priority-normal", "Normal"),
+                    ("priority-high", "High"),
+                ],
+            );
             state.last_event = format!("Priority {}", state.priority);
         }
         "setAssignee" => {
-            state.assignee = value_or(invocation, "Ada");
+            state.assignee = selection_label(
+                invocation,
+                "Ada",
+                &[
+                    ("assignee-ada", "Ada"),
+                    ("assignee-grace", "Grace"),
+                    ("assignee-linus", "Linus"),
+                ],
+            );
             state.last_event = format!("Assigned to {}", state.assignee);
         }
         "setStage" => {
-            state.stage = value_or(invocation, "Build");
+            state.stage = selection_label(
+                invocation,
+                "Build",
+                &[
+                    ("stage-plan", "Plan"),
+                    ("stage-build", "Build"),
+                    ("stage-review", "Review"),
+                    ("stage-done", "Done"),
+                ],
+            );
             state.last_event = format!("Stage {}", state.stage);
         }
         "setCompleted" => {
@@ -414,6 +439,19 @@ fn value_or(invocation: &ActionInvocation, fallback: &str) -> String {
         .clone()
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| fallback.to_string())
+}
+
+fn selection_label(
+    invocation: &ActionInvocation,
+    fallback: &str,
+    options: &[(&str, &str)],
+) -> String {
+    let value = value_or(invocation, fallback);
+    options
+        .iter()
+        .find_map(|(key, label)| (value == *key || value == *label).then_some(*label))
+        .unwrap_or(value.as_str())
+        .to_string()
 }
 
 fn bool_value(invocation: &ActionInvocation) -> bool {

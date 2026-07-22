@@ -15,6 +15,7 @@ pub mod appkit;
 #[cfg(all(feature = "appkit-native", target_os = "macos"))]
 pub mod appkit_native;
 pub mod backend;
+pub mod capability;
 pub mod compiler;
 mod css_text;
 #[cfg(feature = "authoring")]
@@ -22,6 +23,7 @@ mod default_components;
 pub mod effect;
 pub mod error;
 pub mod event;
+pub mod focus;
 pub mod geometry;
 #[cfg(feature = "gtk4")]
 pub mod gtk4;
@@ -29,6 +31,8 @@ pub mod gtk4;
 pub mod gtk4_native;
 pub mod host;
 pub mod html;
+pub mod i18n;
+pub mod input;
 pub mod interaction;
 pub mod native;
 #[cfg(any(
@@ -47,6 +51,7 @@ pub mod rsx_app;
 #[cfg(feature = "design-system")]
 pub mod rsx_ui;
 pub mod runtime;
+pub mod selection;
 pub mod semantic_ui;
 pub mod style;
 pub mod svg;
@@ -57,11 +62,14 @@ pub mod winui;
 pub mod winui_native;
 
 pub use accessibility::{
-    AccessibilityDescriptionProps, AccessibilityNode, AccessibilityRelationshipProps,
-    AccessibilityRole, AccessibilityStateProps, AccessibilityStructureProps, AccessibilityTreeHost,
+    AccessibilityConformanceIssue, AccessibilityConformanceReport, AccessibilityDescriptionProps,
+    AccessibilityIssueCode, AccessibilityIssueSeverity, AccessibilityNode,
+    AccessibilityRelationshipProps, AccessibilityRole, AccessibilityStateProps,
+    AccessibilityStructureProps, AccessibilityTreeHost,
 };
 pub use app::{
-    BackgroundUpdate, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
+    ActionPropagation, BackgroundUpdate, NativeRuntimeApp, NativeRuntimeEventBatch,
+    NativeRuntimeEventResponse,
 };
 #[cfg(all(feature = "appkit", target_os = "macos"))]
 pub use appkit::{
@@ -82,6 +90,10 @@ pub use backend::{
     PlatformCommandExecutor, RecordedNativeObject, RecordingBackend, SurfaceHandleAdapter,
     DEFAULT_DRIVER_COMMAND_HISTORY_LIMIT, DEFAULT_RECORDING_COMMAND_HISTORY_LIMIT,
 };
+pub use capability::{
+    CapabilityHost, CapabilitySupport, NativeCapabilities, NativeCapabilityFeature,
+    NativeCapabilityIssue, NativeFeatureCapability, NativeRoleCapabilities, NATIVE_IR_VERSION,
+};
 pub use compiler::{
     CompiledBinding, CompiledBindingSource, CompiledProps, CompiledRsxNode, ComponentClassVariants,
     RsxCompilerBridge,
@@ -96,6 +108,7 @@ pub use event::{
     ActionInvocation, ActionRegistry, EventRouter, NativeEvent, NativeEventKind, RegisteredAction,
     DEFAULT_ACTION_INVOCATION_HISTORY_LIMIT,
 };
+pub use focus::{FocusManager, FocusNavigationMode, NativeFocusScope};
 pub use geometry::{Orientation, Rect, Size};
 #[cfg(feature = "gtk4")]
 pub use gtk4::{
@@ -104,12 +117,12 @@ pub use gtk4::{
 };
 #[cfg(all(feature = "gtk4-native", target_os = "linux"))]
 pub use gtk4_native::{
-    Gtk4DropDownItem, Gtk4EventWait, Gtk4NativeSurface, Gtk4NativeSurfaceAdapter,
-    Gtk4NativeSurfaceCommandExecutor, Gtk4NativeSurfaceDriver, Gtk4NotebookTab, Gtk4OsHandle,
-    Gtk4OsWidget, Gtk4RuntimeApp, Gtk4RuntimeHost,
+    Gtk4DropDownItem, Gtk4EventWait, Gtk4Menu, Gtk4MenuItem, Gtk4NativeSurface,
+    Gtk4NativeSurfaceAdapter, Gtk4NativeSurfaceCommandExecutor, Gtk4NativeSurfaceDriver,
+    Gtk4NotebookTab, Gtk4OsHandle, Gtk4OsWidget, Gtk4RuntimeApp, Gtk4RuntimeHost,
 };
 pub use host::{
-    HeadlessHost, HostFrameAck, HostNodeId, HostOperation, NativeHost,
+    HeadlessHost, HostFrameAck, HostNodeId, HostOperation, NativeHost, ProgrammaticFocusHost,
     DEFAULT_HEADLESS_OPERATION_HISTORY_LIMIT,
 };
 pub use html::{
@@ -117,6 +130,8 @@ pub use html::{
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
     HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS, HTML_TAG_METADATA_KEY,
 };
+pub use i18n::{direction_for_locale, direction_name, I18nManager, LocaleContext};
+pub use input::{NativeEventContext, NativeEventPosition, NativeInputModality, NativeKeyModifiers};
 pub use interaction::{
     InteractionChange, InteractionNodeState, InteractionState,
     DEFAULT_INTERACTION_CHANGE_HISTORY_LIMIT,
@@ -131,7 +146,7 @@ pub use platform::{
     PlatformPlanningHost, WinUiAdapter, DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
 };
 pub use protocol::*;
-pub use renderer::Renderer;
+pub use renderer::{MountedNodeSnapshot, Renderer};
 #[cfg(feature = "authoring")]
 pub use rsx::{parse_rsx, parse_rsx_file, parse_rsx_source};
 #[cfg(feature = "authoring")]
@@ -154,8 +169,8 @@ pub use rsx_app::{
     PressHook, PropHandle, RadioGroupHook, RadioHook, RangeCalendarHook, RangeHook, ReactiveHandle,
     RefHandle, ResourceHandle, RsxActionTransition, RsxComponent, RsxComponentContract,
     RsxDebugValue, RsxResource, RsxRouteTransition, RsxRouter, RsxTemplate, SelectDisplayHook,
-    SelectHook, SelectionIndicatorHook, SelectorHandle, SeparatorHook, SliderFillHook,
-    SliderOutputHook, SliderTrackHook, StateHandle, SyncExternalStore,
+    SelectHook, SelectionHook, SelectionIndicatorHook, SelectorHandle, SeparatorHook,
+    SliderFillHook, SliderOutputHook, SliderTrackHook, StateHandle, SyncExternalStore,
     SyncExternalStoreSubscription, TabHook, TabListHook, TabPanelHook, TableCaptionHook,
     TableCellHook, TableColumnHook, TableHook, TableRowHook, TableSectionHook, TextFieldHook,
     TextHook, TimeFieldHook, ToggleButtonGroupHook, ToggleButtonHook, ToggleHook, ToolbarHook,
@@ -239,6 +254,10 @@ pub use rsx_ui::{
     UiKeyboardTargetProps, UiLongPressableProps, UiMovableProps,
 };
 pub use runtime::{GuiRuntime, HandledNativeEvent};
+pub use selection::{
+    CollectionItem, CollectionKey, DisabledBehavior, EscapeKeyBehavior, KeyedCollection, Selection,
+    SelectionBehavior, SelectionManager,
+};
 pub use semantic_ui::{
     use_autocomplete, use_autocomplete_value, use_button, use_button_value, use_calendar,
     use_calendar_cell, use_calendar_cell_value, use_calendar_value, use_checkbox,

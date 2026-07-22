@@ -105,6 +105,7 @@ pub trait NativeWidgetDriver {
     ) -> GuiResult<()>;
     fn remove_widget(&mut self, id: HostNodeId) -> GuiResult<()>;
     fn set_root_widget(&mut self, id: HostNodeId) -> GuiResult<()>;
+    fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()>;
 }
 
 pub trait NativeHandleAdapter {
@@ -150,6 +151,7 @@ pub trait NativeHandleAdapter {
     }
     fn remove_handle(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()>;
     fn set_root_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()>;
+    fn request_focus_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()>;
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         Vec::new()
     }
@@ -180,6 +182,7 @@ pub trait NativeWidgetSurface {
     ) -> GuiResult<()>;
     fn remove_native_widget(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()>;
     fn set_native_root(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()>;
+    fn request_native_focus(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()>;
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         Vec::new()
     }

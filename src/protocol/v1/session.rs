@@ -81,6 +81,10 @@ impl<A: PlatformAdapter> NativeProtocolSession<A> {
         &self.runtime
     }
 
+    pub(in crate::protocol) fn truncate_action_invocations(&mut self, len: usize) {
+        self.runtime.actions_mut().truncate_invocations(len);
+    }
+
     pub fn active_frame_id(&self) -> Option<&str> {
         self.active_frame_id.as_deref()
     }
@@ -147,11 +151,21 @@ impl<A: PlatformAdapter> NativeProtocolSession<A> {
         self.root = Some(rendered.root);
         let commands = self.take_pending_commands_internal();
         let accessibility_tree = self.accessibility_tree();
+        let accessibility_issues = accessibility_tree
+            .as_ref()
+            .map(AccessibilityConformanceReport::validate)
+            .map(|report| report.issues)
+            .unwrap_or_default();
+        let capabilities = self.runtime.capabilities();
+        let capability_issues = capabilities.audit_mounted(&self.runtime.mounted_snapshot());
         Ok(NativeRenderResponse {
             frame_id: rendered.frame_id,
             root: rendered.root,
             commands,
             accessibility_tree,
+            capabilities,
+            capability_issues,
+            accessibility_issues,
         })
     }
 

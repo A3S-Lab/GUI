@@ -2,6 +2,14 @@ use crate::host::HostNodeId;
 use crate::native::{effective_input_type, NativeElement, NativeRole, ValueSensitivity};
 use serde::{Deserialize, Serialize};
 
+mod conformance;
+pub use conformance::{
+    AccessibilityConformanceIssue, AccessibilityConformanceReport, AccessibilityIssueCode,
+    AccessibilityIssueSeverity,
+};
+#[cfg(test)]
+mod conformance_tests;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AccessibilityRole {

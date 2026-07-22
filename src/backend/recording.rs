@@ -25,6 +25,7 @@ pub struct RecordedNativeObject {
 #[derive(Debug)]
 pub struct RecordingBackend {
     root: Option<HostNodeId>,
+    focused: Option<HostNodeId>,
     objects: BTreeMap<HostNodeId, RecordedNativeObject>,
     commands: Vec<PlatformCommand>,
     command_history_limit: usize,
@@ -41,6 +42,7 @@ impl RecordingBackend {
     pub fn with_command_history_limit(command_history_limit: usize) -> Self {
         Self {
             root: None,
+            focused: None,
             objects: BTreeMap::new(),
             commands: Vec::new(),
             command_history_limit,
@@ -50,6 +52,10 @@ impl RecordingBackend {
 
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused
     }
 
     pub fn object(&self, id: HostNodeId) -> Option<&RecordedNativeObject> {
@@ -213,10 +219,20 @@ impl PlatformCommandExecutor for RecordingBackend {
                 {
                     self.root = None;
                 }
+                if self
+                    .focused
+                    .is_some_and(|focused| removed_ids.contains(&focused))
+                {
+                    self.focused = None;
+                }
             }
             PlatformCommand::SetRoot { id } => {
                 self.ensure_object(*id)?;
                 self.root = Some(*id);
+            }
+            PlatformCommand::RequestFocus { id } => {
+                self.ensure_object(*id)?;
+                self.focused = Some(*id);
             }
         }
         if self.command_history_limit > 0 {

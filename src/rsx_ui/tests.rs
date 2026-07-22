@@ -356,8 +356,10 @@ fn rsx_ui_router_components_render_active_route_and_navigation_actions() {
             &mut state,
             &ActionInvocation {
                 node: HostNodeId::new(1),
+                current_target: None,
                 action: "navigate".to_string(),
                 event: NativeEventKind::Press,
+                context: Default::default(),
                 value: Some("/settings".to_string()),
             },
         )
@@ -828,6 +830,8 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
             isPressed={true}
             isLongPressed={true}
             actionValue="long-press"
+            accessibilityDescription="Hold to open actions"
+            threshold={720}
           >
             Long press
           </UiLongPressable>
@@ -1208,6 +1212,22 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
         assert_eq!(
             long_pressable_native
                 .props
+                .metadata
+                .get("threshold")
+                .map(String::as_str),
+            Some("720")
+        );
+        assert_eq!(
+            long_pressable_native
+                .props
+                .accessibility_description
+                .description
+                .as_deref(),
+            Some("Hold to open actions")
+        );
+        assert_eq!(
+            long_pressable_native
+                .props
                 .web
                 .events
                 .get("onLongPress")
@@ -1279,7 +1299,16 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
         );
         let focus_scope_native = bridge.lower_to_native(focus_scope).unwrap();
         assert_eq!(focus_scope_native.role, NativeRole::View);
-        assert!(focus_scope_native.props.auto_focus);
+        assert!(!focus_scope_native.props.auto_focus);
+        assert_eq!(
+            focus_scope_native
+                .props
+                .web
+                .attributes
+                .get("data-auto-focus")
+                .map(String::as_str),
+            Some("true")
+        );
         assert_eq!(focus_scope_native.props.tab_index, Some(4));
         assert_eq!(
             bridge.lower_to_native(visually_hidden).unwrap().role,

@@ -30,6 +30,7 @@ fn native_protocol_app_reduces_actions_and_renders_next_frame() {
 }
 
 #[test]
+#[cfg(feature = "authoring")]
 fn native_protocol_app_resolves_rsx_state_bindings_after_reducer() {
     let mut app = NativeProtocolApp::new(
         Gtk4Adapter,
@@ -137,6 +138,7 @@ fn protocol_renders_frame_and_dispatches_native_event_to_action() {
 }
 
 #[test]
+#[cfg(feature = "authoring")]
 fn rsx_source_frame_renders_tailwind_to_native_widgets_without_node_or_bun() {
     let frame = UiFrame::from_rsx_source(
             "rsx-native",
@@ -178,6 +180,7 @@ fn rsx_source_frame_renders_tailwind_to_native_widgets_without_node_or_bun() {
 }
 
 #[test]
+#[cfg(feature = "authoring")]
 fn rsx_source_frame_rejects_unresolved_state_bindings() {
     let error =
         UiFrame::from_rsx_source("unresolved", r#"<Text key="title" label={state.title} />"#)

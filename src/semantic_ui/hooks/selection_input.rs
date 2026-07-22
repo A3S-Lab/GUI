@@ -1,55 +1,34 @@
+use std::collections::BTreeSet;
+
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 
 use crate::error::{GuiError, GuiResult};
+use crate::selection::{CollectionKey, Selection};
 
+use super::selection::{use_selection, UseSelectionProps};
 use super::serde_helpers::is_false;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum SelectionInputMode {
-    None,
-    #[default]
-    Single,
-    Multiple,
-}
+mod display;
+pub use display::{
+    use_combo_box_display, use_combo_box_display_value, use_select_display,
+    use_select_display_value, SelectValueProps, UseComboBoxDisplayProps, UseComboBoxDisplayResult,
+    UseSelectDisplayProps, UseSelectDisplayResult,
+};
 
-impl SelectionInputMode {
-    fn from_option(value: Option<impl Into<String>>) -> Self {
-        match value
-            .map(Into::into)
-            .map(|value| value.to_ascii_lowercase())
-            .as_deref()
-        {
-            Some("none") => Self::None,
-            Some("multiple") => Self::Multiple,
-            _ => Self::Single,
-        }
-    }
-
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Single => "single",
-            Self::Multiple => "multiple",
-        }
-    }
-}
+pub type SelectionInputMode = crate::selection::SelectionMode;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UseComboBoxProps {
     label: Option<String>,
-    value: Option<String>,
     input_value: Option<String>,
     placeholder: Option<String>,
     on_change: Option<String>,
-    on_selection_change: Option<String>,
     on_open_change: Option<String>,
     is_open: bool,
-    is_disabled: bool,
     is_required: bool,
     is_invalid: bool,
-    is_read_only: bool,
-    selection_mode: SelectionInputMode,
+    selection: UseSelectionProps,
 }
 
 impl UseComboBoxProps {
@@ -63,7 +42,26 @@ impl UseComboBoxProps {
     }
 
     pub fn value(mut self, value: Option<impl Into<String>>) -> Self {
-        self.value = non_empty(value);
+        self.selection = self.selection.value(value);
+        self
+    }
+
+    pub fn selected_keys(mut self, selected_keys: impl Into<Option<Selection>>) -> Self {
+        self.selection = self.selection.selected_keys(selected_keys);
+        self
+    }
+
+    pub fn default_selected_keys(mut self, selected_keys: impl Into<Option<Selection>>) -> Self {
+        self.selection = self.selection.default_selected_keys(selected_keys);
+        self
+    }
+
+    pub fn disabled_keys<I, K>(mut self, disabled_keys: I) -> Self
+    where
+        I: IntoIterator<Item = K>,
+        K: Into<CollectionKey>,
+    {
+        self.selection = self.selection.disabled_keys(disabled_keys);
         self
     }
 
@@ -83,7 +81,7 @@ impl UseComboBoxProps {
     }
 
     pub fn on_selection_change(mut self, action: Option<impl Into<String>>) -> Self {
-        self.on_selection_change = non_empty(action);
+        self.selection = self.selection.on_selection_change(action);
         self
     }
 
@@ -98,7 +96,7 @@ impl UseComboBoxProps {
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
-        self.is_disabled = disabled;
+        self.selection = self.selection.disabled(disabled);
         self
     }
 
@@ -113,12 +111,27 @@ impl UseComboBoxProps {
     }
 
     pub fn read_only(mut self, read_only: bool) -> Self {
-        self.is_read_only = read_only;
+        self.selection = self.selection.read_only(read_only);
         self
     }
 
     pub fn selection_mode(mut self, selection_mode: Option<impl Into<String>>) -> Self {
-        self.selection_mode = SelectionInputMode::from_option(selection_mode);
+        self.selection = self.selection.selection_mode(selection_mode);
+        self
+    }
+
+    pub fn selection_behavior(mut self, selection_behavior: Option<impl AsRef<str>>) -> Self {
+        self.selection = self.selection.selection_behavior(selection_behavior);
+        self
+    }
+
+    pub fn disabled_behavior(mut self, disabled_behavior: Option<impl AsRef<str>>) -> Self {
+        self.selection = self.selection.disabled_behavior(disabled_behavior);
+        self
+    }
+
+    pub fn disallow_empty_selection(mut self, disallow: bool) -> Self {
+        self.selection = self.selection.disallow_empty_selection(disallow);
         self
     }
 }
@@ -130,11 +143,14 @@ pub struct UseComboBoxResult {
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub selected_value: Option<String>,
+    pub selected_keys: Selection,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_value: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub placeholder: Option<String>,
     pub selection_mode: &'static str,
+    pub selection_behavior: &'static str,
+    pub disabled_behavior: &'static str,
     pub is_open: bool,
     pub is_disabled: bool,
     pub is_required: bool,
@@ -152,6 +168,21 @@ pub struct ComboBoxProps {
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
+    #[serde(rename = "selectedKeys", skip_serializing_if = "Option::is_none")]
+    pub selected_keys: Option<Selection>,
+    #[serde(
+        rename = "defaultSelectedKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_selected_keys: Option<Selection>,
+    #[serde(rename = "disabledKeys", skip_serializing_if = "BTreeSet::is_empty")]
+    pub disabled_keys: BTreeSet<CollectionKey>,
+    #[serde(rename = "selectionBehavior")]
+    pub selection_behavior: &'static str,
+    #[serde(rename = "disabledBehavior")]
+    pub disabled_behavior: &'static str,
+    #[serde(rename = "disallowEmptySelection", skip_serializing_if = "is_false")]
+    pub disallow_empty_selection: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub placeholder: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -241,16 +272,12 @@ pub struct SelectionInputTriggerProps {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UseAutocompleteProps {
     label: Option<String>,
-    value: Option<String>,
     input_value: Option<String>,
     placeholder: Option<String>,
     on_change: Option<String>,
-    on_selection_change: Option<String>,
-    is_disabled: bool,
     is_required: bool,
     is_invalid: bool,
-    is_read_only: bool,
-    selection_mode: SelectionInputMode,
+    selection: UseSelectionProps,
 }
 
 impl UseAutocompleteProps {
@@ -264,7 +291,26 @@ impl UseAutocompleteProps {
     }
 
     pub fn value(mut self, value: Option<impl Into<String>>) -> Self {
-        self.value = non_empty(value);
+        self.selection = self.selection.value(value);
+        self
+    }
+
+    pub fn selected_keys(mut self, selected_keys: impl Into<Option<Selection>>) -> Self {
+        self.selection = self.selection.selected_keys(selected_keys);
+        self
+    }
+
+    pub fn default_selected_keys(mut self, selected_keys: impl Into<Option<Selection>>) -> Self {
+        self.selection = self.selection.default_selected_keys(selected_keys);
+        self
+    }
+
+    pub fn disabled_keys<I, K>(mut self, disabled_keys: I) -> Self
+    where
+        I: IntoIterator<Item = K>,
+        K: Into<CollectionKey>,
+    {
+        self.selection = self.selection.disabled_keys(disabled_keys);
         self
     }
 
@@ -284,12 +330,12 @@ impl UseAutocompleteProps {
     }
 
     pub fn on_selection_change(mut self, action: Option<impl Into<String>>) -> Self {
-        self.on_selection_change = non_empty(action);
+        self.selection = self.selection.on_selection_change(action);
         self
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
-        self.is_disabled = disabled;
+        self.selection = self.selection.disabled(disabled);
         self
     }
 
@@ -304,12 +350,27 @@ impl UseAutocompleteProps {
     }
 
     pub fn read_only(mut self, read_only: bool) -> Self {
-        self.is_read_only = read_only;
+        self.selection = self.selection.read_only(read_only);
         self
     }
 
     pub fn selection_mode(mut self, selection_mode: Option<impl Into<String>>) -> Self {
-        self.selection_mode = SelectionInputMode::from_option(selection_mode);
+        self.selection = self.selection.selection_mode(selection_mode);
+        self
+    }
+
+    pub fn selection_behavior(mut self, selection_behavior: Option<impl AsRef<str>>) -> Self {
+        self.selection = self.selection.selection_behavior(selection_behavior);
+        self
+    }
+
+    pub fn disabled_behavior(mut self, disabled_behavior: Option<impl AsRef<str>>) -> Self {
+        self.selection = self.selection.disabled_behavior(disabled_behavior);
+        self
+    }
+
+    pub fn disallow_empty_selection(mut self, disallow: bool) -> Self {
+        self.selection = self.selection.disallow_empty_selection(disallow);
         self
     }
 }
@@ -321,11 +382,14 @@ pub struct UseAutocompleteResult {
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub selected_value: Option<String>,
+    pub selected_keys: Selection,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_value: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub placeholder: Option<String>,
     pub selection_mode: &'static str,
+    pub selection_behavior: &'static str,
+    pub disabled_behavior: &'static str,
     pub is_disabled: bool,
     pub is_required: bool,
     pub is_invalid: bool,
@@ -341,6 +405,21 @@ pub struct AutocompleteProps {
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
+    #[serde(rename = "selectedKeys", skip_serializing_if = "Option::is_none")]
+    pub selected_keys: Option<Selection>,
+    #[serde(
+        rename = "defaultSelectedKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_selected_keys: Option<Selection>,
+    #[serde(rename = "disabledKeys", skip_serializing_if = "BTreeSet::is_empty")]
+    pub disabled_keys: BTreeSet<CollectionKey>,
+    #[serde(rename = "selectionBehavior")]
+    pub selection_behavior: &'static str,
+    #[serde(rename = "disabledBehavior")]
+    pub disabled_behavior: &'static str,
+    #[serde(rename = "disallowEmptySelection", skip_serializing_if = "is_false")]
+    pub disallow_empty_selection: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub placeholder: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -377,16 +456,12 @@ pub struct AutocompleteProps {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UseSelectProps {
     label: Option<String>,
-    value: Option<String>,
     placeholder: Option<String>,
-    on_selection_change: Option<String>,
     on_open_change: Option<String>,
     is_open: bool,
-    is_disabled: bool,
     is_required: bool,
     is_invalid: bool,
-    is_read_only: bool,
-    selection_mode: SelectionInputMode,
+    selection: UseSelectionProps,
 }
 
 impl UseSelectProps {
@@ -400,7 +475,26 @@ impl UseSelectProps {
     }
 
     pub fn value(mut self, value: Option<impl Into<String>>) -> Self {
-        self.value = non_empty(value);
+        self.selection = self.selection.value(value);
+        self
+    }
+
+    pub fn selected_keys(mut self, selected_keys: impl Into<Option<Selection>>) -> Self {
+        self.selection = self.selection.selected_keys(selected_keys);
+        self
+    }
+
+    pub fn default_selected_keys(mut self, selected_keys: impl Into<Option<Selection>>) -> Self {
+        self.selection = self.selection.default_selected_keys(selected_keys);
+        self
+    }
+
+    pub fn disabled_keys<I, K>(mut self, disabled_keys: I) -> Self
+    where
+        I: IntoIterator<Item = K>,
+        K: Into<CollectionKey>,
+    {
+        self.selection = self.selection.disabled_keys(disabled_keys);
         self
     }
 
@@ -410,7 +504,7 @@ impl UseSelectProps {
     }
 
     pub fn on_selection_change(mut self, action: Option<impl Into<String>>) -> Self {
-        self.on_selection_change = non_empty(action);
+        self.selection = self.selection.on_selection_change(action);
         self
     }
 
@@ -425,7 +519,7 @@ impl UseSelectProps {
     }
 
     pub fn disabled(mut self, disabled: bool) -> Self {
-        self.is_disabled = disabled;
+        self.selection = self.selection.disabled(disabled);
         self
     }
 
@@ -440,12 +534,27 @@ impl UseSelectProps {
     }
 
     pub fn read_only(mut self, read_only: bool) -> Self {
-        self.is_read_only = read_only;
+        self.selection = self.selection.read_only(read_only);
         self
     }
 
     pub fn selection_mode(mut self, selection_mode: Option<impl Into<String>>) -> Self {
-        self.selection_mode = SelectionInputMode::from_option(selection_mode);
+        self.selection = self.selection.selection_mode(selection_mode);
+        self
+    }
+
+    pub fn selection_behavior(mut self, selection_behavior: Option<impl AsRef<str>>) -> Self {
+        self.selection = self.selection.selection_behavior(selection_behavior);
+        self
+    }
+
+    pub fn disabled_behavior(mut self, disabled_behavior: Option<impl AsRef<str>>) -> Self {
+        self.selection = self.selection.disabled_behavior(disabled_behavior);
+        self
+    }
+
+    pub fn disallow_empty_selection(mut self, disallow: bool) -> Self {
+        self.selection = self.selection.disallow_empty_selection(disallow);
         self
     }
 }
@@ -457,9 +566,12 @@ pub struct UseSelectResult {
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub selected_value: Option<String>,
+    pub selected_keys: Selection,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub placeholder: Option<String>,
     pub selection_mode: &'static str,
+    pub selection_behavior: &'static str,
+    pub disabled_behavior: &'static str,
     pub is_open: bool,
     pub is_disabled: bool,
     pub is_required: bool,
@@ -476,6 +588,21 @@ pub struct SelectProps {
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
+    #[serde(rename = "selectedKeys", skip_serializing_if = "Option::is_none")]
+    pub selected_keys: Option<Selection>,
+    #[serde(
+        rename = "defaultSelectedKeys",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_selected_keys: Option<Selection>,
+    #[serde(rename = "disabledKeys", skip_serializing_if = "BTreeSet::is_empty")]
+    pub disabled_keys: BTreeSet<CollectionKey>,
+    #[serde(rename = "selectionBehavior")]
+    pub selection_behavior: &'static str,
+    #[serde(rename = "disabledBehavior")]
+    pub disabled_behavior: &'static str,
+    #[serde(rename = "disallowEmptySelection", skip_serializing_if = "is_false")]
+    pub disallow_empty_selection: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub placeholder: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -511,267 +638,194 @@ pub struct SelectProps {
     pub aria_multiselectable: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct UseSelectDisplayProps {
-    value: Option<String>,
-    placeholder: Option<String>,
-}
-
-impl UseSelectDisplayProps {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn value(mut self, value: Option<impl Into<String>>) -> Self {
-        self.value = non_empty(value);
-        self
-    }
-
-    pub fn placeholder(mut self, placeholder: Option<impl Into<String>>) -> Self {
-        self.placeholder = non_empty(placeholder);
-        self
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UseSelectDisplayResult {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub display_value: Option<String>,
-    pub is_placeholder: bool,
-    pub select_value_props: SelectValueProps,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct UseComboBoxDisplayProps {
-    value: Option<String>,
-    placeholder: Option<String>,
-}
-
-impl UseComboBoxDisplayProps {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn value(mut self, value: Option<impl Into<String>>) -> Self {
-        self.value = non_empty(value);
-        self
-    }
-
-    pub fn placeholder(mut self, placeholder: Option<impl Into<String>>) -> Self {
-        self.placeholder = non_empty(placeholder);
-        self
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UseComboBoxDisplayResult {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub display_value: Option<String>,
-    pub is_placeholder: bool,
-    pub combo_box_value_props: SelectValueProps,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SelectValueProps {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub placeholder: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
-    #[serde(rename = "data-value", skip_serializing_if = "Option::is_none")]
-    pub data_value: Option<String>,
-    #[serde(rename = "data-placeholder")]
-    pub data_placeholder: bool,
-}
-
 pub fn use_combo_box(props: UseComboBoxProps) -> UseComboBoxResult {
-    let selection_mode = props.selection_mode.as_str();
-    let is_multiple = props.selection_mode == SelectionInputMode::Multiple;
+    let selection = use_selection(props.selection);
+    let selection_mode = selection.selection_mode;
+    let selection_behavior = selection.selection_behavior;
+    let disabled_behavior = selection.disabled_behavior;
+    let selected_value = selection.selected_value;
+    let selected_keys = selection.selected_keys;
+    let selection_props = selection.selection_props;
     let trigger = selection_input_trigger_props(
         props.is_open,
         props.on_open_change.clone(),
-        props.is_disabled,
+        selection_props.disabled,
     );
 
     UseComboBoxResult {
         label: props.label.clone(),
-        selected_value: props.value.clone(),
+        selected_value,
+        selected_keys,
         input_value: props.input_value.clone(),
         placeholder: props.placeholder.clone(),
         selection_mode,
+        selection_behavior,
+        disabled_behavior,
         is_open: props.is_open,
-        is_disabled: props.is_disabled,
+        is_disabled: selection_props.disabled,
         is_required: props.is_required,
         is_invalid: props.is_invalid,
-        is_read_only: props.is_read_only,
+        is_read_only: selection_props.read_only,
         combo_box_props: ComboBoxProps {
             label: props.label,
-            value: props.value.clone(),
+            value: selection_props.value,
+            selected_keys: selection_props.selected_keys,
+            default_selected_keys: selection_props.default_selected_keys,
+            disabled_keys: selection_props.disabled_keys,
+            selection_behavior: selection_props.selection_behavior,
+            disabled_behavior: selection_props.disabled_behavior,
+            disallow_empty_selection: selection_props.disallow_empty_selection,
             placeholder: props.placeholder.clone(),
-            on_selection_change: props.on_selection_change,
-            disabled: props.is_disabled,
-            aria_disabled: props.is_disabled,
+            on_selection_change: selection_props.on_selection_change,
+            disabled: selection_props.disabled,
+            aria_disabled: selection_props.aria_disabled,
             required: props.is_required,
             aria_required: props.is_required,
             invalid: props.is_invalid,
             aria_invalid: props.is_invalid,
-            read_only: props.is_read_only,
-            aria_read_only: props.is_read_only,
+            read_only: selection_props.read_only,
+            aria_read_only: selection_props.aria_read_only,
             aria_expanded: props.is_open,
             data_open: props.is_open,
-            data_selected_value: props.value,
+            data_selected_value: selection_props.data_selected_value,
             data_input_value: props.input_value.clone(),
-            data_selection_mode: selection_mode,
-            aria_multiselectable: is_multiple,
+            data_selection_mode: selection_props.data_selection_mode,
+            aria_multiselectable: selection_props.aria_multiselectable,
         },
         combo_box_input_props: ComboBoxInputProps {
             value: props.input_value,
             placeholder: props.placeholder,
             on_change: props.on_change.clone(),
             on_input: props.on_change,
-            disabled: props.is_disabled,
-            aria_disabled: props.is_disabled,
+            disabled: selection_props.disabled,
+            aria_disabled: selection_props.aria_disabled,
             required: props.is_required,
             aria_required: props.is_required,
             invalid: props.is_invalid,
             aria_invalid: props.is_invalid,
-            read_only: props.is_read_only,
-            aria_read_only: props.is_read_only,
+            read_only: selection_props.read_only,
+            aria_read_only: selection_props.aria_read_only,
         },
         combo_box_trigger_props: trigger,
     }
 }
 
 pub fn use_autocomplete(props: UseAutocompleteProps) -> UseAutocompleteResult {
-    let selection_mode = props.selection_mode.as_str();
-    let is_multiple = props.selection_mode == SelectionInputMode::Multiple;
+    let selection = use_selection(props.selection);
+    let selection_mode = selection.selection_mode;
+    let selection_behavior = selection.selection_behavior;
+    let disabled_behavior = selection.disabled_behavior;
+    let selected_value = selection.selected_value;
+    let selected_keys = selection.selected_keys;
+    let selection_props = selection.selection_props;
 
     UseAutocompleteResult {
         label: props.label.clone(),
-        selected_value: props.value.clone(),
+        selected_value,
+        selected_keys,
         input_value: props.input_value.clone(),
         placeholder: props.placeholder.clone(),
         selection_mode,
-        is_disabled: props.is_disabled,
+        selection_behavior,
+        disabled_behavior,
+        is_disabled: selection_props.disabled,
         is_required: props.is_required,
         is_invalid: props.is_invalid,
-        is_read_only: props.is_read_only,
+        is_read_only: selection_props.read_only,
         autocomplete_props: AutocompleteProps {
             label: props.label,
-            value: props.value.clone(),
+            value: selection_props.value,
+            selected_keys: selection_props.selected_keys,
+            default_selected_keys: selection_props.default_selected_keys,
+            disabled_keys: selection_props.disabled_keys,
+            selection_behavior: selection_props.selection_behavior,
+            disabled_behavior: selection_props.disabled_behavior,
+            disallow_empty_selection: selection_props.disallow_empty_selection,
             placeholder: props.placeholder.clone(),
-            on_selection_change: props.on_selection_change,
-            disabled: props.is_disabled,
-            aria_disabled: props.is_disabled,
+            on_selection_change: selection_props.on_selection_change,
+            disabled: selection_props.disabled,
+            aria_disabled: selection_props.aria_disabled,
             required: props.is_required,
             aria_required: props.is_required,
             invalid: props.is_invalid,
             aria_invalid: props.is_invalid,
-            read_only: props.is_read_only,
-            aria_read_only: props.is_read_only,
-            data_selected_value: props.value,
+            read_only: selection_props.read_only,
+            aria_read_only: selection_props.aria_read_only,
+            data_selected_value: selection_props.data_selected_value,
             data_input_value: props.input_value.clone(),
-            data_selection_mode: selection_mode,
-            aria_multiselectable: is_multiple,
+            data_selection_mode: selection_props.data_selection_mode,
+            aria_multiselectable: selection_props.aria_multiselectable,
         },
         autocomplete_input_props: ComboBoxInputProps {
             value: props.input_value,
             placeholder: props.placeholder,
             on_change: props.on_change.clone(),
             on_input: props.on_change,
-            disabled: props.is_disabled,
-            aria_disabled: props.is_disabled,
+            disabled: selection_props.disabled,
+            aria_disabled: selection_props.aria_disabled,
             required: props.is_required,
             aria_required: props.is_required,
             invalid: props.is_invalid,
             aria_invalid: props.is_invalid,
-            read_only: props.is_read_only,
-            aria_read_only: props.is_read_only,
+            read_only: selection_props.read_only,
+            aria_read_only: selection_props.aria_read_only,
         },
     }
 }
 
 pub fn use_select(props: UseSelectProps) -> UseSelectResult {
-    let selection_mode = props.selection_mode.as_str();
-    let is_multiple = props.selection_mode == SelectionInputMode::Multiple;
+    let selection = use_selection(props.selection);
+    let selection_mode = selection.selection_mode;
+    let selection_behavior = selection.selection_behavior;
+    let disabled_behavior = selection.disabled_behavior;
+    let selected_value = selection.selected_value;
+    let selected_keys = selection.selected_keys;
+    let selection_props = selection.selection_props;
     let trigger = selection_input_trigger_props(
         props.is_open,
         props.on_open_change.clone(),
-        props.is_disabled,
+        selection_props.disabled,
     );
 
     UseSelectResult {
         label: props.label.clone(),
-        selected_value: props.value.clone(),
+        selected_value,
+        selected_keys,
         placeholder: props.placeholder.clone(),
         selection_mode,
+        selection_behavior,
+        disabled_behavior,
         is_open: props.is_open,
-        is_disabled: props.is_disabled,
+        is_disabled: selection_props.disabled,
         is_required: props.is_required,
         is_invalid: props.is_invalid,
-        is_read_only: props.is_read_only,
+        is_read_only: selection_props.read_only,
         select_props: SelectProps {
             label: props.label,
-            value: props.value.clone(),
+            value: selection_props.value,
+            selected_keys: selection_props.selected_keys,
+            default_selected_keys: selection_props.default_selected_keys,
+            disabled_keys: selection_props.disabled_keys,
+            selection_behavior: selection_props.selection_behavior,
+            disabled_behavior: selection_props.disabled_behavior,
+            disallow_empty_selection: selection_props.disallow_empty_selection,
             placeholder: props.placeholder,
-            on_selection_change: props.on_selection_change,
-            disabled: props.is_disabled,
-            aria_disabled: props.is_disabled,
+            on_selection_change: selection_props.on_selection_change,
+            disabled: selection_props.disabled,
+            aria_disabled: selection_props.aria_disabled,
             required: props.is_required,
             aria_required: props.is_required,
             invalid: props.is_invalid,
             aria_invalid: props.is_invalid,
-            read_only: props.is_read_only,
-            aria_read_only: props.is_read_only,
+            read_only: selection_props.read_only,
+            aria_read_only: selection_props.aria_read_only,
             aria_expanded: props.is_open,
             data_open: props.is_open,
-            data_selected_value: props.value,
-            data_selection_mode: selection_mode,
-            aria_multiselectable: is_multiple,
+            data_selected_value: selection_props.data_selected_value,
+            data_selection_mode: selection_props.data_selection_mode,
+            aria_multiselectable: selection_props.aria_multiselectable,
         },
         select_trigger_props: trigger,
-    }
-}
-
-pub fn use_select_display(props: UseSelectDisplayProps) -> UseSelectDisplayResult {
-    let (display_value, is_placeholder) =
-        selection_value_display(props.value.clone(), props.placeholder.clone());
-    UseSelectDisplayResult {
-        value: props.value.clone(),
-        display_value: display_value.clone(),
-        is_placeholder,
-        select_value_props: SelectValueProps {
-            value: props.value.clone(),
-            placeholder: props.placeholder,
-            label: display_value,
-            data_value: props.value,
-            data_placeholder: is_placeholder,
-        },
-    }
-}
-
-pub fn use_combo_box_display(props: UseComboBoxDisplayProps) -> UseComboBoxDisplayResult {
-    let (display_value, is_placeholder) =
-        selection_value_display(props.value.clone(), props.placeholder.clone());
-    UseComboBoxDisplayResult {
-        value: props.value.clone(),
-        display_value: display_value.clone(),
-        is_placeholder,
-        combo_box_value_props: SelectValueProps {
-            value: props.value.clone(),
-            placeholder: props.placeholder,
-            label: display_value,
-            data_value: props.value,
-            data_placeholder: is_placeholder,
-        },
     }
 }
 
@@ -785,14 +839,6 @@ pub fn use_autocomplete_value(props: UseAutocompleteProps) -> GuiResult<JsonValu
 
 pub fn use_select_value(props: UseSelectProps) -> GuiResult<JsonValue> {
     serialize_hook("use_select", use_select(props))
-}
-
-pub fn use_select_display_value(props: UseSelectDisplayProps) -> GuiResult<JsonValue> {
-    serialize_hook("use_select_display", use_select_display(props))
-}
-
-pub fn use_combo_box_display_value(props: UseComboBoxDisplayProps) -> GuiResult<JsonValue> {
-    serialize_hook("use_combo_box_display", use_combo_box_display(props))
 }
 
 fn selection_input_trigger_props(
@@ -809,16 +855,6 @@ fn selection_input_trigger_props(
         on_press: on_open_change,
         disabled: is_disabled,
         aria_disabled: is_disabled,
-    }
-}
-
-fn selection_value_display(
-    value: Option<String>,
-    placeholder: Option<String>,
-) -> (Option<String>, bool) {
-    match value {
-        Some(value) if !value.is_empty() => (Some(value), false),
-        _ => (placeholder, true),
     }
 }
 

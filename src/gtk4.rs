@@ -1,4 +1,4 @@
-use std::cell::{Ref, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
@@ -186,9 +186,9 @@ impl Gtk4WidgetKind {
             "gtk::CheckButton" | "gtk::CheckButton(radio)" => Ok(Gtk4WidgetKind::CheckButton),
             "gtk::Switch" => Ok(Gtk4WidgetKind::Switch),
             "gtk::DropDown" => Ok(Gtk4WidgetKind::DropDown),
-            "gtk::ListBox" => Ok(Gtk4WidgetKind::ListBox),
+            "gtk::ListBox" | "gtk::TreeListModel" => Ok(Gtk4WidgetKind::ListBox),
             "gtk::ScrolledWindow+Box" => Ok(Gtk4WidgetKind::ScrolledWindow),
-            "gtk::ListBoxRow" => Ok(Gtk4WidgetKind::ListBoxRow),
+            "gtk::ListBoxRow" | "gtk::TreeExpander" => Ok(Gtk4WidgetKind::ListBoxRow),
             "gtk::Dialog" => Ok(Gtk4WidgetKind::Dialog),
             "gtk::Popover" => Ok(Gtk4WidgetKind::Popover),
             "gtk::Notebook" => Ok(Gtk4WidgetKind::Notebook),
@@ -234,6 +234,7 @@ impl std::fmt::Debug for Gtk4NativeObject {
 #[derive(Debug, Default)]
 pub struct Gtk4WidgetDriver {
     root: Option<HostNodeId>,
+    focused: Option<HostNodeId>,
     objects: BTreeMap<HostNodeId, Gtk4NativeObject>,
     events: Vec<NativeEvent>,
 }
@@ -286,7 +287,15 @@ impl std::fmt::Debug for Gtk4NativeHandleState {
 }
 
 #[derive(Debug, Default)]
-pub struct Gtk4HandleAdapter;
+pub struct Gtk4HandleAdapter {
+    focused: Rc<Cell<Option<HostNodeId>>>,
+}
+
+impl Gtk4HandleAdapter {
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused.get()
+    }
+}
 
 pub type Gtk4HandleDriver = HandleWidgetDriver<Gtk4HandleAdapter>;
 pub type Gtk4HandleCommandExecutor = DriverCommandExecutor<Gtk4HandleDriver>;
@@ -294,6 +303,10 @@ pub type Gtk4HandleCommandExecutor = DriverCommandExecutor<Gtk4HandleDriver>;
 impl Gtk4WidgetDriver {
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused
     }
 
     pub fn object(&self, id: HostNodeId) -> Option<&Gtk4NativeObject> {
@@ -481,12 +494,26 @@ impl NativeHandleAdapter for Gtk4HandleAdapter {
         Ok(())
     }
 
-    fn remove_handle(&mut self, _id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
+    fn remove_handle(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()> {
         handle.state.borrow_mut().children.clear();
+        if self.focused.get() == Some(id) {
+            self.focused.set(None);
+        }
         Ok(())
     }
 
     fn set_root_handle(&mut self, _id: HostNodeId, _handle: &Self::Handle) -> GuiResult<()> {
+        Ok(())
+    }
+
+    fn request_focus_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
+        if handle.state.borrow().id != id {
+            return Err(GuiError::host(format!(
+                "GTK4 handle id does not match focus target {}",
+                id.get()
+            )));
+        }
+        self.focused.set(Some(id));
         Ok(())
     }
 }
@@ -588,12 +615,24 @@ impl NativeWidgetDriver for Gtk4WidgetDriver {
         {
             self.root = None;
         }
+        if self
+            .focused
+            .is_some_and(|focused| removed_ids.contains(&focused))
+        {
+            self.focused = None;
+        }
         Ok(())
     }
 
     fn set_root_widget(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.ensure_object(id)?;
         self.root = Some(id);
+        Ok(())
+    }
+
+    fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
+        self.ensure_object(id)?;
+        self.focused = Some(id);
         Ok(())
     }
 }

@@ -11,6 +11,8 @@ pub struct UiLongPressableProps {
     pub on_long_press: Option<String>,
     pub action_value: String,
     pub action_payload: JsonValue,
+    pub accessibility_description: String,
+    pub threshold: u64,
     pub is_disabled: bool,
     pub is_pressed: bool,
     pub is_long_pressed: bool,
@@ -25,6 +27,8 @@ impl Default for UiLongPressableProps {
             on_long_press: None,
             action_value: String::new(),
             action_payload: JsonValue::Null,
+            accessibility_description: String::new(),
+            threshold: 500,
             is_disabled: false,
             is_pressed: false,
             is_long_pressed: false,
@@ -40,6 +44,8 @@ pub fn ui_long_pressable(cx: &mut ComponentCx<UiLongPressableProps>) -> RSX {
             .on_long_press(props.on_long_press.clone())
             .action_value(Some(props.action_value.clone()))
             .action_payload(props.action_payload.clone())
+            .accessibility_description(Some(props.accessibility_description.clone()))
+            .threshold(props.threshold)
             .disabled(props.is_disabled)
             .pressed(props.is_pressed)
             .long_pressed(props.is_long_pressed)

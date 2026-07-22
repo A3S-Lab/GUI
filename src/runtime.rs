@@ -1,10 +1,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::backend::NativeEventHost;
+use crate::capability::{CapabilityHost, NativeCapabilities};
 use crate::compiler::{CompiledRsxNode, RsxCompilerBridge};
 use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, ActionRegistry, EventRouter, NativeEvent};
-use crate::host::{HostNodeId, NativeHost};
+use crate::focus::{FocusManager, FocusNavigationMode};
+use crate::host::{HostNodeId, NativeHost, ProgrammaticFocusHost};
+use crate::i18n::I18nManager;
+use crate::input::NativeInputModality;
 use crate::interaction::{InteractionChange, InteractionState};
 use crate::native::{
     format_normalized_number, is_number_input_type, normalize_range_value, truncate_to_max_length,
@@ -12,16 +16,27 @@ use crate::native::{
 };
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::renderer::Renderer;
+use crate::selection::{
+    apply_item_selection_props, apply_item_tree_props, validate_native_collection_keys,
+    MountedSelectionRegistry, MountedSelectionUpdate,
+};
 use crate::semantic_ui::{SemanticElement, SemanticMapper};
 use crate::style::PortableStyle;
 use serde::{Deserialize, Serialize};
 
 mod accessibility;
 
+type RoutedBlueprint = (HostNodeId, NativeWidgetBlueprint);
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HandledNativeEvent {
     pub event: NativeEvent,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invocations: Vec<ActionInvocation>,
+    /// First invocation retained for compatibility with the original
+    /// single-action event API.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invocation: Option<ActionInvocation>,
     pub interaction_changes: Vec<InteractionChange>,
     #[serde(default)]
@@ -32,6 +47,8 @@ pub struct HandledNativeEvent {
 #[serde(rename_all = "camelCase")]
 struct HandledNativeEventWire {
     event: NativeEvent,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    invocations: Vec<ActionInvocation>,
     invocation: Option<ActionInvocation>,
     interaction_changes: Vec<InteractionChange>,
 }
@@ -42,6 +59,7 @@ impl Serialize for HandledNativeEvent {
         S: serde::Serializer,
     {
         let mut event = self.event.clone();
+        let mut invocations = self.invocations.clone();
         let mut invocation = self.invocation.clone();
         let mut interaction_changes = self.interaction_changes.clone();
         redact_event_output(
@@ -50,8 +68,14 @@ impl Serialize for HandledNativeEvent {
             &mut interaction_changes,
             self.value_sensitivity,
         );
+        if self.value_sensitivity.is_sensitive() {
+            for invocation in &mut invocations {
+                invocation.value = None;
+            }
+        }
         HandledNativeEventWire {
             event,
+            invocations,
             invocation,
             interaction_changes,
         }
@@ -85,7 +109,12 @@ pub struct GuiRuntime<H: NativeHost> {
     host: H,
     event_router: EventRouter,
     action_registry: ActionRegistry,
+    focus_manager: FocusManager,
+    i18n_manager: I18nManager,
+    selection_registry: MountedSelectionRegistry,
     interaction_state: InteractionState,
+    focus_owner: Option<HostNodeId>,
+    pending_focus_modality: Option<(HostNodeId, NativeInputModality)>,
     interaction_revisions: BTreeMap<HostNodeId, u64>,
     render_revision: u64,
 }
@@ -113,7 +142,12 @@ impl<H: NativeHost> GuiRuntime<H> {
             host,
             event_router: EventRouter::new(),
             action_registry: ActionRegistry::new(),
+            focus_manager: FocusManager::new(),
+            i18n_manager: I18nManager::new(),
+            selection_registry: MountedSelectionRegistry::new(),
             interaction_state: InteractionState::new(),
+            focus_owner: None,
+            pending_focus_modality: None,
             interaction_revisions: BTreeMap::new(),
             render_revision: 0,
         }
@@ -130,10 +164,46 @@ impl<H: NativeHost> GuiRuntime<H> {
     }
 
     pub fn render_native(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
-        let root = self.renderer.render(element, &mut self.host)?;
+        let focus_before_render = self
+            .focus_owner
+            .or_else(|| self.interaction_state.focused_node());
+        let mut element = element.clone();
+        self.i18n_manager.project_native_tree(&mut element);
+        self.selection_registry.project_native_tree(&mut element);
+        validate_native_collection_keys(&element)?;
+        let root = self.renderer.render(&element, &mut self.host)?;
         self.render_revision = self.render_revision.saturating_add(1);
+        let snapshot = self.renderer.mounted_snapshot();
+        let restore_focus = self
+            .focus_manager
+            .sync_with_focus(&snapshot, focus_before_render);
+        if self
+            .focus_owner
+            .is_some_and(|focused| !snapshot.iter().any(|record| record.node == focused))
+        {
+            self.focus_owner = None;
+        }
+        self.i18n_manager.sync(&snapshot);
+        self.selection_registry.sync(&snapshot)?;
+        self.project_mounted_selection_to_host()?;
+        self.project_mounted_tree_to_host()?;
+        self.focus_manager.sync(&self.renderer.mounted_snapshot());
+        let tree_focus_fallback = focus_before_render
+            .and_then(|focused| self.selection_registry.tree_focus_fallback(focused));
         self.prune_unmounted_interactions();
-        self.initialize_auto_focus();
+        self.sync_mounted_selection_interactions();
+        let auto_focus = self.auto_focus_target();
+        if let Some(target) = tree_focus_fallback.or(restore_focus).or(auto_focus) {
+            if let Some(host) = self.host.programmatic_focus_host() {
+                host.request_focus(target)?;
+                self.pending_focus_modality = Some((target, NativeInputModality::Virtual));
+            }
+        }
+        if restore_focus.is_none() {
+            if let Some(target) = auto_focus {
+                self.initialize_auto_focus(target);
+            }
+        }
         Ok(root)
     }
 
@@ -161,6 +231,26 @@ impl<H: NativeHost> GuiRuntime<H> {
         &mut self.interaction_state
     }
 
+    pub fn focus_manager(&self) -> &FocusManager {
+        &self.focus_manager
+    }
+
+    pub fn i18n(&self) -> &I18nManager {
+        &self.i18n_manager
+    }
+
+    pub fn i18n_mut(&mut self) -> &mut I18nManager {
+        &mut self.i18n_manager
+    }
+
+    pub fn selections(&self) -> &MountedSelectionRegistry {
+        &self.selection_registry
+    }
+
+    pub fn mounted_snapshot(&self) -> Vec<crate::renderer::MountedNodeSnapshot> {
+        self.renderer.mounted_snapshot()
+    }
+
     pub fn dispatch_event(
         &mut self,
         blueprint: &NativeWidgetBlueprint,
@@ -168,6 +258,18 @@ impl<H: NativeHost> GuiRuntime<H> {
     ) -> GuiResult<ActionInvocation> {
         self.handle_event(blueprint, event)?
             .ok_or_else(|| GuiError::host("native event has no registered RSX action"))
+    }
+
+    pub fn dispatch_events(
+        &mut self,
+        blueprint: &NativeWidgetBlueprint,
+        event: NativeEvent,
+    ) -> GuiResult<Vec<ActionInvocation>> {
+        let invocations = self.handle_events(blueprint, event)?;
+        if invocations.is_empty() {
+            return Err(GuiError::host("native event has no registered RSX action"));
+        }
+        Ok(invocations)
     }
 
     pub fn handle_event(
@@ -178,28 +280,47 @@ impl<H: NativeHost> GuiRuntime<H> {
         self.handle_event_with_routes(blueprint, &[], event)
     }
 
+    pub fn handle_events(
+        &mut self,
+        blueprint: &NativeWidgetBlueprint,
+        event: NativeEvent,
+    ) -> GuiResult<Vec<ActionInvocation>> {
+        Ok(self
+            .handle_event_with_route_results(blueprint, &[], event, false)?
+            .invocations)
+    }
+
     fn handle_event_with_routes(
         &mut self,
         blueprint: &NativeWidgetBlueprint,
-        route_blueprints: &[NativeWidgetBlueprint],
+        route_blueprints: &[RoutedBlueprint],
         event: NativeEvent,
     ) -> GuiResult<Option<ActionInvocation>> {
         Ok(self
-            .handle_event_with_route_results(blueprint, route_blueprints, event)?
+            .handle_event_with_route_results(blueprint, route_blueprints, event, false)?
             .invocation)
     }
 
     fn handle_event_with_route_results(
         &mut self,
         blueprint: &NativeWidgetBlueprint,
-        route_blueprints: &[NativeWidgetBlueprint],
-        event: NativeEvent,
+        route_blueprints: &[RoutedBlueprint],
+        mut event: NativeEvent,
+        dispatch_unchanged_selection: bool,
     ) -> GuiResult<HandledNativeEvent> {
         let value_sensitivity = effective_blueprint_value_sensitivity(blueprint);
+        if event.kind == crate::event::NativeEventKind::Focus {
+            if let Some((target, modality)) = self.pending_focus_modality.take() {
+                if target == event.node && event.context.modality == NativeInputModality::Unknown {
+                    event.context.modality = modality;
+                }
+            }
+        }
         self.refresh_stale_interaction_baseline(event.node, blueprint);
         if is_invisible_or_inert_event(blueprint, route_blueprints) {
             return Ok(HandledNativeEvent {
                 event,
+                invocations: Vec::new(),
                 invocation: None,
                 interaction_changes: Vec::new(),
                 value_sensitivity,
@@ -208,15 +329,30 @@ impl<H: NativeHost> GuiRuntime<H> {
         if is_disabled_user_event(blueprint, route_blueprints, event.kind) {
             return Ok(HandledNativeEvent {
                 event,
+                invocations: Vec::new(),
                 invocation: None,
                 interaction_changes: Vec::new(),
                 value_sensitivity,
             });
         }
-        let event = self.normalize_event_value(blueprint, route_blueprints, event);
+        if matches!(
+            event.kind,
+            crate::event::NativeEventKind::Change | crate::event::NativeEventKind::Toggle
+        ) && is_read_only_value_event(blueprint, route_blueprints, event.kind)
+        {
+            return Ok(HandledNativeEvent {
+                event,
+                invocations: Vec::new(),
+                invocation: None,
+                interaction_changes: Vec::new(),
+                value_sensitivity,
+            });
+        }
+        let mut event = self.normalize_event_value(blueprint, route_blueprints, event);
         if is_invalid_numeric_change_value(blueprint, &event) {
             return Ok(HandledNativeEvent {
                 event,
+                invocations: Vec::new(),
                 invocation: None,
                 interaction_changes: Vec::new(),
                 value_sensitivity,
@@ -225,16 +361,56 @@ impl<H: NativeHost> GuiRuntime<H> {
         if is_read_only_value_event(blueprint, route_blueprints, event.kind) {
             return Ok(HandledNativeEvent {
                 event,
+                invocations: Vec::new(),
                 invocation: None,
                 interaction_changes: Vec::new(),
                 value_sensitivity,
             });
         }
-        let invocation = self.route_event(blueprint, route_blueprints, &event);
-        let interaction_snapshot = invocation.as_ref().map(|_| {
+        let selection_snapshot = matches!(
+            event.kind,
+            crate::event::NativeEventKind::SelectionChange
+                | crate::event::NativeEventKind::Focus
+                | crate::event::NativeEventKind::Blur
+        )
+        .then(|| self.selection_registry.clone());
+        let selection_update = if event.kind == crate::event::NativeEventKind::SelectionChange {
+            self.selection_registry.apply_event(&event)?
+        } else {
+            None
+        };
+        if matches!(
+            event.kind,
+            crate::event::NativeEventKind::Focus | crate::event::NativeEventKind::Blur
+        ) {
+            self.selection_registry.apply_focus_event(&event);
+        }
+        if let Some(update) = &selection_update {
+            event.value = Some(update.event_value());
+            if !update.changed && !dispatch_unchanged_selection {
+                return Ok(HandledNativeEvent {
+                    event,
+                    invocations: Vec::new(),
+                    invocation: None,
+                    interaction_changes: Vec::new(),
+                    value_sensitivity,
+                });
+            }
+            if update.changed {
+                if let Err(error) = self.project_mounted_selection_to_host() {
+                    if let Some(selection_snapshot) = selection_snapshot {
+                        self.selection_registry = selection_snapshot;
+                    }
+                    return Err(error);
+                }
+            }
+        }
+        let invocations = self.route_event(blueprint, route_blueprints, &event);
+        let interaction_snapshot = (!invocations.is_empty()).then(|| {
             (
                 self.interaction_state.clone(),
                 self.interaction_revisions.clone(),
+                selection_snapshot,
             )
         });
         let interaction_blueprint = (blueprint.value_sensitivity != value_sensitivity).then(|| {
@@ -245,24 +421,33 @@ impl<H: NativeHost> GuiRuntime<H> {
         let interaction_changes = self
             .interaction_state
             .apply_event_with_changes(interaction_blueprint.as_ref().unwrap_or(blueprint), &event);
+        if event.kind == crate::event::NativeEventKind::Focus {
+            self.focus_owner = Some(event.node);
+        }
+        if let Some(update) = &selection_update {
+            self.apply_mounted_selection_update(update);
+        }
         self.record_interaction_revisions(&interaction_changes);
-        let invocation = if let Some(invocation) = invocation {
-            if let Err(error) = self
-                .action_registry
-                .invoke_with_sensitivity(invocation.clone(), value_sensitivity)
+        if let Err(error) = self
+            .action_registry
+            .invoke_all_with_sensitivity(&invocations, value_sensitivity)
+        {
+            if let Some((interaction_state, interaction_revisions, selection_snapshot)) =
+                interaction_snapshot
             {
-                if let Some((interaction_state, interaction_revisions)) = interaction_snapshot {
-                    self.interaction_state = interaction_state;
-                    self.interaction_revisions = interaction_revisions;
+                self.interaction_state = interaction_state;
+                self.interaction_revisions = interaction_revisions;
+                if let Some(selection_snapshot) = selection_snapshot {
+                    self.selection_registry = selection_snapshot;
+                    let _ = self.project_mounted_selection_to_host();
                 }
-                return Err(error);
             }
-            Some(invocation)
-        } else {
-            None
-        };
+            return Err(error);
+        }
+        let invocation = invocations.first().cloned();
         Ok(HandledNativeEvent {
             event,
+            invocations,
             invocation,
             interaction_changes,
             value_sensitivity,
@@ -272,28 +457,47 @@ impl<H: NativeHost> GuiRuntime<H> {
     fn route_event(
         &self,
         blueprint: &NativeWidgetBlueprint,
-        route_blueprints: &[NativeWidgetBlueprint],
+        route_blueprints: &[RoutedBlueprint],
         event: &NativeEvent,
-    ) -> Option<ActionInvocation> {
-        self.event_router.route(blueprint, event).or_else(|| {
-            route_blueprints
-                .iter()
-                .find_map(|route_blueprint| self.event_router.route(route_blueprint, event))
-        })
+    ) -> Vec<ActionInvocation> {
+        let mut invocations = self
+            .event_router
+            .route_all_for_current_target(blueprint, event, event.node);
+        if event.kind == crate::event::NativeEventKind::Close {
+            return invocations;
+        }
+        for (current_target, route_blueprint) in route_blueprints {
+            invocations.extend(self.event_router.route_all_for_current_target(
+                route_blueprint,
+                event,
+                *current_target,
+            ));
+        }
+        invocations
     }
 
     fn normalize_event_value(
         &self,
         blueprint: &NativeWidgetBlueprint,
-        route_blueprints: &[NativeWidgetBlueprint],
+        route_blueprints: &[RoutedBlueprint],
         mut event: NativeEvent,
     ) -> NativeEvent {
+        if event.context.modality == crate::input::NativeInputModality::Unknown {
+            event.context.modality = event.effective_modality();
+        }
         event = normalize_keyboard_event_value(event);
         event = self.normalize_keyboard_activation(blueprint, route_blueprints, event);
 
         match event.kind {
+            crate::event::NativeEventKind::PressStart => event.value = Some("true".to_string()),
+            crate::event::NativeEventKind::PressEnd
+            | crate::event::NativeEventKind::PressCancel => event.value = Some("false".to_string()),
+            crate::event::NativeEventKind::LongPressStart => event.value = Some("true".to_string()),
+            crate::event::NativeEventKind::LongPressEnd => event.value = Some("false".to_string()),
             crate::event::NativeEventKind::Focus => event.value = Some("true".to_string()),
             crate::event::NativeEventKind::Blur => event.value = Some("false".to_string()),
+            crate::event::NativeEventKind::HoverStart => event.value = Some("true".to_string()),
+            crate::event::NativeEventKind::HoverEnd => event.value = Some("false".to_string()),
             crate::event::NativeEventKind::SelectionChange => {
                 if is_missing_selection_value(event.value.as_deref()) {
                     event.value = selected_node_value(blueprint);
@@ -340,7 +544,7 @@ impl<H: NativeHost> GuiRuntime<H> {
     fn normalize_keyboard_activation(
         &self,
         blueprint: &NativeWidgetBlueprint,
-        route_blueprints: &[NativeWidgetBlueprint],
+        route_blueprints: &[RoutedBlueprint],
         mut event: NativeEvent,
     ) -> NativeEvent {
         if event.kind != crate::event::NativeEventKind::KeyDown
@@ -352,7 +556,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         if self.is_keyboard_toggle(blueprint, event.node, event.value.as_deref()) {
             event.kind = crate::event::NativeEventKind::Toggle;
             event.value = None;
-        } else if self.is_keyboard_selection(blueprint, event.value.as_deref()) {
+        } else if self.is_keyboard_selection(blueprint, event.node, event.value.as_deref()) {
             event.kind = crate::event::NativeEventKind::SelectionChange;
             event.value = None;
         }
@@ -379,13 +583,23 @@ impl<H: NativeHost> GuiRuntime<H> {
     fn is_keyboard_selection(
         &self,
         blueprint: &NativeWidgetBlueprint,
+        node: HostNodeId,
         value: Option<&str>,
     ) -> bool {
         match blueprint.role {
             crate::native::NativeRole::Radio => is_space_key(value),
-            crate::native::NativeRole::ListBoxItem | crate::native::NativeRole::Tab => {
-                crate::event::is_activation_key(value)
+            crate::native::NativeRole::TreeItem => is_space_key(value),
+            crate::native::NativeRole::ListBoxItem => {
+                if crate::event::native_key_value(value.unwrap_or_default())
+                    .eq_ignore_ascii_case("enter")
+                    && self.selection_registry.has_action_for_item(node)
+                {
+                    false
+                } else {
+                    crate::event::is_activation_key(value)
+                }
             }
+            crate::native::NativeRole::Tab => crate::event::is_activation_key(value),
             _ => false,
         }
     }
@@ -478,6 +692,113 @@ impl<H: NativeHost> GuiRuntime<H> {
             .retain(|node, _| interactive_nodes.contains(node));
     }
 
+    fn sync_mounted_selection_interactions(&mut self) {
+        let props = self
+            .renderer
+            .mounted_node_props()
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
+        for projection in self.selection_registry.projections() {
+            if let Some(container_props) = props.get(&projection.collection) {
+                self.interaction_state.sync_collection_container_from_props(
+                    projection.collection,
+                    container_props,
+                    projection.event_value(),
+                );
+                self.interaction_revisions
+                    .insert(projection.collection, self.render_revision);
+            }
+            for (node, role, selected) in projection.items {
+                let Some(item_props) = props.get(&node) else {
+                    continue;
+                };
+                self.interaction_state
+                    .sync_collection_item_from_props(node, role, item_props, selected);
+                self.interaction_revisions
+                    .insert(node, self.render_revision);
+            }
+        }
+    }
+
+    fn project_mounted_selection_to_host(&mut self) -> GuiResult<()> {
+        let mut props = self
+            .renderer
+            .mounted_node_props()
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
+        let mut updates = BTreeMap::new();
+        for projection in self.selection_registry.projections() {
+            for (node, role, selected) in projection.items {
+                let Some(item_props) = props.get_mut(&node) else {
+                    continue;
+                };
+                let before = item_props.clone();
+                apply_item_selection_props(item_props, role, selected);
+                if *item_props != before {
+                    updates.insert(node, item_props.clone());
+                }
+            }
+        }
+        self.renderer.update_mounted_props(&updates, &mut self.host)
+    }
+
+    fn project_mounted_tree_to_host(&mut self) -> GuiResult<()> {
+        let mut props = self
+            .renderer
+            .mounted_node_props()
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
+        let mut updates = BTreeMap::new();
+        for projection in self.selection_registry.tree_projections() {
+            for item in projection.items {
+                let Some(item_props) = props.get_mut(&item.node) else {
+                    continue;
+                };
+                let before = item_props.clone();
+                apply_item_tree_props(item_props, item.expanded, item.hidden);
+                if *item_props != before {
+                    updates.insert(item.node, item_props.clone());
+                }
+            }
+        }
+        self.renderer.update_mounted_props(&updates, &mut self.host)
+    }
+
+    fn apply_mounted_selection_update(&mut self, update: &MountedSelectionUpdate) {
+        let props = self
+            .renderer
+            .mounted_node_props()
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
+        if let Some(container_props) = props.get(&update.collection) {
+            if self.interaction_revisions.get(&update.collection).copied()
+                != Some(self.render_revision)
+            {
+                self.interaction_state.sync_collection_container_from_props(
+                    update.collection,
+                    container_props,
+                    update.event_value(),
+                );
+            }
+            self.interaction_state.set_collection_value(
+                update.collection,
+                container_props,
+                update.event_value(),
+            );
+        }
+        for (node, role, selected) in &update.items {
+            let Some(item_props) = props.get(node) else {
+                continue;
+            };
+            if self.interaction_revisions.get(node).copied() != Some(self.render_revision) {
+                self.interaction_state
+                    .sync_collection_item_from_props(*node, *role, item_props, *selected);
+            }
+            self.interaction_state
+                .set_collection_item_selected(*node, *role, item_props, *selected);
+        }
+    }
+
     fn interactive_mounted_node_ids(&self) -> BTreeSet<HostNodeId> {
         let mounted_props = self.renderer.mounted_node_props();
         let props_by_node = mounted_props
@@ -508,36 +829,28 @@ impl<H: NativeHost> GuiRuntime<H> {
             .collect()
     }
 
-    fn initialize_auto_focus(&mut self) {
+    fn auto_focus_target(&self) -> Option<HostNodeId> {
         if self.interaction_state.has_focused_node() || self.interaction_state.has_focus_history() {
-            return;
+            return None;
         }
 
-        let mounted_props = self.renderer.mounted_node_props();
-        let props_by_node = mounted_props
-            .iter()
-            .map(|(node, props)| (*node, props))
-            .collect::<BTreeMap<_, _>>();
-        let Some((node, props)) = mounted_props.iter().find(|(node, props)| {
-            can_auto_focus(props)
-                && self
-                    .renderer
-                    .ancestor_ids(*node)
-                    .into_iter()
-                    .all(|ancestor| {
-                        props_by_node
-                            .get(&ancestor)
-                            .map(|props| can_auto_focus_through(props))
-                            .unwrap_or(true)
-                    })
-        }) else {
+        self.focus_manager.auto_focus_target()
+    }
+
+    fn initialize_auto_focus(&mut self, node: HostNodeId) {
+        let Some(props) = self
+            .renderer
+            .mounted_node_props()
+            .into_iter()
+            .find_map(|(candidate, props)| (candidate == node).then_some(props))
+        else {
             return;
         };
 
         self.interaction_state
-            .set_initial_focus_from_props(*node, props);
+            .set_initial_focus_from_props(node, &props);
         self.interaction_revisions
-            .insert(*node, self.render_revision);
+            .insert(node, self.render_revision);
     }
 
     pub fn into_host(self) -> H {
@@ -551,10 +864,106 @@ pub(crate) fn effective_blueprint_value_sensitivity(
     blueprint.effective_value_sensitivity()
 }
 
+impl<H: NativeHost + CapabilityHost> GuiRuntime<H> {
+    pub fn capabilities(&self) -> NativeCapabilities {
+        self.host.native_capabilities()
+    }
+}
+
+impl<H: NativeHost + ProgrammaticFocusHost> GuiRuntime<H> {
+    /// Requests native focus for a mounted focusable node.
+    ///
+    /// If focus currently sits inside a contained focus scope, requests outside
+    /// that scope are redirected according to [`FocusManager::constrain_focus`].
+    /// Interaction state is updated by the resulting native focus event, so the
+    /// platform remains the source of truth for whether focus actually moved.
+    pub fn request_focus(&mut self, requested: HostNodeId) -> GuiResult<HostNodeId> {
+        let target = if let Some(current) = self.interaction_state.focused_node() {
+            self.focus_manager.constrain_focus(current, requested)
+        } else {
+            self.focus_manager
+                .is_focusable(requested)
+                .then_some(requested)
+        }
+        .ok_or_else(|| {
+            GuiError::host(format!(
+                "host node {} is not a mounted focusable node",
+                requested.get()
+            ))
+        })?;
+
+        self.host.request_focus(target)?;
+        self.pending_focus_modality = Some((target, NativeInputModality::Virtual));
+        Ok(target)
+    }
+
+    pub fn focus_first(
+        &mut self,
+        scope: Option<HostNodeId>,
+        mode: FocusNavigationMode,
+    ) -> GuiResult<Option<HostNodeId>> {
+        let target = self.focus_manager.first(scope, mode);
+        self.request_optional_focus(target)
+    }
+
+    pub fn focus_last(
+        &mut self,
+        scope: Option<HostNodeId>,
+        mode: FocusNavigationMode,
+    ) -> GuiResult<Option<HostNodeId>> {
+        let target = self.focus_manager.last(scope, mode);
+        self.request_optional_focus(target)
+    }
+
+    pub fn focus_next(
+        &mut self,
+        scope: Option<HostNodeId>,
+        mode: FocusNavigationMode,
+        wrap: bool,
+    ) -> GuiResult<Option<HostNodeId>> {
+        let target = match self.interaction_state.focused_node() {
+            Some(current) => self.focus_manager.next(current, scope, mode, wrap),
+            None => self.focus_manager.first(scope, mode),
+        };
+        self.request_optional_focus(target)
+    }
+
+    pub fn focus_previous(
+        &mut self,
+        scope: Option<HostNodeId>,
+        mode: FocusNavigationMode,
+        wrap: bool,
+    ) -> GuiResult<Option<HostNodeId>> {
+        let target = match self.interaction_state.focused_node() {
+            Some(current) => self.focus_manager.previous(current, scope, mode, wrap),
+            None => self.focus_manager.last(scope, mode),
+        };
+        self.request_optional_focus(target)
+    }
+
+    fn request_optional_focus(
+        &mut self,
+        target: Option<HostNodeId>,
+    ) -> GuiResult<Option<HostNodeId>> {
+        target.map(|target| self.request_focus(target)).transpose()
+    }
+}
+
 impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
     pub fn dispatch_native_event(&mut self, event: NativeEvent) -> GuiResult<ActionInvocation> {
         self.handle_native_event(event)?
             .ok_or_else(|| GuiError::host("native event has no registered RSX action"))
+    }
+
+    pub fn dispatch_native_events(
+        &mut self,
+        event: NativeEvent,
+    ) -> GuiResult<Vec<ActionInvocation>> {
+        let invocations = self.handle_native_events(event)?;
+        if invocations.is_empty() {
+            return Err(GuiError::host("native event has no registered RSX action"));
+        }
+        Ok(invocations)
     }
 
     pub fn handle_native_event(
@@ -564,27 +973,274 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         Ok(self.handle_native_event_with_changes(event)?.invocation)
     }
 
+    pub fn handle_native_events(&mut self, event: NativeEvent) -> GuiResult<Vec<ActionInvocation>> {
+        Ok(self.handle_native_event_with_changes(event)?.invocations)
+    }
+
     pub fn handle_native_event_with_changes(
         &mut self,
         mut event: NativeEvent,
     ) -> GuiResult<HandledNativeEvent> {
         event.validate()?;
-        let Some(blueprint) = self.host.blueprint(event.node).cloned() else {
+        let dispatch_unchanged_selection = event.kind
+            == crate::event::NativeEventKind::SelectionChange
+            && is_missing_selection_value(event.value.as_deref());
+        if self.redirect_contained_focus(&event)? {
+            let value_sensitivity = self
+                .host
+                .blueprint(event.node)
+                .map(effective_blueprint_value_sensitivity)
+                .unwrap_or(ValueSensitivity::Sensitive);
             return Ok(HandledNativeEvent {
                 event,
+                invocations: Vec::new(),
                 invocation: None,
                 interaction_changes: Vec::new(),
-                value_sensitivity: ValueSensitivity::Public,
+                value_sensitivity,
+            });
+        }
+        let Some((mut blueprint, mut route_blueprints)) = self.native_event_route(event.node)
+        else {
+            return Ok(HandledNativeEvent {
+                event,
+                invocations: Vec::new(),
+                invocation: None,
+                interaction_changes: Vec::new(),
+                value_sensitivity: ValueSensitivity::Sensitive,
             });
         };
-        let route_blueprints = self
-            .renderer
-            .ancestor_ids(event.node)
-            .into_iter()
-            .filter_map(|node| self.host.blueprint(node).cloned())
-            .collect::<Vec<_>>();
+        event = normalize_keyboard_event_value(event);
+        if event.context.modality == NativeInputModality::Unknown {
+            event.context.modality = event.effective_modality();
+        }
+        match event.kind {
+            crate::event::NativeEventKind::PressStart
+                if !is_disabled_user_event(&blueprint, &route_blueprints, event.kind) =>
+            {
+                self.selection_registry.begin_action_press(&event);
+            }
+            crate::event::NativeEventKind::PressCancel => {
+                self.selection_registry.cancel_action_press(&event);
+            }
+            crate::event::NativeEventKind::Press => {
+                if let Some(action) = self.selection_registry.take_action(&event) {
+                    event.node = action.item;
+                    event.kind = crate::event::NativeEventKind::Action;
+                    event.value = Some(action.event_value());
+                }
+            }
+            crate::event::NativeEventKind::LongPress
+                if !is_disabled_user_event(&blueprint, &route_blueprints, event.kind)
+                    && !is_read_only_value_event(
+                        &blueprint,
+                        &route_blueprints,
+                        crate::event::NativeEventKind::SelectionChange,
+                    )
+                    && self.selection_registry.take_long_press_selection(&event) =>
+            {
+                event.kind = crate::event::NativeEventKind::SelectionChange;
+                event.value = None;
+            }
+            _ => {}
+        }
+        if self
+            .selection_registry
+            .take_suppressed_native_selection(&event)
+        {
+            return self.restore_suppressed_native_selection(event);
+        }
+        if !has_explicit_key_down_handler(&blueprint, &route_blueprints)
+            && !move_handles_keyboard_event(&blueprint, &route_blueprints, &event)
+        {
+            let selection_before_navigation = self.selection_registry.clone();
+            let direction = self.i18n_manager.direction(event.node);
+            let locale = self.i18n_manager.locale(event.node).map(ToOwned::to_owned);
+            if let Some(navigation) = self.selection_registry.keyboard_navigation_with_locale(
+                &event,
+                direction,
+                locale.as_deref(),
+            ) {
+                if let Some(selection) = navigation.selection {
+                    let (selection_blueprint, selection_route) = self
+                        .native_event_route(selection.collection)
+                        .ok_or_else(|| GuiError::host("selection owner unmounted"))?;
+                    event.node = selection.collection;
+                    event.kind = crate::event::NativeEventKind::SelectionChange;
+                    event.value = Some(selection.event_value());
+                    return self.handle_event_with_route_results(
+                        &selection_blueprint,
+                        &selection_route,
+                        event,
+                        false,
+                    );
+                }
+                if let Some(expansion) = navigation.expansion {
+                    let Some((tree_blueprint, tree_route)) =
+                        self.native_event_route(expansion.collection)
+                    else {
+                        self.selection_registry = selection_before_navigation;
+                        return Err(GuiError::host("tree expansion owner unmounted"));
+                    };
+                    if tree_blueprint.control_state.disabled
+                        || tree_blueprint.control_state.read_only
+                    {
+                        self.selection_registry = selection_before_navigation;
+                    } else {
+                        if let Err(error) = self.project_mounted_tree_to_host() {
+                            self.selection_registry = selection_before_navigation;
+                            let _ = self.project_mounted_tree_to_host();
+                            return Err(error);
+                        }
+                        self.focus_manager.sync(&self.renderer.mounted_snapshot());
+                        event.node = expansion.collection;
+                        event.kind = crate::event::NativeEventKind::Toggle;
+                        event.value = Some(expansion.event_value());
+                        blueprint = tree_blueprint;
+                        route_blueprints = tree_route;
+                        let result = self.handle_event_with_route_results(
+                            &blueprint,
+                            &route_blueprints,
+                            event,
+                            false,
+                        );
+                        if result.is_err() {
+                            self.selection_registry = selection_before_navigation;
+                            let _ = self.project_mounted_tree_to_host();
+                            self.focus_manager.sync(&self.renderer.mounted_snapshot());
+                        }
+                        return result;
+                    }
+                } else {
+                    let current = event.node;
+                    if self.request_collection_keyboard_focus(current, navigation.target)?
+                        && navigation.select
+                    {
+                        event.node = navigation.target;
+                        event.kind = crate::event::NativeEventKind::SelectionChange;
+                        event.value = None;
+                        (blueprint, route_blueprints) =
+                            self.native_event_route(event.node).ok_or_else(|| {
+                                GuiError::host("collection navigation target unmounted")
+                            })?;
+                    }
+                }
+            }
+        }
         event = self.infer_container_selection_value(&blueprint, event);
-        self.handle_event_with_route_results(&blueprint, &route_blueprints, event)
+        self.handle_event_with_route_results(
+            &blueprint,
+            &route_blueprints,
+            event,
+            dispatch_unchanged_selection,
+        )
+    }
+
+    fn restore_suppressed_native_selection(
+        &mut self,
+        mut event: NativeEvent,
+    ) -> GuiResult<HandledNativeEvent> {
+        let value_sensitivity = self
+            .host
+            .blueprint(event.node)
+            .map(effective_blueprint_value_sensitivity)
+            .unwrap_or(ValueSensitivity::Sensitive);
+        let selection_before = self.selection_registry.clone();
+        let native_update = self.selection_registry.apply_event(&event)?;
+        if native_update.as_ref().is_some_and(|update| update.changed) {
+            if let Err(error) = self.project_mounted_selection_to_host() {
+                self.selection_registry = selection_before;
+                let _ = self.project_mounted_selection_to_host();
+                return Err(error);
+            }
+        }
+
+        self.selection_registry = selection_before;
+        if native_update.as_ref().is_some_and(|update| update.changed) {
+            self.project_mounted_selection_to_host()?;
+        }
+        if let Some(projection) = self
+            .selection_registry
+            .projections()
+            .into_iter()
+            .find(|projection| projection.collection == event.node)
+        {
+            event.value = Some(projection.event_value());
+        }
+        Ok(HandledNativeEvent {
+            event,
+            invocations: Vec::new(),
+            invocation: None,
+            interaction_changes: Vec::new(),
+            value_sensitivity,
+        })
+    }
+
+    fn native_event_route(
+        &self,
+        node: HostNodeId,
+    ) -> Option<(NativeWidgetBlueprint, Vec<RoutedBlueprint>)> {
+        let blueprint = self.host.blueprint(node)?.clone();
+        let route = self
+            .renderer
+            .ancestor_ids(node)
+            .into_iter()
+            .filter_map(|ancestor| {
+                self.host
+                    .blueprint(ancestor)
+                    .cloned()
+                    .map(|blueprint| (ancestor, blueprint))
+            })
+            .collect();
+        Some((blueprint, route))
+    }
+
+    fn request_collection_keyboard_focus(
+        &mut self,
+        current: HostNodeId,
+        requested: HostNodeId,
+    ) -> GuiResult<bool> {
+        let current = self
+            .focus_owner
+            .or_else(|| self.interaction_state.focused_node())
+            .unwrap_or(current);
+        if self.focus_manager.constrain_focus(current, requested) != Some(requested) {
+            return Ok(false);
+        }
+        let Some(host) = self.host.programmatic_focus_host() else {
+            return Ok(false);
+        };
+        host.request_focus(requested)?;
+        self.pending_focus_modality = Some((requested, NativeInputModality::Keyboard));
+        Ok(true)
+    }
+
+    fn redirect_contained_focus(&mut self, event: &NativeEvent) -> GuiResult<bool> {
+        if event.kind != crate::event::NativeEventKind::Focus {
+            return Ok(false);
+        }
+        let Some(current) = self
+            .focus_owner
+            .or_else(|| self.interaction_state.focused_node())
+        else {
+            return Ok(false);
+        };
+        let Some(target) = self.focus_manager.constrain_focus(current, event.node) else {
+            return Ok(false);
+        };
+        if target == event.node {
+            return Ok(false);
+        }
+        let Some(host) = self.host.programmatic_focus_host() else {
+            return Ok(false);
+        };
+
+        host.request_focus(target)?;
+        let modality = match self.interaction_state.input_modality() {
+            NativeInputModality::Unknown => NativeInputModality::Virtual,
+            modality => modality,
+        };
+        self.pending_focus_modality = Some((target, modality));
+        Ok(true)
     }
 
     fn infer_container_selection_value(
@@ -747,19 +1403,51 @@ fn parse_event_number(value: &str) -> Option<f64> {
 
 fn has_explicit_key_down_handler(
     blueprint: &NativeWidgetBlueprint,
-    route_blueprints: &[NativeWidgetBlueprint],
+    route_blueprints: &[RoutedBlueprint],
 ) -> bool {
     crate::event::non_empty_action(blueprint.events.get("onKeyDown")).is_some()
-        || route_blueprints.iter().any(|route_blueprint| {
+        || route_blueprints.iter().any(|(_, route_blueprint)| {
             crate::event::non_empty_action(route_blueprint.events.get("onKeyDown")).is_some()
         })
 }
 
+fn move_handles_keyboard_event(
+    blueprint: &NativeWidgetBlueprint,
+    route_blueprints: &[RoutedBlueprint],
+    event: &NativeEvent,
+) -> bool {
+    if event.kind != crate::event::NativeEventKind::KeyDown
+        || !matches!(
+            event
+                .value
+                .as_deref()
+                .map(crate::event::native_key_value)
+                .as_deref(),
+            Some("ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown")
+        )
+    {
+        return false;
+    }
+
+    let has_move_handler = |candidate: &NativeWidgetBlueprint| {
+        ["onMoveStart", "onMove", "onMoveEnd"]
+            .into_iter()
+            .any(|name| crate::event::non_empty_action(candidate.events.get(name)).is_some())
+    };
+    has_move_handler(blueprint)
+        || route_blueprints
+            .iter()
+            .any(|(_, candidate)| has_move_handler(candidate))
+}
+
 fn is_invisible_or_inert_event(
     blueprint: &NativeWidgetBlueprint,
-    route_blueprints: &[NativeWidgetBlueprint],
+    route_blueprints: &[RoutedBlueprint],
 ) -> bool {
-    is_invisible_or_inert(blueprint) || route_blueprints.iter().any(is_invisible_or_inert)
+    is_invisible_or_inert(blueprint)
+        || route_blueprints
+            .iter()
+            .any(|(_, route_blueprint)| is_invisible_or_inert(route_blueprint))
 }
 
 fn is_invisible_or_inert(blueprint: &NativeWidgetBlueprint) -> bool {
@@ -776,14 +1464,6 @@ fn is_inert_blueprint(blueprint: &NativeWidgetBlueprint) -> bool {
     blueprint.control_state.inert || blueprint.portable_style.makes_native_widget_inert()
 }
 
-fn can_auto_focus(props: &NativeProps) -> bool {
-    props.auto_focus && can_auto_focus_through(props)
-}
-
-fn can_auto_focus_through(props: &NativeProps) -> bool {
-    !props.disabled && can_retain_interactions(props)
-}
-
 fn can_retain_interactions(props: &NativeProps) -> bool {
     let style = PortableStyle::from_web(&props.web);
     !props.hidden
@@ -795,7 +1475,7 @@ fn can_retain_interactions(props: &NativeProps) -> bool {
 
 fn is_disabled_user_event(
     blueprint: &NativeWidgetBlueprint,
-    route_blueprints: &[NativeWidgetBlueprint],
+    route_blueprints: &[RoutedBlueprint],
     event: crate::event::NativeEventKind,
 ) -> bool {
     if matches!(
@@ -810,12 +1490,12 @@ fn is_disabled_user_event(
     blueprint.control_state.disabled
         || route_blueprints
             .iter()
-            .any(|route_blueprint| route_blueprint.control_state.disabled)
+            .any(|(_, route_blueprint)| route_blueprint.control_state.disabled)
 }
 
 fn is_read_only_value_event(
     blueprint: &NativeWidgetBlueprint,
-    route_blueprints: &[NativeWidgetBlueprint],
+    route_blueprints: &[RoutedBlueprint],
     event: crate::event::NativeEventKind,
 ) -> bool {
     if !is_value_mutation_event(event) {
@@ -825,7 +1505,7 @@ fn is_read_only_value_event(
         return true;
     }
 
-    route_blueprints.iter().any(|route_blueprint| {
+    route_blueprints.iter().any(|(_, route_blueprint)| {
         read_only_ancestor_suppresses_event(route_blueprint, blueprint, event)
     })
 }
@@ -864,6 +1544,7 @@ fn is_selectable_native_role(role: crate::native::NativeRole) -> bool {
     matches!(
         role,
         crate::native::NativeRole::ListBoxItem
+            | crate::native::NativeRole::TreeItem
             | crate::native::NativeRole::MenuItem
             | crate::native::NativeRole::Radio
             | crate::native::NativeRole::Tab
@@ -876,6 +1557,7 @@ fn is_selection_container_native_role(role: crate::native::NativeRole) -> bool {
         crate::native::NativeRole::Select
             | crate::native::NativeRole::ComboBox
             | crate::native::NativeRole::ListBox
+            | crate::native::NativeRole::Tree
             | crate::native::NativeRole::Menu
             | crate::native::NativeRole::RadioGroup
             | crate::native::NativeRole::Tabs
@@ -892,7 +1574,7 @@ impl<H: NativeHost + BlueprintHost + NativeEventHost> GuiRuntime<H> {
         let events = self.handle_pending_native_event_results()?;
         Ok(events
             .into_iter()
-            .filter_map(|event| event.invocation)
+            .flat_map(|event| event.invocations)
             .collect())
     }
 
@@ -905,6 +1587,26 @@ impl<H: NativeHost + BlueprintHost + NativeEventHost> GuiRuntime<H> {
         Ok(handled)
     }
 }
+
+#[cfg(test)]
+#[path = "runtime/multi_action_tests.rs"]
+mod multi_action_tests;
+
+#[cfg(test)]
+#[path = "runtime/selection_tests.rs"]
+mod selection_tests;
+
+#[cfg(test)]
+#[path = "runtime/collection_navigation_tests.rs"]
+mod collection_navigation_tests;
+
+#[cfg(test)]
+#[path = "runtime/i18n_tests.rs"]
+mod i18n_tests;
+
+#[cfg(test)]
+#[path = "runtime/accessibility_conformance_tests.rs"]
+mod accessibility_conformance_tests;
 
 #[cfg(test)]
 mod tests;

@@ -4,7 +4,7 @@ use crate::error::GuiResult;
 use crate::rsx_app::RsxComponent;
 
 use super::super::catalog::*;
-use super::super::contract::passthrough_contract;
+use super::super::contract::{passthrough_contract, selection_contract};
 use super::with_builtin_template;
 
 pub(super) fn with_color_components<S>(component: RsxComponent<S>) -> GuiResult<RsxComponent<S>> {
@@ -41,6 +41,9 @@ pub(super) fn with_color_components<S>(component: RsxComponent<S>) -> GuiResult<
             .default_prop("xValue", 0.0)?
             .default_prop("yValue", 0.0)?
             .default_prop("onPress", "")?
+            .default_prop("onPressStart", "")?
+            .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isDragging", false)?
             .default_prop("actionValue", "")?
             .default_prop_value("actionPayload", JsonValue::Null)?,
@@ -102,11 +105,7 @@ pub(super) fn with_color_components<S>(component: RsxComponent<S>) -> GuiResult<
         component,
         "UiColorSwatchPicker",
         ui_color_swatch_picker,
-        passthrough_contract()?
-            .default_prop("label", "")?
-            .default_prop("value", "")?
-            .default_prop("selectionMode", "single")?
-            .default_prop("onSelectionChange", "")?,
+        selection_contract()?.default_prop("label", "")?,
         None,
     )?;
     let component = with_builtin_template(

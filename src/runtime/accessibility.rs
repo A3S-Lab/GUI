@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 
 use super::GuiRuntime;
-use crate::accessibility::{AccessibilityNode, AccessibilityRole, AccessibilityTreeHost};
+use crate::accessibility::{
+    AccessibilityConformanceReport, AccessibilityNode, AccessibilityRole, AccessibilityTreeHost,
+};
 use crate::host::{HostNodeId, NativeHost};
 use crate::interaction::{InteractionNodeState, InteractionState};
 
@@ -15,6 +17,12 @@ impl<H: NativeHost + AccessibilityTreeHost> GuiRuntime<H> {
             self.render_revision,
         );
         Some(tree)
+    }
+
+    pub fn accessibility_conformance(&self) -> Option<AccessibilityConformanceReport> {
+        self.accessibility_tree()
+            .as_ref()
+            .map(AccessibilityConformanceReport::validate)
     }
 }
 
@@ -99,7 +107,7 @@ fn apply_selected_child_value_to_container(node: &mut AccessibilityNode) {
 }
 
 fn apply_selection_value_to_children(node: &mut AccessibilityNode) {
-    if !is_selection_container(node.role) {
+    if !is_selection_container(node.role) || node.multiple {
         return;
     }
     let Some(value) = node.value.as_deref() else {

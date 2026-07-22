@@ -154,8 +154,9 @@ impl From<ProtocolNativeWidgetKindV1> for NativeWidgetKind {
 
 define_protocol_leaf_enum! {
     ProtocolNativeEventKindV1 => NativeEventKind {
-        PressStart, PressEnd, Press, Change, SelectionChange, Toggle, Focus, Blur,
-        KeyDown, KeyUp, Copy, Cut, Paste, Close,
+        PressStart, PressEnd, PressUp, PressCancel, Press, LongPressStart, LongPressEnd,
+        LongPress, MoveStart, Move, MoveEnd, Action, HoverStart, HoverEnd, Change,
+        SelectionChange, Toggle, Focus, Blur, KeyDown, KeyUp, Copy, Cut, Paste, Close,
     }
 }
 

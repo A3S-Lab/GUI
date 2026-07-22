@@ -6,9 +6,12 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value as JsonValue};
 
 use crate::accessibility::{
-    AccessibilityDescriptionProps, AccessibilityNode, AccessibilityRelationshipProps,
-    AccessibilityRole, AccessibilityStateProps, AccessibilityStructureProps, AccessibilityTreeHost,
+    AccessibilityConformanceIssue, AccessibilityConformanceReport, AccessibilityDescriptionProps,
+    AccessibilityNode, AccessibilityRelationshipProps, AccessibilityRole, AccessibilityStateProps,
+    AccessibilityStructureProps, AccessibilityTreeHost,
 };
+use crate::app::{reduce_invocation_batch, ActionPropagation};
+use crate::capability::{NativeCapabilities, NativeCapabilityIssue};
 use crate::compiler::{
     CompiledOrientation, CompiledProps, CompiledRsxNode, CompiledStyleValue, RsxCompilerBridge,
 };
@@ -116,6 +119,12 @@ pub struct NativeRenderResponse {
     pub commands: Vec<PlatformCommand>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accessibility_tree: Option<AccessibilityNode>,
+    #[serde(default)]
+    pub capabilities: NativeCapabilities,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capability_issues: Vec<NativeCapabilityIssue>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub accessibility_issues: Vec<AccessibilityConformanceIssue>,
 }
 
 #[derive(Serialize)]
@@ -126,6 +135,11 @@ struct NativeRenderResponseWire {
     commands: Vec<PlatformCommand>,
     #[serde(skip_serializing_if = "Option::is_none")]
     accessibility_tree: Option<AccessibilityNode>,
+    capabilities: NativeCapabilities,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    capability_issues: Vec<NativeCapabilityIssue>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    accessibility_issues: Vec<AccessibilityConformanceIssue>,
 }
 
 impl Serialize for NativeRenderResponse {
@@ -156,6 +170,9 @@ impl Serialize for NativeRenderResponse {
             root: self.root,
             commands,
             accessibility_tree,
+            capabilities: self.capabilities.clone(),
+            capability_issues: self.capability_issues.clone(),
+            accessibility_issues: self.accessibility_issues.clone(),
         }
         .serialize(serializer)
     }
@@ -174,6 +191,8 @@ pub struct HostEventResponse {
     pub frame_id: String,
     pub invocation: ActionInvocation,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invocations: Vec<ActionInvocation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub interaction_changes: Vec<InteractionChange>,
     #[serde(default, skip)]
     pub value_sensitivity: ValueSensitivity,
@@ -185,6 +204,9 @@ pub struct HostEventResponse {
 #[serde(rename_all = "camelCase")]
 pub struct NativeHostEventResponse {
     pub frame_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invocations: Vec<ActionInvocation>,
+    /// First invocation retained for compatibility with single-action clients.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invocation: Option<ActionInvocation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -201,12 +223,17 @@ pub struct NativeHostEventResponse {
 #[serde(rename_all = "camelCase")]
 pub struct NativeAppEventResponse {
     pub frame_id: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invocations: Vec<ActionInvocation>,
+    /// First invocation retained for compatibility with single-action clients.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invocation: Option<ActionInvocation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accessibility_tree: Option<AccessibilityNode>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub interaction_changes: Vec<InteractionChange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub propagation_stopped_at: Option<HostNodeId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub render: Option<NativeRenderResponse>,
     #[serde(default, skip)]
@@ -221,6 +248,8 @@ struct HostEventResponseWire {
     frame_id: String,
     invocation: ActionInvocation,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    invocations: Vec<ActionInvocation>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     interaction_changes: Vec<InteractionChange>,
 }
 
@@ -228,6 +257,8 @@ struct HostEventResponseWire {
 #[serde(rename_all = "camelCase")]
 struct NativeHostEventResponseWire {
     frame_id: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    invocations: Vec<ActionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     invocation: Option<ActionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -240,12 +271,16 @@ struct NativeHostEventResponseWire {
 #[serde(rename_all = "camelCase")]
 struct NativeAppEventResponseWire {
     frame_id: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    invocations: Vec<ActionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     invocation: Option<ActionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     accessibility_tree: Option<AccessibilityNode>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     interaction_changes: Vec<InteractionChange>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    propagation_stopped_at: Option<HostNodeId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     render: Option<NativeRenderResponse>,
 }
@@ -256,15 +291,18 @@ impl Serialize for HostEventResponse {
         S: serde::Serializer,
     {
         let mut invocation = self.invocation.clone();
+        let mut invocations = self.invocations.clone();
         let mut interaction_changes = self.interaction_changes.clone();
         redact_response_values(
             Some(&mut invocation),
             &mut interaction_changes,
             self.value_sensitivity,
         );
+        redact_invocation_values(&mut invocations, self.value_sensitivity);
         HostEventResponseWire {
             frame_id: self.frame_id.clone(),
             invocation,
+            invocations,
             interaction_changes,
         }
         .serialize(serializer)
@@ -277,12 +315,14 @@ impl Serialize for NativeHostEventResponse {
         S: serde::Serializer,
     {
         let mut invocation = self.invocation.clone();
+        let mut invocations = self.invocations.clone();
         let mut interaction_changes = self.interaction_changes.clone();
         redact_response_values(
             invocation.as_mut(),
             &mut interaction_changes,
             self.value_sensitivity,
         );
+        redact_invocation_values(&mut invocations, self.value_sensitivity);
         let mut accessibility_tree = self.accessibility_tree.clone();
         redact_response_accessibility(
             accessibility_tree.as_mut(),
@@ -291,6 +331,7 @@ impl Serialize for NativeHostEventResponse {
         );
         NativeHostEventResponseWire {
             frame_id: self.frame_id.clone(),
+            invocations,
             invocation,
             accessibility_tree,
             interaction_changes,
@@ -305,12 +346,14 @@ impl Serialize for NativeAppEventResponse {
         S: serde::Serializer,
     {
         let mut invocation = self.invocation.clone();
+        let mut invocations = self.invocations.clone();
         let mut interaction_changes = self.interaction_changes.clone();
         redact_response_values(
             invocation.as_mut(),
             &mut interaction_changes,
             self.value_sensitivity,
         );
+        redact_invocation_values(&mut invocations, self.value_sensitivity);
         let mut accessibility_tree = self.accessibility_tree.clone();
         redact_response_accessibility(
             accessibility_tree.as_mut(),
@@ -319,9 +362,11 @@ impl Serialize for NativeAppEventResponse {
         );
         NativeAppEventResponseWire {
             frame_id: self.frame_id.clone(),
+            invocations,
             invocation,
             accessibility_tree,
             interaction_changes,
+            propagation_stopped_at: self.propagation_stopped_at,
             render: self.render.clone(),
         }
         .serialize(serializer)
@@ -342,6 +387,17 @@ fn redact_response_values(
     for change in interaction_changes {
         change.before.value = None;
         change.after.value = None;
+    }
+}
+
+fn redact_invocation_values(
+    invocations: &mut [ActionInvocation],
+    value_sensitivity: ValueSensitivity,
+) {
+    if value_sensitivity.is_sensitive() {
+        for invocation in invocations {
+            invocation.value = None;
+        }
     }
 }
 
@@ -804,7 +860,31 @@ where
             cleanup_effect: None,
         }
     }
+}
 
+impl<A, S, F, R> NativeProtocolApp<A, S, F, R>
+where
+    A: PlatformAdapter,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<ActionPropagation>,
+{
+    pub fn new_with_propagation(adapter: A, state: S, frame_builder: F, action_reducer: R) -> Self {
+        Self {
+            session: NativeProtocolSession::new(adapter),
+            state,
+            frame_builder,
+            action_reducer,
+            render_effect: None,
+            cleanup_effect: None,
+        }
+    }
+}
+
+impl<A, S, F, R> NativeProtocolApp<A, S, F, R>
+where
+    A: PlatformAdapter,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+{
     pub fn with_render_effect(
         mut self,
         effect: impl FnMut(&mut S) -> GuiResult<()> + 'static,
@@ -852,17 +932,28 @@ where
         }
         Ok(())
     }
+}
 
+impl<A, S, F, R> NativeProtocolApp<A, S, F, R>
+where
+    A: PlatformAdapter,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<()>,
+{
     pub fn dispatch_host_event(&mut self, event: &HostEvent) -> GuiResult<NativeAppEventResponse> {
         let response = self.session.dispatch_host_event(event)?;
-        (self.action_reducer)(&mut self.state, &response.invocation)?;
+        for invocation in &response.invocations {
+            (self.action_reducer)(&mut self.state, invocation)?;
+        }
         let render = self.render()?;
         let accessibility_tree = render.accessibility_tree.clone();
         Ok(NativeAppEventResponse {
             frame_id: response.frame_id,
             invocation: Some(response.invocation),
+            invocations: response.invocations,
             accessibility_tree,
             interaction_changes: response.interaction_changes,
+            propagation_stopped_at: None,
             render: Some(render),
             value_sensitivity: response.value_sensitivity,
             value_node: response.value_node,
@@ -874,8 +965,10 @@ where
         let mut render = None;
         let mut accessibility_tree = response.accessibility_tree;
 
-        if let Some(invocation) = response.invocation.as_ref() {
+        for invocation in &response.invocations {
             (self.action_reducer)(&mut self.state, invocation)?;
+        }
+        if !response.invocations.is_empty() {
             let rendered = self.render()?;
             accessibility_tree = rendered.accessibility_tree.clone();
             render = Some(rendered);
@@ -884,8 +977,104 @@ where
         Ok(NativeAppEventResponse {
             frame_id: response.frame_id,
             invocation: response.invocation,
+            invocations: response.invocations,
             accessibility_tree,
             interaction_changes: response.interaction_changes,
+            propagation_stopped_at: None,
+            render,
+            value_sensitivity: response.value_sensitivity,
+            value_node: response.value_node,
+        })
+    }
+}
+
+impl<A, S, F, R> NativeProtocolApp<A, S, F, R>
+where
+    A: PlatformAdapter,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<ActionPropagation>,
+{
+    pub fn dispatch_host_event_with_propagation(
+        &mut self,
+        event: &HostEvent,
+    ) -> GuiResult<NativeAppEventResponse> {
+        let invocation_checkpoint = self.session.runtime().actions().invocations().len();
+        let mut response = self.session.dispatch_host_event(event)?;
+        let routed_invocations = response.invocations.len();
+        let propagation_stopped_at = match reduce_invocation_batch(
+            &mut self.state,
+            &mut self.action_reducer,
+            &mut response.invocations,
+        ) {
+            Ok(stopped_at) => stopped_at,
+            Err(error) => {
+                self.session
+                    .truncate_action_invocations(invocation_checkpoint);
+                return Err(error);
+            }
+        };
+        if response.invocations.len() != routed_invocations {
+            self.session
+                .truncate_action_invocations(invocation_checkpoint + response.invocations.len());
+        }
+        let invocation = response.invocations.first().cloned().ok_or_else(|| {
+            GuiError::host("native event has no registered RSX action after propagation")
+        })?;
+        let render = self.render()?;
+        let accessibility_tree = render.accessibility_tree.clone();
+
+        Ok(NativeAppEventResponse {
+            frame_id: response.frame_id,
+            invocation: Some(invocation),
+            invocations: response.invocations,
+            accessibility_tree,
+            interaction_changes: response.interaction_changes,
+            propagation_stopped_at,
+            render: Some(render),
+            value_sensitivity: response.value_sensitivity,
+            value_node: response.value_node,
+        })
+    }
+
+    pub fn handle_host_event_with_propagation(
+        &mut self,
+        event: &HostEvent,
+    ) -> GuiResult<NativeAppEventResponse> {
+        let invocation_checkpoint = self.session.runtime().actions().invocations().len();
+        let mut response = self.session.handle_host_event(event)?;
+        let routed_invocations = response.invocations.len();
+        let propagation_stopped_at = match reduce_invocation_batch(
+            &mut self.state,
+            &mut self.action_reducer,
+            &mut response.invocations,
+        ) {
+            Ok(stopped_at) => stopped_at,
+            Err(error) => {
+                self.session
+                    .truncate_action_invocations(invocation_checkpoint);
+                return Err(error);
+            }
+        };
+        if response.invocations.len() != routed_invocations {
+            self.session
+                .truncate_action_invocations(invocation_checkpoint + response.invocations.len());
+        }
+
+        let mut render = None;
+        let mut accessibility_tree = response.accessibility_tree;
+        if !response.invocations.is_empty() {
+            let rendered = self.render()?;
+            accessibility_tree = rendered.accessibility_tree.clone();
+            render = Some(rendered);
+        }
+
+        Ok(NativeAppEventResponse {
+            frame_id: response.frame_id,
+            invocation: response.invocations.first().cloned(),
+            invocations: response.invocations,
+            accessibility_tree,
+            interaction_changes: response.interaction_changes,
+            propagation_stopped_at,
             render,
             value_sensitivity: response.value_sensitivity,
             value_node: response.value_node,
@@ -915,6 +1104,7 @@ impl HostEvent {
         Ok(HostEventResponse {
             frame_id: self.frame_id.clone(),
             invocation,
+            invocations: handled.invocations,
             interaction_changes: handled.interaction_changes,
             value_sensitivity: handled.value_sensitivity,
             value_node: Some(self.event.node),
@@ -931,6 +1121,7 @@ impl HostEvent {
         Ok(NativeHostEventResponse {
             frame_id: self.frame_id.clone(),
             invocation: handled.invocation,
+            invocations: handled.invocations,
             accessibility_tree,
             interaction_changes: handled.interaction_changes,
             value_sensitivity: handled.value_sensitivity,
@@ -942,3 +1133,7 @@ impl HostEvent {
 #[cfg(test)]
 #[path = "protocol/tests/mod.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "protocol/multi_action_tests.rs"]
+mod multi_action_tests;

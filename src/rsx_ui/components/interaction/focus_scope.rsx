@@ -1,7 +1,7 @@
 use crate::rsx_app::{ComponentCx, RSX};
 use crate::semantic_ui::UseFocusScopeProps;
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UiFocusScopeProps {
     pub class_name: String,
     pub contain: bool,
@@ -9,6 +9,19 @@ pub struct UiFocusScopeProps {
     pub auto_focus: bool,
     pub is_disabled: bool,
     pub tab_index: i32,
+}
+
+impl Default for UiFocusScopeProps {
+    fn default() -> Self {
+        Self {
+            class_name: String::new(),
+            contain: false,
+            restore_focus: false,
+            auto_focus: false,
+            is_disabled: false,
+            tab_index: -1,
+        }
+    }
 }
 
 pub fn ui_focus_scope(cx: &mut ComponentCx<UiFocusScopeProps>) -> RSX {

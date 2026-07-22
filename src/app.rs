@@ -14,17 +14,56 @@ use crate::platform::BlueprintHost;
 use crate::protocol::{RenderedFrame, UiFrame};
 use crate::runtime::{redact_event_output, GuiRuntime};
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ActionPropagation {
+    #[default]
+    Continue,
+    Stop,
+}
+
+pub(crate) fn reduce_invocation_batch<S, R>(
+    state: &mut S,
+    reducer: &mut R,
+    invocations: &mut Vec<ActionInvocation>,
+) -> GuiResult<Option<HostNodeId>>
+where
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<ActionPropagation>,
+{
+    let mut processed = 0;
+    let mut stopped_at = None;
+
+    for invocation in invocations.iter() {
+        if stopped_at.is_some_and(|target| invocation.current_target() != target) {
+            break;
+        }
+        let propagation = reducer(state, invocation)?;
+        processed += 1;
+        if propagation == ActionPropagation::Stop {
+            stopped_at.get_or_insert(invocation.current_target());
+        }
+    }
+
+    invocations.truncate(processed);
+    Ok(stopped_at)
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeRuntimeEventResponse {
     pub frame_id: String,
     pub event: NativeEvent,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub invocations: Vec<ActionInvocation>,
+    /// First invocation retained for compatibility with single-action clients.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invocation: Option<ActionInvocation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accessibility_tree: Option<AccessibilityNode>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub interaction_changes: Vec<InteractionChange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub propagation_stopped_at: Option<HostNodeId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub render: Option<RenderedFrame>,
     #[serde(default, skip)]
@@ -36,12 +75,16 @@ pub struct NativeRuntimeEventResponse {
 struct NativeRuntimeEventResponseWire {
     frame_id: String,
     event: NativeEvent,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    invocations: Vec<ActionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     invocation: Option<ActionInvocation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     accessibility_tree: Option<AccessibilityNode>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     interaction_changes: Vec<InteractionChange>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    propagation_stopped_at: Option<HostNodeId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     render: Option<RenderedFrame>,
 }
@@ -52,6 +95,7 @@ impl Serialize for NativeRuntimeEventResponse {
         S: serde::Serializer,
     {
         let mut event = self.event.clone();
+        let mut invocations = self.invocations.clone();
         let mut invocation = self.invocation.clone();
         let mut interaction_changes = self.interaction_changes.clone();
         redact_event_output(
@@ -60,6 +104,11 @@ impl Serialize for NativeRuntimeEventResponse {
             &mut interaction_changes,
             self.value_sensitivity,
         );
+        if self.value_sensitivity.is_sensitive() {
+            for invocation in &mut invocations {
+                invocation.value = None;
+            }
+        }
         let mut accessibility_tree = self.accessibility_tree.clone();
         redact_accessibility_value(
             accessibility_tree.as_mut(),
@@ -69,9 +118,11 @@ impl Serialize for NativeRuntimeEventResponse {
         NativeRuntimeEventResponseWire {
             frame_id: self.frame_id.clone(),
             event,
+            invocations,
             invocation,
             accessibility_tree,
             interaction_changes,
+            propagation_stopped_at: self.propagation_stopped_at,
             render: self.render.clone(),
         }
         .serialize(serializer)
@@ -196,6 +247,40 @@ where
         frame_builder: F,
         action_reducer: R,
     ) -> Self {
+        Self::from_parts(runtime, state, frame_builder, action_reducer)
+    }
+}
+
+impl<H, S, F, R> NativeRuntimeApp<H, S, F, R>
+where
+    H: NativeHost,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<ActionPropagation>,
+{
+    pub fn new_with_propagation(host: H, state: S, frame_builder: F, action_reducer: R) -> Self {
+        Self::from_runtime_with_propagation(
+            GuiRuntime::new(host),
+            state,
+            frame_builder,
+            action_reducer,
+        )
+    }
+
+    pub fn from_runtime_with_propagation(
+        runtime: GuiRuntime<H>,
+        state: S,
+        frame_builder: F,
+        action_reducer: R,
+    ) -> Self {
+        Self::from_parts(runtime, state, frame_builder, action_reducer)
+    }
+}
+
+impl<H, S, F, R> NativeRuntimeApp<H, S, F, R>
+where
+    H: NativeHost,
+{
+    fn from_parts(runtime: GuiRuntime<H>, state: S, frame_builder: F, action_reducer: R) -> Self {
         Self {
             runtime,
             state,
@@ -286,7 +371,10 @@ where
     }
 
     /// Drains background completions and renders one frame when the state changed.
-    pub fn poll_background_updates(&mut self) -> GuiResult<Option<RenderedFrame>> {
+    pub fn poll_background_updates(&mut self) -> GuiResult<Option<RenderedFrame>>
+    where
+        F: Fn(&S) -> GuiResult<UiFrame>,
+    {
         let Some(poller) = self.background_updates.as_mut() else {
             self.background_work_pending = false;
             return Ok(None);
@@ -298,17 +386,6 @@ where
         } else {
             Ok(None)
         }
-    }
-
-    pub fn render(&mut self) -> GuiResult<RenderedFrame> {
-        let frame = (self.frame_builder)(&self.state)?;
-        let rendered = frame.render_into(&mut self.runtime)?;
-        self.active_frame_id = Some(rendered.frame_id.clone());
-        self.root = Some(rendered.root);
-        if let Some(effect) = self.render_effect.as_mut() {
-            effect(&mut self.state)?;
-        }
-        Ok(rendered)
     }
 
     pub fn cleanup_effects(&mut self) -> GuiResult<()> {
@@ -339,7 +416,7 @@ where
         event: NativeEvent,
     ) -> GuiResult<NativeRuntimeEventResponse> {
         let response = self.handle_native_event(event)?;
-        if response.invocation.is_none() {
+        if response.invocations.is_empty() {
             return Err(GuiError::host("native event has no registered RSX action"));
         }
         Ok(response)
@@ -357,8 +434,10 @@ where
         let mut render = None;
         let mut accessibility_tree = self.runtime.accessibility_tree();
 
-        if let Some(invocation) = handled.invocation.as_ref() {
+        for invocation in &handled.invocations {
             (self.action_reducer)(&mut self.state, invocation)?;
+        }
+        if !handled.invocations.is_empty() {
             let rendered = self.render()?;
             accessibility_tree = self.runtime.accessibility_tree();
             render = Some(rendered);
@@ -373,12 +452,101 @@ where
         Ok(NativeRuntimeEventResponse {
             frame_id,
             event: handled.event,
+            invocations: handled.invocations,
             invocation: handled.invocation,
             accessibility_tree,
             interaction_changes: handled.interaction_changes,
+            propagation_stopped_at: None,
             render,
             value_sensitivity: handled.value_sensitivity,
         })
+    }
+}
+
+impl<H, S, F, R> NativeRuntimeApp<H, S, F, R>
+where
+    H: NativeHost + BlueprintHost + AccessibilityTreeHost,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<ActionPropagation>,
+{
+    pub fn dispatch_native_event_with_propagation(
+        &mut self,
+        event: NativeEvent,
+    ) -> GuiResult<NativeRuntimeEventResponse> {
+        let response = self.handle_native_event_with_propagation(event)?;
+        if response.invocations.is_empty() {
+            return Err(GuiError::host("native event has no registered RSX action"));
+        }
+        Ok(response)
+    }
+
+    pub fn handle_native_event_with_propagation(
+        &mut self,
+        event: NativeEvent,
+    ) -> GuiResult<NativeRuntimeEventResponse> {
+        let frame_id = self
+            .active_frame_id
+            .clone()
+            .ok_or_else(|| GuiError::host("no active native frame"))?;
+        let invocation_checkpoint = self.runtime.actions().invocations().len();
+        let mut handled = self.runtime.handle_native_event_with_changes(event)?;
+        let mut render = None;
+        let mut accessibility_tree = self.runtime.accessibility_tree();
+        let routed_invocations = handled.invocations.len();
+
+        let propagation_stopped_at = match reduce_invocation_batch(
+            &mut self.state,
+            &mut self.action_reducer,
+            &mut handled.invocations,
+        ) {
+            Ok(stopped_at) => stopped_at,
+            Err(error) => {
+                self.runtime
+                    .actions_mut()
+                    .truncate_invocations(invocation_checkpoint);
+                return Err(error);
+            }
+        };
+        if handled.invocations.len() != routed_invocations {
+            self.runtime
+                .actions_mut()
+                .truncate_invocations(invocation_checkpoint + handled.invocations.len());
+            handled.invocation = handled.invocations.first().cloned();
+        }
+        if !handled.invocations.is_empty() {
+            let rendered = self.render()?;
+            accessibility_tree = self.runtime.accessibility_tree();
+            render = Some(rendered);
+        }
+
+        Ok(NativeRuntimeEventResponse {
+            frame_id,
+            event: handled.event,
+            invocations: handled.invocations,
+            invocation: handled.invocation,
+            accessibility_tree,
+            interaction_changes: handled.interaction_changes,
+            propagation_stopped_at,
+            render,
+            value_sensitivity: handled.value_sensitivity,
+        })
+    }
+}
+
+impl<H, S, F, R> NativeRuntimeApp<H, S, F, R>
+where
+    H: NativeHost,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+{
+    pub fn render(&mut self) -> GuiResult<RenderedFrame> {
+        let frame = (self.frame_builder)(&self.state)?;
+        let rendered = frame.render_into(&mut self.runtime)?;
+        self.active_frame_id = Some(rendered.frame_id.clone());
+        self.root = Some(rendered.root);
+        if let Some(effect) = self.render_effect.as_mut() {
+            effect(&mut self.state)?;
+        }
+        Ok(rendered)
     }
 }
 
@@ -448,6 +616,81 @@ where
         })
     }
 }
+
+impl<H, S, F, R> NativeRuntimeApp<H, S, F, R>
+where
+    H: NativeHost + BlueprintHost + AccessibilityTreeHost + NativeEventHost,
+    F: Fn(&S) -> GuiResult<UiFrame>,
+    R: FnMut(&mut S, &ActionInvocation) -> GuiResult<ActionPropagation>,
+{
+    pub fn handle_pending_native_events_with_propagation(
+        &mut self,
+    ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        self.handle_pending_native_event_batch_with_propagation()
+            .map(|batch| batch.responses)
+    }
+
+    pub fn handle_pending_native_events_with_propagation_while(
+        &mut self,
+        should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<Vec<NativeRuntimeEventResponse>> {
+        self.handle_pending_native_event_batch_with_propagation_while(should_continue)
+            .map(|batch| batch.responses)
+    }
+
+    pub fn handle_pending_native_event_batch_with_propagation(
+        &mut self,
+    ) -> GuiResult<NativeRuntimeEventBatch> {
+        self.handle_pending_native_event_batch_with_propagation_while(|_| true)
+    }
+
+    pub fn handle_pending_native_event_batch_with_propagation_while(
+        &mut self,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<NativeRuntimeEventBatch> {
+        if !should_continue(&self.state) {
+            let buffered_native_events = self.pending_native_events.len();
+            return Ok(NativeRuntimeEventBatch {
+                responses: Vec::new(),
+                host_events_drained: 0,
+                queued_native_events: buffered_native_events,
+                handled_native_events: 0,
+                buffered_native_events,
+                stopped_by_predicate: true,
+                host_queue_preserved: true,
+            });
+        }
+
+        let host_events = self.runtime.host_mut().take_native_events();
+        let host_events_drained = host_events.len();
+        self.pending_native_events.extend(host_events);
+        let queued_native_events = self.pending_native_events.len();
+        let mut responses = Vec::with_capacity(queued_native_events);
+        let mut stopped_by_predicate = false;
+
+        while let Some(event) = self.pending_native_events.pop_front() {
+            responses.push(self.handle_native_event_with_propagation(event)?);
+            if !should_continue(&self.state) {
+                stopped_by_predicate = true;
+                break;
+            }
+        }
+
+        Ok(NativeRuntimeEventBatch {
+            handled_native_events: responses.len(),
+            buffered_native_events: self.pending_native_events.len(),
+            responses,
+            host_events_drained,
+            queued_native_events,
+            stopped_by_predicate,
+            host_queue_preserved: false,
+        })
+    }
+}
+
+#[cfg(test)]
+#[path = "app/multi_action_tests.rs"]
+mod multi_action_tests;
 
 #[cfg(test)]
 #[path = "app/tests.rs"]

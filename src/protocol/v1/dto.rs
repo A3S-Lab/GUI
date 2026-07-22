@@ -518,6 +518,9 @@ pub enum ProtocolCommandV1 {
     SetRoot {
         id: u64,
     },
+    RequestFocus {
+        id: u64,
+    },
 }
 
 impl From<&PlatformCommand> for ProtocolCommandV1 {
@@ -542,6 +545,7 @@ impl From<&PlatformCommand> for ProtocolCommandV1 {
             },
             PlatformCommand::Remove { id } => Self::Remove { id: id.get() },
             PlatformCommand::SetRoot { id } => Self::SetRoot { id: id.get() },
+            PlatformCommand::RequestFocus { id } => Self::RequestFocus { id: id.get() },
         }
     }
 }
@@ -580,6 +584,7 @@ impl TryFrom<ProtocolCommandV1> for PlatformCommand {
             }),
             ProtocolCommandV1::Remove { id } => Ok(Self::Remove { id: node(id)? }),
             ProtocolCommandV1::SetRoot { id } => Ok(Self::SetRoot { id: node(id)? }),
+            ProtocolCommandV1::RequestFocus { id } => Ok(Self::RequestFocus { id: node(id)? }),
         }
     }
 }
@@ -733,6 +738,7 @@ impl TryFrom<ProtocolHostEventPayloadV1> for HostEvent {
                 node: HostNodeId::new(event.event.node),
                 kind: event.event.kind.into(),
                 value: event.event.value,
+                context: Default::default(),
             },
         })
     }

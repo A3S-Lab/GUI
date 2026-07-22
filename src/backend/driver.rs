@@ -15,6 +15,7 @@ pub struct HandleWidgetDriver<A: NativeHandleAdapter> {
     configs: BTreeMap<HostNodeId, NativeWidgetConfig>,
     children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     root: Option<HostNodeId>,
+    focused: Option<HostNodeId>,
     events: Vec<NativeEvent>,
 }
 
@@ -26,6 +27,7 @@ impl<A: NativeHandleAdapter> HandleWidgetDriver<A> {
             configs: BTreeMap::new(),
             children: BTreeMap::new(),
             root: None,
+            focused: None,
             events: Vec::new(),
         }
     }
@@ -40,6 +42,10 @@ impl<A: NativeHandleAdapter> HandleWidgetDriver<A> {
 
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn focused(&self) -> Option<HostNodeId> {
+        self.focused
     }
 
     pub fn handle(&self, id: HostNodeId) -> Option<&A::Handle> {
@@ -149,6 +155,12 @@ impl<A: NativeHandleAdapter> HandleWidgetDriver<A> {
             .unwrap_or(false)
         {
             self.root = None;
+        }
+        if self
+            .focused
+            .is_some_and(|focused| removed_ids.contains(&focused))
+        {
+            self.focused = None;
         }
     }
 
@@ -298,6 +310,13 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
         let handle = self.cloned_handle(id)?;
         self.adapter.set_root_handle(id, &handle)?;
         self.root = Some(id);
+        Ok(())
+    }
+
+    fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
+        let handle = self.cloned_handle(id)?;
+        self.adapter.request_focus_handle(id, &handle)?;
+        self.focused = Some(id);
         Ok(())
     }
 }

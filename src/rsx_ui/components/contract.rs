@@ -248,6 +248,7 @@ pub(super) fn passthrough_contract() -> GuiResult<RsxComponentContract> {
             "onPress",
             "onPressStart",
             "onPressEnd",
+            "onPressUp",
             "onHoverStart",
             "onHoverEnd",
             "onHoverChange",
@@ -366,4 +367,20 @@ pub(super) fn passthrough_contract() -> GuiResult<RsxComponentContract> {
             "density",
         ])
         .default_prop("className", "")
+}
+
+pub(super) fn selection_contract() -> GuiResult<RsxComponentContract> {
+    passthrough_contract()?
+        .default_prop("value", "")?
+        .default_prop_value("selectedKeys", serde_json::Value::Null)?
+        .default_prop_value("defaultSelectedKeys", serde_json::Value::Null)?
+        .default_prop_value("disabledKeys", serde_json::Value::Array(Vec::new()))?
+        .default_prop("selectionMode", "single")?
+        .default_prop("selectionBehavior", "")?
+        .default_prop("disabledBehavior", "all")?
+        .default_prop("disallowEmptySelection", false)?
+        .default_prop("shouldFocusWrap", false)?
+        .default_prop("escapeKeyBehavior", "clearSelection")?
+        .default_prop("onAction", "")?
+        .default_prop("onSelectionChange", "")
 }

@@ -1,7 +1,8 @@
 use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
+use crate::capability::{CapabilityHost, NativeCapabilities};
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
-use crate::host::{HostFrameAck, HostNodeId, NativeHost};
+use crate::host::{HostFrameAck, HostNodeId, NativeHost, ProgrammaticFocusHost};
 use crate::native::{NativeElement, NativeProps};
 use crate::platform::{
     BlueprintHost, NativeWidgetBlueprint, PlatformAdapter, PlatformPlanningHost,
@@ -287,6 +288,12 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> AccessibilityTreeHost
     }
 }
 
+impl<A: PlatformAdapter, E: PlatformCommandExecutor> CapabilityHost for CommandExecutingHost<A, E> {
+    fn native_capabilities(&self) -> NativeCapabilities {
+        self.planning.capabilities()
+    }
+}
+
 impl<A: PlatformAdapter, E: PlatformCommandExecutor> BlueprintHost for CommandExecutingHost<A, E> {
     fn blueprint(&self, id: HostNodeId) -> Option<&NativeWidgetBlueprint> {
         self.planning.blueprint(id)
@@ -355,5 +362,17 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> NativeHost for CommandExecu
 
     fn set_root(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.commit_planning(|planning| planning.set_root(id))
+    }
+
+    fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {
+        Some(self)
+    }
+}
+
+impl<A: PlatformAdapter, E: PlatformCommandExecutor> ProgrammaticFocusHost
+    for CommandExecutingHost<A, E>
+{
+    fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
+        self.commit_planning(|planning| planning.request_focus(id))
     }
 }

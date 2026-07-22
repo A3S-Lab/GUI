@@ -4,7 +4,7 @@ use crate::error::GuiResult;
 use crate::rsx_app::RsxComponent;
 
 use super::super::catalog::*;
-use super::super::contract::passthrough_contract;
+use super::super::contract::{passthrough_contract, selection_contract};
 use super::with_builtin_template;
 
 pub(super) fn with_data_components<S>(component: RsxComponent<S>) -> GuiResult<RsxComponent<S>> {
@@ -65,6 +65,9 @@ pub(super) fn with_data_components<S>(component: RsxComponent<S>) -> GuiResult<R
         ui_column_resizer,
         passthrough_contract()?
             .default_prop("onPress", "")?
+            .default_prop("onPressStart", "")?
+            .default_prop("onPressEnd", "")?
+            .default_prop("onPressUp", "")?
             .default_prop("isResizing", false)?
             .default_prop("valueNumber", 0.0)?
             .default_prop("minValue", 0.0)?
@@ -108,10 +111,7 @@ pub(super) fn with_data_components<S>(component: RsxComponent<S>) -> GuiResult<R
         component,
         "UiTabs",
         ui_tabs,
-        passthrough_contract()?
-            .default_prop("value", "")?
-            .default_prop("selectionMode", "single")?
-            .default_prop("onSelectionChange", "")?,
+        selection_contract()?.default_prop("keyboardActivation", "automatic")?,
         None,
     )?;
     let component = with_builtin_template(

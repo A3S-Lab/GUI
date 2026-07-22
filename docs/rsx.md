@@ -1626,6 +1626,61 @@ card parts are under `src/rsx_ui/components/card/`, checkbox parts are under
 - `UiCalendarMonthPicker`
 - `UiCalendarYearPicker`
 
+Collection selection components accept React Aria-style `selectedKeys`,
+`defaultSelectedKeys`, `selectionMode`, `selectionBehavior`, `disabledKeys`,
+`disabledBehavior`, `disallowEmptySelection`, and `shouldFocusWrap` props.
+ListBox and Tree additionally accept `escapeKeyBehavior="clearSelection"`
+(the default) or `escapeKeyBehavior="none"`. In multiple-selection mode,
+Control/Command+A selects `all`; Escape clears unless either the behavior is
+`none` or empty selection is disallowed. `onSelectionChange` receives the
+complete stable-key set after native value aliases are resolved. ListBox,
+GridList, Tag, and Tree collection roots also accept `onAction`; it receives
+the activated item's stable key independently from selection. Enter invokes
+`onAction`, Space selects, and replace-selection mouse input uses a single
+click for selection and a double click for action.
+Touch and pen taps invoke `onAction` until a long press selects an item and
+enters selection mode; later taps then update selection until it is cleared.
+
+`UiLongPressable` exposes `onLongPressStart`, `onLongPress`, and
+`onLongPressEnd`, plus a millisecond `threshold` that defaults to `500`.
+Provide `accessibilityDescription` so assistive technology can explain the
+alternative interaction. The portable native recognizer currently delivers
+the terminal event from each platform's UI-loop timer when the threshold
+elapses, with a release-time fallback if timer registration fails. Recognition
+ends the long-press-start phase and cancels the active press and move lifecycle
+before dispatching `onLongPress`; releasing afterward does not also press.
+
+`UiMovable` exposes React Aria-style `onMoveStart`, `onMove`, and `onMoveEnd`
+callbacks. A primary mouse, touch, or pen press begins tracking without firing
+a callback. The first non-zero pointer delta emits start followed by move,
+later motion reports incremental `context.delta.x` and `context.delta.y`, and
+release or cancellation emits end only if movement occurred. Each focused
+Arrow key press emits one complete keyboard move lifecycle with a one-unit
+delta and prevents native or collection arrow-key behavior. Only the pointer
+that began an interaction can update or end it.
+
+`UiTree` accepts React Aria-style `expandedKeys`, `defaultExpandedKeys`, and
+`onExpandedChange` props. Nest child items inside their parent; the runtime keeps
+that hierarchy while projecting visible rows to each native backend. Use
+`hasChildItems={true}` when a parent is expandable before its children are
+loaded.
+
+```rsx
+<UiTree
+  key="files"
+  label="Files"
+  defaultExpandedKeys={state.expanded}
+  onExpandedChange={setExpanded}
+>
+  <UiTreeItem key="documents" textValue="Documents">
+    <UiTreeItemContent key="documents-label">Documents</UiTreeItemContent>
+    <UiTreeItem key="resume" textValue="Resume">
+      <UiTreeItemContent key="resume-label">Resume</UiTreeItemContent>
+    </UiTreeItem>
+  </UiTreeItem>
+</UiTree>
+```
+
 Example:
 
 ```rsx

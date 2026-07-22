@@ -168,7 +168,6 @@ acceptance gates are tracked in [`roadmap.md`](roadmap.md):
 - broader resize, focus, and text input edge cases under longer real-world forms
 - native-platform automation for dogfood menu, dialog, and keyboard interaction
   flows beyond compile-time checks
-- WinUI programmatic focus once the underlying safe API is available
 - direct OS-native wake messages for externally started work while an otherwise
   idle loop is inside the platform's blocking wait; pending work already uses a
   joinable effect waker plus a bounded 16 ms park fallback
@@ -177,3 +176,4 @@ acceptance gates are tracked in [`roadmap.md`](roadmap.md):
   already-running SDK call to return
 - native failure-injection proving that executor teardown closes every partial
   AppKit, GTK4, and WinUI surface before full replay
+- Windows smoke automation for the isolated WinUI programmatic-focus ABI bridge

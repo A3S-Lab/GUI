@@ -68,6 +68,60 @@ fn aria_label_overrides_descendant_text_for_container_name() {
 }
 
 #[test]
+fn tree_mapping_flattens_nested_items_without_losing_hierarchy() {
+    let tree = SemanticElement::new("files", SemanticComponent::Tree)
+        .with_props(SemanticProps::new().label("Files"))
+        .child(
+            SemanticElement::new("documents", SemanticComponent::TreeItem)
+                .with_props(SemanticProps::new().text_value("Documents"))
+                .child(
+                    SemanticElement::new("documents-content", SemanticComponent::Group)
+                        .child(SemanticElement::text("documents-label", "Documents")),
+                )
+                .child(
+                    SemanticElement::new("resume", SemanticComponent::TreeItem)
+                        .with_props(SemanticProps::new().text_value("Resume"))
+                        .child(SemanticElement::text("resume-label", "Resume")),
+                ),
+        )
+        .child(
+            SemanticElement::new("photos", SemanticComponent::TreeItem)
+                .child(SemanticElement::text("photos-label", "Photos")),
+        );
+
+    let native = SemanticMapper::new().map(&tree).unwrap();
+
+    assert_eq!(native.role, NativeRole::Tree);
+    assert_eq!(native.children.len(), 3);
+    assert_eq!(native.children[0].key.as_str(), "documents");
+    assert_eq!(native.children[1].key.as_str(), "resume");
+    assert_eq!(native.children[2].key.as_str(), "photos");
+    assert_eq!(native.children[0].props.label.as_deref(), Some("Documents"));
+    assert_eq!(native.children[0].props.expanded, Some(false));
+    assert_eq!(
+        native.children[0]
+            .props
+            .metadata
+            .get("data-tree-level")
+            .map(String::as_str),
+        Some("1")
+    );
+    assert_eq!(
+        native.children[1]
+            .props
+            .metadata
+            .get("data-tree-parent-key")
+            .map(String::as_str),
+        Some("documents")
+    );
+    assert_eq!(
+        native.children[1].props.accessibility_structure.level,
+        Some(2)
+    );
+    assert!(native.children.iter().all(|item| item.children.is_empty()));
+}
+
+#[test]
 fn folds_text_field_label_and_input_into_one_native_control() {
     let aria = SemanticElement::new("email-field", SemanticComponent::TextField)
         .child(SemanticElement::text("email-label", "Email"))
