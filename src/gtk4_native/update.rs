@@ -63,6 +63,15 @@ impl Gtk4NativeSurface {
                     | Gtk4OsWidget::Box(_) => {}
                 }
             }
+            NativeWidgetSetter::SetAccessibilityLabel(value) => {
+                if let Some(widget) = handle.widget.as_widget() {
+                    if let Some(label) = value.as_deref() {
+                        widget.update_property(&[gtk::accessible::Property::Label(label)]);
+                    } else {
+                        widget.reset_property(gtk::AccessibleProperty::Label);
+                    }
+                }
+            }
             NativeWidgetSetter::SetWindowResizable(value) => {
                 if let Gtk4OsWidget::ApplicationWindow(window) = &handle.widget {
                     window.set_resizable(value.unwrap_or(true));

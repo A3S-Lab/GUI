@@ -370,7 +370,7 @@ fn accessible_node_text(mounted: &MountedNodeSnapshot, is_region_root: bool) -> 
         .map(str::to_ascii_lowercase);
     let mut parts = Vec::new();
     if !(is_region_root && matches!(role.as_deref(), Some("region" | "log"))) {
-        push_accessible_part(&mut parts, props.label.as_deref());
+        push_accessible_part(&mut parts, props.effective_accessibility_label());
     }
     push_accessible_part(
         &mut parts,

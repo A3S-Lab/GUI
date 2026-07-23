@@ -421,6 +421,8 @@ pub struct ProtocolWidgetBlueprintV1 {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accessibility_label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
@@ -451,6 +453,7 @@ impl From<&NativeWidgetBlueprint> for ProtocolWidgetBlueprintV1 {
             role: blueprint.role.into(),
             accessibility_role: blueprint.accessibility_role.into(),
             label: blueprint.label.clone(),
+            accessibility_label: blueprint.accessibility_label.clone(),
             value: value_sensitivity
                 .redact(blueprint.value.as_deref())
                 .map(ToOwned::to_owned),
@@ -477,6 +480,7 @@ impl From<ProtocolWidgetBlueprintV1> for NativeWidgetBlueprint {
             role: blueprint.role.into(),
             accessibility_role: blueprint.accessibility_role.into(),
             label: blueprint.label,
+            accessibility_label: blueprint.accessibility_label,
             value: blueprint.value,
             value_sensitivity: ValueSensitivity::Public,
             action: blueprint.action,

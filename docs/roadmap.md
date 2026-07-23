@@ -71,7 +71,9 @@ The following foundations are implemented and are not roadmap placeholders:
   injectable executor seam
 - bounded diagnostic histories with password, credential, and CSP nonce
   redaction
-- headless planning, recording, and accessibility projections
+- headless planning, recording, and accessibility projections; visible labels
+  remain independent from computed accessible names, with native
+  `aria-label` projection on AppKit, GTK4, and WinUI
 - a component playground that checks registry coverage
 - normalized portable style, Tailwind-compatible variant metadata, and
   transactional runtime projection for interaction and typed state variants

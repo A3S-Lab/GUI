@@ -41,7 +41,6 @@ impl SemanticMapper {
         let has_child_items = !direct_tree_items(&element.children).is_empty()
             || semantic_boolean_attribute(element, &["hasChildItems", "data-has-child-items"]);
         let label = non_empty_clone(element.props.label.as_ref())
-            .or_else(|| aria_label(&element.props))
             .or_else(|| non_empty_clone(element.props.text_value.as_ref()))
             .or_else(|| first_tree_item_text(element));
         let mut props = native_props_from_aria(&element.props, label);

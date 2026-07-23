@@ -21,6 +21,7 @@ pub const DEFAULT_NATIVE_SETTER_HISTORY_LIMIT: usize = 256;
 pub enum NativeWidgetSetter {
     SetAccessibilityRole(AccessibilityRole),
     SetLabel(Option<String>),
+    SetAccessibilityLabel(Option<String>),
     SetValue(Option<String>),
     SetAction(Option<String>),
     SetClassName(Option<String>),
@@ -167,6 +168,7 @@ impl fmt::Debug for NativeWidgetSetter {
         debug_payload_variants!(
             SetAccessibilityRole,
             SetLabel,
+            SetAccessibilityLabel,
             SetAction,
             SetClassName,
             SetPlaceholder,
@@ -298,6 +300,7 @@ impl NativeWidgetSetter {
         match self {
             Self::SetAccessibilityRole(value) => &config.accessibility_role != value,
             Self::SetLabel(value) => &config.label != value,
+            Self::SetAccessibilityLabel(value) => &config.accessibility_label != value,
             Self::SetValue(value) => &config.value != value,
             Self::SetAction(value) => &config.action != value,
             Self::SetClassName(value) => &config.class_name != value,
@@ -430,6 +433,9 @@ pub fn apply_widget_setter(config: &mut NativeWidgetConfig, setter: &NativeWidge
     match setter {
         NativeWidgetSetter::SetAccessibilityRole(value) => config.accessibility_role = *value,
         NativeWidgetSetter::SetLabel(value) => config.label = value.clone(),
+        NativeWidgetSetter::SetAccessibilityLabel(value) => {
+            config.accessibility_label = value.clone();
+        }
         NativeWidgetSetter::SetValue(value) => config.value = value.clone(),
         NativeWidgetSetter::SetAction(value) => config.action = value.clone(),
         NativeWidgetSetter::SetClassName(value) => config.class_name = value.clone(),

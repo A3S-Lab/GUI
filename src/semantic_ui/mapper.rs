@@ -459,7 +459,6 @@ impl SemanticMapper {
             .props
             .label
             .clone()
-            .or_else(|| aria_label(&element.props))
             .or_else(|| first_child_label(element, SemanticComponent::Label))
             .or_else(|| first_text_child(element));
         let input = element
@@ -519,7 +518,6 @@ impl SemanticMapper {
 
     fn map_select(&self, element: &SemanticElement) -> GuiResult<NativeElement> {
         let label = non_empty_clone(element.props.label.as_ref())
-            .or_else(|| aria_label(&element.props))
             .or_else(|| first_child_label(element, SemanticComponent::Label));
         let mut native = NativeElement::new(element.key.clone(), NativeRole::Select)
             .with_props(native_props_from_aria(&element.props, label));
@@ -545,7 +543,6 @@ impl SemanticMapper {
 
     fn map_combo_box(&self, element: &SemanticElement) -> GuiResult<NativeElement> {
         let label = non_empty_clone(element.props.label.as_ref())
-            .or_else(|| aria_label(&element.props))
             .or_else(|| first_child_label(element, SemanticComponent::Label));
         let input = find_descendant_component(element, SemanticComponent::Input);
         let mut props = native_props_from_aria(&element.props, label);
@@ -610,7 +607,6 @@ impl SemanticMapper {
             .props
             .label
             .clone()
-            .or_else(|| aria_label(&element.props))
             .or_else(|| first_child_label(element, SemanticComponent::Legend))
             .or_else(|| first_text_child(element));
         let mut native = NativeElement::new(element.key.clone(), NativeRole::FieldSet)
@@ -665,7 +661,6 @@ impl SemanticMapper {
 
     fn best_label(&self, element: &SemanticElement) -> GuiResult<Option<String>> {
         Ok(non_empty_clone(element.props.label.as_ref())
-            .or_else(|| aria_label(&element.props))
             .or_else(|| non_empty_clone(element.props.text_value.as_ref()))
             .or_else(|| first_text_child(element)))
     }
@@ -676,7 +671,6 @@ impl SemanticMapper {
                 .props
                 .label
                 .clone()
-                .or_else(|| aria_label(&element.props))
                 .or_else(|| element.props.text_value.clone()));
         }
 
@@ -737,6 +731,7 @@ fn native_props_from_aria(props: &SemanticProps, label: Option<String>) -> Nativ
         .multiple(props.is_multiple)
         .auto_focus(props.auto_focus)
         .selected(props.is_selected);
+    native.accessibility_label = aria_label(props).or_else(|| label.clone());
     native.label = label;
     native.value = props.value.clone();
     native.placeholder = props.placeholder.clone();
@@ -837,7 +832,6 @@ fn first_child_label(element: &SemanticElement, component: SemanticComponent) ->
     element.children.iter().find_map(|child| {
         if child.component == component {
             non_empty_clone(child.props.label.as_ref())
-                .or_else(|| aria_label(&child.props))
                 .or_else(|| non_empty_clone(child.props.text_value.as_ref()))
                 .or_else(|| first_text_child(child))
         } else {
@@ -850,7 +844,56 @@ fn first_text_child(element: &SemanticElement) -> Option<String> {
     if let Some(text) = direct_text_children(element) {
         return Some(text);
     }
-    element.children.iter().find_map(first_text_child)
+    element.children.iter().find_map(|child| {
+        (!starts_independent_label_scope(child.component))
+            .then(|| first_text_child(child))
+            .flatten()
+    })
+}
+
+fn starts_independent_label_scope(component: SemanticComponent) -> bool {
+    matches!(
+        component,
+        SemanticComponent::Button
+            | SemanticComponent::Link
+            | SemanticComponent::ImageMap
+            | SemanticComponent::ImageMapArea
+            | SemanticComponent::Disclosure
+            | SemanticComponent::Figure
+            | SemanticComponent::TextField
+            | SemanticComponent::Input
+            | SemanticComponent::Checkbox
+            | SemanticComponent::Switch
+            | SemanticComponent::RadioGroup
+            | SemanticComponent::Radio
+            | SemanticComponent::FieldSet
+            | SemanticComponent::OptionGroup
+            | SemanticComponent::Output
+            | SemanticComponent::Meter
+            | SemanticComponent::ComboBox
+            | SemanticComponent::Select
+            | SemanticComponent::ListBox
+            | SemanticComponent::ListBoxItem
+            | SemanticComponent::Tree
+            | SemanticComponent::TreeItem
+            | SemanticComponent::Dialog
+            | SemanticComponent::Popover
+            | SemanticComponent::Tabs
+            | SemanticComponent::TabList
+            | SemanticComponent::Tab
+            | SemanticComponent::TabPanel
+            | SemanticComponent::Form
+            | SemanticComponent::Menu
+            | SemanticComponent::MenuItem
+            | SemanticComponent::Slider
+            | SemanticComponent::ProgressBar
+            | SemanticComponent::Toolbar
+            | SemanticComponent::Table
+            | SemanticComponent::TableSection
+            | SemanticComponent::TableRow
+            | SemanticComponent::TableCell
+            | SemanticComponent::TableColumn
+    )
 }
 
 fn direct_text_children(element: &SemanticElement) -> Option<String> {

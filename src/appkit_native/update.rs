@@ -69,6 +69,9 @@ impl AppKitNativeSurface {
                     | AppKitOsWidget::View(_) => {}
                 }
             }
+            NativeWidgetSetter::SetAccessibilityLabel(value) => {
+                set_appkit_accessibility_label(&handle.widget, value.as_deref());
+            }
             NativeWidgetSetter::SetWindowResizable(value) => {
                 if let AppKitOsWidget::Window(window) = &handle.widget {
                     let mut style = window.styleMask();
@@ -611,5 +614,23 @@ impl AppKitNativeSurface {
             | NativeWidgetSetter::SetMetadata(_) => {}
         }
         Ok(())
+    }
+}
+
+fn set_appkit_accessibility_label(widget: &AppKitOsWidget, value: Option<&str>) {
+    let label = value.map(ns_string);
+    let label = label.as_deref();
+    match widget {
+        AppKitOsWidget::Window(window) => window.setAccessibilityLabel(label),
+        AppKitOsWidget::Panel(panel) => panel.setAccessibilityLabel(label),
+        AppKitOsWidget::Popover(state) => state.popover.setAccessibilityLabel(label),
+        AppKitOsWidget::Menu(menu) => menu.setAccessibilityLabel(label),
+        AppKitOsWidget::MenuItem(item) => item.setAccessibilityLabel(label),
+        AppKitOsWidget::ComboBoxItem(_) | AppKitOsWidget::TabViewItem(_) => {}
+        _ => {
+            if let Some(view) = widget.as_view() {
+                view.setAccessibilityLabel(label);
+            }
+        }
     }
 }

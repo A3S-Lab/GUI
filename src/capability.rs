@@ -26,6 +26,7 @@ pub enum NativeCapabilityFeature {
     Direction,
     AnchoredOverlayPosition,
     AccessibilityRole,
+    AccessibilityName,
     AccessibilityRelationships,
     AccessibilityState,
     AccessibilityAnnouncements,
@@ -248,6 +249,15 @@ impl NativeCapabilities {
                 Some("semantic roles are projected, but native role overrides are incomplete"),
             ),
             NativeFeatureCapability::new(
+                Feature::AccessibilityName,
+                if headless { Portable } else { Native },
+                Some(if headless {
+                    "headless mode retains the computed name without an OS accessibility object"
+                } else {
+                    "computed names use the backend's native accessibility-name property"
+                }),
+            ),
+            NativeFeatureCapability::new(
                 Feature::AccessibilityRelationships,
                 Portable,
                 Some("relationships are present in the IR and headless tree but native setters are incomplete"),
@@ -371,6 +381,49 @@ impl NativeCapabilities {
                     Native,
                     Some("native menu activation emits the terminal press only"),
                 );
+            }
+
+            match backend {
+                NativeBackendKind::AppKit => {
+                    for role in [
+                        NativeRole::ListBoxItem,
+                        NativeRole::TreeItem,
+                        NativeRole::Tab,
+                    ] {
+                        set_role_capability(
+                            &mut role_overrides,
+                            role,
+                            Feature::AccessibilityName,
+                            Portable,
+                            Some(
+                                "AppKit logical combo-box/list and tab items retain the computed name in portable accessibility output but do not expose an independent native accessibility-label setter",
+                            ),
+                        );
+                    }
+                }
+                NativeBackendKind::Gtk4 => {
+                    set_role_capability(
+                        &mut role_overrides,
+                        NativeRole::MenuItem,
+                        Feature::AccessibilityName,
+                        Portable,
+                        Some(
+                            "GTK4 gio::MenuItem retains the computed name in portable accessibility output but has no independent GtkAccessible label property",
+                        ),
+                    );
+                }
+                NativeBackendKind::WinUI => {
+                    set_role_capability(
+                        &mut role_overrides,
+                        NativeRole::Window,
+                        Feature::AccessibilityName,
+                        Portable,
+                        Some(
+                            "the WinUI Window wrapper retains the computed name in portable accessibility output but is not a UIElement AutomationProperties target",
+                        ),
+                    );
+                }
+                NativeBackendKind::Headless => {}
             }
 
             for role in roles_without_generic_event_source(backend) {
@@ -601,6 +654,9 @@ fn requested_features(role: NativeRole, props: &NativeProps) -> Vec<NativeCapabi
     }
     if props.explicit_role.is_some() {
         features.push(Feature::AccessibilityRole);
+    }
+    if props.accessibility_label.is_some() && props.accessibility_label != props.label {
+        features.push(Feature::AccessibilityName);
     }
     if props.accessibility_relationships != Default::default() {
         features.push(Feature::AccessibilityRelationships);

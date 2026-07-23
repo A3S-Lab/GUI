@@ -27,7 +27,11 @@ fn lowers_compiled_semantic_ui_button_json_to_native_button() {
     let native = RsxCompilerBridge::new().lower_to_native(&compiled).unwrap();
 
     assert_eq!(native.role, NativeRole::Button);
-    assert_eq!(native.props.label.as_deref(), Some("Save document"));
+    assert_eq!(native.props.label.as_deref(), Some("Save"));
+    assert_eq!(
+        native.props.accessibility_label.as_deref(),
+        Some("Save document")
+    );
     assert_eq!(native.props.action.as_deref(), Some("saveDocument"));
     assert_eq!(
         native.props.web.style.get("minWidth").map(String::as_str),
@@ -181,7 +185,8 @@ fn lowers_web_and_aria_attribute_aliases_to_native_control_state() {
     let native = RsxCompilerBridge::new().lower_to_native(&compiled).unwrap();
 
     assert_eq!(native.role, NativeRole::Slider);
-    assert_eq!(native.props.label.as_deref(), Some("Volume"));
+    assert_eq!(native.props.label, None);
+    assert_eq!(native.props.accessibility_label.as_deref(), Some("Volume"));
     assert!(native.props.disabled);
     assert!(native.props.required);
     assert!(native.props.invalid);

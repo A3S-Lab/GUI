@@ -332,7 +332,11 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         Some(AccessibilityNode {
             node: Some(id),
             role: node.blueprint.accessibility_role,
-            label: node.blueprint.label.clone(),
+            label: node
+                .blueprint
+                .accessibility_label
+                .clone()
+                .or_else(|| node.blueprint.label.clone()),
             value: value_sensitivity
                 .redact(node.blueprint.value.as_deref())
                 .map(ToOwned::to_owned),

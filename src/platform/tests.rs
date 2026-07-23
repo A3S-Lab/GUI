@@ -496,6 +496,7 @@ fn widget_config_normalizes_blueprint_for_native_setters() {
     assert_eq!(blueprint.widget_class, "Microsoft.UI.Xaml.Controls.Slider");
     assert_eq!(config.accessibility_role, AccessibilityRole::Slider);
     assert_eq!(config.label.as_deref(), Some("Volume"));
+    assert_eq!(config.accessibility_label.as_deref(), Some("Volume"));
     assert_eq!(config.value.as_deref(), Some("50"));
     assert_eq!(config.placeholder.as_deref(), Some("0-100"));
     assert!(!config.enabled);
@@ -530,6 +531,11 @@ fn widget_config_normalizes_blueprint_for_native_setters() {
         AccessibilityRole::Slider
     )));
     assert!(setters.contains(&NativeWidgetSetter::SetLabel(Some("Volume".to_string()))));
+    assert!(
+        setters.contains(&NativeWidgetSetter::SetAccessibilityLabel(Some(
+            "Volume".to_string()
+        )))
+    );
     assert!(setters.contains(&NativeWidgetSetter::SetEnabled(false)));
     assert!(setters.contains(&NativeWidgetSetter::SetVisible(false)));
     assert!(setters.contains(&NativeWidgetSetter::SetPlaceholder(Some(
@@ -1405,6 +1411,33 @@ fn widget_config_diff_reports_changed_native_setters() {
 }
 
 #[test]
+fn widget_config_diffs_accessibility_label_independently() {
+    let first = NativeElement::new("save", NativeRole::Button).with_props(
+        NativeProps::new()
+            .label("Save")
+            .accessibility_label("Save document"),
+    );
+    let second = NativeElement::new("save", NativeRole::Button).with_props(
+        NativeProps::new()
+            .label("Save")
+            .accessibility_label("Save profile"),
+    );
+    let before = WinUiAdapter.blueprint(&first).config();
+    let after = WinUiAdapter.blueprint(&second).config();
+    let patch = before.diff(&after);
+
+    assert_eq!(
+        patch.as_setters(),
+        &[NativeWidgetSetter::SetAccessibilityLabel(Some(
+            "Save profile".to_string()
+        ))]
+    );
+    let mut replayed = before;
+    patch.replay(&mut replayed);
+    assert_eq!(replayed, after);
+}
+
+#[test]
 fn native_widget_setters_remain_an_internal_typed_batch() {
     let setters = vec![
         NativeWidgetSetter::SetLabel(Some("Save".to_string())),
@@ -1966,6 +1999,7 @@ fn platform_commands_round_trip_as_native_backend_json() {
     assert!(json.contains(r#""widgetClass":"gtk::Entry""#));
     assert!(json.contains(r#""role":"textField""#));
     assert!(json.contains(r#""accessibilityRole":"textField""#));
+    assert!(json.contains(r#""accessibilityLabel":"Email""#));
     assert!(json.contains(r#""controlState""#));
     assert!(json.contains(r#""placeholder":"you@example.com""#));
     assert!(json.contains(r#""disabled":true"#));
@@ -1984,6 +2018,33 @@ fn platform_commands_round_trip_as_native_backend_json() {
     assert_eq!(blueprint.control_state.max, Some(100.0));
     assert_eq!(blueprint.control_state.current, Some(50.0));
     assert_eq!(blueprint.control_state.step, Some(5.0));
+}
+
+#[test]
+fn native_blueprint_without_accessibility_label_keeps_legacy_wire_compatibility() {
+    let element =
+        NativeElement::new("save", NativeRole::Button).with_props(NativeProps::new().label("Save"));
+    let command = PlatformCommand::Create {
+        id: HostNodeId::new(42),
+        blueprint: WinUiAdapter.blueprint(&element),
+    };
+    let mut json = serde_json::to_value(command).unwrap();
+    json["blueprint"]
+        .as_object_mut()
+        .unwrap()
+        .remove("accessibilityLabel");
+
+    let decoded: PlatformCommand = serde_json::from_value(json).unwrap();
+    let PlatformCommand::Create { blueprint, .. } = decoded else {
+        unreachable!("decoded command should remain a create command");
+    };
+
+    assert_eq!(blueprint.label.as_deref(), Some("Save"));
+    assert_eq!(blueprint.accessibility_label, None);
+    assert_eq!(
+        blueprint.config().accessibility_label.as_deref(),
+        Some("Save")
+    );
 }
 
 #[test]

@@ -51,6 +51,7 @@ use window::{
     set_winui_window_resizable, winui_window_hwnd, winui_window_is_open,
 };
 
+mod automation;
 mod event_loop;
 mod focus;
 mod helpers;

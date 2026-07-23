@@ -36,6 +36,7 @@ pub struct NativeWidgetConfig {
     pub role: NativeRole,
     pub accessibility_role: AccessibilityRole,
     pub label: Option<String>,
+    pub accessibility_label: Option<String>,
     pub value: Option<String>,
     pub action: Option<String>,
     pub class_name: Option<String>,
@@ -152,6 +153,7 @@ impl std::fmt::Debug for NativeWidgetConfig {
             .field("role", &self.role)
             .field("accessibility_role", &self.accessibility_role)
             .field("label", &self.label)
+            .field("accessibility_label", &self.accessibility_label)
             .field("has_value", &self.value.is_some())
             .field("action", &self.action)
             .field("class_name", &self.class_name)
@@ -184,6 +186,10 @@ impl NativeWidgetConfig {
             role: blueprint.role,
             accessibility_role: blueprint.accessibility_role,
             label: blueprint.label.clone(),
+            accessibility_label: blueprint
+                .accessibility_label
+                .clone()
+                .or_else(|| blueprint.label.clone()),
             value: blueprint.value.clone(),
             action: blueprint.action.clone(),
             class_name: blueprint.class_name.clone(),
@@ -313,10 +319,11 @@ impl NativeWidgetConfig {
 
         // Construct each large enum value directly in heap-backed storage. A single
         // 103-element array temporary can exhaust the default Windows thread stack.
-        let mut setters = Vec::with_capacity(103);
+        let mut setters = Vec::with_capacity(104);
         push_setters!(setters;
             NativeWidgetSetter::SetAccessibilityRole(self.accessibility_role),
             NativeWidgetSetter::SetLabel(self.label.clone()),
+            NativeWidgetSetter::SetAccessibilityLabel(self.accessibility_label.clone()),
             NativeWidgetSetter::SetValue(self.value.clone()),
             NativeWidgetSetter::SetAction(self.action.clone()),
             NativeWidgetSetter::SetClassName(self.class_name.clone()),

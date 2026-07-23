@@ -324,7 +324,10 @@ impl HeadlessHost {
         Some(AccessibilityNode {
             node: Some(id),
             role: accessibility_role(node.role),
-            label: node.props.label.clone(),
+            label: node
+                .props
+                .effective_accessibility_label()
+                .map(ToOwned::to_owned),
             value: value_sensitivity
                 .redact(node.props.value.as_deref())
                 .map(ToOwned::to_owned),

@@ -17,6 +17,7 @@ pub struct RecordedNativeObject {
     /// Diagnostic/legacy class name; execution is driven by `widget_kind`.
     pub widget_class: String,
     pub label: Option<String>,
+    pub accessibility_label: Option<String>,
     pub value: Option<String>,
     pub action: Option<String>,
     pub control_state: NativeControlState,
@@ -161,6 +162,7 @@ impl PlatformCommandExecutor for RecordingBackend {
                         widget_kind: blueprint.widget_kind,
                         widget_class: blueprint.widget_class.clone(),
                         label: blueprint.label.clone(),
+                        accessibility_label: blueprint.accessibility_label.clone(),
                         value: blueprint.value.clone(),
                         action: blueprint.action.clone(),
                         control_state: blueprint.control_state.clone(),
@@ -176,6 +178,7 @@ impl PlatformCommandExecutor for RecordingBackend {
                 object.widget_kind = blueprint.widget_kind;
                 object.widget_class = blueprint.widget_class.clone();
                 object.label = blueprint.label.clone();
+                object.accessibility_label = blueprint.accessibility_label.clone();
                 object.value = blueprint.value.clone();
                 object.action = blueprint.action.clone();
                 object.control_state = blueprint.control_state.clone();

@@ -27,6 +27,14 @@ impl WinUiNativeSurface {
                     self.update_tab_item_label(id, &item, value.clone().unwrap_or_default())?;
                 }
             }
+            NativeWidgetSetter::SetAccessibilityLabel(value) => {
+                if let Some(element) = handle.widget.ui_element() {
+                    map_winui(
+                        "failed to set WinUI accessibility name",
+                        automation::set_name(&element, value.as_deref()),
+                    )?;
+                }
+            }
             NativeWidgetSetter::SetValue(value) => {
                 set_value(self, id, &handle.widget, value.as_deref())?;
                 if let Some(item) = self.combo_items.get(&id).cloned() {

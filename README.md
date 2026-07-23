@@ -32,6 +32,8 @@ object graph at the host boundary.
   focus-gated wheel stepping with native default suppression,
   34-locale NumberField accessibility messages, focused value announcements
   and WAI-ARIA live-region updates through native assistive-technology APIs,
+  independent visible and accessible labels with native `aria-label`
+  projection,
   decimal/percent/date/time formatting, versioned
   capability reporting, shared native event-source state machines, and
   accessibility conformance checks. Versioned
@@ -50,8 +52,8 @@ object graph at the host boundary.
   IME/dead-key conformance, measured overlay collision/arrow conformance and
   scroll locking, remaining native focus conformance, broader message catalogs,
   currency/unit parsing and formatting, date-range/time-zone formatting,
-  complete native accessibility-property projection, and real-platform
-  assistive-technology fixtures are still in progress.
+  complete native accessibility relationship/state and role-edge projection,
+  and real-platform assistive-technology fixtures are still in progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.
@@ -290,6 +292,8 @@ event order, modality/target mismatches, incomplete environment identity, or
 evidence produced only by an adapter kernel or the portable runtime.
 The WinUI smoke command opens a real XAML window and emits a complete 98-case
 artifact. Passing that command validates the full current WinUI manifest. It
+locates targets by UI Automation names that intentionally differ from their
+visible labels, covering native `AutomationProperties.SetName` projection. It
 requires a supported Windows desktop session with the Windows App Runtime 1.7
 framework package available. WinUI examples enter the XAML-owned application
 lifecycle with `run_winui_application_staged_async` and keep native layout and

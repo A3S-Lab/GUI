@@ -121,7 +121,11 @@ pub struct NativeWidgetBlueprint {
     pub widget_class: String,
     pub role: NativeRole,
     pub accessibility_role: AccessibilityRole,
+    /// Text rendered by the native widget.
     pub label: Option<String>,
+    /// Computed assistive-technology name; legacy payloads may omit it.
+    #[serde(default)]
+    pub accessibility_label: Option<String>,
     pub value: Option<String>,
     #[serde(default)]
     pub value_sensitivity: ValueSensitivity,
@@ -143,6 +147,7 @@ struct NativeWidgetBlueprintWire<'a> {
     role: NativeRole,
     accessibility_role: AccessibilityRole,
     label: Option<&'a str>,
+    accessibility_label: Option<&'a str>,
     value: Option<&'a str>,
     #[serde(skip_serializing_if = "ValueSensitivity::is_public")]
     value_sensitivity: ValueSensitivity,
@@ -174,6 +179,7 @@ impl Serialize for NativeWidgetBlueprint {
             role: self.role,
             accessibility_role: self.accessibility_role,
             label: self.label.as_deref(),
+            accessibility_label: self.accessibility_label.as_deref(),
             value: value_sensitivity.redact(self.value.as_deref()),
             value_sensitivity,
             action: self.action.as_deref(),
@@ -245,6 +251,7 @@ impl std::fmt::Debug for NativeWidgetBlueprint {
             .field("role", &redacted.role)
             .field("accessibility_role", &redacted.accessibility_role)
             .field("label", &redacted.label)
+            .field("accessibility_label", &redacted.accessibility_label)
             .field("value", &redacted.value)
             .field("value_sensitivity", &redacted.value_sensitivity)
             .field("action", &redacted.action)

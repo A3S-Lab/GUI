@@ -345,6 +345,7 @@ pub struct AppKitNativeObject {
     pub id: HostNodeId,
     pub kind: AppKitWidgetKind,
     pub label: Option<String>,
+    pub accessibility_label: Option<String>,
     pub value: Option<String>,
     pub action: Option<String>,
     pub control_state: NativeControlState,
@@ -358,6 +359,7 @@ impl std::fmt::Debug for AppKitNativeObject {
             .field("id", &self.id)
             .field("kind", &self.kind)
             .field("label", &self.label)
+            .field("accessibility_label", &self.accessibility_label)
             .field("has_value", &self.value.is_some())
             .field("action", &self.action)
             .field("control_state", &self.control_state)
@@ -398,6 +400,7 @@ pub struct AppKitNativeHandleState {
     pub kind: AppKitWidgetKind,
     pub config: NativeWidgetConfig,
     pub label: Option<String>,
+    pub accessibility_label: Option<String>,
     pub value: Option<String>,
     pub action: Option<String>,
     pub control_state: NativeControlState,
@@ -413,6 +416,7 @@ impl std::fmt::Debug for AppKitNativeHandleState {
             .field("kind", &self.kind)
             .field("config", &self.config)
             .field("label", &self.label)
+            .field("accessibility_label", &self.accessibility_label)
             .field("has_value", &self.value.is_some())
             .field("action", &self.action)
             .field("control_state", &self.control_state)
@@ -554,6 +558,7 @@ impl NativeHandleAdapter for AppKitHandleAdapter {
                 id,
                 kind: AppKitWidgetKind::from_widget_kind(blueprint.widget_kind),
                 label: config.label.clone(),
+                accessibility_label: config.accessibility_label.clone(),
                 value: config.value.clone(),
                 action: config.action.clone(),
                 applied_setters,
@@ -574,6 +579,7 @@ impl NativeHandleAdapter for AppKitHandleAdapter {
         state.kind = AppKitWidgetKind::from_widget_kind(blueprint.widget_kind);
         state.config = blueprint.config();
         state.label = state.config.label.clone();
+        state.accessibility_label = state.config.accessibility_label.clone();
         state.value = state.config.value.clone();
         state.action = state.config.action.clone();
         let setters = state.config.create_setters();
@@ -599,6 +605,7 @@ impl NativeHandleAdapter for AppKitHandleAdapter {
         let setters = patch.setters();
         apply_widget_setters(&mut state.config, &setters);
         state.label = state.config.label.clone();
+        state.accessibility_label = state.config.accessibility_label.clone();
         state.value = state.config.value.clone();
         state.action = state.config.action.clone();
         state.control_state = blueprint.control_state.clone();
@@ -717,6 +724,7 @@ impl NativeWidgetDriver for AppKitWidgetDriver {
                 id,
                 kind: AppKitWidgetKind::from_widget_kind(blueprint.widget_kind),
                 label: blueprint.label.clone(),
+                accessibility_label: blueprint.accessibility_label.clone(),
                 value: blueprint.value.clone(),
                 action: blueprint.action.clone(),
                 control_state: blueprint.control_state.clone(),
@@ -737,6 +745,7 @@ impl NativeWidgetDriver for AppKitWidgetDriver {
             .ok_or_else(|| GuiError::host(format!("AppKit object {} missing", id.get())))?;
         object.kind = AppKitWidgetKind::from_widget_kind(blueprint.widget_kind);
         object.label = blueprint.label.clone();
+        object.accessibility_label = blueprint.accessibility_label.clone();
         object.value = blueprint.value.clone();
         object.action = blueprint.action.clone();
         object.control_state = blueprint.control_state.clone();

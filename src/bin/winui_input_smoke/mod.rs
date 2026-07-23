@@ -22,6 +22,7 @@ use winui3::Microsoft::UI::Xaml as xaml;
 
 const WORKER_TIMEOUT: Duration = Duration::from_secs(10);
 const EVENT_SETTLE_TIME: Duration = Duration::from_millis(250);
+const TARGET_VISIBLE_LABEL: &str = "Visible WinUI input target";
 const CASES_PER_ROLE: usize = 14;
 const NATIVE_INPUT_ROLES: [NativeRole; 7] = [
     NativeRole::Button,
@@ -137,13 +138,18 @@ fn fixture_role(
         "tag": native_input_role_tag(role)?,
         "props": {
             "label": if active {
-                TARGET_LABEL.to_string()
+                TARGET_VISIBLE_LABEL.to_string()
             } else {
                 format!("Inactive {role:?} input target")
             },
+            "ariaLabel": if active {
+                Some(TARGET_LABEL.to_string())
+            } else {
+                None
+            },
             "value": format!("native-input-value-{index}"),
             "textValue": if active {
-                TARGET_LABEL.to_string()
+                TARGET_VISIBLE_LABEL.to_string()
             } else {
                 format!("Inactive {role:?} input target")
             },

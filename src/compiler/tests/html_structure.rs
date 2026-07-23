@@ -598,8 +598,9 @@ fn lowers_html_sectioning_landmark_and_heading_tags_to_native_roles() {
         Some("main")
     );
     assert_eq!(native.children[0].role, NativeRole::Navigation);
+    assert_eq!(native.children[0].props.label, None);
     assert_eq!(
-        native.children[0].props.label.as_deref(),
+        native.children[0].props.accessibility_label.as_deref(),
         Some("Primary navigation")
     );
     assert_eq!(native.children[1].role, NativeRole::Article);
@@ -609,8 +610,12 @@ fn lowers_html_sectioning_landmark_and_heading_tags_to_native_roles() {
         Some("Release notes")
     );
     assert_eq!(native.children[1].children[1].role, NativeRole::Section);
+    assert_eq!(native.children[1].children[1].props.label, None);
     assert_eq!(
-        native.children[1].children[1].props.label.as_deref(),
+        native.children[1].children[1]
+            .props
+            .accessibility_label
+            .as_deref(),
         Some("Summary")
     );
     assert_eq!(native.children[2].role, NativeRole::Aside);
@@ -654,6 +659,10 @@ fn lowers_html_disclosure_figure_and_description_list_tags_to_native_roles() {
 
     let native_disclosure = bridge.lower_to_native(&disclosure).unwrap();
     assert_eq!(native_disclosure.role, NativeRole::Disclosure);
+    assert_eq!(
+        native_disclosure.props.label.as_deref(),
+        Some("Release details")
+    );
     assert_eq!(native_disclosure.props.expanded, Some(true));
     assert_eq!(
         native_disclosure
@@ -703,6 +712,10 @@ fn lowers_html_disclosure_figure_and_description_list_tags_to_native_roles() {
 
     let native_figure = bridge.lower_to_native(&figure).unwrap();
     assert_eq!(native_figure.role, NativeRole::Figure);
+    assert_eq!(
+        native_figure.props.label.as_deref(),
+        Some("Revenue by quarter")
+    );
     assert_eq!(native_figure.children[0].role, NativeRole::Image);
     assert_eq!(
         native_figure.children[0].props.label.as_deref(),

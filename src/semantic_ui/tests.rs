@@ -46,7 +46,11 @@ fn aria_label_becomes_native_accessibility_label_without_visible_text() {
     let accessibility = AccessibilityNode::from_native(&native);
 
     assert_eq!(native.role, NativeRole::Button);
-    assert_eq!(native.props.label.as_deref(), Some("Save profile"));
+    assert_eq!(native.props.label, None);
+    assert_eq!(
+        native.props.accessibility_label.as_deref(),
+        Some("Save profile")
+    );
     assert_eq!(native.props.action.as_deref(), Some("saveProfile"));
     assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
 }
@@ -63,8 +67,29 @@ fn aria_label_overrides_descendant_text_for_container_name() {
     let native = SemanticMapper::new().map(&aria).unwrap();
 
     assert_eq!(native.role, NativeRole::Dialog);
-    assert_eq!(native.props.label.as_deref(), Some("Preferences"));
+    assert_eq!(native.props.label, None);
+    assert_eq!(
+        native.props.accessibility_label.as_deref(),
+        Some("Preferences")
+    );
     assert_eq!(native.children[0].props.label.as_deref(), Some("Close"));
+}
+
+#[test]
+fn aria_label_overrides_visible_text_only_for_accessibility() {
+    let aria = SemanticElement::new("save", SemanticComponent::Button)
+        .with_props(SemanticProps::new().dom_attribute("aria-label", "Save profile"))
+        .child(SemanticElement::text("save-text", "Save"));
+
+    let native = SemanticMapper::new().map(&aria).unwrap();
+    let accessibility = AccessibilityNode::from_native(&native);
+
+    assert_eq!(native.props.label.as_deref(), Some("Save"));
+    assert_eq!(
+        native.props.accessibility_label.as_deref(),
+        Some("Save profile")
+    );
+    assert_eq!(accessibility.label.as_deref(), Some("Save profile"));
 }
 
 #[test]

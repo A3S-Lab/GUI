@@ -563,7 +563,10 @@ impl AccessibilityNode {
         Self {
             node: None,
             role: accessibility_role(element.role),
-            label: element.props.label.clone(),
+            label: element
+                .props
+                .effective_accessibility_label()
+                .map(ToOwned::to_owned),
             value: value_sensitivity
                 .redact(element.props.value.as_deref())
                 .map(ToOwned::to_owned),

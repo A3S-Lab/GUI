@@ -906,7 +906,8 @@ This keeps keyed reconciliation in the Rust core and keeps platform adapters
 focused on native object lifetime and thread-affine UI work.
 `NativeWidgetBlueprint` carries the platform family (`appKit`, `winUI`, `gtk4`),
 typed `NativeWidgetKind`, a diagnostic legacy class name, native role,
-accessibility role, label/value/action
+accessibility role, independent visible `label` and computed
+`accessibilityLabel`, value/action
 bindings, semantic control state, Web metadata, event bindings, and parsed
 portable style tokens. It is safe to send to a platform process or language
 binding as JSON.
@@ -937,11 +938,21 @@ update passes (`NativeWidgetConfigPatch` is only the compatibility alias), and
 `HandleWidgetDriver` stores the last config for each handle so
 `NativeHandleAdapter::update_handle_config()` can apply only changed setters.
 `NativeWidgetConfig::create_setters()` and `NativeWidgetSetterBatch::setters()`
-produce `NativeWidgetSetter` operations such as `SetLabel`, `SetEnabled`,
-`SetVisible`, `SetPlaceholder`, `SetMinimum`, `SetMaximum`, `SetCurrent`,
-`SetStep`, `SetWindowResizable`, `SetEvents`, `SetPortableStyle`, and
-`SetMetadata`. Platform bindings can map those operations to the corresponding
-AppKit, WinUI, or GTK property setters.
+produce `NativeWidgetSetter` operations such as `SetLabel`,
+`SetAccessibilityLabel`, `SetEnabled`, `SetVisible`, `SetPlaceholder`,
+`SetMinimum`, `SetMaximum`, `SetCurrent`, `SetStep`, `SetWindowResizable`,
+`SetEvents`, `SetPortableStyle`, and `SetMetadata`. Platform bindings can map
+those operations to the corresponding AppKit, WinUI, or GTK property setters.
+The semantic mapper never substitutes `aria-label` for visible content.
+Instead, the accessible label carries the explicit `aria-label` and falls back
+to the visible label when no override exists. Accessibility trees, live-region
+text, recording backends, and strict protocol v1 use that same effective name.
+AppKit maps the setter to `setAccessibilityLabel`, GTK4 maps it to the
+`GtkAccessible` label property, and WinUI maps it to
+`AutomationProperties.SetName`. Capability overrides retain conservative
+portable-only reporting for native wrappers that cannot accept an independent
+name: AppKit logical list/tree and tab items, GTK4 `gio::MenuItem`, and the
+WinUI window wrapper.
 The feature-gated handle adapters keep a bounded, redacted setter history in
 their handle state, so tests exercise the same create/update flow real native
 bindings map to OS controls without accumulating secrets or unbounded logs.
@@ -1142,7 +1153,10 @@ Feature-gated platform executor surfaces:
   not generate these registration methods, so the native surface isolates the
   fixed WinRT ABI calls in a small adapter. The same binding version leaves
   programmatic `Focus` unwrapped; that call uses the same isolated ABI approach
-  while WinUI focus callbacks remain the observable event source.
+  while WinUI focus callbacks remain the observable event source. It also omits
+  the `Microsoft.UI.Xaml.Automation` namespace, so the stable
+  `IAutomationPropertiesStatics::SetName` ABI is isolated in its own adapter
+  rather than leaking raw vtable access into widget updates.
   Window close requests are observed through the HWND message path: the surface
   installs a close-event subclass on each WinUI window and enqueues
   `NativeEventKind::Close` when `WM_CLOSE` arrives. Content dialogs register

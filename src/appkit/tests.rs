@@ -273,7 +273,8 @@ fn appkit_executor_consumes_compiled_semantic_ui_dialog_commands() {
         .unwrap();
 
     assert_eq!(object.kind, AppKitWidgetKind::Panel);
-    assert_eq!(object.label.as_deref(), Some("Preferences"));
+    assert_eq!(object.label, None);
+    assert_eq!(object.accessibility_label.as_deref(), Some("Preferences"));
     assert_eq!(child.kind, AppKitWidgetKind::Button);
     assert_eq!(child.action.as_deref(), Some("closePreferences"));
 }
@@ -313,7 +314,8 @@ fn appkit_executor_consumes_compiled_semantic_ui_popover_commands() {
         .unwrap();
 
     assert_eq!(object.kind, AppKitWidgetKind::Popover);
-    assert_eq!(object.label.as_deref(), Some("Actions"));
+    assert_eq!(object.label, None);
+    assert_eq!(object.accessibility_label.as_deref(), Some("Actions"));
     assert_eq!(child.kind, AppKitWidgetKind::Button);
     assert_eq!(child.action.as_deref(), Some("archiveItem"));
 }

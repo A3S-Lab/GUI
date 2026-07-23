@@ -738,7 +738,7 @@ fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
         (NativeRole::PreformattedText, "Plain text"),
         (NativeRole::PreformattedText, "Example"),
         (NativeRole::FontText, "Base font"),
-        (NativeRole::ListBox, "Item"),
+        (NativeRole::ListBox, ""),
     ];
     for (index, (role, label)) in expected.iter().enumerate() {
         assert_eq!(native.children[index].role, *role);
@@ -748,6 +748,10 @@ fn lowers_html_flow_and_legacy_text_tags_to_native_roles() {
             assert_eq!(native.children[index].props.label.as_deref(), Some(*label));
         }
     }
+    assert_eq!(
+        native.children[15].children[0].props.label.as_deref(),
+        Some("Item")
+    );
     assert_eq!(
         native.children[2]
             .props

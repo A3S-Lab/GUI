@@ -203,6 +203,57 @@ fn protocol_v1_round_trips_accessibility_announcement_commands() {
 }
 
 #[test]
+fn protocol_v1_keeps_accessible_names_independent_from_visible_labels() {
+    let frame: UiFrame = serde_json::from_value(serde_json::json!({
+        "frameId": "accessible-name",
+        "root": {
+            "kind": "element",
+            "key": "save",
+            "tag": "Button",
+            "props": {
+                "attributes": {"aria-label": "Save document"}
+            },
+            "children": [
+                {"kind": "text", "key": "save-label", "value": "Save"}
+            ]
+        }
+    }))
+    .unwrap();
+    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let request = render_request(&session, 1, &frame);
+    let response = session.render_v1(&request).unwrap();
+    let command = response
+        .payload
+        .commands
+        .iter()
+        .find(|command| matches!(command, ProtocolCommandV1::Create { .. }))
+        .unwrap();
+    let ProtocolCommandV1::Create { blueprint, .. } = command else {
+        unreachable!();
+    };
+
+    assert_eq!(blueprint.label.as_deref(), Some("Save"));
+    assert_eq!(
+        blueprint.accessibility_label.as_deref(),
+        Some("Save document")
+    );
+    assert_eq!(
+        serde_json::to_value(command).unwrap()["blueprint"]["accessibilityLabel"],
+        "Save document"
+    );
+
+    let platform = PlatformCommand::try_from(command.clone()).unwrap();
+    let PlatformCommand::Create { blueprint, .. } = platform else {
+        unreachable!();
+    };
+    assert_eq!(blueprint.label.as_deref(), Some("Save"));
+    assert_eq!(
+        blueprint.accessibility_label.as_deref(),
+        Some("Save document")
+    );
+}
+
+#[test]
 fn protocol_v1_retains_and_resends_render_until_exact_ack() {
     let mut session =
         NativeProtocolSession::new_with_session_id(Gtk4Adapter, "delivery-session").unwrap();

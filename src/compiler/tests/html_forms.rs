@@ -688,7 +688,11 @@ fn lowers_html_form_grouping_and_value_tags_to_native_roles() {
 
     let native = bridge.lower_to_native(&form).unwrap();
     assert_eq!(native.role, NativeRole::Form);
-    assert_eq!(native.props.label.as_deref(), Some("Settings"));
+    assert_eq!(native.props.label, None);
+    assert_eq!(
+        native.props.accessibility_label.as_deref(),
+        Some("Settings")
+    );
     assert_eq!(native.children[0].role, NativeRole::FieldSet);
     assert_eq!(
         native.children[0].props.label.as_deref(),

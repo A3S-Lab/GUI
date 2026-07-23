@@ -284,6 +284,60 @@ fn live_regions_request_the_native_announcement_channel() {
 }
 
 #[test]
+fn explicit_accessibility_names_report_native_projection_and_role_exceptions() {
+    let named_button = NativeElement::new("save", NativeRole::Button).with_props(
+        NativeProps::new()
+            .label("Save")
+            .accessibility_label("Save document"),
+    );
+
+    for backend in [
+        NativeBackendKind::AppKit,
+        NativeBackendKind::Gtk4,
+        NativeBackendKind::WinUI,
+    ] {
+        let capabilities = NativeCapabilities::for_backend(backend);
+        assert_eq!(
+            capabilities.support(
+                NativeCapabilityFeature::AccessibilityName,
+                Some(NativeRole::Button),
+            ),
+            CapabilitySupport::Native
+        );
+        assert!(capabilities.audit_tree(&named_button).is_empty());
+    }
+
+    assert!(NativeCapabilities::default()
+        .audit_tree(&named_button)
+        .iter()
+        .any(|issue| {
+            issue.feature == NativeCapabilityFeature::AccessibilityName
+                && issue.support == CapabilitySupport::Portable
+        }));
+
+    for (backend, role) in [
+        (NativeBackendKind::AppKit, NativeRole::ListBoxItem),
+        (NativeBackendKind::AppKit, NativeRole::TreeItem),
+        (NativeBackendKind::AppKit, NativeRole::Tab),
+        (NativeBackendKind::Gtk4, NativeRole::MenuItem),
+        (NativeBackendKind::WinUI, NativeRole::Window),
+    ] {
+        let named = NativeElement::new("named", role)
+            .with_props(NativeProps::new().accessibility_label("Accessible name"));
+        let capabilities = NativeCapabilities::for_backend(backend);
+
+        assert_eq!(
+            capabilities.support(NativeCapabilityFeature::AccessibilityName, Some(role)),
+            CapabilitySupport::Portable
+        );
+        assert!(capabilities.audit_tree(&named).iter().any(|issue| {
+            issue.feature == NativeCapabilityFeature::AccessibilityName
+                && issue.support == CapabilitySupport::Portable
+        }));
+    }
+}
+
+#[test]
 fn manifest_round_trips_with_an_explicit_ir_version() {
     let capabilities = NativeCapabilities::for_backend(NativeBackendKind::AppKit);
     let json = serde_json::to_value(&capabilities).unwrap();

@@ -71,7 +71,11 @@ fn fixture_frames_preserve_each_native_input_role() {
             ]
         );
         let active = find_role(&native, role).unwrap();
-        assert_eq!(active.props.label.as_deref(), Some(TARGET_LABEL));
+        assert_eq!(active.props.label.as_deref(), Some(TARGET_VISIBLE_LABEL));
+        assert_eq!(
+            active.props.accessibility_label.as_deref(),
+            Some(TARGET_LABEL)
+        );
         assert!(!active.props.disabled);
     }
 }

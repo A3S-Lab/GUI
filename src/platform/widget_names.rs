@@ -37,6 +37,7 @@ pub fn widget_blueprint(
         role: element.role,
         accessibility_role: accessibility_role(element.role),
         label: props.label.clone(),
+        accessibility_label: props.effective_accessibility_label().map(ToOwned::to_owned),
         value: props.value.clone(),
         value_sensitivity: ValueSensitivity::from_input_type(props.input_type.as_deref()),
         action: props

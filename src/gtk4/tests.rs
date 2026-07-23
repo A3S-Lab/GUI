@@ -166,7 +166,8 @@ fn gtk4_executor_consumes_compiled_semantic_ui_dialog_commands() {
         .unwrap();
 
     assert_eq!(object.kind, Gtk4WidgetKind::Dialog);
-    assert_eq!(object.label.as_deref(), Some("Preferences"));
+    assert_eq!(object.label, None);
+    assert_eq!(object.accessibility_label.as_deref(), Some("Preferences"));
     assert_eq!(child.kind, Gtk4WidgetKind::Button);
     assert_eq!(child.action.as_deref(), Some("closePreferences"));
 }
@@ -206,7 +207,8 @@ fn gtk4_executor_consumes_compiled_semantic_ui_popover_commands() {
         .unwrap();
 
     assert_eq!(object.kind, Gtk4WidgetKind::Popover);
-    assert_eq!(object.label.as_deref(), Some("Actions"));
+    assert_eq!(object.label, None);
+    assert_eq!(object.accessibility_label.as_deref(), Some("Actions"));
     assert_eq!(child.kind, Gtk4WidgetKind::Button);
     assert_eq!(child.action.as_deref(), Some("archiveItem"));
 }

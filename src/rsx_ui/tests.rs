@@ -2189,7 +2189,11 @@ fn rsx_ui_number_field_consumes_number_field_hook_props() {
         ]
     );
     let input_native = &controls.children[1];
-    assert_eq!(input_native.props.label.as_deref(), Some("Quantity"));
+    assert_eq!(input_native.props.label, None);
+    assert_eq!(
+        input_native.props.accessibility_label.as_deref(),
+        Some("Quantity")
+    );
     assert_eq!(input_native.props.placeholder.as_deref(), Some("0-10"));
     assert_eq!(input_native.props.current, Some(0.0));
     assert!(input_native.props.required);
@@ -6499,7 +6503,11 @@ fn rsx_ui_clipboard_target_uses_clipboard_hook_props() {
 
     let native = RsxCompilerBridge::new().lower_to_native(target).unwrap();
     assert_eq!(native.role, NativeRole::View);
-    assert_eq!(native.props.label.as_deref(), Some("Editor selection"));
+    assert_eq!(native.props.label, None);
+    assert_eq!(
+        native.props.accessibility_label.as_deref(),
+        Some("Editor selection")
+    );
     assert_eq!(native.props.explicit_role.as_deref(), Some("textbox"));
     assert_eq!(
         native.props.web.events.get("onCopy").map(String::as_str),

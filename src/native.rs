@@ -196,7 +196,10 @@ pub enum NativeRole {
 
 #[derive(Clone, PartialEq)]
 pub struct NativeProps {
+    /// Text rendered by the native widget.
     pub label: Option<String>,
+    /// Name exposed to assistive technology, with `label` as the fallback.
+    pub accessibility_label: Option<String>,
     pub value: Option<String>,
     pub placeholder: Option<String>,
     pub action: Option<String>,
@@ -307,6 +310,7 @@ impl std::fmt::Debug for NativeProps {
         formatter
             .debug_struct("NativeProps")
             .field("label", &self.label)
+            .field("accessibility_label", &self.accessibility_label)
             .field("value", &sensitivity.redact(self.value.as_deref()))
             .field("value_sensitivity", &sensitivity)
             .field("placeholder", &self.placeholder)
@@ -336,6 +340,7 @@ impl Default for NativeProps {
     fn default() -> Self {
         Self {
             label: None,
+            accessibility_label: None,
             value: None,
             placeholder: None,
             action: None,
@@ -444,6 +449,17 @@ impl NativeProps {
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
+    }
+
+    pub fn accessibility_label(mut self, label: impl Into<String>) -> Self {
+        self.accessibility_label = Some(label.into());
+        self
+    }
+
+    pub fn effective_accessibility_label(&self) -> Option<&str> {
+        self.accessibility_label
+            .as_deref()
+            .or(self.label.as_deref())
     }
 
     pub fn value(mut self, value: impl Into<String>) -> Self {

@@ -333,6 +333,7 @@ pub struct WinUiNativeObject {
     pub id: HostNodeId,
     pub kind: WinUiWidgetKind,
     pub label: Option<String>,
+    pub accessibility_label: Option<String>,
     pub value: Option<String>,
     pub action: Option<String>,
     pub control_state: NativeControlState,
@@ -346,6 +347,7 @@ impl std::fmt::Debug for WinUiNativeObject {
             .field("id", &self.id)
             .field("kind", &self.kind)
             .field("label", &self.label)
+            .field("accessibility_label", &self.accessibility_label)
             .field("has_value", &self.value.is_some())
             .field("action", &self.action)
             .field("control_state", &self.control_state)
@@ -386,6 +388,7 @@ pub struct WinUiNativeHandleState {
     pub kind: WinUiWidgetKind,
     pub config: NativeWidgetConfig,
     pub label: Option<String>,
+    pub accessibility_label: Option<String>,
     pub value: Option<String>,
     pub action: Option<String>,
     pub control_state: NativeControlState,
@@ -401,6 +404,7 @@ impl std::fmt::Debug for WinUiNativeHandleState {
             .field("kind", &self.kind)
             .field("config", &self.config)
             .field("label", &self.label)
+            .field("accessibility_label", &self.accessibility_label)
             .field("has_value", &self.value.is_some())
             .field("action", &self.action)
             .field("control_state", &self.control_state)
@@ -542,6 +546,7 @@ impl NativeHandleAdapter for WinUiHandleAdapter {
                 id,
                 kind: WinUiWidgetKind::from_widget_kind(blueprint.widget_kind),
                 label: config.label.clone(),
+                accessibility_label: config.accessibility_label.clone(),
                 value: config.value.clone(),
                 action: config.action.clone(),
                 applied_setters,
@@ -562,6 +567,7 @@ impl NativeHandleAdapter for WinUiHandleAdapter {
         state.kind = WinUiWidgetKind::from_widget_kind(blueprint.widget_kind);
         state.config = blueprint.config();
         state.label = state.config.label.clone();
+        state.accessibility_label = state.config.accessibility_label.clone();
         state.value = state.config.value.clone();
         state.action = state.config.action.clone();
         let setters = state.config.create_setters();
@@ -587,6 +593,7 @@ impl NativeHandleAdapter for WinUiHandleAdapter {
         let setters = patch.setters();
         apply_widget_setters(&mut state.config, &setters);
         state.label = state.config.label.clone();
+        state.accessibility_label = state.config.accessibility_label.clone();
         state.value = state.config.value.clone();
         state.action = state.config.action.clone();
         state.control_state = blueprint.control_state.clone();
@@ -703,6 +710,7 @@ impl NativeWidgetDriver for WinUiWidgetDriver {
                 id,
                 kind: WinUiWidgetKind::from_widget_kind(blueprint.widget_kind),
                 label: blueprint.label.clone(),
+                accessibility_label: blueprint.accessibility_label.clone(),
                 value: blueprint.value.clone(),
                 action: blueprint.action.clone(),
                 control_state: blueprint.control_state.clone(),
@@ -723,6 +731,7 @@ impl NativeWidgetDriver for WinUiWidgetDriver {
             .ok_or_else(|| GuiError::host(format!("WinUI object {} missing", id.get())))?;
         object.kind = WinUiWidgetKind::from_widget_kind(blueprint.widget_kind);
         object.label = blueprint.label.clone();
+        object.accessibility_label = blueprint.accessibility_label.clone();
         object.value = blueprint.value.clone();
         object.action = blueprint.action.clone();
         object.control_state = blueprint.control_state.clone();
