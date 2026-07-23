@@ -1,5 +1,7 @@
 use super::*;
-use crate::accessibility::{AccessibilityDescriptionProps, AccessibilityStateProps};
+use crate::accessibility::{
+    AccessibilityDescriptionProps, AccessibilityRelationshipProps, AccessibilityStateProps,
+};
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::web::WebProps;
 
@@ -412,6 +414,91 @@ fn accessibility_description_projection_reports_non_accessible_native_wrappers()
         let issues = NativeCapabilities::for_backend(backend).audit_tree(&described);
 
         assert_eq!(issues.len(), 4);
+        assert!(issues
+            .iter()
+            .all(|issue| issue.support == CapabilitySupport::Portable));
+    }
+}
+
+#[test]
+fn accessibility_relationship_fields_report_precise_native_projection() {
+    let related_button = NativeElement::new("related", NativeRole::Button).with_props(
+        NativeProps::new().accessibility_relationships(
+            AccessibilityRelationshipProps::default()
+                .labelled_by("label")
+                .described_by("description")
+                .details("details")
+                .controls("popup")
+                .owns("owned")
+                .flow_to("next")
+                .error_message("error")
+                .active_descendant("option"),
+        ),
+    );
+
+    let appkit_issues =
+        NativeCapabilities::for_backend(NativeBackendKind::AppKit).audit_tree(&related_button);
+    assert_eq!(appkit_issues.len(), 8);
+    assert!(appkit_issues
+        .iter()
+        .all(|issue| issue.support == CapabilitySupport::Portable));
+
+    let gtk4 = NativeCapabilities::for_backend(NativeBackendKind::Gtk4);
+    assert!(gtk4.audit_tree(&related_button).is_empty());
+
+    let winui = NativeCapabilities::for_backend(NativeBackendKind::WinUI);
+    let winui_issues = winui.audit_tree(&related_button);
+    assert_eq!(winui_issues.len(), 5);
+    for feature in [
+        NativeCapabilityFeature::AccessibilityLabelledBy,
+        NativeCapabilityFeature::AccessibilityDetails,
+        NativeCapabilityFeature::AccessibilityOwns,
+        NativeCapabilityFeature::AccessibilityErrorMessage,
+        NativeCapabilityFeature::AccessibilityActiveDescendant,
+    ] {
+        assert!(winui_issues.iter().any(|issue| {
+            issue.feature == feature && issue.support == CapabilitySupport::Portable
+        }));
+    }
+    for feature in [
+        NativeCapabilityFeature::AccessibilityDescribedBy,
+        NativeCapabilityFeature::AccessibilityControls,
+        NativeCapabilityFeature::AccessibilityFlowTo,
+    ] {
+        assert_eq!(
+            winui.support(feature, Some(NativeRole::Button)),
+            CapabilitySupport::Native
+        );
+    }
+
+    let headless_issues = NativeCapabilities::default().audit_tree(&related_button);
+    assert_eq!(headless_issues.len(), 8);
+    assert!(headless_issues
+        .iter()
+        .all(|issue| issue.support == CapabilitySupport::Portable));
+}
+
+#[test]
+fn accessibility_relationship_projection_reports_native_wrapper_exceptions() {
+    let relationships = AccessibilityRelationshipProps::default()
+        .labelled_by("label")
+        .described_by("description")
+        .details("details")
+        .controls("popup")
+        .owns("owned")
+        .flow_to("next")
+        .error_message("error")
+        .active_descendant("option");
+
+    for (backend, role) in [
+        (NativeBackendKind::Gtk4, NativeRole::MenuItem),
+        (NativeBackendKind::WinUI, NativeRole::Window),
+    ] {
+        let related = NativeElement::new("related", role)
+            .with_props(NativeProps::new().accessibility_relationships(relationships.clone()));
+        let issues = NativeCapabilities::for_backend(backend).audit_tree(&related);
+
+        assert_eq!(issues.len(), 8);
         assert!(issues
             .iter()
             .all(|issue| issue.support == CapabilitySupport::Portable));

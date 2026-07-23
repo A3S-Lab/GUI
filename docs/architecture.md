@@ -271,7 +271,15 @@ rerender updates, and when native change events arrive.
 ARIA relationship attributes including `aria-labelledby`, `aria-describedby`,
 `aria-details`, `aria-controls`, `aria-owns`, `aria-flowto`,
 `aria-errormessage`, and `aria-activedescendant` project into structured
-native accessibility relationship hints and stay available in metadata.
+native accessibility relationship hints and stay available in metadata. A
+shared native registry resolves their ID-reference lists against mounted node
+`id` metadata, including forward references, id changes, removal, and
+duplicate-id ambiguity. GTK4 projects all eight relationships through
+`GtkAccessible`. WinUI projects described-by, controls, and flow-to lists plus
+a single labelled-by target through UI Automation. AppKit projects a single
+static-text labelled-by target as its title UI element. Remaining
+backend/field combinations and non-accessible wrappers retain portable
+semantics and report field-level capability issues.
 ARIA description and value attributes including `aria-description`,
 `aria-roledescription`, `aria-keyshortcuts`, and `aria-valuetext` project into
 structured native accessibility description hints and stay available in metadata.

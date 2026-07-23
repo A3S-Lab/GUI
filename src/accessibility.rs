@@ -4,6 +4,13 @@ use serde::{Deserialize, Serialize};
 
 mod conformance;
 mod live_region;
+#[cfg(any(
+    test,
+    all(target_os = "macos", feature = "appkit-native"),
+    all(target_os = "linux", feature = "gtk4-native"),
+    all(target_os = "windows", feature = "winui-native")
+))]
+pub(crate) mod relationship_registry;
 pub use conformance::{
     AccessibilityConformanceIssue, AccessibilityConformanceReport, AccessibilityIssueCode,
     AccessibilityIssueSeverity,

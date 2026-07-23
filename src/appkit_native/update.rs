@@ -75,8 +75,14 @@ impl AppKitNativeSurface {
             NativeWidgetSetter::SetAccessibilityDescription(value) => {
                 set_appkit_accessibility_description(&handle.widget, value);
             }
+            NativeWidgetSetter::SetAccessibilityRelationships(value) => {
+                self.set_accessibility_relationships(id, value.clone())?;
+            }
             NativeWidgetSetter::SetAccessibilityState(value) => {
                 set_appkit_accessibility_state(&handle.widget, value);
+            }
+            NativeWidgetSetter::SetMetadata(value) => {
+                self.set_accessibility_relationship_metadata(id, value)?;
             }
             NativeWidgetSetter::SetWindowResizable(value) => {
                 if let AppKitOsWidget::Window(window) = &handle.widget {
@@ -611,11 +617,9 @@ impl AppKitNativeSurface {
             | NativeWidgetSetter::SetHtmlMicrodata(_)
             | NativeWidgetSetter::SetHtmlFormAssociation(_)
             | NativeWidgetSetter::SetHtmlCollection(_)
-            | NativeWidgetSetter::SetAccessibilityRelationships(_)
             | NativeWidgetSetter::SetAccessibilityStructure(_)
             | NativeWidgetSetter::SetWebStyle(_)
-            | NativeWidgetSetter::SetEvents(_)
-            | NativeWidgetSetter::SetMetadata(_) => {}
+            | NativeWidgetSetter::SetEvents(_) => {}
         }
         Ok(())
     }

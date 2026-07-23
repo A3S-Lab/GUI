@@ -291,6 +291,7 @@ impl WinUiNativeSurface {
         if self.root == Some(id) {
             self.root = None;
         }
+        self.forget_accessibility_relationship_node(id)?;
         Ok(())
     }
 }

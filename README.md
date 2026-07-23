@@ -34,8 +34,10 @@ object graph at the host boundary.
   and WAI-ARIA live-region updates through native assistive-technology APIs,
   independent visible and accessible labels with native `aria-label`
   projection, native descriptive accessibility metadata with field-level
-  capability reporting, validated ARIA state tokens with field-level native
-  capability reporting and exact AppKit/GTK4 projection where supported,
+  capability reporting, resolvable accessibility ID-reference relationships
+  with exact GTK4 and supported AppKit/WinUI projection, validated ARIA state
+  tokens with field-level native capability reporting and exact AppKit/GTK4
+  projection where supported,
   decimal/percent/date/time formatting, versioned
   capability reporting, shared native event-source state machines, and
   accessibility conformance checks. Versioned
@@ -54,7 +56,7 @@ object graph at the host boundary.
   IME/dead-key conformance, measured overlay collision/arrow conformance and
   scroll locking, remaining native focus conformance, broader message catalogs,
   currency/unit parsing and formatting, date-range/time-zone formatting,
-  complete native accessibility relationship and remaining state/role-edge
+  remaining AppKit/WinUI accessibility relationship and state/role-edge
   projection,
   and real-platform assistive-technology fixtures are still in progress.
 - `.rsx` component source modules with imports, local Rust types, hook

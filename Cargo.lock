@@ -26,6 +26,7 @@ dependencies = [
  "swc_ecma_ast",
  "swc_ecma_parser",
  "windows",
+ "windows-collections",
  "windows-core",
  "winio-winui3",
  "writeable",

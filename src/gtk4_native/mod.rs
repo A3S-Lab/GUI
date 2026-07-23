@@ -5,6 +5,7 @@ use std::rc::Rc;
 use gtk::prelude::*;
 use gtk4_crate as gtk;
 
+use crate::accessibility::relationship_registry::AccessibilityRelationshipRegistry;
 use crate::accessibility::{AccessibilityAnnouncement, AccessibilityAnnouncementPriority};
 use crate::app::{
     ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
@@ -35,6 +36,7 @@ mod hierarchy;
 mod interaction;
 mod mount;
 mod propagation;
+mod relationships;
 mod surface;
 mod types;
 mod update;
@@ -68,6 +70,7 @@ pub struct Gtk4NativeSurface {
     dialog_visible: BTreeMap<HostNodeId, bool>,
     popover_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     widgets: BTreeMap<HostNodeId, gtk::Widget>,
+    accessibility_relationships: AccessibilityRelationshipRegistry,
     container_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     drop_downs: BTreeMap<HostNodeId, Gtk4DropDownState>,
     drop_down_items: BTreeMap<HostNodeId, Gtk4DropDownItem>,
@@ -125,6 +128,7 @@ impl Gtk4NativeSurface {
             dialog_visible: BTreeMap::new(),
             popover_positions: BTreeMap::new(),
             widgets: BTreeMap::new(),
+            accessibility_relationships: AccessibilityRelationshipRegistry::default(),
             container_children: BTreeMap::new(),
             drop_downs: BTreeMap::new(),
             drop_down_items: BTreeMap::new(),

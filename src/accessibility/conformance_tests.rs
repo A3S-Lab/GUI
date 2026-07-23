@@ -120,3 +120,18 @@ fn conformance_rejects_invalid_accessibility_state_tokens() {
         assert!(report.issues.iter().any(|issue| issue.code == code));
     }
 }
+
+#[test]
+fn conformance_rejects_multiple_active_descendant_references() {
+    let mut list = node(AccessibilityRole::ListBox);
+    list.label = Some("Results".to_string());
+    list.relationships.active_descendant = Some("first second".to_string());
+
+    let report = AccessibilityConformanceReport::validate(&list);
+
+    assert!(!report.is_conformant());
+    assert!(report
+        .issues
+        .iter()
+        .any(|issue| issue.code == AccessibilityIssueCode::InvalidActiveDescendant));
+}

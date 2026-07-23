@@ -245,6 +245,7 @@ impl Gtk4NativeSurface {
                 }
             }
         }
+        self.forget_accessibility_relationship_node(id)?;
         Ok(())
     }
 }

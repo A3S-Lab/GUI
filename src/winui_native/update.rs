@@ -232,6 +232,12 @@ impl WinUiNativeSurface {
                     }
                 }
             }
+            NativeWidgetSetter::SetAccessibilityRelationships(value) => {
+                self.set_accessibility_relationships(id, value.clone())?;
+            }
+            NativeWidgetSetter::SetMetadata(value) => {
+                self.set_accessibility_relationship_metadata(id, value)?;
+            }
             NativeWidgetSetter::SetCols(value) => {
                 if let WinUiOsWidget::TextBox(text_box) = &handle.widget {
                     self.text_inputs.entry(id).or_default().cols = *value;
@@ -344,12 +350,10 @@ impl WinUiNativeSurface {
             | NativeWidgetSetter::SetHtmlMicrodata(_)
             | NativeWidgetSetter::SetHtmlFormAssociation(_)
             | NativeWidgetSetter::SetHtmlCollection(_)
-            | NativeWidgetSetter::SetAccessibilityRelationships(_)
             | NativeWidgetSetter::SetAccessibilityStructure(_)
             | NativeWidgetSetter::SetAccessibilityState(_)
             | NativeWidgetSetter::SetWebStyle(_)
-            | NativeWidgetSetter::SetEvents(_)
-            | NativeWidgetSetter::SetMetadata(_) => {}
+            | NativeWidgetSetter::SetEvents(_) => {}
         }
         Ok(())
     }

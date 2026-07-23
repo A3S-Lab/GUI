@@ -298,6 +298,7 @@ impl AppKitNativeSurface {
         if let AppKitOsWidget::Popover(state) = &handle.widget {
             state.popover.close();
         }
+        self.forget_accessibility_relationship_node(id)?;
         Ok(())
     }
 }

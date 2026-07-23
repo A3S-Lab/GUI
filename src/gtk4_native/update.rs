@@ -102,6 +102,9 @@ impl Gtk4NativeSurface {
                     }
                 }
             }
+            NativeWidgetSetter::SetAccessibilityRelationships(value) => {
+                self.set_accessibility_relationships(id, value.clone())?;
+            }
             NativeWidgetSetter::SetAccessibilityState(value) => {
                 if let Some(widget) = handle.widget.as_widget() {
                     if let Some(autocomplete) = value
@@ -149,6 +152,9 @@ impl Gtk4NativeSurface {
                         widget.reset_state(gtk::AccessibleState::Busy);
                     }
                 }
+            }
+            NativeWidgetSetter::SetMetadata(value) => {
+                self.set_accessibility_relationship_metadata(id, value)?;
             }
             NativeWidgetSetter::SetWindowResizable(value) => {
                 if let Gtk4OsWidget::ApplicationWindow(window) = &handle.widget {
@@ -709,11 +715,9 @@ impl Gtk4NativeSurface {
             | NativeWidgetSetter::SetHtmlMicrodata(_)
             | NativeWidgetSetter::SetHtmlFormAssociation(_)
             | NativeWidgetSetter::SetHtmlCollection(_)
-            | NativeWidgetSetter::SetAccessibilityRelationships(_)
             | NativeWidgetSetter::SetAccessibilityStructure(_)
             | NativeWidgetSetter::SetWebStyle(_)
-            | NativeWidgetSetter::SetEvents(_)
-            | NativeWidgetSetter::SetMetadata(_) => {}
+            | NativeWidgetSetter::SetEvents(_) => {}
         }
         Ok(())
     }

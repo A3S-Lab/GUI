@@ -23,6 +23,7 @@ pub enum AccessibilityIssueCode {
     InvalidMultipleState,
     MultipleSelectedItems,
     EmptyRelationship,
+    InvalidActiveDescendant,
     InvalidAutocomplete,
     InvalidCurrent,
     InvalidHasPopup,
@@ -158,6 +159,19 @@ fn validate_node<'a>(
                 message: format!("accessibility relationship {name} must not be empty"),
             });
         }
+    }
+    if node
+        .relationships
+        .active_descendant
+        .as_deref()
+        .is_some_and(|value| value.split_whitespace().count() > 1)
+    {
+        push_error(
+            issues,
+            node,
+            AccessibilityIssueCode::InvalidActiveDescendant,
+            "aria-activedescendant must reference exactly one element".to_string(),
+        );
     }
     if node
         .state

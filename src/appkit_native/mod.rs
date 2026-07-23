@@ -34,6 +34,7 @@ use objc2_foundation::{
     NSSize, NSString, NSTimer,
 };
 
+use crate::accessibility::relationship_registry::AccessibilityRelationshipRegistry;
 use crate::accessibility::{AccessibilityAnnouncement, AccessibilityAnnouncementPriority};
 use crate::app::{
     ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
@@ -70,6 +71,7 @@ mod hierarchy;
 mod interaction;
 mod mount;
 mod propagation;
+mod relationships;
 mod style;
 mod surface;
 mod types;
@@ -124,6 +126,7 @@ pub struct AppKitNativeSurface {
     popover_anchors: BTreeMap<HostNodeId, HostNodeId>,
     popover_positions: BTreeMap<HostNodeId, OverlayPositionRequest>,
     widgets: BTreeMap<HostNodeId, AppKitOsWidget>,
+    accessibility_relationships: AccessibilityRelationshipRegistry,
     action_targets: BTreeMap<HostNodeId, Retained<AppKitActionTarget>>,
     window_delegates: BTreeMap<HostNodeId, Retained<AppKitWindowDelegate>>,
     responder_nodes: BTreeMap<usize, HostNodeId>,
@@ -176,6 +179,7 @@ impl AppKitNativeSurface {
             popover_anchors: BTreeMap::new(),
             popover_positions: BTreeMap::new(),
             widgets: BTreeMap::new(),
+            accessibility_relationships: AccessibilityRelationshipRegistry::default(),
             action_targets: BTreeMap::new(),
             window_delegates: BTreeMap::new(),
             responder_nodes: BTreeMap::new(),
