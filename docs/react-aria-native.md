@@ -218,9 +218,14 @@ The first shared interaction milestone is available in the portable runtime:
   selection unless `escapeKeyBehavior="none"` is configured, and
   `disallowEmptySelection` still prevents the clear. Both shortcuts emit the
   same complete stable-key payload as pointer selection. An explicit
-  `onKeyDown` on the target route retains ownership of the key. Until native
-  layout geometry is available to the portable layer, PageUp and PageDown use
-  deterministic collection-boundary behavior.
+  `onKeyDown` on the target route retains ownership of the key. PageUp and
+  PageDown use a `CollectionLayoutSnapshot` containing the visible rectangle,
+  content size, and stable-key item rectangles. Command hosts measure that
+  snapshot from AppKit, GTK4, or WinUI immediately before navigation; custom
+  and headless hosts can inject it through `GuiRuntime::set_collection_layout`.
+  Variable-size rows move by one visible extent and fully disabled rows remain
+  excluded. A host that cannot measure layout retains deterministic
+  collection-boundary behavior.
 - Tree owns controlled `expandedKeys` or uncontrolled `defaultExpandedKeys`
   independently from selection. Nested semantic `TreeItem` nodes lower to
   stable, same-level native rows with parent-key, level, position, and set-size
@@ -369,7 +374,7 @@ props:
 | P0 | Native input conformance | WinUI's complete 98-case V1 manifest passes real OS automation. Populate the AppKit and GTK4 manifests with platform-run mouse, pen, touch where applicable, keyboard, assistive activation, disabled, cancellation, and keyed-rerender fixtures for every role currently marked native; then close or retain evidence-backed menu/item exceptions. |
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |
-| P1 | Collections and selection | Add layout-aware page navigation and complete IME/dead-key typeahead conformance. |
+| P1 | Collections and selection | Complete IME/dead-key typeahead conformance and add real-platform fixtures for layout-aware page navigation. |
 | P1 | Internationalization | Add message formatting, number/date formatting, locale-aware collation, and localized interaction behavior on top of inherited locale/direction. |
 | P1 | Accessibility conformance | Complete OS accessibility API projection, relationships, live regions, value announcements, and role-specific native adapter coverage. |
 | P2 | Overlays | Complete measured boundary-driven collision and arrow projection, native scroll locking, configurable outside-interaction filters, multi-window layer coordination, and real-platform positioning conformance fixtures. |

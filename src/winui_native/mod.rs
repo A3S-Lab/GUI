@@ -25,7 +25,7 @@ use crate::backend::{
 };
 use crate::error::{GuiError, GuiResult};
 use crate::event::{KeyboardPressState, NativeEvent, NativeEventKind};
-use crate::geometry::Orientation as A3sOrientation;
+use crate::geometry::{Orientation as A3sOrientation, Rect, Size};
 use crate::host::HostNodeId;
 use crate::html::HTML_TAG_METADATA_KEY;
 use crate::input::{NativeEventContext, NativeInputModality, NativeKeyModifiers};
@@ -38,6 +38,7 @@ use crate::platform::{
     NativeWidgetSetter, WinUiAdapter,
 };
 use crate::protocol::UiFrame;
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 use crate::winui::{
     winui_max_length_value, winui_text_input_hints, winui_truncate_to_max_length, WinUiWidgetKind,
 };

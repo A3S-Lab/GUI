@@ -93,6 +93,66 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         Ok(())
     }
 
+    fn measure_native_collection_layout(
+        &mut self,
+        collection: HostNodeId,
+        collection_handle: &Self::Handle,
+        items: &[(HostNodeId, CollectionKey, Self::Handle)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        if collection_handle.id != collection {
+            return Err(GuiError::host(format!(
+                "WinUI handle id does not match collection {}",
+                collection.get()
+            )));
+        }
+        let WinUiOsWidget::ListBox(list_box) = &collection_handle.widget else {
+            return Ok(None);
+        };
+        map_winui(
+            "failed to update WinUI collection layout",
+            list_box.UpdateLayout(),
+        )?;
+        let framework = collection_handle
+            .widget
+            .framework_element()
+            .ok_or_else(|| GuiError::host("WinUI list box is not a FrameworkElement"))?;
+        let visible_width = framework.ActualWidth().unwrap_or(0.0).max(0.0);
+        let visible_height = framework.ActualHeight().unwrap_or(0.0).max(0.0);
+        let mut content_width = visible_width;
+        let mut content_height = visible_height;
+        let mut item_rects = Vec::new();
+
+        for (_, key, handle) in items {
+            let WinUiOsWidget::ListBoxItem(item) = &handle.widget else {
+                continue;
+            };
+            let Ok(element) = item.cast::<xaml::UIElement>() else {
+                continue;
+            };
+            let (Ok(offset), Ok(size)) = (element.ActualOffset(), element.ActualSize()) else {
+                continue;
+            };
+            let rect = Rect::new(
+                f64::from(offset.X),
+                f64::from(offset.Y),
+                f64::from(size.X.max(0.0)),
+                f64::from(size.Y.max(0.0)),
+            );
+            content_width = content_width.max(rect.x + rect.width);
+            content_height = content_height.max(rect.y + rect.height);
+            item_rects.push((key.clone(), rect));
+        }
+        let mut layout = CollectionLayoutSnapshot::new(
+            Rect::new(0.0, 0.0, visible_width, visible_height),
+            Size::new(content_width, content_height),
+        );
+        for (key, rect) in item_rects {
+            layout.insert_item_rect(key, rect);
+        }
+        layout.validate()?;
+        Ok(Some(layout))
+    }
+
     fn position_native_overlay(
         &mut self,
         overlay: HostNodeId,

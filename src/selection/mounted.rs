@@ -13,6 +13,7 @@ use crate::style::TextDirection;
 
 use super::typeahead::{find_match, TypeaheadCandidate, TypeaheadState};
 use super::{
+    layout::{CollectionLayoutSnapshot, CollectionPageDirection},
     CollectionItem, CollectionKey, DisabledBehavior, EscapeKeyBehavior, KeyedCollection, Selection,
     SelectionBehavior, SelectionManager, SelectionMode,
 };
@@ -71,6 +72,7 @@ struct CollectionNavigationConfig {
 #[derive(Debug, Clone, Default)]
 pub struct MountedSelectionRegistry {
     collections: BTreeMap<HostNodeId, MountedCollection>,
+    layouts: BTreeMap<HostNodeId, CollectionLayoutSnapshot>,
     item_owners: BTreeMap<HostNodeId, HostNodeId>,
     item_keys: BTreeMap<HostNodeId, CollectionKey>,
     item_action_owners: BTreeMap<HostNodeId, HostNodeId>,
@@ -166,6 +168,60 @@ impl MountedSelectionRegistry {
 
     pub fn key_for_item(&self, item: HostNodeId) -> Option<&CollectionKey> {
         self.item_keys.get(&item)
+    }
+
+    pub fn collection_layout(&self, collection: HostNodeId) -> Option<&CollectionLayoutSnapshot> {
+        self.layouts.get(&collection)
+    }
+
+    /// Installs measured collection geometry until the next render.
+    pub fn set_collection_layout(
+        &mut self,
+        collection: HostNodeId,
+        layout: CollectionLayoutSnapshot,
+    ) -> GuiResult<()> {
+        layout.validate()?;
+        let mounted = self.collections.get(&collection).ok_or_else(|| {
+            crate::error::GuiError::invalid_tree(format!(
+                "collection layout owner {} is not mounted",
+                collection.get()
+            ))
+        })?;
+        if let Some(key) = layout
+            .item_rects()
+            .keys()
+            .find(|key| !mounted.items.iter().any(|item| &item.key == *key))
+        {
+            return Err(crate::error::GuiError::invalid_tree(format!(
+                "collection layout for node {} contains unknown item key {key:?}",
+                collection.get()
+            )));
+        }
+        self.layouts.insert(collection, layout);
+        Ok(())
+    }
+
+    pub fn clear_collection_layout(&mut self, collection: HostNodeId) -> bool {
+        self.layouts.remove(&collection).is_some()
+    }
+
+    pub(crate) fn collection_layout_request(
+        &self,
+        node: HostNodeId,
+    ) -> Option<(HostNodeId, Vec<(HostNodeId, CollectionKey)>)> {
+        let collection = self
+            .item_owners
+            .get(&node)
+            .copied()
+            .or_else(|| self.collections.contains_key(&node).then_some(node))?;
+        let items = self
+            .collections
+            .get(&collection)?
+            .items
+            .iter()
+            .map(|item| (item.node, item.key.clone()))
+            .collect();
+        Some((collection, items))
     }
 
     pub(crate) fn has_action_for_item(&self, item: HostNodeId) -> bool {
@@ -410,6 +466,7 @@ impl MountedSelectionRegistry {
         }
 
         self.collections = collections;
+        self.layouts.clear();
         self.item_owners = item_owners;
         self.item_keys = item_keys;
         self.action_presses.retain(|item, press| {
@@ -588,6 +645,7 @@ impl MountedSelectionRegistry {
         })?;
         let key = event.value.as_deref().map(crate::event::native_key_value)?;
         let event_item_key = self.item_keys.get(&event.node).cloned();
+        let layout = self.layouts.get(&collection_node).cloned();
         let collection = self.collections.get_mut(&collection_node)?;
         let current_key = event_item_key
             .or_else(|| collection.manager.focused_key().cloned())
@@ -612,37 +670,42 @@ impl MountedSelectionRegistry {
                 return Some(navigation);
             }
         }
-        let target_key =
-            if let Some(step) = navigation_step(&collection.navigation, direction, &key) {
-                if collection.navigation.navigation_role == NativeRole::Tree {
-                    tree_navigation::step_target(collection, step, current_key_ref)
-                } else {
-                    match step {
-                        CollectionNavigationStep::First => collection.manager.first_focusable_key(),
-                        CollectionNavigationStep::Last => collection.manager.last_focusable_key(),
-                        CollectionNavigationStep::Next => collection.manager.next_focusable_key(
-                            current_key_ref,
-                            collection.navigation.should_focus_wrap,
-                        ),
-                        CollectionNavigationStep::Previous => {
-                            collection.manager.previous_focusable_key(
-                                current_key_ref,
-                                collection.navigation.should_focus_wrap,
-                            )
-                        }
-                    }
-                    .cloned()
+        let target_key = if let Some(step) =
+            navigation_step(&collection.navigation, direction, &key)
+        {
+            match step {
+                CollectionNavigationStep::PageAbove | CollectionNavigationStep::PageBelow => {
+                    page_navigation_target(collection, layout.as_ref(), current_key_ref, step)
                 }
-            } else {
-                typeahead_target(
-                    collection,
-                    event,
-                    &key,
-                    current_key_ref,
-                    locale,
-                    Instant::now(),
-                )
-            }?;
+                _ if collection.navigation.navigation_role == NativeRole::Tree => {
+                    tree_navigation::step_target(collection, step, current_key_ref)
+                }
+                CollectionNavigationStep::First => {
+                    collection.manager.first_focusable_key().cloned()
+                }
+                CollectionNavigationStep::Last => collection.manager.last_focusable_key().cloned(),
+                CollectionNavigationStep::Next => collection
+                    .manager
+                    .next_focusable_key(current_key_ref, collection.navigation.should_focus_wrap)
+                    .cloned(),
+                CollectionNavigationStep::Previous => collection
+                    .manager
+                    .previous_focusable_key(
+                        current_key_ref,
+                        collection.navigation.should_focus_wrap,
+                    )
+                    .cloned(),
+            }
+        } else {
+            typeahead_target(
+                collection,
+                event,
+                &key,
+                current_key_ref,
+                locale,
+                Instant::now(),
+            )
+        }?;
         let target = collection
             .items
             .iter()
@@ -667,6 +730,8 @@ enum CollectionNavigationStep {
     Last,
     Next,
     Previous,
+    PageAbove,
+    PageBelow,
 }
 
 fn navigation_container<'a>(
@@ -794,8 +859,10 @@ fn navigation_step(
     key: &str,
 ) -> Option<CollectionNavigationStep> {
     match key {
-        "Home" | "PageUp" => return Some(CollectionNavigationStep::First),
-        "End" | "PageDown" => return Some(CollectionNavigationStep::Last),
+        "Home" => return Some(CollectionNavigationStep::First),
+        "End" => return Some(CollectionNavigationStep::Last),
+        "PageUp" => return Some(CollectionNavigationStep::PageAbove),
+        "PageDown" => return Some(CollectionNavigationStep::PageBelow),
         _ => {}
     }
 
@@ -829,6 +896,46 @@ fn navigation_step(
             _ => None,
         },
     }
+}
+
+fn page_navigation_target(
+    collection: &MountedCollection,
+    layout: Option<&CollectionLayoutSnapshot>,
+    current_key: Option<&CollectionKey>,
+    step: CollectionNavigationStep,
+) -> Option<CollectionKey> {
+    let direction = match step {
+        CollectionNavigationStep::PageAbove => CollectionPageDirection::Above,
+        CollectionNavigationStep::PageBelow => CollectionPageDirection::Below,
+        _ => return None,
+    };
+    let focusable_keys = if collection.navigation.navigation_role == NativeRole::Tree {
+        tree_navigation::visible_focusable_keys(collection)
+    } else {
+        collection
+            .items
+            .iter()
+            .filter(|item| !collection.manager.is_disabled(&item.key))
+            .map(|item| &item.key)
+            .collect()
+    };
+    layout
+        .and_then(|layout| {
+            layout.page_target(
+                &focusable_keys,
+                current_key,
+                collection.navigation.orientation,
+                direction,
+            )
+        })
+        .or_else(|| {
+            match direction {
+                CollectionPageDirection::Above => focusable_keys.first(),
+                CollectionPageDirection::Below => focusable_keys.last(),
+            }
+            .copied()
+            .cloned()
+        })
 }
 
 fn typeahead_target(

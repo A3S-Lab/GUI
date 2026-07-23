@@ -6,6 +6,7 @@ use crate::event::NativeEvent;
 use crate::host::HostNodeId;
 use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig};
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 
 use super::traits::{NativeEventSource, NativeHandleAdapter, NativeWidgetDriver};
 
@@ -336,5 +337,19 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
             &anchor_handle,
             request,
         )
+    }
+
+    fn measure_collection_layout(
+        &mut self,
+        collection: HostNodeId,
+        items: &[(HostNodeId, CollectionKey)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        let collection_handle = self.cloned_handle(collection)?;
+        let items = items
+            .iter()
+            .map(|(id, key)| Ok((*id, key.clone(), self.cloned_handle(*id)?)))
+            .collect::<GuiResult<Vec<_>>>()?;
+        self.adapter
+            .measure_collection_layout_handles(collection, &collection_handle, &items)
     }
 }

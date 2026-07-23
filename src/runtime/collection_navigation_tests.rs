@@ -1,12 +1,13 @@
 use super::*;
 use crate::event::NativeEventKind;
+use crate::geometry::{Rect, Size};
 use crate::input::NativeKeyModifiers;
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::platform::{
     AppKitAdapter, Gtk4Adapter, PlatformAdapter, PlatformCommand, PlatformPlanningHost,
     WinUiAdapter,
 };
-use crate::selection::{CollectionKey, Selection};
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot, Selection};
 use crate::web::WebProps;
 
 fn collection(
@@ -763,7 +764,7 @@ fn radio_arrows_select_and_wrap() {
 }
 
 #[test]
-fn home_end_and_page_keys_use_portable_collection_boundaries() {
+fn home_end_and_unmeasured_page_keys_use_portable_collection_boundaries() {
     let (mut runtime, root) = runtime_for(&collection(
         NativeRole::ListBox,
         NativeRole::ListBoxItem,
@@ -786,6 +787,49 @@ fn home_end_and_page_keys_use_portable_collection_boundaries() {
     assert_eq!(end.event.node, items[2]);
     assert_eq!(page_up.event.node, items[0]);
     assert_eq!(runtime.host().focused(), Some(items[0]));
+}
+
+#[test]
+fn measured_page_navigation_uses_layout_and_skips_disabled_items() {
+    let list = NativeElement::new("collection", NativeRole::ListBox)
+        .with_props(
+            NativeProps::new().web(
+                WebProps::new()
+                    .attribute("data-selection-mode", "single")
+                    .on_selection_change("selectItem"),
+            ),
+        )
+        .child(NativeElement::new("a", NativeRole::ListBoxItem))
+        .child(NativeElement::new("b", NativeRole::ListBoxItem))
+        .child(
+            NativeElement::new("c", NativeRole::ListBoxItem)
+                .with_props(NativeProps::new().disabled(true)),
+        )
+        .child(NativeElement::new("d", NativeRole::ListBoxItem))
+        .child(NativeElement::new("e", NativeRole::ListBoxItem));
+    let (mut runtime, root) = runtime_for(&list);
+    let items = runtime.renderer.child_ids(root);
+    let mut layout =
+        CollectionLayoutSnapshot::new(Rect::new(0.0, 20.0, 200.0, 100.0), Size::new(200.0, 200.0));
+    for (index, key) in ["a", "b", "c", "d", "e"].into_iter().enumerate() {
+        layout.insert_item_rect(key, Rect::new(0.0, index as f64 * 40.0, 200.0, 40.0));
+    }
+    runtime.set_collection_layout(root, layout).unwrap();
+
+    let page_down = runtime
+        .handle_native_event_with_changes(
+            NativeEvent::new(items[0], NativeEventKind::KeyDown).value("PageDown"),
+        )
+        .unwrap();
+    let page_up = runtime
+        .handle_native_event_with_changes(
+            NativeEvent::new(items[4], NativeEventKind::KeyDown).value("PageUp"),
+        )
+        .unwrap();
+
+    assert_eq!(page_down.event.node, items[3]);
+    assert_eq!(page_up.event.node, items[1]);
+    assert_eq!(runtime.host().focused(), Some(items[1]));
 }
 
 #[test]

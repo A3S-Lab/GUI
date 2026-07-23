@@ -274,8 +274,8 @@ pub use rsx_ui::{
 };
 pub use runtime::{GuiRuntime, HandledNativeEvent};
 pub use selection::{
-    CollectionItem, CollectionKey, DisabledBehavior, EscapeKeyBehavior, KeyedCollection, Selection,
-    SelectionBehavior, SelectionManager,
+    CollectionItem, CollectionKey, CollectionLayoutSnapshot, DisabledBehavior, EscapeKeyBehavior,
+    KeyedCollection, Selection, SelectionBehavior, SelectionManager,
 };
 pub use semantic_ui::{
     use_autocomplete, use_autocomplete_value, use_button, use_button_value, use_calendar,

@@ -43,7 +43,7 @@ use crate::backend::{
 };
 use crate::error::{GuiError, GuiResult};
 use crate::event::{virtual_press_events, NativeEvent, NativeEventKind};
-use crate::geometry::Orientation;
+use crate::geometry::{Orientation, Rect, Size};
 use crate::host::HostNodeId;
 use crate::html::HTML_TAG_METADATA_KEY;
 use crate::native_backends::appkit::menu::AppKitMenuRegistry;
@@ -55,6 +55,7 @@ use crate::platform::{
     NativeWidgetConfig, NativeWidgetSetter,
 };
 use crate::protocol::UiFrame;
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 use crate::style::{
     EdgeInsets, FontWeight, OverflowMode, PortableStyle, StyleColor, StyleLength, TextAlign,
 };

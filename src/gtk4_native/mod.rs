@@ -14,7 +14,7 @@ use crate::backend::{
 };
 use crate::error::{GuiError, GuiResult};
 use crate::event::{native_key_value, NativeEvent, NativeEventKind};
-use crate::geometry::Orientation;
+use crate::geometry::{Orientation, Rect, Size};
 use crate::gtk4::Gtk4WidgetKind;
 use crate::host::HostNodeId;
 use crate::native_backends::gtk4::menu::Gtk4MenuRegistry;
@@ -27,6 +27,7 @@ use crate::platform::{
     NativeTextInputPurpose, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter,
 };
 use crate::protocol::UiFrame;
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 use crate::style::{OverflowMode, StyleLength};
 
 mod hierarchy;

@@ -381,11 +381,18 @@ listbox items or tabs.
 Before that activation fallback, the mounted selection registry resolves
 collection navigation for ListBox, Menu, Tree, Tabs/TabList, and RadioGroup.
 Arrow keys follow the collection orientation and inherited text direction;
-Home and PageUp move to the first focusable item, while End and PageDown move to
-the last. Fully disabled items are skipped, items disabled only for selection
-remain focusable, and `shouldFocusWrap` controls end-to-start navigation except
-for Tabs and RadioGroup, which wrap by default. Focus movement is issued through
-the same constrained `RequestFocus` capability as imperative navigation.
+Home and End move to the first and last focusable item. PageUp and PageDown
+request a fresh `CollectionLayoutSnapshot` from the host and move by one
+visible width or height using stable-key item rectangles, including
+variable-size rows. AppKit reads the list document and row frames, GTK4 reads
+list allocations and ancestor scroll adjustments, and WinUI reads actual
+list/item layout. Custom or headless hosts can install the same typed snapshot
+through `GuiRuntime::set_collection_layout`; missing measurement falls back to
+the corresponding collection boundary. Fully disabled items are skipped, items
+disabled only for selection remain focusable, and `shouldFocusWrap` controls
+end-to-start navigation except for Tabs and RadioGroup, which wrap by default.
+Focus movement is issued through the same constrained `RequestFocus` capability
+as imperative navigation.
 Replace-selection ListBox and Tree collections select as focus moves, toggle
 collections move focus only, radio navigation selects, and Menu navigation is
 focus-only. Tabs select on focus unless `keyboardActivation="manual"` is set.
@@ -396,8 +403,7 @@ that clear behavior, can be released with `escapeKeyBehavior="none"`, and still
 honors `disallowEmptySelection`. These commands route through the collection
 root as complete stable-key snapshots, including normal action failure rollback.
 Explicit `onKeyDown` bindings on the target route take precedence over all
-built-in collection handling. Page movement deliberately uses collection
-boundaries until portable native layout geometry is available.
+built-in collection handling.
 Collection `onAction` is a separate semantic channel from selection. The
 mounted registry projects an internal action marker onto owned ListBoxItem and
 TreeItem rows so native adapters capture a press lifecycle without copying the

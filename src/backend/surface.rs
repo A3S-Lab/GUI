@@ -5,6 +5,7 @@ use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{
     NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfigPatch, NativeWidgetSetter,
 };
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 
 use super::traits::{NativeHandleAdapter, NativeWidgetSurface};
 
@@ -127,6 +128,16 @@ impl<S: NativeWidgetSurface> NativeHandleAdapter for SurfaceHandleAdapter<S> {
             anchor_handle,
             request,
         )
+    }
+
+    fn measure_collection_layout_handles(
+        &mut self,
+        collection: HostNodeId,
+        collection_handle: &Self::Handle,
+        items: &[(HostNodeId, CollectionKey, Self::Handle)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        self.surface
+            .measure_native_collection_layout(collection, collection_handle, items)
     }
 
     fn take_native_events(&mut self) -> Vec<NativeEvent> {

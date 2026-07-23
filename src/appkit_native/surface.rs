@@ -123,6 +123,56 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         Ok(())
     }
 
+    fn measure_native_collection_layout(
+        &mut self,
+        collection: HostNodeId,
+        collection_handle: &Self::Handle,
+        items: &[(HostNodeId, CollectionKey, Self::Handle)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        if collection_handle.id != collection {
+            return Err(GuiError::host(format!(
+                "AppKit handle id does not match collection {}",
+                collection.get()
+            )));
+        }
+        let AppKitOsWidget::ListView(scroll_view) = &collection_handle.widget else {
+            return Ok(None);
+        };
+        let Some(state) = self.list_views.get(&collection) else {
+            return Ok(None);
+        };
+        state.stack_view.layoutSubtreeIfNeeded();
+        let visible = scroll_view.documentVisibleRect();
+        let content = state.stack_view.frame().size;
+        let rows = state.rows.borrow();
+        let mut layout = CollectionLayoutSnapshot::new(
+            Rect::new(
+                visible.origin.x,
+                visible.origin.y,
+                visible.size.width.max(0.0),
+                visible.size.height.max(0.0),
+            ),
+            Size::new(content.width.max(0.0), content.height.max(0.0)),
+        );
+        for (node, key, _) in items {
+            let Some(row) = rows.iter().find(|row| row.node == *node) else {
+                continue;
+            };
+            let frame = row.button_view().frame();
+            layout.insert_item_rect(
+                key.clone(),
+                Rect::new(
+                    frame.origin.x,
+                    frame.origin.y,
+                    frame.size.width.max(0.0),
+                    frame.size.height.max(0.0),
+                ),
+            );
+        }
+        layout.validate()?;
+        Ok(Some(layout))
+    }
+
     fn position_native_overlay(
         &mut self,
         overlay: HostNodeId,

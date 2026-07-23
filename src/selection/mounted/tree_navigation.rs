@@ -190,8 +190,12 @@ pub(super) fn step_target(
 ) -> Option<CollectionKey> {
     let keys = visible_focusable_keys(collection);
     match step {
-        CollectionNavigationStep::First => keys.first().cloned().cloned(),
-        CollectionNavigationStep::Last => keys.last().cloned().cloned(),
+        CollectionNavigationStep::First | CollectionNavigationStep::PageAbove => {
+            keys.first().cloned().cloned()
+        }
+        CollectionNavigationStep::Last | CollectionNavigationStep::PageBelow => {
+            keys.last().cloned().cloned()
+        }
         CollectionNavigationStep::Next => {
             let Some(index) =
                 current.and_then(|current| keys.iter().position(|key| *key == current))
@@ -338,7 +342,7 @@ pub(super) fn is_visible(collection: &MountedCollection, item: &MountedSelection
     false
 }
 
-fn visible_focusable_keys(collection: &MountedCollection) -> Vec<&CollectionKey> {
+pub(super) fn visible_focusable_keys(collection: &MountedCollection) -> Vec<&CollectionKey> {
     collection
         .items
         .iter()

@@ -10,6 +10,7 @@ use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{
     BlueprintHost, NativeWidgetBlueprint, PlatformAdapter, PlatformPlanningHost,
 };
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 use crate::style::PortableStyle;
 
 use super::traits::{
@@ -378,6 +379,15 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> NativeHost for CommandExecu
 
     fn overlay_position_host(&mut self) -> Option<&mut dyn OverlayPositionHost> {
         Some(self)
+    }
+
+    fn measure_collection_layout(
+        &mut self,
+        collection: HostNodeId,
+        items: &[(HostNodeId, CollectionKey)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        self.ensure_healthy()?;
+        self.executor.measure_collection_layout(collection, items)
     }
 }
 

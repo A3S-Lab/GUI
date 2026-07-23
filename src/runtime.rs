@@ -20,7 +20,7 @@ use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::renderer::Renderer;
 use crate::selection::{
     apply_item_selection_props, apply_item_tree_props, validate_native_collection_keys,
-    MountedSelectionRegistry, MountedSelectionUpdate,
+    CollectionLayoutSnapshot, MountedSelectionRegistry, MountedSelectionUpdate,
 };
 use crate::semantic_ui::{SemanticElement, SemanticMapper};
 use crate::style::PortableStyle;
@@ -288,6 +288,23 @@ impl<H: NativeHost> GuiRuntime<H> {
 
     pub fn selections(&self) -> &MountedSelectionRegistry {
         &self.selection_registry
+    }
+
+    /// Installs explicit collection geometry until the next render.
+    ///
+    /// Native command hosts normally measure this automatically when handling
+    /// PageUp or PageDown. This method supports custom and headless hosts.
+    pub fn set_collection_layout(
+        &mut self,
+        collection: HostNodeId,
+        layout: CollectionLayoutSnapshot,
+    ) -> GuiResult<()> {
+        self.selection_registry
+            .set_collection_layout(collection, layout)
+    }
+
+    pub fn clear_collection_layout(&mut self, collection: HostNodeId) -> bool {
+        self.selection_registry.clear_collection_layout(collection)
     }
 
     pub fn mounted_snapshot(&self) -> Vec<crate::renderer::MountedNodeSnapshot> {
@@ -1326,6 +1343,7 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         if !has_explicit_key_down_handler(&blueprint, &route_blueprints)
             && !move_handles_keyboard_event(&blueprint, &route_blueprints, &event)
         {
+            self.refresh_collection_layout_for_page_navigation(&event)?;
             let selection_before_navigation = self.selection_registry.clone();
             let direction = self.i18n_manager.direction(event.node);
             let locale = self.i18n_manager.locale(event.node).map(ToOwned::to_owned);
@@ -1408,6 +1426,32 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
             dispatch_unchanged_selection,
             close_invocations,
         )
+    }
+
+    fn refresh_collection_layout_for_page_navigation(
+        &mut self,
+        event: &NativeEvent,
+    ) -> GuiResult<()> {
+        if event.kind != crate::event::NativeEventKind::KeyDown
+            || !event
+                .value
+                .as_deref()
+                .map(crate::event::native_key_value)
+                .is_some_and(|key| matches!(key.as_str(), "PageUp" | "PageDown"))
+        {
+            return Ok(());
+        }
+        let Some((collection, items)) = self
+            .selection_registry
+            .collection_layout_request(event.node)
+        else {
+            return Ok(());
+        };
+        if let Some(layout) = self.host.measure_collection_layout(collection, &items)? {
+            self.selection_registry
+                .set_collection_layout(collection, layout)?;
+        }
+        Ok(())
     }
 
     fn restore_suppressed_native_selection(

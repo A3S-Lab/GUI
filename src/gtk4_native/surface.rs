@@ -83,6 +83,74 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         Ok(())
     }
 
+    fn measure_native_collection_layout(
+        &mut self,
+        collection: HostNodeId,
+        collection_handle: &Self::Handle,
+        items: &[(HostNodeId, CollectionKey, Self::Handle)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        if collection_handle.id != collection {
+            return Err(GuiError::host(format!(
+                "GTK4 handle id does not match collection {}",
+                collection.get()
+            )));
+        }
+        let Gtk4OsWidget::ListBox(list_box) = &collection_handle.widget else {
+            return Ok(None);
+        };
+
+        let allocation = list_box.allocation();
+        let mut content_width = f64::from(allocation.width().max(0));
+        let mut content_height = f64::from(allocation.height().max(0));
+        let mut item_rects = Vec::new();
+        for (_, key, handle) in items {
+            let Gtk4OsWidget::ListBoxRow { row, .. } = &handle.widget else {
+                continue;
+            };
+            let allocation = row.allocation();
+            let rect = Rect::new(
+                f64::from(allocation.x()),
+                f64::from(allocation.y()),
+                f64::from(allocation.width().max(0)),
+                f64::from(allocation.height().max(0)),
+            );
+            content_width = content_width.max(rect.x + rect.width);
+            content_height = content_height.max(rect.y + rect.height);
+            item_rects.push((key.clone(), rect));
+        }
+
+        let scroller = gtk_scrolled_window_ancestor(list_box);
+        let (visible_rect, content_size) = if let Some(scroller) = scroller {
+            let horizontal = scroller.hadjustment();
+            let vertical = scroller.vadjustment();
+            let visible_width = positive_extent_or(horizontal.page_size(), scroller.width());
+            let visible_height = positive_extent_or(vertical.page_size(), scroller.height());
+            (
+                Rect::new(
+                    horizontal.value(),
+                    vertical.value(),
+                    visible_width,
+                    visible_height,
+                ),
+                Size::new(
+                    horizontal.upper().max(content_width),
+                    vertical.upper().max(content_height),
+                ),
+            )
+        } else {
+            (
+                Rect::new(0.0, 0.0, content_width, content_height),
+                Size::new(content_width, content_height),
+            )
+        };
+        let mut layout = CollectionLayoutSnapshot::new(visible_rect, content_size);
+        for (key, rect) in item_rects {
+            layout.insert_item_rect(key, rect);
+        }
+        layout.validate()?;
+        Ok(Some(layout))
+    }
+
     fn position_native_overlay(
         &mut self,
         overlay: HostNodeId,
@@ -166,6 +234,25 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
 
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         std::mem::take(&mut self.events.borrow_mut())
+    }
+}
+
+fn gtk_scrolled_window_ancestor(widget: &gtk::ListBox) -> Option<gtk::ScrolledWindow> {
+    let mut ancestor = widget.parent();
+    while let Some(widget) = ancestor {
+        if let Ok(scroller) = widget.clone().downcast::<gtk::ScrolledWindow>() {
+            return Some(scroller);
+        }
+        ancestor = widget.parent();
+    }
+    None
+}
+
+fn positive_extent_or(extent: f64, fallback: i32) -> f64 {
+    if extent > 0.0 {
+        extent
+    } else {
+        f64::from(fallback.max(0))
     }
 }
 

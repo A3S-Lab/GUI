@@ -1,6 +1,8 @@
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
+use crate::host::HostNodeId;
 use crate::platform::{NativeWidgetBlueprint, PlatformCommand};
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 
 use super::traits::{
     NativeEventSource, NativeWidgetDriver, PlatformCommandBatch, PlatformCommandExecutor,
@@ -81,6 +83,14 @@ impl<D: NativeWidgetDriver + Default> Default for DriverCommandExecutor<D> {
 }
 
 impl<D: NativeWidgetDriver> PlatformCommandExecutor for DriverCommandExecutor<D> {
+    fn measure_collection_layout(
+        &mut self,
+        collection: HostNodeId,
+        items: &[(HostNodeId, CollectionKey)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        self.driver.measure_collection_layout(collection, items)
+    }
+
     fn prepare_batch(&mut self, batch: &PlatformCommandBatch) -> GuiResult<()> {
         for command in &batch.commands {
             match command {

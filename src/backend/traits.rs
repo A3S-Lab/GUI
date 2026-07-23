@@ -6,6 +6,7 @@ use crate::platform::{
     NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfigPatch, NativeWidgetSetter,
     PlatformCommand,
 };
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlatformCommandBatch {
@@ -58,6 +59,14 @@ pub struct PlatformBatchFailure {
 /// preparing its replacement so two native surfaces never coexist.
 pub trait PlatformCommandExecutor {
     fn execute(&mut self, command: &PlatformCommand) -> GuiResult<()>;
+
+    fn measure_collection_layout(
+        &mut self,
+        _collection: HostNodeId,
+        _items: &[(HostNodeId, CollectionKey)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        Ok(None)
+    }
 
     /// Validate an entire frame before mutating native state.
     fn prepare_batch(&mut self, _batch: &PlatformCommandBatch) -> GuiResult<()> {
@@ -118,6 +127,14 @@ pub trait NativeWidgetDriver {
             self.backend()
         )))
     }
+
+    fn measure_collection_layout(
+        &mut self,
+        _collection: HostNodeId,
+        _items: &[(HostNodeId, CollectionKey)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        Ok(None)
+    }
 }
 
 pub trait NativeHandleAdapter {
@@ -177,6 +194,14 @@ pub trait NativeHandleAdapter {
             self.backend()
         )))
     }
+    fn measure_collection_layout_handles(
+        &mut self,
+        _collection: HostNodeId,
+        _collection_handle: &Self::Handle,
+        _items: &[(HostNodeId, CollectionKey, Self::Handle)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        Ok(None)
+    }
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         Vec::new()
     }
@@ -220,6 +245,14 @@ pub trait NativeWidgetSurface {
             "{:?} native surface does not support anchored overlay positioning",
             self.backend()
         )))
+    }
+    fn measure_native_collection_layout(
+        &mut self,
+        _collection: HostNodeId,
+        _collection_handle: &Self::Handle,
+        _items: &[(HostNodeId, CollectionKey, Self::Handle)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        Ok(None)
     }
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         Vec::new()

@@ -38,10 +38,10 @@ object graph at the host boundary.
   cases of each `Button`, `DisclosureSummary`, `Link`, `ImageMapArea`,
   `MenuItem`, `ListBoxItem`, and `TreeItem` role (98 of 98 WinUI cases).
   Populating the AppKit and GTK4 manifests with real platform automation,
-  role-edge input parity, layout-aware collection page movement, IME/dead-key
-  conformance, measured overlay collision/arrow conformance and scroll locking,
-  remaining native focus conformance, and locale formatting are still in
-  progress.
+  role-edge input parity, real-platform layout-aware page-navigation fixtures,
+  IME/dead-key conformance, measured overlay collision/arrow conformance and
+  scroll locking, remaining native focus conformance, and locale formatting
+  are still in progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.

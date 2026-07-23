@@ -7,6 +7,7 @@ use crate::native::{
     effective_input_type, NativeElement, NativeProps, NativeRole, ValueSensitivity,
 };
 use crate::overlay_position::OverlayPositionRequest;
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 use crate::style::PortableStyle;
 use serde::{Deserialize, Serialize};
 
@@ -82,6 +83,16 @@ pub trait NativeHost {
     /// Returns the host's anchored overlay positioning capability when available.
     fn overlay_position_host(&mut self) -> Option<&mut dyn OverlayPositionHost> {
         None
+    }
+
+    /// Measures collection and item geometry in the collection's content
+    /// coordinate space. Hosts that cannot inspect native layout return `None`.
+    fn measure_collection_layout(
+        &mut self,
+        _collection: HostNodeId,
+        _items: &[(HostNodeId, CollectionKey)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        Ok(None)
     }
 }
 

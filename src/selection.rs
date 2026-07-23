@@ -6,10 +6,12 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::error::{GuiError, GuiResult};
 
 mod collection;
+mod layout;
 mod mounted;
 mod typeahead;
 
 pub use collection::{CollectionItem, KeyedCollection};
+pub use layout::CollectionLayoutSnapshot;
 pub use mounted::MountedSelectionRegistry;
 pub(crate) use mounted::{
     apply_item_selection_props, apply_item_tree_props, validate_native_collection_keys,

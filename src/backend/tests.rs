@@ -3,6 +3,7 @@ use crate::accessibility::AccessibilityRole;
 use crate::compiler::CompiledRsxNode;
 use crate::error::{GuiError, GuiResult};
 use crate::event::{NativeEvent, NativeEventKind};
+use crate::geometry::{Rect, Size};
 use crate::host::HostNodeId;
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::platform::{
@@ -10,6 +11,7 @@ use crate::platform::{
     NativeWidgetSetter, PlatformAdapter, PlatformCommand, WinUiAdapter,
 };
 use crate::runtime::GuiRuntime;
+use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -171,6 +173,31 @@ impl NativeWidgetSurface for TestNativeSurface {
             .borrow_mut()
             .push(format!("focus:{}:{}", id.get(), handle.widget_class));
         Ok(())
+    }
+
+    fn measure_native_collection_layout(
+        &mut self,
+        collection: HostNodeId,
+        collection_handle: &Self::Handle,
+        items: &[(HostNodeId, CollectionKey, Self::Handle)],
+    ) -> GuiResult<Option<CollectionLayoutSnapshot>> {
+        self.calls.borrow_mut().push(format!(
+            "layout:{}:{}:{}",
+            collection.get(),
+            collection_handle.widget_class,
+            items.len()
+        ));
+        let mut layout = CollectionLayoutSnapshot::new(
+            Rect::new(0.0, 0.0, 200.0, 100.0),
+            Size::new(200.0, items.len() as f64 * 40.0),
+        );
+        for (index, (_, key, _)) in items.iter().enumerate() {
+            layout.insert_item_rect(
+                key.clone(),
+                Rect::new(0.0, index as f64 * 40.0, 200.0, 40.0),
+            );
+        }
+        Ok(Some(layout))
     }
 
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
@@ -1119,6 +1146,45 @@ fn surface_handle_adapter_drains_native_surface_events() {
         ]
     );
     assert!(driver.take_native_events().is_empty());
+}
+
+#[test]
+fn page_navigation_measures_layout_through_the_native_backend_stack() {
+    let surface = TestNativeSurface::default();
+    let calls = surface.calls.clone();
+    let executor =
+        DriverCommandExecutor::new(HandleWidgetDriver::new(SurfaceHandleAdapter::new(surface)));
+    let host = CommandExecutingHost::new(Gtk4Adapter, executor);
+    let mut runtime = GuiRuntime::new(host);
+    let list = NativeElement::new("list", NativeRole::ListBox)
+        .with_props(
+            NativeProps::new()
+                .web(crate::web::WebProps::new().attribute("data-selection-mode", "none")),
+        )
+        .child(NativeElement::new("a", NativeRole::ListBoxItem))
+        .child(NativeElement::new("b", NativeRole::ListBoxItem))
+        .child(NativeElement::new("c", NativeRole::ListBoxItem))
+        .child(NativeElement::new("d", NativeRole::ListBoxItem));
+    let root = runtime.render_native(&list).unwrap();
+    let items = runtime
+        .host()
+        .planning()
+        .node(root)
+        .unwrap()
+        .children
+        .clone();
+
+    runtime
+        .handle_native_event_with_changes(
+            NativeEvent::new(items[0], NativeEventKind::KeyDown).value("PageDown"),
+        )
+        .unwrap();
+
+    assert_eq!(runtime.host().planning().focused(), Some(items[2]));
+    assert!(calls
+        .borrow()
+        .iter()
+        .any(|call| call == &format!("layout:{}:gtk::ListBox:4", root.get())));
 }
 
 #[test]
