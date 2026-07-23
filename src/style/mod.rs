@@ -6,6 +6,7 @@ mod apply;
 mod color_parsing;
 mod composition;
 mod declarations;
+mod interaction;
 mod parsing;
 mod portable;
 mod shorthands;
@@ -17,6 +18,8 @@ mod tests;
 mod types;
 mod value_parsing;
 
+pub(crate) use interaction::variant_segments;
+pub use interaction::InteractionStyleRequirements;
 pub use portable::{NativeSizeConstraints, PortableStyle};
 pub use types::*;
 

@@ -11,6 +11,7 @@ pub struct UiFocusRingProps {
     pub is_focused: bool,
     pub is_focus_visible: bool,
     pub is_focus_within: bool,
+    pub within: bool,
     pub auto_focus: bool,
     pub tab_index: i32,
 }
@@ -24,6 +25,7 @@ pub fn ui_focus_ring(cx: &mut ComponentCx<UiFocusRingProps>) -> RSX {
             .disabled(props.is_disabled)
             .focused(props.is_focused)
             .focus_visible(props.is_focus_visible)
+            .within(props.within)
             .focus_within(props.is_focus_within)
             .auto_focus(props.auto_focus)
             .tab_index(props.tab_index)
@@ -40,7 +42,7 @@ pub fn ui_focus_ring(cx: &mut ComponentCx<UiFocusRingProps>) -> RSX {
             data-focused={props.isFocused}
             data-focus-visible={props.isFocusVisible}
             data-focus-within={props.isFocusWithin}
-            class="outline-none transition-shadow data-[focus-visible=true]:ring-[2px] data-[focus-visible=true]:ring-ink/40 data-[focus-visible=true]:ring-offset-2 data-[focus-within=true]:ring-[2px] data-[focus-within=true]:ring-ink/30 disabled:pointer-events-none disabled:text-muted-soft"
+            class="outline-none transition-shadow data-[focus-visible=true]:ring-[2px] data-[focus-visible=true]:ring-ink/40 data-[focus-visible=true]:ring-offset-2 data-[focus-ring-within=true]:data-[focus-visible-within=true]:ring-[2px] data-[focus-ring-within=true]:data-[focus-visible-within=true]:ring-ink/30 disabled:pointer-events-none disabled:text-muted-soft"
             className={props.className}
         >
             <Slot key="content" />

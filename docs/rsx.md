@@ -577,6 +577,11 @@ Semantic UI projections:
 | Clipboard, drag, and drop | `use_clipboard`, `use_drag`, `use_drop` | Native clipboard, drag source, and drop target contracts. |
 | Forms and controls | `use_form` plus field/control-specific hooks | Form props, labels, validation state, and native control metadata. |
 
+`use_focus` is the React Aria-compatible name for direct focus;
+`use_focusable` remains available for compatibility. `UiFocusRing` observes
+only direct focus by default. Set `within={true}` when descendant focus should
+also display the ring.
+
 Runtime lifecycle and effects:
 
 - `cx.use_mount(handler)` and `cx.use_mount_result(handler)` run synchronous
@@ -2071,8 +2076,14 @@ Dropdown Menu component contracts:
 ```
 
 Those variants are not browser CSS selectors. They are preserved as explicit
-style metadata so native hosts can apply supported states without embedding a
-DOM, CSSOM, or React runtime.
+style metadata. The runtime evaluates interaction and typed control-state
+segments such as `hover`, `active`, `focus-visible`, `focus-within`,
+`selected`, `checked`, `disabled`, matching `aria-*`, and React Aria-style
+`data-[pressed]`, `data-[hovered]`, `data-[focus-visible]`, and
+`data-[focus-within]`. It then sends a transactional `SetPortableStyle` update
+to the native widget. Responsive, theme, group/peer, and structural selectors
+remain preserved but require a future native environment or ancestry
+evaluator.
 
 The contract is covered by focused style tests for representative
 Button, Input, Card, Dialog, and Dropdown Menu class strings. Radix-style

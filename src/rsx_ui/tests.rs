@@ -880,6 +880,7 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
             key="focus-ring"
             isFocused={state.profileSelected}
             isFocusVisible={true}
+            within={true}
             isFocusWithin={true}
             tabIndex={3}
             onFocusChange={setFocus}
@@ -1385,6 +1386,41 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
             NativeRole::ListBox
         );
     });
+}
+
+#[test]
+fn rsx_ui_focus_ring_descendant_styles_are_opt_in() {
+    let direct = RsxComponent::<FormState>::new(
+        "focus-ring-direct",
+        r#"<UiFocusRing key="ring">Direct focus</UiFocusRing>"#,
+    )
+    .unwrap()
+    .render(&FormState::default())
+    .unwrap();
+    assert_eq!(
+        attribute_value(&direct.root, "data-focus-ring-within"),
+        Some("false")
+    );
+    assert_class_contains(
+        &direct.root,
+        "data-[focus-ring-within=true]:data-[focus-visible-within=true]:ring-[2px]",
+    );
+
+    let within = RsxComponent::<FormState>::new(
+        "focus-ring-within",
+        r#"<UiFocusRing key="ring" within={true}>Descendant focus</UiFocusRing>"#,
+    )
+    .unwrap()
+    .render(&FormState::default())
+    .unwrap();
+    assert_eq!(
+        attribute_value(&within.root, "data-focus-ring-within"),
+        Some("true")
+    );
+    assert_class_contains(
+        &within.root,
+        "data-[focus-ring-within=true]:data-[focus-visible-within=true]:ring-[2px]",
+    );
 }
 
 #[test]

@@ -1,6 +1,6 @@
 # A3S GUI Roadmap
 
-Updated: 2026-07-21
+Updated: 2026-07-23
 
 This roadmap evolves A3S GUI from a native widget renderer into a deterministic,
 automatable, policy-aware application runtime with a productive RSX authoring
@@ -73,7 +73,8 @@ The following foundations are implemented and are not roadmap placeholders:
   redaction
 - headless planning, recording, and accessibility projections
 - a component playground that checks registry coverage
-- normalized portable style and Tailwind-compatible variant metadata
+- normalized portable style, Tailwind-compatible variant metadata, and
+  transactional runtime projection for interaction and typed state variants
 - AppKit, GTK4, and WinUI build/test matrices with real native dogfood surfaces
 
 ## Delivery Dependency

@@ -7,6 +7,7 @@ use crate::capability::{CapabilityHost, NativeCapabilities};
 use crate::error::{GuiError, GuiResult};
 use crate::host::{HostFrameAck, HostNodeId, NativeHost, ProgrammaticFocusHost};
 use crate::native::{NativeElement, NativeProps};
+use crate::style::PortableStyle;
 
 use super::adapters::{BlueprintHost, PlatformAdapter};
 use super::types::NativeWidgetBlueprint;
@@ -124,6 +125,27 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
 
     pub fn commands(&self) -> &[PlatformCommand] {
         &self.commands
+    }
+
+    pub fn project_portable_style(
+        &mut self,
+        id: HostNodeId,
+        style: &PortableStyle,
+    ) -> GuiResult<()> {
+        let blueprint = {
+            let node = self
+                .nodes
+                .get_mut(&id)
+                .ok_or_else(|| GuiError::host(format!("unknown host node id {}", id.get())))?;
+            if node.blueprint.portable_style == *style {
+                return Ok(());
+            }
+            node.blueprint.portable_style = style.clone();
+            node.blueprint.clone()
+        };
+        self.commands
+            .push(PlatformCommand::Update { id, blueprint });
+        Ok(())
     }
 
     /// Takes all pending commands produced since the previous drain.
@@ -443,6 +465,10 @@ impl<A: PlatformAdapter> NativeHost for PlatformPlanningHost<A> {
         self.root = Some(id);
         self.commands.push(PlatformCommand::SetRoot { id });
         Ok(())
+    }
+
+    fn update_portable_style(&mut self, id: HostNodeId, style: &PortableStyle) -> GuiResult<()> {
+        self.project_portable_style(id, style)
     }
 
     fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {

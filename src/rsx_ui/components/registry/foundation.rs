@@ -173,6 +173,7 @@ pub(super) fn with_foundation_components<S>(
             .default_prop("isFocused", false)?
             .default_prop("isFocusVisible", false)?
             .default_prop("isFocusWithin", false)?
+            .default_prop("within", false)?
             .default_prop("autoFocus", false)?
             .default_prop("tabIndex", 0_i32)?,
         None,

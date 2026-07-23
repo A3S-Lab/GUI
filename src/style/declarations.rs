@@ -17,6 +17,8 @@ impl PortableStyle {
         property: String,
         value: String,
     ) {
+        self.variant_declaration_order
+            .push((variant.to_string(), property.clone()));
         self.variant_declarations
             .entry(variant.to_string())
             .or_default()

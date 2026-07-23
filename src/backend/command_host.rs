@@ -7,6 +7,7 @@ use crate::native::{NativeElement, NativeProps};
 use crate::platform::{
     BlueprintHost, NativeWidgetBlueprint, PlatformAdapter, PlatformPlanningHost,
 };
+use crate::style::PortableStyle;
 
 use super::traits::{
     NativeEventHost, NativeEventSource, PlatformBatchAck, PlatformCommandBatch,
@@ -362,6 +363,10 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> NativeHost for CommandExecu
 
     fn set_root(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.commit_planning(|planning| planning.set_root(id))
+    }
+
+    fn update_portable_style(&mut self, id: HostNodeId, style: &PortableStyle) -> GuiResult<()> {
+        self.commit_planning(|planning| planning.project_portable_style(id, style))
     }
 
     fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {

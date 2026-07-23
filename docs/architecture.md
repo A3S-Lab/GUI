@@ -496,6 +496,18 @@ after the platform has taken focus ownership. Later native events on that node
 also rebase their interaction baseline from the latest blueprint before
 applying local changes.
 
+Stateful style projection uses that same revision model. The runtime resolves
+supported variant declarations against transient interaction state and current
+typed props, preserves declaration-level source order, and caches the last
+resolved style per mounted node. A state transition batches focused
+`update_portable_style` calls inside a host frame. Planning hosts translate
+them to normal blueprint updates and `SetPortableStyle` setters, so AppKit,
+GTK4, WinUI, command-executing, and headless hosts share one path. A failed
+projection rolls the host frame, interaction state, selection state, and the
+previous resolved styles back together. Style requirements also participate in
+native event subscription planning, so a visual hover or press variant works
+without a user action callback.
+
 CSS style attribute text is parsed by `src/css_text.rs` before it enters
 `WebProps`. The parser splits declarations only on top-level CSS separators, so
 URLs, strings, bracketed values, and function arguments can contain `:` or `;`

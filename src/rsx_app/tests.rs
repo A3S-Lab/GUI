@@ -1982,7 +1982,7 @@ fn component_cx_breadcrumbs_hook_returns_navigation_props_for_view_consumption()
 }
 
 #[test]
-fn component_cx_focusable_hook_returns_focus_props_for_view_consumption() {
+fn component_cx_focus_hook_returns_focus_props_for_view_consumption() {
     fn focusable(cx: &mut ComponentCx<FocusState>) -> RSX {
         let focus_action = cx.use_reducer("setFocus", |state: &mut FocusState, invocation| {
             state.focus_changes += 1;
@@ -1990,7 +1990,7 @@ fn component_cx_focusable_hook_returns_focus_props_for_view_consumption() {
             Ok(())
         });
         let action = focus_action.clone();
-        let props = cx.use_focusable(move |state: &FocusState| {
+        let props = cx.use_focus(move |state: &FocusState| {
             crate::semantic_ui::UseFocusableProps::new()
                 .on_focus_change(Some(&action))
                 .focused(state.focused)
@@ -2133,6 +2133,7 @@ fn component_cx_focus_ring_and_scope_hooks_return_props_for_view_consumption() {
                 .on_focus_change(Some(&action))
                 .focused(state.focused)
                 .focus_visible(state.focus_visible)
+                .within(true)
                 .focus_within(state.focus_within)
                 .auto_focus(true)
                 .tab_index(3)

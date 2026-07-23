@@ -31,9 +31,23 @@ impl NativeInteractionSubscriptions {
                 .as_deref()
                 .is_some_and(|action| !action.is_empty()),
         );
+        subscriptions.merge(Self::from_style(&blueprint.portable_style));
         subscriptions.terminal_press |= has_collection_action(blueprint);
         subscriptions.long_press |= has_collection_action(blueprint);
         subscriptions
+    }
+
+    fn from_style(style: &crate::style::PortableStyle) -> Self {
+        let requirements = style.interaction_requirements();
+        Self {
+            terminal_press: false,
+            press_lifecycle: requirements.press,
+            long_press: requirements.long_press,
+            movement: requirements.movement,
+            hover: requirements.hover,
+            key_down: requirements.keyboard_modality,
+            key_up: requirements.keyboard_modality,
+        }
     }
 
     fn from_events(events: &BTreeMap<String, String>, has_action: bool) -> Self {
@@ -56,6 +70,16 @@ impl NativeInteractionSubscriptions {
 
     pub(crate) fn tracks_press(self) -> bool {
         self.terminal_press || self.press_lifecycle || self.long_press
+    }
+
+    fn merge(&mut self, other: Self) {
+        self.terminal_press |= other.terminal_press;
+        self.press_lifecycle |= other.press_lifecycle;
+        self.long_press |= other.long_press;
+        self.movement |= other.movement;
+        self.hover |= other.hover;
+        self.key_down |= other.key_down;
+        self.key_up |= other.key_up;
     }
 }
 
@@ -184,6 +208,8 @@ impl NativeLongPressTimer {
 pub(crate) struct NativeInteractionProfile {
     pub(crate) role: NativeRole,
     pub(crate) subscriptions: NativeInteractionSubscriptions,
+    event_subscriptions: NativeInteractionSubscriptions,
+    style_subscriptions: NativeInteractionSubscriptions,
     has_action: bool,
     has_terminal_event: bool,
     has_long_press_event: bool,
@@ -204,29 +230,35 @@ impl NativeInteractionProfile {
             &["onLongPressStart", "onLongPressEnd", "onLongPress"],
         );
         let has_collection_action = has_collection_action(blueprint);
-        let mut subscriptions = NativeInteractionSubscriptions::from_events(
+        let event_subscriptions = NativeInteractionSubscriptions::from_events(
             &blueprint.events,
             has_action || has_collection_action,
         );
-        subscriptions.long_press |= has_collection_action;
-        Self {
+        let style_subscriptions =
+            NativeInteractionSubscriptions::from_style(&blueprint.portable_style);
+        let mut profile = Self {
             role: blueprint.role,
-            subscriptions,
+            subscriptions: NativeInteractionSubscriptions::default(),
+            event_subscriptions,
+            style_subscriptions,
             has_action,
             has_terminal_event,
             has_long_press_event,
             has_collection_action,
             enabled: !blueprint.control_state.disabled,
             long_press_threshold: long_press_threshold(&blueprint.metadata),
-        }
+        };
+        profile.refresh_subscriptions();
+        profile
     }
 
     pub(crate) fn apply_setter(&mut self, setter: &NativeWidgetSetter) {
         match setter {
             NativeWidgetSetter::SetAction(action) => {
                 self.has_action = action.as_deref().is_some_and(|action| !action.is_empty());
-                self.subscriptions.terminal_press =
+                self.event_subscriptions.terminal_press =
                     self.has_action || self.has_terminal_event || self.has_collection_action;
+                self.refresh_subscriptions();
             }
             NativeWidgetSetter::SetEvents(events) => {
                 self.has_terminal_event = has_event(events, &["onPress", "onClick"]);
@@ -234,21 +266,22 @@ impl NativeInteractionProfile {
                     events,
                     &["onLongPressStart", "onLongPressEnd", "onLongPress"],
                 );
-                self.subscriptions = NativeInteractionSubscriptions::from_events(
+                self.event_subscriptions = NativeInteractionSubscriptions::from_events(
                     events,
                     self.has_action || self.has_collection_action,
                 );
-                self.subscriptions.long_press |= self.has_collection_action;
+                self.refresh_subscriptions();
             }
             NativeWidgetSetter::SetMetadata(metadata) => {
                 self.has_collection_action = metadata
                     .get(crate::selection::COLLECTION_ACTION_METADATA_KEY)
                     .is_some_and(|value| value.eq_ignore_ascii_case("true"));
-                self.subscriptions.terminal_press =
-                    self.has_action || self.has_terminal_event || self.has_collection_action;
-                self.subscriptions.long_press =
-                    self.has_long_press_event || self.has_collection_action;
                 self.long_press_threshold = long_press_threshold(metadata);
+                self.refresh_subscriptions();
+            }
+            NativeWidgetSetter::SetPortableStyle(style) => {
+                self.style_subscriptions = NativeInteractionSubscriptions::from_style(style);
+                self.refresh_subscriptions();
             }
             NativeWidgetSetter::SetEnabled(enabled) => {
                 self.enabled = *enabled;
@@ -272,7 +305,7 @@ impl NativeInteractionProfile {
     }
 
     pub(crate) fn long_press_config(self) -> NativeLongPressConfig {
-        let mode = if self.has_long_press_event {
+        let mode = if self.has_long_press_event || self.style_subscriptions.long_press {
             NativeLongPressMode::AnyPointer
         } else if self.has_collection_action {
             NativeLongPressMode::TouchOrPen
@@ -287,6 +320,15 @@ impl NativeInteractionProfile {
 
     pub(crate) fn tracks_movement(self) -> bool {
         self.enabled && self.subscriptions.movement
+    }
+
+    fn refresh_subscriptions(&mut self) {
+        self.event_subscriptions.terminal_press =
+            self.has_action || self.has_terminal_event || self.has_collection_action;
+        self.event_subscriptions.long_press =
+            self.has_long_press_event || self.has_collection_action;
+        self.subscriptions = self.event_subscriptions;
+        self.subscriptions.merge(self.style_subscriptions);
     }
 }
 
@@ -1043,6 +1085,37 @@ mod tests {
         assert!(subscriptions.movement);
         assert!(!subscriptions.key_down);
         assert!(subscriptions.key_up);
+    }
+
+    #[test]
+    fn style_variants_subscribe_to_the_native_events_that_drive_them() {
+        let element = NativeElement::new("target", NativeRole::Button).with_props(
+            NativeProps::new().web(WebProps::new().class_name(
+                "hover:opacity-75 active:opacity-50 focus-visible:opacity-100 \
+                 focus-within:opacity-90 data-[pressed=true]:opacity-25 \
+                 data-[long-pressed=true]:opacity-60 data-[moving=true]:opacity-70",
+            )),
+        );
+        let blueprint = AppKitAdapter.blueprint(&element);
+        let subscriptions = NativeInteractionSubscriptions::from_blueprint(&blueprint);
+
+        assert!(subscriptions.hover);
+        assert!(subscriptions.press_lifecycle);
+        assert!(subscriptions.long_press);
+        assert!(subscriptions.movement);
+        assert!(subscriptions.key_down);
+        assert!(subscriptions.key_up);
+        assert!(!subscriptions.terminal_press);
+
+        let mut profile = NativeInteractionProfile::from_blueprint(&blueprint);
+        profile.apply_setter(&NativeWidgetSetter::SetPortableStyle(
+            crate::style::PortableStyle::default(),
+        ));
+        assert!(!profile.subscriptions.hover);
+        assert!(!profile.subscriptions.press_lifecycle);
+        assert!(!profile.subscriptions.long_press);
+        assert!(!profile.subscriptions.movement);
+        assert!(!profile.subscriptions.key_down);
     }
 
     #[test]

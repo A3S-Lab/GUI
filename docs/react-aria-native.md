@@ -96,6 +96,12 @@ The first shared interaction milestone is available in the portable runtime:
 - `InteractionState` tracks pressed, long-pressed, hovered, focused,
   focus-within, and focus-visible state. It keeps transient state across keyed
   blueprint synchronization.
+- `GuiRuntime` resolves `hover`, `active`, `focus`, `focus-visible`, and
+  `focus-within` style variants, plus the corresponding React Aria
+  `data-[...]:*` states, against that interaction state. Declaration-level
+  source order is retained, and resolved `PortableStyle` updates are committed
+  transactionally through the native host rather than waiting for an action
+  callback or rerender.
 - Keyboard and virtual focus display focus-visible state; pointer presses clear
   it. Touch does not create hover state.
 - `use_press`, press-capable semantic hooks, built-in RSX components, and the
@@ -108,6 +114,10 @@ The first shared interaction milestone is available in the portable runtime:
   observe subtree entry and exit. Adjacent native blur/focus events are linked
   through `relatedTarget`, so moving between descendants does not churn an
   ancestor's focus-within state.
+- `use_focus` is the React Aria-compatible direct-focus API name;
+  `use_focusable` remains as a compatibility alias. `use_focus_ring` and
+  `UiFocusRing` include descendant focus only when `within=true`, matching the
+  direct-focus default.
 - `FocusManager` derives focusable and tabbable order from the mounted keyed
   tree, models nested focus scopes, provides first/last/next/previous
   navigation, resolves containment, and directs scope autofocus to a
@@ -237,9 +247,10 @@ The first shared interaction milestone is available in the portable runtime:
 - Native control activation is normalized with pre-dispatch context so a
   platform click does not duplicate the portable keyboard lifecycle.
   Programmatic and assistive activation emit the complete virtual lifecycle.
-- Mounted native interaction profiles follow `SetAction` and `SetEvents`
-  updates without remounting, so callbacks added or removed during a keyed
-  rerender immediately change native event capture.
+- Mounted native interaction profiles follow `SetAction`, `SetEvents`, and
+  `SetPortableStyle` updates without remounting. Callback changes and
+  style-driven hover, press, long-press, move, and focus-modality requirements
+  therefore update native event capture immediately.
 - Native surfaces are split by responsibility: widget creation, updates,
   hierarchy mutation, interaction translation, platform delegates, types, and
   styling/layout no longer share monolithic backend files.
@@ -261,6 +272,7 @@ existence of a platform object:
 | Native menu activation | AppKit and GTK4 menu items emit terminal press only because their menu models do not expose a mounted generic view event source. |
 | Hover and typed modality | View-backed widgets; explicit exceptions are reported for AppKit non-view wrappers/items, GTK4 menu items, and the WinUI window wrapper. |
 | Focus within | Portable runtime routing on AppKit, GTK4, WinUI, and headless hosts. Native blur/focus batches are linked with `relatedTarget`; direct focus callbacks remain target-only while focus-within callbacks run only when a subtree boundary is crossed. |
+| Interaction style projection | Runtime-resolved hover, press, long-press, move, focus, focus-visible, focus-within, selected, checked, expanded, disabled, validation, read-only, direction, and matching `data-*`/`aria-*` variants use the same transactional `SetPortableStyle` path on all three planning adapters. |
 | Focus events, scopes, and `autoFocus` | Native focusable control roles listed in the capability manifest. Runtime navigation, restoration, and post-mount `autoFocus` all emit typed `requestFocus` commands; contained scopes redirect escaping native focus. AppKit uses `makeFirstResponder`, GTK4 uses `grab_focus`, and WinUI calls the fixed `IUIElement::Focus(Programmatic)` ABI through an isolated adapter because the generated binding leaves that method unwrapped. |
 | Selection and item action | Select/combo box, list box/tree, and tabs/tab list. GTK4 and WinUI ListBox callbacks provide complete native selection snapshots; AppKit modifier-aware row activation and all stable-key aggregation remain in the portable keyed-runtime layer. ListBox/Tree item `onAction(key)` separation and collection keyboard navigation are shared across adapters. |
 
@@ -284,6 +296,7 @@ props:
 | P1 | Accessibility conformance | Complete OS accessibility API projection, relationships, live regions, value announcements, and role-specific native adapter coverage. |
 | P2 | Overlays | Add dismissal, focus restoration, modal containment, outside interaction, and nested overlay ordering. |
 | P2 | Capability enforcement | Turn reported capability gaps into adapter policy and conformance gates where portable fallback is not sufficient. |
+| P2 | Environment style variants | Add native environment and ancestry evaluators for responsive/container, theme, group, peer, and structural selector variants. These remain preserved in the style IR but inactive at runtime today. |
 
 Adding more component names before these systems exist does not improve
 conformance. New components should be built by composing the shared behavior
