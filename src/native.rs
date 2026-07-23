@@ -16,6 +16,9 @@ use crate::web::WebProps;
 use serde::{Deserialize, Serialize};
 
 pub(crate) const NUMBER_FIELD_INPUT_METADATA_KEY: &str = "data-number-field-input";
+pub(crate) const NUMBER_FIELD_STEP_METADATA_KEY: &str = "data-number-field-step";
+pub(crate) const NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY: &str =
+    "data-number-field-wheel-disabled";
 
 mod accessibility_description;
 mod accessibility_relationships;
@@ -956,6 +959,28 @@ pub(crate) fn normalize_range_value(
 pub(crate) enum RangeStepDirection {
     Increment,
     Decrement,
+}
+
+/// Resolves a normalized wheel delta to the NumberField step direction used by
+/// React Aria. Horizontal-dominant trackpad gestures are not treated as
+/// stepping intent.
+pub(crate) fn number_field_wheel_step_direction(
+    delta_x: f64,
+    delta_y: f64,
+) -> Option<RangeStepDirection> {
+    if !delta_x.is_finite()
+        || !delta_y.is_finite()
+        || delta_y == 0.0
+        || delta_y.abs() <= delta_x.abs()
+    {
+        return None;
+    }
+
+    Some(if delta_y > 0.0 {
+        RangeStepDirection::Increment
+    } else {
+        RangeStepDirection::Decrement
+    })
 }
 
 /// Moves a ranged value to the next step boundary in one direction.

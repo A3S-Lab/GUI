@@ -2073,6 +2073,7 @@ fn rsx_ui_number_field_consumes_number_field_hook_props() {
           isRequired={true}
           isInvalid={true}
           isReadOnly={true}
+          isWheelDisabled={true}
           onChange={setQuantity}
         />
         "#,
@@ -2103,6 +2104,10 @@ fn rsx_ui_number_field_consumes_number_field_hook_props() {
     assert!(props.is_required);
     assert!(props.is_invalid);
     assert!(props.is_read_only);
+    assert_eq!(
+        attribute_value(input, "data-number-field-wheel-disabled"),
+        Some("true")
+    );
     assert_eq!(
         props.events.get("onInput").map(String::as_str),
         Some("setQuantity")
@@ -2170,6 +2175,14 @@ fn rsx_ui_number_field_consumes_number_field_hook_props() {
     assert!(input_native.props.required);
     assert!(input_native.props.invalid);
     assert!(input_native.props.read_only);
+    assert_eq!(
+        input_native
+            .props
+            .metadata
+            .get(crate::native::NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY)
+            .map(String::as_str),
+        Some("true")
+    );
 }
 
 #[test]

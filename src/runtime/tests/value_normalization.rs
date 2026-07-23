@@ -351,6 +351,211 @@ fn runtime_steps_number_fields_with_arrow_keys_on_the_minimum_anchored_grid() {
 }
 
 #[test]
+fn runtime_number_field_keyboard_supports_page_bounds_and_ignores_modified_keys() {
+    let element = NativeElement::new("quantity", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Quantity")
+            .input_type("number")
+            .range(Some(2.0), Some(11.0), Some(8.0))
+            .step(Some(3.0))
+            .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true")
+            .web(WebProps::new().on_change("setQuantity")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setQuantity");
+
+    let field_id = runtime.render_native(&element).unwrap();
+    for (key, expected) in [
+        ("PageUp", "11"),
+        ("PageDown", "5"),
+        ("Home", "2"),
+        ("End", "11"),
+    ] {
+        let handled = runtime
+            .handle_native_event_with_changes(
+                crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::KeyDown)
+                    .value(key),
+            )
+            .unwrap();
+        assert_eq!(handled.event.kind, crate::event::NativeEventKind::Change);
+        assert_eq!(handled.event.value.as_deref(), Some(expected));
+    }
+
+    let modified = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::KeyDown)
+                .value("ArrowUp")
+                .modifiers(crate::input::NativeKeyModifiers::new().shift(true)),
+        )
+        .unwrap();
+    assert_eq!(modified.event.kind, crate::event::NativeEventKind::KeyDown);
+    assert!(modified.invocation.is_none());
+}
+
+#[test]
+fn runtime_number_field_wheel_requires_focus_and_vertical_intent() {
+    let element = NativeElement::new("quantity", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Quantity")
+            .input_type("number")
+            .range(Some(2.0), Some(11.0), Some(8.0))
+            .step(Some(3.0))
+            .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true")
+            .web(WebProps::new().on_change("setQuantity")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setQuantity");
+
+    let field_id = runtime.render_native(&element).unwrap();
+    let unfocused = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::Wheel)
+                .delta(0.0, 1.0),
+        )
+        .unwrap();
+    assert_eq!(unfocused.event.kind, crate::event::NativeEventKind::Wheel);
+    assert!(unfocused.invocation.is_none());
+
+    runtime
+        .handle_native_event(crate::event::NativeEvent::new(
+            field_id,
+            crate::event::NativeEventKind::Focus,
+        ))
+        .unwrap();
+    let incremented = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::Wheel)
+                .delta(0.0, 1.0),
+        )
+        .unwrap();
+    assert_eq!(
+        incremented.event.kind,
+        crate::event::NativeEventKind::Change
+    );
+    assert_eq!(incremented.event.value.as_deref(), Some("11"));
+
+    let decremented = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::Wheel)
+                .delta(0.0, -1.0),
+        )
+        .unwrap();
+    assert_eq!(decremented.event.value.as_deref(), Some("5"));
+
+    let horizontal = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::Wheel)
+                .delta(2.0, 1.0),
+        )
+        .unwrap();
+    assert_eq!(horizontal.event.kind, crate::event::NativeEventKind::Wheel);
+    assert!(horizontal.invocation.is_none());
+
+    let zoom = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::Wheel)
+                .delta(0.0, 1.0)
+                .modifiers(crate::input::NativeKeyModifiers::new().control(true)),
+        )
+        .unwrap();
+    assert_eq!(zoom.event.kind, crate::event::NativeEventKind::Wheel);
+    assert!(zoom.invocation.is_none());
+}
+
+#[test]
+fn runtime_number_field_wheel_can_be_disabled_without_disabling_keyboard() {
+    let element = NativeElement::new("quantity", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Quantity")
+            .input_type("number")
+            .range(Some(0.0), Some(10.0), Some(5.0))
+            .step(Some(1.0))
+            .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true")
+            .metadata(
+                crate::native::NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY,
+                "true",
+            )
+            .web(WebProps::new().on_change("setQuantity")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setQuantity");
+
+    let field_id = runtime.render_native(&element).unwrap();
+    runtime
+        .handle_native_event(crate::event::NativeEvent::new(
+            field_id,
+            crate::event::NativeEventKind::Focus,
+        ))
+        .unwrap();
+    let wheel = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::Wheel)
+                .delta(0.0, 1.0),
+        )
+        .unwrap();
+    assert_eq!(wheel.event.kind, crate::event::NativeEventKind::Wheel);
+    assert!(wheel.invocation.is_none());
+
+    let keyboard = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::KeyDown)
+                .value("ArrowUp"),
+        )
+        .unwrap();
+    assert_eq!(keyboard.event.kind, crate::event::NativeEventKind::Change);
+    assert_eq!(keyboard.event.value.as_deref(), Some("6"));
+}
+
+#[test]
+fn runtime_mouse_step_press_moves_focus_to_the_number_field_input() {
+    let controls = NativeElement::new("controls", NativeRole::View).children(vec![
+        NativeElement::new("decrement", NativeRole::Button).with_props(
+            NativeProps::new()
+                .metadata(crate::native::NUMBER_FIELD_STEP_METADATA_KEY, "decrement")
+                .web(WebProps::new().on_press("setQuantity")),
+        ),
+        NativeElement::new("input", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .input_type("number")
+                .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true"),
+        ),
+        NativeElement::new("increment", NativeRole::Button).with_props(
+            NativeProps::new()
+                .metadata(crate::native::NUMBER_FIELD_STEP_METADATA_KEY, "increment")
+                .web(WebProps::new().on_press("setQuantity")),
+        ),
+    ]);
+    let element = NativeElement::new("number-field", NativeRole::View).children(vec![controls]);
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setQuantity");
+
+    let root = runtime.render_native(&element).unwrap();
+    let controls = runtime.host().node(root).unwrap().children[0];
+    let children = runtime.host().node(controls).unwrap().children.clone();
+    let decrement = children[0];
+    let input = children[1];
+    runtime
+        .handle_native_event(crate::event::NativeEvent::new(
+            decrement,
+            crate::event::NativeEventKind::Focus,
+        ))
+        .unwrap();
+
+    runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(decrement, crate::event::NativeEventKind::PressStart)
+                .modality(crate::input::NativeInputModality::Mouse),
+        )
+        .unwrap();
+
+    assert_eq!(runtime.host().focused(), Some(input));
+}
+
+#[test]
 fn runtime_number_field_arrow_steps_avoid_float_noise_and_respect_bounds() {
     let element = NativeElement::new("ratio", NativeRole::TextField).with_props(
         NativeProps::new()

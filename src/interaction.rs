@@ -483,6 +483,7 @@ impl InteractionState {
             NativeEventKind::Toggle => apply_toggle(blueprint.role, event, &mut after),
             NativeEventKind::KeyDown
             | NativeEventKind::KeyUp
+            | NativeEventKind::Wheel
             | NativeEventKind::LongPress
             | NativeEventKind::Action
             | NativeEventKind::Copy

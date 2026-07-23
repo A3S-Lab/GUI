@@ -12,7 +12,7 @@ use xaml::Input::{PointerEventHandler, PointerRoutedEventArgs};
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct WinUiInteractionRegistration {
-    profile: NativeInteractionProfile,
+    pub(super) profile: NativeInteractionProfile,
     native_button: bool,
     native_selection_item: bool,
 }
@@ -45,6 +45,8 @@ pub(super) fn register_interaction_events(
     id: HostNodeId,
     widget: &WinUiOsWidget,
     events: &WinUiEventQueue,
+    focused_node: WinUiFocusedNode,
+    key_modifiers: WinUiKeyModifiers,
     activation_contexts: WinUiActivationContexts,
     pending_activation_cleanup: WinUiPendingActivationCleanup,
     forced_pointer_cancellations: Arc<Mutex<BTreeSet<HostNodeId>>>,
@@ -64,6 +66,13 @@ pub(super) fn register_interaction_events(
     if is_button {
         register_button_click(id, widget, events, Arc::clone(&activation_contexts))?;
     }
+    register_number_field_wheel(
+        id,
+        &element,
+        events,
+        focused_node,
+        Arc::clone(&registration),
+    )?;
     register_pointer_press_lifecycle(
         id,
         &element,
@@ -91,6 +100,7 @@ pub(super) fn register_interaction_events(
         activation_contexts,
         registration,
         keyboard_presses,
+        key_modifiers,
     )?;
     Ok(())
 }
@@ -102,24 +112,34 @@ fn register_preview_keyboard_events(
     activation_contexts: WinUiActivationContexts,
     registration: Arc<Mutex<WinUiInteractionRegistration>>,
     keyboard_presses: Arc<Mutex<KeyboardPressState>>,
+    key_modifiers: WinUiKeyModifiers,
 ) -> GuiResult<()> {
     let down_events = Arc::clone(events);
     let down_contexts = Arc::clone(&activation_contexts);
     let down_registration = Arc::clone(&registration);
     let down_presses = Arc::clone(&keyboard_presses);
+    let down_modifiers = Arc::clone(&key_modifiers);
     map_winui(
         "failed to register WinUI preview key-down handler",
         input_abi::add_preview_key_event_handler(element, true, move |virtual_key| {
             let key = winui_key_value_from_virtual_key(virtual_key);
-            let context = NativeEventContext::new().modality(NativeInputModality::Keyboard);
+            let modifiers = down_modifiers
+                .lock()
+                .map(|modifiers| *modifiers)
+                .unwrap_or_default();
+            let context = NativeEventContext::new()
+                .modality(NativeInputModality::Keyboard)
+                .modifiers(modifiers);
             let registration = down_registration
                 .lock()
                 .ok()
                 .map(|registration| *registration);
             let number_field_step_handled = registration.is_some_and(|registration| {
-                registration
-                    .profile
-                    .handles_number_field_step_key(NativeEventKind::KeyDown, &key)
+                registration.profile.handles_number_field_step_key(
+                    NativeEventKind::KeyDown,
+                    &key,
+                    context.modifiers,
+                )
             });
             if registration.is_some_and(|registration| registration.awaits_native_activation()) {
                 remember_activation_context(&down_contexts, id, context);
@@ -150,11 +170,18 @@ fn register_preview_keyboard_events(
     )?;
 
     let up_events = Arc::clone(events);
+    let up_modifiers = key_modifiers;
     map_winui(
         "failed to register WinUI preview key-up handler",
         input_abi::add_preview_key_event_handler(element, false, move |virtual_key| {
             let key = winui_key_value_from_virtual_key(virtual_key);
-            let context = NativeEventContext::new().modality(NativeInputModality::Keyboard);
+            let modifiers = up_modifiers
+                .lock()
+                .map(|modifiers| *modifiers)
+                .unwrap_or_default();
+            let context = NativeEventContext::new()
+                .modality(NativeInputModality::Keyboard)
+                .modifiers(modifiers);
             let registration = registration.lock().ok().map(|registration| *registration);
             if registration.is_some_and(|registration| registration.awaits_native_activation()) {
                 remember_activation_context(&activation_contexts, id, context);
@@ -181,6 +208,65 @@ fn register_preview_keyboard_events(
             push_events(&up_events, pending);
             Ok(prevent_default)
         }),
+    )
+}
+
+fn register_number_field_wheel(
+    id: HostNodeId,
+    element: &xaml::UIElement,
+    events: &WinUiEventQueue,
+    focused_node: WinUiFocusedNode,
+    registration: Arc<Mutex<WinUiInteractionRegistration>>,
+) -> GuiResult<()> {
+    let wheel_events = Arc::clone(events);
+    let wheel_element = element.clone();
+    let handler = PointerEventHandler::new(move |_, args| {
+        let Some(args) = args.as_ref() else {
+            return Ok(());
+        };
+        let properties = args
+            .GetCurrentPoint(&wheel_element)
+            .and_then(|point| point.Properties())?;
+        let delta = f64::from(properties.MouseWheelDelta()?);
+        let (delta_x, delta_y) = if properties.IsHorizontalMouseWheel()? {
+            (-delta, 0.0)
+        } else {
+            // WinUI reports positive deltas for an upward wheel gesture. The
+            // portable wheel contract follows DOM signs.
+            (0.0, -delta)
+        };
+        let context = pointer_event_context(args, &wheel_element).delta(delta_x, delta_y);
+        let focused = focused_node
+            .lock()
+            .map(|focused| *focused == Some(id))
+            .unwrap_or(false);
+        let handled = registration
+            .lock()
+            .map(|registration| {
+                registration.profile.handles_number_field_wheel(
+                    focused,
+                    delta_x,
+                    delta_y,
+                    context.modifiers,
+                )
+            })
+            .unwrap_or(false);
+        if handled {
+            push_event(
+                &wheel_events,
+                NativeEvent::new(id, NativeEventKind::Wheel).context(context),
+            );
+            args.SetHandled(true)?;
+        }
+        Ok(())
+    });
+    map_winui(
+        "failed to register WinUI number-field wheel handler",
+        input_abi::add_handled_pointer_event_handler(
+            element,
+            input_abi::WinUiPointerRoutedEvent::WheelChanged,
+            &handler,
+        ),
     )
 }
 

@@ -25,6 +25,7 @@ pub struct UseNumberFieldProps {
     is_required: bool,
     is_invalid: bool,
     is_read_only: bool,
+    is_wheel_disabled: bool,
 }
 
 impl Default for UseNumberFieldProps {
@@ -44,6 +45,7 @@ impl Default for UseNumberFieldProps {
             is_required: false,
             is_invalid: false,
             is_read_only: false,
+            is_wheel_disabled: false,
         }
     }
 }
@@ -129,6 +131,11 @@ impl UseNumberFieldProps {
         self.is_read_only = read_only;
         self
     }
+
+    pub fn wheel_disabled(mut self, wheel_disabled: bool) -> Self {
+        self.is_wheel_disabled = wheel_disabled;
+        self
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -149,6 +156,7 @@ pub struct UseNumberFieldResult {
     pub is_required: bool,
     pub is_invalid: bool,
     pub is_read_only: bool,
+    pub is_wheel_disabled: bool,
     pub can_increment: bool,
     pub can_decrement: bool,
     pub number_field_props: NumberFieldProps,
@@ -188,6 +196,11 @@ pub struct NumberFieldInputProps {
     pub input_type: &'static str,
     #[serde(rename = "data-number-field-input")]
     pub data_number_field_input: bool,
+    #[serde(
+        rename = "data-number-field-wheel-disabled",
+        skip_serializing_if = "is_false"
+    )]
+    pub data_number_field_wheel_disabled: bool,
     #[serde(rename = "aria-label", skip_serializing_if = "Option::is_none")]
     pub aria_label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -325,6 +338,7 @@ pub fn use_number_field(props: UseNumberFieldProps) -> UseNumberFieldResult {
     let number_field_input_props = NumberFieldInputProps {
         input_type: "number",
         data_number_field_input: true,
+        data_number_field_wheel_disabled: props.is_wheel_disabled,
         aria_label: props.label.clone(),
         placeholder: props.placeholder.clone(),
         value_number,
@@ -391,6 +405,7 @@ pub fn use_number_field(props: UseNumberFieldProps) -> UseNumberFieldResult {
         is_required: props.is_required,
         is_invalid: props.is_invalid,
         is_read_only: props.is_read_only,
+        is_wheel_disabled: props.is_wheel_disabled,
         can_increment,
         can_decrement,
         number_field_props,
@@ -495,11 +510,19 @@ mod tests {
 
     #[test]
     fn number_field_serializes_stepper_hook_paths() {
-        let value = use_number_field_value(UseNumberFieldProps::new()).unwrap();
+        let value =
+            use_number_field_value(UseNumberFieldProps::new().wheel_disabled(true)).unwrap();
 
         assert!(value.get("incrementButtonProps").is_some(), "{value}");
         assert!(value.get("decrementButtonProps").is_some(), "{value}");
         assert!(value.get("canIncrement").is_some(), "{value}");
         assert!(value.get("canDecrement").is_some(), "{value}");
+        assert_eq!(value.get("isWheelDisabled"), Some(&serde_json::json!(true)));
+        assert_eq!(
+            value
+                .get("numberFieldInputProps")
+                .and_then(|props| props.get("data-number-field-wheel-disabled")),
+            Some(&serde_json::json!(true))
+        );
     }
 }

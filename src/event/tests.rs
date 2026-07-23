@@ -77,6 +77,29 @@ fn routes_each_move_phase_and_preserves_incremental_delta() {
 }
 
 #[test]
+fn routes_wheel_events_with_portable_delta() {
+    let element = NativeElement::new("scroller", NativeRole::View)
+        .with_props(NativeProps::new().web(WebProps::new().event("onWheel", "scrollField")));
+    let blueprint = AppKitAdapter.blueprint(&element);
+    let event = NativeEvent::new(HostNodeId::new(72), NativeEventKind::Wheel)
+        .modality(crate::input::NativeInputModality::Mouse)
+        .delta(0.0, 120.0);
+
+    let invocation = EventRouter::new().route(&blueprint, &event).unwrap();
+
+    assert_eq!(invocation.action, "scrollField");
+    assert_eq!(invocation.event, NativeEventKind::Wheel);
+    assert_eq!(
+        invocation.context.delta,
+        Some(crate::input::NativeEventPosition::new(0.0, 120.0))
+    );
+    assert_eq!(
+        invocation.context.modality,
+        crate::input::NativeInputModality::Mouse
+    );
+}
+
+#[test]
 fn ignores_empty_action_ids_and_uses_non_empty_fallbacks() {
     let empty = NativeElement::new("empty", NativeRole::Button)
         .with_props(NativeProps::new().web(WebProps::new().on_press("")));

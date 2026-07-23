@@ -2315,6 +2315,7 @@ fn props_scope_value(props: &CompiledProps) -> JsonValue {
                 "isRequired",
                 "isInvalid",
                 "isReadOnly",
+                "isWheelDisabled",
                 "canIncrement",
                 "canDecrement",
             ],
@@ -4180,6 +4181,17 @@ fn number_field_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
                 props,
                 &["decrementAriaLabel", "decrement-aria-label"],
             ))
+            .wheel_disabled(
+                bool_attribute_value(
+                    props,
+                    &[
+                        "isWheelDisabled",
+                        "wheelDisabled",
+                        "data-number-field-wheel-disabled",
+                    ],
+                )
+                .unwrap_or(false),
+            )
             .disabled(props.is_disabled)
             .required(props.is_required)
             .invalid(props.is_invalid)
@@ -4957,6 +4969,7 @@ fn normalize_event_name(name: &str) -> String {
         "onhoverchange" => "onHoverChange",
         "onkeydown" => "onKeyDown",
         "onkeyup" => "onKeyUp",
+        "onwheel" => "onWheel",
         "oncopy" => "onCopy",
         "oncut" => "onCut",
         "onpaste" => "onPaste",

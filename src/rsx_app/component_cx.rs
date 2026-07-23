@@ -1583,6 +1583,7 @@ pub struct NumberFieldHook {
     pub is_required: PropHandle<bool>,
     pub is_invalid: PropHandle<bool>,
     pub is_read_only: PropHandle<bool>,
+    pub is_wheel_disabled: PropHandle<bool>,
     pub can_increment: PropHandle<bool>,
     pub can_decrement: PropHandle<bool>,
 }
@@ -5322,6 +5323,7 @@ impl<S: 'static> ComponentCx<S> {
             "isRequired",
             "isInvalid",
             "isReadOnly",
+            "isWheelDisabled",
             "canIncrement",
             "canDecrement",
         ] {
@@ -5345,6 +5347,7 @@ impl<S: 'static> ComponentCx<S> {
             "isRequired",
             "isInvalid",
             "isReadOnly",
+            "isWheelDisabled",
             "canIncrement",
             "canDecrement",
         ]);
@@ -5367,6 +5370,7 @@ impl<S: 'static> ComponentCx<S> {
             is_required: PropHandle::new("isRequired"),
             is_invalid: PropHandle::new("isInvalid"),
             is_read_only: PropHandle::new("isReadOnly"),
+            is_wheel_disabled: PropHandle::new("isWheelDisabled"),
             can_increment: PropHandle::new("canIncrement"),
             can_decrement: PropHandle::new("canDecrement"),
         }

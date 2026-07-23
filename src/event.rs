@@ -51,6 +51,7 @@ pub enum NativeEventKind {
     Blur,
     KeyDown,
     KeyUp,
+    Wheel,
     Copy,
     Cut,
     Paste,
@@ -172,7 +173,8 @@ impl NativeEvent {
             | NativeEventKind::HoverEnd
             | NativeEventKind::MoveStart
             | NativeEventKind::Move
-            | NativeEventKind::MoveEnd => NativeInputModality::Mouse,
+            | NativeEventKind::MoveEnd
+            | NativeEventKind::Wheel => NativeInputModality::Mouse,
             _ => NativeInputModality::Unknown,
         }
     }
@@ -622,6 +624,7 @@ fn action_for_event<'a>(
         NativeEventKind::KeyDown => non_empty_action(events.get("onKeyDown"))
             .or_else(|| activation_key_action(blueprint, event)),
         NativeEventKind::KeyUp => non_empty_action(events.get("onKeyUp")),
+        NativeEventKind::Wheel => non_empty_action(events.get("onWheel")),
         NativeEventKind::Copy => non_empty_action(events.get("onCopy")),
         NativeEventKind::Cut => non_empty_action(events.get("onCut")),
         NativeEventKind::Paste => non_empty_action(events.get("onPaste")),

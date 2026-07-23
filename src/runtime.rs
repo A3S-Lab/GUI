@@ -14,9 +14,10 @@ use crate::i18n::{
 use crate::input::NativeInputModality;
 use crate::interaction::{InteractionChange, InteractionState};
 use crate::native::{
-    format_normalized_number, is_number_input_type, normalize_range_value, step_range_value,
-    truncate_to_max_length, NativeElement, NativeProps, RangeStepDirection, ValueSensitivity,
-    NUMBER_FIELD_INPUT_METADATA_KEY,
+    format_normalized_number, is_number_input_type, normalize_range_value,
+    number_field_wheel_step_direction, step_range_value, truncate_to_max_length, NativeElement,
+    NativeProps, RangeStepDirection, ValueSensitivity, NUMBER_FIELD_INPUT_METADATA_KEY,
+    NUMBER_FIELD_STEP_METADATA_KEY, NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY,
 };
 use crate::overlay::{MountedOverlayRegistry, OverlayEventDisposition};
 use crate::overlay_position::mounted_overlay_positions;
@@ -1308,6 +1309,7 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
                     })
             })
             .unwrap_or_default();
+        self.preserve_number_field_input_focus(&blueprint, &event)?;
         match event.kind {
             crate::event::NativeEventKind::PressStart
                 if !is_disabled_user_event(&blueprint, &route_blueprints, event.kind) =>
@@ -1344,8 +1346,13 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         {
             return self.restore_suppressed_native_selection(event);
         }
-        let number_field_step_key_handled = normalize_number_field_step_key(&blueprint, &mut event);
-        if !number_field_step_key_handled
+        let focused = self
+            .focus_owner
+            .or_else(|| self.interaction_state.focused_node())
+            == Some(event.node);
+        let number_field_step_handled =
+            normalize_number_field_step_event(&blueprint, focused, &mut event);
+        if !number_field_step_handled
             && !has_explicit_key_down_handler(&blueprint, &route_blueprints)
             && !move_handles_keyboard_event(&blueprint, &route_blueprints, &event)
         {
@@ -1500,6 +1507,57 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         })
     }
 
+    fn preserve_number_field_input_focus(
+        &mut self,
+        blueprint: &NativeWidgetBlueprint,
+        event: &NativeEvent,
+    ) -> GuiResult<()> {
+        if event.kind != crate::event::NativeEventKind::PressStart
+            || event.context.modality != NativeInputModality::Mouse
+            || blueprint.role != crate::native::NativeRole::Button
+            || blueprint.control_state.disabled
+            || !blueprint
+                .metadata
+                .get(NUMBER_FIELD_STEP_METADATA_KEY)
+                .is_some_and(|value| matches!(value.as_str(), "increment" | "decrement"))
+        {
+            return Ok(());
+        }
+
+        let Some(parent) = self.renderer.ancestor_ids(event.node).into_iter().next() else {
+            return Ok(());
+        };
+        let Some(input) = self.renderer.child_ids(parent).into_iter().find(|child| {
+            self.host.blueprint(*child).is_some_and(|candidate| {
+                candidate.role == crate::native::NativeRole::TextField
+                    && is_number_text_input(candidate)
+                    && candidate
+                        .metadata
+                        .get(NUMBER_FIELD_INPUT_METADATA_KEY)
+                        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+            })
+        }) else {
+            return Ok(());
+        };
+        let current = self
+            .focus_owner
+            .or_else(|| self.interaction_state.focused_node());
+        if current == Some(input) {
+            return Ok(());
+        }
+        let constrained_from = current.unwrap_or(event.node);
+        if self.constrain_focus_target(constrained_from, input) != Some(input) {
+            return Ok(());
+        }
+        let Some(host) = self.host.programmatic_focus_host() else {
+            return Ok(());
+        };
+
+        host.request_focus(input)?;
+        self.pending_focus_modality = Some((input, NativeInputModality::Mouse));
+        Ok(())
+    }
+
     fn native_event_route(
         &self,
         node: HostNodeId,
@@ -1628,12 +1686,12 @@ fn normalize_keyboard_event_value(mut event: NativeEvent) -> NativeEvent {
     event
 }
 
-fn normalize_number_field_step_key(
+fn normalize_number_field_step_event(
     blueprint: &NativeWidgetBlueprint,
+    focused: bool,
     event: &mut NativeEvent,
 ) -> bool {
-    if event.kind != crate::event::NativeEventKind::KeyDown
-        || blueprint.role != crate::native::NativeRole::TextField
+    if blueprint.role != crate::native::NativeRole::TextField
         || !is_number_text_input(blueprint)
         || !blueprint
             .metadata
@@ -1643,35 +1701,61 @@ fn normalize_number_field_step_key(
         return false;
     }
 
-    let direction = match event
-        .value
-        .as_deref()
-        .map(crate::event::native_key_value)
-        .as_deref()
-    {
-        Some("ArrowUp") => RangeStepDirection::Increment,
-        Some("ArrowDown") => RangeStepDirection::Decrement,
+    enum StepTarget {
+        Direction(RangeStepDirection),
+        Bound(Option<f64>),
+    }
+
+    let target = match event.kind {
+        crate::event::NativeEventKind::KeyDown if event.context.modifiers.is_empty() => match event
+            .value
+            .as_deref()
+            .map(crate::event::native_key_value)
+            .as_deref()
+        {
+            Some("ArrowUp" | "PageUp") => StepTarget::Direction(RangeStepDirection::Increment),
+            Some("ArrowDown" | "PageDown") => StepTarget::Direction(RangeStepDirection::Decrement),
+            Some("Home") => StepTarget::Bound(blueprint.control_state.min),
+            Some("End") => StepTarget::Bound(blueprint.control_state.max),
+            _ => return false,
+        },
+        crate::event::NativeEventKind::Wheel
+            if focused
+                && !event.context.modifiers.control
+                && !blueprint
+                    .metadata
+                    .get(NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY)
+                    .is_some_and(|value| value.eq_ignore_ascii_case("true")) =>
+        {
+            let Some(delta) = event.context.delta else {
+                return false;
+            };
+            let Some(direction) = number_field_wheel_step_direction(delta.x, delta.y) else {
+                return false;
+            };
+            StepTarget::Direction(direction)
+        }
         _ => return false,
     };
     if blueprint.control_state.disabled || blueprint.control_state.read_only {
-        return true;
+        return event.kind == crate::event::NativeEventKind::KeyDown;
     }
 
     let current = blueprint.control_state.current;
-    let Some(next) = step_range_value(
-        current,
-        blueprint.control_state.min,
-        blueprint.control_state.max,
-        blueprint.control_state.step,
-        direction,
-    ) else {
+    let next = match target {
+        StepTarget::Direction(direction) => step_range_value(
+            current,
+            blueprint.control_state.min,
+            blueprint.control_state.max,
+            blueprint.control_state.step,
+            direction,
+        ),
+        StepTarget::Bound(bound) => bound.filter(|value| value.is_finite()),
+    };
+    let Some(next) = next else {
         return true;
     };
-    let changed = match (current, direction) {
-        (Some(current), RangeStepDirection::Increment) => next > current,
-        (Some(current), RangeStepDirection::Decrement) => next < current,
-        (None, _) => true,
-    };
+    let changed = current != Some(next);
     if changed {
         event.kind = crate::event::NativeEventKind::Change;
         event.value = Some(format_normalized_number(next));

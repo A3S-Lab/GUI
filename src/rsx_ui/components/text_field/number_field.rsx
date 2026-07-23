@@ -23,6 +23,7 @@ pub struct UiNumberFieldProps {
     pub is_required: bool,
     pub is_invalid: bool,
     pub is_read_only: bool,
+    pub is_wheel_disabled: bool,
 }
 
 pub fn ui_number_field(cx: &mut ComponentCx<UiNumberFieldProps>) -> RSX {
@@ -42,6 +43,7 @@ pub fn ui_number_field(cx: &mut ComponentCx<UiNumberFieldProps>) -> RSX {
             .required(props.is_required)
             .invalid(props.is_invalid)
             .read_only(props.is_read_only)
+            .wheel_disabled(props.is_wheel_disabled)
     });
     cx.use_prop("className", |props: &UiNumberFieldProps| {
         props.class_name.clone()

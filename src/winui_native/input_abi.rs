@@ -10,6 +10,7 @@ pub(super) enum WinUiPointerRoutedEvent {
     Pressed,
     Moved,
     Released,
+    WheelChanged,
     CaptureLost,
     Canceled,
 }
@@ -20,6 +21,7 @@ impl WinUiPointerRoutedEvent {
             Self::Pressed => 3,
             Self::Moved => 4,
             Self::Released => 5,
+            Self::WheelChanged => 6,
             Self::CaptureLost => 7,
             Self::Canceled => 8,
         }
@@ -518,6 +520,7 @@ mod tests {
     fn routed_event_offsets_match_iui_element_statics() {
         assert_eq!(WinUiPointerRoutedEvent::Pressed.statics_offset(), 3);
         assert_eq!(WinUiPointerRoutedEvent::Released.statics_offset(), 5);
+        assert_eq!(WinUiPointerRoutedEvent::WheelChanged.statics_offset(), 6);
         assert_eq!(WinUiPointerRoutedEvent::Canceled.statics_offset(), 8);
     }
 }

@@ -78,8 +78,9 @@ The following foundations are implemented and are not roadmap placeholders:
 - inherited BCP 47 locale/direction, thread-safe ICU4X collation and filtering,
   localized decimal/percent parsing and partial-input validation, NumberField
   model/display normalization, grouped native stepper controls,
-  minimum-anchored button and ArrowUp/ArrowDown stepping with platform-default
-  suppression, and decimal/percent/date/time formatting
+  minimum-anchored button, Arrow/Page/Home/End, and focus-gated vertical-wheel
+  stepping with platform-default suppression, horizontal/zoom rejection, and
+  decimal/percent/date/time formatting
 - an activation-ordered mounted overlay stack with topmost Escape/outside
   dismissal, modal background inertness, portaled foreground layers, and
   shared focus containment, autofocus, and restoration

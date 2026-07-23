@@ -116,8 +116,8 @@ pub struct NativeEventContext {
     pub modifiers: NativeKeyModifiers,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<NativeEventPosition>,
-    /// Distance travelled since the previous move event. Move start/end
-    /// events omit this value, matching React Aria's move event contract.
+    /// Distance travelled since the previous move event, or the signed scroll
+    /// delta for a wheel event. Move start/end events omit this value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delta: Option<NativeEventPosition>,
     #[serde(default, skip_serializing_if = "is_false")]

@@ -245,6 +245,7 @@ pub(super) fn passthrough_contract() -> GuiResult<RsxComponentContract> {
             "decrementButtonProps",
             "canIncrement",
             "canDecrement",
+            "isWheelDisabled",
             "range",
             "rangeProps",
             "rangeInputProps",

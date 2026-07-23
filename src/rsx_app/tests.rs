@@ -6059,6 +6059,7 @@ fn component_cx_number_field_hook_returns_props_for_view_consumption() {
                 .max_value(10.0)
                 .step_value(1.0)
                 .on_change(Some(&action))
+                .wheel_disabled(true)
                 .required(true)
                 .invalid(true)
                 .read_only(true)
@@ -6087,6 +6088,10 @@ fn component_cx_number_field_hook_returns_props_for_view_consumption() {
         assert_eq!(props.value_percent.binding_path(), "props.valuePercent");
         assert_eq!(props.can_increment.binding_path(), "props.canIncrement");
         assert_eq!(props.can_decrement.binding_path(), "props.canDecrement");
+        assert_eq!(
+            props.is_wheel_disabled.binding_path(),
+            "props.isWheelDisabled"
+        );
 
         crate::rsx!(
             <Group
@@ -6096,6 +6101,7 @@ fn component_cx_number_field_hook_returns_props_for_view_consumption() {
               data-active-percent={props.valuePercent}
               data-can-increment={props.canIncrement}
               data-can-decrement={props.canDecrement}
+              data-wheel-disabled={props.isWheelDisabled}
             >
               <button key="decrement" {...props.decrementButtonProps} />
               <Input key="input" {...props.numberFieldInputProps} />
@@ -6154,9 +6160,23 @@ fn component_cx_number_field_hook_returns_props_for_view_consumption() {
             .map(String::as_str),
         Some("false")
     );
+    assert_eq!(
+        props
+            .attributes
+            .get("data-wheel-disabled")
+            .map(String::as_str),
+        Some("true")
+    );
     assert_eq!(input_props.input_type.as_deref(), Some("number"));
     assert_eq!(input_props.placeholder.as_deref(), Some("0-10"));
     assert_eq!(input_props.value_number, Some(10.0));
+    assert_eq!(
+        input_props
+            .attributes
+            .get("data-number-field-wheel-disabled")
+            .map(String::as_str),
+        Some("true")
+    );
     assert_eq!(
         input_props.events.get("onInput").map(String::as_str),
         Some("setQuantity")

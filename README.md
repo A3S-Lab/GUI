@@ -28,7 +28,8 @@ object graph at the host boundary.
   overlay placement, inherited locale/direction, locale-aware collation and
   filtering, decimal and percent parsing with localized NumberField
   model/display conversion, minimum-anchored step normalization, grouped
-  decrement/input/increment controls, portable ArrowUp/ArrowDown stepping,
+  decrement/input/increment controls, portable Arrow/Page/Home/End and
+  focus-gated wheel stepping with native default suppression,
   decimal/percent/date/time formatting, versioned
   capability reporting, shared native event-source state machines, and
   accessibility conformance checks. Versioned
@@ -47,8 +48,8 @@ object graph at the host boundary.
   IME/dead-key conformance, measured overlay collision/arrow conformance and
   scroll locking, remaining native focus conformance, message catalogs,
   currency/unit parsing and formatting, date-range/time-zone formatting,
-  continuous NumberField press stepping, and NumberField wheel stepping are
-  still in progress.
+  continuous NumberField press stepping, and NumberField live announcements
+  are still in progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.

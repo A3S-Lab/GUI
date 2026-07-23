@@ -475,12 +475,19 @@ locale rules cannot drift.
 NumberField is represented as a native group with separate decrement button,
 numeric text input, and increment button nodes. The semantic hook computes
 button action values and `canIncrement`/`canDecrement` from the same
-minimum-anchored step grid used by runtime ArrowUp/ArrowDown handling. The
-shared interaction profile marks these keys as handled on AppKit, GTK4, and
-WinUI so a toolkit-native numeric control cannot apply a second increment.
-Read-only and disabled fields retain focus semantics but do not produce step
-changes. Continuous press and wheel stepping are intentionally separate
-remaining interaction contracts.
+minimum-anchored step grid used by runtime ArrowUp/ArrowDown/PageUp/PageDown
+handling; Home/End target the declared bounds. Modified key combinations are
+not claimed. A signed `Wheel` event carries `context.delta`; AppKit and WinUI
+normalize their native upward-positive values to the DOM-style sign used by
+GTK4 and the portable runtime. NumberField consumes only focused,
+vertical-dominant, non-control wheels unless `isWheelDisabled` is set. The
+shared interaction profile marks handled keys and wheels on AppKit, GTK4, and
+WinUI so a toolkit-native numeric control cannot apply a second change. A
+mouse stepper `PressStart` resolves the marked sibling input and requests
+native focus after the platform press, while touch and virtual focus remain on
+their native target. Read-only and disabled fields retain focus semantics but
+do not produce step changes. Continuous press stepping remains a separate
+interaction contract.
 AppKit keeps logical item identity separate from the collection selection
 target: a row button is registered as the ListBoxItem or TreeItem responder,
 while activation reports the selected value to the owning collection.

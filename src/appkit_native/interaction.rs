@@ -112,6 +112,9 @@ impl AppKitNativeSurface {
         if event_type == NSEventType::KeyDown || event_type == NSEventType::KeyUp {
             return self.enqueue_key_event(event);
         }
+        if event_type == NSEventType::ScrollWheel {
+            return self.enqueue_number_field_wheel(event);
+        }
 
         if event_type == NSEventType::MouseExited {
             self.clear_hover(event);
@@ -199,9 +202,10 @@ impl AppKitNativeSurface {
                 .push(NativeEvent::new(node, kind).value(key).context(context));
             return false;
         };
-        let number_field_step_handled = registration
-            .profile
-            .handles_number_field_step_key(kind, &key);
+        let number_field_step_handled =
+            registration
+                .profile
+                .handles_number_field_step_key(kind, &key, context.modifiers);
         let mut pending =
             if kind == NativeEventKind::KeyDown && registration.profile.tracks_movement() {
                 keyboard_move_events(node, &key, context)
@@ -231,6 +235,35 @@ impl AppKitNativeSurface {
                 .insert(node, activation_context);
         }
         movement_handled || number_field_step_handled
+    }
+
+    fn enqueue_number_field_wheel(&self, event: &NSEvent) -> bool {
+        // AppKit reports positive vertical deltas for an upward wheel gesture,
+        // while the portable event contract follows DOM wheel signs.
+        let delta_x = event.scrollingDeltaX();
+        let delta_y = -event.scrollingDeltaY();
+        let modifiers = appkit_modifiers(event.modifierFlags());
+        let Some(target) = self.interaction_target_at_event(event, |registration| {
+            registration
+                .profile
+                .handles_number_field_wheel(true, delta_x, delta_y, modifiers)
+        }) else {
+            return false;
+        };
+        let focused = self.focus_node_in_event_window(event) == Some(target.node);
+        if !target
+            .registration
+            .profile
+            .handles_number_field_wheel(focused, delta_x, delta_y, modifiers)
+        {
+            return false;
+        }
+
+        let context = pointer_context(event, &target.view).delta(delta_x, delta_y);
+        self.events
+            .borrow_mut()
+            .push(NativeEvent::new(target.node, NativeEventKind::Wheel).context(context));
+        true
     }
 
     fn begin_pointer_press(&self, event: &NSEvent) {

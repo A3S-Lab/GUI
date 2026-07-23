@@ -5,8 +5,11 @@ use std::time::{Duration, Instant};
 
 use crate::event::{NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
-use crate::input::{NativeEventContext, NativeInputModality};
-use crate::native::{is_number_input_type, NativeRole, NUMBER_FIELD_INPUT_METADATA_KEY};
+use crate::input::{NativeEventContext, NativeInputModality, NativeKeyModifiers};
+use crate::native::{
+    is_number_input_type, number_field_wheel_step_direction, NativeRole,
+    NUMBER_FIELD_INPUT_METADATA_KEY, NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY,
+};
 use crate::platform::{NativeWidgetBlueprint, NativeWidgetSetter};
 
 use super::move_interaction::PointerMoveState;
@@ -228,8 +231,10 @@ pub(crate) struct NativeInteractionProfile {
     has_long_press_event: bool,
     has_collection_action: bool,
     number_field_input: bool,
+    number_field_wheel_disabled: bool,
     number_input: bool,
     enabled: bool,
+    read_only: bool,
     long_press_threshold: Duration,
 }
 
@@ -248,6 +253,10 @@ impl NativeInteractionProfile {
         let number_field_input = blueprint
             .metadata
             .get(NUMBER_FIELD_INPUT_METADATA_KEY)
+            .is_some_and(|value| value.eq_ignore_ascii_case("true"));
+        let number_field_wheel_disabled = blueprint
+            .metadata
+            .get(NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY)
             .is_some_and(|value| value.eq_ignore_ascii_case("true"));
         let number_input = is_number_input_type(blueprint.control_state.input_type.as_deref());
         let event_subscriptions = NativeInteractionSubscriptions::from_events(
@@ -269,8 +278,10 @@ impl NativeInteractionProfile {
             has_long_press_event,
             has_collection_action,
             number_field_input,
+            number_field_wheel_disabled,
             number_input,
             enabled: !blueprint.control_state.disabled,
+            read_only: blueprint.control_state.read_only,
             long_press_threshold: long_press_threshold(&blueprint.metadata),
         };
         profile.refresh_subscriptions();
@@ -305,6 +316,9 @@ impl NativeInteractionProfile {
                 self.number_field_input = metadata
                     .get(NUMBER_FIELD_INPUT_METADATA_KEY)
                     .is_some_and(|value| value.eq_ignore_ascii_case("true"));
+                self.number_field_wheel_disabled = metadata
+                    .get(NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY)
+                    .is_some_and(|value| value.eq_ignore_ascii_case("true"));
                 self.overlay_subscriptions =
                     NativeInteractionSubscriptions::from_metadata(metadata);
                 self.refresh_subscriptions();
@@ -318,6 +332,9 @@ impl NativeInteractionProfile {
             }
             NativeWidgetSetter::SetEnabled(enabled) => {
                 self.enabled = *enabled;
+            }
+            NativeWidgetSetter::SetReadOnly(read_only) => {
+                self.read_only = *read_only;
             }
             _ => {}
         }
@@ -355,15 +372,38 @@ impl NativeInteractionProfile {
         self.enabled && self.subscriptions.movement
     }
 
-    pub(crate) fn handles_number_field_step_key(self, kind: NativeEventKind, key: &str) -> bool {
+    pub(crate) fn handles_number_field_step_key(
+        self,
+        kind: NativeEventKind,
+        key: &str,
+        modifiers: NativeKeyModifiers,
+    ) -> bool {
         self.enabled
             && self.number_field_input
             && self.number_input
             && kind == NativeEventKind::KeyDown
+            && modifiers.is_empty()
             && matches!(
                 super::native_key_value(key).as_str(),
-                "ArrowUp" | "ArrowDown"
+                "ArrowUp" | "ArrowDown" | "PageUp" | "PageDown" | "Home" | "End"
             )
+    }
+
+    pub(crate) fn handles_number_field_wheel(
+        self,
+        focused: bool,
+        delta_x: f64,
+        delta_y: f64,
+        modifiers: NativeKeyModifiers,
+    ) -> bool {
+        self.enabled
+            && !self.read_only
+            && self.number_field_input
+            && self.number_input
+            && !self.number_field_wheel_disabled
+            && focused
+            && !modifiers.control
+            && number_field_wheel_step_direction(delta_x, delta_y).is_some()
     }
 
     fn refresh_subscriptions(&mut self) {
@@ -1196,7 +1236,7 @@ mod tests {
     }
 
     #[test]
-    fn number_field_profiles_claim_only_the_portable_arrow_step_keys() {
+    fn number_field_profiles_claim_only_unmodified_portable_step_inputs() {
         let element = NativeElement::new("quantity", NativeRole::TextField).with_props(
             NativeProps::new()
                 .input_type("number")
@@ -1205,18 +1245,81 @@ mod tests {
         let blueprint = AppKitAdapter.blueprint(&element);
         let mut profile = NativeInteractionProfile::from_blueprint(&blueprint);
 
-        assert!(profile.handles_number_field_step_key(NativeEventKind::KeyDown, "ArrowUp"));
-        assert!(profile.handles_number_field_step_key(NativeEventKind::KeyDown, "Down"));
-        assert!(!profile.handles_number_field_step_key(NativeEventKind::KeyUp, "ArrowUp"));
-        assert!(!profile.handles_number_field_step_key(NativeEventKind::KeyDown, "ArrowLeft"));
+        let no_modifiers = NativeKeyModifiers::new();
+        assert!(profile.handles_number_field_step_key(
+            NativeEventKind::KeyDown,
+            "ArrowUp",
+            no_modifiers
+        ));
+        assert!(profile.handles_number_field_step_key(
+            NativeEventKind::KeyDown,
+            "Down",
+            no_modifiers
+        ));
+        assert!(profile.handles_number_field_step_key(
+            NativeEventKind::KeyDown,
+            "Home",
+            no_modifiers
+        ));
+        assert!(!profile.handles_number_field_step_key(
+            NativeEventKind::KeyUp,
+            "ArrowUp",
+            no_modifiers
+        ));
+        assert!(!profile.handles_number_field_step_key(
+            NativeEventKind::KeyDown,
+            "ArrowLeft",
+            no_modifiers
+        ));
+        assert!(!profile.handles_number_field_step_key(
+            NativeEventKind::KeyDown,
+            "ArrowUp",
+            NativeKeyModifiers::new().shift(true)
+        ));
+        assert!(profile.handles_number_field_wheel(true, 0.0, 1.0, no_modifiers));
+        assert!(!profile.handles_number_field_wheel(true, 2.0, 1.0, no_modifiers));
+        assert!(!profile.handles_number_field_wheel(false, 0.0, 1.0, no_modifiers));
+        assert!(!profile.handles_number_field_wheel(
+            true,
+            0.0,
+            1.0,
+            NativeKeyModifiers::new().control(true)
+        ));
+        profile.apply_setter(&NativeWidgetSetter::SetReadOnly(true));
+        assert!(!profile.handles_number_field_wheel(true, 0.0, 1.0, no_modifiers));
+        assert!(profile.handles_number_field_step_key(
+            NativeEventKind::KeyDown,
+            "ArrowUp",
+            no_modifiers
+        ));
+        profile.apply_setter(&NativeWidgetSetter::SetReadOnly(false));
+        profile.apply_setter(&NativeWidgetSetter::SetMetadata(BTreeMap::from([
+            (
+                NUMBER_FIELD_INPUT_METADATA_KEY.to_string(),
+                "true".to_string(),
+            ),
+            (
+                NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY.to_string(),
+                "true".to_string(),
+            ),
+        ])));
+        assert!(!profile.handles_number_field_wheel(true, 0.0, 1.0, no_modifiers));
 
         profile.apply_setter(&NativeWidgetSetter::SetInputType(Some("text".to_string())));
-        assert!(!profile.handles_number_field_step_key(NativeEventKind::KeyDown, "ArrowUp"));
+        assert!(!profile.handles_number_field_step_key(
+            NativeEventKind::KeyDown,
+            "ArrowUp",
+            no_modifiers
+        ));
         profile.apply_setter(&NativeWidgetSetter::SetInputType(Some(
             "number".to_string(),
         )));
         profile.apply_setter(&NativeWidgetSetter::SetMetadata(BTreeMap::new()));
-        assert!(!profile.handles_number_field_step_key(NativeEventKind::KeyDown, "ArrowUp"));
+        assert!(!profile.handles_number_field_step_key(
+            NativeEventKind::KeyDown,
+            "ArrowUp",
+            no_modifiers
+        ));
     }
 
     #[test]

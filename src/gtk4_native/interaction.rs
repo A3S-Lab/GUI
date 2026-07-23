@@ -68,6 +68,13 @@ pub(super) fn register_interaction_events(
         keyboard_presses,
         Rc::clone(&registration),
     );
+    register_number_field_wheel(
+        id,
+        &gtk_widget,
+        events,
+        events_suppressed,
+        Rc::clone(&registration),
+    );
     register_pointer_events(
         id,
         &gtk_widget,
@@ -136,9 +143,11 @@ fn register_key_events(
         let repeat = down_presses.borrow().target_for_key(&key).is_some();
         let context = keyboard_context(modifiers, repeat);
         let current = down_registration.get();
-        let number_field_step_handled = current
-            .profile
-            .handles_number_field_step_key(NativeEventKind::KeyDown, &key);
+        let number_field_step_handled = current.profile.handles_number_field_step_key(
+            NativeEventKind::KeyDown,
+            &key,
+            context.modifiers,
+        );
         if current.native_button {
             remember_activation_context(&down_contexts, id, context);
         }
@@ -194,6 +203,39 @@ fn register_key_events(
             target_registration.profile.subscriptions.tracks_press(),
         );
         push_events(&up_events, &up_suppressed, pending);
+    });
+    widget.add_controller(controller);
+}
+
+fn register_number_field_wheel(
+    id: HostNodeId,
+    widget: &gtk::Widget,
+    events: &Gtk4EventQueue,
+    events_suppressed: &Gtk4EventsSuppressed,
+    registration: Gtk4InteractionNode,
+) {
+    let controller = gtk::EventControllerScroll::new(gtk::EventControllerScrollFlags::BOTH_AXES);
+    controller.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let wheel_events = Rc::clone(events);
+    let wheel_suppressed = Rc::clone(events_suppressed);
+    controller.connect_scroll(move |controller, delta_x, delta_y| {
+        if *wheel_suppressed.borrow() {
+            return gtk::glib::Propagation::Proceed;
+        }
+        let modifiers = gtk_modifiers(controller.current_event_state());
+        let focused = controller.widget().is_some_and(|widget| widget.has_focus());
+        let profile = registration.get().profile;
+        if !profile.handles_number_field_wheel(focused, delta_x, delta_y, modifiers) {
+            return gtk::glib::Propagation::Proceed;
+        }
+
+        let context = pointer_context(controller, None).delta(delta_x, delta_y);
+        push_event(
+            &wheel_events,
+            &wheel_suppressed,
+            NativeEvent::new(id, NativeEventKind::Wheel).context(context),
+        );
+        gtk::glib::Propagation::Stop
     });
     widget.add_controller(controller);
 }

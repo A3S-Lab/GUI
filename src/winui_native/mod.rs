@@ -80,6 +80,7 @@ const WINUI_TEXT_INPUT_MIN_HEIGHT: f64 = 64.0;
 
 type WinUiEventQueue = Arc<Mutex<Vec<NativeEvent>>>;
 type WinUiFocusedNode = Arc<Mutex<Option<HostNodeId>>>;
+type WinUiKeyModifiers = Arc<Mutex<NativeKeyModifiers>>;
 type WinUiActivationContexts = Arc<Mutex<BTreeMap<HostNodeId, NativeEventContext>>>;
 type WinUiPendingActivationCleanup = Arc<Mutex<BTreeSet<HostNodeId>>>;
 
@@ -100,7 +101,7 @@ pub struct WinUiNativeSurface {
     events: WinUiEventQueue,
     events_suppressed: Arc<AtomicBool>,
     focused_node: WinUiFocusedNode,
-    key_modifiers: Mutex<NativeKeyModifiers>,
+    key_modifiers: WinUiKeyModifiers,
     activation_contexts: WinUiActivationContexts,
     pending_activation_cleanup: WinUiPendingActivationCleanup,
     forced_pointer_cancellations: Arc<Mutex<BTreeSet<HostNodeId>>>,
@@ -178,7 +179,7 @@ impl WinUiNativeSurface {
             events: Arc::new(Mutex::new(Vec::new())),
             events_suppressed: Arc::new(AtomicBool::new(false)),
             focused_node: Arc::new(Mutex::new(None)),
-            key_modifiers: Mutex::new(NativeKeyModifiers::new()),
+            key_modifiers: Arc::new(Mutex::new(NativeKeyModifiers::new())),
             activation_contexts: Arc::new(Mutex::new(BTreeMap::new())),
             pending_activation_cleanup: Arc::new(Mutex::new(BTreeSet::new())),
             forced_pointer_cancellations: Arc::new(Mutex::new(BTreeSet::new())),
@@ -284,6 +285,11 @@ impl WinUiNativeSurface {
         if registration.is_some_and(|registration| registration.awaits_native_activation()) {
             interaction::remember_activation_context(&self.activation_contexts, node, context);
         }
+        let number_field_step_handled = registration.is_some_and(|registration| {
+            registration
+                .profile
+                .handles_number_field_step_key(kind, &key, context.modifiers)
+        });
         let events = registration
             .map(|registration| {
                 interaction::keyboard_events(
@@ -298,7 +304,8 @@ impl WinUiNativeSurface {
             .unwrap_or_else(|| vec![NativeEvent::new(node, kind).value(key).context(context)]);
         let prevent_default = events
             .iter()
-            .any(|event| event.kind == NativeEventKind::MoveStart);
+            .any(|event| event.kind == NativeEventKind::MoveStart)
+            || number_field_step_handled;
         for event in events {
             push_event(&self.events, event);
         }

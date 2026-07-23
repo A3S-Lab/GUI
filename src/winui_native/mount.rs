@@ -375,6 +375,8 @@ impl WinUiNativeSurface {
             id,
             &widget,
             &self.events,
+            Arc::clone(&self.focused_node),
+            Arc::clone(&self.key_modifiers),
             Arc::clone(&self.activation_contexts),
             Arc::clone(&self.pending_activation_cleanup),
             Arc::clone(&self.forced_pointer_cancellations),

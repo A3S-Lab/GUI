@@ -76,6 +76,7 @@ pub(super) fn with_input_components<S>(component: RsxComponent<S>) -> GuiResult<
             .default_prop("signDisplay", "auto")?
             .default_prop("incrementAriaLabel", "")?
             .default_prop("decrementAriaLabel", "")?
+            .default_prop("isWheelDisabled", false)?
             .default_prop("onChange", "")?,
         None,
     )?;

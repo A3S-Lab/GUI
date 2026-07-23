@@ -1479,9 +1479,11 @@ card parts are under `src/rsx_ui/components/card/`, checkbox parts are under
 
 `UiNumberField` renders a label plus a native control group containing
 decrement, numeric-input, and increment controls. Button presses and
-ArrowUp/ArrowDown deliver the next canonical model-space value to `onChange`;
-step boundaries are anchored at `minValue`. Percent fields default to a `0.01`
-step.
+ArrowUp/ArrowDown/PageUp/PageDown deliver the next canonical model-space value
+to `onChange`; Home/End select the declared bounds. Focused vertical wheel
+gestures use the same step grid, while horizontal-dominant trackpad gestures
+and control-wheel zoom are ignored. Step boundaries are anchored at
+`minValue`. Percent fields default to a `0.01` step.
 
 ```xml
 <UiNumberField
@@ -1491,6 +1493,7 @@ step.
   minValue="0"
   maxValue="1"
   formatStyle="percent"
+  isWheelDisabled={false}
   incrementAriaLabel="Increase tax rate"
   decrementAriaLabel="Decrease tax rate"
   onChange={setTaxRate}
@@ -1499,8 +1502,10 @@ step.
 
 The accessible-label overrides are optional. Without them, the built-in
 English labels include the field label. Applications should provide localized
-overrides until automatic message catalogs are implemented. Continuous
-press-and-hold and wheel stepping are not yet part of this contract.
+overrides until automatic message catalogs are implemented.
+`isWheelDisabled={true}` disables wheel changes without disabling keyboard or
+button stepping. Mouse stepper presses preserve input focus. Continuous
+press-and-hold and live value announcements are not yet part of this contract.
 
 - `UiButton`
 - `UiBadge`
