@@ -23,6 +23,8 @@ pub enum AccessibilityIssueCode {
     InvalidMultipleState,
     MultipleSelectedItems,
     EmptyRelationship,
+    InvalidLiveRegionPoliteness,
+    InvalidLiveRegionRelevant,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -153,10 +155,57 @@ fn validate_node<'a>(
             });
         }
     }
+    if node
+        .state
+        .live
+        .as_deref()
+        .is_some_and(|value| !is_valid_live_politeness(value))
+    {
+        push_error(
+            issues,
+            node,
+            AccessibilityIssueCode::InvalidLiveRegionPoliteness,
+            "aria-live must be off, polite, or assertive".to_string(),
+        );
+    }
+    if node
+        .state
+        .relevant
+        .as_deref()
+        .is_some_and(|value| !is_valid_live_relevant(value))
+    {
+        push_error(
+            issues,
+            node,
+            AccessibilityIssueCode::InvalidLiveRegionRelevant,
+            "aria-relevant must contain additions, removals, text, or all".to_string(),
+        );
+    }
 
     for child in &node.children {
         validate_node(child, nodes, focused, issues);
     }
+}
+
+fn is_valid_live_politeness(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "off" | "polite" | "assertive"
+    )
+}
+
+fn is_valid_live_relevant(value: &str) -> bool {
+    let mut has_token = false;
+    for token in value.split_ascii_whitespace() {
+        if !matches!(
+            token.to_ascii_lowercase().as_str(),
+            "additions" | "removals" | "text" | "all"
+        ) {
+            return false;
+        }
+        has_token = true;
+    }
+    has_token
 }
 
 fn push_error(

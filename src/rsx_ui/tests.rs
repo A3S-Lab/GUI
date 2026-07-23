@@ -4628,10 +4628,21 @@ fn rsx_ui_renders_structure_collection_and_file_primitives_to_native_roles() {
     let region_native = bridge.lower_to_native(toast_region).unwrap();
     assert_eq!(region_native.role, NativeRole::View);
     assert_eq!(region_native.props.label.as_deref(), Some("Notifications"));
+    assert_eq!(region_native.props.explicit_role.as_deref(), Some("region"));
+    assert_eq!(
+        region_native.props.accessibility_state.live.as_deref(),
+        Some("polite")
+    );
 
     let toast_native = bridge.lower_to_native(toast).unwrap();
     assert_eq!(toast_native.role, NativeRole::View);
     assert_eq!(toast_native.props.label.as_deref(), Some("Saved"));
+    assert_eq!(toast_native.props.explicit_role.as_deref(), Some("status"));
+    assert_eq!(
+        toast_native.props.accessibility_state.live.as_deref(),
+        Some("polite")
+    );
+    assert_eq!(toast_native.props.accessibility_state.atomic, Some(true));
     assert_eq!(
         toast_native
             .props

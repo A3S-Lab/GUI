@@ -33,6 +33,7 @@ use serde::{Deserialize, Serialize};
 
 mod accessibility;
 mod interaction_style;
+mod live_region;
 
 type RoutedBlueprint = (HostNodeId, NativeWidgetBlueprint);
 
@@ -130,6 +131,7 @@ pub struct GuiRuntime<H: NativeHost> {
     selection_registry: MountedSelectionRegistry,
     interaction_state: InteractionState,
     projected_interaction_styles: BTreeMap<HostNodeId, PortableStyle>,
+    pending_live_region_updates: BTreeMap<HostNodeId, live_region::PendingLiveRegionUpdate>,
     focus_owner: Option<HostNodeId>,
     pending_focus_modality: Option<(HostNodeId, NativeInputModality)>,
     interaction_revisions: BTreeMap<HostNodeId, u64>,
@@ -165,6 +167,7 @@ impl<H: NativeHost> GuiRuntime<H> {
             selection_registry: MountedSelectionRegistry::new(),
             interaction_state: InteractionState::new(),
             projected_interaction_styles: BTreeMap::new(),
+            pending_live_region_updates: BTreeMap::new(),
             focus_owner: None,
             pending_focus_modality: None,
             interaction_revisions: BTreeMap::new(),
@@ -183,10 +186,10 @@ impl<H: NativeHost> GuiRuntime<H> {
     }
 
     pub fn render_native(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
-        let previous_mounted_props = self
-            .renderer
-            .mounted_node_props()
-            .into_iter()
+        let previous_mounted_snapshot = self.renderer.mounted_snapshot();
+        let previous_mounted_props = previous_mounted_snapshot
+            .iter()
+            .map(|mounted| (mounted.node, mounted.props.clone()))
             .collect::<BTreeMap<_, _>>();
         let focus_before_render = self
             .focus_owner
@@ -248,9 +251,25 @@ impl<H: NativeHost> GuiRuntime<H> {
         }
         self.invalidate_interaction_style_projections(&previous_mounted_props);
         self.project_all_interaction_styles()?;
-        if let Some(announcement) = self.number_field_value_announcement(&previous_mounted_props) {
+        let current_mounted_snapshot = self.renderer.mounted_snapshot();
+        let mut announcements = Vec::new();
+        if let Some(announcement) =
+            self.number_field_value_announcement(&previous_mounted_props, &current_mounted_snapshot)
+        {
+            announcements.push(announcement);
+        }
+        for announcement in
+            self.live_region_announcements(&previous_mounted_snapshot, &current_mounted_snapshot)
+        {
+            if !announcements.contains(&announcement) {
+                announcements.push(announcement);
+            }
+        }
+        if !announcements.is_empty() {
             if let Some(host) = self.host.accessibility_announcement_host() {
-                host.announce(announcement)?;
+                for announcement in announcements {
+                    host.announce(announcement)?;
+                }
             }
         }
         Ok(root)

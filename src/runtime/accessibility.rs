@@ -12,18 +12,18 @@ use crate::native::{
     effective_input_type, is_number_input_type, normalize_props_for_native_role, NativeProps,
     NativeRole, NUMBER_FIELD_ANNOUNCE_METADATA_KEY, NUMBER_FIELD_INPUT_METADATA_KEY,
 };
+use crate::renderer::MountedNodeSnapshot;
 
 impl<H: NativeHost> GuiRuntime<H> {
     pub(super) fn number_field_value_announcement(
         &self,
         previous_mounted_props: &BTreeMap<HostNodeId, NativeProps>,
+        current_mounted_snapshot: &[MountedNodeSnapshot],
     ) -> Option<AccessibilityAnnouncement> {
         let focused = self.interaction_state.focused_node()?;
         let previous_props = previous_mounted_props.get(&focused)?;
-        let current = self
-            .renderer
-            .mounted_snapshot()
-            .into_iter()
+        let current = current_mounted_snapshot
+            .iter()
             .find(|mounted| mounted.node == focused)?;
         if current.role != NativeRole::TextField
             || !is_announcing_number_field(previous_props)

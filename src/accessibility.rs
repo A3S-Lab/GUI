@@ -3,9 +3,14 @@ use crate::native::{effective_input_type, NativeElement, NativeRole, ValueSensit
 use serde::{Deserialize, Serialize};
 
 mod conformance;
+mod live_region;
 pub use conformance::{
     AccessibilityConformanceIssue, AccessibilityConformanceReport, AccessibilityIssueCode,
     AccessibilityIssueSeverity,
+};
+pub(crate) use live_region::{
+    accessibility_live_setting, live_region_announces_on_initial_render,
+    live_region_implicit_atomic, AccessibilityLiveSetting,
 };
 #[cfg(test)]
 mod conformance_tests;

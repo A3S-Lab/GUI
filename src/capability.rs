@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::accessibility::accessibility_live_setting;
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::platform::NativeBackendKind;
 use crate::renderer::MountedNodeSnapshot;
@@ -456,7 +457,7 @@ impl NativeCapabilities {
         snapshot
             .iter()
             .flat_map(|node| {
-                requested_features(&node.props)
+                requested_features(node.role, &node.props)
                     .into_iter()
                     .filter_map(|feature| self.issue(node.key.as_str(), node.role, feature))
             })
@@ -504,7 +505,7 @@ fn audit_element(
     issues: &mut Vec<NativeCapabilityIssue>,
 ) {
     let display_path = path.join("/");
-    for feature in requested_features(&element.props) {
+    for feature in requested_features(element.role, &element.props) {
         if let Some(issue) = capabilities.issue(&display_path, element.role, feature) {
             issues.push(issue);
         }
@@ -516,7 +517,7 @@ fn audit_element(
     }
 }
 
-fn requested_features(props: &NativeProps) -> Vec<NativeCapabilityFeature> {
+fn requested_features(role: NativeRole, props: &NativeProps) -> Vec<NativeCapabilityFeature> {
     use NativeCapabilityFeature as Feature;
 
     let mut features = Vec::new();
@@ -618,6 +619,9 @@ fn requested_features(props: &NativeProps) -> Vec<NativeCapabilityFeature> {
         })
         .is_some_and(|value| value.eq_ignore_ascii_case("true"))
     {
+        features.push(Feature::AccessibilityAnnouncements);
+    }
+    if accessibility_live_setting(role, props).priority().is_some() {
         features.push(Feature::AccessibilityAnnouncements);
     }
     features.sort_unstable();

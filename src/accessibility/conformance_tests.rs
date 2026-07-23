@@ -79,3 +79,22 @@ fn conformance_reports_names_states_focus_and_exclusive_selection() {
         3
     );
 }
+
+#[test]
+fn conformance_rejects_invalid_live_region_tokens() {
+    let mut status = node(AccessibilityRole::Group);
+    status.state.live = Some("urgent".to_string());
+    status.state.relevant = Some("additions replacements".to_string());
+
+    let report = AccessibilityConformanceReport::validate(&status);
+
+    assert!(!report.is_conformant());
+    assert!(report
+        .issues
+        .iter()
+        .any(|issue| { issue.code == AccessibilityIssueCode::InvalidLiveRegionPoliteness }));
+    assert!(report
+        .issues
+        .iter()
+        .any(|issue| issue.code == AccessibilityIssueCode::InvalidLiveRegionRelevant));
+}

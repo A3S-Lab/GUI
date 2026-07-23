@@ -287,6 +287,15 @@ ARIA state and live-region attributes including `aria-hidden`,
 available in metadata. `aria-hidden` is accessibility-only state and does not
 change native widget visibility, but `aria-hidden="true"` omits the subtree
 from rendered accessibility tree projection.
+After the initial render, mounted live regions are diffed in stable tree order.
+`aria-relevant` selects additions, removals, and text changes;
+`aria-atomic="true"` emits the complete current accessible text; and
+`aria-busy="true"` on the region or any ancestor defers updates until the busy
+state clears. The WAI-ARIA defaults for `alert`, `status`, `log`, `timer`,
+`marquee`, and HTML `output` are honored. Initial status content is quiet,
+while an initial alert is announced. A nested live boundary owns its subtree so
+different politeness levels cannot produce duplicate parent and child messages.
+Hidden, inert, and sensitive-value content is excluded.
 HTML global attributes including `title`, `hidden`, `lang`, `dir`,
 `tabindex`/`tabIndex`, `role`, `accesskey`/`accessKey`,
 `contenteditable`/`contentEditable`, `draggable`, `spellcheck`/`spellCheck`,
@@ -509,6 +518,11 @@ effective locale's message and ASCII minus signs are normalized to U+2212.
 host serializes it, headless records it, and the native command stack forwards
 it to AppKit accessibility notifications, GTK4 accessible announcements, or
 WinUI UI Automation notifications.
+The same channel carries general live-region changes. Its portable diff policy
+normalizes whitespace, emits non-atomic fragments in mounted order, coalesces
+busy updates into one complete message, and maps `polite`/`assertive` to the
+platform priority. Capability audits therefore request the native announcement
+feature for explicit or implicit live regions as well as NumberField.
 AppKit keeps logical item identity separate from the collection selection
 target: a row button is registered as the ListBoxItem or TreeItem responder,
 while activation reports the selected value to the owning collection.

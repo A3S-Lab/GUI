@@ -255,6 +255,35 @@ fn number_field_announcements_report_the_native_os_channel() {
 }
 
 #[test]
+fn live_regions_request_the_native_announcement_channel() {
+    let explicit = NativeElement::new("status", NativeRole::View)
+        .with_props(NativeProps::new().live("polite"));
+    let implicit = NativeElement::new("output", NativeRole::Output);
+
+    for element in [&explicit, &implicit] {
+        assert!(NativeCapabilities::default()
+            .audit_tree(element)
+            .iter()
+            .any(|issue| {
+                issue.feature == NativeCapabilityFeature::AccessibilityAnnouncements
+                    && issue.support == CapabilitySupport::Portable
+            }));
+        for backend in [
+            NativeBackendKind::AppKit,
+            NativeBackendKind::Gtk4,
+            NativeBackendKind::WinUI,
+        ] {
+            assert!(!NativeCapabilities::for_backend(backend)
+                .audit_tree(element)
+                .iter()
+                .any(|issue| {
+                    issue.feature == NativeCapabilityFeature::AccessibilityAnnouncements
+                }));
+        }
+    }
+}
+
+#[test]
 fn manifest_round_trips_with_an_explicit_ir_version() {
     let capabilities = NativeCapabilities::for_backend(NativeBackendKind::AppKit);
     let json = serde_json::to_value(&capabilities).unwrap();

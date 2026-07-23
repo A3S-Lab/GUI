@@ -31,7 +31,7 @@ object graph at the host boundary.
   decrement/input/increment controls, portable Arrow/Page/Home/End and
   focus-gated wheel stepping with native default suppression,
   34-locale NumberField accessibility messages, focused value announcements
-  through native assistive-technology APIs,
+  and WAI-ARIA live-region updates through native assistive-technology APIs,
   decimal/percent/date/time formatting, versioned
   capability reporting, shared native event-source state machines, and
   accessibility conformance checks. Versioned
@@ -50,7 +50,8 @@ object graph at the host boundary.
   IME/dead-key conformance, measured overlay collision/arrow conformance and
   scroll locking, remaining native focus conformance, broader message catalogs,
   currency/unit parsing and formatting, date-range/time-zone formatting,
-  and complete native accessibility-property projection are still in progress.
+  complete native accessibility-property projection, and real-platform
+  assistive-technology fixtures are still in progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.

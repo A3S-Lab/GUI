@@ -81,7 +81,8 @@ The following foundations are implemented and are not roadmap placeholders:
   minimum-anchored button, Arrow/Page/Home/End, and focus-gated vertical-wheel
   stepping, cancellable cross-platform pointer-hold repetition, platform-default
   suppression, horizontal/zoom rejection, a 34-locale NumberField accessibility
-  catalog, assertive focused-value announcements on AppKit/GTK4/WinUI, and
+  catalog, assertive focused-value announcements, WAI-ARIA live-region
+  diff/busy/atomic/relevant semantics on AppKit/GTK4/WinUI, and
   decimal/percent/date/time formatting
 - an activation-ordered mounted overlay stack with topmost Escape/outside
   dismissal, modal background inertness, portaled foreground layers, and

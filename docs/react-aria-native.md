@@ -307,15 +307,23 @@ The first shared interaction milestone is available in the portable runtime:
   `gtk_accessible_announce`, and WinUI raises a UI Automation notification.
   Empty values use the same locale catalog, and negative announcements use the
   screen-reader-friendly Unicode minus sign.
+- General WAI-ARIA live regions run through the same typed native announcement
+  channel. The runtime evaluates `aria-live`, implicit `alert`/`status`/`log`
+  and HTML `output` defaults, `aria-atomic`, `aria-relevant`, and inherited
+  `aria-busy` across keyed rerenders. Nested live boundaries do not duplicate
+  speech, hidden/inert content is ignored, and sensitive input values are
+  redacted before a message reaches a host.
 - Native IR capabilities are versioned. Every host exposes a feature manifest
   with unsupported, portable, or native support levels, role-specific
   overrides, and auditable capability issues. Protocol render responses carry
   both the manifest and concrete gaps.
 - Accessibility conformance validates names, focus uniqueness, selection and
   checked states, exclusive-container selection, relationships, and duplicate
-  node identity. The same semantic tree assertions run against AppKit, GTK4,
-  and WinUI planning adapters. Mounted selection is the source of truth for
-  accessible selected/checked state.
+  node identity. Invalid `aria-live` and `aria-relevant` values are reported as
+  errors rather than silently changing announcement behavior. The same
+  semantic tree assertions run against AppKit, GTK4, and WinUI planning
+  adapters. Mounted selection is the source of truth for accessible
+  selected/checked state.
 - AppKit, GTK4, and WinUI use the same press and keyboard state machines. Their
   view-backed widgets emit pointer press/re-entry/cancellation, hover, focus,
   key, modality, modifier, repeat, and local-position data through one portable
@@ -347,6 +355,7 @@ existence of a platform object:
 | Long press | Shared AppKit, GTK4, and WinUI press sources emit start/end and recognize terminal long press after the configured threshold. `NSTimer`, GTK main-loop timeout, and `DispatcherQueueTimer` provide threshold-time delivery, and release-time evaluation is the fallback. |
 | Move | AppKit mouse/pen drag events, GTK4 `GestureDrag`, and WinUI mouse/touch/pen pointer capture use one incremental move state machine. All three normalize Arrow keys to a complete keyboard lifecycle and prevent the underlying native default. |
 | NumberField stepping | The shared runtime maps ArrowUp/ArrowDown/PageUp/PageDown, Home/End, focused vertical wheels, and stepper presses to model-space `Change` events. Wheel input rejects horizontal-dominant gestures and control-wheel zoom and honors `isWheelDisabled`. Built-in decrement and increment buttons expose the same next values and boundary/read-only state through native Button controls, and mouse presses preserve input focus. AppKit, GTK4, and WinUI share cancellable pointer-hold stepping with immediate mouse/pen activation, delayed touch activation, and 60-millisecond repeats; handled toolkit defaults and terminal native clicks are suppressed. Default stepper labels, the role description, and empty-value text follow a 34-locale catalog. Focused value changes emit assertive native accessibility announcements on all three backends. |
+| Live regions | Stable keyed updates implement WAI-ARIA `polite`/`assertive`, `atomic`, `relevant`, and ancestor `busy` semantics in the shared runtime. Implicit alert/status/log/output policies and nested boundaries are honored. AppKit, GTK4, and WinUI deliver the resulting typed message through their native assistive-technology APIs; headless and protocol hosts retain the same ordered command. |
 | Native menu activation | AppKit and GTK4 menu items emit terminal press only because their menu models do not expose a mounted generic view event source. |
 | Hover and typed modality | View-backed widgets; explicit exceptions are reported for AppKit non-view wrappers/items, GTK4 menu items, and the WinUI window wrapper. |
 | Focus within | Portable runtime routing on AppKit, GTK4, WinUI, and headless hosts. Native blur/focus batches are linked with `relatedTarget`; direct focus callbacks remain target-only while focus-within callbacks run only when a subtree boundary is crossed. |
@@ -428,7 +437,7 @@ props:
 | P1 | Collections and selection | Complete IME/dead-key typeahead conformance and add real-platform fixtures for layout-aware page navigation. |
 | P1 | NumberField interaction | Add real-platform assistive-technology fixtures for localized labels and focused announcements. Group/input/button anatomy, localized stepper labels and role descriptions, focused native value announcements, minimum-anchored button and continuous press-and-hold stepping, Arrow/Page/Home/End keyboard semantics, focused vertical-wheel stepping with horizontal/zoom rejection and `isWheelDisabled`, mouse input-focus preservation, decimal-noise cleanup, boundary disabling, cancellation/re-entry, and native-default suppression are implemented. |
 | P1 | Internationalization | Expand message formatting beyond NumberField, and add currency/unit parsing and formatting plus date ranges/time zones. Reusable decimal/percent parsing and formatting, partial-input validation, locale-aware filtering, localized NumberField model/display conversion, and a 34-locale NumberField message catalog now build on inherited locale/direction. |
-| P1 | Accessibility conformance | Complete OS accessibility-property projection, relationships, general live regions, and role-specific native adapter coverage. The typed announcement channel and focused NumberField value announcements are implemented on AppKit, GTK4, and WinUI. |
+| P1 | Accessibility conformance | Complete OS accessibility-property projection, relationships, role-specific native adapter coverage, and real assistive-technology fixtures for live-region delivery. The typed announcement channel, WAI-ARIA live-region diff policy, and focused NumberField value announcements are implemented on AppKit, GTK4, and WinUI. |
 | P2 | Overlays | Complete measured boundary-driven collision and arrow projection, native scroll locking, configurable outside-interaction filters, multi-window layer coordination, and real-platform positioning conformance fixtures. |
 | P2 | Capability enforcement | Turn reported capability gaps into adapter policy and conformance gates where portable fallback is not sufficient. |
 | P2 | Environment style variants | Add native environment and ancestry evaluators for responsive/container, theme, group, peer, and structural selector variants. These remain preserved in the style IR but inactive at runtime today. |

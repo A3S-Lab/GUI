@@ -1921,6 +1921,13 @@ one-way data model:
 </UiToastRegion>
 ```
 
+Toast and other dynamic feedback props use the shared live-region runtime.
+Updates honor `aria-live`, `aria-atomic`, `aria-relevant`, and `aria-busy`,
+including busy ancestors and nested regions with different priorities. The
+initial status is quiet, newly mounted statuses and initial alerts are
+announced, and AppKit, GTK4, and WinUI receive the same ordered typed message.
+Hidden/inert subtrees and sensitive input values are excluded.
+
 Date and time primitives use the same composition rules. Field values and
 calendar cell actions are reducer-driven; calendar container state is exposed
 through `data-*` attributes until dedicated platform calendar roles are added:
