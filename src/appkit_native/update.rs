@@ -300,11 +300,11 @@ impl AppKitNativeSurface {
                     apply_scroll_view_layout(state, style);
                 }
                 if let AppKitOsWidget::ComboBoxItem(item) = &handle.widget {
-                    self.update_option_item_style(id, item, style.clone())?;
+                    self.update_option_item_style(id, item, style.as_ref().clone())?;
                 }
                 if let AppKitOsWidget::ListView(scroll_view) = &handle.widget {
                     if let Some(state) = self.list_views.get_mut(&id) {
-                        state.style = style.clone();
+                        state.style = style.as_ref().clone();
                         apply_list_view_layout(scroll_view, state, style);
                     }
                 }
