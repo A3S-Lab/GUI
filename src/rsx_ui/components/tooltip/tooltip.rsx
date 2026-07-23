@@ -9,7 +9,9 @@ pub struct UiTooltipProps {
 }
 
 pub fn ui_tooltip(cx: &mut ComponentCx<UiTooltipProps>) -> RSX {
-    cx.use_overlay(|props: &UiTooltipProps| UseOverlayProps::new().open(props.is_open));
+    cx.use_overlay(|props: &UiTooltipProps| {
+        UseOverlayProps::new().open(props.is_open).managed(false)
+    });
     cx.use_prop("className", |props: &UiTooltipProps| {
         props.class_name.clone()
     });

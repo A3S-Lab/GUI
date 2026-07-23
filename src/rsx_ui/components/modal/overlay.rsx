@@ -9,7 +9,9 @@ pub struct UiModalOverlayProps {
 }
 
 pub fn ui_modal_overlay(cx: &mut ComponentCx<UiModalOverlayProps>) -> RSX {
-    cx.use_overlay(|props: &UiModalOverlayProps| UseOverlayProps::new().open(props.is_open));
+    cx.use_overlay(|props: &UiModalOverlayProps| {
+        UseOverlayProps::new().open(props.is_open).managed(false)
+    });
     cx.use_prop("className", |props: &UiModalOverlayProps| {
         props.class_name.clone()
     });

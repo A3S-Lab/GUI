@@ -7,6 +7,8 @@ pub struct UiDialogProps {
     pub label: String,
     pub is_open: bool,
     pub on_close: String,
+    pub is_dismissable: bool,
+    pub is_keyboard_dismiss_disabled: bool,
 }
 
 pub fn ui_dialog(cx: &mut ComponentCx<UiDialogProps>) -> RSX {
@@ -14,6 +16,12 @@ pub fn ui_dialog(cx: &mut ComponentCx<UiDialogProps>) -> RSX {
         UseOverlayProps::new()
             .open(props.is_open)
             .on_close(Some(props.on_close.clone()))
+            .modal(true)
+            .dismissable(props.is_dismissable)
+            .keyboard_dismiss_disabled(props.is_keyboard_dismiss_disabled)
+            .contain_focus(true)
+            .restore_focus(true)
+            .auto_focus(true)
     });
     cx.use_prop("className", |props: &UiDialogProps| {
         props.class_name.clone()

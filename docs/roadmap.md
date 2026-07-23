@@ -75,6 +75,9 @@ The following foundations are implemented and are not roadmap placeholders:
 - a component playground that checks registry coverage
 - normalized portable style, Tailwind-compatible variant metadata, and
   transactional runtime projection for interaction and typed state variants
+- an activation-ordered mounted overlay stack with topmost Escape/outside
+  dismissal, modal background inertness, portaled foreground layers, and
+  shared focus containment, autofocus, and restoration
 - AppKit, GTK4, and WinUI build/test matrices with real native dogfood surfaces
 
 ## Delivery Dependency

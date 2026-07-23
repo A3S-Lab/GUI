@@ -2862,6 +2862,28 @@ fn i18n_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
 }
 
 fn overlay_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
+    let overlay_type = non_empty_attribute(props, &["overlayType", "data-overlay-type"]);
+    let is_non_modal =
+        bool_attribute_value(props, &["isNonModal", "data-overlay-non-modal"]).unwrap_or(false);
+    let managed_by_default = !matches!(overlay_type.as_deref(), Some("tooltip" | "underlay"));
+    let modal_by_default = match overlay_type.as_deref() {
+        Some("modal" | "dialog") => true,
+        Some("popover") => !is_non_modal,
+        _ => false,
+    };
+    let underlay_by_default = matches!(overlay_type.as_deref(), Some("modal"));
+    let dismissable_by_default =
+        matches!(overlay_type.as_deref(), Some("popover")) && !is_non_modal;
+    let close_on_blur_by_default = matches!(overlay_type.as_deref(), Some("popover"));
+    let contain_by_default = match overlay_type.as_deref() {
+        Some("modal" | "dialog") => true,
+        Some("popover") => !is_non_modal,
+        _ => false,
+    };
+    let manages_focus_by_default = matches!(
+        overlay_type.as_deref(),
+        Some("modal" | "dialog" | "popover")
+    );
     use_overlay_value(
         UseOverlayProps::new()
             .open(bool_attribute_value(props, &["isOpen", "open", "data-open"]).unwrap_or(false))
@@ -2874,7 +2896,49 @@ fn overlay_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             .trigger_kind(non_empty_attribute(
                 props,
                 &["overlayTriggerKind", "triggerKind", "aria-haspopup"],
-            )),
+            ))
+            .managed(
+                bool_attribute_value(props, &["isManagedOverlay", "data-overlay-managed"])
+                    .unwrap_or(managed_by_default),
+            )
+            .modal(
+                bool_attribute_value(props, &["isModal", "aria-modal", "data-overlay-modal"])
+                    .unwrap_or(modal_by_default),
+            )
+            .underlay(
+                bool_attribute_value(props, &["isUnderlay", "data-overlay-underlay"])
+                    .unwrap_or(underlay_by_default),
+            )
+            .dismissable(
+                bool_attribute_value(props, &["isDismissable", "data-overlay-dismissable"])
+                    .unwrap_or(dismissable_by_default),
+            )
+            .keyboard_dismiss_disabled(
+                bool_attribute_value(
+                    props,
+                    &[
+                        "isKeyboardDismissDisabled",
+                        "data-overlay-keyboard-dismiss-disabled",
+                    ],
+                )
+                .unwrap_or(false),
+            )
+            .close_on_blur(
+                bool_attribute_value(props, &["shouldCloseOnBlur", "data-overlay-close-on-blur"])
+                    .unwrap_or(close_on_blur_by_default),
+            )
+            .contain_focus(
+                bool_attribute_value(props, &["shouldContainFocus", "contain", "data-contain"])
+                    .unwrap_or(contain_by_default),
+            )
+            .restore_focus(
+                bool_attribute_value(props, &["restoreFocus", "data-restore-focus"])
+                    .unwrap_or(manages_focus_by_default),
+            )
+            .auto_focus(
+                bool_attribute_value(props, &["autoFocus", "data-auto-focus"])
+                    .unwrap_or(manages_focus_by_default),
+            ),
     )
 }
 

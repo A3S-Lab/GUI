@@ -124,6 +124,22 @@ The first shared interaction milestone is available in the portable runtime:
   descendant instead of the scope wrapper. Restore-enabled scopes retain the
   focus owner that preceded their mount and unwind nested restoration targets
   when they unmount.
+- `MountedOverlayRegistry` discovers open managed overlays from the reconciled
+  native tree and retains activation order independently of document order.
+  Only the topmost overlay handles Escape or outside-press dismissal. Escape
+  remains available to the focused control when keyboard dismissal is
+  disabled, and outside dismissal requires both press start and release to
+  occur outside the same topmost overlay.
+- Modal overlays project `inert` onto background branches, which also removes
+  them from the portable accessibility tree. Structural ancestors stay
+  available for event routing, and overlays opened later through a separate
+  portal branch remain interactive foreground layers.
+- Overlay autofocus, contained focus, and restoration reuse `FocusManager`.
+  Dismissal emits a target-scoped native `Close` event, so it invokes only the
+  topmost overlay's `onClose`. `UiDialog` and `UiModal` expose
+  `isDismissable` and `isKeyboardDismissDisabled`; `UiPopover` additionally
+  exposes `isNonModal`, closes on focus leaving its subtree, and defaults to a
+  modal dismissable popover.
 - `GuiRuntime` exposes `request_focus`, `focus_first`, `focus_last`,
   `focus_next`, and `focus_previous`. These methods validate mounted
   focusability, apply active-scope containment, and send a typed platform
@@ -274,6 +290,7 @@ existence of a platform object:
 | Focus within | Portable runtime routing on AppKit, GTK4, WinUI, and headless hosts. Native blur/focus batches are linked with `relatedTarget`; direct focus callbacks remain target-only while focus-within callbacks run only when a subtree boundary is crossed. |
 | Interaction style projection | Runtime-resolved hover, press, long-press, move, focus, focus-visible, focus-within, selected, checked, expanded, disabled, validation, read-only, direction, and matching `data-*`/`aria-*` variants use the same transactional `SetPortableStyle` path on all three planning adapters. |
 | Focus events, scopes, and `autoFocus` | Native focusable control roles listed in the capability manifest. Runtime navigation, restoration, and post-mount `autoFocus` all emit typed `requestFocus` commands; contained scopes redirect escaping native focus. AppKit uses `makeFirstResponder`, GTK4 uses `grab_focus`, and WinUI calls the fixed `IUIElement::Focus(Programmatic)` ABI through an isolated adapter because the generated binding leaves that method unwrapped. |
+| Overlay stack | Activation ordering, topmost Escape and outside-press dismissal, modal background inertness/accessibility suppression, close-on-blur, portaled child overlays, containment, autofocus, and restoration run in the shared mounted runtime. AppKit, GTK4, and WinUI planning adapters receive the same projected props and event subscriptions. |
 | Selection and item action | Select/combo box, list box/tree, and tabs/tab list. GTK4 and WinUI ListBox callbacks provide complete native selection snapshots; AppKit modifier-aware row activation and all stable-key aggregation remain in the portable keyed-runtime layer. ListBox/Tree item `onAction(key)` separation and collection keyboard navigation are shared across adapters. |
 
 `NativeCapabilities` is the executable source of truth. Global entries are
@@ -294,7 +311,7 @@ props:
 | P1 | Collections and selection | Add layout-aware page navigation and complete IME/dead-key typeahead conformance. |
 | P1 | Internationalization | Add message formatting, number/date formatting, locale-aware collation, and localized interaction behavior on top of inherited locale/direction. |
 | P1 | Accessibility conformance | Complete OS accessibility API projection, relationships, live regions, value announcements, and role-specific native adapter coverage. |
-| P2 | Overlays | Add dismissal, focus restoration, modal containment, outside interaction, and nested overlay ordering. |
+| P2 | Overlays | Add anchored positioning/flipping, native scroll locking, configurable outside-interaction filters, multi-window layer coordination, and real-platform conformance fixtures. |
 | P2 | Capability enforcement | Turn reported capability gaps into adapter policy and conformance gates where portable fallback is not sufficient. |
 | P2 | Environment style variants | Add native environment and ancestry evaluators for responsive/container, theme, group, peer, and structural selector variants. These remain preserved in the style IR but inactive at runtime today. |
 

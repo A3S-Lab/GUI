@@ -1633,6 +1633,36 @@ card parts are under `src/rsx_ui/components/card/`, checkbox parts are under
 - `UiCalendarMonthPicker`
 - `UiCalendarYearPicker`
 
+Open `UiDialog`, `UiModal`, and `UiPopover` nodes participate in the mounted
+overlay stack. Only the most recently opened overlay handles Escape and
+outside interaction. `UiDialog` and `UiModal` accept `isDismissable` (default
+`false`) and `isKeyboardDismissDisabled` (default `false`). Escape invokes
+`onClose` independently of `isDismissable`; set
+`isKeyboardDismissDisabled={true}` to leave Escape for the focused control.
+Outside dismissal requires `isDismissable={true}` and suppresses the
+corresponding background press lifecycle.
+
+`UiPopover` accepts `onClose`, `isNonModal`, and
+`isKeyboardDismissDisabled`. A normal popover is modal and dismissable,
+contains focus, closes when focus moves outside, and makes background branches
+inert. `isNonModal={true}` keeps the background interactive and disables
+outside-press dismissal and focus containment; close-on-blur, Escape,
+autofocus, and focus restoration remain enabled. `UiModalOverlay` is a
+structural underlay and `UiTooltip` is informational, so neither independently
+joins the managed stack. Dismissal is controlled: the `onClose` action should
+rerender the overlay with `isOpen={false}`.
+
+```rsx
+<UiModal
+  key="settings-modal"
+  isOpen={settings_open}
+  isDismissable={true}
+  onClose={close_settings}
+>
+  <UiButton key="save" onPress={save_settings}>Save</UiButton>
+</UiModal>
+```
+
 Collection selection components accept React Aria-style `selectedKeys`,
 `defaultSelectedKeys`, `selectionMode`, `selectionBehavior`, `disabledKeys`,
 `disabledBehavior`, `disallowEmptySelection`, and `shouldFocusWrap` props.

@@ -487,6 +487,42 @@ escape an active contained scope, and records the pre-mount focus owner for
 each restore-enabled scope. When nested scopes unmount, valid restoration
 targets unwind from the innermost scope outward through the same imperative
 host capability.
+
+## Mounted Overlay Runtime
+
+`MountedOverlayRegistry` is the platform-independent source of truth for open
+managed overlays. After keyed reconciliation, `GuiRuntime` synchronizes the
+registry from `data-overlay` contracts, preserves already-open overlays in
+activation order, and appends newly opened overlays. Persistent sibling nodes
+therefore stack by when they became visible rather than by source order.
+
+While any overlay is active, the runtime projects an internal capture marker
+to mounted native nodes. The shared native interaction profile translates that
+marker into pointer-lifecycle and key-down subscriptions on AppKit, GTK4, and
+WinUI. Escape is claimed only by the topmost overlay unless
+`isKeyboardDismissDisabled` is set. Outside dismissal records the topmost
+overlay on press start and closes it only when release is also outside that
+same overlay; intercepted background events do not reach application actions.
+Close-on-blur requires a known `relatedTarget` outside the overlay subtree.
+All successful dismissal paths synthesize a target-scoped native `Close`
+event, which routes to the overlay's `onClose` action without closing an
+ancestor layer.
+
+For the topmost active modal, branches outside the modal and any overlays
+opened after it are projected inert. Inert projection also removes those
+branches from portable accessibility output. Ancestors needed to retain the
+native hierarchy stay enabled, but the registry still suppresses interactions
+targeted outside the modal foreground. Later portaled overlays are treated as
+foreground and may receive focus through an earlier contained scope.
+
+Overlay focus uses the existing `FocusManager` contracts. A newly opened
+overlay with `autoFocus` focuses its first tabbable or focusable descendant;
+contained focus remains inside the active scope; and unmounting a
+restore-enabled overlay returns focus to its valid trigger. `UiDialog`,
+`UiModal`, and the default `UiPopover` opt into these behaviors. A nonmodal
+popover keeps background branches interactive and does not contain focus,
+while still supporting autofocus, restoration, close-on-blur, and Escape.
+
 Non-focus interaction state is
 revision-scoped: after a successful rerender, controlled values from the new
 blueprint supersede stale local event state while focus remains preserved until

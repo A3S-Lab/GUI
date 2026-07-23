@@ -2835,6 +2835,13 @@ fn component_cx_overlay_hook_returns_overlay_props_for_view_consumption() {
     assert_eq!(
         panel_props
             .attributes
+            .get("data-overlay")
+            .map(String::as_str),
+        Some("true")
+    );
+    assert_eq!(
+        panel_props
+            .attributes
             .get("data-open-state")
             .map(String::as_str),
         Some("true")
