@@ -341,18 +341,20 @@ just native-input-manifest appkit
 just native-input-manifest gtk4
 just native-input-manifest winui
 just native-input-conformance path/to/evidence.json
-just winui-input-smoke path/to/winui-button-smoke.json
+just winui-input-smoke path/to/winui-button-backed-smoke.json
 ```
 
-The WinUI smoke harness covers Button mouse and keyboard input through Windows
-`SendInput`, pen and touch through synthetic pointer injection, and assistive
-activation through UI Automation `InvokePattern`. It exercises successful
-activation, mouse/pen/touch cancellation, keyed-rerender cancellation, and
-disabled input while pumping the production message loop. The strict verifier
-accepts no semantic defect in the complete 14-case Button slice, but 84 other
-WinUI cases remain. The P0 gap is therefore still open. Native automation drivers
-still need to execute every generated case and submit passing run artifacts on
-real macOS, Linux, and Windows runners.
+The WinUI smoke harness covers the XAML Button-backed `Button`,
+`DisclosureSummary`, `Link`, `ImageMapArea`, and `MenuItem` roles. Mouse and
+keyboard use Windows `SendInput`, pen and touch use synthetic pointer injection,
+and assistive activation uses UI Automation `InvokePattern`. It exercises
+successful activation, mouse/pen/touch cancellation, keyed-rerender
+cancellation, and disabled input while pumping the production message loop.
+The strict verifier accepts no semantic defect in the complete 70-case slice,
+but the 28 `ListBoxItem` and `TreeItem` WinUI cases remain. The P0 gap is
+therefore still open. Native automation drivers still need to execute every
+generated case and submit passing run artifacts on real macOS, Linux, and
+Windows runners.
 
 ## Known Gaps
 

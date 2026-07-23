@@ -21,13 +21,33 @@ use winui3::Microsoft::UI::Xaml as xaml;
 
 const WORKER_TIMEOUT: Duration = Duration::from_secs(10);
 const EVENT_SETTLE_TIME: Duration = Duration::from_millis(250);
-const CAPTURED_BUTTON_CASES: usize = 14;
+const CASES_PER_ROLE: usize = 14;
+const BUTTON_BACKED_ROLES: [NativeRole; 5] = [
+    NativeRole::Button,
+    NativeRole::DisclosureSummary,
+    NativeRole::Link,
+    NativeRole::ImageMapArea,
+    NativeRole::MenuItem,
+];
+const CAPTURED_NATIVE_CASES: usize = BUTTON_BACKED_ROLES.len() * CASES_PER_ROLE;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct FixtureState {
     generation: u32,
+    role: NativeRole,
     disabled: bool,
     rerender_on_press_start: bool,
+}
+
+impl Default for FixtureState {
+    fn default() -> Self {
+        Self {
+            generation: 0,
+            role: NativeRole::Button,
+            disabled: false,
+            rerender_on_press_start: false,
+        }
+    }
 }
 
 type FixtureApp = WinUiRuntimeApp<
@@ -77,6 +97,7 @@ fn parse_output_path() -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
 }
 
 fn fixture_frame(state: &FixtureState) -> GuiResult<UiFrame> {
+    let tag = button_backed_role_tag(state.role)?;
     serde_json::from_value(json!({
         "frameId": "winui-native-input-smoke-v1",
         "window": {
@@ -89,7 +110,7 @@ fn fixture_frame(state: &FixtureState) -> GuiResult<UiFrame> {
         "root": {
             "kind": "element",
             "key": format!("native-input-target-{}", state.generation),
-            "tag": "Button",
+            "tag": tag,
             "props": {
                 "label": TARGET_LABEL,
                 "disabled": state.disabled,
@@ -105,6 +126,19 @@ fn fixture_frame(state: &FixtureState) -> GuiResult<UiFrame> {
     .map_err(|error| GuiError::invalid_tree(format!("invalid WinUI input fixture: {error}")))
 }
 
+fn button_backed_role_tag(role: NativeRole) -> GuiResult<&'static str> {
+    match role {
+        NativeRole::Button => Ok("Button"),
+        NativeRole::DisclosureSummary => Ok("DisclosureSummary"),
+        NativeRole::Link => Ok("Link"),
+        NativeRole::ImageMapArea => Ok("ImageMapArea"),
+        NativeRole::MenuItem => Ok("MenuItem"),
+        _ => Err(GuiError::invalid_tree(format!(
+            "unsupported WinUI button-backed smoke role {role:?}"
+        ))),
+    }
+}
+
 fn fixture_reduce(state: &mut FixtureState, invocation: &ActionInvocation) -> GuiResult<()> {
     if state.rerender_on_press_start && invocation.event == NativeEventKind::PressStart {
         state.generation = state.generation.saturating_add(1);
@@ -115,16 +149,18 @@ fn fixture_reduce(state: &mut FixtureState, invocation: &ActionInvocation) -> Gu
 
 fn remount_fixture(
     app: &mut FixtureApp,
+    role: NativeRole,
     disabled: bool,
     rerender_on_press_start: bool,
 ) -> GuiResult<HostNodeId> {
     let state = app.state_mut();
     state.generation = state.generation.saturating_add(1);
+    state.role = role;
     state.disabled = disabled;
     state.rerender_on_press_start = rerender_on_press_start;
     app.render()?;
     let _ = pump_for(app, EVENT_SETTLE_TIME)?;
-    fixture_target(app)
+    fixture_target(app, role)
 }
 
 fn set_fixture_disabled(app: &mut FixtureApp, disabled: bool) -> GuiResult<()> {
@@ -134,20 +170,41 @@ fn set_fixture_disabled(app: &mut FixtureApp, disabled: bool) -> GuiResult<()> {
     Ok(())
 }
 
-fn fixture_target(app: &FixtureApp) -> GuiResult<HostNodeId> {
-    app.runtime()
+fn fixture_target(app: &FixtureApp, role: NativeRole) -> GuiResult<HostNodeId> {
+    let target = app
+        .runtime()
+        .mounted_snapshot()
+        .into_iter()
+        .find(|snapshot| snapshot.role == role)
+        .map(|snapshot| snapshot.node)
+        .ok_or_else(|| {
+            GuiError::host(format!(
+                "WinUI input fixture did not mount its {role:?} target"
+            ))
+        })?;
+    let handle = app
+        .runtime()
         .host()
         .executor()
         .driver()
         .handles()
-        .iter()
-        .find_map(|(id, handle)| matches!(handle.widget, WinUiOsWidget::Button(_)).then_some(*id))
-        .ok_or_else(|| GuiError::host("WinUI input fixture did not mount its button"))
+        .get(&target)
+        .ok_or_else(|| GuiError::host("WinUI input fixture target has no OS handle"))?;
+    if matches!(handle.widget, WinUiOsWidget::Button(_)) {
+        Ok(target)
+    } else {
+        Err(GuiError::host(format!(
+            "WinUI {role:?} smoke target is not backed by a XAML Button"
+        )))
+    }
 }
 
-fn fixture_handles(app: &FixtureApp) -> GuiResult<(HostNodeId, xaml::Window, isize)> {
+fn fixture_handles(
+    app: &FixtureApp,
+    role: NativeRole,
+) -> GuiResult<(HostNodeId, xaml::Window, isize)> {
     let handles = app.runtime().host().executor().driver().handles();
-    let target = fixture_target(app)?;
+    let target = fixture_target(app, role)?;
     let window = handles
         .values()
         .find_map(|handle| match &handle.widget {
@@ -173,26 +230,37 @@ fn fixture_handles(app: &FixtureApp) -> GuiResult<(HostNodeId, xaml::Window, isi
 
 fn run_scenario(
     app: &mut FixtureApp,
+    role: NativeRole,
     target: HostNodeId,
     scenario: NativeInputConformanceScenarioV1,
     worker: JoinHandle<Result<(), String>>,
     diagnostics: &mut Vec<String>,
 ) -> GuiResult<NativeInputConformanceObservationV1> {
-    capture_scenario_result(app, target, scenario, worker, None, diagnostics)
+    capture_scenario_result(app, role, target, scenario, worker, None, diagnostics)
 }
 
 fn run_scenario_with_pointer_release(
     app: &mut FixtureApp,
+    role: NativeRole,
     target: HostNodeId,
     scenario: NativeInputConformanceScenarioV1,
     worker: JoinHandle<Result<(), String>>,
     diagnostics: &mut Vec<String>,
 ) -> GuiResult<NativeInputConformanceObservationV1> {
-    capture_scenario_result(app, target, scenario, worker, Some(target), diagnostics)
+    capture_scenario_result(
+        app,
+        role,
+        target,
+        scenario,
+        worker,
+        Some(target),
+        diagnostics,
+    )
 }
 
 fn capture_scenario_result(
     app: &mut FixtureApp,
+    role: NativeRole,
     target: HostNodeId,
     scenario: NativeInputConformanceScenarioV1,
     worker: JoinHandle<Result<(), String>>,
@@ -202,10 +270,10 @@ fn capture_scenario_result(
     let (events, result) = collect_worker_events(app, worker, release_on_press_start)?;
     let stimulus_dispatched = result.is_ok();
     if let Err(error) = result {
-        diagnostics.push(format!("{scenario:?}: {error}"));
+        diagnostics.push(format!("{role:?}/{scenario:?}: {error}"));
     }
     Ok(NativeInputConformanceObservationV1::capture(
-        NativeInputConformanceCaseV1::new(NativeRole::Button, scenario),
+        NativeInputConformanceCaseV1::new(role, scenario),
         target,
         stimulus_dispatched,
         &events,

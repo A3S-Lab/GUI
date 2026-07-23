@@ -111,14 +111,14 @@ jobs:
             throw "Windows App Runtime installer exited with code $LASTEXITCODE"
           }
 
-      - name: Capture WinUI Button OS-input smoke evidence
+      - name: Capture WinUI button-backed role OS-input smoke evidence
         if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
         shell: pwsh
         run: >-
           cargo run --locked --no-default-features --features winui-native
           --bin a3s-gui-winui-input-smoke -- native-input-winui-smoke.json
 
-      - name: Upload WinUI Button OS-input smoke evidence
+      - name: Upload WinUI button-backed role OS-input smoke evidence
         if: always() && runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v6
         with:

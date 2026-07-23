@@ -1,11 +1,11 @@
 use super::*;
 use a3s_gui::{
     NativeEventContext, NativeInputConformanceEnvironmentV1, NativeInputConformanceModalityV1,
-    NativeInputEvidenceSourceV1, NativeInputModality, NativeOperatingSystemV1,
+    NativeInputEvidenceSourceV1, NativeInputModality, NativeOperatingSystemV1, RsxCompilerBridge,
 };
 
 #[test]
-fn partial_validation_accepts_all_button_cases() {
+fn partial_validation_accepts_all_button_backed_role_cases() {
     let manifest = NativeInputConformanceManifestV1::from_capabilities(
         &NativeCapabilities::for_backend(NativeBackendKind::WinUI),
     );
@@ -13,10 +13,10 @@ fn partial_validation_accepts_all_button_cases() {
     let observations = manifest
         .requirements
         .iter()
-        .filter(|requirement| requirement.case.role == NativeRole::Button)
+        .filter(|requirement| BUTTON_BACKED_ROLES.contains(&requirement.case.role))
         .map(|requirement| valid_observation(target, requirement))
         .collect::<Vec<_>>();
-    assert_eq!(observations.len(), CAPTURED_BUTTON_CASES);
+    assert_eq!(observations.len(), CAPTURED_NATIVE_CASES);
 
     let run = NativeInputConformanceRunV1::new(
         NativeBackendKind::WinUI,
@@ -38,6 +38,22 @@ fn partial_validation_accepts_all_button_cases() {
     broken.observations[0].events.remove(1);
     validate_partial_smoke(&broken, &mut diagnostics);
     assert_eq!(diagnostics.len(), 1);
+}
+
+#[test]
+fn fixture_frames_preserve_each_button_backed_native_role() {
+    for role in BUTTON_BACKED_ROLES {
+        let state = FixtureState {
+            role,
+            ..FixtureState::default()
+        };
+        let frame = fixture_frame(&state).unwrap();
+        let native = RsxCompilerBridge::new()
+            .lower_to_native(&frame.root)
+            .unwrap();
+
+        assert_eq!(native.role, role);
+    }
 }
 
 #[test]

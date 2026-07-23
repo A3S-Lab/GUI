@@ -85,9 +85,10 @@ The following foundations are implemented and are not roadmap placeholders:
 - versioned native-input requirement, run, and report artifacts derived from
   role capabilities; a strict verifier rejects adapter/headless traces as
   native evidence, and CI publishes each backend's outstanding matrix
-- a Windows OS-input smoke harness that drives a real WinUI Button through
-  `SendInput`, synthetic pen/touch injection, and UI Automation, currently
-  covering all 14 Button cases (14 of 98 required WinUI cases)
+- a Windows OS-input smoke harness that drives real XAML Button-backed
+  `Button`, `DisclosureSummary`, `Link`, `ImageMapArea`, and `MenuItem` roles
+  through `SendInput`, synthetic pen/touch injection, and UI Automation,
+  currently covering all 70 of their cases (70 of 98 required WinUI cases)
 
 ## Delivery Dependency
 

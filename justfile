@@ -327,7 +327,7 @@ native-input-manifest BACKEND:
 native-input-conformance EVIDENCE:
     cargo run --locked --quiet --bin a3s-gui-native-input-conformance -- verify "{{ EVIDENCE }}"
 
-# Capture the complete 14-case WinUI Button OS-input smoke artifact
+# Capture the complete 70-case WinUI button-backed role OS-input smoke artifact
 winui-input-smoke EVIDENCE:
     cargo run --locked --quiet --no-default-features --features winui-native --bin a3s-gui-winui-input-smoke -- "{{ EVIDENCE }}"
 

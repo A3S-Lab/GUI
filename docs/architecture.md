@@ -178,16 +178,18 @@ driver and event-loop integration; the portable verifier owns only the shared
 semantic contract.
 
 The Windows-only `a3s-gui-winui-input-smoke` harness keeps automation outside
-the runtime library. It mounts a real WinUI Button, locates and verifies its
-enabled state through the OS UI Automation tree, injects mouse and Enter-key
-input with `SendInput`, injects pen and touch with
+the runtime library. It mounts each button-backed semantic role as a real WinUI
+Button, confirms that the mounted native role matches the manifest case,
+locates and verifies its enabled state through the OS UI Automation tree,
+injects mouse and Enter-key input with `SendInput`, injects pen and touch with
 `CreateSyntheticPointerDevice` / `InjectSyntheticPointerInput`, and invokes its
 assistive `InvokePattern`. Mouse cancellation releases the real XAML pointer
 capture after the injected press; pen and touch cancellation inject Windows'
 cancelled-up pointer state. The production WinUI message loop records successful,
-cancelled, keyed-rerender, and disabled responses. The harness validates all 14
-Button observations with the strict manifest verifier while allowing only the
-other roles to remain `MissingObservation`. Its output therefore remains an
+cancelled, keyed-rerender, and disabled responses. The harness validates all 70
+observations for `Button`, `DisclosureSummary`, `Link`, `ImageMapArea`, and
+`MenuItem` with the strict manifest verifier while allowing only `ListBoxItem`
+and `TreeItem` to remain `MissingObservation`. Its output therefore remains an
 explicitly partial run artifact rather than a conformance report. The harness
 requires an interactive Windows desktop and the Windows App Runtime 1.7
 framework package used by the WinUI backend's dynamic dependency.
