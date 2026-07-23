@@ -54,6 +54,32 @@ pub(super) fn requested_features(
     .collect()
 }
 
+pub(super) fn add_wrapper_overrides(
+    backend: NativeBackendKind,
+    role_overrides: &mut Vec<NativeRoleCapabilities>,
+) {
+    let (role, note) = match backend {
+        NativeBackendKind::Gtk4 => (
+            NativeRole::MenuItem,
+            "GTK4 gio::MenuItem retains accessibility relationships in portable output but has no independent GtkAccessible target",
+        ),
+        NativeBackendKind::WinUI => (
+            NativeRole::Window,
+            "the WinUI Window wrapper retains accessibility relationships in portable output but is not a UIElement AutomationProperties target",
+        ),
+        NativeBackendKind::AppKit | NativeBackendKind::Headless => return,
+    };
+    for feature in RELATIONSHIP_FEATURES {
+        set_role_capability(
+            role_overrides,
+            role,
+            feature,
+            CapabilitySupport::Portable,
+            Some(note),
+        );
+    }
+}
+
 pub(super) fn capabilities(backend: NativeBackendKind) -> Vec<NativeFeatureCapability> {
     use CapabilitySupport::{Native, Portable};
     use NativeCapabilityFeature as Feature;

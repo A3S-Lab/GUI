@@ -342,6 +342,20 @@ The first shared interaction milestone is available in the portable runtime:
   static-text label through its title UI element. Every relationship field has
   an independent capability entry, including explicit portable exceptions for
   logical GTK4 menu items and the WinUI window wrapper.
+- Accessibility structure fields remain independent through native props,
+  setter diffs, recording, accessibility-tree projection, and capability
+  audits. One shared incremental registry normalizes values and clears only
+  fields that are removed or become invalid. GTK4 projects level, set
+  position/size, row and column counts/indices/spans/index text, and sort
+  through exact `GtkAccessible` properties and relations. WinUI projects
+  level, position-in-set, and size-of-set through exact
+  `AutomationProperties` setters. AppKit applies conservative disclosure-level,
+  row/column count, index-range, and sort-direction hints while retaining
+  portable capability status for the complete ARIA fields. Conformance rejects
+  non-positive levels, positions, indices, and spans; values beyond known set
+  or grid bounds; invalid count sentinels; native-integer overflow; and unknown
+  sort tokens. GTK4 menu-model items and the WinUI window wrapper report
+  portable structure coverage explicitly.
 - Accessibility state fields remain independent through native props, setter
   diffs, recording, accessibility-tree projection, and capability audits.
   AppKit projects `aria-hidden` and `aria-modal` through `NSAccessibility`.
@@ -359,11 +373,12 @@ The first shared interaction milestone is available in the portable runtime:
 - Accessibility conformance validates names, focus uniqueness, selection and
   checked states, exclusive-container selection, relationships, and duplicate
   node identity. Invalid `aria-autocomplete`, `aria-current`, `aria-haspopup`,
-  `aria-pressed`, `aria-live`, and `aria-relevant` values, plus a
-  multi-reference `aria-activedescendant`, are reported as errors rather than
-  silently changing state or announcement behavior. The same semantic tree
-  assertions run against AppKit, GTK4, and WinUI planning adapters. Mounted
-  selection is the source of truth for accessible selected/checked state.
+  `aria-pressed`, `aria-live`, `aria-relevant`, structural integers, and
+  `aria-sort` values, plus a multi-reference `aria-activedescendant`, are
+  reported as errors rather than silently changing state or announcement
+  behavior. The same semantic tree assertions run against AppKit, GTK4, and
+  WinUI planning adapters. Mounted selection is the source of truth for
+  accessible selected/checked state.
 - AppKit, GTK4, and WinUI use the same press and keyboard state machines. Their
   view-backed widgets emit pointer press/re-entry/cancellation, hover, focus,
   key, modality, modifier, repeat, and local-position data through one portable
@@ -399,6 +414,7 @@ existence of a platform object:
 | Accessible names | `aria-label` is independent from visible native text and is projected through AppKit accessibility labels, GTK4 accessible label properties, and WinUI UI Automation names. Headless and protocol output retain the same computed name. The capability manifest conservatively reports portable-only coverage for AppKit logical list/tree and tab items, GTK4 `gio::MenuItem`, and the WinUI window wrapper. |
 | Accessible descriptions | Description, role-description, shortcut, and value-text metadata have independent executable capabilities. GTK4 projects all four. AppKit projects description, role description, and value text; WinUI projects description and shortcuts. Unsupported field/backend combinations and non-accessible logical wrappers remain available to headless/protocol consumers and produce explicit portable capability issues. |
 | Accessible relationships | A shared registry resolves ID-reference lists across forward mounting, id changes, removal, and duplicate-id ambiguity. GTK4 projects all eight relationship fields. WinUI projects description, controls, and flow-to lists plus single-target labels; AppKit projects single static-text labels. Remaining backend/field combinations and non-accessible wrappers retain portable semantics and produce field-level capability issues. |
+| Accessible structure | Level, position/set size, row/column counts, indices, spans, index text, and sort have independent executable capabilities and shared ARIA value validation. GTK4 projects all twelve fields. WinUI projects level, position-in-set, and size-of-set. AppKit applies conservative disclosure, grid count/range, and sort hints while retaining portable status for the complete fields. Unsupported WinUI fields, logical GTK4 menu items, the WinUI window wrapper, and headless output remain portable and auditable. |
 | Accessible states | Hidden, autocomplete, multiline, current, popup, pressed, live-region, busy, and modal semantics have independent executable capabilities. AppKit projects hidden and modal; GTK4 projects hidden, autocomplete, multiline, popup presence, pressed, busy, and modal. Live-region policy is evaluated by the shared runtime and delivered through each backend's native announcement channel. WinUI direct-state gaps, `aria-current`, the GTK4 popup subtype, and logical wrapper exceptions remain portable and auditable instead of being silently dropped. |
 | Native menu activation | AppKit and GTK4 menu items emit terminal press only because their menu models do not expose a mounted generic view event source. |
 | Hover and typed modality | View-backed widgets; explicit exceptions are reported for AppKit non-view wrappers/items, GTK4 menu items, and the WinUI window wrapper. |
@@ -484,7 +500,7 @@ props:
 | P1 | Collections and selection | Complete IME/dead-key typeahead conformance and add real-platform fixtures for layout-aware page navigation. |
 | P1 | NumberField interaction | Add real-platform assistive-technology fixtures for localized labels and focused announcements. Group/input/button anatomy, localized stepper labels and role descriptions, focused native value announcements, minimum-anchored button and continuous press-and-hold stepping, Arrow/Page/Home/End keyboard semantics, focused vertical-wheel stepping with horizontal/zoom rejection and `isWheelDisabled`, mouse input-focus preservation, decimal-noise cleanup, boundary disabling, cancellation/re-entry, and native-default suppression are implemented. |
 | P1 | Internationalization | Expand message formatting beyond NumberField, and add currency/unit parsing and formatting plus date ranges/time zones. Reusable decimal/percent parsing and formatting, partial-input validation, locale-aware filtering, localized NumberField model/display conversion, and a 34-locale NumberField message catalog now build on inherited locale/direction. |
-| P1 | Accessibility conformance | Complete multi-label projection on AppKit and WinUI; add AppKit description/details/control/ownership/flow/error/active-descendant mappings and WinUI details/ownership/error/active-descendant mappings where platform APIs permit; add exact native mappings for remaining state gaps such as `aria-current` and direct AppKit/WinUI autocomplete, multiline, popup, pressed, and busy semantics; close the documented logical-item/window name, description, relationship, state, and announcement exceptions; fill the remaining AppKit shortcut and WinUI role-description/value-text gaps; and add real assistive-technology fixtures. Shared lifecycle-aware relationship resolution, all GTK4 relationship mappings, supported AppKit/WinUI relationship mappings, independent `aria-label`, descriptive metadata, state-field capabilities, exact AppKit/GTK4 state projection where supported, validated ARIA tokens, the typed announcement channel, WAI-ARIA live-region diff policy, and focused NumberField value announcements are implemented. |
+| P1 | Accessibility conformance | Complete multi-label projection on AppKit and WinUI; add AppKit description/details/control/ownership/flow/error/active-descendant mappings and WinUI details/ownership/error/active-descendant mappings where platform APIs permit; complete exact AppKit/WinUI structure projection where their role-specific APIs permit it; add exact native mappings for remaining state gaps such as `aria-current` and direct AppKit/WinUI autocomplete, multiline, popup, pressed, and busy semantics; close the documented logical-item/window name, description, relationship, structure, state, and announcement exceptions; fill the remaining AppKit shortcut and WinUI role-description/value-text gaps; and add real assistive-technology fixtures. Shared lifecycle-aware relationship resolution, all GTK4 relationship mappings, supported AppKit/WinUI relationship mappings, independent `aria-label`, descriptive metadata, field-level structure/state capabilities, exact GTK4 and supported WinUI structure projection, conservative AppKit structure hints, exact AppKit/GTK4 state projection where supported, validated ARIA tokens and structural values, the typed announcement channel, WAI-ARIA live-region diff policy, and focused NumberField value announcements are implemented. |
 | P2 | Overlays | Complete measured boundary-driven collision and arrow projection, native scroll locking, configurable outside-interaction filters, multi-window layer coordination, and real-platform positioning conformance fixtures. |
 | P2 | Capability enforcement | Turn reported capability gaps into adapter policy and conformance gates where portable fallback is not sufficient. |
 | P2 | Environment style variants | Add native environment and ancestry evaluators for responsive/container, theme, group, peer, and structural selector variants. These remain preserved in the style IR but inactive at runtime today. |

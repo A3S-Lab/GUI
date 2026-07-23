@@ -17,6 +17,7 @@ use xaml::Controls::{self, Primitives};
 use xaml::{Markup, RoutedEventHandler, Visibility};
 
 use crate::accessibility::relationship_registry::AccessibilityRelationshipRegistry;
+use crate::accessibility::structure_registry::AccessibilityStructureRegistry;
 use crate::accessibility::{AccessibilityAnnouncement, AccessibilityAnnouncementPriority};
 use crate::app::{
     ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
@@ -63,6 +64,7 @@ mod mount;
 mod propagation;
 mod relationships;
 mod runtime;
+mod structure;
 mod surface;
 mod types;
 mod update;
@@ -113,6 +115,7 @@ pub struct WinUiNativeSurface {
     keyboard_presses: Arc<Mutex<KeyboardPressState>>,
     widgets: BTreeMap<HostNodeId, WinUiOsWidget>,
     accessibility_relationships: AccessibilityRelationshipRegistry,
+    accessibility_structures: AccessibilityStructureRegistry,
     dialog_visible: BTreeMap<HostNodeId, bool>,
     overlay_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     open_dialogs: Arc<Mutex<BTreeSet<HostNodeId>>>,
@@ -192,6 +195,7 @@ impl WinUiNativeSurface {
             keyboard_presses: Arc::new(Mutex::new(KeyboardPressState::default())),
             widgets: BTreeMap::new(),
             accessibility_relationships: AccessibilityRelationshipRegistry::default(),
+            accessibility_structures: AccessibilityStructureRegistry::default(),
             dialog_visible: BTreeMap::new(),
             overlay_positions: BTreeMap::new(),
             open_dialogs: Arc::new(Mutex::new(BTreeSet::new())),

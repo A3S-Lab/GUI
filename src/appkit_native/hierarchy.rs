@@ -299,6 +299,7 @@ impl AppKitNativeSurface {
             state.popover.close();
         }
         self.forget_accessibility_relationship_node(id)?;
+        self.forget_accessibility_structure_node(id);
         Ok(())
     }
 }

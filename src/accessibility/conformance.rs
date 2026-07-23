@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
+use super::structure::accessibility_structure_violations;
 use super::{AccessibilityNode, AccessibilityRole};
 use crate::host::HostNodeId;
 
@@ -24,6 +25,7 @@ pub enum AccessibilityIssueCode {
     MultipleSelectedItems,
     EmptyRelationship,
     InvalidActiveDescendant,
+    InvalidAccessibilityStructure,
     InvalidAutocomplete,
     InvalidCurrent,
     InvalidHasPopup,
@@ -171,6 +173,14 @@ fn validate_node<'a>(
             node,
             AccessibilityIssueCode::InvalidActiveDescendant,
             "aria-activedescendant must reference exactly one element".to_string(),
+        );
+    }
+    for violation in accessibility_structure_violations(&node.structure) {
+        push_error(
+            issues,
+            node,
+            AccessibilityIssueCode::InvalidAccessibilityStructure,
+            format!("{} {}", violation.attribute, violation.requirement),
         );
     }
     if node

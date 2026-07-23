@@ -78,6 +78,9 @@ impl AppKitNativeSurface {
             NativeWidgetSetter::SetAccessibilityRelationships(value) => {
                 self.set_accessibility_relationships(id, value.clone())?;
             }
+            NativeWidgetSetter::SetAccessibilityStructure(value) => {
+                self.set_accessibility_structure(id, value);
+            }
             NativeWidgetSetter::SetAccessibilityState(value) => {
                 set_appkit_accessibility_state(&handle.widget, value);
             }
@@ -617,7 +620,6 @@ impl AppKitNativeSurface {
             | NativeWidgetSetter::SetHtmlMicrodata(_)
             | NativeWidgetSetter::SetHtmlFormAssociation(_)
             | NativeWidgetSetter::SetHtmlCollection(_)
-            | NativeWidgetSetter::SetAccessibilityStructure(_)
             | NativeWidgetSetter::SetWebStyle(_)
             | NativeWidgetSetter::SetEvents(_) => {}
         }

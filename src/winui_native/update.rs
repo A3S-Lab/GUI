@@ -235,6 +235,9 @@ impl WinUiNativeSurface {
             NativeWidgetSetter::SetAccessibilityRelationships(value) => {
                 self.set_accessibility_relationships(id, value.clone())?;
             }
+            NativeWidgetSetter::SetAccessibilityStructure(value) => {
+                self.set_accessibility_structure(id, value)?;
+            }
             NativeWidgetSetter::SetMetadata(value) => {
                 self.set_accessibility_relationship_metadata(id, value)?;
             }
@@ -350,7 +353,6 @@ impl WinUiNativeSurface {
             | NativeWidgetSetter::SetHtmlMicrodata(_)
             | NativeWidgetSetter::SetHtmlFormAssociation(_)
             | NativeWidgetSetter::SetHtmlCollection(_)
-            | NativeWidgetSetter::SetAccessibilityStructure(_)
             | NativeWidgetSetter::SetAccessibilityState(_)
             | NativeWidgetSetter::SetWebStyle(_)
             | NativeWidgetSetter::SetEvents(_) => {}

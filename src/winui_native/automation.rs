@@ -30,6 +30,9 @@ const SET_HELP_TEXT_SLOT: usize = 11;
 const SET_LABELED_BY_SLOT: usize = 23;
 const SET_NAME_SLOT: usize = 26;
 const GET_CONTROLLED_PEERS_SLOT: usize = 34;
+const SET_POSITION_IN_SET_SLOT: usize = 37;
+const SET_SIZE_OF_SET_SLOT: usize = 40;
+const SET_LEVEL_SLOT: usize = 43;
 const GET_DESCRIBED_BY_SLOT: usize = 65;
 const GET_FLOWS_TO_SLOT: usize = 67;
 
@@ -78,6 +81,24 @@ pub(super) fn set_labeled_by(
     })
 }
 
+pub(super) fn set_position_in_set(
+    element: &xaml::UIElement,
+    value: Option<i32>,
+) -> windows_core::Result<()> {
+    set_i32_property(element, value, SET_POSITION_IN_SET_SLOT)
+}
+
+pub(super) fn set_size_of_set(
+    element: &xaml::UIElement,
+    value: Option<i32>,
+) -> windows_core::Result<()> {
+    set_i32_property(element, value, SET_SIZE_OF_SET_SLOT)
+}
+
+pub(super) fn set_level(element: &xaml::UIElement, value: Option<i32>) -> windows_core::Result<()> {
+    set_i32_property(element, value, SET_LEVEL_SLOT)
+}
+
 pub(super) fn replace_controlled_peers(
     element: &xaml::UIElement,
     targets: &[xaml::UIElement],
@@ -123,6 +144,31 @@ fn set_string_property(
             Interface::as_raw(statics),
             Interface::as_raw(&dependency_object),
             core::mem::transmute_copy(&value),
+        )
+        .ok()
+    })
+}
+
+fn set_i32_property(
+    element: &xaml::UIElement,
+    value: Option<i32>,
+    method_slot: usize,
+) -> windows_core::Result<()> {
+    let dependency_object: xaml::DependencyObject = element.cast()?;
+    static SHARED: windows_core::imp::FactoryCache<
+        AutomationProperties,
+        IAutomationPropertiesStatics,
+    > = windows_core::imp::FactoryCache::new();
+
+    SHARED.call(|statics| unsafe {
+        let method = statics_method(statics, method_slot)?;
+        type SetI32PropertyMethod =
+            unsafe extern "system" fn(*mut c_void, *mut c_void, i32) -> HRESULT;
+        let set_property: SetI32PropertyMethod = core::mem::transmute(method);
+        set_property(
+            Interface::as_raw(statics),
+            Interface::as_raw(&dependency_object),
+            value.unwrap_or_default(),
         )
         .ok()
     })
@@ -197,6 +243,9 @@ mod tests {
         assert_eq!(SET_LABELED_BY_SLOT, 23);
         assert_eq!(SET_NAME_SLOT, 26);
         assert_eq!(GET_CONTROLLED_PEERS_SLOT, 34);
+        assert_eq!(SET_POSITION_IN_SET_SLOT, 37);
+        assert_eq!(SET_SIZE_OF_SET_SLOT, 40);
+        assert_eq!(SET_LEVEL_SLOT, 43);
         assert_eq!(GET_DESCRIBED_BY_SLOT, 65);
         assert_eq!(GET_FLOWS_TO_SLOT, 67);
     }

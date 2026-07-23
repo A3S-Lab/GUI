@@ -135,3 +135,31 @@ fn conformance_rejects_multiple_active_descendant_references() {
         .iter()
         .any(|issue| issue.code == AccessibilityIssueCode::InvalidActiveDescendant));
 }
+
+#[test]
+fn conformance_rejects_invalid_accessibility_structure_values() {
+    let mut cell = node(AccessibilityRole::TableCell);
+    cell.structure = AccessibilityStructureProps::default()
+        .level(Some(0))
+        .position_in_set(Some(3))
+        .set_size(Some(2))
+        .row_count(Some(-2))
+        .row_index(Some(0))
+        .row_span(Some(0))
+        .column_count(Some(-2))
+        .column_index(Some(0))
+        .column_span(Some(0))
+        .sort("sideways");
+
+    let report = AccessibilityConformanceReport::validate(&cell);
+
+    assert!(!report.is_conformant());
+    assert_eq!(
+        report
+            .issues
+            .iter()
+            .filter(|issue| issue.code == AccessibilityIssueCode::InvalidAccessibilityStructure)
+            .count(),
+        9
+    );
+}

@@ -13,12 +13,12 @@ use objc2::{
 use objc2_app_kit::{
     NSAccessibility, NSAccessibilityAnnouncementKey,
     NSAccessibilityAnnouncementRequestedNotification, NSAccessibilityPostNotificationWithUserInfo,
-    NSAccessibilityPriorityKey, NSAccessibilityPriorityLevel, NSApplication,
-    NSApplicationActivationOptions, NSApplicationActivationPolicy, NSAutoresizingMaskOptions,
-    NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSButton, NSColor, NSComboBox,
-    NSComboBoxDelegate, NSControl, NSControlStateValue, NSControlStateValueOff,
-    NSControlStateValueOn, NSControlTextEditingDelegate, NSEvent, NSEventMask,
-    NSEventModifierFlags, NSEventType, NSFont, NSLayoutAttribute, NSLayoutConstraint,
+    NSAccessibilityPriorityKey, NSAccessibilityPriorityLevel, NSAccessibilitySortDirection,
+    NSApplication, NSApplicationActivationOptions, NSApplicationActivationPolicy,
+    NSAutoresizingMaskOptions, NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSButton,
+    NSColor, NSComboBox, NSComboBoxDelegate, NSControl, NSControlStateValue,
+    NSControlStateValueOff, NSControlStateValueOn, NSControlTextEditingDelegate, NSEvent,
+    NSEventMask, NSEventModifierFlags, NSEventType, NSFont, NSLayoutAttribute, NSLayoutConstraint,
     NSLayoutConstraintOrientation, NSLayoutPriorityDefaultLow, NSLayoutPriorityRequired,
     NSLayoutRelation, NSMenu, NSMenuItem, NSPanel, NSPointingDeviceType, NSPopover,
     NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSResponder,
@@ -30,11 +30,12 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{
     NSDate, NSDefaultRunLoopMode, NSDictionary, NSEdgeInsets, NSInteger, NSNotification, NSNumber,
-    NSObject, NSObjectProtocol, NSPoint, NSRect, NSRectEdge, NSRunLoop, NSRunLoopCommonModes,
-    NSSize, NSString, NSTimer,
+    NSObject, NSObjectProtocol, NSPoint, NSRange, NSRect, NSRectEdge, NSRunLoop,
+    NSRunLoopCommonModes, NSSize, NSString, NSTimer,
 };
 
 use crate::accessibility::relationship_registry::AccessibilityRelationshipRegistry;
+use crate::accessibility::structure_registry::AccessibilityStructureRegistry;
 use crate::accessibility::{AccessibilityAnnouncement, AccessibilityAnnouncementPriority};
 use crate::app::{
     ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
@@ -72,6 +73,7 @@ mod interaction;
 mod mount;
 mod propagation;
 mod relationships;
+mod structure;
 mod style;
 mod surface;
 mod types;
@@ -127,6 +129,7 @@ pub struct AppKitNativeSurface {
     popover_positions: BTreeMap<HostNodeId, OverlayPositionRequest>,
     widgets: BTreeMap<HostNodeId, AppKitOsWidget>,
     accessibility_relationships: AccessibilityRelationshipRegistry,
+    accessibility_structures: AccessibilityStructureRegistry,
     action_targets: BTreeMap<HostNodeId, Retained<AppKitActionTarget>>,
     window_delegates: BTreeMap<HostNodeId, Retained<AppKitWindowDelegate>>,
     responder_nodes: BTreeMap<usize, HostNodeId>,
@@ -180,6 +183,7 @@ impl AppKitNativeSurface {
             popover_positions: BTreeMap::new(),
             widgets: BTreeMap::new(),
             accessibility_relationships: AccessibilityRelationshipRegistry::default(),
+            accessibility_structures: AccessibilityStructureRegistry::default(),
             action_targets: BTreeMap::new(),
             window_delegates: BTreeMap::new(),
             responder_nodes: BTreeMap::new(),

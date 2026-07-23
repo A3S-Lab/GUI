@@ -6,6 +6,7 @@ use crate::platform::NativeBackendKind;
 use crate::renderer::MountedNodeSnapshot;
 
 mod accessibility_features;
+mod accessibility_structure;
 
 pub const NATIVE_IR_VERSION: u16 = 1;
 
@@ -41,6 +42,18 @@ pub enum NativeCapabilityFeature {
     AccessibilityFlowTo,
     AccessibilityErrorMessage,
     AccessibilityActiveDescendant,
+    AccessibilityLevel,
+    AccessibilityPositionInSet,
+    AccessibilitySetSize,
+    AccessibilityRowCount,
+    AccessibilityRowIndex,
+    AccessibilityRowSpan,
+    AccessibilityColumnCount,
+    AccessibilityColumnIndex,
+    AccessibilityColumnSpan,
+    AccessibilityRowIndexText,
+    AccessibilityColumnIndexText,
+    AccessibilitySort,
     AccessibilityHidden,
     AccessibilityAutocomplete,
     AccessibilityMultiline,
@@ -51,6 +64,7 @@ pub enum NativeCapabilityFeature {
     AccessibilityBusy,
     AccessibilityModal,
     AccessibilityRelationships,
+    AccessibilityStructure,
     AccessibilityState,
     AccessibilityAnnouncements,
 }
@@ -363,6 +377,7 @@ impl NativeCapabilities {
             ),
         ];
         features.extend(accessibility_features::capabilities(backend));
+        features.extend(accessibility_structure::capabilities(backend));
         let mut role_overrides = Vec::new();
         if !headless {
             let mut activation_roles = vec![
@@ -550,17 +565,6 @@ impl NativeCapabilities {
                             ),
                         );
                     }
-                    for feature in accessibility_features::RELATIONSHIP_FEATURES {
-                        set_role_capability(
-                            &mut role_overrides,
-                            NativeRole::MenuItem,
-                            feature,
-                            Portable,
-                            Some(
-                                "GTK4 gio::MenuItem retains accessibility relationships in portable output but has no independent GtkAccessible target",
-                            ),
-                        );
-                    }
                     for feature in [
                         Feature::AccessibilityHidden,
                         Feature::AccessibilityAutocomplete,
@@ -615,17 +619,6 @@ impl NativeCapabilities {
                             Portable,
                             Some(
                                 "the WinUI Window wrapper retains descriptive accessibility metadata in portable output but is not a UIElement AutomationProperties target",
-                            ),
-                        );
-                    }
-                    for feature in accessibility_features::RELATIONSHIP_FEATURES {
-                        set_role_capability(
-                            &mut role_overrides,
-                            NativeRole::Window,
-                            feature,
-                            Portable,
-                            Some(
-                                "the WinUI Window wrapper retains accessibility relationships in portable output but is not a UIElement AutomationProperties target",
                             ),
                         );
                     }
@@ -705,6 +698,8 @@ impl NativeCapabilities {
                 );
             }
         }
+        accessibility_features::add_wrapper_overrides(backend, &mut role_overrides);
+        accessibility_structure::add_wrapper_overrides(backend, &mut role_overrides);
 
         Self {
             ir_version: NATIVE_IR_VERSION,
@@ -920,6 +915,9 @@ fn requested_features(role: NativeRole, props: &NativeProps) -> Vec<NativeCapabi
     }
     features.extend(accessibility_features::requested_features(
         &props.accessibility_relationships,
+    ));
+    features.extend(accessibility_structure::requested_features(
+        &props.accessibility_structure,
     ));
     if props.accessibility_state.hidden.is_some() {
         features.push(Feature::AccessibilityHidden);

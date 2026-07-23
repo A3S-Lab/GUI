@@ -105,6 +105,9 @@ impl Gtk4NativeSurface {
             NativeWidgetSetter::SetAccessibilityRelationships(value) => {
                 self.set_accessibility_relationships(id, value.clone())?;
             }
+            NativeWidgetSetter::SetAccessibilityStructure(value) => {
+                self.set_accessibility_structure(id, value);
+            }
             NativeWidgetSetter::SetAccessibilityState(value) => {
                 if let Some(widget) = handle.widget.as_widget() {
                     if let Some(autocomplete) = value
@@ -715,7 +718,6 @@ impl Gtk4NativeSurface {
             | NativeWidgetSetter::SetHtmlMicrodata(_)
             | NativeWidgetSetter::SetHtmlFormAssociation(_)
             | NativeWidgetSetter::SetHtmlCollection(_)
-            | NativeWidgetSetter::SetAccessibilityStructure(_)
             | NativeWidgetSetter::SetWebStyle(_)
             | NativeWidgetSetter::SetEvents(_) => {}
         }

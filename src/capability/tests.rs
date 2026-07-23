@@ -1,6 +1,7 @@
 use super::*;
 use crate::accessibility::{
     AccessibilityDescriptionProps, AccessibilityRelationshipProps, AccessibilityStateProps,
+    AccessibilityStructureProps,
 };
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::web::WebProps;
@@ -499,6 +500,88 @@ fn accessibility_relationship_projection_reports_native_wrapper_exceptions() {
         let issues = NativeCapabilities::for_backend(backend).audit_tree(&related);
 
         assert_eq!(issues.len(), 8);
+        assert!(issues
+            .iter()
+            .all(|issue| issue.support == CapabilitySupport::Portable));
+    }
+}
+
+#[test]
+fn accessibility_structure_fields_report_precise_native_projection() {
+    let structured_cell = NativeElement::new("cell", NativeRole::TableCell).with_props(
+        NativeProps::new().accessibility_structure(
+            AccessibilityStructureProps::default()
+                .level(Some(2))
+                .position_in_set(Some(3))
+                .set_size(Some(10))
+                .row_count(Some(100))
+                .row_index(Some(4))
+                .row_span(Some(2))
+                .column_count(Some(8))
+                .column_index(Some(3))
+                .column_span(Some(2))
+                .row_index_text("row four")
+                .column_index_text("column three")
+                .sort("ascending"),
+        ),
+    );
+
+    let appkit_issues =
+        NativeCapabilities::for_backend(NativeBackendKind::AppKit).audit_tree(&structured_cell);
+    assert_eq!(appkit_issues.len(), 12);
+    assert!(appkit_issues
+        .iter()
+        .all(|issue| issue.support == CapabilitySupport::Portable));
+
+    let gtk4 = NativeCapabilities::for_backend(NativeBackendKind::Gtk4);
+    assert!(gtk4.audit_tree(&structured_cell).is_empty());
+
+    let winui = NativeCapabilities::for_backend(NativeBackendKind::WinUI);
+    let winui_issues = winui.audit_tree(&structured_cell);
+    assert_eq!(winui_issues.len(), 9);
+    for feature in [
+        NativeCapabilityFeature::AccessibilityLevel,
+        NativeCapabilityFeature::AccessibilityPositionInSet,
+        NativeCapabilityFeature::AccessibilitySetSize,
+    ] {
+        assert_eq!(
+            winui.support(feature, Some(NativeRole::TableCell)),
+            CapabilitySupport::Native
+        );
+    }
+
+    let headless_issues = NativeCapabilities::default().audit_tree(&structured_cell);
+    assert_eq!(headless_issues.len(), 12);
+    assert!(headless_issues
+        .iter()
+        .all(|issue| issue.support == CapabilitySupport::Portable));
+}
+
+#[test]
+fn accessibility_structure_projection_reports_native_wrapper_exceptions() {
+    let structure = AccessibilityStructureProps::default()
+        .level(Some(2))
+        .position_in_set(Some(3))
+        .set_size(Some(10))
+        .row_count(Some(100))
+        .row_index(Some(4))
+        .row_span(Some(2))
+        .column_count(Some(8))
+        .column_index(Some(3))
+        .column_span(Some(2))
+        .row_index_text("row four")
+        .column_index_text("column three")
+        .sort("ascending");
+
+    for (backend, role) in [
+        (NativeBackendKind::Gtk4, NativeRole::MenuItem),
+        (NativeBackendKind::WinUI, NativeRole::Window),
+    ] {
+        let structured = NativeElement::new("structured", role)
+            .with_props(NativeProps::new().accessibility_structure(structure.clone()));
+        let issues = NativeCapabilities::for_backend(backend).audit_tree(&structured);
+
+        assert_eq!(issues.len(), 12);
         assert!(issues
             .iter()
             .all(|issue| issue.support == CapabilitySupport::Portable));

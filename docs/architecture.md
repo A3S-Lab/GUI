@@ -287,7 +287,19 @@ ARIA structural attributes including `aria-level`, `aria-posinset`,
 `aria-setsize`, `aria-rowcount`, `aria-rowindex`, `aria-rowspan`,
 `aria-colcount`, `aria-colindex`, `aria-colspan`, `aria-rowindextext`, and
 `aria-colindextext`, plus `aria-sort`, project into structured native
-accessibility structure hints and stay available in metadata.
+accessibility structure hints and stay available in metadata. Values are
+normalized through one shared registry before platform projection: levels,
+positions, indices, and spans must be positive; known counts bound their
+corresponding positions and ranges; unknown set/grid sizes retain the ARIA
+`-1` sentinel; and sort accepts only `none`, `ascending`, `descending`, or
+`other`. GTK4 projects all twelve fields through exact `GtkAccessible`
+properties and relations. WinUI projects level, position-in-set, and
+size-of-set through `AutomationProperties`. AppKit applies conservative
+disclosure-level, row/column count, index-range, and sort-direction hints, but
+the fields remain reported as portable because the generic AppKit APIs do not
+preserve the complete ARIA contract. GTK4 menu-model items and the WinUI window
+wrapper retain the structure in portable output because neither exposes the
+required generic native accessibility target.
 ARIA state and live-region attributes including `aria-hidden`,
 `aria-autocomplete`, `aria-multiline`, `aria-current`, `aria-haspopup`,
 `aria-pressed`, `aria-live`, `aria-atomic`, `aria-busy`, `aria-relevant`, and
