@@ -49,12 +49,15 @@ jobs:
           - name: AppKit
             os: macos-latest
             feature: appkit-native
+            backend: appkit
           - name: GTK4
             os: ubuntu-latest
             feature: gtk4-native
+            backend: gtk4
           - name: WinUI
             os: windows-latest
             feature: winui-native
+            backend: winui
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -84,6 +87,18 @@ jobs:
       - name: Check all native targets
         shell: bash
         run: cargo check --locked --all-targets --features "${{ matrix.feature }}"
+
+      - name: Generate required native input matrix
+        shell: bash
+        run: |
+          cargo run --locked --bin a3s-gui-native-input-conformance -- manifest "${{ matrix.backend }}" > "native-input-${{ matrix.backend }}.json"
+
+      - name: Upload required native input matrix
+        uses: actions/upload-artifact@v6
+        with:
+          name: native-input-requirements-${{ matrix.backend }}
+          path: native-input-${{ matrix.backend }}.json
+          if-no-files-found: error
 
   bundle-smoke:
     name: Bundle Smoke (${{ matrix.name }})

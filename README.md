@@ -27,11 +27,13 @@ object graph at the host boundary.
   background inertness, nested focus containment/restoration, typed anchored
   overlay placement, inherited locale/direction, versioned capability
   reporting, shared native event-source state machines, and accessibility
-  conformance checks.
-  Role-edge input parity, layout-aware collection page movement, IME/dead-key
-  conformance, measured overlay collision/arrow conformance and scroll locking,
-  remaining native focus conformance, and locale formatting are still in
-  progress.
+  conformance checks. Versioned native-input manifests expand every role marked
+  native into strict OS-automation cases; adapter and headless traces cannot
+  satisfy that evidence gate.
+  Populating those manifests with real platform automation, role-edge input
+  parity, layout-aware collection page movement, IME/dead-key conformance,
+  measured overlay collision/arrow conformance and scroll locking, remaining
+  native focus conformance, and locale formatting are still in progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.
@@ -175,6 +177,7 @@ platform-matched typography, for example `w-[396px]`, `rounded-[12px]`, and
 | AppKit native surface | Usable for macOS smoke apps with role-aware press/hover/focus/key translation, controls, menus, close actions, and typed post-mount `autoFocus`. |
 | GTK4 native surface | Usable for Linux smoke apps with role-aware press/hover/focus/key translation, controls, menus, dialogs, and scroll containers. |
 | WinUI native surface | Usable for Windows smoke apps with role-aware press/hover/focus/key translation, typed programmatic focus and post-mount `autoFocus`, core controls, resize bounds, close actions, and root-window exit. |
+| Native input conformance | Versioned requirement/run/report artifacts and a strict verifier are available. Real AppKit, GTK4, and WinUI automation evidence is not complete yet. |
 | Product app shell | Dogfood-ready. Production distribution still needs signed installers and longer real-world focus/input hardening. |
 
 ## Roadmap
@@ -254,6 +257,18 @@ This checks formatting, high-confidence clippy groups, rustdoc with warnings
 denied, library and example tests, cross-platform planning adapters, and diff
 whitespace. On macOS, Linux, or Windows, `just native-ci` additionally runs the
 matching native feature's library tests and an all-target compile check.
+
+Generate the exact input cases implied by a backend's native capability claims,
+then verify an artifact emitted by an operating-system automation runner:
+
+```bash
+just native-input-manifest winui
+just native-input-conformance path/to/winui-evidence.json
+```
+
+The verifier exits nonzero for missing or duplicate cases, incorrect semantic
+event order, modality/target mismatches, incomplete environment identity, or
+evidence produced only by an adapter kernel or the portable runtime.
 
 The default feature set includes RSX authoring and the built-in design system.
 The runtime/protocol core is independently buildable without SWC or `rsx_ui`:

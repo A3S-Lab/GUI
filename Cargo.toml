@@ -14,6 +14,10 @@ categories = ["gui", "rendering", "accessibility"]
 name = "a3s_gui"
 path = "src/lib.rs"
 
+[[bin]]
+name = "a3s-gui-native-input-conformance"
+path = "src/bin/native_input_conformance.rs"
+
 [[example]]
 name = "component_playground"
 required-features = ["authoring"]

@@ -319,6 +319,14 @@ test-native:
 # Run the complete host-native CI gate locally
 native-ci: test-native check-native
 
+# Print the required native input automation matrix for one backend
+native-input-manifest BACKEND:
+    cargo run --locked --quiet --bin a3s-gui-native-input-conformance -- manifest "{{ BACKEND }}"
+
+# Strictly verify an operating-system automation evidence artifact
+native-input-conformance EVIDENCE:
+    cargo run --locked --quiet --bin a3s-gui-native-input-conformance -- verify "{{ EVIDENCE }}"
+
 # Lint every target and deny high-confidence Clippy and Rust warnings
 clippy:
     cargo clippy --locked --all-targets --features appkit,winui,gtk4 -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused

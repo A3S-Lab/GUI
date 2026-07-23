@@ -154,6 +154,29 @@ The application or host owns ACL parsing and validation, then passes typed,
 immutable capability grants across the outer boundary. The GUI core owns the
 capability types but must not depend on the ACL parser or its AST.
 
+## Native Input Evidence Boundary
+
+`NativeCapabilities` describes the behavior a backend claims for each role.
+`NativeInputConformanceManifestV1` turns native press claims into a canonical
+role/scenario matrix, including activation, cancellation, disabled-state, and
+keyed-rerender cases for each applicable input modality. This derivation keeps
+capability declarations and test scope in one source of truth.
+
+An operating-system runner records semantic events with
+`NativeInputConformanceObservationV1::capture` and submits a versioned
+`NativeInputConformanceRunV1`. Capture excludes event values and raw key data.
+The verifier compares observations against the generated manifest, checks
+provenance and environment identity, and produces a serializable
+`NativeInputConformanceReportV1`. Headless and adapter-kernel traces are
+explicitly ineligible to prove a native claim even when their event sequence is
+identical.
+
+File I/O remains outside the GUI core. The
+`a3s-gui-native-input-conformance` binary is a thin adapter that prints current
+manifests and reads evidence JSON for CI. Native backends own the OS automation
+driver and event-loop integration; the portable verifier owns only the shared
+semantic contract.
+
 ## NativeHost Boundary
 
 Every platform adapter implements the same host operations:
