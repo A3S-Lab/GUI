@@ -8,6 +8,7 @@ use serde_json::Value as JsonValue;
 
 use crate::error::{GuiError, GuiResult};
 use crate::event::ActionInvocation;
+use crate::i18n::{NumberFormatOptions, NumberFormatStyle};
 use crate::selection::{CollectionKey, Selection};
 use crate::semantic_ui::{
     use_autocomplete_value, use_breadcrumbs_value, use_button_value, use_calendar_cell_value,
@@ -1572,6 +1573,8 @@ pub struct NumberFieldHook {
     pub min_value: PropHandle<f64>,
     pub max_value: PropHandle<f64>,
     pub step_value: PropHandle<f64>,
+    pub format_options: PropHandle<NumberFormatOptions>,
+    pub format_style: PropHandle<NumberFormatStyle>,
     pub value_percent: PropHandle<f64>,
     pub is_disabled: PropHandle<bool>,
     pub is_required: PropHandle<bool>,
@@ -5305,6 +5308,8 @@ impl<S: 'static> ComponentCx<S> {
             "minValue",
             "maxValue",
             "stepValue",
+            "formatOptions",
+            "formatStyle",
             "valuePercent",
             "isDisabled",
             "isRequired",
@@ -5322,6 +5327,8 @@ impl<S: 'static> ComponentCx<S> {
             "minValue",
             "maxValue",
             "stepValue",
+            "formatOptions",
+            "formatStyle",
             "valuePercent",
             "isDisabled",
             "isRequired",
@@ -5338,6 +5345,8 @@ impl<S: 'static> ComponentCx<S> {
             min_value: PropHandle::new("minValue"),
             max_value: PropHandle::new("maxValue"),
             step_value: PropHandle::new("stepValue"),
+            format_options: PropHandle::new("formatOptions"),
+            format_style: PropHandle::new("formatStyle"),
             value_percent: PropHandle::new("valuePercent"),
             is_disabled: PropHandle::new("isDisabled"),
             is_required: PropHandle::new("isRequired"),

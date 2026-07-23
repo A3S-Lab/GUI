@@ -137,8 +137,8 @@ pub use i18n::{
     direction_for_locale, direction_name, CollationCaseFirst, CollationOptions,
     CollationSensitivity, CollationUsage, DateFormatKind, DateFormatOptions, DateFormatStyle,
     DateTimeValue, I18nManager, LocaleCollator, LocaleContext, LocaleDateFormatter,
-    LocaleNumberFormatter, LocaleNumberParser, NumberFormatOptions, NumberGrouping,
-    NumberSignDisplay, DEFAULT_FORMATTING_LOCALE,
+    LocaleNumberFormatter, LocaleNumberParser, NumberFormatOptions, NumberFormatStyle,
+    NumberGrouping, NumberSignDisplay, DEFAULT_FORMATTING_LOCALE,
 };
 pub use input::{NativeEventContext, NativeEventPosition, NativeInputModality, NativeKeyModifiers};
 pub use input_conformance::{

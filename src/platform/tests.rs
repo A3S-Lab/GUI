@@ -424,7 +424,46 @@ fn native_adapter_blueprints_normalize_localized_number_input_values() {
         let blueprint = widget_blueprint(backend, &number_input);
         assert_eq!(blueprint.control_state.lang.as_deref(), Some("fr-FR"));
         assert_eq!(blueprint.control_state.current, Some(1.5));
-        assert_eq!(blueprint.value.as_deref(), Some("1.5"));
+        assert_eq!(blueprint.value.as_deref(), Some("1,5"));
+        assert_eq!(
+            blueprint
+                .control_state
+                .accessibility_description
+                .value_text
+                .as_deref(),
+            Some("1,5")
+        );
+    }
+}
+
+#[test]
+fn native_adapter_blueprints_format_percent_number_fields_on_all_backends() {
+    let number_input = NativeElement::new("tax", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Tax")
+            .lang("tr-TR")
+            .input_type("number")
+            .range(Some(0.0), Some(1.0), Some(0.45))
+            .step(Some(0.01))
+            .metadata("data-number-style", "percent"),
+    );
+
+    for backend in [
+        NativeBackendKind::AppKit,
+        NativeBackendKind::Gtk4,
+        NativeBackendKind::WinUI,
+    ] {
+        let blueprint = widget_blueprint(backend, &number_input);
+        assert_eq!(blueprint.control_state.current, Some(0.45));
+        assert_eq!(blueprint.value.as_deref(), Some("%45"));
+        assert_eq!(
+            blueprint
+                .control_state
+                .accessibility_description
+                .value_text
+                .as_deref(),
+            Some("%45")
+        );
     }
 }
 

@@ -5,7 +5,7 @@ use crate::compiler::{CompiledOrientation, CompiledRsxNode, RsxCompilerBridge};
 use crate::event::{ActionInvocation, NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
 use crate::native::NativeRole;
-use crate::platform::AppKitAdapter;
+use crate::platform::{AppKitAdapter, PlatformAdapter};
 use crate::protocol::{HostEvent, NativeProtocolApp};
 use crate::rsx_app::{ComponentCx, RsxComponent, RsxTemplate, RSX};
 use crate::style::{DisplayMode, PortableStyle, StyleColor};
@@ -2115,6 +2115,66 @@ fn rsx_ui_number_field_consumes_number_field_hook_props() {
     assert!(native.props.required);
     assert!(native.props.invalid);
     assert!(native.props.read_only);
+}
+
+#[test]
+fn rsx_ui_number_field_formats_percent_values_in_model_space() {
+    let component = RsxComponent::<()>::new(
+        "percent-number-field",
+        r#"
+        <UiNumberField
+          key="tax"
+          label="Tax"
+          valueNumber="0.45"
+          minValue="0"
+          maxValue="1"
+          formatStyle="percent"
+          minimumFractionDigits="1"
+          maximumFractionDigits="1"
+          signDisplay="exceptZero"
+        />
+        "#,
+    )
+    .unwrap();
+
+    let frame = component.render(&()).unwrap();
+    let number_field = find_element_by_attribute(&frame.root, "data-slot", "number-field").unwrap();
+    let input = find_element_by_attribute(&frame.root, "data-slot", "number-field-input").unwrap();
+    let CompiledRsxNode::Element { props, .. } = input else {
+        panic!("percent number input element");
+    };
+
+    assert_eq!(props.value_number, Some(0.45));
+    assert_eq!(props.step_value, Some(0.01));
+    assert_eq!(attribute_value(input, "data-number-style"), Some("percent"));
+    assert_eq!(
+        attribute_value(input, "data-number-minimum-fraction-digits"),
+        Some("1")
+    );
+    assert_eq!(
+        attribute_value(input, "data-number-maximum-fraction-digits"),
+        Some("1")
+    );
+    assert_eq!(
+        attribute_value(input, "data-number-sign-display"),
+        Some("exceptZero")
+    );
+
+    let native = RsxCompilerBridge::new()
+        .lower_to_native(number_field)
+        .unwrap();
+    assert_eq!(native.role, NativeRole::TextField);
+    assert_eq!(native.props.current, Some(0.45));
+    let blueprint = AppKitAdapter.blueprint(&native);
+    assert_eq!(blueprint.value.as_deref(), Some("+45.0%"));
+    assert_eq!(
+        blueprint
+            .control_state
+            .accessibility_description
+            .value_text
+            .as_deref(),
+        Some("+45.0%")
+    );
 }
 
 #[test]

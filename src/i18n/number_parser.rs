@@ -12,7 +12,7 @@ use writeable::{Part, PartsWrite, Writeable};
 
 use crate::error::{GuiError, GuiResult};
 
-use super::parse_locale;
+use super::{parse_locale, NumberFormatOptions, NumberFormatStyle};
 
 const AUTO_NUMBERING_SYSTEMS: [&str; 6] = ["latn", "arab", "hanidec", "deva", "beng", "fullwide"];
 const NUMBER_PARSER_CACHE_CAPACITY: usize = 32;
@@ -68,14 +68,32 @@ impl LocaleNumberParser {
 
     /// Parses a localized decimal into a finite `f64`.
     pub fn parse(&self, value: &str) -> GuiResult<f64> {
-        let profile = self
-            .profile_for_partial_number(value, None, None)
-            .unwrap_or(&self.default_profile);
-        profile.parse(value).ok_or_else(|| {
+        self.parse_with_options(value, NumberFormatOptions::default())
+    }
+
+    /// Parses a localized number using the supplied display options.
+    ///
+    /// Percentage input is divided by 100 so the returned value remains in
+    /// model space, matching `Intl.NumberFormat` and React Aria `NumberField`.
+    pub fn parse_with_options(&self, value: &str, options: NumberFormatOptions) -> GuiResult<f64> {
+        let normalized = normalize_style_input(value, options.style).ok_or_else(|| {
             GuiError::internationalization(format!(
-                "invalid decimal value {value:?} for locale {:?}",
-                self.locale
+                "invalid {:?} value {value:?} for locale {:?}",
+                options.style, self.locale
             ))
+        })?;
+        let profile = self
+            .profile_for_partial_number(&normalized, None, None)
+            .unwrap_or(&self.default_profile);
+        let parsed = profile.parse(&normalized).ok_or_else(|| {
+            GuiError::internationalization(format!(
+                "invalid {:?} value {value:?} for locale {:?}",
+                options.style, self.locale
+            ))
+        })?;
+        Ok(match options.style {
+            NumberFormatStyle::Decimal => parsed,
+            NumberFormatStyle::Percent => parsed / 100.0,
         })
     }
 
@@ -85,13 +103,36 @@ impl LocaleNumberParser {
     /// grouping separators are accepted as partial input. `min` and `max`
     /// constrain whether negative and positive signs are permitted.
     pub fn is_valid_partial_number(&self, value: &str, min: Option<f64>, max: Option<f64>) -> bool {
-        self.profile_for_partial_number(value, min, max).is_some()
+        self.is_valid_partial_number_with_options(value, min, max, NumberFormatOptions::default())
+    }
+
+    /// Returns whether `value` can become a localized number for `options`
+    /// while editing.
+    pub fn is_valid_partial_number_with_options(
+        &self,
+        value: &str,
+        min: Option<f64>,
+        max: Option<f64>,
+        options: NumberFormatOptions,
+    ) -> bool {
+        normalize_style_input(value, options.style).is_some_and(|normalized| {
+            self.profile_for_partial_number(&normalized, min, max)
+                .is_some()
+        })
     }
 
     /// Returns the detected numbering system, or the locale default when the
     /// input does not identify a supported system.
     pub fn numbering_system(&self, value: &str) -> &str {
-        self.profile_for_partial_number(value, None, None)
+        self.numbering_system_with_options(value, NumberFormatOptions::default())
+    }
+
+    /// Returns the detected numbering system after removing style affixes.
+    pub fn numbering_system_with_options(&self, value: &str, options: NumberFormatOptions) -> &str {
+        let normalized = normalize_style_input(value, options.style);
+        normalized
+            .as_deref()
+            .and_then(|value| self.profile_for_partial_number(value, None, None))
             .unwrap_or(&self.default_profile)
             .numbering_system
             .as_str()
@@ -107,6 +148,26 @@ impl LocaleNumberParser {
             .chain(&self.alternate_profiles)
             .find(|profile| profile.is_valid_partial_number(value, min, max))
     }
+}
+
+fn normalize_style_input(value: &str, style: NumberFormatStyle) -> Option<String> {
+    if style == NumberFormatStyle::Decimal {
+        return Some(value.to_string());
+    }
+
+    let mut percent_signs = 0usize;
+    let normalized = value
+        .chars()
+        .filter(|character| {
+            if matches!(*character, '%' | '\u{066a}' | '\u{fe6a}' | '\u{ff05}') {
+                percent_signs += 1;
+                false
+            } else {
+                true
+            }
+        })
+        .collect::<String>();
+    (percent_signs <= 1).then_some(normalized)
 }
 
 impl Debug for LocaleNumberParser {

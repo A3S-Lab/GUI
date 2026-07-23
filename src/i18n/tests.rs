@@ -124,6 +124,29 @@ fn number_formatter_localizes_and_applies_intl_fraction_defaults() {
 }
 
 #[test]
+fn number_formatter_applies_locale_percent_patterns_and_model_scaling() {
+    let percent = NumberFormatOptions::default().style(NumberFormatStyle::Percent);
+    let english = LocaleNumberFormatter::try_new("en-US", percent)
+        .expect("English percent formatter should load");
+    assert_eq!(english.format_decimal("0.45").unwrap(), "45%");
+    assert_eq!(english.format_decimal("0.456").unwrap(), "46%");
+
+    let fractional = LocaleNumberFormatter::try_new(
+        "en-US",
+        percent
+            .minimum_fraction_digits(1)
+            .sign_display(NumberSignDisplay::ExceptZero),
+    )
+    .expect("fractional percent formatter should load");
+    assert_eq!(fractional.format_decimal("0.456").unwrap(), "+45.6%");
+    assert_eq!(fractional.format_decimal("0").unwrap(), "0.0%");
+
+    let turkish = LocaleNumberFormatter::try_new("tr-TR", percent)
+        .expect("Turkish percent formatter should load");
+    assert_eq!(turkish.format_decimal("0.45").unwrap(), "%45");
+}
+
+#[test]
 fn number_parser_localizes_symbols_and_detects_supported_digits() {
     let english = LocaleNumberParser::try_new("en-US").expect("English number parser should load");
     assert_eq!(english.parse("1,234.5").unwrap(), 1234.5);
@@ -147,6 +170,33 @@ fn number_parser_localizes_symbols_and_detects_supported_digits() {
             .parse("\u{0661}\u{066c}\u{0662}\u{0663}\u{0664}\u{066b}\u{0665}")
             .unwrap(),
         1234.5
+    );
+}
+
+#[test]
+fn number_parser_accepts_localized_percent_input_in_model_space() {
+    let percent = NumberFormatOptions::default().style(NumberFormatStyle::Percent);
+    let english = LocaleNumberParser::try_new("en-US").expect("English parser should load");
+    assert_eq!(english.parse_with_options("45%", percent).unwrap(), 0.45);
+    assert_eq!(english.parse_with_options("45", percent).unwrap(), 0.45);
+    assert!(english.parse("45%").is_err());
+    assert!(english.is_valid_partial_number_with_options("%", None, None, percent));
+    assert!(english.is_valid_partial_number_with_options("45%", None, None, percent));
+    assert!(!english.is_valid_partial_number_with_options("45%%", None, None, percent));
+
+    let turkish = LocaleNumberParser::try_new("tr-TR").expect("Turkish parser should load");
+    assert_eq!(turkish.parse_with_options("%45", percent).unwrap(), 0.45);
+
+    let arabic = LocaleNumberParser::try_new("ar-EG").expect("Arabic parser should load");
+    assert_eq!(
+        arabic
+            .parse_with_options("\u{0664}\u{0665}\u{066a}", percent)
+            .unwrap(),
+        0.45
+    );
+    assert_eq!(
+        arabic.numbering_system_with_options("\u{0664}\u{0665}\u{066a}", percent),
+        "arab"
     );
 }
 

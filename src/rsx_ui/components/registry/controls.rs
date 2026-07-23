@@ -68,7 +68,12 @@ pub(super) fn with_input_components<S>(component: RsxComponent<S>) -> GuiResult<
             .default_prop("placeholder", "")?
             .default_prop("minValue", 0.0)?
             .default_prop("maxValue", 100.0)?
-            .default_prop("stepValue", 1.0)?
+            .default_prop("stepValue", 0.0)?
+            .default_prop("formatStyle", "decimal")?
+            .default_prop("grouping", "auto")?
+            .default_prop_value("minimumFractionDigits", JsonValue::Null)?
+            .default_prop_value("maximumFractionDigits", JsonValue::Null)?
+            .default_prop("signDisplay", "auto")?
             .default_prop("onChange", "")?,
         None,
     )?;

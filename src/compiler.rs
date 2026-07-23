@@ -12,6 +12,7 @@ pub use component_variants::ComponentClassVariants;
 use components::component_from_rsx_tag;
 
 use crate::error::{GuiError, GuiResult};
+use crate::i18n::{NumberFormatOptions, NumberFormatStyle, NumberGrouping, NumberSignDisplay};
 use crate::native::NativeElement;
 use crate::selection::Selection;
 use crate::semantic_ui::{
@@ -2302,6 +2303,8 @@ fn props_scope_value(props: &CompiledProps) -> JsonValue {
                 "minValue",
                 "maxValue",
                 "stepValue",
+                "formatOptions",
+                "formatStyle",
                 "valuePercent",
                 "isDisabled",
                 "isRequired",
@@ -4152,12 +4155,12 @@ fn number_field_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
                     })
                     .unwrap_or(100.0),
             )
-            .step_value(
+            .optional_step_value(
                 props
                     .step_value
-                    .or_else(|| number_attribute_value(props, &["stepValue", "step"]))
-                    .unwrap_or(1.0),
+                    .or_else(|| number_attribute_value(props, &["stepValue", "step"])),
             )
+            .format_options(number_format_options_attribute_value(props))
             .on_change(
                 non_empty_prop_action(props.events.get("onChange"))
                     .or_else(|| non_empty_prop_action(props.events.get("onInput"))),
@@ -4167,6 +4170,51 @@ fn number_field_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             .invalid(props.is_invalid)
             .read_only(props.is_read_only),
     )
+}
+
+fn number_format_options_attribute_value(props: &CompiledProps) -> NumberFormatOptions {
+    let mut options: NumberFormatOptions = props
+        .attributes
+        .get("formatOptions")
+        .and_then(|value| serde_json::from_str(value).ok())
+        .unwrap_or_default();
+
+    if let Some(style) = non_empty_attribute(props, &["formatStyle", "data-number-style"])
+        .and_then(|value| value.parse::<NumberFormatStyle>().ok())
+    {
+        options.style = style;
+    }
+    if let Some(grouping) =
+        non_empty_attribute(props, &["grouping", "useGrouping", "data-number-grouping"])
+            .and_then(|value| value.parse::<NumberGrouping>().ok())
+    {
+        options.grouping = grouping;
+    }
+    if let Some(minimum) = u8_attribute_value(
+        props,
+        &[
+            "minimumFractionDigits",
+            "data-number-minimum-fraction-digits",
+        ],
+    ) {
+        options.minimum_fraction_digits = Some(minimum);
+    }
+    if let Some(maximum) = u8_attribute_value(
+        props,
+        &[
+            "maximumFractionDigits",
+            "data-number-maximum-fraction-digits",
+        ],
+    ) {
+        options.maximum_fraction_digits = Some(maximum);
+    }
+    if let Some(sign_display) =
+        non_empty_attribute(props, &["signDisplay", "data-number-sign-display"])
+            .and_then(|value| value.parse::<NumberSignDisplay>().ok())
+    {
+        options.sign_display = sign_display;
+    }
+    options
 }
 
 fn slider_track_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
@@ -4480,6 +4528,10 @@ fn usize_attribute_value(props: &CompiledProps, names: &[&str]) -> Option<usize>
             })
         })
     })
+}
+
+fn u8_attribute_value(props: &CompiledProps, names: &[&str]) -> Option<u8> {
+    usize_attribute_value(props, names).and_then(|value| u8::try_from(value).ok())
 }
 
 fn u32_attribute_value(props: &CompiledProps, names: &[&str]) -> Option<u32> {

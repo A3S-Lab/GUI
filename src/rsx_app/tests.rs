@@ -6074,6 +6074,8 @@ fn component_cx_number_field_hook_returns_props_for_view_consumption() {
         assert_eq!(props.label.binding_path(), "props.label");
         assert_eq!(props.placeholder.binding_path(), "props.placeholder");
         assert_eq!(props.value_number.binding_path(), "props.valueNumber");
+        assert_eq!(props.format_options.binding_path(), "props.formatOptions");
+        assert_eq!(props.format_style.binding_path(), "props.formatStyle");
         assert_eq!(props.value_percent.binding_path(), "props.valuePercent");
 
         crate::rsx!(

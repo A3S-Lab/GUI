@@ -7,7 +7,10 @@ use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, ActionRegistry, EventRouter, NativeEvent};
 use crate::focus::{FocusManager, FocusNavigationMode};
 use crate::host::{HostNodeId, NativeHost, ProgrammaticFocusHost};
-use crate::i18n::{cached_number_parser, I18nManager, DEFAULT_FORMATTING_LOCALE};
+use crate::i18n::{
+    cached_number_parser, I18nManager, NumberFormatOptions, NumberFormatStyle,
+    DEFAULT_FORMATTING_LOCALE,
+};
 use crate::input::NativeInputModality;
 use crate::interaction::{InteractionChange, InteractionState};
 use crate::native::{
@@ -1718,9 +1721,24 @@ fn parse_localized_event_number(blueprint: &NativeWidgetBlueprint, value: &str) 
         .lang
         .as_deref()
         .unwrap_or(DEFAULT_FORMATTING_LOCALE);
+    let options = NumberFormatOptions::from_metadata(&blueprint.metadata);
     match cached_number_parser(locale) {
-        Ok(parser) => parser.parse(value).ok(),
-        Err(_) => parse_event_number(value),
+        Ok(parser) => parser.parse_with_options(value, options).ok(),
+        Err(_) => parse_number_style_fallback(value, options.style),
+    }
+}
+
+fn parse_number_style_fallback(value: &str, style: NumberFormatStyle) -> Option<f64> {
+    match style {
+        NumberFormatStyle::Decimal => parse_event_number(value),
+        NumberFormatStyle::Percent => {
+            let value = value
+                .trim()
+                .trim_start_matches(['%', '\u{066a}', '\u{fe6a}', '\u{ff05}'])
+                .trim_end_matches(['%', '\u{066a}', '\u{fe6a}', '\u{ff05}'])
+                .trim();
+            parse_event_number(value).map(|value| value / 100.0)
+        }
     }
 }
 

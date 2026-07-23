@@ -9,7 +9,9 @@ use crate::html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
 };
-use crate::i18n::{cached_number_parser, DEFAULT_FORMATTING_LOCALE};
+use crate::i18n::{
+    cached_number_formatter, cached_number_parser, NumberFormatOptions, DEFAULT_FORMATTING_LOCALE,
+};
 use crate::web::WebProps;
 use serde::{Deserialize, Serialize};
 
@@ -876,7 +878,17 @@ pub(crate) fn normalize_props_for_native_role(
         current.and_then(|value| normalize_range_value(value, min, max, normalized.step))
     {
         normalized.current = Some(current);
-        normalized.value = Some(format_normalized_number(current));
+        let formatted = if role == NativeRole::TextField {
+            format_number_text_value(&normalized, current)
+        } else {
+            format_normalized_number(current)
+        };
+        if role == NativeRole::TextField
+            && normalized.accessibility_description.value_text.is_none()
+        {
+            normalized.accessibility_description.value_text = Some(formatted.clone());
+        }
+        normalized.value = Some(formatted);
     }
 
     normalized
@@ -1002,10 +1014,19 @@ fn parse_ranged_number(role: NativeRole, props: &NativeProps, value: &str) -> Op
         return parse_finite_number(value);
     }
     let locale = props.lang.as_deref().unwrap_or(DEFAULT_FORMATTING_LOCALE);
+    let options = NumberFormatOptions::from_metadata(&props.metadata);
     match cached_number_parser(locale) {
-        Ok(parser) => parser.parse(value).ok(),
+        Ok(parser) => parser.parse_with_options(value, options).ok(),
         Err(_) => parse_finite_number(value),
     }
+}
+
+fn format_number_text_value(props: &NativeProps, value: f64) -> String {
+    let locale = props.lang.as_deref().unwrap_or(DEFAULT_FORMATTING_LOCALE);
+    let options = NumberFormatOptions::from_metadata(&props.metadata);
+    cached_number_formatter(locale, options)
+        .and_then(|formatter| formatter.format_f64(value))
+        .unwrap_or_else(|_| format_normalized_number(value))
 }
 
 #[derive(Debug, Clone, PartialEq)]

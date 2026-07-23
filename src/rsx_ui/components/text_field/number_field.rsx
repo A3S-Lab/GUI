@@ -1,5 +1,6 @@
 use crate::rsx_app::{ComponentCx, RSX};
 use crate::semantic_ui::UseNumberFieldProps;
+use crate::{NumberFormatOptions, NumberFormatStyle, NumberGrouping, NumberSignDisplay};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct UiNumberFieldProps {
@@ -10,6 +11,11 @@ pub struct UiNumberFieldProps {
     pub min_value: f64,
     pub max_value: f64,
     pub step_value: f64,
+    pub format_style: String,
+    pub grouping: String,
+    pub minimum_fraction_digits: Option<u8>,
+    pub maximum_fraction_digits: Option<u8>,
+    pub sign_display: String,
     pub on_change: String,
     pub is_disabled: bool,
     pub is_required: bool,
@@ -26,6 +32,7 @@ pub fn ui_number_field(cx: &mut ComponentCx<UiNumberFieldProps>) -> RSX {
             .min_value(props.min_value)
             .max_value(props.max_value)
             .step_value(props.step_value)
+            .format_options(number_format_options(props))
             .on_change(Some(props.on_change.clone()))
             .disabled(props.is_disabled)
             .required(props.is_required)
@@ -60,4 +67,20 @@ pub fn ui_number_field(cx: &mut ComponentCx<UiNumberFieldProps>) -> RSX {
             <Slot key="content" />
         </TextField>
     )
+}
+
+fn number_format_options(props: &UiNumberFieldProps) -> NumberFormatOptions {
+    NumberFormatOptions {
+        style: props
+            .format_style
+            .parse::<NumberFormatStyle>()
+            .unwrap_or_default(),
+        grouping: props.grouping.parse::<NumberGrouping>().unwrap_or_default(),
+        minimum_fraction_digits: props.minimum_fraction_digits,
+        maximum_fraction_digits: props.maximum_fraction_digits,
+        sign_display: props
+            .sign_display
+            .parse::<NumberSignDisplay>()
+            .unwrap_or_default(),
+    }
 }

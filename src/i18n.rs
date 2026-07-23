@@ -20,7 +20,11 @@ pub use collator::{
 pub use datetime::{
     DateFormatKind, DateFormatOptions, DateFormatStyle, DateTimeValue, LocaleDateFormatter,
 };
-pub use number::{LocaleNumberFormatter, NumberFormatOptions, NumberGrouping, NumberSignDisplay};
+pub(crate) use number::cached_number_formatter;
+pub use number::{
+    LocaleNumberFormatter, NumberFormatOptions, NumberFormatStyle, NumberGrouping,
+    NumberSignDisplay,
+};
 pub(crate) use number_parser::cached_number_parser;
 pub use number_parser::LocaleNumberParser;
 

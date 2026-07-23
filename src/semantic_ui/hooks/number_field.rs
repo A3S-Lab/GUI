@@ -2,6 +2,7 @@ use serde::Serialize;
 use serde_json::Value as JsonValue;
 
 use crate::error::{GuiError, GuiResult};
+use crate::i18n::{NumberFormatOptions, NumberFormatStyle, NumberGrouping, NumberSignDisplay};
 
 use super::serde_helpers::is_false;
 
@@ -12,7 +13,8 @@ pub struct UseNumberFieldProps {
     placeholder: Option<String>,
     min_value: f64,
     max_value: f64,
-    step_value: f64,
+    step_value: Option<f64>,
+    format_options: NumberFormatOptions,
     on_change: Option<String>,
     is_disabled: bool,
     is_required: bool,
@@ -28,7 +30,8 @@ impl Default for UseNumberFieldProps {
             placeholder: None,
             min_value: 0.0,
             max_value: 100.0,
-            step_value: 1.0,
+            step_value: None,
+            format_options: NumberFormatOptions::default(),
             on_change: None,
             is_disabled: false,
             is_required: false,
@@ -71,7 +74,17 @@ impl UseNumberFieldProps {
     }
 
     pub fn step_value(mut self, step_value: f64) -> Self {
+        self.step_value = Some(step_value);
+        self
+    }
+
+    pub fn optional_step_value(mut self, step_value: Option<f64>) -> Self {
         self.step_value = step_value;
+        self
+    }
+
+    pub fn format_options(mut self, format_options: NumberFormatOptions) -> Self {
+        self.format_options = format_options;
         self
     }
 
@@ -112,6 +125,8 @@ pub struct UseNumberFieldResult {
     pub min_value: f64,
     pub max_value: f64,
     pub step_value: f64,
+    pub format_options: NumberFormatOptions,
+    pub format_style: NumberFormatStyle,
     pub value_percent: f64,
     pub is_disabled: bool,
     pub is_required: bool,
@@ -130,6 +145,16 @@ pub struct NumberFieldProps {
     pub min_value: f64,
     pub max_value: f64,
     pub step_value: f64,
+    #[serde(rename = "data-number-style")]
+    pub data_number_style: NumberFormatStyle,
+    #[serde(rename = "data-number-grouping")]
+    pub data_number_grouping: NumberGrouping,
+    #[serde(rename = "data-number-minimum-fraction-digits")]
+    pub data_number_minimum_fraction_digits: u8,
+    #[serde(rename = "data-number-maximum-fraction-digits")]
+    pub data_number_maximum_fraction_digits: u8,
+    #[serde(rename = "data-number-sign-display")]
+    pub data_number_sign_display: NumberSignDisplay,
     #[serde(rename = "aria-valuenow")]
     pub aria_value_now: f64,
     #[serde(rename = "aria-valuemin")]
@@ -173,6 +198,16 @@ pub struct NumberFieldInputProps {
     pub min_value: f64,
     pub max_value: f64,
     pub step_value: f64,
+    #[serde(rename = "data-number-style")]
+    pub data_number_style: NumberFormatStyle,
+    #[serde(rename = "data-number-grouping")]
+    pub data_number_grouping: NumberGrouping,
+    #[serde(rename = "data-number-minimum-fraction-digits")]
+    pub data_number_minimum_fraction_digits: u8,
+    #[serde(rename = "data-number-maximum-fraction-digits")]
+    pub data_number_maximum_fraction_digits: u8,
+    #[serde(rename = "data-number-sign-display")]
+    pub data_number_sign_display: NumberSignDisplay,
     #[serde(rename = "aria-valuenow")]
     pub aria_value_now: f64,
     #[serde(rename = "aria-valuemin")]
@@ -208,7 +243,14 @@ pub struct NumberFieldInputProps {
 pub fn use_number_field(props: UseNumberFieldProps) -> UseNumberFieldResult {
     let min_value = finite_or(props.min_value, 0.0);
     let max_value = finite_or(props.max_value, 100.0).max(min_value);
-    let step_value = positive_or(finite_or(props.step_value, 1.0), 1.0);
+    let default_step = match props.format_options.style {
+        NumberFormatStyle::Decimal => 1.0,
+        NumberFormatStyle::Percent => 0.01,
+    };
+    let step_value = props
+        .step_value
+        .map(|value| positive_or(finite_or(value, default_step), default_step))
+        .unwrap_or(default_step);
     let value_number = finite_or(props.value_number, min_value).clamp(min_value, max_value);
     let value_percent = if max_value > min_value {
         ((value_number - min_value) / (max_value - min_value) * 100.0).clamp(0.0, 100.0)
@@ -222,6 +264,15 @@ pub fn use_number_field(props: UseNumberFieldProps) -> UseNumberFieldResult {
         min_value,
         max_value,
         step_value,
+        data_number_style: props.format_options.style,
+        data_number_grouping: props.format_options.grouping,
+        data_number_minimum_fraction_digits: props
+            .format_options
+            .resolved_minimum_fraction_digits(),
+        data_number_maximum_fraction_digits: props
+            .format_options
+            .resolved_maximum_fraction_digits(),
+        data_number_sign_display: props.format_options.sign_display,
         aria_value_now: value_number,
         aria_value_min: min_value,
         aria_value_max: max_value,
@@ -246,6 +297,15 @@ pub fn use_number_field(props: UseNumberFieldProps) -> UseNumberFieldResult {
         min_value,
         max_value,
         step_value,
+        data_number_style: props.format_options.style,
+        data_number_grouping: props.format_options.grouping,
+        data_number_minimum_fraction_digits: props
+            .format_options
+            .resolved_minimum_fraction_digits(),
+        data_number_maximum_fraction_digits: props
+            .format_options
+            .resolved_maximum_fraction_digits(),
+        data_number_sign_display: props.format_options.sign_display,
         aria_value_now: value_number,
         aria_value_min: min_value,
         aria_value_max: max_value,
@@ -270,6 +330,8 @@ pub fn use_number_field(props: UseNumberFieldProps) -> UseNumberFieldResult {
         min_value,
         max_value,
         step_value,
+        format_options: props.format_options,
+        format_style: props.format_options.style,
         value_percent,
         is_disabled: props.is_disabled,
         is_required: props.is_required,

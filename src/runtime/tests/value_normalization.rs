@@ -227,7 +227,7 @@ fn runtime_normalizes_inherited_locale_number_input_values() {
     let blueprint = &runtime.host().node(field_id).unwrap().blueprint;
     assert_eq!(blueprint.control_state.lang.as_deref(), Some("fr-FR"));
     assert_eq!(blueprint.control_state.current, Some(1.5));
-    assert_eq!(blueprint.value.as_deref(), Some("1.5"));
+    assert_eq!(blueprint.value.as_deref(), Some("1,5"));
 
     let handled = runtime
         .handle_native_event_with_changes(
@@ -249,6 +249,56 @@ fn runtime_normalizes_inherited_locale_number_input_values() {
             .value
             .as_deref(),
         Some("12")
+    );
+}
+
+#[test]
+fn runtime_parses_percent_number_input_changes_in_model_space() {
+    let element = NativeElement::new("tax", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Tax")
+            .lang("tr-TR")
+            .input_type("number")
+            .range(Some(0.0), Some(1.0), Some(0.25))
+            .step(Some(0.01))
+            .metadata("data-number-style", "percent")
+            .web(WebProps::new().on_change("setTax")),
+    );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setTax");
+
+    let field_id = runtime.render_native(&element).unwrap();
+    let blueprint = &runtime.host().node(field_id).unwrap().blueprint;
+    assert_eq!(blueprint.control_state.current, Some(0.25));
+    assert_eq!(blueprint.value.as_deref(), Some("%25"));
+    assert_eq!(
+        blueprint
+            .control_state
+            .accessibility_description
+            .value_text
+            .as_deref(),
+        Some("%25")
+    );
+
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::Change)
+                .value("%45"),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some("0.45"));
+    assert_eq!(
+        handled
+            .invocation
+            .as_ref()
+            .and_then(|invocation| invocation.value.as_deref()),
+        Some("0.45")
+    );
+    assert_eq!(
+        runtime.actions().invocations()[0].value.as_deref(),
+        Some("0.45")
     );
 }
 
