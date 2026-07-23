@@ -72,6 +72,36 @@ impl Gtk4NativeSurface {
                     }
                 }
             }
+            NativeWidgetSetter::SetAccessibilityDescription(value) => {
+                if let Some(widget) = handle.widget.as_widget() {
+                    if let Some(description) = value.description.as_deref() {
+                        widget.update_property(&[gtk::accessible::Property::Description(
+                            description,
+                        )]);
+                    } else {
+                        widget.reset_property(gtk::AccessibleProperty::Description);
+                    }
+                    if let Some(role_description) = value.role_description.as_deref() {
+                        widget.update_property(&[gtk::accessible::Property::RoleDescription(
+                            role_description,
+                        )]);
+                    } else {
+                        widget.reset_property(gtk::AccessibleProperty::RoleDescription);
+                    }
+                    if let Some(key_shortcuts) = value.key_shortcuts.as_deref() {
+                        widget.update_property(&[gtk::accessible::Property::KeyShortcuts(
+                            key_shortcuts,
+                        )]);
+                    } else {
+                        widget.reset_property(gtk::AccessibleProperty::KeyShortcuts);
+                    }
+                    if let Some(value_text) = value.value_text.as_deref() {
+                        widget.update_property(&[gtk::accessible::Property::ValueText(value_text)]);
+                    } else {
+                        widget.reset_property(gtk::AccessibleProperty::ValueText);
+                    }
+                }
+            }
             NativeWidgetSetter::SetWindowResizable(value) => {
                 if let Gtk4OsWidget::ApplicationWindow(window) = &handle.widget {
                     window.set_resizable(value.unwrap_or(true));
@@ -632,7 +662,6 @@ impl Gtk4NativeSurface {
             | NativeWidgetSetter::SetHtmlFormAssociation(_)
             | NativeWidgetSetter::SetHtmlCollection(_)
             | NativeWidgetSetter::SetAccessibilityRelationships(_)
-            | NativeWidgetSetter::SetAccessibilityDescription(_)
             | NativeWidgetSetter::SetAccessibilityStructure(_)
             | NativeWidgetSetter::SetAccessibilityState(_)
             | NativeWidgetSetter::SetWebStyle(_)

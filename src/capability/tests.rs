@@ -1,4 +1,5 @@
 use super::*;
+use crate::accessibility::AccessibilityDescriptionProps;
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::web::WebProps;
 
@@ -334,6 +335,86 @@ fn explicit_accessibility_names_report_native_projection_and_role_exceptions() {
             issue.feature == NativeCapabilityFeature::AccessibilityName
                 && issue.support == CapabilitySupport::Portable
         }));
+    }
+}
+
+#[test]
+fn accessibility_description_fields_report_precise_native_projection() {
+    let described_button = NativeElement::new("save", NativeRole::Button).with_props(
+        NativeProps::new().accessibility_description(
+            AccessibilityDescriptionProps::default()
+                .description("Saves the current document")
+                .role_description("primary action")
+                .key_shortcuts("Control+S")
+                .value_text("Ready"),
+        ),
+    );
+
+    let gtk4 = NativeCapabilities::for_backend(NativeBackendKind::Gtk4);
+    assert!(gtk4.audit_tree(&described_button).is_empty());
+    for feature in [
+        NativeCapabilityFeature::AccessibilityDescription,
+        NativeCapabilityFeature::AccessibilityRoleDescription,
+        NativeCapabilityFeature::AccessibilityKeyShortcuts,
+        NativeCapabilityFeature::AccessibilityValueText,
+    ] {
+        assert_eq!(
+            gtk4.support(feature, Some(NativeRole::Button)),
+            CapabilitySupport::Native
+        );
+    }
+
+    let appkit_issues =
+        NativeCapabilities::for_backend(NativeBackendKind::AppKit).audit_tree(&described_button);
+    assert_eq!(appkit_issues.len(), 1);
+    assert_eq!(
+        appkit_issues[0].feature,
+        NativeCapabilityFeature::AccessibilityKeyShortcuts
+    );
+    assert_eq!(appkit_issues[0].support, CapabilitySupport::Portable);
+
+    let winui_issues =
+        NativeCapabilities::for_backend(NativeBackendKind::WinUI).audit_tree(&described_button);
+    assert_eq!(winui_issues.len(), 2);
+    assert!(winui_issues.iter().any(|issue| {
+        issue.feature == NativeCapabilityFeature::AccessibilityRoleDescription
+            && issue.support == CapabilitySupport::Portable
+    }));
+    assert!(winui_issues.iter().any(|issue| {
+        issue.feature == NativeCapabilityFeature::AccessibilityValueText
+            && issue.support == CapabilitySupport::Portable
+    }));
+
+    let headless_issues = NativeCapabilities::default().audit_tree(&described_button);
+    assert_eq!(headless_issues.len(), 4);
+    assert!(headless_issues
+        .iter()
+        .all(|issue| issue.support == CapabilitySupport::Portable));
+}
+
+#[test]
+fn accessibility_description_projection_reports_non_accessible_native_wrappers() {
+    let description = AccessibilityDescriptionProps::default()
+        .description("Description")
+        .role_description("role")
+        .key_shortcuts("Control+K")
+        .value_text("value");
+
+    for (backend, role) in [
+        (NativeBackendKind::AppKit, NativeRole::ListBoxItem),
+        (NativeBackendKind::AppKit, NativeRole::TreeItem),
+        (NativeBackendKind::AppKit, NativeRole::Tab),
+        (NativeBackendKind::Gtk4, NativeRole::MenuItem),
+        (NativeBackendKind::WinUI, NativeRole::Window),
+    ] {
+        let described = NativeElement::new("described", role)
+            .with_props(NativeProps::new().accessibility_description(description.clone()));
+        let issues = NativeCapabilities::for_backend(backend).audit_tree(&described);
+
+        assert_eq!(issues.len(), 4);
+        assert!(issues
+            .iter()
+            .all(|issue| issue.support == CapabilitySupport::Portable));
     }
 }
 

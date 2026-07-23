@@ -72,6 +72,9 @@ impl AppKitNativeSurface {
             NativeWidgetSetter::SetAccessibilityLabel(value) => {
                 set_appkit_accessibility_label(&handle.widget, value.as_deref());
             }
+            NativeWidgetSetter::SetAccessibilityDescription(value) => {
+                set_appkit_accessibility_description(&handle.widget, value);
+            }
             NativeWidgetSetter::SetWindowResizable(value) => {
                 if let AppKitOsWidget::Window(window) = &handle.widget {
                     let mut style = window.styleMask();
@@ -606,7 +609,6 @@ impl AppKitNativeSurface {
             | NativeWidgetSetter::SetHtmlFormAssociation(_)
             | NativeWidgetSetter::SetHtmlCollection(_)
             | NativeWidgetSetter::SetAccessibilityRelationships(_)
-            | NativeWidgetSetter::SetAccessibilityDescription(_)
             | NativeWidgetSetter::SetAccessibilityStructure(_)
             | NativeWidgetSetter::SetAccessibilityState(_)
             | NativeWidgetSetter::SetWebStyle(_)
@@ -630,6 +632,38 @@ fn set_appkit_accessibility_label(widget: &AppKitOsWidget, value: Option<&str>) 
         _ => {
             if let Some(view) = widget.as_view() {
                 view.setAccessibilityLabel(label);
+            }
+        }
+    }
+}
+
+fn set_appkit_accessibility_description(
+    widget: &AppKitOsWidget,
+    value: &crate::accessibility::AccessibilityDescriptionProps,
+) {
+    let description = value.description.as_deref().map(ns_string);
+    let role_description = value.role_description.as_deref().map(ns_string);
+    let value_text = value.value_text.as_deref().map(ns_string);
+
+    macro_rules! apply {
+        ($target:expr) => {{
+            let target = $target;
+            target.setAccessibilityHelp(description.as_deref());
+            target.setAccessibilityRoleDescription(role_description.as_deref());
+            target.setAccessibilityValueDescription(value_text.as_deref());
+        }};
+    }
+
+    match widget {
+        AppKitOsWidget::Window(window) => apply!(window),
+        AppKitOsWidget::Panel(panel) => apply!(panel),
+        AppKitOsWidget::Popover(state) => apply!(&state.popover),
+        AppKitOsWidget::Menu(menu) => apply!(menu),
+        AppKitOsWidget::MenuItem(item) => apply!(item),
+        AppKitOsWidget::ComboBoxItem(_) | AppKitOsWidget::TabViewItem(_) => {}
+        _ => {
+            if let Some(view) = widget.as_view() {
+                apply!(view);
             }
         }
     }

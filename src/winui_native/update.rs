@@ -35,6 +35,18 @@ impl WinUiNativeSurface {
                     )?;
                 }
             }
+            NativeWidgetSetter::SetAccessibilityDescription(value) => {
+                if let Some(element) = handle.widget.ui_element() {
+                    map_winui(
+                        "failed to set WinUI accessibility description",
+                        automation::set_help_text(&element, value.description.as_deref()),
+                    )?;
+                    map_winui(
+                        "failed to set WinUI accessibility key shortcuts",
+                        automation::set_accelerator_key(&element, value.key_shortcuts.as_deref()),
+                    )?;
+                }
+            }
             NativeWidgetSetter::SetValue(value) => {
                 set_value(self, id, &handle.widget, value.as_deref())?;
                 if let Some(item) = self.combo_items.get(&id).cloned() {
@@ -333,7 +345,6 @@ impl WinUiNativeSurface {
             | NativeWidgetSetter::SetHtmlFormAssociation(_)
             | NativeWidgetSetter::SetHtmlCollection(_)
             | NativeWidgetSetter::SetAccessibilityRelationships(_)
-            | NativeWidgetSetter::SetAccessibilityDescription(_)
             | NativeWidgetSetter::SetAccessibilityStructure(_)
             | NativeWidgetSetter::SetAccessibilityState(_)
             | NativeWidgetSetter::SetWebStyle(_)

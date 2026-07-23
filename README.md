@@ -33,7 +33,8 @@ object graph at the host boundary.
   34-locale NumberField accessibility messages, focused value announcements
   and WAI-ARIA live-region updates through native assistive-technology APIs,
   independent visible and accessible labels with native `aria-label`
-  projection,
+  projection, native descriptive accessibility metadata with field-level
+  capability reporting,
   decimal/percent/date/time formatting, versioned
   capability reporting, shared native event-source state machines, and
   accessibility conformance checks. Versioned

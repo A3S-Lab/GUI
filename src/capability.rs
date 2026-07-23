@@ -27,6 +27,10 @@ pub enum NativeCapabilityFeature {
     AnchoredOverlayPosition,
     AccessibilityRole,
     AccessibilityName,
+    AccessibilityDescription,
+    AccessibilityRoleDescription,
+    AccessibilityKeyShortcuts,
+    AccessibilityValueText,
     AccessibilityRelationships,
     AccessibilityState,
     AccessibilityAnnouncements,
@@ -258,6 +262,87 @@ impl NativeCapabilities {
                 }),
             ),
             NativeFeatureCapability::new(
+                Feature::AccessibilityDescription,
+                if headless { Portable } else { Native },
+                Some(match backend {
+                    NativeBackendKind::AppKit => {
+                        "descriptions use the native NSAccessibility help property"
+                    }
+                    NativeBackendKind::Gtk4 => {
+                        "descriptions use the native GtkAccessible description property"
+                    }
+                    NativeBackendKind::WinUI => {
+                        "descriptions use the native UI Automation help-text property"
+                    }
+                    NativeBackendKind::Headless => {
+                        "headless mode retains descriptions without an OS accessibility object"
+                    }
+                }),
+            ),
+            NativeFeatureCapability::new(
+                Feature::AccessibilityRoleDescription,
+                match backend {
+                    NativeBackendKind::AppKit | NativeBackendKind::Gtk4 => Native,
+                    NativeBackendKind::WinUI | NativeBackendKind::Headless => Portable,
+                },
+                Some(match backend {
+                    NativeBackendKind::AppKit => {
+                        "role descriptions use the native NSAccessibility role-description property"
+                    }
+                    NativeBackendKind::Gtk4 => {
+                        "role descriptions use the native GtkAccessible role-description property"
+                    }
+                    NativeBackendKind::WinUI => {
+                        "role descriptions remain in portable accessibility output because the current WinUI binding has no exact attached-property setter"
+                    }
+                    NativeBackendKind::Headless => {
+                        "headless mode retains role descriptions without an OS accessibility object"
+                    }
+                }),
+            ),
+            NativeFeatureCapability::new(
+                Feature::AccessibilityKeyShortcuts,
+                match backend {
+                    NativeBackendKind::Gtk4 | NativeBackendKind::WinUI => Native,
+                    NativeBackendKind::AppKit | NativeBackendKind::Headless => Portable,
+                },
+                Some(match backend {
+                    NativeBackendKind::AppKit => {
+                        "key shortcuts remain in portable accessibility output because NSAccessibility has no equivalent setter"
+                    }
+                    NativeBackendKind::Gtk4 => {
+                        "key shortcuts use the native GtkAccessible key-shortcuts property"
+                    }
+                    NativeBackendKind::WinUI => {
+                        "key shortcuts use the native UI Automation accelerator-key property"
+                    }
+                    NativeBackendKind::Headless => {
+                        "headless mode retains key shortcuts without an OS accessibility object"
+                    }
+                }),
+            ),
+            NativeFeatureCapability::new(
+                Feature::AccessibilityValueText,
+                match backend {
+                    NativeBackendKind::AppKit | NativeBackendKind::Gtk4 => Native,
+                    NativeBackendKind::WinUI | NativeBackendKind::Headless => Portable,
+                },
+                Some(match backend {
+                    NativeBackendKind::AppKit => {
+                        "value text uses the native NSAccessibility value-description property"
+                    }
+                    NativeBackendKind::Gtk4 => {
+                        "value text uses the native GtkAccessible value-text property"
+                    }
+                    NativeBackendKind::WinUI => {
+                        "value text remains in portable accessibility output because WinUI has no generic attached-property override for a control pattern value"
+                    }
+                    NativeBackendKind::Headless => {
+                        "headless mode retains value text without an OS accessibility object"
+                    }
+                }),
+            ),
+            NativeFeatureCapability::new(
                 Feature::AccessibilityRelationships,
                 Portable,
                 Some("relationships are present in the IR and headless tree but native setters are incomplete"),
@@ -399,6 +484,22 @@ impl NativeCapabilities {
                                 "AppKit logical combo-box/list and tab items retain the computed name in portable accessibility output but do not expose an independent native accessibility-label setter",
                             ),
                         );
+                        for feature in [
+                            Feature::AccessibilityDescription,
+                            Feature::AccessibilityRoleDescription,
+                            Feature::AccessibilityKeyShortcuts,
+                            Feature::AccessibilityValueText,
+                        ] {
+                            set_role_capability(
+                                &mut role_overrides,
+                                role,
+                                feature,
+                                Portable,
+                                Some(
+                                    "AppKit logical combo-box/list and tab items retain descriptive accessibility metadata in portable output but do not expose an independent native accessibility-property setter",
+                                ),
+                            );
+                        }
                     }
                 }
                 NativeBackendKind::Gtk4 => {
@@ -411,6 +512,22 @@ impl NativeCapabilities {
                             "GTK4 gio::MenuItem retains the computed name in portable accessibility output but has no independent GtkAccessible label property",
                         ),
                     );
+                    for feature in [
+                        Feature::AccessibilityDescription,
+                        Feature::AccessibilityRoleDescription,
+                        Feature::AccessibilityKeyShortcuts,
+                        Feature::AccessibilityValueText,
+                    ] {
+                        set_role_capability(
+                            &mut role_overrides,
+                            NativeRole::MenuItem,
+                            feature,
+                            Portable,
+                            Some(
+                                "GTK4 gio::MenuItem retains descriptive accessibility metadata in portable output but has no independent GtkAccessible property",
+                            ),
+                        );
+                    }
                 }
                 NativeBackendKind::WinUI => {
                     set_role_capability(
@@ -422,6 +539,22 @@ impl NativeCapabilities {
                             "the WinUI Window wrapper retains the computed name in portable accessibility output but is not a UIElement AutomationProperties target",
                         ),
                     );
+                    for feature in [
+                        Feature::AccessibilityDescription,
+                        Feature::AccessibilityRoleDescription,
+                        Feature::AccessibilityKeyShortcuts,
+                        Feature::AccessibilityValueText,
+                    ] {
+                        set_role_capability(
+                            &mut role_overrides,
+                            NativeRole::Window,
+                            feature,
+                            Portable,
+                            Some(
+                                "the WinUI Window wrapper retains descriptive accessibility metadata in portable output but is not a UIElement AutomationProperties target",
+                            ),
+                        );
+                    }
                 }
                 NativeBackendKind::Headless => {}
             }
@@ -657,6 +790,18 @@ fn requested_features(role: NativeRole, props: &NativeProps) -> Vec<NativeCapabi
     }
     if props.accessibility_label.is_some() && props.accessibility_label != props.label {
         features.push(Feature::AccessibilityName);
+    }
+    if props.accessibility_description.description.is_some() {
+        features.push(Feature::AccessibilityDescription);
+    }
+    if props.accessibility_description.role_description.is_some() {
+        features.push(Feature::AccessibilityRoleDescription);
+    }
+    if props.accessibility_description.key_shortcuts.is_some() {
+        features.push(Feature::AccessibilityKeyShortcuts);
+    }
+    if props.accessibility_description.value_text.is_some() {
+        features.push(Feature::AccessibilityValueText);
     }
     if props.accessibility_relationships != Default::default() {
         features.push(Feature::AccessibilityRelationships);
