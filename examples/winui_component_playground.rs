@@ -6,7 +6,7 @@ mod component_playground;
 
 #[cfg(target_os = "windows")]
 mod winui_component_playground {
-    use a3s_gui::WinUiRuntimeApp;
+    use a3s_gui::{run_winui_application_staged_async, WinUiRuntimeApp};
 
     use crate::component_playground::{
         component_playground_frame, component_playground_reduce,
@@ -20,16 +20,24 @@ mod winui_component_playground {
         )?;
         let render_component = component.clone();
         let reduce_component = component.clone();
-        let mut app = WinUiRuntimeApp::winui(
-            ComponentPlaygroundState::default(),
-            move |state| component_playground_frame(&render_component, state),
-            move |state, invocation| {
-                component_playground_reduce(&reduce_component, state, invocation)
+        run_winui_application_staged_async(
+            move || {
+                let mut app = WinUiRuntimeApp::winui(
+                    ComponentPlaygroundState::default(),
+                    move |state| component_playground_frame(&render_component, state),
+                    move |state, invocation| {
+                        component_playground_reduce(&reduce_component, state, invocation)
+                    },
+                )?;
+                app.render()?;
+                Ok(app)
+            },
+            |mut app| async move {
+                app.run_winui_async().await?;
+                println!("component playground closed with state: {:?}", app.state());
+                Ok(())
             },
         )?;
-        app.render()?;
-        app.run_winui()?;
-        println!("component playground closed with state: {:?}", app.state());
         Ok(())
     }
 }

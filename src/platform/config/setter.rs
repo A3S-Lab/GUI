@@ -119,7 +119,8 @@ pub enum NativeWidgetSetter {
     SetAccessibilityStructure(AccessibilityStructureProps),
     SetAccessibilityState(AccessibilityStateProps),
     SetWebStyle(BTreeMap<String, String>),
-    SetPortableStyle(PortableStyle),
+    // Keep the setter enum compact as the complete portable style schema grows.
+    SetPortableStyle(Box<PortableStyle>),
     SetEvents(BTreeMap<String, String>),
     SetMetadata(BTreeMap<String, String>),
 }
@@ -397,7 +398,7 @@ impl NativeWidgetSetter {
             Self::SetAccessibilityStructure(value) => &config.accessibility_structure != value,
             Self::SetAccessibilityState(value) => &config.accessibility_state != value,
             Self::SetWebStyle(value) => &config.web_style != value,
-            Self::SetPortableStyle(value) => &config.portable_style != value,
+            Self::SetPortableStyle(value) => config.portable_style != **value,
             Self::SetEvents(value) => &config.events != value,
             Self::SetMetadata(value) => &config.metadata != value,
         }
@@ -553,7 +554,7 @@ pub fn apply_widget_setter(config: &mut NativeWidgetConfig, setter: &NativeWidge
             config.accessibility_state = value.clone();
         }
         NativeWidgetSetter::SetWebStyle(value) => config.web_style = value.clone(),
-        NativeWidgetSetter::SetPortableStyle(value) => config.portable_style = value.clone(),
+        NativeWidgetSetter::SetPortableStyle(value) => config.portable_style = (**value).clone(),
         NativeWidgetSetter::SetEvents(value) => config.events = value.clone(),
         NativeWidgetSetter::SetMetadata(value) => config.metadata = value.clone(),
     }
@@ -562,5 +563,19 @@ pub fn apply_widget_setter(config: &mut NativeWidgetConfig, setter: &NativeWidge
 pub fn apply_widget_setters(config: &mut NativeWidgetConfig, setters: &[NativeWidgetSetter]) {
     for setter in setters {
         apply_widget_setter(config, setter);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NativeWidgetSetter;
+
+    #[test]
+    fn native_widget_setter_stays_compact() {
+        let size = std::mem::size_of::<NativeWidgetSetter>();
+        assert!(
+            size <= 1024,
+            "NativeWidgetSetter grew to {size} bytes and can exhaust small UI-thread stacks"
+        );
     }
 }

@@ -1,13 +1,13 @@
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
 use windows::Win32::Foundation::{
     GetLastError, SetLastError, ERROR_SUCCESS, HWND, LPARAM, LRESULT, RECT, WPARAM,
 };
-use windows::Win32::UI::Shell::{
-    DefSubclassProc, GetWindowSubclass, RemoveWindowSubclass, SetWindowSubclass,
-};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongPtrW, GetWindowRect, IsWindow, SetWindowLongPtrW, SetWindowPos, GWL_STYLE,
-    MINMAXINFO, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, WM_CLOSE, WM_GETMINMAXINFO,
-    WM_NCDESTROY, WS_MAXIMIZEBOX, WS_THICKFRAME,
+    CallWindowProcW, DefWindowProcW, GetWindowLongPtrW, GetWindowRect, IsWindow, SetWindowLongPtrW,
+    SetWindowPos, GWLP_WNDPROC, GWL_STYLE, MINMAXINFO, SWP_FRAMECHANGED, SWP_NOMOVE, SWP_NOSIZE,
+    SWP_NOZORDER, WM_CLOSE, WM_GETMINMAXINFO, WM_NCDESTROY, WNDPROC, WS_MAXIMIZEBOX, WS_THICKFRAME,
 };
 use windows_core::Interface;
 use winui3::Microsoft::UI::Xaml as xaml;
@@ -20,8 +20,8 @@ use crate::style::{NativeSizeConstraints, PortableStyle};
 use super::helpers::{map_winui, push_event};
 use super::WinUiEventQueue;
 
-const WINUI_RESIZE_BOUNDS_SUBCLASS_ID: usize = 0xA35;
-const WINUI_CLOSE_EVENT_SUBCLASS_ID: usize = 0xA36;
+static WINUI_WINDOW_SUBCLASSES: OnceLock<Mutex<HashMap<usize, WinUiWindowSubclass>>> =
+    OnceLock::new();
 
 fn winui_window_hwnd(window: &xaml::Window) -> GuiResult<HWND> {
     let native: winui3::IWindowNative = map_winui(
@@ -76,172 +76,107 @@ pub(super) fn install_winui_window_close_event(
     events: WinUiEventQueue,
 ) -> GuiResult<()> {
     let hwnd = winui_window_hwnd(window)?;
-    let (installed, ref_data) = winui_window_close_event_subclass(hwnd);
-    if installed && ref_data != 0 {
-        unsafe {
-            *(ref_data as *mut WinUiWindowCloseEvent) = WinUiWindowCloseEvent::new(node, events);
-        }
-        return Ok(());
-    }
-
-    let event_ptr = Box::into_raw(Box::new(WinUiWindowCloseEvent::new(node, events))) as usize;
-    unsafe {
-        SetLastError(ERROR_SUCCESS);
-        if !SetWindowSubclass(
-            hwnd,
-            Some(winui_window_close_event_proc),
-            WINUI_CLOSE_EVENT_SUBCLASS_ID,
-            event_ptr,
-        )
-        .as_bool()
-        {
-            let error = GetLastError();
-            drop(Box::from_raw(event_ptr as *mut WinUiWindowCloseEvent));
-            return Err(GuiError::host(format!(
-                "failed to install WinUI window close event: Win32 error {}",
-                error.0
-            )));
-        }
-    }
-    Ok(())
-}
-
-fn winui_window_close_event_subclass(hwnd: HWND) -> (bool, usize) {
-    let mut ref_data = 0usize;
-    let installed = unsafe {
-        GetWindowSubclass(
-            hwnd,
-            Some(winui_window_close_event_proc),
-            WINUI_CLOSE_EVENT_SUBCLASS_ID,
-            Some(&mut ref_data),
-        )
-        .as_bool()
-    };
-    (installed, ref_data)
-}
-
-unsafe extern "system" fn winui_window_close_event_proc(
-    hwnd: HWND,
-    message: u32,
-    wparam: WPARAM,
-    lparam: LPARAM,
-    subclass_id: usize,
-    ref_data: usize,
-) -> LRESULT {
-    if message == WM_CLOSE && ref_data != 0 {
-        (*(ref_data as *mut WinUiWindowCloseEvent)).push_close_event();
-    }
-
-    if message == WM_NCDESTROY {
-        let _ = RemoveWindowSubclass(hwnd, Some(winui_window_close_event_proc), subclass_id);
-        if ref_data != 0 {
-            drop(Box::from_raw(ref_data as *mut WinUiWindowCloseEvent));
-        }
-    }
-
-    DefSubclassProc(hwnd, message, wparam, lparam)
+    update_winui_window_subclass(hwnd, |subclass| {
+        subclass.close_event = Some(WinUiWindowCloseEvent::new(node, events));
+    })
 }
 
 fn apply_winui_window_resize_bounds(hwnd: HWND, bounds: WinUiWindowResizeBounds) -> GuiResult<()> {
-    let (installed, ref_data) = winui_window_resize_bounds_subclass(hwnd);
-    if bounds.is_empty() {
-        if installed {
-            remove_winui_window_resize_bounds_subclass(hwnd, ref_data)?;
-        }
+    update_winui_window_subclass(hwnd, |subclass| {
+        subclass.resize_bounds = (!bounds.is_empty()).then_some(bounds);
+    })
+}
+
+fn update_winui_window_subclass(
+    hwnd: HWND,
+    update: impl FnOnce(&mut WinUiWindowSubclass),
+) -> GuiResult<()> {
+    let subclasses = WINUI_WINDOW_SUBCLASSES.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut subclasses = subclasses
+        .lock()
+        .map_err(|_| GuiError::host("WinUI window subclass registry lock was poisoned"))?;
+    let key = winui_window_key(hwnd);
+    if let Some(subclass) = subclasses.get_mut(&key) {
+        update(subclass);
         return Ok(());
     }
 
-    if installed && ref_data != 0 {
-        unsafe {
-            *(ref_data as *mut WinUiWindowResizeBounds) = bounds;
-        }
-        return Ok(());
-    }
-
-    let bounds_ptr = Box::into_raw(Box::new(bounds)) as usize;
     unsafe {
         SetLastError(ERROR_SUCCESS);
-        if !SetWindowSubclass(
+        let previous = SetWindowLongPtrW(
             hwnd,
-            Some(winui_window_resize_bounds_proc),
-            WINUI_RESIZE_BOUNDS_SUBCLASS_ID,
-            bounds_ptr,
-        )
-        .as_bool()
-        {
+            GWLP_WNDPROC,
+            winui_window_subclass_proc as *const () as usize as isize,
+        );
+        if previous == 0 {
             let error = GetLastError();
-            drop(Box::from_raw(bounds_ptr as *mut WinUiWindowResizeBounds));
-            return Err(GuiError::host(format!(
-                "failed to install WinUI window resize bounds: Win32 error {}",
-                error.0
-            )));
+            if error != ERROR_SUCCESS {
+                return Err(GuiError::host(format!(
+                    "failed to install WinUI window procedure: Win32 error {}",
+                    error.0
+                )));
+            }
         }
+        let mut subclass = WinUiWindowSubclass {
+            previous: std::mem::transmute::<isize, WNDPROC>(previous),
+            close_event: None,
+            resize_bounds: None,
+        };
+        update(&mut subclass);
+        subclasses.insert(key, subclass);
     }
     Ok(())
 }
 
-fn winui_window_resize_bounds_subclass(hwnd: HWND) -> (bool, usize) {
-    let mut ref_data = 0usize;
-    let installed = unsafe {
-        GetWindowSubclass(
-            hwnd,
-            Some(winui_window_resize_bounds_proc),
-            WINUI_RESIZE_BOUNDS_SUBCLASS_ID,
-            Some(&mut ref_data),
-        )
-        .as_bool()
-    };
-    (installed, ref_data)
-}
-
-fn remove_winui_window_resize_bounds_subclass(hwnd: HWND, ref_data: usize) -> GuiResult<()> {
-    unsafe {
-        SetLastError(ERROR_SUCCESS);
-        if !RemoveWindowSubclass(
-            hwnd,
-            Some(winui_window_resize_bounds_proc),
-            WINUI_RESIZE_BOUNDS_SUBCLASS_ID,
-        )
-        .as_bool()
-        {
-            let error = GetLastError();
-            return Err(GuiError::host(format!(
-                "failed to remove WinUI window resize bounds: Win32 error {}",
-                error.0
-            )));
-        }
-        if ref_data != 0 {
-            drop(Box::from_raw(ref_data as *mut WinUiWindowResizeBounds));
-        }
-    }
-    Ok(())
-}
-
-unsafe extern "system" fn winui_window_resize_bounds_proc(
+unsafe extern "system" fn winui_window_subclass_proc(
     hwnd: HWND,
     message: u32,
     wparam: WPARAM,
     lparam: LPARAM,
-    subclass_id: usize,
-    ref_data: usize,
 ) -> LRESULT {
-    if message == WM_GETMINMAXINFO {
-        if ref_data != 0 {
-            if let Some(info) = (lparam.0 as *mut MINMAXINFO).as_mut() {
-                (*(ref_data as *const WinUiWindowResizeBounds)).apply_to_minmax_info(info);
-                return LRESULT(0);
+    let key = winui_window_key(hwnd);
+    let state = WINUI_WINDOW_SUBCLASSES
+        .get()
+        .and_then(|subclasses| subclasses.lock().ok())
+        .and_then(|mut subclasses| {
+            if message == WM_NCDESTROY {
+                subclasses
+                    .remove(&key)
+                    .map(|subclass| subclass.clone_for_dispatch())
+            } else {
+                let subclass = subclasses.get_mut(&key)?;
+                if message == WM_CLOSE {
+                    if let Some(event) = subclass.close_event.as_mut() {
+                        event.push_close_event();
+                    }
+                }
+                Some(subclass.clone_for_dispatch())
             }
-        }
-    }
+        });
 
+    let Some(state) = state else {
+        return DefWindowProcW(hwnd, message, wparam, lparam);
+    };
     if message == WM_NCDESTROY {
-        let _ = RemoveWindowSubclass(hwnd, Some(winui_window_resize_bounds_proc), subclass_id);
-        if ref_data != 0 {
-            drop(Box::from_raw(ref_data as *mut WinUiWindowResizeBounds));
+        let previous = state
+            .previous
+            .map(|procedure| procedure as usize as isize)
+            .unwrap_or(0);
+        SetWindowLongPtrW(hwnd, GWLP_WNDPROC, previous);
+    } else if message == WM_GETMINMAXINFO {
+        if let (Some(bounds), Some(info)) =
+            (state.resize_bounds, (lparam.0 as *mut MINMAXINFO).as_mut())
+        {
+            bounds.apply_to_minmax_info(info);
+            return LRESULT(0);
         }
     }
 
-    DefSubclassProc(hwnd, message, wparam, lparam)
+    CallWindowProcW(state.previous, hwnd, message, wparam, lparam)
+}
+
+fn winui_window_key(hwnd: HWND) -> usize {
+    hwnd.0 as usize
 }
 
 fn winui_window_rect_size(hwnd: HWND) -> GuiResult<WinUiWindowSize> {
@@ -319,6 +254,27 @@ fn winui_resizable_window_style(style: u32, value: Option<bool>) -> u32 {
     } else {
         style & !resize_style
     }
+}
+
+struct WinUiWindowSubclass {
+    previous: WNDPROC,
+    close_event: Option<WinUiWindowCloseEvent>,
+    resize_bounds: Option<WinUiWindowResizeBounds>,
+}
+
+impl WinUiWindowSubclass {
+    fn clone_for_dispatch(&self) -> WinUiWindowDispatch {
+        WinUiWindowDispatch {
+            previous: self.previous,
+            resize_bounds: self.resize_bounds,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct WinUiWindowDispatch {
+    previous: WNDPROC,
+    resize_bounds: Option<WinUiWindowResizeBounds>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -4,17 +4,26 @@ mod dogfood_app;
 
 #[cfg(target_os = "windows")]
 mod winui_dogfood {
-    use a3s_gui::{GuiResult, UiFrame, WinUiRuntimeApp};
+    use a3s_gui::{run_winui_application_staged_async, GuiResult, UiFrame, WinUiRuntimeApp};
 
     use crate::dogfood_app::{
         dogfood_frame, dogfood_reduce, dogfood_should_continue, DogfoodState,
     };
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        let mut app = WinUiRuntimeApp::winui(DogfoodState::default(), winui_frame, dogfood_reduce)?;
-        app.render()?;
-        app.run_winui_while(dogfood_should_continue)?;
-        println!("dogfood app closed with state: {:?}", app.state());
+        run_winui_application_staged_async(
+            || {
+                let mut app =
+                    WinUiRuntimeApp::winui(DogfoodState::default(), winui_frame, dogfood_reduce)?;
+                app.render()?;
+                Ok(app)
+            },
+            |mut app| async move {
+                app.run_winui_while_async(dogfood_should_continue).await?;
+                println!("dogfood app closed with state: {:?}", app.state());
+                Ok(())
+            },
+        )?;
         Ok(())
     }
 

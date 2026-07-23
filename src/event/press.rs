@@ -1127,9 +1127,9 @@ mod tests {
         assert!(!subscriptions.terminal_press);
 
         let mut profile = NativeInteractionProfile::from_blueprint(&blueprint);
-        profile.apply_setter(&NativeWidgetSetter::SetPortableStyle(
+        profile.apply_setter(&NativeWidgetSetter::SetPortableStyle(Box::new(
             crate::style::PortableStyle::default(),
-        ));
+        )));
         assert!(!profile.subscriptions.hover);
         assert!(!profile.subscriptions.press_lifecycle);
         assert!(!profile.subscriptions.long_press);

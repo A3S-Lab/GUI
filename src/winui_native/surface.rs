@@ -69,9 +69,22 @@ impl NativeWidgetSurface for WinUiNativeSurface {
             ))
         })?;
         if !focus_winui_element(&element)? {
+            let loaded = element
+                .cast::<xaml::FrameworkElement>()
+                .and_then(|element| element.IsLoaded())
+                .ok();
+            let tab_stop = element.IsTabStop().ok();
+            let visible = element
+                .Visibility()
+                .ok()
+                .map(|visibility| visibility == xaml::Visibility::Visible);
+            let has_xaml_root = element.XamlRoot().is_ok();
+            let root_has_xaml_root = self.root_xaml_root().ok().flatten().is_some();
             return Err(GuiError::host(format!(
-                "WinUI widget {} did not accept keyboard focus",
-                id.get()
+                "WinUI widget {} did not accept keyboard focus (loaded={loaded:?}, \
+                 tab_stop={tab_stop:?}, visible={visible:?}, xaml_root={has_xaml_root}, \
+                 root_xaml_root={root_has_xaml_root})",
+                id.get(),
             )));
         }
         if let Ok(mut focused_node) = self.focused_node.lock() {

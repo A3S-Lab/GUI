@@ -430,7 +430,8 @@ pub use winui::{
 };
 #[cfg(all(feature = "winui-native", target_os = "windows"))]
 pub use winui_native::{
-    WinUiComboBoxItem, WinUiEventWait, WinUiNativeSurface, WinUiNativeSurfaceAdapter,
-    WinUiNativeSurfaceCommandExecutor, WinUiNativeSurfaceDriver, WinUiOsHandle, WinUiOsWidget,
-    WinUiRuntimeApp, WinUiRuntimeHost, WinUiTabItem,
+    run_winui_application, run_winui_application_staged, run_winui_application_staged_async,
+    wait_winui_dispatcher, WinUiComboBoxItem, WinUiEventWait, WinUiNativeSurface,
+    WinUiNativeSurfaceAdapter, WinUiNativeSurfaceCommandExecutor, WinUiNativeSurfaceDriver,
+    WinUiOsHandle, WinUiOsWidget, WinUiRuntimeApp, WinUiRuntimeHost, WinUiTabItem,
 };

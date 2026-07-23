@@ -53,9 +53,11 @@ mod event_loop;
 mod focus;
 mod helpers;
 mod hierarchy;
+mod input_abi;
 mod interaction;
 mod mount;
 mod propagation;
+mod runtime;
 mod surface;
 mod types;
 mod update;
@@ -63,6 +65,11 @@ mod window;
 
 use event_loop::{pump_winui_message, winui_key_event_kind, winui_key_value};
 use focus::focus_winui_element;
+use runtime::WinUiThreadRuntime;
+pub use runtime::{
+    run_winui_application, run_winui_application_staged, run_winui_application_staged_async,
+    wait_winui_dispatcher,
+};
 use surface::winui_scroll_visibility;
 
 const WINUI_TEXT_INPUT_DEFAULT_WIDTH: f64 = f64::NAN;
@@ -88,7 +95,6 @@ pub enum WinUiEventWait {
 }
 
 pub struct WinUiNativeSurface {
-    _package_dependency: PackageDependency,
     root: Option<HostNodeId>,
     events: WinUiEventQueue,
     events_suppressed: Arc<AtomicBool>,
@@ -96,8 +102,9 @@ pub struct WinUiNativeSurface {
     key_modifiers: Mutex<NativeKeyModifiers>,
     activation_contexts: WinUiActivationContexts,
     pending_activation_cleanup: WinUiPendingActivationCleanup,
+    forced_pointer_cancellations: Arc<Mutex<BTreeSet<HostNodeId>>>,
     interaction_nodes: BTreeMap<HostNodeId, Arc<Mutex<interaction::WinUiInteractionRegistration>>>,
-    keyboard_presses: Mutex<KeyboardPressState>,
+    keyboard_presses: Arc<Mutex<KeyboardPressState>>,
     widgets: BTreeMap<HostNodeId, WinUiOsWidget>,
     dialog_visible: BTreeMap<HostNodeId, bool>,
     overlay_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
@@ -123,6 +130,8 @@ pub struct WinUiNativeSurface {
     text_input_max_lengths: Arc<Mutex<BTreeMap<HostNodeId, Option<u32>>>>,
     text_input_read_only: Arc<Mutex<BTreeMap<HostNodeId, bool>>>,
     text_input_values: Arc<Mutex<BTreeMap<HostNodeId, String>>>,
+    // Keep the thread runtime last so every XAML object is dropped before queue shutdown.
+    _thread_runtime: WinUiThreadRuntime,
 }
 
 impl std::fmt::Debug for WinUiNativeSurface {
@@ -154,20 +163,15 @@ type ControlsComboBox = Controls::ComboBox;
 
 impl WinUiNativeSurface {
     pub fn new() -> GuiResult<Self> {
-        map_winui(
-            "failed to initialize WinRT single-threaded apartment",
-            winui3::init_apartment(winui3::ApartmentType::SingleThreaded),
-        )?;
-        let package_dependency = map_winui(
-            "failed to initialize Windows App SDK package dependency",
-            PackageDependency::initialize(),
-        )?;
-        Ok(Self::with_package_dependency(package_dependency))
+        Self::with_thread_runtime(WinUiThreadRuntime::current(None)?)
     }
 
-    pub fn with_package_dependency(package_dependency: PackageDependency) -> Self {
-        Self {
-            _package_dependency: package_dependency,
+    pub fn with_package_dependency(package_dependency: PackageDependency) -> GuiResult<Self> {
+        Self::with_thread_runtime(WinUiThreadRuntime::current(Some(package_dependency))?)
+    }
+
+    fn with_thread_runtime(thread_runtime: WinUiThreadRuntime) -> GuiResult<Self> {
+        Ok(Self {
             root: None,
             events: Arc::new(Mutex::new(Vec::new())),
             events_suppressed: Arc::new(AtomicBool::new(false)),
@@ -175,8 +179,9 @@ impl WinUiNativeSurface {
             key_modifiers: Mutex::new(NativeKeyModifiers::new()),
             activation_contexts: Arc::new(Mutex::new(BTreeMap::new())),
             pending_activation_cleanup: Arc::new(Mutex::new(BTreeSet::new())),
+            forced_pointer_cancellations: Arc::new(Mutex::new(BTreeSet::new())),
             interaction_nodes: BTreeMap::new(),
-            keyboard_presses: Mutex::new(KeyboardPressState::default()),
+            keyboard_presses: Arc::new(Mutex::new(KeyboardPressState::default())),
             widgets: BTreeMap::new(),
             dialog_visible: BTreeMap::new(),
             overlay_positions: BTreeMap::new(),
@@ -202,11 +207,34 @@ impl WinUiNativeSurface {
             text_input_max_lengths: Arc::new(Mutex::new(BTreeMap::new())),
             text_input_read_only: Arc::new(Mutex::new(BTreeMap::new())),
             text_input_values: Arc::new(Mutex::new(BTreeMap::new())),
-        }
+            _thread_runtime: thread_runtime,
+        })
     }
 
     pub fn root(&self) -> Option<HostNodeId> {
         self.root
+    }
+
+    pub fn cancel_winui_pointer_capture(&self, id: HostNodeId) -> GuiResult<()> {
+        let Some(WinUiOsWidget::Button(button)) = self.widgets.get(&id) else {
+            return Err(GuiError::host(format!(
+                "WinUI widget {} does not expose a cancellable pointer capture",
+                id.get()
+            )));
+        };
+        if let Ok(mut cancellations) = self.forced_pointer_cancellations.lock() {
+            cancellations.insert(id);
+        }
+        if let Err(error) = button.ReleasePointerCaptures() {
+            if let Ok(mut cancellations) = self.forced_pointer_cancellations.lock() {
+                cancellations.remove(&id);
+            }
+            return Err(GuiError::host(format!(
+                "failed to cancel WinUI widget {} pointer capture: {error}",
+                id.get()
+            )));
+        }
+        Ok(())
     }
 
     pub fn root_window_open(&self) -> bool {
@@ -962,6 +990,28 @@ where
             if self.has_pending_background_work() {
                 std::thread::park_timeout(std::time::Duration::from_millis(16));
             }
+        }
+        Ok(())
+    }
+
+    pub async fn run_winui_async(&mut self) -> GuiResult<()> {
+        self.run_winui_while_async(|_| true).await
+    }
+
+    pub async fn run_winui_while_async(
+        &mut self,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<()> {
+        if self.root().is_none() {
+            self.render()?;
+        }
+        while self.winui_root_window_open() && should_continue(self.state()) {
+            self.poll_background_updates()?;
+            if !self.winui_root_window_open() || !should_continue(self.state()) {
+                break;
+            }
+            self.pump_winui_event_while(WinUiEventWait::Poll, &mut should_continue)?;
+            wait_winui_dispatcher(std::time::Duration::from_millis(8)).await?;
         }
         Ok(())
     }

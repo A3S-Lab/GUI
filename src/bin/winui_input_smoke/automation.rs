@@ -4,7 +4,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use a3s_gui::{GuiError, GuiResult, NativeInputConformanceEnvironmentV1, NativeOperatingSystemV1};
-use windows::Win32::Foundation::{GetLastError, HWND};
+use windows::Win32::Foundation::{GetLastError, HWND, POINT};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED,
 };
@@ -17,7 +17,9 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_KEYUP,
     MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEINPUT, VK_RETURN,
 };
-use windows::Win32::UI::WindowsAndMessaging::{SetCursorPos, SetForegroundWindow};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetWindowThreadProcessId, SetCursorPos, SetForegroundWindow, WindowFromPoint,
+};
 
 pub(super) const TARGET_LABEL: &str = "A3S WinUI native input target";
 const UI_AUTOMATION_TIMEOUT: Duration = Duration::from_secs(5);
@@ -110,6 +112,25 @@ impl UiAutomationTarget {
         ))
     }
 
+    fn verified_center(&self) -> Result<(i32, i32), String> {
+        let center = self.center()?;
+        let hit = unsafe {
+            WindowFromPoint(POINT {
+                x: center.0,
+                y: center.1,
+            })
+        };
+        let mut hit_process = 0;
+        unsafe { GetWindowThreadProcessId(hit, Some(&mut hit_process)) };
+        if hit_process != std::process::id() {
+            return Err(format!(
+                "WinUI automation target center ({}, {}) is covered by window {:?} from process {hit_process}",
+                center.0, center.1, hit
+            ));
+        }
+        Ok(center)
+    }
+
     fn require_enabled(&self, expected: bool) -> Result<(), String> {
         let enabled = unsafe { self.element.CurrentIsEnabled() }
             .map_err(|error| format!("failed to read WinUI automation enabled state: {error}"))?
@@ -145,7 +166,7 @@ impl UiAutomationTarget {
 pub(super) fn target_center(hwnd: isize, expected_enabled: bool) -> Result<(i32, i32), String> {
     let target = UiAutomationTarget::find(hwnd_from_value(hwnd), TARGET_LABEL)?;
     target.require_enabled(expected_enabled)?;
-    target.center()
+    target.verified_center()
 }
 
 pub(super) fn spawn_mouse_activation(
@@ -172,7 +193,7 @@ fn spawn_mouse_input(
         let hwnd = hwnd_from_value(hwnd);
         let target = UiAutomationTarget::find(hwnd, TARGET_LABEL)?;
         target.require_enabled(expected_enabled)?;
-        let (x, y) = target.center()?;
+        let (x, y) = target.verified_center()?;
         let _ = unsafe { SetForegroundWindow(hwnd) };
         unsafe { SetCursorPos(x, y) }
             .map_err(|error| format!("failed to position the OS cursor: {error}"))?;

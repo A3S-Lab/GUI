@@ -9,9 +9,10 @@ use windows::Win32::UI::Controls::{
 };
 use windows::Win32::UI::Input::Pointer::{
     InjectSyntheticPointerInput, POINTER_CHANGE_FIRSTBUTTON_DOWN, POINTER_CHANGE_FIRSTBUTTON_UP,
-    POINTER_FLAGS, POINTER_FLAG_CANCELED, POINTER_FLAG_CONFIDENCE, POINTER_FLAG_DOWN,
-    POINTER_FLAG_FIRSTBUTTON, POINTER_FLAG_INCONTACT, POINTER_FLAG_INRANGE, POINTER_FLAG_NEW,
-    POINTER_FLAG_PRIMARY, POINTER_FLAG_UP, POINTER_INFO, POINTER_PEN_INFO, POINTER_TOUCH_INFO,
+    POINTER_CHANGE_NONE, POINTER_FLAGS, POINTER_FLAG_CANCELED, POINTER_FLAG_CONFIDENCE,
+    POINTER_FLAG_DOWN, POINTER_FLAG_FIRSTBUTTON, POINTER_FLAG_INCONTACT, POINTER_FLAG_INRANGE,
+    POINTER_FLAG_NEW, POINTER_FLAG_PRIMARY, POINTER_FLAG_UP, POINTER_FLAG_UPDATE, POINTER_INFO,
+    POINTER_PEN_INFO, POINTER_TOUCH_INFO,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     SetForegroundWindow, PEN_MASK_PRESSURE, POINTER_INPUT_TYPE, PT_PEN, PT_TOUCH,
@@ -35,6 +36,7 @@ pub(super) enum SyntheticPointerCompletion {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SyntheticPointerPhase {
     Down,
+    Update,
     Up,
     Cancel,
 }
@@ -83,6 +85,10 @@ pub(super) fn spawn_synthetic_pointer(
         let device = SyntheticPointerDevice::create(kind)?;
         device.inject(pointer_type_info(kind, SyntheticPointerPhase::Down, x, y))?;
         thread::sleep(Duration::from_millis(40));
+        if completion == SyntheticPointerCompletion::Cancel {
+            device.inject(pointer_type_info(kind, SyntheticPointerPhase::Update, x, y))?;
+            thread::sleep(Duration::from_millis(300));
+        }
         let terminal_phase = match completion {
             SyntheticPointerCompletion::Activate => SyntheticPointerPhase::Up,
             SyntheticPointerCompletion::Cancel => SyntheticPointerPhase::Cancel,
@@ -106,10 +112,10 @@ fn pointer_type_info(
         ptPixelLocation: location,
         ptPixelLocationRaw: location,
         historyCount: 1,
-        ButtonChangeType: if phase == SyntheticPointerPhase::Down {
-            POINTER_CHANGE_FIRSTBUTTON_DOWN
-        } else {
-            POINTER_CHANGE_FIRSTBUTTON_UP
+        ButtonChangeType: match phase {
+            SyntheticPointerPhase::Down => POINTER_CHANGE_FIRSTBUTTON_DOWN,
+            SyntheticPointerPhase::Up => POINTER_CHANGE_FIRSTBUTTON_UP,
+            SyntheticPointerPhase::Update | SyntheticPointerPhase::Cancel => POINTER_CHANGE_NONE,
         },
         ..Default::default()
     };
@@ -121,9 +127,12 @@ fn pointer_type_info(
                 penInfo: POINTER_PEN_INFO {
                     pointerInfo: pointer_info,
                     penMask: PEN_MASK_PRESSURE,
-                    pressure: (phase == SyntheticPointerPhase::Down)
-                        .then_some(512)
-                        .unwrap_or(0),
+                    pressure: matches!(
+                        phase,
+                        SyntheticPointerPhase::Down | SyntheticPointerPhase::Update
+                    )
+                    .then_some(512)
+                    .unwrap_or(0),
                     ..Default::default()
                 },
             },
@@ -139,9 +148,12 @@ fn pointer_type_info(
                     rcContact: contact_rect(x, y),
                     rcContactRaw: contact_rect(x, y),
                     orientation: 90,
-                    pressure: (phase == SyntheticPointerPhase::Down)
-                        .then_some(512)
-                        .unwrap_or(0),
+                    pressure: matches!(
+                        phase,
+                        SyntheticPointerPhase::Down | SyntheticPointerPhase::Update
+                    )
+                    .then_some(512)
+                    .unwrap_or(0),
                     ..Default::default()
                 },
             },
@@ -160,12 +172,20 @@ fn pointer_flags(kind: SyntheticPointerKind, phase: SyntheticPointerPhase) -> PO
                 | POINTER_FLAG_CONFIDENCE
                 | POINTER_FLAG_DOWN
         }
+        SyntheticPointerPhase::Update => {
+            POINTER_FLAG_INRANGE
+                | POINTER_FLAG_INCONTACT
+                | POINTER_FLAG_FIRSTBUTTON
+                | POINTER_FLAG_PRIMARY
+                | POINTER_FLAG_CONFIDENCE
+                | POINTER_FLAG_UPDATE
+        }
         SyntheticPointerPhase::Up if kind == SyntheticPointerKind::Pen => {
             POINTER_FLAG_INRANGE | POINTER_FLAG_PRIMARY | POINTER_FLAG_UP
         }
         SyntheticPointerPhase::Up => POINTER_FLAG_PRIMARY | POINTER_FLAG_UP,
         SyntheticPointerPhase::Cancel => {
-            POINTER_FLAG_PRIMARY | POINTER_FLAG_CANCELED | POINTER_FLAG_UP
+            POINTER_FLAG_PRIMARY | POINTER_FLAG_CANCELED | POINTER_FLAG_UPDATE
         }
     }
 }
@@ -203,7 +223,7 @@ mod tests {
     }
 
     #[test]
-    fn touch_cancellation_uses_the_windows_cancelled_up_contract() {
+    fn touch_cancellation_uses_the_windows_cancelled_update_contract() {
         let cancel = pointer_type_info(
             SyntheticPointerKind::Touch,
             SyntheticPointerPhase::Cancel,
@@ -214,8 +234,10 @@ mod tests {
         assert_eq!(cancel.r#type, PT_TOUCH);
         let cancel = unsafe { cancel.Anonymous.touchInfo };
         assert_flag(cancel.pointerInfo.pointerFlags, POINTER_FLAG_CANCELED);
-        assert_flag(cancel.pointerInfo.pointerFlags, POINTER_FLAG_UP);
+        assert_flag(cancel.pointerInfo.pointerFlags, POINTER_FLAG_UPDATE);
+        assert_no_flag(cancel.pointerInfo.pointerFlags, POINTER_FLAG_UP);
         assert_no_flag(cancel.pointerInfo.pointerFlags, POINTER_FLAG_INCONTACT);
+        assert_eq!(cancel.pointerInfo.ButtonChangeType, POINTER_CHANGE_NONE);
         assert_eq!(
             cancel.rcContact,
             RECT {

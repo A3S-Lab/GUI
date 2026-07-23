@@ -375,7 +375,9 @@ impl WinUiNativeSurface {
             &self.events,
             Arc::clone(&self.activation_contexts),
             Arc::clone(&self.pending_activation_cleanup),
+            Arc::clone(&self.forced_pointer_cancellations),
             Arc::clone(&interaction_registration),
+            Arc::clone(&self.keyboard_presses),
         )?;
         self.interaction_nodes.insert(id, interaction_registration);
         self.widgets.insert(id, widget.clone());

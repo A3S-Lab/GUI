@@ -349,7 +349,10 @@ The WinUI smoke harness covers the XAML Button-backed `Button`,
 keyboard use Windows `SendInput`, pen and touch use synthetic pointer injection,
 and assistive activation uses UI Automation `InvokePattern`. It exercises
 successful activation, mouse/pen/touch cancellation, keyed-rerender
-cancellation, and disabled input while pumping the production message loop.
+cancellation, and disabled input inside the production XAML application
+lifecycle. Handled routed pointer events and preview key events feed the same
+portable press state machine while the asynchronous dispatcher loop leaves
+WinUI layout and input dispatch unblocked.
 The strict verifier accepts no semantic defect in the complete 70-case slice,
 but the 28 `ListBoxItem` and `TreeItem` WinUI cases remain. The P0 gap is
 therefore still open. Native automation drivers still need to execute every

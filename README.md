@@ -281,7 +281,9 @@ evidence produced only by an adapter kernel or the portable runtime.
 The WinUI smoke command opens a real XAML window and emits a partial artifact;
 passing that command validates its 70 captured button-backed role cases, not
 the full WinUI manifest. It requires a supported Windows desktop session with
-the Windows App Runtime 1.7 framework package available.
+the Windows App Runtime 1.7 framework package available. WinUI examples enter
+the XAML-owned application lifecycle with `run_winui_application_staged_async`
+and keep native layout and input responsive through the asynchronous app loop.
 
 The default feature set includes RSX authoring and the built-in design system.
 The runtime/protocol core is independently buildable without SWC or `rsx_ui`:

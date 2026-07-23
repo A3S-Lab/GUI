@@ -52,14 +52,35 @@ fn fixture_frames_preserve_each_button_backed_native_role() {
             .lower_to_native(&frame.root)
             .unwrap();
 
-        assert_eq!(native.role, role);
+        assert_eq!(native.role, NativeRole::View);
+        assert_eq!(native.children.len(), BUTTON_BACKED_ROLES.len());
+        assert_eq!(
+            native
+                .children
+                .iter()
+                .map(|child| child.role)
+                .collect::<Vec<_>>(),
+            BUTTON_BACKED_ROLES
+        );
+        let active = native
+            .children
+            .iter()
+            .find(|child| child.role == role)
+            .unwrap();
+        assert_eq!(active.props.label.as_deref(), Some(TARGET_LABEL));
+        assert!(!active.props.disabled);
     }
 }
 
 #[test]
 fn press_start_replaces_the_key_only_for_the_rerender_scenario() {
+    let role = NativeRole::MenuItem;
+    let index = button_backed_role_index(role).unwrap();
+    let mut generations = [0; BUTTON_BACKED_ROLES.len()];
+    generations[index] = 4;
     let mut state = FixtureState {
-        generation: 4,
+        generations,
+        role,
         rerender_on_press_start: true,
         ..FixtureState::default()
     };
@@ -70,11 +91,16 @@ fn press_start_replaces_the_key_only_for_the_rerender_scenario() {
     );
 
     fixture_reduce(&mut state, &invocation).unwrap();
-    assert_eq!(state.generation, 5);
+    assert_eq!(state.generations[index], 5);
+    assert!(state
+        .generations
+        .iter()
+        .enumerate()
+        .all(|(candidate, generation)| candidate == index || *generation == 0));
     assert!(!state.rerender_on_press_start);
 
     fixture_reduce(&mut state, &invocation).unwrap();
-    assert_eq!(state.generation, 5);
+    assert_eq!(state.generations[index], 5);
 }
 
 fn valid_observation(

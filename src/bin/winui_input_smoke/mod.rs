@@ -3,18 +3,19 @@ mod scenarios;
 mod synthetic_pointer;
 
 use std::path::PathBuf;
-use std::thread::{self, JoinHandle};
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use a3s_gui::{
-    ActionInvocation, GuiError, GuiResult, HostNodeId, NativeBackendKind, NativeCapabilities,
-    NativeEvent, NativeEventKind, NativeInputConformanceCaseV1, NativeInputConformanceIssueCodeV1,
+    run_winui_application_staged_async, wait_winui_dispatcher, ActionInvocation, GuiError,
+    GuiResult, HostNodeId, NativeBackendKind, NativeCapabilities, NativeEvent, NativeEventKind,
+    NativeInputConformanceCaseV1, NativeInputConformanceIssueCodeV1,
     NativeInputConformanceManifestV1, NativeInputConformanceObservationV1,
     NativeInputConformanceRunV1, NativeInputConformanceScenarioV1, NativeRole, UiFrame,
     WinUiEventWait, WinUiOsWidget, WinUiRuntimeApp,
 };
 use automation::TARGET_LABEL;
-use scenarios::capture_smoke_run;
+use scenarios::{capture_smoke_run, create_smoke_app};
 use serde_json::json;
 use windows_core::Interface;
 use winui3::Microsoft::UI::Xaml as xaml;
@@ -33,7 +34,7 @@ const CAPTURED_NATIVE_CASES: usize = BUTTON_BACKED_ROLES.len() * CASES_PER_ROLE;
 
 #[derive(Debug)]
 struct FixtureState {
-    generation: u32,
+    generations: [u32; BUTTON_BACKED_ROLES.len()],
     role: NativeRole,
     disabled: bool,
     rerender_on_press_start: bool,
@@ -42,7 +43,7 @@ struct FixtureState {
 impl Default for FixtureState {
     fn default() -> Self {
         Self {
-            generation: 0,
+            generations: [0; BUTTON_BACKED_ROLES.len()],
             role: NativeRole::Button,
             disabled: false,
             rerender_on_press_start: false,
@@ -66,7 +67,8 @@ impl Drop for WindowGuard {
 
 pub(super) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output = parse_output_path()?;
-    let (run, diagnostics) = capture_smoke_run()?;
+    let (run, diagnostics) =
+        run_winui_application_staged_async(create_smoke_app, capture_smoke_run)?;
     let json = serde_json::to_string_pretty(&run)?;
     if let Some(path) = output {
         std::fs::write(&path, format!("{json}\n"))?;
@@ -97,30 +99,49 @@ fn parse_output_path() -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
 }
 
 fn fixture_frame(state: &FixtureState) -> GuiResult<UiFrame> {
-    let tag = button_backed_role_tag(state.role)?;
+    let children = BUTTON_BACKED_ROLES
+        .iter()
+        .enumerate()
+        .map(|(index, role)| {
+            let active = *role == state.role;
+            Ok(json!({
+                "kind": "element",
+                "key": format!(
+                    "native-input-target-{index}-{}",
+                    state.generations[index]
+                ),
+                "tag": button_backed_role_tag(*role)?,
+                "props": {
+                    "label": if active {
+                        TARGET_LABEL.to_string()
+                    } else {
+                        format!("Inactive {role:?} input target")
+                    },
+                    "disabled": if active { state.disabled } else { true },
+                    "events": {
+                        "onPressStart": "recordPress",
+                        "onPressUp": "recordPress",
+                        "onPressEnd": "recordPress",
+                        "onPress": "recordPress"
+                    }
+                }
+            }))
+        })
+        .collect::<GuiResult<Vec<_>>>()?;
     serde_json::from_value(json!({
         "frameId": "winui-native-input-smoke-v1",
         "window": {
             "title": "A3S WinUI Native Input Smoke",
             "width": 360,
-            "height": 180,
+            "height": 420,
             "resizable": false
         },
         "actions": [{"id": "recordPress", "label": "Record semantic press event"}],
         "root": {
             "kind": "element",
-            "key": format!("native-input-target-{}", state.generation),
-            "tag": tag,
-            "props": {
-                "label": TARGET_LABEL,
-                "disabled": state.disabled,
-                "events": {
-                    "onPressStart": "recordPress",
-                    "onPressUp": "recordPress",
-                    "onPressEnd": "recordPress",
-                    "onPress": "recordPress"
-                }
-            }
+            "key": "native-input-targets",
+            "tag": "View",
+            "children": children
         }
     }))
     .map_err(|error| GuiError::invalid_tree(format!("invalid WinUI input fixture: {error}")))
@@ -141,32 +162,39 @@ fn button_backed_role_tag(role: NativeRole) -> GuiResult<&'static str> {
 
 fn fixture_reduce(state: &mut FixtureState, invocation: &ActionInvocation) -> GuiResult<()> {
     if state.rerender_on_press_start && invocation.event == NativeEventKind::PressStart {
-        state.generation = state.generation.saturating_add(1);
+        let index = button_backed_role_index(state.role)?;
+        state.generations[index] = state.generations[index].saturating_add(1);
         state.rerender_on_press_start = false;
     }
     Ok(())
 }
 
-fn remount_fixture(
+async fn remount_fixture(
     app: &mut FixtureApp,
     role: NativeRole,
     disabled: bool,
     rerender_on_press_start: bool,
 ) -> GuiResult<HostNodeId> {
     let state = app.state_mut();
-    state.generation = state.generation.saturating_add(1);
     state.role = role;
     state.disabled = disabled;
     state.rerender_on_press_start = rerender_on_press_start;
     app.render()?;
-    let _ = pump_for(app, EVENT_SETTLE_TIME)?;
+    let _ = pump_for(app, EVENT_SETTLE_TIME).await?;
     fixture_target(app, role)
 }
 
-fn set_fixture_disabled(app: &mut FixtureApp, disabled: bool) -> GuiResult<()> {
+fn button_backed_role_index(role: NativeRole) -> GuiResult<usize> {
+    BUTTON_BACKED_ROLES
+        .iter()
+        .position(|candidate| *candidate == role)
+        .ok_or_else(|| GuiError::invalid_tree(format!("unsupported WinUI smoke role {role:?}")))
+}
+
+async fn set_fixture_disabled(app: &mut FixtureApp, disabled: bool) -> GuiResult<()> {
     app.state_mut().disabled = disabled;
     app.render()?;
-    let _ = pump_for(app, EVENT_SETTLE_TIME)?;
+    let _ = pump_for(app, EVENT_SETTLE_TIME).await?;
     Ok(())
 }
 
@@ -228,7 +256,7 @@ fn fixture_handles(
     Ok((target, window, hwnd.0 as isize))
 }
 
-fn run_scenario(
+async fn run_scenario(
     app: &mut FixtureApp,
     role: NativeRole,
     target: HostNodeId,
@@ -236,10 +264,10 @@ fn run_scenario(
     worker: JoinHandle<Result<(), String>>,
     diagnostics: &mut Vec<String>,
 ) -> GuiResult<NativeInputConformanceObservationV1> {
-    capture_scenario_result(app, role, target, scenario, worker, None, diagnostics)
+    capture_scenario_result(app, role, target, scenario, worker, None, diagnostics).await
 }
 
-fn run_scenario_with_pointer_release(
+async fn run_scenario_with_pointer_release(
     app: &mut FixtureApp,
     role: NativeRole,
     target: HostNodeId,
@@ -256,9 +284,10 @@ fn run_scenario_with_pointer_release(
         Some(target),
         diagnostics,
     )
+    .await
 }
 
-fn capture_scenario_result(
+async fn capture_scenario_result(
     app: &mut FixtureApp,
     role: NativeRole,
     target: HostNodeId,
@@ -267,7 +296,7 @@ fn capture_scenario_result(
     release_on_press_start: Option<HostNodeId>,
     diagnostics: &mut Vec<String>,
 ) -> GuiResult<NativeInputConformanceObservationV1> {
-    let (events, result) = collect_worker_events(app, worker, release_on_press_start)?;
+    let (events, result) = collect_worker_events(app, worker, release_on_press_start).await?;
     let stimulus_dispatched = result.is_ok();
     if let Err(error) = result {
         diagnostics.push(format!("{role:?}/{scenario:?}: {error}"));
@@ -280,7 +309,7 @@ fn capture_scenario_result(
     ))
 }
 
-fn collect_worker_events(
+async fn collect_worker_events(
     app: &mut FixtureApp,
     worker: JoinHandle<Result<(), String>>,
     mut release_on_press_start: Option<HostNodeId>,
@@ -308,14 +337,14 @@ fn collect_worker_events(
                 WORKER_TIMEOUT.as_secs()
             )));
         }
-        thread::park_timeout(Duration::from_millis(2));
+        wait_winui_dispatcher(Duration::from_millis(2)).await?;
     }
     let mut result = worker
         .join()
         .map_err(|_| GuiError::host("Windows input automation worker panicked"))?;
     let intervention_error = intervention_error.or_else(|| {
         release_on_press_start.map(|_| {
-            "mouse cancellation did not observe PressStart before the input worker finished"
+            "pointer cancellation did not observe PressStart before the input worker finished"
                 .to_string()
         })
     });
@@ -325,37 +354,21 @@ fn collect_worker_events(
             Err(worker_error) => format!("{worker_error}; {error}"),
         });
     }
-    events.extend(pump_for(app, EVENT_SETTLE_TIME)?);
+    events.extend(pump_for(app, EVENT_SETTLE_TIME).await?);
     Ok((events, result))
 }
 
 fn release_pointer_captures(app: &FixtureApp, target: HostNodeId) -> GuiResult<()> {
-    let handle = app
-        .runtime()
-        .host()
-        .executor()
-        .driver()
-        .handles()
-        .get(&target)
-        .ok_or_else(|| GuiError::host("mouse cancellation target was unmounted too early"))?;
-    let WinUiOsWidget::Button(button) = &handle.widget else {
-        return Err(GuiError::host(
-            "mouse cancellation target is not a WinUI Button",
-        ));
-    };
-    button.ReleasePointerCaptures().map_err(|error| {
-        GuiError::host(format!(
-            "failed to release WinUI Button pointer capture: {error}"
-        ))
-    })
+    let surface = app.runtime().host().executor().driver().adapter().surface();
+    surface.cancel_winui_pointer_capture(target)
 }
 
-fn pump_for(app: &mut FixtureApp, duration: Duration) -> GuiResult<Vec<NativeEvent>> {
+async fn pump_for(app: &mut FixtureApp, duration: Duration) -> GuiResult<Vec<NativeEvent>> {
     let deadline = Instant::now() + duration;
     let mut events = Vec::new();
     while Instant::now() < deadline {
         events.extend(pump_once(app)?);
-        thread::park_timeout(Duration::from_millis(2));
+        wait_winui_dispatcher(Duration::from_millis(2)).await?;
     }
     Ok(events)
 }
