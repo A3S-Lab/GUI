@@ -344,13 +344,15 @@ just native-input-conformance path/to/evidence.json
 just winui-input-smoke path/to/winui-button-smoke.json
 ```
 
-The WinUI smoke harness covers Button mouse and keyboard activation through
-Windows `SendInput` and Button assistive activation through UI Automation
-`InvokePattern`. It pumps the production message loop and accepts no semantic
-defect in those captured observations, but the resulting artifact is only 3 of
-the 98 required WinUI cases. The P0 gap is therefore still open. Native
-automation drivers still need to execute every generated case and submit
-passing run artifacts on real macOS, Linux, and Windows runners.
+The WinUI smoke harness covers Button mouse and keyboard input through Windows
+`SendInput`, pen and touch through synthetic pointer injection, and assistive
+activation through UI Automation `InvokePattern`. It exercises successful
+activation, mouse/pen/touch cancellation, keyed-rerender cancellation, and
+disabled input while pumping the production message loop. The strict verifier
+accepts no semantic defect in the complete 14-case Button slice, but 84 other
+WinUI cases remain. The P0 gap is therefore still open. Native automation drivers
+still need to execute every generated case and submit passing run artifacts on
+real macOS, Linux, and Windows runners.
 
 ## Known Gaps
 

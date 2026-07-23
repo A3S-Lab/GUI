@@ -11,7 +11,7 @@ use windows::Win32::System::Com::{
 use windows::Win32::System::SystemInformation::{GetVersionExW, OSVERSIONINFOW};
 use windows::Win32::UI::Accessibility::{
     CUIAutomation, IUIAutomation, IUIAutomationElement, IUIAutomationInvokePattern,
-    TreeScope_Descendants, UIA_ButtonControlTypeId, UIA_InvokePatternId,
+    TreeScope_Descendants, UIA_ButtonControlTypeId, UIA_InvokePatternId, UIA_E_ELEMENTNOTENABLED,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_KEYUP,
@@ -110,33 +110,87 @@ impl UiAutomationTarget {
         ))
     }
 
-    fn invoke(&self) -> Result<(), String> {
+    fn require_enabled(&self, expected: bool) -> Result<(), String> {
+        let enabled = unsafe { self.element.CurrentIsEnabled() }
+            .map_err(|error| format!("failed to read WinUI automation enabled state: {error}"))?
+            .as_bool();
+        if enabled == expected {
+            Ok(())
+        } else {
+            Err(format!(
+                "WinUI automation target enabled state was {enabled}, expected {expected}"
+            ))
+        }
+    }
+
+    fn invoke(&self, expected_enabled: bool) -> Result<(), String> {
         let pattern: IUIAutomationInvokePattern =
             unsafe { self.element.GetCurrentPatternAs(UIA_InvokePatternId) }
                 .map_err(|error| format!("WinUI target does not expose InvokePattern: {error}"))?;
-        unsafe { pattern.Invoke() }
-            .map_err(|error| format!("UI Automation InvokePattern failed: {error}"))
+        let result = unsafe { pattern.Invoke() };
+        match (expected_enabled, result) {
+            (true, Ok(())) => Ok(()),
+            (true, Err(error)) => Err(format!("UI Automation InvokePattern failed: {error}")),
+            (false, Err(error)) if error.code().0 as u32 == UIA_E_ELEMENTNOTENABLED => Ok(()),
+            (false, Ok(())) => {
+                Err("disabled WinUI target unexpectedly accepted InvokePattern".to_string())
+            }
+            (false, Err(error)) => Err(format!(
+                "disabled WinUI InvokePattern returned an unexpected error: {error}"
+            )),
+        }
     }
 }
 
-pub(super) fn spawn_mouse_activation(hwnd: isize) -> JoinHandle<Result<(), String>> {
+pub(super) fn target_center(hwnd: isize, expected_enabled: bool) -> Result<(i32, i32), String> {
+    let target = UiAutomationTarget::find(hwnd_from_value(hwnd), TARGET_LABEL)?;
+    target.require_enabled(expected_enabled)?;
+    target.center()
+}
+
+pub(super) fn spawn_mouse_activation(
+    hwnd: isize,
+    expected_enabled: bool,
+) -> JoinHandle<Result<(), String>> {
+    spawn_mouse_input(hwnd, expected_enabled, Duration::from_millis(30))
+}
+
+pub(super) fn spawn_keyed_rerender_activation(hwnd: isize) -> JoinHandle<Result<(), String>> {
+    spawn_mouse_input(hwnd, true, Duration::from_millis(200))
+}
+
+pub(super) fn spawn_mouse_cancellation(hwnd: isize) -> JoinHandle<Result<(), String>> {
+    spawn_mouse_input(hwnd, true, Duration::from_millis(300))
+}
+
+fn spawn_mouse_input(
+    hwnd: isize,
+    expected_enabled: bool,
+    hold_time: Duration,
+) -> JoinHandle<Result<(), String>> {
     thread::spawn(move || {
         let hwnd = hwnd_from_value(hwnd);
         let target = UiAutomationTarget::find(hwnd, TARGET_LABEL)?;
+        target.require_enabled(expected_enabled)?;
         let (x, y) = target.center()?;
         let _ = unsafe { SetForegroundWindow(hwnd) };
         unsafe { SetCursorPos(x, y) }
             .map_err(|error| format!("failed to position the OS cursor: {error}"))?;
         thread::sleep(Duration::from_millis(50));
         send_input(mouse_input(MOUSEEVENTF_LEFTDOWN))?;
-        thread::sleep(Duration::from_millis(30));
+        thread::sleep(hold_time);
         send_input(mouse_input(MOUSEEVENTF_LEFTUP))
     })
 }
 
-pub(super) fn spawn_keyboard_activation(hwnd: isize) -> JoinHandle<Result<(), String>> {
+pub(super) fn spawn_keyboard_activation(
+    hwnd: isize,
+    expected_enabled: bool,
+) -> JoinHandle<Result<(), String>> {
     thread::spawn(move || {
         let hwnd = hwnd_from_value(hwnd);
+        let target = UiAutomationTarget::find(hwnd, TARGET_LABEL)?;
+        target.require_enabled(expected_enabled)?;
         let _ = unsafe { SetForegroundWindow(hwnd) };
         thread::sleep(Duration::from_millis(50));
         send_input(keyboard_input(false))?;
@@ -145,10 +199,14 @@ pub(super) fn spawn_keyboard_activation(hwnd: isize) -> JoinHandle<Result<(), St
     })
 }
 
-pub(super) fn spawn_assistive_activation(hwnd: isize) -> JoinHandle<Result<(), String>> {
+pub(super) fn spawn_assistive_activation(
+    hwnd: isize,
+    expected_enabled: bool,
+) -> JoinHandle<Result<(), String>> {
     thread::spawn(move || {
         let target = UiAutomationTarget::find(hwnd_from_value(hwnd), TARGET_LABEL)?;
-        target.invoke()
+        target.require_enabled(expected_enabled)?;
+        target.invoke(expected_enabled)
     })
 }
 
@@ -166,7 +224,7 @@ pub(super) fn windows_environment() -> GuiResult<NativeInputConformanceEnvironme
             version.dwMajorVersion, version.dwMinorVersion, version.dwBuildNumber
         ),
         "Windows App SDK via winio-winui3 0.4.2",
-        "Windows UI Automation + SendInput",
+        "Windows UI Automation + SendInput + synthetic pointer injection",
     ))
 }
 

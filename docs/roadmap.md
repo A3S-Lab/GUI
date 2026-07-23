@@ -86,7 +86,8 @@ The following foundations are implemented and are not roadmap placeholders:
   role capabilities; a strict verifier rejects adapter/headless traces as
   native evidence, and CI publishes each backend's outstanding matrix
 - a Windows OS-input smoke harness that drives a real WinUI Button through
-  `SendInput` and UI Automation, currently covering 3 of 98 required WinUI cases
+  `SendInput`, synthetic pen/touch injection, and UI Automation, currently
+  covering all 14 Button cases (14 of 98 required WinUI cases)
 
 ## Delivery Dependency
 

@@ -1,4 +1,6 @@
 mod automation;
+mod scenarios;
+mod synthetic_pointer;
 
 use std::path::PathBuf;
 use std::thread::{self, JoinHandle};
@@ -6,24 +8,27 @@ use std::time::{Duration, Instant};
 
 use a3s_gui::{
     ActionInvocation, GuiError, GuiResult, HostNodeId, NativeBackendKind, NativeCapabilities,
-    NativeEvent, NativeInputConformanceCaseV1, NativeInputConformanceIssueCodeV1,
+    NativeEvent, NativeEventKind, NativeInputConformanceCaseV1, NativeInputConformanceIssueCodeV1,
     NativeInputConformanceManifestV1, NativeInputConformanceObservationV1,
-    NativeInputConformanceRunV1, NativeInputConformanceScenarioV1, NativeInputEvidenceSourceV1,
-    NativeRole, UiFrame, WinUiEventWait, WinUiOsWidget, WinUiRuntimeApp,
+    NativeInputConformanceRunV1, NativeInputConformanceScenarioV1, NativeRole, UiFrame,
+    WinUiEventWait, WinUiOsWidget, WinUiRuntimeApp,
 };
-use automation::{
-    spawn_assistive_activation, spawn_keyboard_activation, spawn_mouse_activation,
-    windows_environment, TARGET_LABEL,
-};
+use automation::TARGET_LABEL;
+use scenarios::capture_smoke_run;
 use serde_json::json;
 use windows_core::Interface;
 use winui3::Microsoft::UI::Xaml as xaml;
 
 const WORKER_TIMEOUT: Duration = Duration::from_secs(10);
 const EVENT_SETTLE_TIME: Duration = Duration::from_millis(250);
+const CAPTURED_BUTTON_CASES: usize = 14;
 
 #[derive(Debug, Default)]
-struct FixtureState;
+struct FixtureState {
+    generation: u32,
+    disabled: bool,
+    rerender_on_press_start: bool,
+}
 
 type FixtureApp = WinUiRuntimeApp<
     FixtureState,
@@ -71,56 +76,7 @@ fn parse_output_path() -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
     Ok(output)
 }
 
-fn capture_smoke_run() -> GuiResult<(NativeInputConformanceRunV1, Vec<String>)> {
-    let mut app: FixtureApp = WinUiRuntimeApp::winui(
-        FixtureState,
-        fixture_frame as fn(&FixtureState) -> GuiResult<UiFrame>,
-        fixture_reduce as fn(&mut FixtureState, &ActionInvocation) -> GuiResult<()>,
-    )?;
-    app.render()?;
-    let (target, window, hwnd_value) = fixture_handles(&app)?;
-    let _window_guard = WindowGuard(window);
-    let _ = pump_for(&mut app, EVENT_SETTLE_TIME)?;
-
-    let mut diagnostics = Vec::new();
-    let mut observations = Vec::new();
-    observations.push(run_scenario(
-        &mut app,
-        target,
-        NativeInputConformanceScenarioV1::MouseActivation,
-        spawn_mouse_activation(hwnd_value),
-        &mut diagnostics,
-    )?);
-
-    app.runtime_mut().request_focus(target)?;
-    let _ = pump_for(&mut app, Duration::from_millis(100))?;
-    observations.push(run_scenario(
-        &mut app,
-        target,
-        NativeInputConformanceScenarioV1::KeyboardActivation,
-        spawn_keyboard_activation(hwnd_value),
-        &mut diagnostics,
-    )?);
-
-    observations.push(run_scenario(
-        &mut app,
-        target,
-        NativeInputConformanceScenarioV1::AssistiveActivation,
-        spawn_assistive_activation(hwnd_value),
-        &mut diagnostics,
-    )?);
-
-    let run = NativeInputConformanceRunV1::new(
-        NativeBackendKind::WinUI,
-        NativeInputEvidenceSourceV1::OperatingSystemAutomation,
-    )
-    .environment(windows_environment()?)
-    .observations(observations);
-    validate_partial_smoke(&run, &mut diagnostics);
-    Ok((run, diagnostics))
-}
-
-fn fixture_frame(_: &FixtureState) -> GuiResult<UiFrame> {
+fn fixture_frame(state: &FixtureState) -> GuiResult<UiFrame> {
     serde_json::from_value(json!({
         "frameId": "winui-native-input-smoke-v1",
         "window": {
@@ -132,10 +88,11 @@ fn fixture_frame(_: &FixtureState) -> GuiResult<UiFrame> {
         "actions": [{"id": "recordPress", "label": "Record semantic press event"}],
         "root": {
             "kind": "element",
-            "key": "native-input-target",
+            "key": format!("native-input-target-{}", state.generation),
             "tag": "Button",
             "props": {
                 "label": TARGET_LABEL,
+                "disabled": state.disabled,
                 "events": {
                     "onPressStart": "recordPress",
                     "onPressUp": "recordPress",
@@ -148,16 +105,49 @@ fn fixture_frame(_: &FixtureState) -> GuiResult<UiFrame> {
     .map_err(|error| GuiError::invalid_tree(format!("invalid WinUI input fixture: {error}")))
 }
 
-fn fixture_reduce(_: &mut FixtureState, _: &ActionInvocation) -> GuiResult<()> {
+fn fixture_reduce(state: &mut FixtureState, invocation: &ActionInvocation) -> GuiResult<()> {
+    if state.rerender_on_press_start && invocation.event == NativeEventKind::PressStart {
+        state.generation = state.generation.saturating_add(1);
+        state.rerender_on_press_start = false;
+    }
     Ok(())
+}
+
+fn remount_fixture(
+    app: &mut FixtureApp,
+    disabled: bool,
+    rerender_on_press_start: bool,
+) -> GuiResult<HostNodeId> {
+    let state = app.state_mut();
+    state.generation = state.generation.saturating_add(1);
+    state.disabled = disabled;
+    state.rerender_on_press_start = rerender_on_press_start;
+    app.render()?;
+    let _ = pump_for(app, EVENT_SETTLE_TIME)?;
+    fixture_target(app)
+}
+
+fn set_fixture_disabled(app: &mut FixtureApp, disabled: bool) -> GuiResult<()> {
+    app.state_mut().disabled = disabled;
+    app.render()?;
+    let _ = pump_for(app, EVENT_SETTLE_TIME)?;
+    Ok(())
+}
+
+fn fixture_target(app: &FixtureApp) -> GuiResult<HostNodeId> {
+    app.runtime()
+        .host()
+        .executor()
+        .driver()
+        .handles()
+        .iter()
+        .find_map(|(id, handle)| matches!(handle.widget, WinUiOsWidget::Button(_)).then_some(*id))
+        .ok_or_else(|| GuiError::host("WinUI input fixture did not mount its button"))
 }
 
 fn fixture_handles(app: &FixtureApp) -> GuiResult<(HostNodeId, xaml::Window, isize)> {
     let handles = app.runtime().host().executor().driver().handles();
-    let target = handles
-        .iter()
-        .find_map(|(id, handle)| matches!(handle.widget, WinUiOsWidget::Button(_)).then_some(*id))
-        .ok_or_else(|| GuiError::host("WinUI input fixture did not mount its button"))?;
+    let target = fixture_target(app)?;
     let window = handles
         .values()
         .find_map(|handle| match &handle.widget {
@@ -188,7 +178,28 @@ fn run_scenario(
     worker: JoinHandle<Result<(), String>>,
     diagnostics: &mut Vec<String>,
 ) -> GuiResult<NativeInputConformanceObservationV1> {
-    let (events, result) = collect_worker_events(app, worker)?;
+    capture_scenario_result(app, target, scenario, worker, None, diagnostics)
+}
+
+fn run_scenario_with_pointer_release(
+    app: &mut FixtureApp,
+    target: HostNodeId,
+    scenario: NativeInputConformanceScenarioV1,
+    worker: JoinHandle<Result<(), String>>,
+    diagnostics: &mut Vec<String>,
+) -> GuiResult<NativeInputConformanceObservationV1> {
+    capture_scenario_result(app, target, scenario, worker, Some(target), diagnostics)
+}
+
+fn capture_scenario_result(
+    app: &mut FixtureApp,
+    target: HostNodeId,
+    scenario: NativeInputConformanceScenarioV1,
+    worker: JoinHandle<Result<(), String>>,
+    release_on_press_start: Option<HostNodeId>,
+    diagnostics: &mut Vec<String>,
+) -> GuiResult<NativeInputConformanceObservationV1> {
+    let (events, result) = collect_worker_events(app, worker, release_on_press_start)?;
     let stimulus_dispatched = result.is_ok();
     if let Err(error) = result {
         diagnostics.push(format!("{scenario:?}: {error}"));
@@ -204,11 +215,25 @@ fn run_scenario(
 fn collect_worker_events(
     app: &mut FixtureApp,
     worker: JoinHandle<Result<(), String>>,
+    mut release_on_press_start: Option<HostNodeId>,
 ) -> GuiResult<(Vec<NativeEvent>, Result<(), String>)> {
     let started = Instant::now();
     let mut events = Vec::new();
+    let mut intervention_error = None;
     while !worker.is_finished() {
-        events.extend(pump_once(app)?);
+        let batch = pump_once(app)?;
+        let release_target = release_on_press_start.filter(|target| {
+            batch
+                .iter()
+                .any(|event| event.node == *target && event.kind == NativeEventKind::PressStart)
+        });
+        events.extend(batch);
+        if let Some(target) = release_target {
+            if let Err(error) = release_pointer_captures(app, target) {
+                intervention_error = Some(error.to_string());
+            }
+            release_on_press_start = None;
+        }
         if started.elapsed() >= WORKER_TIMEOUT {
             return Err(GuiError::host(format!(
                 "Windows input automation worker exceeded {} seconds",
@@ -217,11 +242,44 @@ fn collect_worker_events(
         }
         thread::park_timeout(Duration::from_millis(2));
     }
-    let result = worker
+    let mut result = worker
         .join()
         .map_err(|_| GuiError::host("Windows input automation worker panicked"))?;
+    let intervention_error = intervention_error.or_else(|| {
+        release_on_press_start.map(|_| {
+            "mouse cancellation did not observe PressStart before the input worker finished"
+                .to_string()
+        })
+    });
+    if let Some(error) = intervention_error {
+        result = Err(match result {
+            Ok(()) => error,
+            Err(worker_error) => format!("{worker_error}; {error}"),
+        });
+    }
     events.extend(pump_for(app, EVENT_SETTLE_TIME)?);
     Ok((events, result))
+}
+
+fn release_pointer_captures(app: &FixtureApp, target: HostNodeId) -> GuiResult<()> {
+    let handle = app
+        .runtime()
+        .host()
+        .executor()
+        .driver()
+        .handles()
+        .get(&target)
+        .ok_or_else(|| GuiError::host("mouse cancellation target was unmounted too early"))?;
+    let WinUiOsWidget::Button(button) = &handle.widget else {
+        return Err(GuiError::host(
+            "mouse cancellation target is not a WinUI Button",
+        ));
+    };
+    button.ReleasePointerCaptures().map_err(|error| {
+        GuiError::host(format!(
+            "failed to release WinUI Button pointer capture: {error}"
+        ))
+    })
 }
 
 fn pump_for(app: &mut FixtureApp, duration: Duration) -> GuiResult<Vec<NativeEvent>> {
@@ -269,86 +327,4 @@ fn validate_partial_smoke(run: &NativeInputConformanceRunV1, diagnostics: &mut V
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use a3s_gui::{
-        NativeEventContext, NativeEventKind, NativeInputConformanceEnvironmentV1,
-        NativeInputModality, NativeOperatingSystemV1,
-    };
-
-    #[test]
-    fn partial_validation_accepts_only_missing_uncaptured_cases() {
-        let target = HostNodeId::new(7);
-        let observations = vec![
-            valid_activation_observation(
-                target,
-                NativeInputConformanceScenarioV1::MouseActivation,
-                NativeInputModality::Mouse,
-                false,
-                1,
-            ),
-            valid_activation_observation(
-                target,
-                NativeInputConformanceScenarioV1::KeyboardActivation,
-                NativeInputModality::Keyboard,
-                true,
-                0,
-            ),
-            valid_activation_observation(
-                target,
-                NativeInputConformanceScenarioV1::AssistiveActivation,
-                NativeInputModality::Virtual,
-                false,
-                0,
-            ),
-        ];
-        let run = NativeInputConformanceRunV1::new(
-            NativeBackendKind::WinUI,
-            NativeInputEvidenceSourceV1::OperatingSystemAutomation,
-        )
-        .environment(NativeInputConformanceEnvironmentV1::new(
-            NativeOperatingSystemV1::Windows,
-            "test-windows",
-            "test-winui",
-            "test-os-driver",
-        ))
-        .observations(observations);
-
-        let mut diagnostics = Vec::new();
-        validate_partial_smoke(&run, &mut diagnostics);
-        assert!(diagnostics.is_empty());
-
-        let mut broken = run;
-        broken.observations[0].events.remove(1);
-        validate_partial_smoke(&broken, &mut diagnostics);
-        assert_eq!(diagnostics.len(), 1);
-    }
-
-    fn valid_activation_observation(
-        target: HostNodeId,
-        scenario: NativeInputConformanceScenarioV1,
-        modality: NativeInputModality,
-        handled_activation: bool,
-        click_count: u8,
-    ) -> NativeInputConformanceObservationV1 {
-        let context = NativeEventContext::new()
-            .modality(modality)
-            .handled_activation(handled_activation)
-            .click_count(click_count);
-        let events = [
-            NativeEventKind::PressStart,
-            NativeEventKind::PressUp,
-            NativeEventKind::PressEnd,
-            NativeEventKind::Press,
-        ]
-        .into_iter()
-        .map(|kind| NativeEvent::new(target, kind).context(context))
-        .collect::<Vec<_>>();
-        NativeInputConformanceObservationV1::capture(
-            NativeInputConformanceCaseV1::new(NativeRole::Button, scenario),
-            target,
-            true,
-            &events,
-        )
-    }
-}
+mod tests;
