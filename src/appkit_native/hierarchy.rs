@@ -227,6 +227,10 @@ impl AppKitNativeSurface {
         self.popover_visible.remove(&id);
         self.popover_anchors.remove(&id);
         self.popover_anchors.retain(|_, anchor| *anchor != id);
+        self.popover_positions.remove(&id);
+        let popover_anchors = &self.popover_anchors;
+        self.popover_positions
+            .retain(|popover, _| popover_anchors.contains_key(popover));
         if let AppKitOsWidget::Window(window) = &handle.widget {
             window.setDelegate(None);
             self.window_delegates.remove(&id);

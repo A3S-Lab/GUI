@@ -42,6 +42,7 @@ pub mod native;
 ))]
 mod native_backends;
 pub mod overlay;
+pub mod overlay_position;
 pub mod platform;
 pub mod protocol;
 pub mod renderer;
@@ -123,8 +124,8 @@ pub use gtk4_native::{
     Gtk4NotebookTab, Gtk4OsHandle, Gtk4OsWidget, Gtk4RuntimeApp, Gtk4RuntimeHost,
 };
 pub use host::{
-    HeadlessHost, HostFrameAck, HostNodeId, HostOperation, NativeHost, ProgrammaticFocusHost,
-    DEFAULT_HEADLESS_OPERATION_HISTORY_LIMIT,
+    HeadlessHost, HostFrameAck, HostNodeId, HostOperation, NativeHost, OverlayPositionHost,
+    ProgrammaticFocusHost, DEFAULT_HEADLESS_OPERATION_HISTORY_LIMIT,
 };
 pub use html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
@@ -139,6 +140,12 @@ pub use interaction::{
 };
 pub use native::{ElementKey, NativeElement, NativeProps, NativeRole, ValueSensitivity};
 pub use overlay::{MountedOverlayRegistry, NativeOverlay};
+pub use overlay_position::{
+    calculate_overlay_position, mounted_overlay_positions, CalculatedOverlayPosition,
+    MountedOverlayPosition, OverlayArrowPosition, OverlayCrossAlignment, OverlayPlacement,
+    OverlayPlacementAxis, OverlayPoint, OverlayPositionOptions, OverlayPositionRequest,
+    ResolvedOverlayPlacement,
+};
 pub use platform::{
     native_widget_kind, native_widget_name, widget_blueprint, AppKitAdapter, BlueprintHost,
     Gtk4Adapter, NativeBackendKind, NativeConfigValueChange, NativeContainerKind,
@@ -168,11 +175,11 @@ pub use rsx_app::{
     FocusRingHook, FocusScopeHook, FocusWithinHook, FocusableHook, FormStatusSnapshot,
     GridListHeaderHook, GroupHook, HeadingHook, I18nHook, KeyboardHook, LabelHook, LegendHook,
     ListBoxHeaderHook, LoadMoreItemHook, MenuHook, MenuItemHook, NumberFieldHook, OptimisticHandle,
-    OverlayHook, PressHook, PropHandle, RadioGroupHook, RadioHook, RangeCalendarHook, RangeHook,
-    ReactiveHandle, RefHandle, ResourceHandle, RsxActionTransition, RsxComponent,
-    RsxComponentContract, RsxDebugValue, RsxResource, RsxRouteTransition, RsxRouter, RsxTemplate,
-    SelectDisplayHook, SelectHook, SelectionHook, SelectionIndicatorHook, SelectorHandle,
-    SeparatorHook, SliderFillHook, SliderOutputHook, SliderTrackHook, StateHandle,
+    OverlayHook, OverlayPositionHook, PressHook, PropHandle, RadioGroupHook, RadioHook,
+    RangeCalendarHook, RangeHook, ReactiveHandle, RefHandle, ResourceHandle, RsxActionTransition,
+    RsxComponent, RsxComponentContract, RsxDebugValue, RsxResource, RsxRouteTransition, RsxRouter,
+    RsxTemplate, SelectDisplayHook, SelectHook, SelectionHook, SelectionIndicatorHook,
+    SelectorHandle, SeparatorHook, SliderFillHook, SliderOutputHook, SliderTrackHook, StateHandle,
     SyncExternalStore, SyncExternalStoreSubscription, TabHook, TabListHook, TabPanelHook,
     TableCaptionHook, TableCellHook, TableColumnHook, TableHook, TableRowHook, TableSectionHook,
     TextFieldHook, TextHook, TimeFieldHook, ToggleButtonGroupHook, ToggleButtonHook, ToggleHook,

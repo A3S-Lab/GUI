@@ -6,6 +6,7 @@ use crate::error::{GuiError, GuiResult};
 use crate::native::{
     effective_input_type, NativeElement, NativeProps, NativeRole, ValueSensitivity,
 };
+use crate::overlay_position::OverlayPositionRequest;
 use crate::style::PortableStyle;
 use serde::{Deserialize, Serialize};
 
@@ -77,6 +78,11 @@ pub trait NativeHost {
     fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {
         None
     }
+
+    /// Returns the host's anchored overlay positioning capability when available.
+    fn overlay_position_host(&mut self) -> Option<&mut dyn OverlayPositionHost> {
+        None
+    }
 }
 
 /// Host capability for moving the platform's actual keyboard focus.
@@ -85,6 +91,16 @@ pub trait NativeHost {
 /// claim support for an imperative operation they cannot perform.
 pub trait ProgrammaticFocusHost {
     fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()>;
+}
+
+/// Host capability for positioning an overlay relative to a mounted anchor.
+pub trait OverlayPositionHost {
+    fn position_overlay(
+        &mut self,
+        overlay: HostNodeId,
+        anchor: HostNodeId,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()>;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -113,6 +129,11 @@ pub enum HostOperation {
     RequestFocus {
         id: HostNodeId,
     },
+    PositionOverlay {
+        overlay: HostNodeId,
+        anchor: HostNodeId,
+        request: OverlayPositionRequest,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -129,6 +150,7 @@ pub struct HeadlessHost {
     next_id: u64,
     root: Option<HostNodeId>,
     focused: Option<HostNodeId>,
+    overlay_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     nodes: BTreeMap<HostNodeId, HeadlessNode>,
     operations: Vec<HostOperation>,
     operation_history_limit: usize,
@@ -149,6 +171,7 @@ impl HeadlessHost {
             next_id: 0,
             root: None,
             focused: None,
+            overlay_positions: BTreeMap::new(),
             nodes: BTreeMap::new(),
             operations: Vec::new(),
             operation_history_limit,
@@ -161,6 +184,10 @@ impl HeadlessHost {
 
     pub fn focused(&self) -> Option<HostNodeId> {
         self.focused
+    }
+
+    pub fn overlay_positions(&self) -> &BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)> {
+        &self.overlay_positions
     }
 
     pub fn node(&self, id: HostNodeId) -> Option<&HeadlessNode> {
@@ -414,6 +441,9 @@ impl NativeHost for HeadlessHost {
         {
             self.focused = None;
         }
+        self.overlay_positions.retain(|overlay, (anchor, _)| {
+            !removed_ids.contains(overlay) && !removed_ids.contains(anchor)
+        });
         self.record_operation(HostOperation::Remove { id });
         Ok(())
     }
@@ -437,6 +467,10 @@ impl NativeHost for HeadlessHost {
     fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {
         Some(self)
     }
+
+    fn overlay_position_host(&mut self) -> Option<&mut dyn OverlayPositionHost> {
+        Some(self)
+    }
 }
 
 impl ProgrammaticFocusHost for HeadlessHost {
@@ -444,6 +478,38 @@ impl ProgrammaticFocusHost for HeadlessHost {
         self.ensure_node(id)?;
         self.focused = Some(id);
         self.operations.push(HostOperation::RequestFocus { id });
+        Ok(())
+    }
+}
+
+impl OverlayPositionHost for HeadlessHost {
+    fn position_overlay(
+        &mut self,
+        overlay: HostNodeId,
+        anchor: HostNodeId,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        self.ensure_node(overlay)?;
+        self.ensure_node(anchor)?;
+        if overlay == anchor {
+            return Err(GuiError::host(format!(
+                "overlay {} cannot anchor to itself",
+                overlay.get()
+            )));
+        }
+        if self.nodes.get(&overlay).map(|node| node.role) != Some(NativeRole::Popover) {
+            return Err(GuiError::host(format!(
+                "host node {} is not an overlay",
+                overlay.get()
+            )));
+        }
+        let request = OverlayPositionRequest::new(request.options, request.direction)?;
+        self.overlay_positions.insert(overlay, (anchor, request));
+        self.record_operation(HostOperation::PositionOverlay {
+            overlay,
+            anchor,
+            request,
+        });
         Ok(())
     }
 }

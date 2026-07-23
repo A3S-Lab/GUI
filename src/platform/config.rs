@@ -191,7 +191,17 @@ impl NativeWidgetConfig {
             enabled: !state.disabled,
             visible: !state.hidden
                 && blueprint.portable_style.renders_native_widget()
-                && state.html_dialog.open.unwrap_or(true),
+                && state.html_dialog.open.unwrap_or(true)
+                && (blueprint.role != crate::native::NativeRole::Popover
+                    || blueprint
+                        .metadata
+                        .get("data-open")
+                        .and_then(|value| match value.trim().to_ascii_lowercase().as_str() {
+                            "" | "1" | "true" => Some(true),
+                            "0" | "false" => Some(false),
+                            _ => None,
+                        })
+                        .unwrap_or(true)),
             required: state.required,
             invalid: state.invalid,
             read_only: state.read_only,

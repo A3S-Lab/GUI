@@ -29,32 +29,33 @@ use crate::semantic_ui::{
     use_grid_list_header_value, use_group_value, use_heading_value, use_i18n_value,
     use_keyboard_value, use_label_value, use_landmark_value, use_legend_value, use_link_value,
     use_list_box_header_value, use_load_more_item_value, use_menu_item_value, use_menu_value,
-    use_overlay_value, use_press_value, use_radio_group_value, use_radio_value,
-    use_range_calendar_value, use_range_value, use_select_display_value, use_select_value,
-    use_selection_value, use_submenu_trigger_value, use_switch_value, use_tab_list_value,
-    use_tab_panel_value, use_tab_value, use_table_caption_value, use_table_cell_value,
-    use_table_column_value, use_table_row_value, use_table_section_value, use_table_value,
-    use_text_field_value, use_text_value, use_time_field_value, use_toast_region_value,
-    use_toast_value, use_toggle_button_group_value, use_toggle_button_value, use_toggle_value,
-    use_tree_header_value, use_tree_item_value, use_tree_value, use_visually_hidden_value,
-    CollectionSectionKind, SemanticElement, SemanticMapper, TableSectionKind, UseAutocompleteProps,
-    UseBreadcrumbsProps, UseButtonProps, UseCalendarCellProps, UseCalendarProps,
-    UseCheckboxGroupProps, UseCheckboxProps, UseCollectionItemProps, UseCollectionProps,
-    UseCollectionSectionProps, UseColorAreaProps, UseColorFieldProps, UseColorPickerProps,
-    UseColorRangeProps, UseColorSwatchPickerItemProps, UseColorSwatchPickerProps,
-    UseColorSwatchProps, UseColorThumbProps, UseComboBoxDisplayProps, UseComboBoxProps,
-    UseDateFieldProps, UseDateInputProps, UseDatePickerProps, UseDateRangePickerProps,
-    UseDateSegmentProps, UseDisclosureGroupProps, UseDisclosureProps, UseDragProps, UseDropProps,
-    UseDropZoneProps, UseFieldProps, UseFileTriggerProps, UseFocusRingProps, UseFocusScopeProps,
-    UseFocusWithinProps, UseFocusableProps, UseFormProps, UseGroupProps, UseHeadingProps,
-    UseI18nProps, UseLandmarkProps, UseLinkProps, UseLoadMoreItemProps, UseMenuItemProps,
-    UseMenuProps, UseOverlayProps, UsePressProps, UseRadioGroupProps, UseRadioProps,
-    UseRangeCalendarProps, UseRangeProps, UseSelectDisplayProps, UseSelectProps, UseSelectionProps,
-    UseSubmenuTriggerProps, UseSwitchProps, UseTabListProps, UseTabPanelProps, UseTabProps,
-    UseTableCaptionProps, UseTableCellProps, UseTableColumnProps, UseTableProps, UseTableRowProps,
-    UseTableSectionProps, UseTextFieldProps, UseTextProps, UseTimeFieldProps, UseToastProps,
-    UseToastRegionProps, UseToggleButtonGroupProps, UseToggleButtonProps, UseToggleProps,
-    UseTreeItemProps, UseTreeProps,
+    use_overlay_position_value, use_overlay_value, use_press_value, use_radio_group_value,
+    use_radio_value, use_range_calendar_value, use_range_value, use_select_display_value,
+    use_select_value, use_selection_value, use_submenu_trigger_value, use_switch_value,
+    use_tab_list_value, use_tab_panel_value, use_tab_value, use_table_caption_value,
+    use_table_cell_value, use_table_column_value, use_table_row_value, use_table_section_value,
+    use_table_value, use_text_field_value, use_text_value, use_time_field_value,
+    use_toast_region_value, use_toast_value, use_toggle_button_group_value,
+    use_toggle_button_value, use_toggle_value, use_tree_header_value, use_tree_item_value,
+    use_tree_value, use_visually_hidden_value, CollectionSectionKind, SemanticElement,
+    SemanticMapper, TableSectionKind, UseAutocompleteProps, UseBreadcrumbsProps, UseButtonProps,
+    UseCalendarCellProps, UseCalendarProps, UseCheckboxGroupProps, UseCheckboxProps,
+    UseCollectionItemProps, UseCollectionProps, UseCollectionSectionProps, UseColorAreaProps,
+    UseColorFieldProps, UseColorPickerProps, UseColorRangeProps, UseColorSwatchPickerItemProps,
+    UseColorSwatchPickerProps, UseColorSwatchProps, UseColorThumbProps, UseComboBoxDisplayProps,
+    UseComboBoxProps, UseDateFieldProps, UseDateInputProps, UseDatePickerProps,
+    UseDateRangePickerProps, UseDateSegmentProps, UseDisclosureGroupProps, UseDisclosureProps,
+    UseDragProps, UseDropProps, UseDropZoneProps, UseFieldProps, UseFileTriggerProps,
+    UseFocusRingProps, UseFocusScopeProps, UseFocusWithinProps, UseFocusableProps, UseFormProps,
+    UseGroupProps, UseHeadingProps, UseI18nProps, UseLandmarkProps, UseLinkProps,
+    UseLoadMoreItemProps, UseMenuItemProps, UseMenuProps, UseOverlayPositionProps, UseOverlayProps,
+    UsePressProps, UseRadioGroupProps, UseRadioProps, UseRangeCalendarProps, UseRangeProps,
+    UseSelectDisplayProps, UseSelectProps, UseSelectionProps, UseSubmenuTriggerProps,
+    UseSwitchProps, UseTabListProps, UseTabPanelProps, UseTabProps, UseTableCaptionProps,
+    UseTableCellProps, UseTableColumnProps, UseTableProps, UseTableRowProps, UseTableSectionProps,
+    UseTextFieldProps, UseTextProps, UseTimeFieldProps, UseToastProps, UseToastRegionProps,
+    UseToggleButtonGroupProps, UseToggleButtonProps, UseToggleProps, UseTreeItemProps,
+    UseTreeProps,
 };
 use crate::semantic_ui::{
     use_clipboard_value, use_hover_value, use_keyboard_interaction_value, use_long_press_value,
@@ -1227,6 +1228,21 @@ fn props_scope_value(props: &CompiledProps) -> JsonValue {
             }
         }
         scope.insert("overlay".to_string(), overlay);
+    }
+
+    if let Ok(position) = overlay_position_scope_value(props) {
+        if let JsonValue::Object(position_scope) = &position {
+            if let Some(position_props) = position_scope.get("overlayPositionProps") {
+                scope.insert("overlayPositionProps".to_string(), position_props.clone());
+            }
+            if let Some(arrow_props) = position_scope.get("arrowProps") {
+                scope.insert("arrowProps".to_string(), arrow_props.clone());
+            }
+            if let Some(placement) = position_scope.get("placement") {
+                scope.insert("placement".to_string(), placement.clone());
+            }
+        }
+        scope.insert("overlayPosition".to_string(), position);
     }
 
     if let Ok(menu) = menu_scope_value(props) {
@@ -2939,6 +2955,52 @@ fn overlay_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
                 bool_attribute_value(props, &["autoFocus", "data-auto-focus"])
                     .unwrap_or(manages_focus_by_default),
             ),
+    )
+}
+
+fn overlay_position_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
+    use_overlay_position_value(
+        UseOverlayPositionProps::new()
+            .placement(
+                non_empty_attribute(props, &["placement", "data-placement"])
+                    .unwrap_or_else(|| "bottom".to_string()),
+            )
+            .anchor(non_empty_attribute(
+                props,
+                &["anchor", "triggerRef", "targetRef"],
+            ))
+            .offset(number_attribute_value(props, &["offset", "data-offset"]).unwrap_or(0.0))
+            .cross_offset(
+                number_attribute_value(props, &["crossOffset", "data-cross-offset"]).unwrap_or(0.0),
+            )
+            .should_flip(
+                bool_attribute_value(props, &["shouldFlip", "data-should-flip"]).unwrap_or(true),
+            )
+            .should_update_position(
+                bool_attribute_value(
+                    props,
+                    &["shouldUpdatePosition", "data-should-update-position"],
+                )
+                .unwrap_or(true),
+            )
+            .container_padding(
+                number_attribute_value(props, &["containerPadding", "data-container-padding"])
+                    .unwrap_or(12.0),
+            )
+            .arrow_size(
+                number_attribute_value(props, &["arrowSize", "data-arrow-size"]).unwrap_or(0.0),
+            )
+            .arrow_boundary_offset(
+                number_attribute_value(
+                    props,
+                    &["arrowBoundaryOffset", "data-arrow-boundary-offset"],
+                )
+                .unwrap_or(0.0),
+            )
+            .max_height(number_attribute_value(
+                props,
+                &["maxHeight", "data-max-height"],
+            )),
     )
 }
 

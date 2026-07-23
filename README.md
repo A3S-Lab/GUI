@@ -24,12 +24,14 @@ object graph at the host boundary.
   `onAction(key)` item activation, select-all/clear keyboard commands,
   touch/pen long-press selection entry, collection keyboard navigation,
   hierarchical tree expansion, activation-ordered overlay dismissal, modal
-  background inertness, nested focus containment/restoration, inherited
-  locale/direction, versioned capability reporting, shared native event-source
-  state machines, and accessibility conformance checks.
+  background inertness, nested focus containment/restoration, typed anchored
+  overlay placement, inherited locale/direction, versioned capability
+  reporting, shared native event-source state machines, and accessibility
+  conformance checks.
   Role-edge input parity, layout-aware collection page movement, IME/dead-key
-  conformance, native overlay positioning/scroll locking, remaining native
-  focus conformance, and locale formatting are still in progress.
+  conformance, measured overlay collision/arrow conformance and scroll locking,
+  remaining native focus conformance, and locale formatting are still in
+  progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.

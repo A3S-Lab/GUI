@@ -9,6 +9,7 @@ use crate::backend::{
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
+use crate::overlay_position::OverlayPositionRequest;
 #[cfg(any(test, feature = "appkit-native"))]
 use crate::platform::NativeTextInputPurpose;
 use crate::platform::{
@@ -369,6 +370,7 @@ impl std::fmt::Debug for AppKitNativeObject {
 pub struct AppKitWidgetDriver {
     root: Option<HostNodeId>,
     focused: Option<HostNodeId>,
+    overlay_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     objects: BTreeMap<HostNodeId, AppKitNativeObject>,
     events: Vec<NativeEvent>,
 }
@@ -423,11 +425,18 @@ impl std::fmt::Debug for AppKitNativeHandleState {
 #[derive(Debug, Default)]
 pub struct AppKitHandleAdapter {
     focused: Rc<Cell<Option<HostNodeId>>>,
+    overlay_positions: Rc<RefCell<BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>>>,
 }
 
 impl AppKitHandleAdapter {
     pub fn focused(&self) -> Option<HostNodeId> {
         self.focused.get()
+    }
+
+    pub fn overlay_positions(
+        &self,
+    ) -> Ref<'_, BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>> {
+        self.overlay_positions.borrow()
     }
 }
 
@@ -441,6 +450,10 @@ impl AppKitWidgetDriver {
 
     pub fn focused(&self) -> Option<HostNodeId> {
         self.focused
+    }
+
+    pub fn overlay_positions(&self) -> &BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)> {
+        &self.overlay_positions
     }
 
     pub fn object(&self, id: HostNodeId) -> Option<&AppKitNativeObject> {
@@ -633,6 +646,9 @@ impl NativeHandleAdapter for AppKitHandleAdapter {
         if self.focused.get() == Some(id) {
             self.focused.set(None);
         }
+        self.overlay_positions
+            .borrow_mut()
+            .retain(|overlay, (anchor, _)| *overlay != id && *anchor != id);
         Ok(())
     }
 
@@ -648,6 +664,33 @@ impl NativeHandleAdapter for AppKitHandleAdapter {
             )));
         }
         self.focused.set(Some(id));
+        Ok(())
+    }
+
+    fn position_overlay_handle(
+        &mut self,
+        overlay: HostNodeId,
+        overlay_handle: &Self::Handle,
+        anchor: HostNodeId,
+        anchor_handle: &Self::Handle,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        if overlay_handle.state.borrow().id != overlay || anchor_handle.state.borrow().id != anchor
+        {
+            return Err(GuiError::host(
+                "AppKit overlay or anchor handle id mismatch",
+            ));
+        }
+        if overlay_handle.state.borrow().kind != AppKitWidgetKind::Popover {
+            return Err(GuiError::host(format!(
+                "AppKit object {} is not an NSPopover",
+                overlay.get()
+            )));
+        }
+        let request = OverlayPositionRequest::new(request.options, request.direction)?;
+        self.overlay_positions
+            .borrow_mut()
+            .insert(overlay, (anchor, request));
         Ok(())
     }
 }
@@ -739,6 +782,9 @@ impl NativeWidgetDriver for AppKitWidgetDriver {
         for object in self.objects.values_mut() {
             object.children.retain(|child| !removed_ids.contains(child));
         }
+        self.overlay_positions.retain(|overlay, (anchor, _)| {
+            !removed_ids.contains(overlay) && !removed_ids.contains(anchor)
+        });
         for removed_id in &removed_ids {
             self.objects.remove(removed_id);
         }
@@ -767,6 +813,25 @@ impl NativeWidgetDriver for AppKitWidgetDriver {
     fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.ensure_object(id)?;
         self.focused = Some(id);
+        Ok(())
+    }
+
+    fn position_overlay(
+        &mut self,
+        overlay: HostNodeId,
+        anchor: HostNodeId,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        self.ensure_object(overlay)?;
+        self.ensure_object(anchor)?;
+        if self.objects.get(&overlay).map(|object| object.kind) != Some(AppKitWidgetKind::Popover) {
+            return Err(GuiError::host(format!(
+                "AppKit object {} is not an NSPopover",
+                overlay.get()
+            )));
+        }
+        let request = OverlayPositionRequest::new(request.options, request.direction)?;
+        self.overlay_positions.insert(overlay, (anchor, request));
         Ok(())
     }
 }

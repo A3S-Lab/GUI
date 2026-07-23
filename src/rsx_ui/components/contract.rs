@@ -213,6 +213,8 @@ pub(super) fn passthrough_contract() -> GuiResult<RsxComponentContract> {
             "overlay",
             "overlayProps",
             "overlayTriggerProps",
+            "overlayPositionProps",
+            "arrowProps",
             "overlayType",
             "isManagedOverlay",
             "isModal",

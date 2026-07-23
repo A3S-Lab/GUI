@@ -148,6 +148,8 @@ impl Gtk4NativeSurface {
         self.keyboard_presses.borrow_mut().remove(id);
         self.closed_windows.borrow_mut().remove(&id);
         self.dialog_visible.remove(&id);
+        self.popover_positions
+            .retain(|overlay, (anchor, _)| *overlay != id && *anchor != id);
         self.widgets.remove(&id);
         if let Some(parent) = self.list_item_parents.remove(&id) {
             if let Some(children) = self.container_children.get_mut(&parent) {

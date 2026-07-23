@@ -47,6 +47,9 @@ use crate::geometry::Orientation;
 use crate::host::HostNodeId;
 use crate::html::HTML_TAG_METADATA_KEY;
 use crate::native_backends::appkit::menu::AppKitMenuRegistry;
+use crate::overlay_position::{
+    OverlayCrossAlignment, OverlayPlacementAxis, OverlayPositionRequest,
+};
 use crate::platform::{
     apply_widget_setter, AppKitAdapter, NativeBackendKind, NativeWidgetBlueprint,
     NativeWidgetConfig, NativeWidgetSetter,
@@ -114,6 +117,7 @@ pub struct AppKitNativeSurface {
     dialog_visible: BTreeMap<HostNodeId, bool>,
     popover_visible: BTreeMap<HostNodeId, bool>,
     popover_anchors: BTreeMap<HostNodeId, HostNodeId>,
+    popover_positions: BTreeMap<HostNodeId, OverlayPositionRequest>,
     widgets: BTreeMap<HostNodeId, AppKitOsWidget>,
     action_targets: BTreeMap<HostNodeId, Retained<AppKitActionTarget>>,
     window_delegates: BTreeMap<HostNodeId, Retained<AppKitWindowDelegate>>,
@@ -165,6 +169,7 @@ impl AppKitNativeSurface {
             dialog_visible: BTreeMap::new(),
             popover_visible: BTreeMap::new(),
             popover_anchors: BTreeMap::new(),
+            popover_positions: BTreeMap::new(),
             widgets: BTreeMap::new(),
             action_targets: BTreeMap::new(),
             window_delegates: BTreeMap::new(),

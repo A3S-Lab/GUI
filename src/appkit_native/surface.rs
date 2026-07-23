@@ -123,6 +123,38 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         Ok(())
     }
 
+    fn position_native_overlay(
+        &mut self,
+        overlay: HostNodeId,
+        overlay_handle: &Self::Handle,
+        anchor: HostNodeId,
+        anchor_handle: &Self::Handle,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        if overlay_handle.id != overlay || anchor_handle.id != anchor {
+            return Err(GuiError::host(
+                "AppKit overlay or anchor handle id does not match the positioning command",
+            ));
+        }
+        let AppKitOsWidget::Popover(state) = &overlay_handle.widget else {
+            return Err(GuiError::host(format!(
+                "AppKit widget {} is not an NSPopover",
+                overlay.get()
+            )));
+        };
+        if anchor_handle.widget.as_view().is_none() {
+            return Err(GuiError::host(format!(
+                "AppKit overlay anchor {} is not an NSView",
+                anchor.get()
+            )));
+        }
+        let request = OverlayPositionRequest::new(request.options, request.direction)?;
+        self.popover_anchors.insert(overlay, anchor);
+        self.popover_positions.insert(overlay, request);
+        self.show_popover_if_marked_visible(overlay, state);
+        Ok(())
+    }
+
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         std::mem::take(&mut self.events.borrow_mut())
     }
@@ -200,10 +232,16 @@ impl AppKitNativeSurface {
             return;
         }
 
+        let (positioning_rect, preferred_edge) = self
+            .popover_positions
+            .get(&id)
+            .copied()
+            .map(|request| appkit_popover_position(anchor_view, request))
+            .unwrap_or_else(|| (anchor_view.bounds(), NSRectEdge::MaxY));
         state.popover.showRelativeToRect_ofView_preferredEdge(
-            anchor_view.bounds(),
+            positioning_rect,
             anchor_view,
-            NSRectEdge::MaxY,
+            preferred_edge,
         );
     }
 
@@ -224,6 +262,86 @@ impl AppKitNativeSurface {
         for (id, state) in popovers {
             self.show_popover_if_marked_visible(id, &state);
         }
+    }
+}
+
+fn appkit_popover_position(
+    anchor_view: &NSView,
+    request: OverlayPositionRequest,
+) -> (NSRect, NSRectEdge) {
+    let bounds = anchor_view.bounds();
+    let placement = request.resolved_placement();
+    let options = request.options;
+    let min_x = bounds.origin.x;
+    let max_x = bounds.origin.x + bounds.size.width;
+    let min_y = bounds.origin.y;
+    let max_y = bounds.origin.y + bounds.size.height;
+    let center_x = min_x + bounds.size.width / 2.0;
+    let center_y = min_y + bounds.size.height / 2.0;
+    let flipped = anchor_view.isFlipped();
+
+    let (x, y, edge) = match placement.axis {
+        OverlayPlacementAxis::Bottom => (
+            aligned_appkit_x(min_x, center_x, max_x, placement.alignment) + options.cross_offset,
+            if flipped {
+                max_y + options.offset
+            } else {
+                min_y - options.offset
+            },
+            NSRectEdge::MinY,
+        ),
+        OverlayPlacementAxis::Top => (
+            aligned_appkit_x(min_x, center_x, max_x, placement.alignment) + options.cross_offset,
+            if flipped {
+                min_y - options.offset
+            } else {
+                max_y + options.offset
+            },
+            NSRectEdge::MaxY,
+        ),
+        OverlayPlacementAxis::Left => (
+            min_x - options.offset,
+            aligned_appkit_y(min_y, center_y, max_y, placement.alignment, flipped)
+                + if flipped {
+                    options.cross_offset
+                } else {
+                    -options.cross_offset
+                },
+            NSRectEdge::MinX,
+        ),
+        OverlayPlacementAxis::Right => (
+            max_x + options.offset,
+            aligned_appkit_y(min_y, center_y, max_y, placement.alignment, flipped)
+                + if flipped {
+                    options.cross_offset
+                } else {
+                    -options.cross_offset
+                },
+            NSRectEdge::MaxX,
+        ),
+    };
+    (NSRect::new(NSPoint::new(x, y), NSSize::new(0.0, 0.0)), edge)
+}
+
+fn aligned_appkit_x(near: f64, center: f64, far: f64, alignment: OverlayCrossAlignment) -> f64 {
+    match alignment {
+        OverlayCrossAlignment::Near => near,
+        OverlayCrossAlignment::Center => center,
+        OverlayCrossAlignment::Far => far,
+    }
+}
+
+fn aligned_appkit_y(
+    min: f64,
+    center: f64,
+    max: f64,
+    alignment: OverlayCrossAlignment,
+    flipped: bool,
+) -> f64 {
+    match (alignment, flipped) {
+        (OverlayCrossAlignment::Near, true) | (OverlayCrossAlignment::Far, false) => min,
+        (OverlayCrossAlignment::Center, _) => center,
+        (OverlayCrossAlignment::Far, true) | (OverlayCrossAlignment::Near, false) => max,
     }
 }
 

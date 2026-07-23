@@ -1,4 +1,5 @@
 use super::*;
+use crate::overlay_position::OverlayPlacement;
 
 fn render_request(
     session: &NativeProtocolSession<Gtk4Adapter>,
@@ -125,6 +126,52 @@ fn protocol_v1_host_event_has_a_stable_golden_wire_shape() {
         }
     }"#;
     assert!(serde_json::from_str::<ProtocolHostEventV1>(unknown_payload).is_err());
+}
+
+#[test]
+fn protocol_v1_round_trips_typed_overlay_position_commands() {
+    let command = PlatformCommand::PositionOverlay {
+        overlay: HostNodeId::new(7),
+        anchor: HostNodeId::new(3),
+        request: OverlayPositionRequest::new(
+            OverlayPositionOptions {
+                placement: OverlayPlacement::BottomStart,
+                offset: 8.0,
+                cross_offset: -2.0,
+                should_flip: false,
+                should_update_position: true,
+                container_padding: 16.0,
+                arrow_size: 6.0,
+                arrow_boundary_offset: 4.0,
+                max_height: Some(320.0),
+            },
+            TextDirection::Rtl,
+        )
+        .unwrap(),
+    };
+
+    let protocol = ProtocolCommandV1::from(&command);
+    assert_eq!(
+        serde_json::to_value(&protocol).unwrap(),
+        serde_json::json!({
+            "type": "positionOverlay",
+            "overlay": 7,
+            "anchor": 3,
+            "request": {
+                "placement": "bottom start",
+                "offset": 8.0,
+                "crossOffset": -2.0,
+                "shouldFlip": false,
+                "shouldUpdatePosition": true,
+                "containerPadding": 16.0,
+                "arrowSize": 6.0,
+                "arrowBoundaryOffset": 4.0,
+                "maxHeight": 320.0,
+                "direction": "rtl"
+            }
+        })
+    );
+    assert_eq!(PlatformCommand::try_from(protocol).unwrap(), command);
 }
 
 #[test]

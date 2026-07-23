@@ -523,6 +523,17 @@ restore-enabled overlay returns focus to its valid trigger. `UiDialog`,
 popover keeps background branches interactive and does not contain focus,
 while still supporting autofocus, restoration, close-on-blur, and Escape.
 
+Anchored overlay positioning is a separate typed host capability. Popover and
+Tooltip authoring props serialize a `data-overlay-position` contract containing
+placement, main/cross offsets, flip/update policy, boundary padding, arrow
+geometry, and maximum height. After lifecycle projection, `GuiRuntime` resolves
+each open Popover to an explicit mounted `anchor` id/key, its nearest marked
+trigger context, a previous trigger sibling, or a non-window parent. Invalid,
+ambiguous, self, and descendant anchors are rejected before platform commands
+are emitted. `PlatformPlanningHost` retains the relationship for recovery
+replay and suppresses identical commands when `shouldUpdatePosition` is false.
+Protocol v1 carries the same validated options in `positionOverlay`.
+
 Non-focus interaction state is
 revision-scoped: after a successful rerender, controlled values from the new
 blueprint supersede stale local event state while focus remains preserved until
@@ -907,7 +918,9 @@ Feature-gated platform executor surfaces:
   are populated with native children; panels are presented from native
   visibility state instead of being inserted into parent stack layout.
   Semantic `Popover` trees create native `NSPopover` overlays whose content
-  view controllers hold native children.
+  view controllers hold native children. Typed positioning selects an explicit
+  anchor `NSView`, resolves logical placement against direction, and projects a
+  positioning point, preferred edge, main offset, and cross offset.
   Semantic `Tabs` trees fold `TabList` and ordered `TabPanel` children into
   native `NSTabViewItem` objects whose content views are the panel views;
   `NSTabViewDelegate` callbacks enqueue tab selection-change records.
@@ -980,6 +993,9 @@ Feature-gated platform executor surfaces:
   the root window exposes a `XamlRoot`. Semantic `Popover`
   trees create ToolTip-backed native overlay surfaces with real XAML children
   because `winio-winui3` 0.4.2 does not expose a strong `Flyout` binding yet.
+  Position commands bind `PlacementTarget`, a direction-aware placement point,
+  signed offsets, and optional maximum height. WinUI remains responsible for
+  choosing the final collision side.
   Semantic `Menu` trees use native XAML `StackPanel` menu surfaces with native
   `Button` menu items while `winio-winui3` 0.4.2 lacks strong `MenuFlyout` and
   `MenuBar` bindings.
@@ -1029,7 +1045,9 @@ Feature-gated platform executor surfaces:
   dialog nodes are presented from native visibility state instead of being
   inserted into parent box layout.
   Semantic `Popover` trees use native `gtk::Popover` overlays with native
-  GTK children.
+  GTK children. Position commands reparent the popover to the resolved anchor,
+  set its physical side and pointing rectangle, and apply signed main/cross
+  offsets; GTK performs final work-area collision handling.
   Semantic `Menu` trees use native `gio::Menu` models, `gio::MenuItem`
   children, `gtk::PopoverMenuBar` surfaces, and `gio::SimpleAction` activation
   callbacks.

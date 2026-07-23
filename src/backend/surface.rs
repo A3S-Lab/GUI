@@ -1,6 +1,7 @@
 use crate::error::GuiResult;
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
+use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{
     NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfigPatch, NativeWidgetSetter,
 };
@@ -109,6 +110,23 @@ impl<S: NativeWidgetSurface> NativeHandleAdapter for SurfaceHandleAdapter<S> {
 
     fn request_focus_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
         self.surface.request_native_focus(id, handle)
+    }
+
+    fn position_overlay_handle(
+        &mut self,
+        overlay: HostNodeId,
+        overlay_handle: &Self::Handle,
+        anchor: HostNodeId,
+        anchor_handle: &Self::Handle,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        self.surface.position_native_overlay(
+            overlay,
+            overlay_handle,
+            anchor,
+            anchor_handle,
+            request,
+        )
     }
 
     fn take_native_events(&mut self) -> Vec<NativeEvent> {

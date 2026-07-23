@@ -24,6 +24,12 @@ pub fn widget_blueprint(
     element: &NativeElement,
 ) -> NativeWidgetBlueprint {
     let props = normalize_props_for_native_role(element.role, &element.props);
+    let mut metadata = props.metadata.clone();
+    if element.role == NativeRole::Popover {
+        if let Some(open) = props.web.attributes.get("data-open") {
+            metadata.insert("data-open".to_string(), open.clone());
+        }
+    }
     NativeWidgetBlueprint {
         backend,
         widget_kind: native_widget_kind(element.role, &props),
@@ -42,7 +48,7 @@ pub fn widget_blueprint(
         style: props.web.style.clone(),
         portable_style: PortableStyle::from_web(&props.web),
         events: props.web.events.clone(),
-        metadata: props.metadata.clone(),
+        metadata,
     }
 }
 

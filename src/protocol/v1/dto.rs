@@ -496,6 +496,87 @@ impl From<ProtocolWidgetBlueprintV1> for NativeWidgetBlueprint {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProtocolTextDirectionV1 {
+    Ltr,
+    Rtl,
+}
+
+impl From<TextDirection> for ProtocolTextDirectionV1 {
+    fn from(direction: TextDirection) -> Self {
+        match direction {
+            TextDirection::Ltr => Self::Ltr,
+            TextDirection::Rtl => Self::Rtl,
+        }
+    }
+}
+
+impl From<ProtocolTextDirectionV1> for TextDirection {
+    fn from(direction: ProtocolTextDirectionV1) -> Self {
+        match direction {
+            ProtocolTextDirectionV1::Ltr => Self::Ltr,
+            ProtocolTextDirectionV1::Rtl => Self::Rtl,
+        }
+    }
+}
+
+/// Stable version-1 wire projection of anchored overlay position options.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ProtocolOverlayPositionRequestV1 {
+    pub placement: String,
+    pub offset: f64,
+    pub cross_offset: f64,
+    pub should_flip: bool,
+    pub should_update_position: bool,
+    pub container_padding: f64,
+    pub arrow_size: f64,
+    pub arrow_boundary_offset: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<f64>,
+    pub direction: ProtocolTextDirectionV1,
+}
+
+impl From<&OverlayPositionRequest> for ProtocolOverlayPositionRequestV1 {
+    fn from(request: &OverlayPositionRequest) -> Self {
+        let options = request.options;
+        Self {
+            placement: options.placement.to_string(),
+            offset: options.offset,
+            cross_offset: options.cross_offset,
+            should_flip: options.should_flip,
+            should_update_position: options.should_update_position,
+            container_padding: options.container_padding,
+            arrow_size: options.arrow_size,
+            arrow_boundary_offset: options.arrow_boundary_offset,
+            max_height: options.max_height,
+            direction: request.direction.into(),
+        }
+    }
+}
+
+impl TryFrom<ProtocolOverlayPositionRequestV1> for OverlayPositionRequest {
+    type Error = GuiError;
+
+    fn try_from(request: ProtocolOverlayPositionRequestV1) -> Result<Self, Self::Error> {
+        OverlayPositionRequest::new(
+            OverlayPositionOptions {
+                placement: request.placement.parse()?,
+                offset: request.offset,
+                cross_offset: request.cross_offset,
+                should_flip: request.should_flip,
+                should_update_position: request.should_update_position,
+                container_padding: request.container_padding,
+                arrow_size: request.arrow_size,
+                arrow_boundary_offset: request.arrow_boundary_offset,
+                max_height: request.max_height,
+            },
+            request.direction.into(),
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ProtocolCommandV1 {
@@ -520,6 +601,11 @@ pub enum ProtocolCommandV1 {
     },
     RequestFocus {
         id: u64,
+    },
+    PositionOverlay {
+        overlay: u64,
+        anchor: u64,
+        request: ProtocolOverlayPositionRequestV1,
     },
 }
 
@@ -546,6 +632,15 @@ impl From<&PlatformCommand> for ProtocolCommandV1 {
             PlatformCommand::Remove { id } => Self::Remove { id: id.get() },
             PlatformCommand::SetRoot { id } => Self::SetRoot { id: id.get() },
             PlatformCommand::RequestFocus { id } => Self::RequestFocus { id: id.get() },
+            PlatformCommand::PositionOverlay {
+                overlay,
+                anchor,
+                request,
+            } => Self::PositionOverlay {
+                overlay: overlay.get(),
+                anchor: anchor.get(),
+                request: request.into(),
+            },
         }
     }
 }
@@ -585,6 +680,15 @@ impl TryFrom<ProtocolCommandV1> for PlatformCommand {
             ProtocolCommandV1::Remove { id } => Ok(Self::Remove { id: node(id)? }),
             ProtocolCommandV1::SetRoot { id } => Ok(Self::SetRoot { id: node(id)? }),
             ProtocolCommandV1::RequestFocus { id } => Ok(Self::RequestFocus { id: node(id)? }),
+            ProtocolCommandV1::PositionOverlay {
+                overlay,
+                anchor,
+                request,
+            } => Ok(Self::PositionOverlay {
+                overlay: node(overlay)?,
+                anchor: node(anchor)?,
+                request: request.try_into()?,
+            }),
         }
     }
 }

@@ -80,6 +80,100 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         Ok(())
     }
 
+    fn position_native_overlay(
+        &mut self,
+        overlay: HostNodeId,
+        overlay_handle: &Self::Handle,
+        anchor: HostNodeId,
+        anchor_handle: &Self::Handle,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        if overlay_handle.id != overlay || anchor_handle.id != anchor {
+            return Err(GuiError::host(
+                "WinUI overlay or anchor handle id does not match the positioning command",
+            ));
+        }
+        let WinUiOsWidget::ToolTip(tool_tip) = &overlay_handle.widget else {
+            return Err(GuiError::host(format!(
+                "WinUI widget {} is not a ToolTip",
+                overlay.get()
+            )));
+        };
+        let anchor_element = anchor_handle.widget.ui_element().ok_or_else(|| {
+            GuiError::host(format!(
+                "WinUI overlay anchor {} is not a UIElement",
+                anchor.get()
+            ))
+        })?;
+        let request = OverlayPositionRequest::new(request.options, request.direction)?;
+        map_winui(
+            "failed to set WinUI tooltip placement target",
+            tool_tip.SetPlacementTarget(&anchor_element),
+        )?;
+
+        if let Some(anchor_framework) = anchor_handle.widget.framework_element() {
+            let width = anchor_framework.ActualWidth().unwrap_or(0.0).max(0.0);
+            let height = anchor_framework.ActualHeight().unwrap_or(0.0).max(0.0);
+            let placement = request.resolved_placement();
+            let (x, y) = if placement.axis.is_vertical() {
+                (
+                    aligned_winui_coordinate(width, placement.alignment),
+                    if matches!(placement.axis, OverlayPlacementAxis::Top) {
+                        0.0
+                    } else {
+                        height
+                    },
+                )
+            } else {
+                (
+                    if matches!(placement.axis, OverlayPlacementAxis::Left) {
+                        0.0
+                    } else {
+                        width
+                    },
+                    aligned_winui_coordinate(height, placement.alignment),
+                )
+            };
+            let placement_rect = winui_rect_reference(windows::Foundation::Rect {
+                X: overlay_coordinate_f32(x),
+                Y: overlay_coordinate_f32(y),
+                Width: 0.0,
+                Height: 0.0,
+            })?;
+            map_winui(
+                "failed to set WinUI tooltip placement rectangle",
+                tool_tip.SetPlacementRect(&placement_rect),
+            )?;
+        }
+
+        let placement = request.resolved_placement();
+        let (horizontal_offset, vertical_offset) = match placement.axis {
+            OverlayPlacementAxis::Top => (request.options.cross_offset, -request.options.offset),
+            OverlayPlacementAxis::Bottom => (request.options.cross_offset, request.options.offset),
+            OverlayPlacementAxis::Left => (-request.options.offset, request.options.cross_offset),
+            OverlayPlacementAxis::Right => (request.options.offset, request.options.cross_offset),
+        };
+        map_winui(
+            "failed to set WinUI tooltip horizontal offset",
+            tool_tip.SetHorizontalOffset(horizontal_offset),
+        )?;
+        map_winui(
+            "failed to set WinUI tooltip vertical offset",
+            tool_tip.SetVerticalOffset(vertical_offset),
+        )?;
+        if let (Some(max_height), Some(framework)) = (
+            request.options.max_height,
+            overlay_handle.widget.framework_element(),
+        ) {
+            map_winui(
+                "failed to set WinUI tooltip maximum height",
+                framework.SetMaxHeight(max_height),
+            )?;
+        }
+        self.overlay_positions.insert(overlay, (anchor, request));
+        Ok(())
+    }
+
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         let events = self
             .events
@@ -89,6 +183,28 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         self.cleanup_closed_content_dialogs(&events);
         events
     }
+}
+
+fn aligned_winui_coordinate(size: f64, alignment: OverlayCrossAlignment) -> f64 {
+    match alignment {
+        OverlayCrossAlignment::Near => 0.0,
+        OverlayCrossAlignment::Center => size / 2.0,
+        OverlayCrossAlignment::Far => size,
+    }
+}
+
+fn overlay_coordinate_f32(value: f64) -> f32 {
+    value.clamp(f64::from(f32::MIN), f64::from(f32::MAX)) as f32
+}
+
+fn winui_rect_reference(
+    value: windows::Foundation::Rect,
+) -> GuiResult<windows::Foundation::IReference<windows::Foundation::Rect>> {
+    let value = map_winui(
+        "failed to box WinUI placement rectangle",
+        PropertyValue::CreateRect(value),
+    )?;
+    map_winui("failed to cast WinUI placement rectangle", value.cast())
 }
 
 impl WinUiNativeSurface {

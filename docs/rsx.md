@@ -1652,6 +1652,15 @@ structural underlay and `UiTooltip` is informational, so neither independently
 joins the managed stack. Dismissal is controlled: the `onClose` action should
 rerender the overlay with `isOpen={false}`.
 
+`UiPopover` and `UiTooltip` also accept `placement`, `anchor`, `offset`,
+`crossOffset`, `shouldFlip`, `shouldUpdatePosition`, `containerPadding`,
+`arrowSize`, `arrowBoundaryOffset`, and `maxHeight`. Popover placement defaults
+to `bottom`; Tooltip defaults to `top`. `anchor` may reference a mounted id
+(with or without `#`) or a unique key. In trigger components it may be omitted,
+because the runtime resolves the marked trigger context. All 22 React Aria
+physical and logical placement strings are accepted, including `bottom start`,
+`left top`, and `end bottom`.
+
 ```rsx
 <UiModal
   key="settings-modal"

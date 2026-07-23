@@ -2,6 +2,10 @@ use super::*;
 use crate::accessibility::AccessibilityTreeHost;
 use crate::event::NativeEventKind;
 use crate::native::{NativeElement, NativeProps, NativeRole};
+use crate::overlay_position::{
+    OverlayPlacement, OVERLAY_PLACEMENT_ATTRIBUTE, OVERLAY_POSITION_MARKER,
+    OVERLAY_SHOULD_UPDATE_POSITION_ATTRIBUTE,
+};
 use crate::platform::{
     AppKitAdapter, Gtk4Adapter, PlatformAdapter, PlatformPlanningHost, WinUiAdapter,
 };
@@ -35,6 +39,54 @@ fn overlay_props(
 
 fn inactive_overlay_props(close_action: &str) -> NativeProps {
     NativeProps::new().web(WebProps::new().event("onClose", close_action))
+}
+
+fn positioned_popover(should_update_position: bool) -> NativeElement {
+    NativeElement::new("popover", NativeRole::Popover).with_props(
+        NativeProps::new()
+            .anchor("#trigger")
+            .metadata("data-open", "true")
+            .metadata(OVERLAY_POSITION_MARKER, "true")
+            .metadata(OVERLAY_PLACEMENT_ATTRIBUTE, "top end")
+            .metadata(
+                OVERLAY_SHOULD_UPDATE_POSITION_ATTRIBUTE,
+                should_update_position.to_string(),
+            ),
+    )
+}
+
+#[test]
+fn runtime_projects_typed_anchor_position_and_honors_static_positioning() {
+    let element = NativeElement::new("root", NativeRole::View)
+        .child(
+            NativeElement::new("trigger", NativeRole::Button)
+                .with_props(NativeProps::new().web(WebProps::new().id("trigger"))),
+        )
+        .child(positioned_popover(false));
+    let mut runtime = runtime();
+
+    let root = runtime.render_native(&element).unwrap();
+    let trigger = runtime.host().node(root).unwrap().children[0];
+    let popover = runtime.host().node(root).unwrap().children[1];
+    let (anchor, request) = runtime.host().overlay_positions().get(&popover).unwrap();
+    assert_eq!(*anchor, trigger);
+    assert_eq!(request.options.placement, OverlayPlacement::TopEnd);
+    assert!(!request.options.should_update_position);
+    assert!(runtime.host().commands().iter().any(|command| matches!(
+        command,
+        crate::platform::PlatformCommand::PositionOverlay {
+            overlay,
+            anchor,
+            ..
+        } if *overlay == popover && *anchor == trigger
+    )));
+
+    runtime.host_mut().clear_commands();
+    runtime.render_native(&element).unwrap();
+    assert!(!runtime.host().commands().iter().any(|command| matches!(
+        command,
+        crate::platform::PlatformCommand::PositionOverlay { .. }
+    )));
 }
 
 fn assert_adapter_applies_overlay_policy<A: PlatformAdapter>(adapter: A) {

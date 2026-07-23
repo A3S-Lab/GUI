@@ -15,6 +15,7 @@ use crate::native::{
     NativeElement, NativeProps, ValueSensitivity,
 };
 use crate::overlay::{MountedOverlayRegistry, OverlayEventDisposition};
+use crate::overlay_position::mounted_overlay_positions;
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::renderer::Renderer;
 use crate::selection::{
@@ -207,6 +208,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         self.project_mounted_selection_to_host()?;
         self.project_mounted_tree_to_host()?;
         self.project_mounted_overlays_to_host()?;
+        self.project_mounted_overlay_positions_to_host()?;
         self.focus_manager.sync(&self.renderer.mounted_snapshot());
         let overlay_auto_focus = self
             .overlay_registry
@@ -939,6 +941,22 @@ impl<H: NativeHost> GuiRuntime<H> {
         let snapshot = self.renderer.mounted_snapshot();
         let updates = self.overlay_registry.projected_props(&snapshot);
         self.update_mounted_props_and_invalidate_interaction_styles(&updates)
+    }
+
+    fn project_mounted_overlay_positions_to_host(&mut self) -> GuiResult<()> {
+        let positions = mounted_overlay_positions(&self.renderer.mounted_snapshot())?;
+        if positions.is_empty() {
+            return Ok(());
+        }
+        let host = self.host.overlay_position_host().ok_or_else(|| {
+            GuiError::host(
+                "native host does not support the anchored overlay positioning requested by this tree",
+            )
+        })?;
+        for position in positions {
+            host.position_overlay(position.overlay, position.anchor, position.request)?;
+        }
+        Ok(())
     }
 
     fn update_mounted_props_and_invalidate_interaction_styles(

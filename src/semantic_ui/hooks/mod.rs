@@ -22,6 +22,7 @@ mod load_more_item;
 mod menu;
 mod number_field;
 mod overlay;
+mod overlay_position;
 mod press;
 mod radio;
 mod range;
@@ -150,6 +151,10 @@ pub use number_field::{
 pub use overlay::{
     use_overlay, use_overlay_value, OverlayProps, OverlayTriggerKind, OverlayTriggerProps,
     UseOverlayProps, UseOverlayResult,
+};
+pub use overlay_position::{
+    use_overlay_position, use_overlay_position_value, OverlayArrowProps, OverlayPositionProps,
+    UseOverlayPositionProps, UseOverlayPositionResult,
 };
 pub use press::{use_press, use_press_value, PressProps, UsePressProps, UsePressResult};
 pub use radio::{
