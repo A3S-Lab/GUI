@@ -1,6 +1,6 @@
 #[cfg(target_os = "windows")]
 mod winui_counter {
-    use a3s_gui::{ActionInvocation, UiFrame, WinUiRuntimeApp};
+    use a3s_gui::{run_winui_application_staged_async, ActionInvocation, UiFrame, WinUiRuntimeApp};
     use serde_json::json;
 
     #[derive(Debug, Clone, PartialEq, Default)]
@@ -9,11 +9,19 @@ mod winui_counter {
     }
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        let mut app =
-            WinUiRuntimeApp::winui(CounterState::default(), counter_frame, counter_reduce)?;
-        app.render()?;
-        app.run_winui_while(|state| state.count < 5)?;
-        println!("counter finished at {}", app.state().count);
+        run_winui_application_staged_async(
+            || {
+                let mut app =
+                    WinUiRuntimeApp::winui(CounterState::default(), counter_frame, counter_reduce)?;
+                app.render()?;
+                Ok(app)
+            },
+            |mut app| async move {
+                app.run_winui_while_async(|state| state.count < 5).await?;
+                println!("counter finished at {}", app.state().count);
+                Ok(())
+            },
+        )?;
         Ok(())
     }
 

@@ -4,16 +4,24 @@ mod controls_smoke;
 
 #[cfg(target_os = "windows")]
 mod winui_controls {
-    use a3s_gui::{GuiResult, UiFrame, WinUiRuntimeApp};
+    use a3s_gui::{run_winui_application_staged_async, GuiResult, UiFrame, WinUiRuntimeApp};
 
     use crate::controls_smoke::{controls_frame, controls_reduce, ControlsState};
 
     pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-        let mut app =
-            WinUiRuntimeApp::winui(ControlsState::default(), winui_frame, controls_reduce)?;
-        app.render()?;
-        app.run_winui()?;
-        println!("controls smoke closed with state: {:?}", app.state());
+        run_winui_application_staged_async(
+            || {
+                let mut app =
+                    WinUiRuntimeApp::winui(ControlsState::default(), winui_frame, controls_reduce)?;
+                app.render()?;
+                Ok(app)
+            },
+            |mut app| async move {
+                app.run_winui_async().await?;
+                println!("controls smoke closed with state: {:?}", app.state());
+                Ok(())
+            },
+        )?;
         Ok(())
     }
 

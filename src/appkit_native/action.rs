@@ -7,6 +7,7 @@ pub(super) struct AppKitActionTargetIvars {
     activation_contexts: interaction::AppKitActivationContexts,
     focused_node: Rc<Cell<Option<HostNodeId>>>,
     selection_value: Option<String>,
+    terminal_press_only: bool,
     max_length: Cell<Option<u32>>,
     suppress_text_change: Cell<bool>,
 }
@@ -39,6 +40,14 @@ define_class!(
                 return;
             }
 
+            if self.ivars().terminal_press_only {
+                self.ivars()
+                    .events
+                    .borrow_mut()
+                    .extend(uncontextualized_press_events(self.ivars().node, true));
+                return;
+            }
+
             match interaction::take_activation_context(
                 &self.ivars().activation_contexts,
                 self.ivars().node,
@@ -56,7 +65,7 @@ define_class!(
                     .ivars()
                     .events
                     .borrow_mut()
-                    .extend(virtual_press_events(self.ivars().node)),
+                    .extend(uncontextualized_press_events(self.ivars().node, false)),
             }
         }
 
@@ -169,6 +178,27 @@ impl AppKitActionTarget {
             activation_contexts,
             focused_node,
             selection_value: None,
+            terminal_press_only: false,
+            max_length: Cell::new(None),
+            suppress_text_change: Cell::new(false),
+        });
+        unsafe { msg_send![super(this), init] }
+    }
+
+    pub(super) fn new_terminal_press(
+        node: HostNodeId,
+        events: Rc<RefCell<Vec<NativeEvent>>>,
+        activation_contexts: interaction::AppKitActivationContexts,
+        focused_node: Rc<Cell<Option<HostNodeId>>>,
+        mtm: MainThreadMarker,
+    ) -> Retained<Self> {
+        let this = Self::alloc(mtm).set_ivars(AppKitActionTargetIvars {
+            node,
+            events,
+            activation_contexts,
+            focused_node,
+            selection_value: None,
+            terminal_press_only: true,
             max_length: Cell::new(None),
             suppress_text_change: Cell::new(false),
         });
@@ -189,6 +219,7 @@ impl AppKitActionTarget {
             activation_contexts,
             focused_node,
             selection_value: Some(selection_value),
+            terminal_press_only: false,
             max_length: Cell::new(None),
             suppress_text_change: Cell::new(false),
         });
@@ -205,5 +236,46 @@ impl AppKitActionTarget {
 
     pub(super) fn set_max_length(&self, max_length: Option<u32>) {
         self.ivars().max_length.set(max_length);
+    }
+}
+
+fn uncontextualized_press_events(node: HostNodeId, terminal_press_only: bool) -> Vec<NativeEvent> {
+    if terminal_press_only {
+        vec![NativeEvent::new(node, NativeEventKind::Press)]
+    } else {
+        virtual_press_events(node)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn menu_fallback_does_not_invent_a_virtual_press_lifecycle() {
+        let events = uncontextualized_press_events(HostNodeId::new(7), true);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].kind, NativeEventKind::Press);
+        assert_eq!(
+            events[0].context.modality,
+            crate::input::NativeInputModality::Unknown
+        );
+    }
+
+    #[test]
+    fn ordinary_control_fallback_remains_a_virtual_press_lifecycle() {
+        let events = uncontextualized_press_events(HostNodeId::new(8), false);
+        assert_eq!(
+            events.iter().map(|event| event.kind).collect::<Vec<_>>(),
+            vec![
+                NativeEventKind::PressStart,
+                NativeEventKind::PressUp,
+                NativeEventKind::PressEnd,
+                NativeEventKind::Press,
+            ]
+        );
+        assert!(events
+            .iter()
+            .all(|event| { event.context.modality == crate::input::NativeInputModality::Virtual }));
     }
 }

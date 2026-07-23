@@ -107,7 +107,7 @@ impl AppKitNativeSurface {
                         .or(config.value.as_deref())
                         .unwrap_or(""),
                 );
-                let target = AppKitActionTarget::new(
+                let target = AppKitActionTarget::new_terminal_press(
                     id,
                     self.events.clone(),
                     self.activation_contexts.clone(),

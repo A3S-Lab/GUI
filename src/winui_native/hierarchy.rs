@@ -221,6 +221,9 @@ impl WinUiNativeSurface {
         if let Ok(mut pending) = self.pending_activation_cleanup.lock() {
             pending.remove(&id);
         }
+        if let Ok(mut cancellations) = self.forced_pointer_cancellations.lock() {
+            cancellations.remove(&id);
+        }
         self.interaction_nodes.remove(&id);
         if let Ok(mut presses) = self.keyboard_presses.lock() {
             presses.remove(id);

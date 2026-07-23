@@ -33,6 +33,7 @@ pub mod host;
 pub mod html;
 pub mod i18n;
 pub mod input;
+pub mod input_conformance;
 pub mod interaction;
 pub mod native;
 #[cfg(any(
@@ -134,6 +135,15 @@ pub use html::{
 };
 pub use i18n::{direction_for_locale, direction_name, I18nManager, LocaleContext};
 pub use input::{NativeEventContext, NativeEventPosition, NativeInputModality, NativeKeyModifiers};
+pub use input_conformance::{
+    NativeInputConformanceCaseV1, NativeInputConformanceEnvironmentV1,
+    NativeInputConformanceEventV1, NativeInputConformanceIssueCodeV1,
+    NativeInputConformanceIssueV1, NativeInputConformanceManifestV1,
+    NativeInputConformanceModalityV1, NativeInputConformanceObservationV1,
+    NativeInputConformanceReportV1, NativeInputConformanceRequirementV1,
+    NativeInputConformanceRunV1, NativeInputConformanceScenarioV1, NativeInputEvidenceSourceV1,
+    NativeOperatingSystemV1, NATIVE_INPUT_CONFORMANCE_VERSION_V1,
+};
 pub use interaction::{
     InteractionChange, InteractionNodeState, InteractionState,
     DEFAULT_INTERACTION_CHANGE_HISTORY_LIMIT,
@@ -420,7 +430,8 @@ pub use winui::{
 };
 #[cfg(all(feature = "winui-native", target_os = "windows"))]
 pub use winui_native::{
-    WinUiComboBoxItem, WinUiEventWait, WinUiNativeSurface, WinUiNativeSurfaceAdapter,
-    WinUiNativeSurfaceCommandExecutor, WinUiNativeSurfaceDriver, WinUiOsHandle, WinUiOsWidget,
-    WinUiRuntimeApp, WinUiRuntimeHost, WinUiTabItem,
+    run_winui_application, run_winui_application_staged, run_winui_application_staged_async,
+    wait_winui_dispatcher, WinUiComboBoxItem, WinUiEventWait, WinUiNativeSurface,
+    WinUiNativeSurfaceAdapter, WinUiNativeSurfaceCommandExecutor, WinUiNativeSurfaceDriver,
+    WinUiOsHandle, WinUiOsWidget, WinUiRuntimeApp, WinUiRuntimeHost, WinUiTabItem,
 };

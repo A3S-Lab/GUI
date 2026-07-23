@@ -154,6 +154,46 @@ The application or host owns ACL parsing and validation, then passes typed,
 immutable capability grants across the outer boundary. The GUI core owns the
 capability types but must not depend on the ACL parser or its AST.
 
+## Native Input Evidence Boundary
+
+`NativeCapabilities` describes the behavior a backend claims for each role.
+`NativeInputConformanceManifestV1` turns native press claims into a canonical
+role/scenario matrix, including activation, cancellation, disabled-state, and
+keyed-rerender cases for each applicable input modality. This derivation keeps
+capability declarations and test scope in one source of truth.
+
+An operating-system runner records semantic events with
+`NativeInputConformanceObservationV1::capture` and submits a versioned
+`NativeInputConformanceRunV1`. Capture excludes event values and raw key data.
+The verifier compares observations against the generated manifest, checks
+provenance and environment identity, and produces a serializable
+`NativeInputConformanceReportV1`. Headless and adapter-kernel traces are
+explicitly ineligible to prove a native claim even when their event sequence is
+identical.
+
+File I/O remains outside the GUI core. The
+`a3s-gui-native-input-conformance` binary is a thin adapter that prints current
+manifests and reads evidence JSON for CI. Native backends own the OS automation
+driver and event-loop integration; the portable verifier owns only the shared
+semantic contract.
+
+The Windows-only `a3s-gui-winui-input-smoke` harness keeps automation outside
+the runtime library. It mounts each button-backed semantic role as a real WinUI
+Button, confirms that the mounted native role matches the manifest case,
+locates and verifies its enabled state through the OS UI Automation tree,
+injects mouse and Enter-key input with `SendInput`, injects pen and touch with
+`CreateSyntheticPointerDevice` / `InjectSyntheticPointerInput`, and invokes its
+assistive `InvokePattern`. Mouse cancellation releases the real XAML pointer
+capture after the injected press; pen and touch cancellation inject Windows'
+cancelled-up pointer state. The production WinUI message loop records successful,
+cancelled, keyed-rerender, and disabled responses. The harness validates all 70
+observations for `Button`, `DisclosureSummary`, `Link`, `ImageMapArea`, and
+`MenuItem` with the strict manifest verifier while allowing only `ListBoxItem`
+and `TreeItem` to remain `MissingObservation`. Its output therefore remains an
+explicitly partial run artifact rather than a conformance report. The harness
+requires an interactive Windows desktop and the Windows App Runtime 1.7
+framework package used by the WinUI backend's dynamic dependency.
+
 ## NativeHost Boundary
 
 Every platform adapter implements the same host operations:
@@ -1003,14 +1043,15 @@ Feature-gated platform executor surfaces:
   its native `Switch` semantic in the IR; with `winio-winui3` 0.4.2, the native
   surface temporarily backs that state with a WinUI `CheckBox` because the
   generated bindings do not expose `ToggleSwitch` yet.
-  The WinUI message pump also maps `WM_KEYDOWN`, `WM_KEYUP`,
-  `WM_SYSKEYDOWN`, and `WM_SYSKEYUP` records into A3S keyboard events. Since
-  `winio-winui3` 0.4.2 does not expose strong `KeyRoutedEvent` registration
-  methods, keyboard events target the currently focused A3S node tracked from
-  WinUI focus callbacks, falling back to the root surface for window-level
-  routes. The same binding version leaves programmatic `Focus` unwrapped; the
-  native surface bridges its fixed WinRT ABI from an adjacent public vtable
-  method and still uses WinUI focus callbacks as the observable event source.
+  WinUI pointer handlers opt into handled routed events so Button-backed
+  controls preserve mouse, pen, and touch press phases that XAML class handling
+  would otherwise hide. Preview key-down and key-up handlers likewise feed the
+  shared keyboard state machine before Button activation, avoiding duplicate
+  semantic presses from the later `Click` callback. `winio-winui3` 0.4.2 does
+  not generate these registration methods, so the native surface isolates the
+  fixed WinRT ABI calls in a small adapter. The same binding version leaves
+  programmatic `Focus` unwrapped; that call uses the same isolated ABI approach
+  while WinUI focus callbacks remain the observable event source.
   Window close requests are observed through the HWND message path: the surface
   installs a close-event subclass on each WinUI window and enqueues
   `NativeEventKind::Close` when `WM_CLOSE` arrives. Content dialogs register
@@ -1018,16 +1059,19 @@ Feature-gated platform executor surfaces:
   actions while clearing local open-dialog tracking. Draining those native close
   events releases the retained `ShowAsync` operation; programmatic hides are
   suppressed during render-driven teardown.
-  `WinUiRuntimeApp` provides the embedded app loop for this backend: it renders
-  into `WinUiNativeSurface`, pumps the Windows message queue, drains queued A3S
-  native events, runs the application reducer, rerenders the next frame, and
-  observes the root WinUI window handle so `run_winui_while` can stop when the
-  user closes the surface.
+  WinUI surfaces are created inside the XAML-owned `Application::Start`
+  lifecycle. `run_winui_application_staged_async` renders and activates the
+  first window during `OnLaunched`, then polls the application future through
+  `DispatcherQueue` turns after launch returns. `WinUiRuntimeApp` drains queued
+  A3S native events, runs the reducer, rerenders the next frame, and observes
+  the root window so `run_winui_while_async` can stop when the user closes the
+  surface without blocking XAML layout or input dispatch.
   The `winui_controls` example runs the same shared native controls smoke
   frame against real WinUI widgets.
   The `winui_dogfood` example runs the shared task editor and review workflow
   through the same reducer loop and WinUI event queue, including window close
-  lifecycle actions and state-driven app loop exit through `run_winui_while`.
+  lifecycle actions and state-driven app loop exit through
+  `run_winui_while_async`.
 - `gtk4`: maps classes such as `gtk::Button`, `gtk::Entry`,
   `gtk::SearchEntry`, `gtk::PasswordEntry`, `gtk::SpinButton`, and
   `gtk::TextView` into GTK object kinds behind `Gtk4WidgetDriver` and replays

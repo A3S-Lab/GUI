@@ -305,7 +305,16 @@ impl NativeWidgetConfig {
     }
 
     pub fn create_setters(&self) -> Vec<NativeWidgetSetter> {
-        vec![
+        macro_rules! push_setters {
+            ($target:ident; $($setter:expr),* $(,)?) => {
+                $($target.push($setter);)*
+            };
+        }
+
+        // Construct each large enum value directly in heap-backed storage. A single
+        // 103-element array temporary can exhaust the default Windows thread stack.
+        let mut setters = Vec::with_capacity(103);
+        push_setters!(setters;
             NativeWidgetSetter::SetAccessibilityRole(self.accessibility_role),
             NativeWidgetSetter::SetLabel(self.label.clone()),
             NativeWidgetSetter::SetValue(self.value.clone()),
@@ -408,10 +417,11 @@ impl NativeWidgetConfig {
             NativeWidgetSetter::SetAccessibilityStructure(self.accessibility_structure.clone()),
             NativeWidgetSetter::SetAccessibilityState(self.accessibility_state.clone()),
             NativeWidgetSetter::SetWebStyle(self.web_style.clone()),
-            NativeWidgetSetter::SetPortableStyle(self.portable_style.clone()),
+            NativeWidgetSetter::SetPortableStyle(Box::new(self.portable_style.clone())),
             NativeWidgetSetter::SetEvents(self.events.clone()),
             NativeWidgetSetter::SetMetadata(self.metadata.clone()),
-        ]
+        );
+        setters
     }
 
     pub fn text_input_purpose(&self) -> NativeTextInputPurpose {

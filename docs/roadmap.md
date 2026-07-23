@@ -82,6 +82,13 @@ The following foundations are implemented and are not roadmap placeholders:
   versioned `positionOverlay` commands, recovery replay, and AppKit, GTK4,
   WinUI, and headless projections
 - AppKit, GTK4, and WinUI build/test matrices with real native dogfood surfaces
+- versioned native-input requirement, run, and report artifacts derived from
+  role capabilities; a strict verifier rejects adapter/headless traces as
+  native evidence, and CI publishes each backend's outstanding matrix
+- a Windows OS-input smoke harness that drives real XAML Button-backed
+  `Button`, `DisclosureSummary`, `Link`, `ImageMapArea`, and `MenuItem` roles
+  through `SendInput`, synthetic pen/touch injection, and UI Automation,
+  currently covering all 70 of their cases (70 of 98 required WinUI cases)
 
 ## Delivery Dependency
 
@@ -357,8 +364,9 @@ Target: days 151-180. Status: planned after M5.
   surfaces for menus, dialogs, keyboard input, focus, text input, collection
   selection, table navigation, close, and recovery flows.
 - Generate or validate the documented platform support matrix from backend
-  declarations and real automation results. Placeholder behavior does not count
-  as supported.
+  declarations and real automation results. Feed each platform run through the
+  generated `NativeInputConformanceManifestV1`; placeholder, adapter-kernel, and
+  portable-runtime behavior does not count as supported.
 - Replace thread park/unpark fallbacks with real AppKit, GLib, and WinUI event
   loop wake messages for externally completed work.
 - Add native failure injection for partial commit, teardown, fresh-executor

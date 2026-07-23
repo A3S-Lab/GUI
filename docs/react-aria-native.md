@@ -305,6 +305,60 @@ conservative and role overrides opt into verified behavior. This prevents a
 native wrapper, menu model, or logical collection item from being advertised as
 interactive merely because another role on that backend is interactive.
 
+## Native Input Evidence Gate
+
+`NativeInputConformanceManifestV1::from_capabilities` expands each role whose
+press support is marked `Native` into a machine-readable automation matrix. A
+complete press-lifecycle role requires separate mouse and pen activation,
+cancellation, and disabled cases, plus keyboard, virtual assistive activation,
+and keyed-rerender cancellation. GTK4 and WinUI also require touch activation,
+cancellation, and disabled-touch cases. AppKit and GTK4 menu items retain an
+explicit terminal-activation exception because their menu models do not expose
+the generic view event source. The expected successful activation order follows
+React Aria's [`usePress`](https://react-aria.adobe.com/usePress) contract:
+press start, press up, press end, then terminal press.
+
+The evidence boundary is intentionally strict:
+
+- `NativeInputConformanceObservationV1::capture` retains only redacted semantic
+  press events; raw key values and native event payload values are excluded.
+- A verifier derives expectations from the current capability manifest rather
+  than accepting expectations supplied by an evidence file.
+- Exactly one observation is required per case. Event order, target identity,
+  modality, keyboard activation deduplication, and click count are checked.
+- Only `OperatingSystemAutomation` evidence with matching OS, OS version,
+  toolkit version, and automation-driver identity is eligible. Adapter-kernel
+  and portable-runtime traces remain useful tests but cannot prove native
+  support.
+- The native CI matrix publishes the generated AppKit, GTK4, and WinUI
+  requirement artifacts so missing platform evidence is explicit and
+  reviewable.
+
+Generate or verify artifacts with:
+
+```bash
+just native-input-manifest appkit
+just native-input-manifest gtk4
+just native-input-manifest winui
+just native-input-conformance path/to/evidence.json
+just winui-input-smoke path/to/winui-button-backed-smoke.json
+```
+
+The WinUI smoke harness covers the XAML Button-backed `Button`,
+`DisclosureSummary`, `Link`, `ImageMapArea`, and `MenuItem` roles. Mouse and
+keyboard use Windows `SendInput`, pen and touch use synthetic pointer injection,
+and assistive activation uses UI Automation `InvokePattern`. It exercises
+successful activation, mouse/pen/touch cancellation, keyed-rerender
+cancellation, and disabled input inside the production XAML application
+lifecycle. Handled routed pointer events and preview key events feed the same
+portable press state machine while the asynchronous dispatcher loop leaves
+WinUI layout and input dispatch unblocked.
+The strict verifier accepts no semantic defect in the complete 70-case slice,
+but the 28 `ListBoxItem` and `TreeItem` WinUI cases remain. The P0 gap is
+therefore still open. Native automation drivers still need to execute every
+generated case and submit passing run artifacts on real macOS, Linux, and
+Windows runners.
+
 ## Known Gaps
 
 The following behavior systems are still incomplete or only represented as
@@ -312,7 +366,7 @@ props:
 
 | Priority | Area | Required outcome |
 | --- | --- | --- |
-| P0 | Native input conformance | Add platform-run pointer, keyboard, assistive activation, and cancellation fixtures for every role currently marked native, then close or document remaining menu/item exceptions. |
+| P0 | Native input conformance | Populate the generated V1 manifests with platform-run mouse, pen, touch where applicable, keyboard, assistive activation, disabled, cancellation, and keyed-rerender fixtures for every role currently marked native; then close or retain evidence-backed menu/item exceptions. |
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |
 | P1 | Collections and selection | Add layout-aware page navigation and complete IME/dead-key typeahead conformance. |
@@ -341,3 +395,5 @@ A behavior is complete only when all of the following are true:
    asserted semantically.
 5. The public documentation describes the supported contract without implying
    broader parity.
+6. A real operating-system automation run satisfies the generated versioned
+   manifest; portable or adapter-only tests do not count as native evidence.

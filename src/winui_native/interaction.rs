@@ -1,3 +1,4 @@
+use super::event_loop::winui_key_value_from_virtual_key;
 use super::*;
 
 use crate::event::{
@@ -26,10 +27,6 @@ impl WinUiInteractionRegistration {
         self.profile.apply_setter(setter);
     }
 
-    fn normalizes_keyboard_press(self) -> bool {
-        self.profile.normalizes_keyboard_press()
-    }
-
     pub(super) fn awaits_native_activation(self) -> bool {
         self.native_button
     }
@@ -41,7 +38,9 @@ pub(super) fn register_interaction_events(
     events: &WinUiEventQueue,
     activation_contexts: WinUiActivationContexts,
     pending_activation_cleanup: WinUiPendingActivationCleanup,
+    forced_pointer_cancellations: Arc<Mutex<BTreeSet<HostNodeId>>>,
     registration: Arc<Mutex<WinUiInteractionRegistration>>,
+    keyboard_presses: Arc<Mutex<KeyboardPressState>>,
 ) -> GuiResult<()> {
     let Some(element) = widget.ui_element() else {
         return Ok(());
@@ -54,13 +53,7 @@ pub(super) fn register_interaction_events(
     let move_state = Arc::new(Mutex::new(PointerMoveState::default()));
 
     if is_button {
-        register_button_click(
-            id,
-            widget,
-            events,
-            Arc::clone(&activation_contexts),
-            Arc::clone(&registration),
-        )?;
+        register_button_click(id, widget, events, Arc::clone(&activation_contexts))?;
     }
     register_pointer_press_lifecycle(
         id,
@@ -71,17 +64,109 @@ pub(super) fn register_interaction_events(
         Arc::clone(&press_state),
         Arc::clone(&move_state),
         Arc::clone(&registration),
+        forced_pointer_cancellations,
     )?;
     register_pointer_boundary_events(
         id,
         &element,
         events,
-        activation_contexts,
+        Arc::clone(&activation_contexts),
         press_state,
         move_state,
+        Arc::clone(&registration),
+    )?;
+    register_preview_keyboard_events(
+        id,
+        &element,
+        events,
+        activation_contexts,
         registration,
+        keyboard_presses,
     )?;
     Ok(())
+}
+
+fn register_preview_keyboard_events(
+    id: HostNodeId,
+    element: &xaml::UIElement,
+    events: &WinUiEventQueue,
+    activation_contexts: WinUiActivationContexts,
+    registration: Arc<Mutex<WinUiInteractionRegistration>>,
+    keyboard_presses: Arc<Mutex<KeyboardPressState>>,
+) -> GuiResult<()> {
+    let down_events = Arc::clone(events);
+    let down_contexts = Arc::clone(&activation_contexts);
+    let down_registration = Arc::clone(&registration);
+    let down_presses = Arc::clone(&keyboard_presses);
+    map_winui(
+        "failed to register WinUI preview key-down handler",
+        input_abi::add_preview_key_event_handler(element, true, move |virtual_key| {
+            let key = winui_key_value_from_virtual_key(virtual_key);
+            let context = NativeEventContext::new().modality(NativeInputModality::Keyboard);
+            let registration = down_registration
+                .lock()
+                .ok()
+                .map(|registration| *registration);
+            if registration.is_some_and(|registration| registration.awaits_native_activation()) {
+                remember_activation_context(&down_contexts, id, context);
+            }
+            let pending = registration
+                .map(|registration| {
+                    keyboard_events(
+                        id,
+                        key.clone(),
+                        NativeEventKind::KeyDown,
+                        context,
+                        registration,
+                        &down_presses,
+                    )
+                })
+                .unwrap_or_else(|| {
+                    vec![NativeEvent::new(id, NativeEventKind::KeyDown)
+                        .value(key)
+                        .context(context)]
+                });
+            let prevent_default = pending
+                .iter()
+                .any(|event| event.kind == NativeEventKind::MoveStart);
+            push_events(&down_events, pending);
+            Ok(prevent_default)
+        }),
+    )?;
+
+    let up_events = Arc::clone(events);
+    map_winui(
+        "failed to register WinUI preview key-up handler",
+        input_abi::add_preview_key_event_handler(element, false, move |virtual_key| {
+            let key = winui_key_value_from_virtual_key(virtual_key);
+            let context = NativeEventContext::new().modality(NativeInputModality::Keyboard);
+            let registration = registration.lock().ok().map(|registration| *registration);
+            if registration.is_some_and(|registration| registration.awaits_native_activation()) {
+                remember_activation_context(&activation_contexts, id, context);
+            }
+            let pending = registration
+                .map(|registration| {
+                    keyboard_events(
+                        id,
+                        key.clone(),
+                        NativeEventKind::KeyUp,
+                        context,
+                        registration,
+                        &keyboard_presses,
+                    )
+                })
+                .unwrap_or_else(|| {
+                    vec![NativeEvent::new(id, NativeEventKind::KeyUp)
+                        .value(key)
+                        .context(context)]
+                });
+            let prevent_default = pending
+                .iter()
+                .any(|event| event.kind == NativeEventKind::MoveStart);
+            push_events(&up_events, pending);
+            Ok(prevent_default)
+        }),
+    )
 }
 
 fn register_button_click(
@@ -89,26 +174,14 @@ fn register_button_click(
     widget: &WinUiOsWidget,
     events: &WinUiEventQueue,
     activation_contexts: WinUiActivationContexts,
-    registration: Arc<Mutex<WinUiInteractionRegistration>>,
 ) -> GuiResult<()> {
     let WinUiOsWidget::Button(button) = widget else {
         return Ok(());
     };
     let events = Arc::clone(events);
     let handler = RoutedEventHandler::new(move |_, _| {
-        let keyboard_press_is_normalized = registration
-            .lock()
-            .map(|registration| registration.normalizes_keyboard_press())
-            .unwrap_or(false);
         match take_activation_context(&activation_contexts, id) {
-            Some(context)
-                if context.handled_activation
-                    || (context.modality == NativeInputModality::Keyboard
-                        && keyboard_press_is_normalized) => {}
-            Some(context) if context.modality != NativeInputModality::Unknown => push_event(
-                &events,
-                NativeEvent::new(id, NativeEventKind::Press).context(context),
-            ),
+            Some(context) if context.modality != NativeInputModality::Unknown => {}
             Some(_) | None => push_events(&events, virtual_press_events(id)),
         }
         Ok(())
@@ -163,6 +236,7 @@ fn register_pointer_press_lifecycle(
     pressed: Arc<Mutex<PointerPressState>>,
     movement: Arc<Mutex<PointerMoveState>>,
     registration: Arc<Mutex<WinUiInteractionRegistration>>,
+    forced_pointer_cancellations: Arc<Mutex<BTreeSet<HostNodeId>>>,
 ) -> GuiResult<()> {
     let press_events = Arc::clone(events);
     let press_element = element.clone();
@@ -220,7 +294,11 @@ fn register_pointer_press_lifecycle(
     });
     map_winui(
         "failed to register WinUI pointer press handler",
-        element.PointerPressed(&handler),
+        input_abi::add_handled_pointer_event_handler(
+            element,
+            input_abi::WinUiPointerRoutedEvent::Pressed,
+            &handler,
+        ),
     )?;
 
     let move_events = Arc::clone(events);
@@ -241,7 +319,11 @@ fn register_pointer_press_lifecycle(
     });
     map_winui(
         "failed to register WinUI pointer move handler",
-        element.PointerMoved(&handler),
+        input_abi::add_handled_pointer_event_handler(
+            element,
+            input_abi::WinUiPointerRoutedEvent::Moved,
+            &handler,
+        ),
     )?;
 
     let release_events = Arc::clone(events);
@@ -251,25 +333,42 @@ fn register_pointer_press_lifecycle(
     let release_contexts = Arc::clone(&activation_contexts);
     let release_pending_cleanup = pending_activation_cleanup;
     let release_registration = registration;
+    let release_forced_cancellations = Arc::clone(&forced_pointer_cancellations);
     let handler = PointerEventHandler::new(move |_, args| {
         let Some(args) = args.as_ref() else {
             return Ok(());
         };
         let context = pointer_event_context(args, &release_element);
+        let forced = release_forced_cancellations
+            .lock()
+            .map(|mut cancellations| cancellations.remove(&id))
+            .unwrap_or(false);
+        let canceled = forced || pointer_is_canceled(args, &release_element);
         if let Ok(mut state) = release_move_state.lock() {
-            push_events(
-                &release_events,
-                state.end_pointer(pointer_id(args), id, context),
-            );
+            let pending = if canceled {
+                state.cancel(id, context)
+            } else {
+                state.end_pointer(pointer_id(args), id, context)
+            };
+            push_events(&release_events, pending);
+        }
+        if canceled {
+            forget_activation_context(&release_contexts, id);
+            if let Ok(mut state) = release_state.lock() {
+                push_events(&release_events, state.cancel(id, context));
+            }
+            if let Ok(pointer) = args.Pointer() {
+                let _ = release_element.ReleasePointerCapture(&pointer);
+            }
+            return Ok(());
         }
         let over_target = pointer_is_over_target(args, &release_element);
         let current = release_registration
             .lock()
             .ok()
             .map(|registration| *registration);
-        let emit_press_on_release = current.is_some_and(|registration| {
-            !registration.native_button && registration.profile.subscriptions.terminal_press
-        });
+        let emit_press_on_release =
+            current.is_some_and(|registration| registration.profile.subscriptions.terminal_press);
         let mut long_pressed = false;
         if let Ok(mut state) = release_state.lock() {
             let boundary_events = if over_target {
@@ -305,7 +404,11 @@ fn register_pointer_press_lifecycle(
     });
     map_winui(
         "failed to register WinUI pointer release handler",
-        element.PointerReleased(&handler),
+        input_abi::add_handled_pointer_event_handler(
+            element,
+            input_abi::WinUiPointerRoutedEvent::Released,
+            &handler,
+        ),
     )?;
 
     register_pointer_cancel(
@@ -315,6 +418,7 @@ fn register_pointer_press_lifecycle(
         Arc::clone(&pressed),
         Arc::clone(&movement),
         Arc::clone(&activation_contexts),
+        Arc::clone(&forced_pointer_cancellations),
         false,
     )?;
     register_pointer_cancel(
@@ -324,6 +428,7 @@ fn register_pointer_press_lifecycle(
         pressed,
         movement,
         activation_contexts,
+        forced_pointer_cancellations,
         true,
     )?;
     Ok(())
@@ -383,6 +488,7 @@ fn register_pointer_cancel(
     pressed: Arc<Mutex<PointerPressState>>,
     movement: Arc<Mutex<PointerMoveState>>,
     activation_contexts: WinUiActivationContexts,
+    forced_pointer_cancellations: Arc<Mutex<BTreeSet<HostNodeId>>>,
     capture_lost: bool,
 ) -> GuiResult<()> {
     let cancel_events = Arc::clone(events);
@@ -391,6 +497,13 @@ fn register_pointer_cancel(
         let Some(args) = args.as_ref() else {
             return Ok(());
         };
+        let forced = forced_pointer_cancellations
+            .lock()
+            .map(|mut cancellations| cancellations.remove(&id))
+            .unwrap_or(false);
+        if capture_lost && !forced && !pointer_is_in_contact(args, &cancel_element) {
+            return Ok(());
+        }
         forget_activation_context(&activation_contexts, id);
         let context = pointer_event_context(args, &cancel_element);
         if let Ok(mut state) = movement.lock() {
@@ -404,12 +517,20 @@ fn register_pointer_cancel(
     if capture_lost {
         map_winui(
             "failed to register WinUI pointer capture-lost handler",
-            element.PointerCaptureLost(&handler),
+            input_abi::add_handled_pointer_event_handler(
+                element,
+                input_abi::WinUiPointerRoutedEvent::CaptureLost,
+                &handler,
+            ),
         )?;
     } else {
         map_winui(
             "failed to register WinUI pointer cancel handler",
-            element.PointerCanceled(&handler),
+            input_abi::add_handled_pointer_event_handler(
+                element,
+                input_abi::WinUiPointerRoutedEvent::Canceled,
+                &handler,
+            ),
         )?;
     }
     Ok(())
@@ -550,6 +671,23 @@ fn pointer_is_over_target(args: &PointerRoutedEventArgs, element: &xaml::UIEleme
     let x = f64::from(position.X);
     let y = f64::from(position.Y);
     x >= 0.0 && x <= width && y >= 0.0 && y <= height
+}
+
+fn pointer_is_canceled(args: &PointerRoutedEventArgs, element: &xaml::UIElement) -> bool {
+    args.GetCurrentPoint(element)
+        .and_then(|point| point.Properties())
+        .and_then(|properties| properties.IsCanceled())
+        .unwrap_or(false)
+}
+
+fn pointer_is_in_contact(args: &PointerRoutedEventArgs, element: &xaml::UIElement) -> bool {
+    args.Pointer()
+        .and_then(|pointer| pointer.IsInContact())
+        .or_else(|_| {
+            args.GetCurrentPoint(element)
+                .and_then(|point| point.IsInContact())
+        })
+        .unwrap_or(false)
 }
 
 fn pointer_event_context(

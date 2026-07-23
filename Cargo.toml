@@ -14,6 +14,15 @@ categories = ["gui", "rendering", "accessibility"]
 name = "a3s_gui"
 path = "src/lib.rs"
 
+[[bin]]
+name = "a3s-gui-native-input-conformance"
+path = "src/bin/native_input_conformance.rs"
+
+[[bin]]
+name = "a3s-gui-winui-input-smoke"
+path = "src/bin/winui_input_smoke.rs"
+required-features = ["winui-native"]
+
 [[example]]
 name = "component_playground"
 required-features = ["authoring"]
@@ -178,8 +187,13 @@ gtk4_crate = { package = "gtk4", version = "0.11.4", optional = true }
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.62.0", optional = true, features = [
     "Foundation",
+    "Win32_System_Com",
+    "Win32_System_SystemInformation",
+    "Win32_UI_Controls",
+    "Win32_UI_Accessibility",
     "Win32_Foundation",
     "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Input_Pointer",
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }

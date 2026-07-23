@@ -81,4 +81,25 @@ where
         }
         Ok(())
     }
+
+    pub async fn run_winui_with_propagation_async(&mut self) -> GuiResult<()> {
+        self.run_winui_with_propagation_while_async(|_| true).await
+    }
+
+    pub async fn run_winui_with_propagation_while_async(
+        &mut self,
+        mut should_continue: impl FnMut(&S) -> bool,
+    ) -> GuiResult<()> {
+        if self.root().is_none() {
+            self.render()?;
+        }
+        while self.winui_root_window_open() && should_continue(self.state()) {
+            self.pump_winui_event_with_propagation_while(
+                WinUiEventWait::Poll,
+                &mut should_continue,
+            )?;
+            wait_winui_dispatcher(std::time::Duration::from_millis(8)).await?;
+        }
+        Ok(())
+    }
 }

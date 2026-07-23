@@ -27,8 +27,18 @@ object graph at the host boundary.
   background inertness, nested focus containment/restoration, typed anchored
   overlay placement, inherited locale/direction, versioned capability
   reporting, shared native event-source state machines, and accessibility
-  conformance checks.
-  Role-edge input parity, layout-aware collection page movement, IME/dead-key
+  conformance checks. Versioned native-input manifests expand every role marked
+  native into strict OS-automation cases; adapter and headless traces cannot
+  satisfy that evidence gate.
+  A WinUI smoke runner records real XAML Button mouse and keyboard input through
+  `SendInput`, pen and touch through Windows synthetic pointer injection, and
+  assistive activation through UI Automation `InvokePattern`. It covers
+  activation, mouse/pen/touch cancellation, keyed-rerender cancellation, and
+  disabled input for all 14 cases of each button-backed `Button`,
+  `DisclosureSummary`, `Link`, `ImageMapArea`, and `MenuItem` role (70 of 98
+  WinUI cases); `ListBoxItem` and `TreeItem` remain outstanding.
+  Populating the remaining manifest cases with real platform automation,
+  role-edge input parity, layout-aware collection page movement, IME/dead-key
   conformance, measured overlay collision/arrow conformance and scroll locking,
   remaining native focus conformance, and locale formatting are still in
   progress.
@@ -175,6 +185,7 @@ platform-matched typography, for example `w-[396px]`, `rounded-[12px]`, and
 | AppKit native surface | Usable for macOS smoke apps with role-aware press/hover/focus/key translation, controls, menus, close actions, and typed post-mount `autoFocus`. |
 | GTK4 native surface | Usable for Linux smoke apps with role-aware press/hover/focus/key translation, controls, menus, dialogs, and scroll containers. |
 | WinUI native surface | Usable for Windows smoke apps with role-aware press/hover/focus/key translation, typed programmatic focus and post-mount `autoFocus`, core controls, resize bounds, close actions, and root-window exit. |
+| Native input conformance | Versioned requirement/run/report artifacts and a strict verifier are available. The WinUI smoke harness covers all 70 button-backed role cases (70 of 98); full AppKit, GTK4, and WinUI evidence is not complete. |
 | Product app shell | Dogfood-ready. Production distribution still needs signed installers and longer real-world focus/input hardening. |
 
 ## Roadmap
@@ -254,6 +265,25 @@ This checks formatting, high-confidence clippy groups, rustdoc with warnings
 denied, library and example tests, cross-platform planning adapters, and diff
 whitespace. On macOS, Linux, or Windows, `just native-ci` additionally runs the
 matching native feature's library tests and an all-target compile check.
+
+Generate the exact input cases implied by a backend's native capability claims,
+then verify an artifact emitted by an operating-system automation runner:
+
+```bash
+just native-input-manifest winui
+just native-input-conformance path/to/winui-evidence.json
+just winui-input-smoke path/to/winui-button-backed-smoke.json
+```
+
+The verifier exits nonzero for missing or duplicate cases, incorrect semantic
+event order, modality/target mismatches, incomplete environment identity, or
+evidence produced only by an adapter kernel or the portable runtime.
+The WinUI smoke command opens a real XAML window and emits a partial artifact;
+passing that command validates its 70 captured button-backed role cases, not
+the full WinUI manifest. It requires a supported Windows desktop session with
+the Windows App Runtime 1.7 framework package available. WinUI examples enter
+the XAML-owned application lifecycle with `run_winui_application_staged_async`
+and keep native layout and input responsive through the asynchronous app loop.
 
 The default feature set includes RSX authoring and the built-in design system.
 The runtime/protocol core is independently buildable without SWC or `rsx_ui`:
