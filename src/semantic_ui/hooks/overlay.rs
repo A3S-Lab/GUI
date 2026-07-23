@@ -217,6 +217,8 @@ pub struct OverlayTriggerProps {
     pub aria_expanded: bool,
     #[serde(rename = "data-open")]
     pub data_open: bool,
+    #[serde(rename = "data-overlay-trigger", skip_serializing_if = "is_false")]
+    pub data_overlay_trigger: bool,
     #[serde(rename = "aria-haspopup", skip_serializing_if = "Option::is_none")]
     pub aria_haspopup: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -260,6 +262,7 @@ pub fn use_overlay(props: UseOverlayProps) -> UseOverlayResult {
             tab_index: 0,
             aria_expanded: props.is_open,
             data_open: props.is_open,
+            data_overlay_trigger: props.trigger_kind != OverlayTriggerKind::None,
             aria_haspopup: props.trigger_kind.aria_haspopup(),
             on_press: trigger_action,
             disabled: props.is_disabled,

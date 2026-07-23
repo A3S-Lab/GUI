@@ -78,6 +78,9 @@ The following foundations are implemented and are not roadmap placeholders:
 - an activation-ordered mounted overlay stack with topmost Escape/outside
   dismissal, modal background inertness, portaled foreground layers, and
   shared focus containment, autofocus, and restoration
+- typed Popover/Tooltip anchor resolution with 22 logical/physical placements,
+  versioned `positionOverlay` commands, recovery replay, and AppKit, GTK4,
+  WinUI, and headless projections
 - AppKit, GTK4, and WinUI build/test matrices with real native dogfood surfaces
 
 ## Delivery Dependency

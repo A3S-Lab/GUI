@@ -23,6 +23,7 @@ pub enum NativeCapabilityFeature {
     MultipleSelectionSnapshot,
     Locale,
     Direction,
+    AnchoredOverlayPosition,
     AccessibilityRole,
     AccessibilityRelationships,
     AccessibilityState,
@@ -220,6 +221,24 @@ impl NativeCapabilities {
                 Feature::Direction,
                 Portable,
                 Some("direction inherits in the runtime but native direction setters are incomplete"),
+            ),
+            NativeFeatureCapability::new(
+                Feature::AnchoredOverlayPosition,
+                Portable,
+                Some(match backend {
+                    NativeBackendKind::AppKit => {
+                        "AppKit projects placement and offsets to NSPopover; collision flipping remains runtime-dependent"
+                    }
+                    NativeBackendKind::Gtk4 => {
+                        "GTK4 projects placement and offsets to gtk::Popover; collision flipping remains runtime-dependent"
+                    }
+                    NativeBackendKind::WinUI => {
+                        "WinUI ToolTip projects the placement target and signed offsets; exact side placement and collision flipping depend on WinUI"
+                    }
+                    NativeBackendKind::Headless => {
+                        "headless mode records the typed anchor relationship without native geometry"
+                    }
+                }),
             ),
             NativeFeatureCapability::new(
                 Feature::AccessibilityRole,
@@ -555,6 +574,19 @@ fn requested_features(props: &NativeProps) -> Vec<NativeCapabilityFeature> {
     }
     if props.dir.is_some() {
         features.push(Feature::Direction);
+    }
+    if props
+        .metadata
+        .get(crate::overlay_position::OVERLAY_POSITION_MARKER)
+        .or_else(|| {
+            props
+                .web
+                .attributes
+                .get(crate::overlay_position::OVERLAY_POSITION_MARKER)
+        })
+        .is_some_and(|value| value.is_empty() || value.eq_ignore_ascii_case("true"))
+    {
+        features.push(Feature::AnchoredOverlayPosition);
     }
     if props.explicit_role.is_some() {
         features.push(Feature::AccessibilityRole);

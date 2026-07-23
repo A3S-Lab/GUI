@@ -241,6 +241,8 @@ impl WinUiNativeSurface {
             _ => {}
         }
         self.widgets.remove(&id);
+        self.overlay_positions
+            .retain(|overlay, (anchor, _)| *overlay != id && *anchor != id);
         self.dialog_visible.remove(&id);
         self.mark_content_dialog_closed(id);
         self.dialog_operations.remove(&id);

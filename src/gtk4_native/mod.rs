@@ -19,6 +19,9 @@ use crate::gtk4::Gtk4WidgetKind;
 use crate::host::HostNodeId;
 use crate::native_backends::gtk4::menu::Gtk4MenuRegistry;
 pub use crate::native_backends::gtk4::menu::{Gtk4Menu, Gtk4MenuItem};
+use crate::overlay_position::{
+    OverlayCrossAlignment, OverlayPlacementAxis, OverlayPositionRequest,
+};
 use crate::platform::{
     apply_widget_setter, Gtk4Adapter, NativeBackendKind, NativeTextInputHints,
     NativeTextInputPurpose, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetSetter,
@@ -61,6 +64,7 @@ pub struct Gtk4NativeSurface {
     keyboard_presses: interaction::Gtk4KeyboardPresses,
     closed_windows: Rc<RefCell<BTreeSet<HostNodeId>>>,
     dialog_visible: BTreeMap<HostNodeId, bool>,
+    popover_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     widgets: BTreeMap<HostNodeId, gtk::Widget>,
     container_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     drop_downs: BTreeMap<HostNodeId, Gtk4DropDownState>,
@@ -117,6 +121,7 @@ impl Gtk4NativeSurface {
             keyboard_presses: Rc::new(RefCell::new(crate::event::KeyboardPressState::default())),
             closed_windows: Rc::new(RefCell::new(BTreeSet::new())),
             dialog_visible: BTreeMap::new(),
+            popover_positions: BTreeMap::new(),
             widgets: BTreeMap::new(),
             container_children: BTreeMap::new(),
             drop_downs: BTreeMap::new(),

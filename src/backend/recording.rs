@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
+use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{NativeControlState, NativeWidgetKind, PlatformCommand};
 
 use super::traits::{NativeEventSource, PlatformCommandExecutor};
@@ -26,6 +27,7 @@ pub struct RecordedNativeObject {
 pub struct RecordingBackend {
     root: Option<HostNodeId>,
     focused: Option<HostNodeId>,
+    overlay_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     objects: BTreeMap<HostNodeId, RecordedNativeObject>,
     commands: Vec<PlatformCommand>,
     command_history_limit: usize,
@@ -43,6 +45,7 @@ impl RecordingBackend {
         Self {
             root: None,
             focused: None,
+            overlay_positions: BTreeMap::new(),
             objects: BTreeMap::new(),
             commands: Vec::new(),
             command_history_limit,
@@ -56,6 +59,10 @@ impl RecordingBackend {
 
     pub fn focused(&self) -> Option<HostNodeId> {
         self.focused
+    }
+
+    pub fn overlay_positions(&self) -> &BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)> {
+        &self.overlay_positions
     }
 
     pub fn object(&self, id: HostNodeId) -> Option<&RecordedNativeObject> {
@@ -225,6 +232,9 @@ impl PlatformCommandExecutor for RecordingBackend {
                 {
                     self.focused = None;
                 }
+                self.overlay_positions.retain(|overlay, (anchor, _)| {
+                    !removed_ids.contains(overlay) && !removed_ids.contains(anchor)
+                });
             }
             PlatformCommand::SetRoot { id } => {
                 self.ensure_object(*id)?;
@@ -233,6 +243,30 @@ impl PlatformCommandExecutor for RecordingBackend {
             PlatformCommand::RequestFocus { id } => {
                 self.ensure_object(*id)?;
                 self.focused = Some(*id);
+            }
+            PlatformCommand::PositionOverlay {
+                overlay,
+                anchor,
+                request,
+            } => {
+                self.ensure_object(*overlay)?;
+                self.ensure_object(*anchor)?;
+                if overlay == anchor {
+                    return Err(GuiError::host(format!(
+                        "overlay {} cannot anchor to itself",
+                        overlay.get()
+                    )));
+                }
+                if self.objects.get(overlay).map(|object| object.widget_kind)
+                    != Some(NativeWidgetKind::Popover)
+                {
+                    return Err(GuiError::host(format!(
+                        "backend object {} is not an overlay",
+                        overlay.get()
+                    )));
+                }
+                let request = OverlayPositionRequest::new(request.options, request.direction)?;
+                self.overlay_positions.insert(*overlay, (*anchor, request));
             }
         }
         if self.command_history_limit > 0 {

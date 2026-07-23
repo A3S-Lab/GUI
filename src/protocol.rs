@@ -20,12 +20,13 @@ use crate::event::{ActionInvocation, NativeEvent, RegisteredAction};
 use crate::host::{HostNodeId, NativeHost};
 use crate::interaction::InteractionChange;
 use crate::native::{NativeElement, NativeProps, NativeRole, ValueSensitivity};
+use crate::overlay_position::{OverlayPositionOptions, OverlayPositionRequest};
 use crate::platform::{
     BlueprintHost, NativeControlState, NativeWidgetBlueprint, PlatformAdapter, PlatformCommand,
     PlatformPlanningHost,
 };
 use crate::runtime::{effective_blueprint_value_sensitivity, GuiRuntime};
-use crate::style::PortableStyle;
+use crate::style::{PortableStyle, TextDirection};
 use crate::web::WebProps;
 
 pub const NATIVE_PROTOCOL_VERSION_V1: u32 = 1;

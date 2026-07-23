@@ -6,14 +6,16 @@ use crate::accessibility::{
     AccessibilityStateProps, AccessibilityStructureProps,
 };
 use crate::geometry::Orientation;
-use crate::host::{HostNodeId, NativeHost};
+use crate::host::{HostNodeId, NativeHost, OverlayPositionHost};
 use crate::html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
     HTML_TAG_METADATA_KEY,
 };
 use crate::native::{NativeElement, NativeProps, NativeRole};
+use crate::overlay_position::{OverlayPositionOptions, OverlayPositionRequest};
 use crate::renderer::Renderer;
+use crate::style::TextDirection;
 use crate::web::WebProps;
 
 mod frame_transactions;
@@ -41,6 +43,25 @@ fn appkit_blueprint_targets_native_button_not_webview() {
         Some("#663399")
     );
     assert!(blueprint.portable_style.background_color.is_some());
+}
+
+#[test]
+fn closed_semantic_popover_is_not_visible_to_native_backends() {
+    for backend in [
+        NativeBackendKind::AppKit,
+        NativeBackendKind::Gtk4,
+        NativeBackendKind::WinUI,
+    ] {
+        let element = NativeElement::new("closed", NativeRole::Popover)
+            .with_props(NativeProps::new().web(WebProps::new().attribute("data-open", "false")));
+        let blueprint = widget_blueprint(backend, &element);
+
+        assert_eq!(
+            blueprint.metadata.get("data-open").map(String::as_str),
+            Some("false")
+        );
+        assert!(!blueprint.config().visible);
+    }
 }
 
 #[test]
@@ -1818,6 +1839,36 @@ fn platform_planning_host_exposes_commands_as_a_drainable_queue() {
         PlatformCommand::Update { id, .. } if *id == root
     ));
     assert!(host.commands().is_empty());
+}
+
+#[test]
+fn platform_planning_host_replays_and_clears_overlay_positions() {
+    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let anchor = host
+        .create(&NativeElement::new("trigger", NativeRole::Button))
+        .unwrap();
+    let overlay = host
+        .create(&NativeElement::new("menu", NativeRole::Popover))
+        .unwrap();
+    let request =
+        OverlayPositionRequest::new(OverlayPositionOptions::default(), TextDirection::Ltr).unwrap();
+
+    host.position_overlay(overlay, anchor, request).unwrap();
+    host.clear_commands();
+
+    assert!(matches!(
+        host.replay_commands().last(),
+        Some(PlatformCommand::PositionOverlay {
+            overlay: replayed_overlay,
+            anchor: replayed_anchor,
+            request: replayed_request,
+        }) if *replayed_overlay == overlay
+            && *replayed_anchor == anchor
+            && *replayed_request == request
+    ));
+
+    host.remove(anchor).unwrap();
+    assert!(host.overlay_positions().is_empty());
 }
 
 #[test]

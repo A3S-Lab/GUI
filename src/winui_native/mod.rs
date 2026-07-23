@@ -30,6 +30,9 @@ use crate::host::HostNodeId;
 use crate::html::HTML_TAG_METADATA_KEY;
 use crate::input::{NativeEventContext, NativeInputModality, NativeKeyModifiers};
 use crate::native_backends::winui::menu as winui_menu;
+use crate::overlay_position::{
+    OverlayCrossAlignment, OverlayPlacementAxis, OverlayPositionRequest,
+};
 use crate::platform::{
     apply_widget_setter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig,
     NativeWidgetSetter, WinUiAdapter,
@@ -97,6 +100,7 @@ pub struct WinUiNativeSurface {
     keyboard_presses: Mutex<KeyboardPressState>,
     widgets: BTreeMap<HostNodeId, WinUiOsWidget>,
     dialog_visible: BTreeMap<HostNodeId, bool>,
+    overlay_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     open_dialogs: Arc<Mutex<BTreeSet<HostNodeId>>>,
     dialog_operations: BTreeMap<HostNodeId, windows_core::IInspectable>,
     container_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
@@ -175,6 +179,7 @@ impl WinUiNativeSurface {
             keyboard_presses: Mutex::new(KeyboardPressState::default()),
             widgets: BTreeMap::new(),
             dialog_visible: BTreeMap::new(),
+            overlay_positions: BTreeMap::new(),
             open_dialogs: Arc::new(Mutex::new(BTreeSet::new())),
             dialog_operations: BTreeMap::new(),
             container_children: BTreeMap::new(),

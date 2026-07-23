@@ -9,6 +9,7 @@ use crate::backend::{
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
+use crate::overlay_position::OverlayPositionRequest;
 #[cfg(any(test, all(feature = "winui-native", target_os = "windows")))]
 use crate::platform::NativeTextInputPurpose;
 use crate::platform::{
@@ -357,6 +358,7 @@ impl std::fmt::Debug for WinUiNativeObject {
 pub struct WinUiWidgetDriver {
     root: Option<HostNodeId>,
     focused: Option<HostNodeId>,
+    overlay_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     objects: BTreeMap<HostNodeId, WinUiNativeObject>,
     events: Vec<NativeEvent>,
 }
@@ -411,11 +413,18 @@ impl std::fmt::Debug for WinUiNativeHandleState {
 #[derive(Debug, Default)]
 pub struct WinUiHandleAdapter {
     focused: Rc<Cell<Option<HostNodeId>>>,
+    overlay_positions: Rc<RefCell<BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>>>,
 }
 
 impl WinUiHandleAdapter {
     pub fn focused(&self) -> Option<HostNodeId> {
         self.focused.get()
+    }
+
+    pub fn overlay_positions(
+        &self,
+    ) -> Ref<'_, BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>> {
+        self.overlay_positions.borrow()
     }
 }
 
@@ -429,6 +438,10 @@ impl WinUiWidgetDriver {
 
     pub fn focused(&self) -> Option<HostNodeId> {
         self.focused
+    }
+
+    pub fn overlay_positions(&self) -> &BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)> {
+        &self.overlay_positions
     }
 
     pub fn object(&self, id: HostNodeId) -> Option<&WinUiNativeObject> {
@@ -621,6 +634,9 @@ impl NativeHandleAdapter for WinUiHandleAdapter {
         if self.focused.get() == Some(id) {
             self.focused.set(None);
         }
+        self.overlay_positions
+            .borrow_mut()
+            .retain(|overlay, (anchor, _)| *overlay != id && *anchor != id);
         Ok(())
     }
 
@@ -636,6 +652,31 @@ impl NativeHandleAdapter for WinUiHandleAdapter {
             )));
         }
         self.focused.set(Some(id));
+        Ok(())
+    }
+
+    fn position_overlay_handle(
+        &mut self,
+        overlay: HostNodeId,
+        overlay_handle: &Self::Handle,
+        anchor: HostNodeId,
+        anchor_handle: &Self::Handle,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        if overlay_handle.state.borrow().id != overlay || anchor_handle.state.borrow().id != anchor
+        {
+            return Err(GuiError::host("WinUI overlay or anchor handle id mismatch"));
+        }
+        if overlay_handle.state.borrow().kind != WinUiWidgetKind::ToolTip {
+            return Err(GuiError::host(format!(
+                "WinUI object {} is not a ToolTip",
+                overlay.get()
+            )));
+        }
+        let request = OverlayPositionRequest::new(request.options, request.direction)?;
+        self.overlay_positions
+            .borrow_mut()
+            .insert(overlay, (anchor, request));
         Ok(())
     }
 }
@@ -727,6 +768,9 @@ impl NativeWidgetDriver for WinUiWidgetDriver {
         for object in self.objects.values_mut() {
             object.children.retain(|child| !removed_ids.contains(child));
         }
+        self.overlay_positions.retain(|overlay, (anchor, _)| {
+            !removed_ids.contains(overlay) && !removed_ids.contains(anchor)
+        });
         for removed_id in &removed_ids {
             self.objects.remove(removed_id);
         }
@@ -755,6 +799,25 @@ impl NativeWidgetDriver for WinUiWidgetDriver {
     fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.ensure_object(id)?;
         self.focused = Some(id);
+        Ok(())
+    }
+
+    fn position_overlay(
+        &mut self,
+        overlay: HostNodeId,
+        anchor: HostNodeId,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        self.ensure_object(overlay)?;
+        self.ensure_object(anchor)?;
+        if self.objects.get(&overlay).map(|object| object.kind) != Some(WinUiWidgetKind::ToolTip) {
+            return Err(GuiError::host(format!(
+                "WinUI object {} is not a ToolTip",
+                overlay.get()
+            )));
+        }
+        let request = OverlayPositionRequest::new(request.options, request.direction)?;
+        self.overlay_positions.insert(overlay, (anchor, request));
         Ok(())
     }
 }

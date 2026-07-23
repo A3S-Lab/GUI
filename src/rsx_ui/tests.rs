@@ -4043,6 +4043,19 @@ fn rsx_ui_renders_collection_overlay_and_toggle_primitives_to_native_roles() {
 
     let overlay_arrow_native = bridge.lower_to_native(overlay_arrow).unwrap();
     assert_eq!(overlay_arrow_native.role, NativeRole::View);
+    assert_eq!(
+        overlay_arrow_native.props.explicit_role.as_deref(),
+        Some("presentation")
+    );
+    assert_eq!(
+        overlay_arrow_native
+            .props
+            .web
+            .attributes
+            .get("aria-hidden")
+            .map(String::as_str),
+        Some("true")
+    );
     assert_eq!(combo_native.children.len(), 2);
     assert_eq!(combo_native.children[0].role, NativeRole::ListBoxItem);
     assert!(combo_native.children[0].props.selected);

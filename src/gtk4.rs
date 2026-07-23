@@ -9,6 +9,7 @@ use crate::backend::{
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
+use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{
     apply_widget_setters, push_widget_setter_history, NativeBackendKind, NativeControlState,
     NativeTextInputKind, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetConfigPatch,
@@ -235,6 +236,7 @@ impl std::fmt::Debug for Gtk4NativeObject {
 pub struct Gtk4WidgetDriver {
     root: Option<HostNodeId>,
     focused: Option<HostNodeId>,
+    overlay_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     objects: BTreeMap<HostNodeId, Gtk4NativeObject>,
     events: Vec<NativeEvent>,
 }
@@ -289,11 +291,18 @@ impl std::fmt::Debug for Gtk4NativeHandleState {
 #[derive(Debug, Default)]
 pub struct Gtk4HandleAdapter {
     focused: Rc<Cell<Option<HostNodeId>>>,
+    overlay_positions: Rc<RefCell<BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>>>,
 }
 
 impl Gtk4HandleAdapter {
     pub fn focused(&self) -> Option<HostNodeId> {
         self.focused.get()
+    }
+
+    pub fn overlay_positions(
+        &self,
+    ) -> Ref<'_, BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>> {
+        self.overlay_positions.borrow()
     }
 }
 
@@ -307,6 +316,10 @@ impl Gtk4WidgetDriver {
 
     pub fn focused(&self) -> Option<HostNodeId> {
         self.focused
+    }
+
+    pub fn overlay_positions(&self) -> &BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)> {
+        &self.overlay_positions
     }
 
     pub fn object(&self, id: HostNodeId) -> Option<&Gtk4NativeObject> {
@@ -499,6 +512,9 @@ impl NativeHandleAdapter for Gtk4HandleAdapter {
         if self.focused.get() == Some(id) {
             self.focused.set(None);
         }
+        self.overlay_positions
+            .borrow_mut()
+            .retain(|overlay, (anchor, _)| *overlay != id && *anchor != id);
         Ok(())
     }
 
@@ -514,6 +530,31 @@ impl NativeHandleAdapter for Gtk4HandleAdapter {
             )));
         }
         self.focused.set(Some(id));
+        Ok(())
+    }
+
+    fn position_overlay_handle(
+        &mut self,
+        overlay: HostNodeId,
+        overlay_handle: &Self::Handle,
+        anchor: HostNodeId,
+        anchor_handle: &Self::Handle,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        if overlay_handle.state.borrow().id != overlay || anchor_handle.state.borrow().id != anchor
+        {
+            return Err(GuiError::host("GTK4 overlay or anchor handle id mismatch"));
+        }
+        if overlay_handle.state.borrow().kind != Gtk4WidgetKind::Popover {
+            return Err(GuiError::host(format!(
+                "GTK4 object {} is not a gtk::Popover",
+                overlay.get()
+            )));
+        }
+        let request = OverlayPositionRequest::new(request.options, request.direction)?;
+        self.overlay_positions
+            .borrow_mut()
+            .insert(overlay, (anchor, request));
         Ok(())
     }
 }
@@ -605,6 +646,9 @@ impl NativeWidgetDriver for Gtk4WidgetDriver {
         for object in self.objects.values_mut() {
             object.children.retain(|child| !removed_ids.contains(child));
         }
+        self.overlay_positions.retain(|overlay, (anchor, _)| {
+            !removed_ids.contains(overlay) && !removed_ids.contains(anchor)
+        });
         for removed_id in &removed_ids {
             self.objects.remove(removed_id);
         }
@@ -633,6 +677,25 @@ impl NativeWidgetDriver for Gtk4WidgetDriver {
     fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.ensure_object(id)?;
         self.focused = Some(id);
+        Ok(())
+    }
+
+    fn position_overlay(
+        &mut self,
+        overlay: HostNodeId,
+        anchor: HostNodeId,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        self.ensure_object(overlay)?;
+        self.ensure_object(anchor)?;
+        if self.objects.get(&overlay).map(|object| object.kind) != Some(Gtk4WidgetKind::Popover) {
+            return Err(GuiError::host(format!(
+                "GTK4 object {} is not a gtk::Popover",
+                overlay.get()
+            )));
+        }
+        let request = OverlayPositionRequest::new(request.options, request.direction)?;
+        self.overlay_positions.insert(overlay, (anchor, request));
         Ok(())
     }
 }

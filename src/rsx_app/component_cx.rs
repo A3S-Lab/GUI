@@ -82,6 +82,9 @@ use crate::semantic_ui::{
     use_number_field_value, NumberFieldInputProps, NumberFieldProps, UseNumberFieldProps,
 };
 use crate::semantic_ui::{
+    use_overlay_position_value, OverlayArrowProps, OverlayPositionProps, UseOverlayPositionProps,
+};
+use crate::semantic_ui::{
     use_slider_fill_value, use_slider_output_value, use_slider_track_value, SliderFillProps,
     SliderOutputProps, SliderTrackProps, UseSliderFillProps, UseSliderOutputProps,
     UseSliderTrackProps,
@@ -1472,6 +1475,13 @@ pub struct OverlayHook {
     pub overlay_props: PropHandle<OverlayProps>,
     pub overlay_trigger_props: PropHandle<OverlayTriggerProps>,
     pub is_open: PropHandle<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OverlayPositionHook {
+    pub overlay_position_props: PropHandle<OverlayPositionProps>,
+    pub arrow_props: PropHandle<OverlayArrowProps>,
+    pub placement: PropHandle<crate::overlay_position::OverlayPlacement>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -3180,6 +3190,23 @@ impl<S: 'static> ComponentCx<S> {
             overlay_props: PropHandle::new("overlayProps"),
             overlay_trigger_props: PropHandle::new("overlayTriggerProps"),
             is_open: PropHandle::new("isOpen"),
+        }
+    }
+
+    pub fn use_overlay_position<F>(&mut self, selector: F) -> OverlayPositionHook
+    where
+        F: Fn(&S) -> UseOverlayPositionProps + Send + Sync + 'static,
+    {
+        let selector: Arc<dyn Fn(&S) -> UseOverlayPositionProps + Send + Sync> = Arc::new(selector);
+        for path in ["overlayPositionProps", "arrowProps", "placement"] {
+            self.use_semantic_part(path, &selector, overlay_position_value_part);
+        }
+        self.register_prop_aliases(&["overlayPositionProps", "arrowProps", "placement"]);
+
+        OverlayPositionHook {
+            overlay_position_props: PropHandle::new("overlayPositionProps"),
+            arrow_props: PropHandle::new("arrowProps"),
+            placement: PropHandle::new("placement"),
         }
     }
 
@@ -6055,6 +6082,11 @@ fn combo_box_display_value_part(
 
 fn overlay_value_part(props: UseOverlayProps, part: &str) -> GuiResult<JsonValue> {
     let value = use_overlay_value(props)?;
+    Ok(value.get(part).cloned().unwrap_or(JsonValue::Null))
+}
+
+fn overlay_position_value_part(props: UseOverlayPositionProps, part: &str) -> GuiResult<JsonValue> {
+    let value = use_overlay_position_value(props)?;
     Ok(value.get(part).cloned().unwrap_or(JsonValue::Null))
 }
 

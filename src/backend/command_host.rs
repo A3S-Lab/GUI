@@ -2,8 +2,11 @@ use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
 use crate::capability::{CapabilityHost, NativeCapabilities};
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
-use crate::host::{HostFrameAck, HostNodeId, NativeHost, ProgrammaticFocusHost};
+use crate::host::{
+    HostFrameAck, HostNodeId, NativeHost, OverlayPositionHost, ProgrammaticFocusHost,
+};
 use crate::native::{NativeElement, NativeProps};
+use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{
     BlueprintHost, NativeWidgetBlueprint, PlatformAdapter, PlatformPlanningHost,
 };
@@ -372,6 +375,10 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> NativeHost for CommandExecu
     fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {
         Some(self)
     }
+
+    fn overlay_position_host(&mut self) -> Option<&mut dyn OverlayPositionHost> {
+        Some(self)
+    }
 }
 
 impl<A: PlatformAdapter, E: PlatformCommandExecutor> ProgrammaticFocusHost
@@ -379,5 +386,18 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> ProgrammaticFocusHost
 {
     fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()> {
         self.commit_planning(|planning| planning.request_focus(id))
+    }
+}
+
+impl<A: PlatformAdapter, E: PlatformCommandExecutor> OverlayPositionHost
+    for CommandExecutingHost<A, E>
+{
+    fn position_overlay(
+        &mut self,
+        overlay: HostNodeId,
+        anchor: HostNodeId,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        self.commit_planning(|planning| planning.position_overlay(overlay, anchor, request))
     }
 }

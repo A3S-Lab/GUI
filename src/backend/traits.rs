@@ -1,6 +1,7 @@
 use crate::error::GuiResult;
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
+use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{
     NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfigPatch, NativeWidgetSetter,
     PlatformCommand,
@@ -106,6 +107,17 @@ pub trait NativeWidgetDriver {
     fn remove_widget(&mut self, id: HostNodeId) -> GuiResult<()>;
     fn set_root_widget(&mut self, id: HostNodeId) -> GuiResult<()>;
     fn request_focus(&mut self, id: HostNodeId) -> GuiResult<()>;
+    fn position_overlay(
+        &mut self,
+        _overlay: HostNodeId,
+        _anchor: HostNodeId,
+        _request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        Err(crate::error::GuiError::host(format!(
+            "{:?} native driver does not support anchored overlay positioning",
+            self.backend()
+        )))
+    }
 }
 
 pub trait NativeHandleAdapter {
@@ -152,6 +164,19 @@ pub trait NativeHandleAdapter {
     fn remove_handle(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()>;
     fn set_root_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()>;
     fn request_focus_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()>;
+    fn position_overlay_handle(
+        &mut self,
+        _overlay: HostNodeId,
+        _overlay_handle: &Self::Handle,
+        _anchor: HostNodeId,
+        _anchor_handle: &Self::Handle,
+        _request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        Err(crate::error::GuiError::host(format!(
+            "{:?} native handle adapter does not support anchored overlay positioning",
+            self.backend()
+        )))
+    }
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         Vec::new()
     }
@@ -183,6 +208,19 @@ pub trait NativeWidgetSurface {
     fn remove_native_widget(&mut self, id: HostNodeId, handle: Self::Handle) -> GuiResult<()>;
     fn set_native_root(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()>;
     fn request_native_focus(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()>;
+    fn position_native_overlay(
+        &mut self,
+        _overlay: HostNodeId,
+        _overlay_handle: &Self::Handle,
+        _anchor: HostNodeId,
+        _anchor_handle: &Self::Handle,
+        _request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        Err(crate::error::GuiError::host(format!(
+            "{:?} native surface does not support anchored overlay positioning",
+            self.backend()
+        )))
+    }
     fn take_native_events(&mut self) -> Vec<NativeEvent> {
         Vec::new()
     }

@@ -4,6 +4,7 @@ use std::collections::BTreeSet;
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
+use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfig};
 
 use super::traits::{NativeEventSource, NativeHandleAdapter, NativeWidgetDriver};
@@ -318,5 +319,22 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
         self.adapter.request_focus_handle(id, &handle)?;
         self.focused = Some(id);
         Ok(())
+    }
+
+    fn position_overlay(
+        &mut self,
+        overlay: HostNodeId,
+        anchor: HostNodeId,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        let overlay_handle = self.cloned_handle(overlay)?;
+        let anchor_handle = self.cloned_handle(anchor)?;
+        self.adapter.position_overlay_handle(
+            overlay,
+            &overlay_handle,
+            anchor,
+            &anchor_handle,
+            request,
+        )
     }
 }

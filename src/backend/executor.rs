@@ -89,7 +89,8 @@ impl<D: NativeWidgetDriver> PlatformCommandExecutor for DriverCommandExecutor<D>
                 PlatformCommand::InsertChild { .. }
                 | PlatformCommand::Remove { .. }
                 | PlatformCommand::SetRoot { .. }
-                | PlatformCommand::RequestFocus { .. } => {}
+                | PlatformCommand::RequestFocus { .. }
+                | PlatformCommand::PositionOverlay { .. } => {}
             }
         }
         Ok(())
@@ -120,6 +121,13 @@ impl<D: NativeWidgetDriver> PlatformCommandExecutor for DriverCommandExecutor<D>
             }
             PlatformCommand::RequestFocus { id } => {
                 self.driver.request_focus(*id)?;
+            }
+            PlatformCommand::PositionOverlay {
+                overlay,
+                anchor,
+                request,
+            } => {
+                self.driver.position_overlay(*overlay, *anchor, *request)?;
             }
         }
         push_bounded(

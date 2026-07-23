@@ -91,7 +91,17 @@ pub(super) fn with_popover_tooltip_components<S>(
             .default_prop("isOpen", false)?
             .default_prop("onClose", "")?
             .default_prop("isNonModal", false)?
-            .default_prop("isKeyboardDismissDisabled", false)?,
+            .default_prop("isKeyboardDismissDisabled", false)?
+            .default_prop("placement", "bottom")?
+            .default_prop("anchor", "")?
+            .default_prop("offset", 0.0)?
+            .default_prop("crossOffset", 0.0)?
+            .default_prop("shouldFlip", true)?
+            .default_prop("shouldUpdatePosition", true)?
+            .default_prop("containerPadding", 12.0)?
+            .default_prop("arrowSize", 0.0)?
+            .default_prop("arrowBoundaryOffset", 0.0)?
+            .default_prop_value("maxHeight", JsonValue::Null)?,
         None,
     )?;
     let component = with_builtin_template(
@@ -108,7 +118,17 @@ pub(super) fn with_popover_tooltip_components<S>(
         passthrough_contract()?
             .default_prop("overlayType", "tooltip")?
             .default_prop("label", "")?
-            .default_prop("isOpen", false)?,
+            .default_prop("isOpen", false)?
+            .default_prop("placement", "top")?
+            .default_prop("anchor", "")?
+            .default_prop("offset", 0.0)?
+            .default_prop("crossOffset", 0.0)?
+            .default_prop("shouldFlip", true)?
+            .default_prop("shouldUpdatePosition", true)?
+            .default_prop("containerPadding", 12.0)?
+            .default_prop("arrowSize", 0.0)?
+            .default_prop("arrowBoundaryOffset", 0.0)?
+            .default_prop_value("maxHeight", JsonValue::Null)?,
         None,
     )?;
     let component = with_builtin_template(

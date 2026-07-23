@@ -5,8 +5,11 @@ use serde::{Deserialize, Serialize};
 use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
 use crate::capability::{CapabilityHost, NativeCapabilities};
 use crate::error::{GuiError, GuiResult};
-use crate::host::{HostFrameAck, HostNodeId, NativeHost, ProgrammaticFocusHost};
-use crate::native::{NativeElement, NativeProps};
+use crate::host::{
+    HostFrameAck, HostNodeId, NativeHost, OverlayPositionHost, ProgrammaticFocusHost,
+};
+use crate::native::{NativeElement, NativeProps, NativeRole};
+use crate::overlay_position::OverlayPositionRequest;
 use crate::style::PortableStyle;
 
 use super::adapters::{BlueprintHost, PlatformAdapter};
@@ -45,6 +48,11 @@ pub enum PlatformCommand {
     RequestFocus {
         id: HostNodeId,
     },
+    PositionOverlay {
+        overlay: HostNodeId,
+        anchor: HostNodeId,
+        request: OverlayPositionRequest,
+    },
 }
 
 impl PlatformCommand {
@@ -70,6 +78,15 @@ impl PlatformCommand {
             Self::Remove { id } => Self::Remove { id: *id },
             Self::SetRoot { id } => Self::SetRoot { id: *id },
             Self::RequestFocus { id } => Self::RequestFocus { id: *id },
+            Self::PositionOverlay {
+                overlay,
+                anchor,
+                request,
+            } => Self::PositionOverlay {
+                overlay: *overlay,
+                anchor: *anchor,
+                request: *request,
+            },
         }
     }
 }
@@ -80,6 +97,7 @@ pub struct PlatformPlanningHost<A: PlatformAdapter> {
     next_id: u64,
     root: Option<HostNodeId>,
     focused: Option<HostNodeId>,
+    overlay_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     nodes: BTreeMap<HostNodeId, PlatformPlannedNode>,
     commands: Vec<PlatformCommand>,
     active_frame: Option<PlatformPlanningCheckpoint>,
@@ -90,6 +108,7 @@ pub(crate) struct PlatformPlanningCheckpoint {
     next_id: u64,
     root: Option<HostNodeId>,
     focused: Option<HostNodeId>,
+    overlay_positions: BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)>,
     nodes: BTreeMap<HostNodeId, PlatformPlannedNode>,
     commands: Vec<PlatformCommand>,
 }
@@ -101,6 +120,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
             next_id: 0,
             root: None,
             focused: None,
+            overlay_positions: BTreeMap::new(),
             nodes: BTreeMap::new(),
             commands: Vec::new(),
             active_frame: None,
@@ -113,6 +133,10 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
 
     pub fn focused(&self) -> Option<HostNodeId> {
         self.focused
+    }
+
+    pub fn overlay_positions(&self) -> &BTreeMap<HostNodeId, (HostNodeId, OverlayPositionRequest)> {
+        &self.overlay_positions
     }
 
     pub fn node(&self, id: HostNodeId) -> Option<&PlatformPlannedNode> {
@@ -188,6 +212,13 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         if let Some(id) = self.root {
             commands.push(PlatformCommand::SetRoot { id });
         }
+        for (overlay, (anchor, request)) in &self.overlay_positions {
+            commands.push(PlatformCommand::PositionOverlay {
+                overlay: *overlay,
+                anchor: *anchor,
+                request: *request,
+            });
+        }
         commands
     }
 
@@ -204,6 +235,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
             next_id: self.next_id,
             root: self.root,
             focused: self.focused,
+            overlay_positions: self.overlay_positions.clone(),
             nodes: self.nodes.clone(),
             commands: self.commands.clone(),
         }
@@ -213,6 +245,7 @@ impl<A: PlatformAdapter> PlatformPlanningHost<A> {
         self.next_id = checkpoint.next_id;
         self.root = checkpoint.root;
         self.focused = checkpoint.focused;
+        self.overlay_positions = checkpoint.overlay_positions;
         self.nodes = checkpoint.nodes;
         self.commands = checkpoint.commands;
     }
@@ -456,6 +489,9 @@ impl<A: PlatformAdapter> NativeHost for PlatformPlanningHost<A> {
         {
             self.focused = None;
         }
+        self.overlay_positions.retain(|overlay, (anchor, _)| {
+            !removed_ids.contains(overlay) && !removed_ids.contains(anchor)
+        });
         self.commands.push(PlatformCommand::Remove { id });
         Ok(())
     }
@@ -474,6 +510,10 @@ impl<A: PlatformAdapter> NativeHost for PlatformPlanningHost<A> {
     fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {
         Some(self)
     }
+
+    fn overlay_position_host(&mut self) -> Option<&mut dyn OverlayPositionHost> {
+        Some(self)
+    }
 }
 
 impl<A: PlatformAdapter> ProgrammaticFocusHost for PlatformPlanningHost<A> {
@@ -481,6 +521,42 @@ impl<A: PlatformAdapter> ProgrammaticFocusHost for PlatformPlanningHost<A> {
         self.ensure_node(id)?;
         self.focused = Some(id);
         self.commands.push(PlatformCommand::RequestFocus { id });
+        Ok(())
+    }
+}
+
+impl<A: PlatformAdapter> OverlayPositionHost for PlatformPlanningHost<A> {
+    fn position_overlay(
+        &mut self,
+        overlay: HostNodeId,
+        anchor: HostNodeId,
+        request: OverlayPositionRequest,
+    ) -> GuiResult<()> {
+        self.ensure_node(overlay)?;
+        self.ensure_node(anchor)?;
+        if overlay == anchor {
+            return Err(GuiError::host(format!(
+                "overlay {} cannot anchor to itself",
+                overlay.get()
+            )));
+        }
+        if self.nodes.get(&overlay).map(|node| node.blueprint.role) != Some(NativeRole::Popover) {
+            return Err(GuiError::host(format!(
+                "host node {} is not an overlay",
+                overlay.get()
+            )));
+        }
+        let request = OverlayPositionRequest::new(request.options, request.direction)?;
+        let position = (anchor, request);
+        let changed = self.overlay_positions.get(&overlay) != Some(&position);
+        self.overlay_positions.insert(overlay, position);
+        if changed || request.options.should_update_position {
+            self.commands.push(PlatformCommand::PositionOverlay {
+                overlay,
+                anchor,
+                request,
+            });
+        }
         Ok(())
     }
 }
