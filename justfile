@@ -3,6 +3,16 @@
 default:
     @just --list
 
+native-backend := if os() == "macos" {
+    "appkit"
+} else if os() == "linux" {
+    "gtk4"
+} else if os() == "windows" {
+    "winui"
+} else {
+    error("unsupported operating system for native GUI examples")
+}
+
 # ============================================================================
 # Build
 # ============================================================================
@@ -418,24 +428,7 @@ controls-native:
 
 # Run the native calculator app for this operating system
 calculator:
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    case "$(uname -s)" in
-        Darwin)
-            cargo run --locked --features appkit-native --example appkit_calculator
-            ;;
-        Linux)
-            cargo run --locked --features gtk4-native --example gtk4_calculator
-            ;;
-        MINGW*|MSYS*|CYGWIN*|Windows_NT)
-            cargo run --locked --features winui-native --example winui_calculator
-            ;;
-        *)
-            echo "unsupported operating system for native GUI calculator: $(uname -s)" >&2
-            exit 1
-            ;;
-    esac
+    cargo run --locked --features {{ native-backend }}-native --example {{ native-backend }}_calculator
 
 # Run the native semantic component playground for this operating system
 playground:
