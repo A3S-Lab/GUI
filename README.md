@@ -37,6 +37,9 @@ object graph at the host boundary.
 - Native reducer loop that routes platform events back to stable action ids,
   with opt-in deterministic ancestor propagation control.
 - Tailwind-compatible style parsing into platform-neutral `PortableStyle`.
+  Runtime interaction state resolves supported pseudo-class and React Aria
+  `data-*` variants and projects the resulting style to native widgets on
+  AppKit, GTK4, and WinUI without a CSS engine.
 - Built-in `rsx_ui` semantic components for controls, overlays, routing,
   collections, layout, feedback, color, date/time, drag/drop, and data views.
 - Headless runtime and protocol tests for deterministic reducer and renderer

@@ -25,6 +25,7 @@ use crate::style::PortableStyle;
 use serde::{Deserialize, Serialize};
 
 mod accessibility;
+mod interaction_style;
 
 type RoutedBlueprint = (HostNodeId, NativeWidgetBlueprint);
 
@@ -120,6 +121,7 @@ pub struct GuiRuntime<H: NativeHost> {
     i18n_manager: I18nManager,
     selection_registry: MountedSelectionRegistry,
     interaction_state: InteractionState,
+    projected_interaction_styles: BTreeMap<HostNodeId, PortableStyle>,
     focus_owner: Option<HostNodeId>,
     pending_focus_modality: Option<(HostNodeId, NativeInputModality)>,
     interaction_revisions: BTreeMap<HostNodeId, u64>,
@@ -153,6 +155,7 @@ impl<H: NativeHost> GuiRuntime<H> {
             i18n_manager: I18nManager::new(),
             selection_registry: MountedSelectionRegistry::new(),
             interaction_state: InteractionState::new(),
+            projected_interaction_styles: BTreeMap::new(),
             focus_owner: None,
             pending_focus_modality: None,
             interaction_revisions: BTreeMap::new(),
@@ -171,6 +174,11 @@ impl<H: NativeHost> GuiRuntime<H> {
     }
 
     pub fn render_native(&mut self, element: &NativeElement) -> GuiResult<HostNodeId> {
+        let previous_mounted_props = self
+            .renderer
+            .mounted_node_props()
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
         let focus_before_render = self
             .focus_owner
             .or_else(|| self.interaction_state.focused_node());
@@ -211,6 +219,8 @@ impl<H: NativeHost> GuiRuntime<H> {
                 self.initialize_auto_focus(target);
             }
         }
+        self.invalidate_interaction_style_projections(&previous_mounted_props);
+        self.project_all_interaction_styles()?;
         Ok(root)
     }
 
@@ -420,14 +430,12 @@ impl<H: NativeHost> GuiRuntime<H> {
             &focus_within_transitions,
             &event,
         );
-        let interaction_snapshot = (!invocations.is_empty()).then(|| {
-            (
-                self.interaction_state.clone(),
-                self.interaction_revisions.clone(),
-                selection_snapshot,
-                self.focus_owner,
-            )
-        });
+        let interaction_snapshot = (
+            self.interaction_state.clone(),
+            self.interaction_revisions.clone(),
+            selection_snapshot,
+            self.focus_owner,
+        );
         let interaction_blueprint = (blueprint.value_sensitivity != value_sensitivity).then(|| {
             let mut blueprint = blueprint.clone();
             blueprint.value_sensitivity = value_sensitivity;
@@ -445,34 +453,59 @@ impl<H: NativeHost> GuiRuntime<H> {
                 interaction_changes.push(change);
             }
         }
+        if let Some(update) = &selection_update {
+            self.apply_mounted_selection_update(update);
+        }
+        let mut style_nodes = interaction_changes
+            .iter()
+            .map(|change| change.node)
+            .chain(selection_update.iter().flat_map(|update| {
+                std::iter::once(update.collection)
+                    .chain(update.items.iter().map(|(node, _, _)| *node))
+            }))
+            .collect::<BTreeSet<_>>();
+        self.include_focus_within_style_ancestors(&mut style_nodes);
+        self.record_interaction_revisions(&interaction_changes);
+        if let Err(error) = self.project_interaction_style_nodes(style_nodes.iter().copied()) {
+            self.interaction_state = interaction_snapshot.0.clone();
+            self.interaction_revisions = interaction_snapshot.1.clone();
+            self.focus_owner = interaction_snapshot.3;
+            let mut rollback_errors = Vec::new();
+            if let Some(selection_snapshot) = &interaction_snapshot.2 {
+                self.selection_registry = selection_snapshot.clone();
+                if let Err(rollback_error) = self.project_mounted_selection_to_host() {
+                    rollback_errors.push(rollback_error);
+                }
+            }
+            if let Err(rollback_error) =
+                self.project_interaction_style_nodes(style_nodes.iter().copied())
+            {
+                rollback_errors.push(rollback_error);
+            }
+            return Err(with_runtime_rollback_context(error, rollback_errors));
+        }
         match event.kind {
             crate::event::NativeEventKind::Focus => self.focus_owner = Some(event.node),
             _ => {}
         }
-        if let Some(update) = &selection_update {
-            self.apply_mounted_selection_update(update);
-        }
-        self.record_interaction_revisions(&interaction_changes);
         if let Err(error) = self
             .action_registry
             .invoke_all_with_sensitivity(&invocations, value_sensitivity)
         {
-            if let Some((
-                interaction_state,
-                interaction_revisions,
-                selection_snapshot,
-                focus_owner,
-            )) = interaction_snapshot
-            {
-                self.interaction_state = interaction_state;
-                self.interaction_revisions = interaction_revisions;
-                self.focus_owner = focus_owner;
-                if let Some(selection_snapshot) = selection_snapshot {
-                    self.selection_registry = selection_snapshot;
-                    let _ = self.project_mounted_selection_to_host();
+            self.interaction_state = interaction_snapshot.0;
+            self.interaction_revisions = interaction_snapshot.1;
+            self.focus_owner = interaction_snapshot.3;
+            let mut rollback_errors = Vec::new();
+            if let Some(selection_snapshot) = interaction_snapshot.2 {
+                self.selection_registry = selection_snapshot;
+                if let Err(rollback_error) = self.project_mounted_selection_to_host() {
+                    rollback_errors.push(rollback_error);
                 }
             }
-            return Err(error);
+            if let Err(rollback_error) = self.project_interaction_style_nodes(style_nodes) {
+                rollback_errors.push(rollback_error);
+            }
+            return Err(with_runtime_rollback_context(error, rollback_errors));
         }
         let invocation = invocations.first().cloned();
         Ok(HandledNativeEvent {
@@ -555,7 +588,7 @@ impl<H: NativeHost> GuiRuntime<H> {
             )
             .filter(|(node, blueprint)| {
                 !related_path.contains(node)
-                    && (has_focus_within_handler(blueprint)
+                    && (tracks_focus_within(blueprint)
                         || self
                             .interaction_state
                             .node(*node)
@@ -783,6 +816,8 @@ impl<H: NativeHost> GuiRuntime<H> {
         self.interaction_state.retain_nodes(&interactive_nodes);
         self.interaction_revisions
             .retain(|node, _| interactive_nodes.contains(node));
+        self.projected_interaction_styles
+            .retain(|node, _| interactive_nodes.contains(node));
     }
 
     fn sync_mounted_selection_interactions(&mut self) {
@@ -832,7 +867,7 @@ impl<H: NativeHost> GuiRuntime<H> {
                 }
             }
         }
-        self.renderer.update_mounted_props(&updates, &mut self.host)
+        self.update_mounted_props_and_invalidate_interaction_styles(&updates)
     }
 
     fn project_mounted_tree_to_host(&mut self) -> GuiResult<()> {
@@ -854,7 +889,21 @@ impl<H: NativeHost> GuiRuntime<H> {
                 }
             }
         }
-        self.renderer.update_mounted_props(&updates, &mut self.host)
+        self.update_mounted_props_and_invalidate_interaction_styles(&updates)?;
+        self.project_interaction_style_nodes(updates.keys().copied())
+    }
+
+    fn update_mounted_props_and_invalidate_interaction_styles(
+        &mut self,
+        updates: &BTreeMap<HostNodeId, NativeProps>,
+    ) -> GuiResult<()> {
+        self.renderer
+            .update_mounted_props(updates, &mut self.host)?;
+        for node in updates.keys() {
+            self.projected_interaction_styles.remove(node);
+            self.interaction_revisions.remove(node);
+        }
+        Ok(())
     }
 
     fn apply_mounted_selection_update(&mut self, update: &MountedSelectionUpdate) {
@@ -1578,6 +1627,26 @@ fn has_focus_within_handler(blueprint: &NativeWidgetBlueprint) -> bool {
             })
 }
 
+fn tracks_focus_within(blueprint: &NativeWidgetBlueprint) -> bool {
+    has_focus_within_handler(blueprint)
+        || blueprint
+            .portable_style
+            .interaction_requirements()
+            .focus_within
+}
+
+fn with_runtime_rollback_context(error: GuiError, rollback_errors: Vec<GuiError>) -> GuiError {
+    if rollback_errors.is_empty() {
+        return error;
+    }
+    let details = rollback_errors
+        .into_iter()
+        .map(|rollback_error| rollback_error.to_string())
+        .collect::<Vec<_>>()
+        .join("; ");
+    GuiError::host(format!("{error}; runtime rollback also failed: {details}"))
+}
+
 fn is_disabled_user_event(
     blueprint: &NativeWidgetBlueprint,
     route_blueprints: &[RoutedBlueprint],
@@ -1713,6 +1782,10 @@ mod i18n_tests;
 #[cfg(test)]
 #[path = "runtime/focus_within_tests.rs"]
 mod focus_within_tests;
+
+#[cfg(test)]
+#[path = "runtime/interaction_style_tests.rs"]
+mod interaction_style_tests;
 
 #[cfg(test)]
 #[path = "runtime/accessibility_conformance_tests.rs"]

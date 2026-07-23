@@ -118,6 +118,12 @@ pub struct UseFocusableResult {
     pub focus_props: FocusProps,
 }
 
+/// React Aria-compatible name for the direct-focus hook input.
+pub type UseFocusProps = UseFocusableProps;
+
+/// React Aria-compatible name for the direct-focus hook result.
+pub type UseFocusResult = UseFocusableResult;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UseFocusWithinResult {
@@ -134,6 +140,7 @@ pub struct UseFocusRingProps {
     is_focused: bool,
     is_focus_visible: bool,
     is_focus_within: bool,
+    within: bool,
     auto_focus: bool,
     tab_index: i32,
 }
@@ -148,6 +155,7 @@ impl Default for UseFocusRingProps {
             is_focused: false,
             is_focus_visible: false,
             is_focus_within: false,
+            within: false,
             auto_focus: false,
             tab_index: 0,
         }
@@ -186,6 +194,12 @@ impl UseFocusRingProps {
 
     pub fn focus_visible(mut self, focus_visible: bool) -> Self {
         self.is_focus_visible = focus_visible;
+        self
+    }
+
+    /// Includes descendant focus when resolving focus-ring visibility.
+    pub fn within(mut self, within: bool) -> Self {
+        self.within = within;
         self
     }
 
@@ -335,6 +349,8 @@ pub struct FocusRingProps {
     pub data_focused: bool,
     #[serde(rename = "data-focus-visible")]
     pub data_focus_visible: bool,
+    #[serde(rename = "data-focus-ring-within")]
+    pub data_focus_ring_within: bool,
     #[serde(rename = "data-focus-within")]
     pub data_focus_within: bool,
 }
@@ -379,6 +395,11 @@ pub fn use_focusable(props: UseFocusableProps) -> UseFocusableResult {
     }
 }
 
+/// React Aria-compatible alias for [`use_focusable`].
+pub fn use_focus(props: UseFocusProps) -> UseFocusResult {
+    use_focusable(props)
+}
+
 pub fn use_focus_within(props: UseFocusWithinProps) -> UseFocusWithinResult {
     UseFocusWithinResult {
         is_focus_within: props.is_focus_within,
@@ -399,10 +420,11 @@ pub fn use_focus_ring(props: UseFocusRingProps) -> UseFocusRingResult {
     } else {
         props.tab_index
     };
+    let is_focus_within = props.within && props.is_focus_within;
     UseFocusRingResult {
         is_focused: props.is_focused,
         is_focus_visible: props.is_focus_visible,
-        is_focus_within: props.is_focus_within,
+        is_focus_within,
         focus_ring_props: FocusRingProps {
             tab_index,
             on_focus: props.on_focus,
@@ -413,7 +435,8 @@ pub fn use_focus_ring(props: UseFocusRingProps) -> UseFocusRingResult {
             aria_disabled: props.is_disabled,
             data_focused: props.is_focused,
             data_focus_visible: props.is_focus_visible,
-            data_focus_within: props.is_focus_within,
+            data_focus_ring_within: props.within,
+            data_focus_within: is_focus_within,
         },
     }
 }
@@ -447,6 +470,10 @@ pub fn use_focusable_value(props: UseFocusableProps) -> GuiResult<JsonValue> {
             "semantic use_focusable hook did not serialize: {error}"
         ))
     })
+}
+
+pub fn use_focus_value(props: UseFocusProps) -> GuiResult<JsonValue> {
+    use_focusable_value(props)
 }
 
 pub fn use_focus_within_value(props: UseFocusWithinProps) -> GuiResult<JsonValue> {
@@ -496,5 +523,16 @@ mod tests {
             "setGroupFocus"
         );
         assert_eq!(value["focusWithinProps"]["data-focus-within"], true);
+    }
+
+    #[test]
+    fn focus_ring_descendant_state_is_opt_in() {
+        let direct = use_focus_ring(UseFocusRingProps::new().focus_within(true));
+        assert!(!direct.is_focus_within);
+        assert!(!direct.focus_ring_props.data_focus_within);
+
+        let within = use_focus_ring(UseFocusRingProps::new().within(true).focus_within(true));
+        assert!(within.is_focus_within);
+        assert!(within.focus_ring_props.data_focus_within);
     }
 }

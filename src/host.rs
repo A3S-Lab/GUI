@@ -62,6 +62,17 @@ pub trait NativeHost {
     fn remove(&mut self, id: HostNodeId) -> GuiResult<()>;
     fn set_root(&mut self, id: HostNodeId) -> GuiResult<()>;
 
+    /// Projects a runtime-resolved interaction style without changing the
+    /// renderer's declarative props. Native planning hosts override this to
+    /// emit a focused `SetPortableStyle` update. Custom hosts must override
+    /// this when they accept stateful style variants; the default reports the
+    /// unsupported projection instead of silently leaving native visuals stale.
+    fn update_portable_style(&mut self, _id: HostNodeId, _style: &PortableStyle) -> GuiResult<()> {
+        Err(GuiError::host(
+            "native host does not support runtime portable style updates",
+        ))
+    }
+
     /// Returns the host's imperative focus capability when available.
     fn programmatic_focus_host(&mut self) -> Option<&mut dyn ProgrammaticFocusHost> {
         None
@@ -109,6 +120,7 @@ pub struct HeadlessNode {
     pub id: HostNodeId,
     pub role: NativeRole,
     pub props: NativeProps,
+    pub portable_style: PortableStyle,
     pub children: Vec<HostNodeId>,
 }
 
@@ -311,6 +323,7 @@ impl NativeHost for HeadlessHost {
                 id,
                 role: element.role,
                 props: element.props.clone(),
+                portable_style: PortableStyle::from_web(&element.props.web),
                 children: Vec::new(),
             },
         );
@@ -328,6 +341,7 @@ impl NativeHost for HeadlessHost {
             .get_mut(&id)
             .ok_or_else(|| GuiError::host(format!("unknown host node id {}", id.get())))?;
         node.props = props.clone();
+        node.portable_style = PortableStyle::from_web(&props.web);
         let value_sensitivity = ValueSensitivity::from_input_type(effective_input_type(props));
         self.record_operation(HostOperation::Update {
             id,
@@ -408,6 +422,15 @@ impl NativeHost for HeadlessHost {
         self.ensure_node(id)?;
         self.root = Some(id);
         self.record_operation(HostOperation::SetRoot { id });
+        Ok(())
+    }
+
+    fn update_portable_style(&mut self, id: HostNodeId, style: &PortableStyle) -> GuiResult<()> {
+        let node = self
+            .nodes
+            .get_mut(&id)
+            .ok_or_else(|| GuiError::host(format!("unknown host node id {}", id.get())))?;
+        node.portable_style = style.clone();
         Ok(())
     }
 

@@ -2753,6 +2753,9 @@ fn focus_ring_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
                 bool_attribute_value(props, &["isFocusVisible", "data-focus-visible"])
                     .unwrap_or(false),
             )
+            .within(
+                bool_attribute_value(props, &["within", "data-focus-ring-within"]).unwrap_or(false),
+            )
             .focus_within(
                 bool_attribute_value(props, &["isFocusWithin", "data-focus-within"])
                     .unwrap_or(false),

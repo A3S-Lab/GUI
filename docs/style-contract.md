@@ -241,3 +241,25 @@ Tailwind logical direction utilities such as `start-*`, `end-*`, `ms-*`,
 `pbe-*`, `pis-*`, `pie-*`, `scroll-ms-*`, `scroll-me-*`, `scroll-mbs-*`,
 `scroll-mbe-*`, `scroll-ps-*`, `scroll-pe-*`, `scroll-pbs-*`, and
 `scroll-pbe-*` project into logical portable style tokens.
+
+## Runtime State Variants
+
+`PortableStyle` retains variant declarations and their declaration-level
+source order. `GuiRuntime` resolves the portable subset on initial render and
+after native interaction or typed control-state changes. Supported runtime
+segments include `hover`, `active`, `focus`, `focus-visible`, `focus-within`,
+`disabled`, `enabled`, `checked`, `selected`, `required`, `optional`,
+`invalid`, `valid`, `read-only`, `read-write`, `open`, `placeholder-shown`,
+`rtl`, and `ltr`. Matching `aria-*` variants and React Aria-style arbitrary
+data variants cover pressed, long-pressed, moving, hovered, focused,
+focus-visible, focus-within, focus-visible-within, selected, checked, expanded,
+disabled, required, invalid, and read-only state. The focus-visible-within state
+is the modality-aware subtree signal used by `UiFocusRing within={true}`.
+
+Every segment in a compound variant must match. Unknown environment or
+structural segments make that variant inactive rather than accidentally
+applying it. Responsive/container, theme, group, peer, and structural variants
+therefore remain serialized in `variantDeclarations` for a future native
+environment or ancestry evaluator. Resolved styles retain the original variant
+table so native interaction subscriptions continue to track later state
+changes.

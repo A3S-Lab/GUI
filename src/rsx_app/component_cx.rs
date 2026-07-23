@@ -2771,6 +2771,14 @@ impl<S: 'static> ComponentCx<S> {
         }
     }
 
+    /// React Aria-compatible alias for [`Self::use_focusable`].
+    pub fn use_focus<F>(&mut self, selector: F) -> FocusableHook
+    where
+        F: Fn(&S) -> UseFocusableProps + Send + Sync + 'static,
+    {
+        self.use_focusable(selector)
+    }
+
     pub fn use_focusable<F>(&mut self, selector: F) -> FocusableHook
     where
         F: Fn(&S) -> UseFocusableProps + Send + Sync + 'static,

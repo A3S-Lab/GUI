@@ -27,6 +27,8 @@ pub struct PortableStyle {
     pub declarations: BTreeMap<String, String>,
     pub custom_properties: BTreeMap<String, String>,
     pub variant_declarations: BTreeMap<String, BTreeMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variant_declaration_order: Vec<(String, String)>,
     pub all: Option<String>,
     pub display: Option<DisplayMode>,
     pub box_sizing: Option<BoxSizing>,
