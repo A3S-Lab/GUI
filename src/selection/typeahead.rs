@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
 use crate::i18n::{
@@ -68,7 +67,7 @@ pub(super) fn find_match(
         .find(|candidate| {
             !candidate.disabled
                 && !candidate.text.is_empty()
-                && prefix_matches(&collator, candidate.text, search)
+                && collator.starts_with(candidate.text, search)
         })
         .map(|candidate| candidate.key.clone())
 }
@@ -88,14 +87,6 @@ fn search_collator(locale: Option<&str>) -> Option<LocaleCollator> {
     LocaleCollator::try_new(locale.unwrap_or(DEFAULT_FORMATTING_LOCALE), options)
         .or_else(|_| LocaleCollator::try_new(DEFAULT_FORMATTING_LOCALE, options))
         .ok()
-}
-
-fn prefix_matches(collator: &LocaleCollator, text: &str, search: &str) -> bool {
-    text.char_indices()
-        .skip(1)
-        .map(|(index, _)| index)
-        .chain(std::iter::once(text.len()))
-        .any(|end| collator.compare(&text[..end], search) == Ordering::Equal)
 }
 
 #[cfg(test)]

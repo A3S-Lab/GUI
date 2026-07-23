@@ -26,8 +26,9 @@ object graph at the host boundary.
   hierarchical tree expansion, activation-ordered overlay dismissal, modal
   background inertness, nested focus containment/restoration, typed anchored
   overlay placement, inherited locale/direction, locale-aware collation and
-  decimal/date/time formatting, versioned capability reporting, shared native
-  event-source state machines, and accessibility conformance checks. Versioned
+  filtering, decimal parsing with localized NumberField input, decimal/date/time
+  formatting, versioned capability reporting, shared native event-source state
+  machines, and accessibility conformance checks. Versioned
   native-input manifests expand every role marked
   native into strict OS-automation cases; adapter and headless traces cannot
   satisfy that evidence gate.
@@ -42,8 +43,8 @@ object graph at the host boundary.
   role-edge input parity, real-platform layout-aware page-navigation fixtures,
   IME/dead-key conformance, measured overlay collision/arrow conformance and
   scroll locking, remaining native focus conformance, message catalogs,
-  currency/percent/unit and date-range/time-zone formatting are still in
-  progress.
+  currency/percent/unit parsing and formatting, and date-range/time-zone
+  formatting are still in progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.

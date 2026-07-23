@@ -406,6 +406,29 @@ fn platform_adapter_blueprint_normalizes_ranged_values_without_renderer() {
 }
 
 #[test]
+fn native_adapter_blueprints_normalize_localized_number_input_values() {
+    let number_input = NativeElement::new("estimate", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .label("Estimate")
+            .lang("fr-FR")
+            .value("1,5")
+            .input_type("number")
+            .range(Some(1.0), Some(12.0), None),
+    );
+
+    for backend in [
+        NativeBackendKind::AppKit,
+        NativeBackendKind::Gtk4,
+        NativeBackendKind::WinUI,
+    ] {
+        let blueprint = widget_blueprint(backend, &number_input);
+        assert_eq!(blueprint.control_state.lang.as_deref(), Some("fr-FR"));
+        assert_eq!(blueprint.control_state.current, Some(1.5));
+        assert_eq!(blueprint.value.as_deref(), Some("1.5"));
+    }
+}
+
+#[test]
 fn widget_config_normalizes_blueprint_for_native_setters() {
     let element = NativeElement::new("volume", NativeRole::Slider).with_props(
         NativeProps::new()

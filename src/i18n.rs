@@ -12,6 +12,7 @@ use crate::style::TextDirection;
 mod collator;
 mod datetime;
 mod number;
+mod number_parser;
 
 pub use collator::{
     CollationCaseFirst, CollationOptions, CollationSensitivity, CollationUsage, LocaleCollator,
@@ -20,6 +21,8 @@ pub use datetime::{
     DateFormatKind, DateFormatOptions, DateFormatStyle, DateTimeValue, LocaleDateFormatter,
 };
 pub use number::{LocaleNumberFormatter, NumberFormatOptions, NumberGrouping, NumberSignDisplay};
+pub(crate) use number_parser::cached_number_parser;
+pub use number_parser::LocaleNumberParser;
 
 pub const DEFAULT_FORMATTING_LOCALE: &str = "und";
 
@@ -105,6 +108,10 @@ impl I18nManager {
         options: NumberFormatOptions,
     ) -> GuiResult<LocaleNumberFormatter> {
         LocaleNumberFormatter::try_new(self.formatting_locale(node), options)
+    }
+
+    pub fn number_parser(&self, node: HostNodeId) -> GuiResult<LocaleNumberParser> {
+        LocaleNumberParser::try_new(self.formatting_locale(node))
     }
 
     pub fn date_formatter(

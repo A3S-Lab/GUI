@@ -453,16 +453,22 @@ prefers the GDK Unicode scalar over its symbolic key name, and WinUI uses
 falling back to a stable virtual-key name. Full IME and dead-key composition
 remains an adapter conformance gap.
 `I18nManager` also resolves that inherited locale for reusable
-`LocaleCollator`, `LocaleNumberFormatter`, and `LocaleDateFormatter` objects.
+`LocaleCollator`, `LocaleNumberParser`, `LocaleNumberFormatter`, and
+`LocaleDateFormatter` objects.
 The public collator exposes search/sort usage, ECMA-402 sensitivity,
-case-first, and numeric ordering. Decimal formatting exposes grouping,
-sign-display, and bounded fraction digits with half-expand rounding. Date and
-time formatting exposes short through full styles, optional seconds, calendar
-selection, numbering systems, and hour-cycle overrides through BCP 47 Unicode
-extensions. These formatters use compiled ICU4X data, are `Send + Sync`, and
-perform no platform, file, or network I/O. The collection typeahead path uses
-the same public collator implementation so interactive search and application
-sorting cannot drift to separate locale rules.
+case-first, numeric ordering, and locale-equivalent starts-with, ends-with, and
+contains filters. Decimal parsing exposes complete parsing, partial-input
+validation with sign bounds, and numbering-system detection. It automatically
+detects Latin, Arabic, Han decimal, Devanagari, Bengali, and full-width digits
+unless a BCP 47 `-u-nu-` extension selects one system explicitly. Decimal
+formatting exposes grouping, sign-display, and bounded fraction digits with
+half-expand rounding. Date and time formatting exposes short through full
+styles, optional seconds, calendar selection, numbering systems, and hour-cycle
+overrides through BCP 47 Unicode extensions. These utilities use compiled
+ICU4X data, are `Send + Sync`, and perform no platform, file, or network I/O.
+The collection typeahead path uses the same public collator filter, and native
+number text fields use the same cached parser, so interactive behavior and
+application-level locale rules cannot drift.
 AppKit keeps logical item identity separate from the collection selection
 target: a row button is registered as the ListBoxItem or TreeItem responder,
 while activation reports the selected value to the owning collection.
@@ -488,7 +494,10 @@ selected child when the host callback does not include a useful payload.
 Text-field change values are clamped to `maxLength`. Initial, rerendered, and
 event-provided number-input and ranged-control values are clamped to min/max
 range bounds and snapped to step hints before platform rendering, interaction
-state, or action dispatch. Missing, empty, non-finite, or otherwise
+state, or action dispatch. Number-shaped text fields parse initial and event
+values with their inherited locale before emitting a canonical finite decimal
+to reducers; sliders retain their platform-neutral numeric payload contract.
+Missing, empty, non-finite, or otherwise
 unparseable initial numeric values are omitted from native value state; matching
 change payloads are treated as no-ops for number inputs and ranged controls,
 preserving the last valid value. Protocol hosts and native backends therefore

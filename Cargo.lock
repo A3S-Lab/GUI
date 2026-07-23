@@ -12,6 +12,7 @@ dependencies = [
  "icu_datetime",
  "icu_decimal",
  "icu_locale_core",
+ "icu_properties",
  "icu_provider",
  "objc2",
  "objc2-app-kit",
@@ -26,6 +27,7 @@ dependencies = [
  "windows",
  "windows-core",
  "winio-winui3",
+ "writeable",
 ]
 
 [[package]]

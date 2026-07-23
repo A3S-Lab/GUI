@@ -205,6 +205,54 @@ fn runtime_clamps_number_input_change_values_to_range_bounds() {
 }
 
 #[test]
+fn runtime_normalizes_inherited_locale_number_input_values() {
+    let element = NativeElement::new("root", NativeRole::View)
+        .with_props(NativeProps::new().lang("fr-FR"))
+        .child(
+            NativeElement::new("estimate", NativeRole::TextField).with_props(
+                NativeProps::new()
+                    .label("Estimate")
+                    .value("1,5")
+                    .input_type("number")
+                    .range(Some(1.0), Some(12.0), None)
+                    .web(WebProps::new().on_change("setEstimate")),
+            ),
+        );
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+    runtime.actions_mut().register("setEstimate");
+
+    let root_id = runtime.render_native(&element).unwrap();
+    let field_id = runtime.host().node(root_id).unwrap().children[0];
+    let blueprint = &runtime.host().node(field_id).unwrap().blueprint;
+    assert_eq!(blueprint.control_state.lang.as_deref(), Some("fr-FR"));
+    assert_eq!(blueprint.control_state.current, Some(1.5));
+    assert_eq!(blueprint.value.as_deref(), Some("1.5"));
+
+    let handled = runtime
+        .handle_native_event_with_changes(
+            crate::event::NativeEvent::new(field_id, crate::event::NativeEventKind::Change)
+                .value("12,5"),
+        )
+        .unwrap();
+
+    assert_eq!(handled.event.value.as_deref(), Some("12"));
+    assert_eq!(
+        handled
+            .invocation
+            .as_ref()
+            .and_then(|invocation| invocation.value.as_deref()),
+        Some("12")
+    );
+    assert_eq!(
+        runtime.accessibility_tree().unwrap().children[0]
+            .value
+            .as_deref(),
+        Some("12")
+    );
+}
+
+#[test]
 fn runtime_snaps_ranged_change_values_to_step() {
     let element = NativeElement::new("volume", NativeRole::Slider).with_props(
         NativeProps::new()

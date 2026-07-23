@@ -9,6 +9,7 @@ use crate::html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
 };
+use crate::i18n::{cached_number_parser, DEFAULT_FORMATTING_LOCALE};
 use crate::web::WebProps;
 use serde::{Deserialize, Serialize};
 
@@ -865,10 +866,12 @@ pub(crate) fn normalize_props_for_native_role(
     normalized.current = None;
     normalized.value = None;
 
-    let current = props
-        .current
-        .filter(|value| value.is_finite())
-        .or_else(|| props.value.as_deref().and_then(parse_finite_number));
+    let current = props.current.filter(|value| value.is_finite()).or_else(|| {
+        props
+            .value
+            .as_deref()
+            .and_then(|value| parse_ranged_number(role, props, value))
+    });
     if let Some(current) =
         current.and_then(|value| normalize_range_value(value, min, max, normalized.step))
     {
@@ -992,6 +995,17 @@ fn clamp_range_value(value: f64, min: Option<f64>, max: Option<f64>) -> f64 {
 
 fn parse_finite_number(value: &str) -> Option<f64> {
     value.parse::<f64>().ok().filter(|value| value.is_finite())
+}
+
+fn parse_ranged_number(role: NativeRole, props: &NativeProps, value: &str) -> Option<f64> {
+    if role != NativeRole::TextField {
+        return parse_finite_number(value);
+    }
+    let locale = props.lang.as_deref().unwrap_or(DEFAULT_FORMATTING_LOCALE);
+    match cached_number_parser(locale) {
+        Ok(parser) => parser.parse(value).ok(),
+        Err(_) => parse_finite_number(value),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

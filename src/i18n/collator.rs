@@ -153,6 +153,26 @@ impl LocaleCollator {
     pub fn is_equal(&self, left: &str, right: &str) -> bool {
         self.compare(left, right) == Ordering::Equal
     }
+
+    /// Returns whether `value` starts with a locale-equivalent `query`.
+    pub fn starts_with(&self, value: &str, query: &str) -> bool {
+        substring_boundaries(value).any(|end| self.is_equal(&value[..end], query))
+    }
+
+    /// Returns whether `value` ends with a locale-equivalent `query`.
+    pub fn ends_with(&self, value: &str, query: &str) -> bool {
+        substring_boundaries(value).any(|start| self.is_equal(&value[start..], query))
+    }
+
+    /// Returns whether `value` contains a locale-equivalent `query`.
+    pub fn contains(&self, value: &str, query: &str) -> bool {
+        let boundaries = substring_boundaries(value).collect::<Vec<_>>();
+        boundaries.iter().enumerate().any(|(start_index, start)| {
+            boundaries[start_index..]
+                .iter()
+                .any(|end| self.is_equal(&value[*start..*end], query))
+        })
+    }
 }
 
 impl Debug for LocaleCollator {
@@ -163,4 +183,10 @@ impl Debug for LocaleCollator {
             .field("options", &self.options)
             .finish_non_exhaustive()
     }
+}
+
+fn substring_boundaries(value: &str) -> impl Iterator<Item = usize> + '_ {
+    std::iter::once(0)
+        .chain(value.char_indices().skip(1).map(|(index, _)| index))
+        .chain(std::iter::once(value.len()))
 }

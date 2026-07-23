@@ -7,7 +7,7 @@ use crate::error::{GuiError, GuiResult};
 use crate::event::{ActionInvocation, ActionRegistry, EventRouter, NativeEvent};
 use crate::focus::{FocusManager, FocusNavigationMode};
 use crate::host::{HostNodeId, NativeHost, ProgrammaticFocusHost};
-use crate::i18n::I18nManager;
+use crate::i18n::{cached_number_parser, I18nManager, DEFAULT_FORMATTING_LOCALE};
 use crate::input::NativeInputModality;
 use crate::interaction::{InteractionChange, InteractionState};
 use crate::native::{
@@ -1652,7 +1652,7 @@ fn normalize_text_field_change_value(
 ) -> NativeEvent {
     let event = normalize_text_change_value(blueprint, event);
     if is_number_text_input(blueprint) {
-        normalize_ranged_change_value(blueprint, event)
+        normalize_number_text_change_value(blueprint, event)
     } else {
         event
     }
@@ -1676,9 +1676,26 @@ fn is_number_text_input(blueprint: &NativeWidgetBlueprint) -> bool {
 
 fn normalize_ranged_change_value(
     blueprint: &NativeWidgetBlueprint,
-    mut event: NativeEvent,
+    event: NativeEvent,
 ) -> NativeEvent {
-    let Some(value) = event.value.as_deref().and_then(parse_event_number) else {
+    normalize_ranged_change_value_with(blueprint, event, parse_event_number)
+}
+
+fn normalize_number_text_change_value(
+    blueprint: &NativeWidgetBlueprint,
+    event: NativeEvent,
+) -> NativeEvent {
+    normalize_ranged_change_value_with(blueprint, event, |value| {
+        parse_localized_event_number(blueprint, value)
+    })
+}
+
+fn normalize_ranged_change_value_with(
+    blueprint: &NativeWidgetBlueprint,
+    mut event: NativeEvent,
+    parse: impl FnOnce(&str) -> Option<f64>,
+) -> NativeEvent {
+    let Some(value) = event.value.as_deref().and_then(parse) else {
         return event;
     };
     if !value.is_finite() {
@@ -1693,6 +1710,18 @@ fn normalize_ranged_change_value(
 
     event.value = Some(format_normalized_number(value));
     event
+}
+
+fn parse_localized_event_number(blueprint: &NativeWidgetBlueprint, value: &str) -> Option<f64> {
+    let locale = blueprint
+        .control_state
+        .lang
+        .as_deref()
+        .unwrap_or(DEFAULT_FORMATTING_LOCALE);
+    match cached_number_parser(locale) {
+        Ok(parser) => parser.parse(value).ok(),
+        Err(_) => parse_event_number(value),
+    }
 }
 
 fn is_invalid_numeric_change_value(blueprint: &NativeWidgetBlueprint, event: &NativeEvent) -> bool {

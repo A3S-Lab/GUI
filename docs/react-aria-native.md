@@ -257,12 +257,18 @@ The first shared interaction milestone is available in the portable runtime:
   keyed native tree. Scoped overrides and default locale changes are preserved
   across rerenders, and BCP 47 language/script subtags provide deterministic
   RTL inference. It creates reusable, thread-safe `LocaleCollator`,
-  `LocaleNumberFormatter`, and `LocaleDateFormatter` values from the effective
-  node locale. Collation covers search/sort sensitivity, case-first, and
-  numeric ordering; stable ICU4X decimal formatting covers grouping, signs,
-  and fraction digits; date/time formatting covers localized short through
-  full styles, seconds, calendar, numbering-system, and hour-cycle locale
-  extensions. Collection typeahead reuses this public collator.
+  `LocaleNumberParser`, `LocaleNumberFormatter`, and `LocaleDateFormatter`
+  values from the effective node locale. Collation covers search/sort
+  sensitivity, case-first, numeric ordering, and locale-equivalent prefix,
+  suffix, and substring filtering. Stable ICU4X decimal parsing covers
+  localized signs and separators, partial-input validation, and automatic
+  Latin, Arabic, Han decimal, Devanagari, Bengali, and full-width numbering
+  system detection. Number-shaped text fields reuse the parser for inherited
+  locale input before canonical range/step normalization. Decimal formatting
+  covers grouping, signs, and fraction digits; date/time formatting covers
+  localized short through full styles, seconds, calendar, numbering-system,
+  and hour-cycle locale extensions. Collection typeahead reuses the public
+  collator filter.
 - Native IR capabilities are versioned. Every host exposes a feature manifest
   with unsupported, portable, or native support levels, role-specific
   overrides, and auditable capability issues. Protocol render responses carry
@@ -381,7 +387,7 @@ props:
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |
 | P1 | Collections and selection | Complete IME/dead-key typeahead conformance and add real-platform fixtures for layout-aware page navigation. |
-| P1 | Internationalization | Add message formatting, currency/percent/unit number styles, date ranges/time zones, and localized input behavior. Reusable decimal/date/time formatting and locale-aware collation now build on inherited locale/direction. |
+| P1 | Internationalization | Add message formatting, currency/percent/unit parsing and formatting, and date ranges/time zones. Reusable decimal parsing/partial-input validation, decimal/date/time formatting, locale-aware filtering, and localized NumberField input now build on inherited locale/direction. |
 | P1 | Accessibility conformance | Complete OS accessibility API projection, relationships, live regions, value announcements, and role-specific native adapter coverage. |
 | P2 | Overlays | Complete measured boundary-driven collision and arrow projection, native scroll locking, configurable outside-interaction filters, multi-window layer coordination, and real-platform positioning conformance fixtures. |
 | P2 | Capability enforcement | Turn reported capability gaps into adapter policy and conformance gates where portable fallback is not sufficient. |
