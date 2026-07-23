@@ -32,6 +32,7 @@ impl NativeInteractionSubscriptions {
                 .is_some_and(|action| !action.is_empty()),
         );
         subscriptions.merge(Self::from_style(&blueprint.portable_style));
+        subscriptions.merge(Self::from_metadata(&blueprint.metadata));
         subscriptions.terminal_press |= has_collection_action(blueprint);
         subscriptions.long_press |= has_collection_action(blueprint);
         subscriptions
@@ -47,6 +48,17 @@ impl NativeInteractionSubscriptions {
             hover: requirements.hover,
             key_down: requirements.keyboard_modality,
             key_up: requirements.keyboard_modality,
+        }
+    }
+
+    fn from_metadata(metadata: &BTreeMap<String, String>) -> Self {
+        let captures_overlay_events = metadata
+            .get(crate::overlay::OVERLAY_CAPTURE_METADATA_KEY)
+            .is_some_and(|value| value.eq_ignore_ascii_case("true"));
+        Self {
+            press_lifecycle: captures_overlay_events,
+            key_down: captures_overlay_events,
+            ..Self::default()
         }
     }
 
@@ -210,6 +222,7 @@ pub(crate) struct NativeInteractionProfile {
     pub(crate) subscriptions: NativeInteractionSubscriptions,
     event_subscriptions: NativeInteractionSubscriptions,
     style_subscriptions: NativeInteractionSubscriptions,
+    overlay_subscriptions: NativeInteractionSubscriptions,
     has_action: bool,
     has_terminal_event: bool,
     has_long_press_event: bool,
@@ -236,11 +249,14 @@ impl NativeInteractionProfile {
         );
         let style_subscriptions =
             NativeInteractionSubscriptions::from_style(&blueprint.portable_style);
+        let overlay_subscriptions =
+            NativeInteractionSubscriptions::from_metadata(&blueprint.metadata);
         let mut profile = Self {
             role: blueprint.role,
             subscriptions: NativeInteractionSubscriptions::default(),
             event_subscriptions,
             style_subscriptions,
+            overlay_subscriptions,
             has_action,
             has_terminal_event,
             has_long_press_event,
@@ -277,6 +293,8 @@ impl NativeInteractionProfile {
                     .get(crate::selection::COLLECTION_ACTION_METADATA_KEY)
                     .is_some_and(|value| value.eq_ignore_ascii_case("true"));
                 self.long_press_threshold = long_press_threshold(metadata);
+                self.overlay_subscriptions =
+                    NativeInteractionSubscriptions::from_metadata(metadata);
                 self.refresh_subscriptions();
             }
             NativeWidgetSetter::SetPortableStyle(style) => {
@@ -329,6 +347,7 @@ impl NativeInteractionProfile {
             self.has_long_press_event || self.has_collection_action;
         self.subscriptions = self.event_subscriptions;
         self.subscriptions.merge(self.style_subscriptions);
+        self.subscriptions.merge(self.overlay_subscriptions);
     }
 }
 
@@ -1169,6 +1188,23 @@ mod tests {
 
         profile.apply_setter(&NativeWidgetSetter::SetMetadata(BTreeMap::new()));
         assert!(!profile.subscriptions.terminal_press);
+    }
+
+    #[test]
+    fn overlay_capture_marker_subscribes_pointer_lifecycle_and_escape_delivery() {
+        let element = NativeElement::new("overlay-capture", NativeRole::View).with_props(
+            NativeProps::new().metadata(crate::overlay::OVERLAY_CAPTURE_METADATA_KEY, "true"),
+        );
+        let blueprint = AppKitAdapter.blueprint(&element);
+        let mut profile = NativeInteractionProfile::from_blueprint(&blueprint);
+
+        assert!(profile.subscriptions.press_lifecycle);
+        assert!(profile.subscriptions.key_down);
+        assert!(!profile.subscriptions.terminal_press);
+
+        profile.apply_setter(&NativeWidgetSetter::SetMetadata(BTreeMap::new()));
+        assert!(!profile.subscriptions.press_lifecycle);
+        assert!(!profile.subscriptions.key_down);
     }
 
     #[test]

@@ -15,9 +15,12 @@ pub(super) fn with_dialog_disclosure_components<S>(
         "UiDialog",
         ui_dialog,
         passthrough_contract()?
+            .default_prop("overlayType", "dialog")?
             .default_prop("label", "")?
             .default_prop("isOpen", false)?
-            .default_prop("onClose", "")?,
+            .default_prop("onClose", "")?
+            .default_prop("isDismissable", false)?
+            .default_prop("isKeyboardDismissDisabled", false)?,
         None,
     )?;
     let component = with_builtin_template(
@@ -25,9 +28,12 @@ pub(super) fn with_dialog_disclosure_components<S>(
         "UiModal",
         ui_modal,
         passthrough_contract()?
+            .default_prop("overlayType", "modal")?
             .default_prop("label", "")?
             .default_prop("isOpen", false)?
-            .default_prop("onClose", "")?,
+            .default_prop("onClose", "")?
+            .default_prop("isDismissable", false)?
+            .default_prop("isKeyboardDismissDisabled", false)?,
         None,
     )?;
     let component = with_builtin_template(
@@ -35,6 +41,7 @@ pub(super) fn with_dialog_disclosure_components<S>(
         "UiModalOverlay",
         ui_modal_overlay,
         passthrough_contract()?
+            .default_prop("overlayType", "underlay")?
             .default_prop("label", "")?
             .default_prop("isOpen", false)?,
         None,
@@ -79,7 +86,12 @@ pub(super) fn with_popover_tooltip_components<S>(
         component,
         "UiPopover",
         ui_popover,
-        passthrough_contract()?,
+        passthrough_contract()?
+            .default_prop("overlayType", "popover")?
+            .default_prop("isOpen", false)?
+            .default_prop("onClose", "")?
+            .default_prop("isNonModal", false)?
+            .default_prop("isKeyboardDismissDisabled", false)?,
         None,
     )?;
     let component = with_builtin_template(
@@ -94,6 +106,7 @@ pub(super) fn with_popover_tooltip_components<S>(
         "UiTooltip",
         ui_tooltip,
         passthrough_contract()?
+            .default_prop("overlayType", "tooltip")?
             .default_prop("label", "")?
             .default_prop("isOpen", false)?,
         None,

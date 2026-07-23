@@ -2127,6 +2127,8 @@ fn rsx_ui_dialog_uses_overlay_hook_props() {
           label="Confirm"
           isOpen={state.open}
           onClose={closeDialog}
+          isDismissable={true}
+          isKeyboardDismissDisabled={true}
         >
           Confirm
         </UiDialog>
@@ -2156,12 +2158,28 @@ fn rsx_ui_dialog_uses_overlay_hook_props() {
     );
     assert_eq!(attribute_value(dialog, "open"), Some("true"));
     assert_eq!(attribute_value(dialog, "data-open"), Some("true"));
+    assert_eq!(attribute_value(dialog, "data-overlay"), Some("true"));
+    assert_eq!(attribute_value(dialog, "data-overlay-modal"), Some("true"));
+    assert_eq!(
+        attribute_value(dialog, "data-overlay-dismissable"),
+        Some("true")
+    );
+    assert_eq!(
+        attribute_value(dialog, "data-overlay-keyboard-dismiss-disabled"),
+        Some("true")
+    );
+    assert_eq!(attribute_value(dialog, "data-focus-scope"), Some("true"));
+    assert_eq!(attribute_value(dialog, "data-contain"), Some("true"));
+    assert_eq!(attribute_value(dialog, "data-restore-focus"), Some("true"));
+    assert_eq!(attribute_value(dialog, "data-auto-focus"), Some("true"));
+    assert_eq!(attribute_value(dialog, "aria-modal"), Some("true"));
     assert_eq!(attribute_value(dialog, "aria-hidden"), None);
 
     let native = RsxCompilerBridge::new().lower_to_native(dialog).unwrap();
     assert_eq!(native.role, NativeRole::Dialog);
     assert_eq!(native.props.label.as_deref(), Some("Confirm"));
     assert_eq!(native.props.html_dialog.open, Some(true));
+    assert_eq!(native.props.accessibility_state.modal, Some(true));
     assert_eq!(
         native.props.web.events.get("onClose").map(String::as_str),
         Some("closeDialog")
@@ -2176,6 +2194,8 @@ fn rsx_ui_dialog_uses_overlay_hook_props() {
     let dialog = find_element_by_attribute(&closed.root, "data-slot", "dialog").unwrap();
     assert_eq!(attribute_value(dialog, "open"), Some("false"));
     assert_eq!(attribute_value(dialog, "data-open"), Some("false"));
+    assert_eq!(attribute_value(dialog, "data-overlay"), None);
+    assert_eq!(attribute_value(dialog, "data-focus-scope"), None);
     assert_eq!(attribute_value(dialog, "aria-hidden"), None);
     assert_eq!(
         RsxCompilerBridge::new()
@@ -2318,13 +2338,22 @@ fn rsx_ui_popover_uses_overlay_hook_props() {
     let component = RsxComponent::new(
         "hooked-popover",
         r#"
-        <UiPopover key="popover" isOpen={state.open} className="shadow-lg">
+        <UiPopover
+          key="popover"
+          isOpen={state.open}
+          onClose={closePopover}
+          className="shadow-lg"
+        >
           Content
         </UiPopover>
         "#,
     )
     .unwrap()
-    .use_state("open", |state: &OverlayUiState| state.open);
+    .use_state("open", |state: &OverlayUiState| state.open)
+    .use_reducer(
+        "closePopover",
+        |_state: &mut OverlayUiState, _invocation| Ok(()),
+    );
 
     let frame = component
         .render(&OverlayUiState {
@@ -2337,10 +2366,29 @@ fn rsx_ui_popover_uses_overlay_hook_props() {
     assert_class_contains(popover, "shadow-lg");
     assert_eq!(attribute_value(popover, "open"), Some("true"));
     assert_eq!(attribute_value(popover, "data-open"), Some("true"));
+    assert_eq!(attribute_value(popover, "data-overlay"), Some("true"));
+    assert_eq!(attribute_value(popover, "data-overlay-modal"), Some("true"));
+    assert_eq!(
+        attribute_value(popover, "data-overlay-dismissable"),
+        Some("true")
+    );
+    assert_eq!(attribute_value(popover, "data-focus-scope"), Some("true"));
+    assert_eq!(attribute_value(popover, "data-contain"), Some("true"));
+    assert_eq!(attribute_value(popover, "data-restore-focus"), Some("true"));
+    assert_eq!(attribute_value(popover, "data-auto-focus"), Some("true"));
+    assert_eq!(attribute_value(popover, "aria-modal"), Some("true"));
+    let CompiledRsxNode::Element { props, .. } = popover else {
+        panic!("popover element");
+    };
+    assert_eq!(
+        props.events.get("onClose").map(String::as_str),
+        Some("closePopover")
+    );
     assert_eq!(attribute_value(popover, "aria-hidden"), None);
 
     let native = RsxCompilerBridge::new().lower_to_native(popover).unwrap();
     assert_eq!(native.role, NativeRole::Popover);
+    assert_eq!(native.props.accessibility_state.modal, Some(true));
 
     let closed = component
         .render(&OverlayUiState {
@@ -2351,7 +2399,34 @@ fn rsx_ui_popover_uses_overlay_hook_props() {
     let popover = find_element_by_attribute(&closed.root, "data-slot", "popover").unwrap();
     assert_eq!(attribute_value(popover, "open"), Some("false"));
     assert_eq!(attribute_value(popover, "data-open"), Some("false"));
+    assert_eq!(attribute_value(popover, "data-overlay"), None);
+    assert_eq!(attribute_value(popover, "data-focus-scope"), None);
     assert_eq!(attribute_value(popover, "aria-hidden"), None);
+}
+
+#[test]
+fn rsx_ui_non_modal_popover_keeps_focus_restore_without_modal_isolation() {
+    let component = RsxComponent::new(
+        "non-modal-popover",
+        r#"
+        <UiPopover key="popover" isOpen={true} isNonModal={true}>
+          Content
+        </UiPopover>
+        "#,
+    )
+    .unwrap();
+
+    let frame = component.render(&()).unwrap();
+    let popover = find_element_by_attribute(&frame.root, "data-slot", "popover").unwrap();
+
+    assert_eq!(attribute_value(popover, "data-overlay"), Some("true"));
+    assert_eq!(attribute_value(popover, "data-overlay-modal"), None);
+    assert_eq!(attribute_value(popover, "data-overlay-dismissable"), None);
+    assert_eq!(attribute_value(popover, "data-contain"), None);
+    assert_eq!(attribute_value(popover, "aria-modal"), None);
+    assert_eq!(attribute_value(popover, "data-focus-scope"), Some("true"));
+    assert_eq!(attribute_value(popover, "data-restore-focus"), Some("true"));
+    assert_eq!(attribute_value(popover, "data-auto-focus"), Some("true"));
 }
 
 #[test]
@@ -4015,6 +4090,10 @@ fn rsx_ui_renders_collection_overlay_and_toggle_primitives_to_native_roles() {
     assert_eq!(modal_native.role, NativeRole::Dialog);
     assert_eq!(modal_native.props.html_dialog.open, Some(true));
     assert_eq!(
+        attribute_value(modal, "data-overlay-underlay"),
+        Some("true")
+    );
+    assert_eq!(
         modal_native
             .props
             .web
@@ -4026,6 +4105,7 @@ fn rsx_ui_renders_collection_overlay_and_toggle_primitives_to_native_roles() {
 
     let tooltip_native = bridge.lower_to_native(tooltip).unwrap();
     assert_eq!(tooltip_native.role, NativeRole::Popover);
+    assert_eq!(attribute_value(tooltip, "data-overlay"), None);
     assert_eq!(tooltip_native.props.label.as_deref(), Some("Hint"));
     assert_eq!(
         tooltip_native

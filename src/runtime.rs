@@ -14,6 +14,7 @@ use crate::native::{
     format_normalized_number, is_number_input_type, normalize_range_value, truncate_to_max_length,
     NativeElement, NativeProps, ValueSensitivity,
 };
+use crate::overlay::{MountedOverlayRegistry, OverlayEventDisposition};
 use crate::platform::{BlueprintHost, NativeWidgetBlueprint};
 use crate::renderer::Renderer;
 use crate::selection::{
@@ -118,6 +119,7 @@ pub struct GuiRuntime<H: NativeHost> {
     event_router: EventRouter,
     action_registry: ActionRegistry,
     focus_manager: FocusManager,
+    overlay_registry: MountedOverlayRegistry,
     i18n_manager: I18nManager,
     selection_registry: MountedSelectionRegistry,
     interaction_state: InteractionState,
@@ -152,6 +154,7 @@ impl<H: NativeHost> GuiRuntime<H> {
             event_router: EventRouter::new(),
             action_registry: ActionRegistry::new(),
             focus_manager: FocusManager::new(),
+            overlay_registry: MountedOverlayRegistry::new(),
             i18n_manager: I18nManager::new(),
             selection_registry: MountedSelectionRegistry::new(),
             interaction_state: InteractionState::new(),
@@ -189,6 +192,7 @@ impl<H: NativeHost> GuiRuntime<H> {
         let root = self.renderer.render(&element, &mut self.host)?;
         self.render_revision = self.render_revision.saturating_add(1);
         let snapshot = self.renderer.mounted_snapshot();
+        self.overlay_registry.sync(&snapshot);
         let restore_focus = self
             .focus_manager
             .sync_with_focus(&snapshot, focus_before_render);
@@ -202,13 +206,29 @@ impl<H: NativeHost> GuiRuntime<H> {
         self.selection_registry.sync(&snapshot)?;
         self.project_mounted_selection_to_host()?;
         self.project_mounted_tree_to_host()?;
+        self.project_mounted_overlays_to_host()?;
         self.focus_manager.sync(&self.renderer.mounted_snapshot());
+        let overlay_auto_focus = self
+            .overlay_registry
+            .take_opened_auto_focus_overlay()
+            .and_then(|scope| {
+                self.focus_manager
+                    .first(Some(scope), FocusNavigationMode::Tabbable)
+                    .or_else(|| {
+                        self.focus_manager
+                            .first(Some(scope), FocusNavigationMode::Focusable)
+                    })
+            });
         let tree_focus_fallback = focus_before_render
             .and_then(|focused| self.selection_registry.tree_focus_fallback(focused));
         self.prune_unmounted_interactions();
         self.sync_mounted_selection_interactions();
         let auto_focus = self.auto_focus_target();
-        if let Some(target) = tree_focus_fallback.or(restore_focus).or(auto_focus) {
+        if let Some(target) = overlay_auto_focus
+            .or(tree_focus_fallback)
+            .or(restore_focus)
+            .or(auto_focus)
+        {
             if let Some(host) = self.host.programmatic_focus_host() {
                 host.request_focus(target)?;
                 self.pending_focus_modality = Some((target, NativeInputModality::Virtual));
@@ -250,6 +270,10 @@ impl<H: NativeHost> GuiRuntime<H> {
 
     pub fn focus_manager(&self) -> &FocusManager {
         &self.focus_manager
+    }
+
+    pub fn overlays(&self) -> &MountedOverlayRegistry {
+        &self.overlay_registry
     }
 
     pub fn i18n(&self) -> &I18nManager {
@@ -322,8 +346,25 @@ impl<H: NativeHost> GuiRuntime<H> {
         &mut self,
         blueprint: &NativeWidgetBlueprint,
         route_blueprints: &[RoutedBlueprint],
+        event: NativeEvent,
+        dispatch_unchanged_selection: bool,
+    ) -> GuiResult<HandledNativeEvent> {
+        self.handle_event_with_route_results_and_extra_invocations(
+            blueprint,
+            route_blueprints,
+            event,
+            dispatch_unchanged_selection,
+            Vec::new(),
+        )
+    }
+
+    fn handle_event_with_route_results_and_extra_invocations(
+        &mut self,
+        blueprint: &NativeWidgetBlueprint,
+        route_blueprints: &[RoutedBlueprint],
         mut event: NativeEvent,
         dispatch_unchanged_selection: bool,
+        extra_invocations: Vec<ActionInvocation>,
     ) -> GuiResult<HandledNativeEvent> {
         let value_sensitivity = effective_blueprint_value_sensitivity(blueprint);
         if event.kind == crate::event::NativeEventKind::Focus {
@@ -424,12 +465,13 @@ impl<H: NativeHost> GuiRuntime<H> {
         }
         let focus_within_transitions =
             self.focus_within_transitions(blueprint, route_blueprints, &event);
-        let invocations = self.route_event(
+        let mut invocations = self.route_event(
             blueprint,
             route_blueprints,
             &focus_within_transitions,
             &event,
         );
+        invocations.extend(extra_invocations);
         let interaction_snapshot = (
             self.interaction_state.clone(),
             self.interaction_revisions.clone(),
@@ -893,6 +935,12 @@ impl<H: NativeHost> GuiRuntime<H> {
         self.project_interaction_style_nodes(updates.keys().copied())
     }
 
+    fn project_mounted_overlays_to_host(&mut self) -> GuiResult<()> {
+        let snapshot = self.renderer.mounted_snapshot();
+        let updates = self.overlay_registry.projected_props(&snapshot);
+        self.update_mounted_props_and_invalidate_interaction_styles(&updates)
+    }
+
     fn update_mounted_props_and_invalidate_interaction_styles(
         &mut self,
         updates: &BTreeMap<HostNodeId, NativeProps>,
@@ -979,6 +1027,22 @@ impl<H: NativeHost> GuiRuntime<H> {
         self.focus_manager.auto_focus_target()
     }
 
+    fn constrain_focus_target(
+        &self,
+        current: HostNodeId,
+        requested: HostNodeId,
+    ) -> Option<HostNodeId> {
+        if self
+            .overlay_registry
+            .allows_focus_transition(current, requested)
+            && self.focus_manager.is_focusable(requested)
+        {
+            Some(requested)
+        } else {
+            self.focus_manager.constrain_focus(current, requested)
+        }
+    }
+
     fn initialize_auto_focus(&mut self, node: HostNodeId) {
         let Some(props) = self
             .renderer
@@ -1021,7 +1085,7 @@ impl<H: NativeHost + ProgrammaticFocusHost> GuiRuntime<H> {
     /// platform remains the source of truth for whether focus actually moved.
     pub fn request_focus(&mut self, requested: HostNodeId) -> GuiResult<HostNodeId> {
         let target = if let Some(current) = self.interaction_state.focused_node() {
-            self.focus_manager.constrain_focus(current, requested)
+            self.constrain_focus_target(current, requested)
         } else {
             self.focus_manager
                 .is_focusable(requested)
@@ -1124,6 +1188,10 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         mut event: NativeEvent,
     ) -> GuiResult<HandledNativeEvent> {
         event.validate()?;
+        event = normalize_keyboard_event_value(event);
+        if event.context.modality == NativeInputModality::Unknown {
+            event.context.modality = event.effective_modality();
+        }
         let dispatch_unchanged_selection = event.kind
             == crate::event::NativeEventKind::SelectionChange
             && is_missing_selection_value(event.value.as_deref());
@@ -1141,6 +1209,46 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
                 value_sensitivity,
             });
         }
+        let mut dismiss_after_event = None;
+        match self.overlay_registry.handle_event(&event) {
+            OverlayEventDisposition::Continue => {}
+            OverlayEventDisposition::Suppress => {
+                let value_sensitivity = self
+                    .host
+                    .blueprint(event.node)
+                    .map(effective_blueprint_value_sensitivity)
+                    .unwrap_or(ValueSensitivity::Sensitive);
+                return Ok(HandledNativeEvent {
+                    event,
+                    invocations: Vec::new(),
+                    invocation: None,
+                    interaction_changes: Vec::new(),
+                    value_sensitivity,
+                });
+            }
+            OverlayEventDisposition::Dismiss(overlay) => {
+                let Some((blueprint, route_blueprints)) = self.native_event_route(overlay) else {
+                    return Ok(HandledNativeEvent {
+                        event,
+                        invocations: Vec::new(),
+                        invocation: None,
+                        interaction_changes: Vec::new(),
+                        value_sensitivity: ValueSensitivity::Sensitive,
+                    });
+                };
+                let close = NativeEvent::new(overlay, crate::event::NativeEventKind::Close)
+                    .context(event.context);
+                return self.handle_event_with_route_results(
+                    &blueprint,
+                    &route_blueprints,
+                    close,
+                    false,
+                );
+            }
+            OverlayEventDisposition::DismissAfterEvent(overlay) => {
+                dismiss_after_event = Some(overlay);
+            }
+        }
         let Some((mut blueprint, mut route_blueprints)) = self.native_event_route(event.node)
         else {
             return Ok(HandledNativeEvent {
@@ -1151,10 +1259,16 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
                 value_sensitivity: ValueSensitivity::Sensitive,
             });
         };
-        event = normalize_keyboard_event_value(event);
-        if event.context.modality == NativeInputModality::Unknown {
-            event.context.modality = event.effective_modality();
-        }
+        let close_invocations = dismiss_after_event
+            .and_then(|overlay| {
+                self.native_event_route(overlay)
+                    .map(|(blueprint, route_blueprints)| {
+                        let close = NativeEvent::new(overlay, crate::event::NativeEventKind::Close)
+                            .context(event.context);
+                        self.route_event(&blueprint, &route_blueprints, &[], &close)
+                    })
+            })
+            .unwrap_or_default();
         match event.kind {
             crate::event::NativeEventKind::PressStart
                 if !is_disabled_user_event(&blueprint, &route_blueprints, event.kind) =>
@@ -1269,11 +1383,12 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
             }
         }
         event = self.infer_container_selection_value(&blueprint, event);
-        self.handle_event_with_route_results(
+        self.handle_event_with_route_results_and_extra_invocations(
             &blueprint,
             &route_blueprints,
             event,
             dispatch_unchanged_selection,
+            close_invocations,
         )
     }
 
@@ -1345,7 +1460,7 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
             .focus_owner
             .or_else(|| self.interaction_state.focused_node())
             .unwrap_or(current);
-        if self.focus_manager.constrain_focus(current, requested) != Some(requested) {
+        if self.constrain_focus_target(current, requested) != Some(requested) {
             return Ok(false);
         }
         let Some(host) = self.host.programmatic_focus_host() else {
@@ -1366,7 +1481,7 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         else {
             return Ok(false);
         };
-        let Some(target) = self.focus_manager.constrain_focus(current, event.node) else {
+        let Some(target) = self.constrain_focus_target(current, event.node) else {
             return Ok(false);
         };
         if target == event.node {
@@ -1786,6 +1901,10 @@ mod focus_within_tests;
 #[cfg(test)]
 #[path = "runtime/interaction_style_tests.rs"]
 mod interaction_style_tests;
+
+#[cfg(test)]
+#[path = "runtime/overlay_tests.rs"]
+mod overlay_tests;
 
 #[cfg(test)]
 #[path = "runtime/accessibility_conformance_tests.rs"]

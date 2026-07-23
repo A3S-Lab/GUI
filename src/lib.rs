@@ -41,6 +41,7 @@ pub mod native;
     all(feature = "winui-native", target_os = "windows")
 ))]
 mod native_backends;
+pub mod overlay;
 pub mod platform;
 pub mod protocol;
 pub mod renderer;
@@ -137,6 +138,7 @@ pub use interaction::{
     DEFAULT_INTERACTION_CHANGE_HISTORY_LIMIT,
 };
 pub use native::{ElementKey, NativeElement, NativeProps, NativeRole, ValueSensitivity};
+pub use overlay::{MountedOverlayRegistry, NativeOverlay};
 pub use platform::{
     native_widget_kind, native_widget_name, widget_blueprint, AppKitAdapter, BlueprintHost,
     Gtk4Adapter, NativeBackendKind, NativeConfigValueChange, NativeContainerKind,
