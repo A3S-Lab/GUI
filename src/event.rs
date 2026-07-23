@@ -21,7 +21,7 @@ pub(crate) use move_interaction::{keyboard_move_events, PointerMoveState};
 pub(crate) use press::{
     virtual_press_events, KeyboardPressState, NativeInteractionProfile,
     NativeInteractionSubscriptions, NativeLongPressConfig, NativeLongPressMode,
-    NativeLongPressTimer, PointerPressState,
+    NativeLongPressTimer, NumberFieldStepperPressState, NumberFieldStepperTimer, PointerPressState,
 };
 
 /// Maximum number of successful action invocations retained for diagnostics by default.

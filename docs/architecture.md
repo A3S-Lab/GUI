@@ -485,9 +485,15 @@ shared interaction profile marks handled keys and wheels on AppKit, GTK4, and
 WinUI so a toolkit-native numeric control cannot apply a second change. A
 mouse stepper `PressStart` resolves the marked sibling input and requests
 native focus after the platform press, while touch and virtual focus remain on
-their native target. Read-only and disabled fields retain focus semantics but
-do not produce step changes. Continuous press stepping remains a separate
-interaction contract.
+their native target. Marked stepper buttons share a cancellable hold state
+machine across AppKit, GTK4, and WinUI. Mouse and pen presses step immediately,
+start repeating after 400 milliseconds, and repeat every 60 milliseconds.
+Touch defers its first repeat for 600 milliseconds and emits a short tap only
+on release. Leaving the button, pointer cancellation, disabled/read-only state,
+or a step boundary stops the active timer; re-entry starts a fresh cycle.
+Native terminal button activation is consumed so it cannot duplicate the
+portable step. Read-only and disabled fields retain focus semantics but do not
+produce step changes.
 AppKit keeps logical item identity separate from the collection selection
 target: a row button is registered as the ListBoxItem or TreeItem responder,
 while activation reports the selected value to the owning collection.

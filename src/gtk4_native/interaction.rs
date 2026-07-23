@@ -7,7 +7,8 @@ use gtk::prelude::*;
 use super::{gtk, gtk_key_value, push_event, Gtk4OsWidget};
 use crate::event::{
     keyboard_move_events, virtual_press_events, KeyboardPressState, NativeEvent, NativeEventKind,
-    NativeInteractionProfile, NativeLongPressTimer, PointerMoveState, PointerPressState,
+    NativeInteractionProfile, NativeLongPressTimer, NumberFieldStepperPressState,
+    NumberFieldStepperTimer, PointerMoveState, PointerPressState,
 };
 use crate::host::HostNodeId;
 use crate::input::{NativeEventContext, NativeInputModality, NativeKeyModifiers};
@@ -253,6 +254,7 @@ fn register_pointer_events(
     registration: Gtk4InteractionNode,
 ) {
     let state = Rc::new(RefCell::new(PointerPressState::default()));
+    let stepper_state = Rc::new(RefCell::new(NumberFieldStepperPressState::default()));
     let move_state = Rc::new(RefCell::new(PointerMoveState::default()));
     let gesture = gtk::GestureClick::new();
     gesture.set_button(1);
@@ -262,6 +264,7 @@ fn register_pointer_events(
     let press_suppressed = Rc::clone(events_suppressed);
     let press_contexts = Rc::clone(activation_contexts);
     let press_state = Rc::clone(&state);
+    let press_stepper_state = Rc::clone(&stepper_state);
     let press_move_state = Rc::clone(&move_state);
     let press_registration = Rc::clone(&registration);
     gesture.connect_pressed(move |gesture, n_press, x, y| {
@@ -288,6 +291,15 @@ fn register_pointer_events(
                 (Vec::new(), None)
             };
         push_events(&press_events, &press_suppressed, pending);
+        let (stepper_events, stepper_timer) = if current.profile.tracks_number_field_stepper() {
+            let mut state = press_stepper_state.borrow_mut();
+            let pending = state.begin(id, context);
+            let timer = state.take_timer(id, context);
+            (pending, timer)
+        } else {
+            (Vec::new(), None)
+        };
+        push_events(&press_events, &press_suppressed, stepper_events);
         if let Some(timer) = timer {
             schedule_long_press(
                 timer,
@@ -296,12 +308,21 @@ fn register_pointer_events(
                 Rc::clone(&press_move_state),
             );
         }
+        if let Some(timer) = stepper_timer {
+            schedule_number_field_stepper(
+                timer,
+                Rc::clone(&press_events),
+                Rc::clone(&press_suppressed),
+                Rc::clone(&press_registration),
+            );
+        }
     });
 
     let release_events = Rc::clone(events);
     let release_suppressed = Rc::clone(events_suppressed);
     let release_contexts = Rc::clone(activation_contexts);
     let release_state = Rc::clone(&state);
+    let release_stepper_state = Rc::clone(&stepper_state);
     let release_registration = Rc::clone(&registration);
     let release_widget = widget.clone();
     gesture.connect_released(move |gesture, n_press, x, y| {
@@ -319,6 +340,16 @@ fn register_pointer_events(
             state.leave(id, context)
         };
         push_events(&release_events, &release_suppressed, boundary);
+        let stepper_boundary = {
+            let mut state = release_stepper_state.borrow_mut();
+            if over_target {
+                state.enter(id, context)
+            } else {
+                state.leave();
+                Vec::new()
+            }
+        };
+        push_events(&release_events, &release_suppressed, stepper_boundary);
         let emit_press = !current.native_button && current.profile.subscriptions.terminal_press;
         let recognized = state.long_press_recognized();
         let pending = state.release(id, context, emit_press);
@@ -328,12 +359,15 @@ fn register_pointer_events(
                 .any(|event| event.kind == NativeEventKind::LongPress);
         drop(state);
         push_events(&release_events, &release_suppressed, pending);
+        let stepper_pending = release_stepper_state.borrow_mut().release(id, context);
+        push_events(&release_events, &release_suppressed, stepper_pending);
 
         if current.native_button && over_target {
             remember_activation_context(
                 &release_contexts,
                 id,
-                context.handled_activation(long_pressed),
+                context
+                    .handled_activation(long_pressed || current.profile.is_number_field_stepper()),
             );
         } else {
             forget_activation_context(&release_contexts, id);
@@ -344,6 +378,7 @@ fn register_pointer_events(
     let cancel_suppressed = Rc::clone(events_suppressed);
     let cancel_contexts = Rc::clone(activation_contexts);
     let cancel_state = Rc::clone(&state);
+    let cancel_stepper_state = Rc::clone(&stepper_state);
     gesture.connect_cancel(move |gesture, _| {
         cancel_pointer_press(
             id,
@@ -352,6 +387,7 @@ fn register_pointer_events(
             &cancel_suppressed,
             &cancel_contexts,
             &cancel_state,
+            &cancel_stepper_state,
         );
     });
 
@@ -359,6 +395,7 @@ fn register_pointer_events(
     let stopped_suppressed = Rc::clone(events_suppressed);
     let stopped_contexts = Rc::clone(activation_contexts);
     let stopped_state = Rc::clone(&state);
+    let stopped_stepper_state = Rc::clone(&stepper_state);
     gesture.connect_stopped(move |gesture| {
         cancel_pointer_press(
             id,
@@ -367,6 +404,7 @@ fn register_pointer_events(
             &stopped_suppressed,
             &stopped_contexts,
             &stopped_state,
+            &stopped_stepper_state,
         );
     });
     register_pointer_move_events(
@@ -386,6 +424,7 @@ fn register_pointer_events(
         events,
         events_suppressed,
         state,
+        stepper_state,
         move_state,
         registration,
     );
@@ -464,6 +503,7 @@ fn register_pointer_boundary_events(
     events: &Gtk4EventQueue,
     events_suppressed: &Gtk4EventsSuppressed,
     state: Rc<RefCell<PointerPressState>>,
+    stepper_state: Rc<RefCell<NumberFieldStepperPressState>>,
     move_state: Rc<RefCell<PointerMoveState>>,
     registration: Gtk4InteractionNode,
 ) {
@@ -474,6 +514,7 @@ fn register_pointer_boundary_events(
     let enter_events = Rc::clone(events);
     let enter_suppressed = Rc::clone(events_suppressed);
     let enter_state = Rc::clone(&state);
+    let enter_stepper_state = Rc::clone(&stepper_state);
     let enter_registration = Rc::clone(&registration);
     let enter_hover_context = Rc::clone(&hover_context);
     let enter_move_state = Rc::clone(&move_state);
@@ -500,6 +541,23 @@ fn register_pointer_boundary_events(
                 );
             }
         }
+        if current.profile.tracks_number_field_stepper() {
+            let (pending, timer) = {
+                let mut state = enter_stepper_state.borrow_mut();
+                let pending = state.enter(id, context);
+                let timer = state.take_timer(id, context);
+                (pending, timer)
+            };
+            push_events(&enter_events, &enter_suppressed, pending);
+            if let Some(timer) = timer {
+                schedule_number_field_stepper(
+                    timer,
+                    Rc::clone(&enter_events),
+                    Rc::clone(&enter_suppressed),
+                    Rc::clone(&enter_registration),
+                );
+            }
+        }
         if current.profile.subscriptions.hover && context.modality.supports_hover() {
             enter_hover_context.set(Some(context));
             push_event(
@@ -513,6 +571,7 @@ fn register_pointer_boundary_events(
     let leave_events = Rc::clone(events);
     let leave_suppressed = Rc::clone(events_suppressed);
     let leave_state = state;
+    let leave_stepper_state = stepper_state;
     let leave_registration = registration;
     controller.connect_leave(move |controller| {
         if *leave_suppressed.borrow() {
@@ -529,6 +588,7 @@ fn register_pointer_boundary_events(
             let pending = leave_state.borrow_mut().leave(id, context);
             push_events(&leave_events, &leave_suppressed, pending);
         }
+        leave_stepper_state.borrow_mut().leave();
         if current.profile.subscriptions.hover && hover_context.take().is_some() {
             push_event(
                 &leave_events,
@@ -578,11 +638,13 @@ fn cancel_pointer_press<C: IsA<gtk::EventController>>(
     events_suppressed: &Gtk4EventsSuppressed,
     activation_contexts: &Gtk4ActivationContexts,
     state: &Rc<RefCell<PointerPressState>>,
+    stepper_state: &Rc<RefCell<NumberFieldStepperPressState>>,
 ) {
     forget_activation_context(activation_contexts, id);
     let context = pointer_context(controller, None);
     let pending = state.borrow_mut().cancel(id, context);
     push_events(events, events_suppressed, pending);
+    stepper_state.borrow_mut().cancel();
 }
 
 fn schedule_long_press(
@@ -596,6 +658,31 @@ fn schedule_long_press(
             let pending = recognition.into_events_with_movement(&mut movement.borrow_mut());
             push_events(&events, &events_suppressed, pending);
         }
+    });
+}
+
+fn schedule_number_field_stepper(
+    timer: NumberFieldStepperTimer,
+    events: Gtk4EventQueue,
+    events_suppressed: Gtk4EventsSuppressed,
+    registration: Gtk4InteractionNode,
+) {
+    gtk::glib::timeout_add_local_once(timer.initial_delay(), move || {
+        let enabled = registration.get().profile.tracks_number_field_stepper();
+        let Some(event) = timer.try_fire(enabled) else {
+            return;
+        };
+        push_event(&events, &events_suppressed, event);
+
+        gtk::glib::timeout_add_local(timer.repeat_interval(), move || {
+            let enabled = registration.get().profile.tracks_number_field_stepper();
+            if let Some(event) = timer.try_fire(enabled) {
+                push_event(&events, &events_suppressed, event);
+                gtk::glib::ControlFlow::Continue
+            } else {
+                gtk::glib::ControlFlow::Break
+            }
+        });
     });
 }
 

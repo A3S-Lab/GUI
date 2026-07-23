@@ -8,7 +8,8 @@ use crate::host::HostNodeId;
 use crate::input::{NativeEventContext, NativeInputModality, NativeKeyModifiers};
 use crate::native::{
     is_number_input_type, number_field_wheel_step_direction, NativeRole,
-    NUMBER_FIELD_INPUT_METADATA_KEY, NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY,
+    NUMBER_FIELD_INPUT_METADATA_KEY, NUMBER_FIELD_STEP_METADATA_KEY,
+    NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY,
 };
 use crate::platform::{NativeWidgetBlueprint, NativeWidgetSetter};
 
@@ -141,6 +142,13 @@ const DEFAULT_LONG_PRESS_THRESHOLD: Duration = Duration::from_millis(500);
 const LONG_PRESS_ACTIVE: u8 = 0;
 const LONG_PRESS_RECOGNIZED: u8 = 1;
 const LONG_PRESS_CANCELLED: u8 = 2;
+const NUMBER_FIELD_STEPPER_ACTIVE: u8 = 0;
+const NUMBER_FIELD_STEPPER_SPINNING: u8 = 1;
+const NUMBER_FIELD_STEPPER_CANCELLED: u8 = 2;
+const NUMBER_FIELD_STEPPER_SPUN_CANCELLED: u8 = 3;
+const NUMBER_FIELD_STEPPER_POINTER_DELAY: Duration = Duration::from_millis(400);
+const NUMBER_FIELD_STEPPER_TOUCH_DELAY: Duration = Duration::from_millis(600);
+const NUMBER_FIELD_STEPPER_REPEAT_INTERVAL: Duration = Duration::from_millis(60);
 
 #[derive(Debug, Clone)]
 pub(crate) struct NativeLongPressTimer {
@@ -214,6 +222,212 @@ impl NativeLongPressTimer {
     }
 }
 
+/// A cancellable UI-thread timer for a NumberField stepper press.
+///
+/// The first callback runs after the modality-specific hold delay. Native
+/// adapters then invoke `try_fire` every `repeat_interval` until it returns
+/// `None`.
+#[derive(Debug, Clone)]
+pub(crate) struct NumberFieldStepperTimer {
+    initial_delay: Duration,
+    node: HostNodeId,
+    context: NativeEventContext,
+    state: Arc<AtomicU8>,
+}
+
+impl NumberFieldStepperTimer {
+    pub(crate) fn initial_delay(&self) -> Duration {
+        self.initial_delay
+    }
+
+    pub(crate) fn repeat_interval(&self) -> Duration {
+        NUMBER_FIELD_STEPPER_REPEAT_INTERVAL
+    }
+
+    pub(crate) fn try_fire(&self, enabled: bool) -> Option<NativeEvent> {
+        if !enabled {
+            cancel_number_field_stepper(&self.state);
+            return None;
+        }
+
+        loop {
+            match self.state.load(Ordering::Acquire) {
+                NUMBER_FIELD_STEPPER_ACTIVE => {
+                    if self
+                        .state
+                        .compare_exchange(
+                            NUMBER_FIELD_STEPPER_ACTIVE,
+                            NUMBER_FIELD_STEPPER_SPINNING,
+                            Ordering::AcqRel,
+                            Ordering::Acquire,
+                        )
+                        .is_err()
+                    {
+                        continue;
+                    }
+                    break;
+                }
+                NUMBER_FIELD_STEPPER_SPINNING => break,
+                NUMBER_FIELD_STEPPER_CANCELLED | NUMBER_FIELD_STEPPER_SPUN_CANCELLED => {
+                    return None;
+                }
+                _ => return None,
+            }
+        }
+
+        Some(event(
+            self.node,
+            NativeEventKind::Press,
+            self.context.repeat(true),
+        ))
+    }
+}
+
+/// Tracks React Aria compatible pointer-hold stepping independently of the
+/// native backend's timer implementation.
+#[derive(Debug, Default)]
+pub(crate) struct NumberFieldStepperPressState {
+    active: bool,
+    over_target: bool,
+    modality: NativeInputModality,
+    timer_state: Option<Arc<AtomicU8>>,
+    timer_taken: bool,
+}
+
+impl NumberFieldStepperPressState {
+    pub(crate) fn begin(
+        &mut self,
+        node: HostNodeId,
+        context: NativeEventContext,
+    ) -> Vec<NativeEvent> {
+        self.cancel();
+        self.active = true;
+        self.over_target = true;
+        self.modality = context.modality;
+        self.start_cycle();
+        self.immediate_events(node, context)
+    }
+
+    pub(crate) fn take_timer(
+        &mut self,
+        node: HostNodeId,
+        context: NativeEventContext,
+    ) -> Option<NumberFieldStepperTimer> {
+        if self.timer_taken || !self.active || !self.over_target {
+            return None;
+        }
+        let state = Arc::clone(self.timer_state.as_ref()?);
+        self.timer_taken = true;
+        let initial_delay = if self.modality == NativeInputModality::Touch {
+            NUMBER_FIELD_STEPPER_TOUCH_DELAY
+        } else {
+            NUMBER_FIELD_STEPPER_POINTER_DELAY
+        };
+        Some(NumberFieldStepperTimer {
+            initial_delay,
+            node,
+            context,
+            state,
+        })
+    }
+
+    pub(crate) fn enter(
+        &mut self,
+        node: HostNodeId,
+        context: NativeEventContext,
+    ) -> Vec<NativeEvent> {
+        if !self.active || self.over_target {
+            return Vec::new();
+        }
+        self.over_target = true;
+        self.modality = context.modality;
+        self.start_cycle();
+        self.immediate_events(node, context)
+    }
+
+    pub(crate) fn leave(&mut self) {
+        if !self.active || !self.over_target {
+            return;
+        }
+        self.over_target = false;
+        self.end_cycle();
+    }
+
+    pub(crate) fn release(
+        &mut self,
+        node: HostNodeId,
+        context: NativeEventContext,
+    ) -> Vec<NativeEvent> {
+        if !self.active {
+            return Vec::new();
+        }
+        let emit_touch_tap = self.over_target
+            && self.modality == NativeInputModality::Touch
+            && self
+                .timer_state
+                .as_ref()
+                .is_some_and(|state| state.load(Ordering::Acquire) == NUMBER_FIELD_STEPPER_ACTIVE);
+        self.cancel();
+        if emit_touch_tap {
+            vec![event(node, NativeEventKind::Press, context)]
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub(crate) fn cancel(&mut self) {
+        self.active = false;
+        self.over_target = false;
+        self.modality = NativeInputModality::Unknown;
+        self.end_cycle();
+    }
+
+    fn immediate_events(&self, node: HostNodeId, context: NativeEventContext) -> Vec<NativeEvent> {
+        if self.modality == NativeInputModality::Touch {
+            Vec::new()
+        } else {
+            vec![event(node, NativeEventKind::Press, context)]
+        }
+    }
+
+    fn start_cycle(&mut self) {
+        self.end_cycle();
+        self.timer_state = Some(Arc::new(AtomicU8::new(NUMBER_FIELD_STEPPER_ACTIVE)));
+        self.timer_taken = false;
+    }
+
+    fn end_cycle(&mut self) {
+        if let Some(state) = self.timer_state.take() {
+            cancel_number_field_stepper(&state);
+        }
+        self.timer_taken = false;
+    }
+}
+
+impl Drop for NumberFieldStepperPressState {
+    fn drop(&mut self) {
+        self.cancel();
+    }
+}
+
+fn cancel_number_field_stepper(state: &AtomicU8) {
+    loop {
+        let current = state.load(Ordering::Acquire);
+        let cancelled = match current {
+            NUMBER_FIELD_STEPPER_ACTIVE => NUMBER_FIELD_STEPPER_CANCELLED,
+            NUMBER_FIELD_STEPPER_SPINNING => NUMBER_FIELD_STEPPER_SPUN_CANCELLED,
+            NUMBER_FIELD_STEPPER_CANCELLED | NUMBER_FIELD_STEPPER_SPUN_CANCELLED => return,
+            _ => return,
+        };
+        if state
+            .compare_exchange(current, cancelled, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+        {
+            return;
+        }
+    }
+}
+
 /// The portable interaction contract retained by a mounted native widget.
 ///
 /// Event callbacks can change without remounting, so platform adapters update
@@ -230,6 +444,7 @@ pub(crate) struct NativeInteractionProfile {
     has_terminal_event: bool,
     has_long_press_event: bool,
     has_collection_action: bool,
+    number_field_stepper: bool,
     number_field_input: bool,
     number_field_wheel_disabled: bool,
     number_input: bool,
@@ -250,6 +465,7 @@ impl NativeInteractionProfile {
             &["onLongPressStart", "onLongPressEnd", "onLongPress"],
         );
         let has_collection_action = has_collection_action(blueprint);
+        let number_field_stepper = is_number_field_stepper(blueprint);
         let number_field_input = blueprint
             .metadata
             .get(NUMBER_FIELD_INPUT_METADATA_KEY)
@@ -277,6 +493,7 @@ impl NativeInteractionProfile {
             has_terminal_event,
             has_long_press_event,
             has_collection_action,
+            number_field_stepper,
             number_field_input,
             number_field_wheel_disabled,
             number_input,
@@ -313,6 +530,9 @@ impl NativeInteractionProfile {
                     .get(crate::selection::COLLECTION_ACTION_METADATA_KEY)
                     .is_some_and(|value| value.eq_ignore_ascii_case("true"));
                 self.long_press_threshold = long_press_threshold(metadata);
+                self.number_field_stepper = metadata
+                    .get(NUMBER_FIELD_STEP_METADATA_KEY)
+                    .is_some_and(|value| matches!(value.as_str(), "increment" | "decrement"));
                 self.number_field_input = metadata
                     .get(NUMBER_FIELD_INPUT_METADATA_KEY)
                     .is_some_and(|value| value.eq_ignore_ascii_case("true"));
@@ -370,6 +590,16 @@ impl NativeInteractionProfile {
 
     pub(crate) fn tracks_movement(self) -> bool {
         self.enabled && self.subscriptions.movement
+    }
+
+    pub(crate) fn is_number_field_stepper(self) -> bool {
+        self.role == NativeRole::Button && self.number_field_stepper
+    }
+
+    pub(crate) fn tracks_number_field_stepper(self) -> bool {
+        self.enabled
+            && self.is_number_field_stepper()
+            && (self.has_action || self.has_terminal_event)
     }
 
     pub(crate) fn handles_number_field_step_key(
@@ -853,6 +1083,14 @@ fn has_collection_action(blueprint: &NativeWidgetBlueprint) -> bool {
         .is_some_and(|value| value.eq_ignore_ascii_case("true"))
 }
 
+fn is_number_field_stepper(blueprint: &NativeWidgetBlueprint) -> bool {
+    blueprint.role == NativeRole::Button
+        && blueprint
+            .metadata
+            .get(NUMBER_FIELD_STEP_METADATA_KEY)
+            .is_some_and(|value| matches!(value.as_str(), "increment" | "decrement"))
+}
+
 fn long_press_threshold(metadata: &BTreeMap<String, String>) -> Duration {
     ["threshold", "data-long-press-threshold"]
         .into_iter()
@@ -893,6 +1131,81 @@ mod tests {
             ]
         );
         assert!(!state.is_active());
+    }
+
+    #[test]
+    fn number_field_mouse_stepper_fires_immediately_then_repeats() {
+        let node = HostNodeId::new(20);
+        let context = NativeEventContext::new().modality(NativeInputModality::Mouse);
+        let mut state = NumberFieldStepperPressState::default();
+
+        assert_eq!(
+            kinds(&state.begin(node, context)),
+            vec![NativeEventKind::Press]
+        );
+        let timer = state.take_timer(node, context).unwrap();
+        assert_eq!(timer.initial_delay(), Duration::from_millis(400));
+        assert_eq!(timer.repeat_interval(), Duration::from_millis(60));
+        assert!(state.take_timer(node, context).is_none());
+
+        let first_repeat = timer.try_fire(true).unwrap();
+        assert_eq!(first_repeat.kind, NativeEventKind::Press);
+        assert!(first_repeat.context.repeat);
+        assert!(timer.try_fire(true).unwrap().context.repeat);
+
+        assert!(state.release(node, context).is_empty());
+        assert!(timer.try_fire(true).is_none());
+    }
+
+    #[test]
+    fn number_field_touch_stepper_defers_taps_and_suppresses_them_after_spinning() {
+        let node = HostNodeId::new(21);
+        let context = NativeEventContext::new().modality(NativeInputModality::Touch);
+        let mut state = NumberFieldStepperPressState::default();
+
+        assert!(state.begin(node, context).is_empty());
+        let tap_timer = state.take_timer(node, context).unwrap();
+        assert_eq!(tap_timer.initial_delay(), Duration::from_millis(600));
+        assert_eq!(
+            kinds(&state.release(node, context)),
+            vec![NativeEventKind::Press]
+        );
+        assert!(tap_timer.try_fire(true).is_none());
+
+        state.begin(node, context);
+        let spinning = state.take_timer(node, context).unwrap();
+        assert_eq!(
+            spinning.try_fire(true).unwrap().kind,
+            NativeEventKind::Press
+        );
+        assert!(state.release(node, context).is_empty());
+        assert!(spinning.try_fire(true).is_none());
+
+        state.begin(node, context);
+        let disabled = state.take_timer(node, context).unwrap();
+        assert!(disabled.try_fire(false).is_none());
+        assert!(state.release(node, context).is_empty());
+    }
+
+    #[test]
+    fn number_field_stepper_cancels_outside_and_restarts_on_reentry() {
+        let node = HostNodeId::new(22);
+        let context = NativeEventContext::new().modality(NativeInputModality::Mouse);
+        let mut state = NumberFieldStepperPressState::default();
+
+        state.begin(node, context);
+        let cancelled = state.take_timer(node, context).unwrap();
+        state.leave();
+        assert!(cancelled.try_fire(true).is_none());
+
+        assert_eq!(
+            kinds(&state.enter(node, context)),
+            vec![NativeEventKind::Press]
+        );
+        let restarted = state.take_timer(node, context).unwrap();
+        assert!(restarted.try_fire(true).is_some());
+        state.cancel();
+        assert!(restarted.try_fire(true).is_none());
     }
 
     #[test]
@@ -1233,6 +1546,28 @@ mod tests {
         profile.apply_setter(&NativeWidgetSetter::SetAction(Some("activate".to_string())));
         assert!(profile.subscriptions.terminal_press);
         assert!(profile.normalizes_keyboard_press());
+    }
+
+    #[test]
+    fn mounted_interaction_profile_tracks_number_field_stepper_state() {
+        let element = NativeElement::new("increment", NativeRole::Button).with_props(
+            NativeProps::new()
+                .action("setQuantity")
+                .metadata(NUMBER_FIELD_STEP_METADATA_KEY, "increment"),
+        );
+        let blueprint = AppKitAdapter.blueprint(&element);
+        let mut profile = NativeInteractionProfile::from_blueprint(&blueprint);
+
+        assert!(profile.is_number_field_stepper());
+        assert!(profile.tracks_number_field_stepper());
+        profile.apply_setter(&NativeWidgetSetter::SetEnabled(false));
+        assert!(profile.is_number_field_stepper());
+        assert!(!profile.tracks_number_field_stepper());
+        profile.apply_setter(&NativeWidgetSetter::SetEnabled(true));
+        assert!(profile.tracks_number_field_stepper());
+        profile.apply_setter(&NativeWidgetSetter::SetMetadata(BTreeMap::new()));
+        assert!(!profile.is_number_field_stepper());
+        assert!(!profile.tracks_number_field_stepper());
     }
 
     #[test]

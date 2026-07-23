@@ -79,8 +79,9 @@ The following foundations are implemented and are not roadmap placeholders:
   localized decimal/percent parsing and partial-input validation, NumberField
   model/display normalization, grouped native stepper controls,
   minimum-anchored button, Arrow/Page/Home/End, and focus-gated vertical-wheel
-  stepping with platform-default suppression, horizontal/zoom rejection, and
-  decimal/percent/date/time formatting
+  stepping, cancellable cross-platform pointer-hold repetition, platform-default
+  suppression, horizontal/zoom rejection, and decimal/percent/date/time
+  formatting
 - an activation-ordered mounted overlay stack with topmost Escape/outside
   dismissal, modal background inertness, portaled foreground layers, and
   shared focus containment, autofocus, and restoration

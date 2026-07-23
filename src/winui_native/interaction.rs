@@ -3,7 +3,7 @@ use super::*;
 
 use crate::event::{
     keyboard_move_events, virtual_press_events, NativeInteractionProfile, NativeLongPressTimer,
-    PointerMoveState, PointerPressState,
+    NumberFieldStepperPressState, NumberFieldStepperTimer, PointerMoveState, PointerPressState,
 };
 use crate::native::NativeRole;
 use winui3::Microsoft::UI::Dispatching::DispatcherQueueTimer;
@@ -61,6 +61,7 @@ pub(super) fn register_interaction_events(
         .map(|registration| registration.native_button)
         .unwrap_or(false);
     let press_state = Arc::new(Mutex::new(PointerPressState::default()));
+    let stepper_state = Arc::new(Mutex::new(NumberFieldStepperPressState::default()));
     let move_state = Arc::new(Mutex::new(PointerMoveState::default()));
 
     if is_button {
@@ -80,6 +81,7 @@ pub(super) fn register_interaction_events(
         Arc::clone(&activation_contexts),
         pending_activation_cleanup,
         Arc::clone(&press_state),
+        Arc::clone(&stepper_state),
         Arc::clone(&move_state),
         Arc::clone(&registration),
         forced_pointer_cancellations,
@@ -90,6 +92,7 @@ pub(super) fn register_interaction_events(
         events,
         Arc::clone(&activation_contexts),
         press_state,
+        stepper_state,
         move_state,
         Arc::clone(&registration),
     )?;
@@ -335,6 +338,7 @@ fn register_pointer_press_lifecycle(
     activation_contexts: WinUiActivationContexts,
     pending_activation_cleanup: WinUiPendingActivationCleanup,
     pressed: Arc<Mutex<PointerPressState>>,
+    stepper: Arc<Mutex<NumberFieldStepperPressState>>,
     movement: Arc<Mutex<PointerMoveState>>,
     registration: Arc<Mutex<WinUiInteractionRegistration>>,
     forced_pointer_cancellations: Arc<Mutex<BTreeSet<HostNodeId>>>,
@@ -342,6 +346,7 @@ fn register_pointer_press_lifecycle(
     let press_events = Arc::clone(events);
     let press_element = element.clone();
     let press_state = Arc::clone(&pressed);
+    let press_stepper = Arc::clone(&stepper);
     let press_move_state = Arc::clone(&movement);
     let press_registration = Arc::clone(&registration);
     let press_contexts = Arc::clone(&activation_contexts);
@@ -380,6 +385,23 @@ fn register_pointer_press_lifecycle(
                     &press_element,
                     Arc::clone(&press_events),
                     Arc::clone(&press_move_state),
+                );
+            }
+        }
+        if current.profile.tracks_number_field_stepper() {
+            let Ok(mut state) = press_stepper.lock() else {
+                return Ok(());
+            };
+            let pending = state.begin(id, context);
+            let timer = state.take_timer(id, context);
+            push_events(&press_events, pending);
+            drop(state);
+            if let Some(timer) = timer {
+                let _ = schedule_number_field_stepper(
+                    timer,
+                    &press_element,
+                    Arc::clone(&press_events),
+                    Arc::clone(&press_registration),
                 );
             }
         }
@@ -430,6 +452,7 @@ fn register_pointer_press_lifecycle(
     let release_events = Arc::clone(events);
     let release_element = element.clone();
     let release_state = Arc::clone(&pressed);
+    let release_stepper = Arc::clone(&stepper);
     let release_move_state = Arc::clone(&movement);
     let release_contexts = Arc::clone(&activation_contexts);
     let release_pending_cleanup = pending_activation_cleanup;
@@ -457,6 +480,9 @@ fn register_pointer_press_lifecycle(
             forget_activation_context(&release_contexts, id);
             if let Ok(mut state) = release_state.lock() {
                 push_events(&release_events, state.cancel(id, context));
+            }
+            if let Ok(mut state) = release_stepper.lock() {
+                state.cancel();
             }
             if let Ok(pointer) = args.Pointer() {
                 let _ = release_element.ReleasePointerCapture(&pointer);
@@ -486,11 +512,24 @@ fn register_pointer_press_lifecycle(
                     .any(|event| event.kind == NativeEventKind::LongPress);
             push_events(&release_events, pending);
         }
+        if let Ok(mut state) = release_stepper.lock() {
+            let boundary = if over_target {
+                state.enter(id, context)
+            } else {
+                state.leave();
+                Vec::new()
+            };
+            push_events(&release_events, boundary);
+            push_events(&release_events, state.release(id, context));
+        }
         if over_target && current.is_some_and(|registration| registration.native_button) {
+            let handled = long_pressed
+                || current
+                    .is_some_and(|registration| registration.profile.is_number_field_stepper());
             update_activation_context_if_present(
                 &release_contexts,
                 id,
-                context.handled_activation(long_pressed),
+                context.handled_activation(handled),
             );
             if let Ok(mut pending) = release_pending_cleanup.lock() {
                 pending.insert(id);
@@ -517,6 +556,7 @@ fn register_pointer_press_lifecycle(
         element,
         events,
         Arc::clone(&pressed),
+        Arc::clone(&stepper),
         Arc::clone(&movement),
         Arc::clone(&activation_contexts),
         Arc::clone(&forced_pointer_cancellations),
@@ -527,6 +567,7 @@ fn register_pointer_press_lifecycle(
         element,
         events,
         pressed,
+        stepper,
         movement,
         activation_contexts,
         forced_pointer_cancellations,
@@ -582,11 +623,113 @@ fn schedule_long_press(
     Ok(())
 }
 
+fn schedule_number_field_stepper(
+    timer: NumberFieldStepperTimer,
+    element: &xaml::UIElement,
+    events: WinUiEventQueue,
+    registration: Arc<Mutex<WinUiInteractionRegistration>>,
+) -> windows_core::Result<()> {
+    let dispatcher_timer = element.DispatcherQueue()?.CreateTimer()?;
+    dispatcher_timer.SetInterval(windows::Foundation::TimeSpan {
+        Duration: duration_ticks(timer.initial_delay()),
+    })?;
+    dispatcher_timer.SetIsRepeating(false)?;
+    let tick_token = Arc::new(Mutex::new(None));
+    let handler_token = Arc::clone(&tick_token);
+    let handler_timer = dispatcher_timer.clone();
+    let handler_element = element.clone();
+    let handler = windows::Foundation::TypedEventHandler::<
+        DispatcherQueueTimer,
+        windows_core::IInspectable,
+    >::new(move |_, _| {
+        let enabled = registration
+            .lock()
+            .map(|registration| registration.profile.tracks_number_field_stepper())
+            .unwrap_or(false);
+        if let Some(event) = timer.try_fire(enabled) {
+            push_event(&events, event);
+            let _ = schedule_number_field_stepper_repeats(
+                timer.clone(),
+                &handler_element,
+                Arc::clone(&events),
+                Arc::clone(&registration),
+            );
+        }
+        handler_timer.Stop()?;
+        if let Ok(mut token) = handler_token.lock() {
+            if let Some(token) = token.take() {
+                handler_timer.RemoveTick(token)?;
+            }
+        }
+        Ok(())
+    });
+    let token = dispatcher_timer.Tick(&handler)?;
+    if let Ok(mut tick_token) = tick_token.lock() {
+        *tick_token = Some(token);
+    }
+    if let Err(error) = dispatcher_timer.Start() {
+        let _ = dispatcher_timer.RemoveTick(token);
+        return Err(error);
+    }
+    Ok(())
+}
+
+fn schedule_number_field_stepper_repeats(
+    timer: NumberFieldStepperTimer,
+    element: &xaml::UIElement,
+    events: WinUiEventQueue,
+    registration: Arc<Mutex<WinUiInteractionRegistration>>,
+) -> windows_core::Result<()> {
+    let dispatcher_timer = element.DispatcherQueue()?.CreateTimer()?;
+    dispatcher_timer.SetInterval(windows::Foundation::TimeSpan {
+        Duration: duration_ticks(timer.repeat_interval()),
+    })?;
+    dispatcher_timer.SetIsRepeating(true)?;
+    let tick_token = Arc::new(Mutex::new(None));
+    let handler_token = Arc::clone(&tick_token);
+    let handler_timer = dispatcher_timer.clone();
+    let handler = windows::Foundation::TypedEventHandler::<
+        DispatcherQueueTimer,
+        windows_core::IInspectable,
+    >::new(move |_, _| {
+        let enabled = registration
+            .lock()
+            .map(|registration| registration.profile.tracks_number_field_stepper())
+            .unwrap_or(false);
+        if let Some(event) = timer.try_fire(enabled) {
+            push_event(&events, event);
+            return Ok(());
+        }
+
+        handler_timer.Stop()?;
+        if let Ok(mut token) = handler_token.lock() {
+            if let Some(token) = token.take() {
+                handler_timer.RemoveTick(token)?;
+            }
+        }
+        Ok(())
+    });
+    let token = dispatcher_timer.Tick(&handler)?;
+    if let Ok(mut tick_token) = tick_token.lock() {
+        *tick_token = Some(token);
+    }
+    if let Err(error) = dispatcher_timer.Start() {
+        let _ = dispatcher_timer.RemoveTick(token);
+        return Err(error);
+    }
+    Ok(())
+}
+
+fn duration_ticks(duration: std::time::Duration) -> i64 {
+    duration.as_nanos().div_ceil(100).min(i64::MAX as u128) as i64
+}
+
 fn register_pointer_cancel(
     id: HostNodeId,
     element: &xaml::UIElement,
     events: &WinUiEventQueue,
     pressed: Arc<Mutex<PointerPressState>>,
+    stepper: Arc<Mutex<NumberFieldStepperPressState>>,
     movement: Arc<Mutex<PointerMoveState>>,
     activation_contexts: WinUiActivationContexts,
     forced_pointer_cancellations: Arc<Mutex<BTreeSet<HostNodeId>>>,
@@ -612,6 +755,9 @@ fn register_pointer_cancel(
         }
         if let Ok(mut state) = pressed.lock() {
             push_events(&cancel_events, state.cancel(id, context));
+        }
+        if let Ok(mut state) = stepper.lock() {
+            state.cancel();
         }
         Ok(())
     });
@@ -643,6 +789,7 @@ fn register_pointer_boundary_events(
     events: &WinUiEventQueue,
     activation_contexts: WinUiActivationContexts,
     pressed: Arc<Mutex<PointerPressState>>,
+    stepper: Arc<Mutex<NumberFieldStepperPressState>>,
     movement: Arc<Mutex<PointerMoveState>>,
     registration: Arc<Mutex<WinUiInteractionRegistration>>,
 ) -> GuiResult<()> {
@@ -650,6 +797,7 @@ fn register_pointer_boundary_events(
     let enter_events = Arc::clone(events);
     let enter_element = element.clone();
     let enter_pressed = Arc::clone(&pressed);
+    let enter_stepper = Arc::clone(&stepper);
     let enter_registration = Arc::clone(&registration);
     let enter_hover_active = Arc::clone(&hover_active);
     let enter_movement = Arc::clone(&movement);
@@ -680,6 +828,22 @@ fn register_pointer_boundary_events(
                 }
             }
         }
+        if current.is_some_and(|registration| registration.profile.tracks_number_field_stepper()) {
+            if let Ok(mut state) = enter_stepper.lock() {
+                let pending = state.enter(id, context);
+                let timer = state.take_timer(id, context);
+                drop(state);
+                push_events(&enter_events, pending);
+                if let Some(timer) = timer {
+                    let _ = schedule_number_field_stepper(
+                        timer,
+                        &enter_element,
+                        Arc::clone(&enter_events),
+                        Arc::clone(&enter_registration),
+                    );
+                }
+            }
+        }
         if current.is_some_and(|registration| registration.profile.subscriptions.hover)
             && context.modality.supports_hover()
         {
@@ -699,6 +863,7 @@ fn register_pointer_boundary_events(
     let exit_events = Arc::clone(events);
     let exit_element = element.clone();
     let exit_pressed = pressed;
+    let exit_stepper = stepper;
     let exit_registration = registration;
     let handler = PointerEventHandler::new(move |_, args| {
         let Some(args) = args.as_ref() else {
@@ -715,6 +880,9 @@ fn register_pointer_boundary_events(
             if let Ok(mut state) = exit_pressed.lock() {
                 push_events(&exit_events, state.leave(id, context));
             }
+        }
+        if let Ok(mut state) = exit_stepper.lock() {
+            state.leave();
         }
         if hover_active.swap(false, Ordering::Relaxed) {
             push_event(

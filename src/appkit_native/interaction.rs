@@ -1,7 +1,7 @@
 use super::*;
 use crate::event::{
-    keyboard_move_events, NativeInteractionProfile, NativeLongPressTimer, PointerMoveState,
-    PointerPressState,
+    keyboard_move_events, NativeInteractionProfile, NativeLongPressTimer,
+    NumberFieldStepperPressState, NumberFieldStepperTimer, PointerMoveState, PointerPressState,
 };
 use crate::input::{NativeEventContext, NativeInputModality, NativeKeyModifiers};
 
@@ -66,6 +66,49 @@ impl AppKitLongPressTarget {
     }
 }
 
+#[derive(Debug, Clone)]
+struct AppKitNumberFieldStepperTargetIvars {
+    timer: NumberFieldStepperTimer,
+    events: Rc<RefCell<Vec<NativeEvent>>>,
+}
+
+define_class!(
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = AppKitNumberFieldStepperTargetIvars]
+    #[derive(Debug)]
+    struct AppKitNumberFieldStepperTarget;
+
+    impl AppKitNumberFieldStepperTarget {
+        #[unsafe(method(a3sGuiNumberFieldStep:))]
+        fn fire(&self, native_timer: &NSTimer) {
+            if let Some(event) = self.ivars().timer.try_fire(true) {
+                self.ivars().events.borrow_mut().push(event);
+            } else {
+                native_timer.invalidate();
+            }
+        }
+    }
+
+    unsafe impl NSObjectProtocol for AppKitNumberFieldStepperTarget {}
+);
+
+impl AppKitNumberFieldStepperTarget {
+    fn new(
+        timer: NumberFieldStepperTimer,
+        events: Rc<RefCell<Vec<NativeEvent>>>,
+        mtm: MainThreadMarker,
+    ) -> Retained<Self> {
+        let this =
+            Self::alloc(mtm).set_ivars(AppKitNumberFieldStepperTargetIvars { timer, events });
+        unsafe { msg_send![super(this), init] }
+    }
+
+    fn as_any_object(&self) -> &AnyObject {
+        self.as_super().as_super()
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(super) struct AppKitInteractionRegistration {
     profile: NativeInteractionProfile,
@@ -83,6 +126,14 @@ impl AppKitInteractionRegistration {
     pub(super) fn apply_setter(&mut self, setter: &NativeWidgetSetter) {
         self.profile.apply_setter(setter);
     }
+
+    pub(super) fn is_number_field_stepper(self) -> bool {
+        self.profile.is_number_field_stepper()
+    }
+
+    pub(super) fn tracks_number_field_stepper(self) -> bool {
+        self.profile.tracks_number_field_stepper()
+    }
 }
 
 #[derive(Debug)]
@@ -90,7 +141,16 @@ pub(super) struct AppKitPointerPress {
     pub(super) node: HostNodeId,
     view: Retained<NSView>,
     press_state: Option<PointerPressState>,
+    number_field_stepper: Option<NumberFieldStepperPressState>,
     move_state: PointerMoveState,
+}
+
+impl AppKitPointerPress {
+    pub(super) fn cancel_number_field_stepper(&mut self) {
+        if let Some(state) = self.number_field_stepper.as_mut() {
+            state.cancel();
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -282,6 +342,9 @@ impl AppKitNativeSurface {
             if let Some(state) = previous.press_state.as_mut() {
                 events.extend(state.cancel(previous.node, context));
             }
+            if let Some(state) = previous.number_field_stepper.as_mut() {
+                state.cancel();
+            }
         }
 
         let context = pointer_context(event, &target.view);
@@ -299,18 +362,37 @@ impl AppKitNativeSurface {
         } else {
             (Vec::new(), None)
         };
+        let mut number_field_stepper = target
+            .registration
+            .tracks_number_field_stepper()
+            .then(NumberFieldStepperPressState::default);
+        let (stepper_events, stepper_timer) = if let Some(state) = number_field_stepper.as_mut() {
+            let pending = state.begin(target.node, context);
+            let timer = state.take_timer(target.node, context);
+            (pending, timer)
+        } else {
+            (Vec::new(), None)
+        };
         let mut move_state = PointerMoveState::default();
         if target.registration.profile.tracks_movement() {
             move_state.begin(context);
         }
-        self.events.borrow_mut().extend(pending);
+        {
+            let mut events = self.events.borrow_mut();
+            events.extend(pending);
+            events.extend(stepper_events);
+        }
         if let Some(timer) = timer {
             self.schedule_long_press(timer);
+        }
+        if let Some(timer) = stepper_timer {
+            self.schedule_number_field_stepper(timer);
         }
         *self.pointer_press.borrow_mut() = Some(AppKitPointerPress {
             node: target.node,
             view: target.view,
             press_state,
+            number_field_stepper,
             move_state,
         });
     }
@@ -334,9 +416,21 @@ impl AppKitNativeSurface {
             };
             events.extend(pending);
         }
+        let mut stepper_timer = None;
+        if let Some(state) = active.number_field_stepper.as_mut() {
+            if point_is_inside(&active.view, context) {
+                events.extend(state.enter(active.node, context));
+                stepper_timer = state.take_timer(active.node, context);
+            } else {
+                state.leave();
+            }
+        }
         drop(events);
         if let Some(timer) = timer {
             self.schedule_long_press(timer);
+        }
+        if let Some(timer) = stepper_timer {
+            self.schedule_number_field_stepper(timer);
         }
     }
 
@@ -371,12 +465,24 @@ impl AppKitNativeSurface {
                     .any(|event| event.kind == NativeEventKind::LongPress);
             self.events.borrow_mut().extend(pending);
         }
+        if let Some(state) = active.number_field_stepper.as_mut() {
+            if over_target {
+                let boundary = state.enter(active.node, context);
+                self.events.borrow_mut().extend(boundary);
+            } else {
+                state.leave();
+            }
+            let pending = state.release(active.node, context);
+            self.events.borrow_mut().extend(pending);
+        }
 
         if over_target && registration.is_some_and(|registration| registration.native_press_action)
         {
+            let handled =
+                long_pressed || registration.is_some_and(|value| value.is_number_field_stepper());
             self.activation_contexts
                 .borrow_mut()
-                .insert(active.node, context.handled_activation(long_pressed));
+                .insert(active.node, context.handled_activation(handled));
         } else {
             self.activation_contexts.borrow_mut().remove(&active.node);
         }
@@ -392,6 +498,9 @@ impl AppKitNativeSurface {
         events.extend(active.move_state.end(active.node, context));
         if let Some(state) = active.press_state.as_mut() {
             events.extend(state.cancel(active.node, context));
+        }
+        if let Some(state) = active.number_field_stepper.as_mut() {
+            state.cancel();
         }
     }
 
@@ -414,6 +523,25 @@ impl AppKitNativeSurface {
         };
         unsafe {
             NSRunLoop::mainRunLoop().addTimer_forMode(&timer, NSRunLoopCommonModes);
+        }
+    }
+
+    fn schedule_number_field_stepper(&self, timer: NumberFieldStepperTimer) {
+        let initial_delay = timer.initial_delay().as_secs_f64();
+        let interval = timer.repeat_interval().as_secs_f64();
+        let target = AppKitNumberFieldStepperTarget::new(timer, Rc::clone(&self.events), self.mtm);
+        let native_timer = unsafe {
+            NSTimer::timerWithTimeInterval_target_selector_userInfo_repeats(
+                interval,
+                target.as_any_object(),
+                sel!(a3sGuiNumberFieldStep:),
+                None,
+                true,
+            )
+        };
+        native_timer.setFireDate(&NSDate::dateWithTimeIntervalSinceNow(initial_delay));
+        unsafe {
+            NSRunLoop::mainRunLoop().addTimer_forMode(&native_timer, NSRunLoopCommonModes);
         }
     }
 

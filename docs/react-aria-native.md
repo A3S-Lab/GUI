@@ -288,9 +288,14 @@ The first shared interaction milestone is available in the portable runtime:
   model-space stepping, rejects horizontal-dominant trackpad gestures and
   control-wheel zoom, and can be disabled independently with
   `isWheelDisabled`. Mouse presses on either stepper restore focus to the input.
+  Mouse and pen steppers fire immediately, repeat after a 400-millisecond
+  delay, and continue every 60 milliseconds. Touch steppers defer repeating
+  for 600 milliseconds and preserve short-tap activation on release. Leaving,
+  cancellation, disabled/read-only updates, and step boundaries stop the
+  current cycle; re-entry starts a new one.
   AppKit, GTK4, and WinUI claim handled keys and wheels before the toolkit
-  default runs, preventing native numeric controls from applying a duplicate
-  change.
+  default runs and consume terminal stepper activation, preventing native
+  controls from applying a duplicate change.
 - Native IR capabilities are versioned. Every host exposes a feature manifest
   with unsupported, portable, or native support levels, role-specific
   overrides, and auditable capability issues. Protocol render responses carry
@@ -330,7 +335,7 @@ existence of a platform object:
 | Complete press lifecycle | Button, disclosure summary, link, image-map area, ListBoxItem, and TreeItem on AppKit, GTK4, and WinUI; WinUI menu items also use the complete lifecycle. |
 | Long press | Shared AppKit, GTK4, and WinUI press sources emit start/end and recognize terminal long press after the configured threshold. `NSTimer`, GTK main-loop timeout, and `DispatcherQueueTimer` provide threshold-time delivery, and release-time evaluation is the fallback. |
 | Move | AppKit mouse/pen drag events, GTK4 `GestureDrag`, and WinUI mouse/touch/pen pointer capture use one incremental move state machine. All three normalize Arrow keys to a complete keyboard lifecycle and prevent the underlying native default. |
-| NumberField stepping | The shared runtime maps ArrowUp/ArrowDown/PageUp/PageDown, Home/End, and focused vertical wheels to model-space `Change` events. Wheel input rejects horizontal-dominant gestures and control-wheel zoom, honors `isWheelDisabled`, and AppKit, GTK4, and WinUI suppress handled toolkit defaults. Built-in decrement and increment buttons expose the same next values and boundary/read-only state through native Button controls, and mouse presses preserve input focus. Continuous pointer-hold stepping, automatic localized button messages, and live value announcements remain incomplete. |
+| NumberField stepping | The shared runtime maps ArrowUp/ArrowDown/PageUp/PageDown, Home/End, focused vertical wheels, and stepper presses to model-space `Change` events. Wheel input rejects horizontal-dominant gestures and control-wheel zoom and honors `isWheelDisabled`. Built-in decrement and increment buttons expose the same next values and boundary/read-only state through native Button controls, and mouse presses preserve input focus. AppKit, GTK4, and WinUI share cancellable pointer-hold stepping with immediate mouse/pen activation, delayed touch activation, and 60-millisecond repeats; handled toolkit defaults and terminal native clicks are suppressed. Automatic localized button messages and live value announcements remain incomplete. |
 | Native menu activation | AppKit and GTK4 menu items emit terminal press only because their menu models do not expose a mounted generic view event source. |
 | Hover and typed modality | View-backed widgets; explicit exceptions are reported for AppKit non-view wrappers/items, GTK4 menu items, and the WinUI window wrapper. |
 | Focus within | Portable runtime routing on AppKit, GTK4, WinUI, and headless hosts. Native blur/focus batches are linked with `relatedTarget`; direct focus callbacks remain target-only while focus-within callbacks run only when a subtree boundary is crossed. |
@@ -410,7 +415,7 @@ props:
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |
 | P1 | Collections and selection | Complete IME/dead-key typeahead conformance and add real-platform fixtures for layout-aware page navigation. |
-| P1 | NumberField interaction | Add continuous press-and-hold stepping, automatic localized stepper labels, and live value announcements. Group/input/button anatomy, minimum-anchored button stepping, Arrow/Page/Home/End keyboard semantics, focused vertical-wheel stepping with horizontal/zoom rejection and `isWheelDisabled`, mouse input-focus preservation, decimal-noise cleanup, boundary disabling, and native-default suppression are implemented. |
+| P1 | NumberField interaction | Add automatic localized stepper labels and live value announcements. Group/input/button anatomy, minimum-anchored button and continuous press-and-hold stepping, Arrow/Page/Home/End keyboard semantics, focused vertical-wheel stepping with horizontal/zoom rejection and `isWheelDisabled`, mouse input-focus preservation, decimal-noise cleanup, boundary disabling, cancellation/re-entry, and native-default suppression are implemented. |
 | P1 | Internationalization | Add message formatting, currency/unit parsing and formatting, and date ranges/time zones. Reusable decimal/percent parsing and formatting, partial-input validation, locale-aware filtering, and localized NumberField model/display conversion now build on inherited locale/direction. |
 | P1 | Accessibility conformance | Complete OS accessibility API projection, relationships, live regions, value announcements, and role-specific native adapter coverage. |
 | P2 | Overlays | Complete measured boundary-driven collision and arrow projection, native scroll locking, configurable outside-interaction filters, multi-window layer coordination, and real-platform positioning conformance fixtures. |

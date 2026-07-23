@@ -48,8 +48,7 @@ object graph at the host boundary.
   IME/dead-key conformance, measured overlay collision/arrow conformance and
   scroll locking, remaining native focus conformance, message catalogs,
   currency/unit parsing and formatting, date-range/time-zone formatting,
-  continuous NumberField press stepping, and NumberField live announcements
-  are still in progress.
+  and NumberField live announcements are still in progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.

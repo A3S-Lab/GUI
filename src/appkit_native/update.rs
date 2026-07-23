@@ -7,8 +7,22 @@ impl AppKitNativeSurface {
         handle: &AppKitOsHandle,
         setter: &NativeWidgetSetter,
     ) -> GuiResult<()> {
-        if let Some(registration) = self.interaction_nodes.get_mut(&id) {
-            registration.apply_setter(setter);
+        let cancel_number_field_stepper =
+            if let Some(registration) = self.interaction_nodes.get_mut(&id) {
+                registration.apply_setter(setter);
+                !registration.tracks_number_field_stepper()
+            } else {
+                false
+            };
+        if cancel_number_field_stepper {
+            if let Some(active) = self
+                .pointer_press
+                .borrow_mut()
+                .as_mut()
+                .filter(|active| active.node == id)
+            {
+                active.cancel_number_field_stepper();
+            }
         }
         if let Some(config) = self.text_input_configs.get_mut(&id) {
             apply_widget_setter(config, setter);
