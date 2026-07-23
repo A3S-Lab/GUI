@@ -341,12 +341,16 @@ just native-input-manifest appkit
 just native-input-manifest gtk4
 just native-input-manifest winui
 just native-input-conformance path/to/evidence.json
+just winui-input-smoke path/to/winui-button-smoke.json
 ```
 
-This lands the evidence protocol and enforcement boundary; it does not claim
-the P0 gap is closed. Native automation drivers still need to execute every
-generated case and submit passing run artifacts on real macOS, Linux, and
-Windows runners.
+The WinUI smoke harness covers Button mouse and keyboard activation through
+Windows `SendInput` and Button assistive activation through UI Automation
+`InvokePattern`. It pumps the production message loop and accepts no semantic
+defect in those captured observations, but the resulting artifact is only 3 of
+the 98 required WinUI cases. The P0 gap is therefore still open. Native
+automation drivers still need to execute every generated case and submit
+passing run artifacts on real macOS, Linux, and Windows runners.
 
 ## Known Gaps
 

@@ -327,6 +327,10 @@ native-input-manifest BACKEND:
 native-input-conformance EVIDENCE:
     cargo run --locked --quiet --bin a3s-gui-native-input-conformance -- verify "{{ EVIDENCE }}"
 
+# Capture the current three-case WinUI Button OS-input smoke artifact
+winui-input-smoke EVIDENCE:
+    cargo run --locked --quiet --no-default-features --features winui-native --bin a3s-gui-winui-input-smoke -- "{{ EVIDENCE }}"
+
 # Lint every target and deny high-confidence Clippy and Rust warnings
 clippy:
     cargo clippy --locked --all-targets --features appkit,winui,gtk4 -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused

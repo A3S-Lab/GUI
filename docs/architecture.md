@@ -177,6 +177,17 @@ manifests and reads evidence JSON for CI. Native backends own the OS automation
 driver and event-loop integration; the portable verifier owns only the shared
 semantic contract.
 
+The Windows-only `a3s-gui-winui-input-smoke` harness keeps automation outside
+the runtime library. It mounts a real WinUI Button, locates it through the OS UI
+Automation tree, injects mouse and Enter-key input with `SendInput`, invokes its
+assistive `InvokePattern`, and pumps the production WinUI message loop while
+capturing runtime responses. The harness validates its observations with the
+strict manifest verifier while allowing only the other cases to remain
+`MissingObservation`. Its output therefore remains an explicitly partial run
+artifact rather than a conformance report. The harness requires an interactive
+Windows desktop and the Windows App Runtime 1.7 framework package used by the
+WinUI backend's dynamic dependency.
+
 ## NativeHost Boundary
 
 Every platform adapter implements the same host operations:

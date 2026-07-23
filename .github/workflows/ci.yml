@@ -100,6 +100,32 @@ jobs:
           path: native-input-${{ matrix.backend }}.json
           if-no-files-found: error
 
+      - name: Install Windows App Runtime 1.7 for OS-input smoke
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'WindowsAppRuntimeInstall-x64.exe'
+          Invoke-WebRequest 'https://aka.ms/windowsappsdk/1.7/1.7.260224002/windowsappruntimeinstall-x64.exe' -OutFile $installer
+          & $installer --quiet
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows App Runtime installer exited with code $LASTEXITCODE"
+          }
+
+      - name: Capture WinUI Button OS-input smoke evidence
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        run: >-
+          cargo run --locked --no-default-features --features winui-native
+          --bin a3s-gui-winui-input-smoke -- native-input-winui-smoke.json
+
+      - name: Upload WinUI Button OS-input smoke evidence
+        if: always() && runner.os == 'Windows' && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v6
+        with:
+          name: native-input-smoke-winui
+          path: native-input-winui-smoke.json
+          if-no-files-found: error
+
   bundle-smoke:
     name: Bundle Smoke (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
