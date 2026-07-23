@@ -75,6 +75,9 @@ impl AppKitNativeSurface {
             NativeWidgetSetter::SetAccessibilityDescription(value) => {
                 set_appkit_accessibility_description(&handle.widget, value);
             }
+            NativeWidgetSetter::SetAccessibilityState(value) => {
+                set_appkit_accessibility_state(&handle.widget, value);
+            }
             NativeWidgetSetter::SetWindowResizable(value) => {
                 if let AppKitOsWidget::Window(window) = &handle.widget {
                     let mut style = window.styleMask();
@@ -610,7 +613,6 @@ impl AppKitNativeSurface {
             | NativeWidgetSetter::SetHtmlCollection(_)
             | NativeWidgetSetter::SetAccessibilityRelationships(_)
             | NativeWidgetSetter::SetAccessibilityStructure(_)
-            | NativeWidgetSetter::SetAccessibilityState(_)
             | NativeWidgetSetter::SetWebStyle(_)
             | NativeWidgetSetter::SetEvents(_)
             | NativeWidgetSetter::SetMetadata(_) => {}
@@ -651,6 +653,33 @@ fn set_appkit_accessibility_description(
             target.setAccessibilityHelp(description.as_deref());
             target.setAccessibilityRoleDescription(role_description.as_deref());
             target.setAccessibilityValueDescription(value_text.as_deref());
+        }};
+    }
+
+    match widget {
+        AppKitOsWidget::Window(window) => apply!(window),
+        AppKitOsWidget::Panel(panel) => apply!(panel),
+        AppKitOsWidget::Popover(state) => apply!(&state.popover),
+        AppKitOsWidget::Menu(menu) => apply!(menu),
+        AppKitOsWidget::MenuItem(item) => apply!(item),
+        AppKitOsWidget::ComboBoxItem(_) | AppKitOsWidget::TabViewItem(_) => {}
+        _ => {
+            if let Some(view) = widget.as_view() {
+                apply!(view);
+            }
+        }
+    }
+}
+
+fn set_appkit_accessibility_state(
+    widget: &AppKitOsWidget,
+    value: &crate::accessibility::AccessibilityStateProps,
+) {
+    macro_rules! apply {
+        ($target:expr) => {{
+            let target = $target;
+            target.setAccessibilityHidden(value.hidden.unwrap_or(false));
+            target.setAccessibilityModal(value.modal.unwrap_or(false));
         }};
     }
 

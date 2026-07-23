@@ -98,3 +98,25 @@ fn conformance_rejects_invalid_live_region_tokens() {
         .iter()
         .any(|issue| issue.code == AccessibilityIssueCode::InvalidLiveRegionRelevant));
 }
+
+#[test]
+fn conformance_rejects_invalid_accessibility_state_tokens() {
+    let mut stateful = node(AccessibilityRole::Button);
+    stateful.label = Some("Stateful".to_string());
+    stateful.state.autocomplete = Some("automatic".to_string());
+    stateful.state.current = Some("yesterday".to_string());
+    stateful.state.has_popup = Some("sheet".to_string());
+    stateful.state.pressed = Some("indeterminate".to_string());
+
+    let report = AccessibilityConformanceReport::validate(&stateful);
+
+    assert!(!report.is_conformant());
+    for code in [
+        AccessibilityIssueCode::InvalidAutocomplete,
+        AccessibilityIssueCode::InvalidCurrent,
+        AccessibilityIssueCode::InvalidHasPopup,
+        AccessibilityIssueCode::InvalidPressed,
+    ] {
+        assert!(report.issues.iter().any(|issue| issue.code == code));
+    }
+}

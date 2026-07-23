@@ -102,6 +102,54 @@ impl Gtk4NativeSurface {
                     }
                 }
             }
+            NativeWidgetSetter::SetAccessibilityState(value) => {
+                if let Some(widget) = handle.widget.as_widget() {
+                    if let Some(autocomplete) = value
+                        .autocomplete
+                        .as_deref()
+                        .and_then(gtk_accessible_autocomplete)
+                    {
+                        widget.update_property(&[gtk::accessible::Property::Autocomplete(
+                            autocomplete,
+                        )]);
+                    } else {
+                        widget.reset_property(gtk::AccessibleProperty::Autocomplete);
+                    }
+                    if let Some(multiline) = value.multiline {
+                        widget.update_property(&[gtk::accessible::Property::MultiLine(multiline)]);
+                    } else {
+                        widget.reset_property(gtk::AccessibleProperty::MultiLine);
+                    }
+                    if let Some(has_popup) =
+                        value.has_popup.as_deref().and_then(aria_popup_is_present)
+                    {
+                        widget.update_property(&[gtk::accessible::Property::HasPopup(has_popup)]);
+                    } else {
+                        widget.reset_property(gtk::AccessibleProperty::HasPopup);
+                    }
+                    if let Some(modal) = value.modal {
+                        widget.update_property(&[gtk::accessible::Property::Modal(modal)]);
+                    } else {
+                        widget.reset_property(gtk::AccessibleProperty::Modal);
+                    }
+                    if let Some(hidden) = value.hidden {
+                        widget.update_state(&[gtk::accessible::State::Hidden(hidden)]);
+                    } else {
+                        widget.reset_state(gtk::AccessibleState::Hidden);
+                    }
+                    if let Some(pressed) = value.pressed.as_deref().and_then(gtk_accessible_pressed)
+                    {
+                        widget.update_state(&[gtk::accessible::State::Pressed(pressed)]);
+                    } else {
+                        widget.reset_state(gtk::AccessibleState::Pressed);
+                    }
+                    if let Some(busy) = value.busy {
+                        widget.update_state(&[gtk::accessible::State::Busy(busy)]);
+                    } else {
+                        widget.reset_state(gtk::AccessibleState::Busy);
+                    }
+                }
+            }
             NativeWidgetSetter::SetWindowResizable(value) => {
                 if let Gtk4OsWidget::ApplicationWindow(window) = &handle.widget {
                     window.set_resizable(value.unwrap_or(true));
@@ -663,11 +711,63 @@ impl Gtk4NativeSurface {
             | NativeWidgetSetter::SetHtmlCollection(_)
             | NativeWidgetSetter::SetAccessibilityRelationships(_)
             | NativeWidgetSetter::SetAccessibilityStructure(_)
-            | NativeWidgetSetter::SetAccessibilityState(_)
             | NativeWidgetSetter::SetWebStyle(_)
             | NativeWidgetSetter::SetEvents(_)
             | NativeWidgetSetter::SetMetadata(_) => {}
         }
         Ok(())
+    }
+}
+
+fn gtk_accessible_autocomplete(value: &str) -> Option<gtk::AccessibleAutocomplete> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "none" => Some(gtk::AccessibleAutocomplete::None),
+        "inline" => Some(gtk::AccessibleAutocomplete::Inline),
+        "list" => Some(gtk::AccessibleAutocomplete::List),
+        "both" => Some(gtk::AccessibleAutocomplete::Both),
+        _ => None,
+    }
+}
+
+fn gtk_accessible_pressed(value: &str) -> Option<gtk::AccessibleTristate> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "false" => Some(gtk::AccessibleTristate::False),
+        "true" => Some(gtk::AccessibleTristate::True),
+        "mixed" => Some(gtk::AccessibleTristate::Mixed),
+        _ => None,
+    }
+}
+
+fn aria_popup_is_present(value: &str) -> Option<bool> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "false" => Some(false),
+        "true" | "menu" | "listbox" | "tree" | "grid" | "dialog" => Some(true),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod accessibility_state_tests {
+    use super::*;
+
+    #[test]
+    fn maps_valid_aria_state_tokens_to_gtk_values() {
+        assert_eq!(
+            gtk_accessible_autocomplete("LIST"),
+            Some(gtk::AccessibleAutocomplete::List)
+        );
+        assert_eq!(
+            gtk_accessible_pressed("mixed"),
+            Some(gtk::AccessibleTristate::Mixed)
+        );
+        assert_eq!(aria_popup_is_present("dialog"), Some(true));
+        assert_eq!(aria_popup_is_present("false"), Some(false));
+    }
+
+    #[test]
+    fn rejects_invalid_aria_state_tokens_before_native_projection() {
+        assert_eq!(gtk_accessible_autocomplete("automatic"), None);
+        assert_eq!(gtk_accessible_pressed("indeterminate"), None);
+        assert_eq!(aria_popup_is_present("sheet"), None);
     }
 }

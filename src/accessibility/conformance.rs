@@ -23,6 +23,10 @@ pub enum AccessibilityIssueCode {
     InvalidMultipleState,
     MultipleSelectedItems,
     EmptyRelationship,
+    InvalidAutocomplete,
+    InvalidCurrent,
+    InvalidHasPopup,
+    InvalidPressed,
     InvalidLiveRegionPoliteness,
     InvalidLiveRegionRelevant,
 }
@@ -157,6 +161,58 @@ fn validate_node<'a>(
     }
     if node
         .state
+        .autocomplete
+        .as_deref()
+        .is_some_and(|value| !is_valid_autocomplete(value))
+    {
+        push_error(
+            issues,
+            node,
+            AccessibilityIssueCode::InvalidAutocomplete,
+            "aria-autocomplete must be none, inline, list, or both".to_string(),
+        );
+    }
+    if node
+        .state
+        .current
+        .as_deref()
+        .is_some_and(|value| !is_valid_current(value))
+    {
+        push_error(
+            issues,
+            node,
+            AccessibilityIssueCode::InvalidCurrent,
+            "aria-current must be false, true, page, step, location, date, or time".to_string(),
+        );
+    }
+    if node
+        .state
+        .has_popup
+        .as_deref()
+        .is_some_and(|value| !is_valid_has_popup(value))
+    {
+        push_error(
+            issues,
+            node,
+            AccessibilityIssueCode::InvalidHasPopup,
+            "aria-haspopup must be false, true, menu, listbox, tree, grid, or dialog".to_string(),
+        );
+    }
+    if node
+        .state
+        .pressed
+        .as_deref()
+        .is_some_and(|value| !is_valid_pressed(value))
+    {
+        push_error(
+            issues,
+            node,
+            AccessibilityIssueCode::InvalidPressed,
+            "aria-pressed must be false, true, or mixed".to_string(),
+        );
+    }
+    if node
+        .state
         .live
         .as_deref()
         .is_some_and(|value| !is_valid_live_politeness(value))
@@ -185,6 +241,34 @@ fn validate_node<'a>(
     for child in &node.children {
         validate_node(child, nodes, focused, issues);
     }
+}
+
+fn is_valid_autocomplete(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "none" | "inline" | "list" | "both"
+    )
+}
+
+fn is_valid_current(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "false" | "true" | "page" | "step" | "location" | "date" | "time"
+    )
+}
+
+fn is_valid_has_popup(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "false" | "true" | "menu" | "listbox" | "tree" | "grid" | "dialog"
+    )
+}
+
+fn is_valid_pressed(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "false" | "true" | "mixed"
+    )
 }
 
 fn is_valid_live_politeness(value: &str) -> bool {

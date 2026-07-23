@@ -284,9 +284,16 @@ ARIA state and live-region attributes including `aria-hidden`,
 `aria-autocomplete`, `aria-multiline`, `aria-current`, `aria-haspopup`,
 `aria-pressed`, `aria-live`, `aria-atomic`, `aria-busy`, `aria-relevant`, and
 `aria-modal` project into structured native accessibility state hints and stay
-available in metadata. `aria-hidden` is accessibility-only state and does not
-change native widget visibility, but `aria-hidden="true"` omits the subtree
-from rendered accessibility tree projection.
+available in metadata. State capabilities are reported field by field rather
+than as one aggregate claim. AppKit projects hidden and modal state through
+`NSAccessibility`. GTK4 projects hidden, autocomplete, multiline, popup
+presence, pressed, busy, and modal through `GtkAccessible`; popup subtype and
+`aria-current` remain portable. Generic WinUI direct-state gaps remain
+portable, while `ContentDialog` supplies native modal semantics. Invalid
+autocomplete, current, popup, and pressed tokens fail accessibility
+conformance. `aria-hidden` is accessibility-only state and does not change
+native widget visibility, but `aria-hidden="true"` omits the subtree from
+rendered accessibility tree projection.
 After the initial render, mounted live regions are diffed in stable tree order.
 `aria-relevant` selects additions, removals, and text changes;
 `aria-atomic="true"` emits the complete current accessible text; and

@@ -1,5 +1,5 @@
 use super::*;
-use crate::accessibility::AccessibilityDescriptionProps;
+use crate::accessibility::{AccessibilityDescriptionProps, AccessibilityStateProps};
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::web::WebProps;
 
@@ -416,6 +416,106 @@ fn accessibility_description_projection_reports_non_accessible_native_wrappers()
             .iter()
             .all(|issue| issue.support == CapabilitySupport::Portable));
     }
+}
+
+#[test]
+fn accessibility_state_fields_report_precise_native_projection() {
+    let stateful_button = NativeElement::new("stateful", NativeRole::Button).with_props(
+        NativeProps::new().accessibility_state(
+            AccessibilityStateProps::default()
+                .hidden(Some(true))
+                .autocomplete("list")
+                .multiline(Some(true))
+                .current("page")
+                .has_popup("dialog")
+                .pressed("mixed")
+                .live("polite")
+                .atomic(Some(true))
+                .busy(Some(true))
+                .relevant("additions text")
+                .modal(Some(true)),
+        ),
+    );
+
+    let appkit_issues =
+        NativeCapabilities::for_backend(NativeBackendKind::AppKit).audit_tree(&stateful_button);
+    assert_eq!(appkit_issues.len(), 6);
+    for feature in [
+        NativeCapabilityFeature::AccessibilityAutocomplete,
+        NativeCapabilityFeature::AccessibilityMultiline,
+        NativeCapabilityFeature::AccessibilityCurrent,
+        NativeCapabilityFeature::AccessibilityHasPopup,
+        NativeCapabilityFeature::AccessibilityPressed,
+        NativeCapabilityFeature::AccessibilityBusy,
+    ] {
+        assert!(appkit_issues.iter().any(|issue| {
+            issue.feature == feature && issue.support == CapabilitySupport::Portable
+        }));
+    }
+
+    let gtk4_issues =
+        NativeCapabilities::for_backend(NativeBackendKind::Gtk4).audit_tree(&stateful_button);
+    assert_eq!(gtk4_issues.len(), 2);
+    for feature in [
+        NativeCapabilityFeature::AccessibilityCurrent,
+        NativeCapabilityFeature::AccessibilityHasPopup,
+    ] {
+        assert!(gtk4_issues.iter().any(|issue| {
+            issue.feature == feature && issue.support == CapabilitySupport::Portable
+        }));
+    }
+
+    let winui_issues =
+        NativeCapabilities::for_backend(NativeBackendKind::WinUI).audit_tree(&stateful_button);
+    assert_eq!(winui_issues.len(), 8);
+    assert!(!winui_issues
+        .iter()
+        .any(|issue| issue.feature == NativeCapabilityFeature::AccessibilityLiveRegion));
+
+    let headless_issues = NativeCapabilities::default().audit_tree(&stateful_button);
+    assert_eq!(headless_issues.len(), 10);
+    assert!(headless_issues
+        .iter()
+        .all(|issue| issue.support == CapabilitySupport::Portable));
+}
+
+#[test]
+fn accessibility_state_projection_reports_native_wrapper_exceptions() {
+    let state = AccessibilityStateProps::default()
+        .hidden(Some(true))
+        .autocomplete("both")
+        .multiline(Some(true))
+        .current("step")
+        .has_popup("listbox")
+        .pressed("true")
+        .live("assertive")
+        .busy(Some(true))
+        .modal(Some(true));
+
+    for (backend, role) in [
+        (NativeBackendKind::AppKit, NativeRole::ListBoxItem),
+        (NativeBackendKind::AppKit, NativeRole::TreeItem),
+        (NativeBackendKind::AppKit, NativeRole::Tab),
+        (NativeBackendKind::Gtk4, NativeRole::MenuItem),
+    ] {
+        let stateful = NativeElement::new("stateful", role)
+            .with_props(NativeProps::new().accessibility_state(state.clone()));
+        let issues = NativeCapabilities::for_backend(backend).audit_tree(&stateful);
+
+        assert_eq!(issues.len(), 10);
+        assert!(issues
+            .iter()
+            .all(|issue| issue.support == CapabilitySupport::Portable));
+    }
+
+    let winui = NativeCapabilities::for_backend(NativeBackendKind::WinUI);
+    assert_eq!(
+        winui.support(
+            NativeCapabilityFeature::AccessibilityModal,
+            Some(NativeRole::Dialog),
+        ),
+        CapabilitySupport::Native
+    );
 }
 
 #[test]
