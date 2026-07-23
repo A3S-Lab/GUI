@@ -23,7 +23,7 @@ use super::WinUiEventQueue;
 static WINUI_WINDOW_SUBCLASSES: OnceLock<Mutex<HashMap<usize, WinUiWindowSubclass>>> =
     OnceLock::new();
 
-fn winui_window_hwnd(window: &xaml::Window) -> GuiResult<HWND> {
+pub(super) fn winui_window_hwnd(window: &xaml::Window) -> GuiResult<HWND> {
     let native: winui3::IWindowNative = map_winui(
         "failed to read WinUI window native interface",
         window.cast(),

@@ -5,12 +5,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{GuiError, GuiResult};
 use crate::host::HostNodeId;
-use crate::native::{NativeElement, NativeProps};
+use crate::native::{
+    NativeElement, NativeProps, NUMBER_FIELD_INPUT_METADATA_KEY, NUMBER_FIELD_LABEL_METADATA_KEY,
+    NUMBER_FIELD_ROLE_DESCRIPTION_METADATA_KEY, NUMBER_FIELD_STEP_LABEL_METADATA_KEY,
+    NUMBER_FIELD_STEP_METADATA_KEY,
+};
 use crate::renderer::MountedNodeSnapshot;
 use crate::style::TextDirection;
 
 mod collator;
 mod datetime;
+mod messages;
 mod number;
 mod number_parser;
 
@@ -20,6 +25,7 @@ pub use collator::{
 pub use datetime::{
     DateFormatKind, DateFormatOptions, DateFormatStyle, DateTimeValue, LocaleDateFormatter,
 };
+pub use messages::{LocaleMessageFormatter, NumberFieldStepAction, NUMBER_FIELD_MESSAGE_LOCALES};
 pub(crate) use number::cached_number_formatter;
 pub use number::{
     LocaleNumberFormatter, NumberFormatOptions, NumberFormatStyle, NumberGrouping,
@@ -116,6 +122,10 @@ impl I18nManager {
 
     pub fn number_parser(&self, node: HostNodeId) -> GuiResult<LocaleNumberParser> {
         LocaleNumberParser::try_new(self.formatting_locale(node))
+    }
+
+    pub fn messages(&self, node: HostNodeId) -> GuiResult<LocaleMessageFormatter> {
+        LocaleMessageFormatter::try_new(self.formatting_locale(node))
     }
 
     pub fn date_formatter(
@@ -251,10 +261,63 @@ fn project_node(node: &mut NativeElement, parent: &LocaleContext, parent_active:
             );
         }
     }
+    localize_number_field_node(node, &context);
 
     for child in &mut node.children {
         project_node(child, &context, active);
     }
+}
+
+fn localize_number_field_node(node: &mut NativeElement, context: &LocaleContext) {
+    let locale = context
+        .locale
+        .as_deref()
+        .unwrap_or(DEFAULT_FORMATTING_LOCALE);
+    let formatter = LocaleMessageFormatter::for_locale_lossy(locale);
+
+    if metadata_value(&node.props, NUMBER_FIELD_STEP_LABEL_METADATA_KEY)
+        .is_some_and(|value| value.eq_ignore_ascii_case("auto"))
+    {
+        let action = match metadata_value(&node.props, NUMBER_FIELD_STEP_METADATA_KEY) {
+            Some("increment") => Some(NumberFieldStepAction::Increment),
+            Some("decrement") => Some(NumberFieldStepAction::Decrement),
+            _ => None,
+        };
+        if let Some(action) = action {
+            let field_label = metadata_value(&node.props, NUMBER_FIELD_LABEL_METADATA_KEY);
+            let label = formatter.number_field_step_label(action, field_label);
+            node.props.label = Some(label.clone());
+            node.props
+                .web
+                .attributes
+                .insert("aria-label".to_string(), label.clone());
+            node.props.metadata.insert("aria-label".to_string(), label);
+        }
+    }
+
+    if metadata_value(&node.props, NUMBER_FIELD_INPUT_METADATA_KEY)
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+        && metadata_value(&node.props, NUMBER_FIELD_ROLE_DESCRIPTION_METADATA_KEY)
+            .is_some_and(|value| value.eq_ignore_ascii_case("auto"))
+    {
+        let role_description = formatter.number_field_role_description().to_string();
+        node.props.accessibility_description.role_description = Some(role_description.clone());
+        node.props
+            .web
+            .attributes
+            .insert("aria-roledescription".to_string(), role_description.clone());
+        node.props
+            .metadata
+            .insert("aria-roledescription".to_string(), role_description);
+    }
+}
+
+fn metadata_value<'a>(props: &'a NativeProps, key: &str) -> Option<&'a str> {
+    props
+        .metadata
+        .get(key)
+        .or_else(|| props.web.attributes.get(key))
+        .map(String::as_str)
 }
 
 fn explicit_locale(props: &NativeProps) -> Option<String> {

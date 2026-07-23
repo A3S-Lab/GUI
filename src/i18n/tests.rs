@@ -69,6 +69,58 @@ fn default_locale_can_seed_a_tree_without_an_explicit_provider() {
 }
 
 #[test]
+fn projection_localizes_automatic_number_field_accessibility_messages() {
+    let automatic_button = NativeElement::new("increment", NativeRole::Button).with_props(
+        NativeProps::new()
+            .label("Increase Quantity")
+            .metadata(NUMBER_FIELD_STEP_METADATA_KEY, "increment")
+            .metadata(NUMBER_FIELD_STEP_LABEL_METADATA_KEY, "auto")
+            .metadata(NUMBER_FIELD_LABEL_METADATA_KEY, "Menge"),
+    );
+    let custom_button = NativeElement::new("decrement", NativeRole::Button).with_props(
+        NativeProps::new()
+            .label("Remove one batch")
+            .metadata(NUMBER_FIELD_STEP_METADATA_KEY, "decrement"),
+    );
+    let input = NativeElement::new("input", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .metadata(NUMBER_FIELD_INPUT_METADATA_KEY, "true")
+            .metadata(NUMBER_FIELD_ROLE_DESCRIPTION_METADATA_KEY, "auto"),
+    );
+    let mut root = NativeElement::new("root", NativeRole::View)
+        .with_props(NativeProps::new().lang("de-DE"))
+        .children(vec![automatic_button, custom_button, input]);
+
+    I18nManager::new().project_native_tree(&mut root);
+
+    assert_eq!(
+        root.children[0].props.label.as_deref(),
+        Some("Menge erhöhen")
+    );
+    assert_eq!(
+        root.children[0]
+            .props
+            .web
+            .attributes
+            .get("aria-label")
+            .map(String::as_str),
+        Some("Menge erhöhen")
+    );
+    assert_eq!(
+        root.children[1].props.label.as_deref(),
+        Some("Remove one batch")
+    );
+    assert_eq!(
+        root.children[2]
+            .props
+            .accessibility_description
+            .role_description
+            .as_deref(),
+        Some("Nummernfeld")
+    );
+}
+
+#[test]
 fn collator_supports_search_sensitivity_and_numeric_sorting() {
     let collator = LocaleCollator::try_new(
         "fr-FR",

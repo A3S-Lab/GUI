@@ -11,26 +11,29 @@ use objc2::{
     MainThreadOnly,
 };
 use objc2_app_kit::{
-    NSApplication, NSApplicationActivationOptions, NSApplicationActivationPolicy,
-    NSAutoresizingMaskOptions, NSBackingStoreType, NSBorderType, NSBox, NSBoxType, NSButton,
-    NSColor, NSComboBox, NSComboBoxDelegate, NSControl, NSControlStateValue,
-    NSControlStateValueOff, NSControlStateValueOn, NSControlTextEditingDelegate, NSEvent,
-    NSEventMask, NSEventModifierFlags, NSEventType, NSFont, NSLayoutAttribute, NSLayoutConstraint,
-    NSLayoutConstraintOrientation, NSLayoutPriorityDefaultLow, NSLayoutPriorityRequired,
-    NSLayoutRelation, NSMenu, NSMenuItem, NSPanel, NSPointingDeviceType, NSPopover,
-    NSPopoverBehavior, NSProgressIndicator, NSProgressIndicatorStyle, NSResponder,
-    NSRunningApplication, NSScrollView, NSSearchField, NSSearchFieldDelegate, NSSecureTextField,
-    NSSlider, NSStackView, NSStackViewDistribution, NSSwitch, NSTabView, NSTabViewDelegate,
-    NSTabViewItem, NSTextField, NSTextFieldDelegate, NSTrackingArea, NSTrackingAreaOptions,
-    NSUserInterfaceLayoutOrientation, NSView, NSViewController, NSWindow, NSWindowDelegate,
-    NSWindowStyleMask,
+    NSAccessibilityAnnouncementKey, NSAccessibilityAnnouncementRequestedNotification,
+    NSAccessibilityPostNotificationWithUserInfo, NSAccessibilityPriorityKey,
+    NSAccessibilityPriorityLevel, NSApplication, NSApplicationActivationOptions,
+    NSApplicationActivationPolicy, NSAutoresizingMaskOptions, NSBackingStoreType, NSBorderType,
+    NSBox, NSBoxType, NSButton, NSColor, NSComboBox, NSComboBoxDelegate, NSControl,
+    NSControlStateValue, NSControlStateValueOff, NSControlStateValueOn,
+    NSControlTextEditingDelegate, NSEvent, NSEventMask, NSEventModifierFlags, NSEventType, NSFont,
+    NSLayoutAttribute, NSLayoutConstraint, NSLayoutConstraintOrientation,
+    NSLayoutPriorityDefaultLow, NSLayoutPriorityRequired, NSLayoutRelation, NSMenu, NSMenuItem,
+    NSPanel, NSPointingDeviceType, NSPopover, NSPopoverBehavior, NSProgressIndicator,
+    NSProgressIndicatorStyle, NSResponder, NSRunningApplication, NSScrollView, NSSearchField,
+    NSSearchFieldDelegate, NSSecureTextField, NSSlider, NSStackView, NSStackViewDistribution,
+    NSSwitch, NSTabView, NSTabViewDelegate, NSTabViewItem, NSTextField, NSTextFieldDelegate,
+    NSTrackingArea, NSTrackingAreaOptions, NSUserInterfaceLayoutOrientation, NSView,
+    NSViewController, NSWindow, NSWindowDelegate, NSWindowStyleMask,
 };
 use objc2_foundation::{
-    NSDate, NSDefaultRunLoopMode, NSEdgeInsets, NSInteger, NSNotification, NSObject,
-    NSObjectProtocol, NSPoint, NSRect, NSRectEdge, NSRunLoop, NSRunLoopCommonModes, NSSize,
-    NSString, NSTimer,
+    NSDate, NSDefaultRunLoopMode, NSDictionary, NSEdgeInsets, NSInteger, NSNotification, NSNumber,
+    NSObject, NSObjectProtocol, NSPoint, NSRect, NSRectEdge, NSRunLoop, NSRunLoopCommonModes,
+    NSSize, NSString, NSTimer,
 };
 
+use crate::accessibility::{AccessibilityAnnouncement, AccessibilityAnnouncementPriority};
 use crate::app::{
     ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
 };

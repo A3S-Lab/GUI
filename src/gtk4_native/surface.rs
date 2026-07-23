@@ -83,6 +83,40 @@ impl NativeWidgetSurface for Gtk4NativeSurface {
         Ok(())
     }
 
+    fn announce_native_accessibility(
+        &mut self,
+        announcement: &AccessibilityAnnouncement,
+        handle: &Self::Handle,
+    ) -> GuiResult<()> {
+        if handle.id != announcement.node {
+            return Err(GuiError::host(format!(
+                "GTK4 handle id does not match accessibility announcement target {}",
+                announcement.node.get()
+            )));
+        }
+        if announcement.message.trim().is_empty() {
+            return Ok(());
+        }
+        let widget = handle.widget.as_widget().ok_or_else(|| {
+            GuiError::host(format!(
+                "GTK4 widget {} cannot post an accessibility announcement",
+                announcement.node.get()
+            ))
+        })?;
+        widget.announce(
+            &announcement.message,
+            match announcement.priority {
+                AccessibilityAnnouncementPriority::Polite => {
+                    gtk::AccessibleAnnouncementPriority::Medium
+                }
+                AccessibilityAnnouncementPriority::Assertive => {
+                    gtk::AccessibleAnnouncementPriority::High
+                }
+            },
+        );
+        Ok(())
+    }
+
     fn measure_native_collection_layout(
         &mut self,
         collection: HostNodeId,

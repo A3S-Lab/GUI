@@ -175,6 +175,34 @@ fn protocol_v1_round_trips_typed_overlay_position_commands() {
 }
 
 #[test]
+fn protocol_v1_round_trips_accessibility_announcement_commands() {
+    let command = PlatformCommand::AccessibilityAnnouncement {
+        announcement: AccessibilityAnnouncement::assertive(HostNodeId::new(42), "\u{2212}1.5"),
+    };
+
+    let protocol = ProtocolCommandV1::from(&command);
+    assert_eq!(
+        serde_json::to_value(&protocol).unwrap(),
+        serde_json::json!({
+            "type": "accessibilityAnnouncement",
+            "node": 42,
+            "message": "\u{2212}1.5",
+            "priority": "assertive"
+        })
+    );
+    assert_eq!(PlatformCommand::try_from(protocol).unwrap(), command);
+
+    assert!(
+        PlatformCommand::try_from(ProtocolCommandV1::AccessibilityAnnouncement {
+            node: 42,
+            message: " ".to_string(),
+            priority: AccessibilityAnnouncementPriority::Polite,
+        })
+        .is_err()
+    );
+}
+
+#[test]
 fn protocol_v1_retains_and_resends_render_until_exact_ack() {
     let mut session =
         NativeProtocolSession::new_with_session_id(Gtk4Adapter, "delivery-session").unwrap();

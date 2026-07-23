@@ -10,12 +10,13 @@ use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, GetMessageW, PeekMessageW, TranslateMessage, MSG, PM_REMOVE, WM_KEYDOWN,
     WM_KEYUP, WM_QUIT, WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
-use windows_core::{Interface, HSTRING};
+use windows_core::{Interface, BSTR, HSTRING};
 use winui3::bootstrap::PackageDependency;
 use winui3::Microsoft::UI::Xaml as xaml;
 use xaml::Controls::{self, Primitives};
 use xaml::{Markup, RoutedEventHandler, Visibility};
 
+use crate::accessibility::{AccessibilityAnnouncement, AccessibilityAnnouncementPriority};
 use crate::app::{
     ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
 };
@@ -47,7 +48,7 @@ use types::{config_is_password, config_is_textarea, WinUiRangeState, WinUiTextIn
 pub use types::{WinUiComboBoxItem, WinUiOsHandle, WinUiOsWidget, WinUiTabItem};
 use window::{
     apply_winui_window_portable_style, install_winui_window_close_event,
-    set_winui_window_resizable, winui_window_is_open,
+    set_winui_window_resizable, winui_window_hwnd, winui_window_is_open,
 };
 
 mod event_loop;

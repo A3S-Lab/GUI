@@ -6,8 +6,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value as JsonValue};
 
 use crate::accessibility::{
-    AccessibilityConformanceIssue, AccessibilityConformanceReport, AccessibilityDescriptionProps,
-    AccessibilityNode, AccessibilityRelationshipProps, AccessibilityRole, AccessibilityStateProps,
+    AccessibilityAnnouncement, AccessibilityAnnouncementPriority, AccessibilityConformanceIssue,
+    AccessibilityConformanceReport, AccessibilityDescriptionProps, AccessibilityNode,
+    AccessibilityRelationshipProps, AccessibilityRole, AccessibilityStateProps,
     AccessibilityStructureProps, AccessibilityTreeHost,
 };
 use crate::app::{reduce_invocation_batch, ActionPropagation};

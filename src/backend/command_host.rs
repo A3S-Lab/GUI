@@ -1,9 +1,10 @@
-use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
+use crate::accessibility::{AccessibilityAnnouncement, AccessibilityNode, AccessibilityTreeHost};
 use crate::capability::{CapabilityHost, NativeCapabilities};
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::{
-    HostFrameAck, HostNodeId, NativeHost, OverlayPositionHost, ProgrammaticFocusHost,
+    AccessibilityAnnouncementHost, HostFrameAck, HostNodeId, NativeHost, OverlayPositionHost,
+    ProgrammaticFocusHost,
 };
 use crate::native::{NativeElement, NativeProps};
 use crate::overlay_position::OverlayPositionRequest;
@@ -381,6 +382,12 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> NativeHost for CommandExecu
         Some(self)
     }
 
+    fn accessibility_announcement_host(
+        &mut self,
+    ) -> Option<&mut dyn AccessibilityAnnouncementHost> {
+        Some(self)
+    }
+
     fn measure_collection_layout(
         &mut self,
         collection: HostNodeId,
@@ -409,5 +416,13 @@ impl<A: PlatformAdapter, E: PlatformCommandExecutor> OverlayPositionHost
         request: OverlayPositionRequest,
     ) -> GuiResult<()> {
         self.commit_planning(|planning| planning.position_overlay(overlay, anchor, request))
+    }
+}
+
+impl<A: PlatformAdapter, E: PlatformCommandExecutor> AccessibilityAnnouncementHost
+    for CommandExecutingHost<A, E>
+{
+    fn announce(&mut self, announcement: AccessibilityAnnouncement) -> GuiResult<()> {
+        self.commit_planning(|planning| planning.announce(announcement))
     }
 }

@@ -92,7 +92,8 @@ The crate does not currently generate a `.dmg` or `.pkg`.
 
 Prerequisites:
 
-- GTK4 development libraries.
+- GTK 4.14 or newer development libraries. The native accessibility
+  announcement API is part of the required backend contract.
 - `pkg-config`.
 - A Linux package toolchain only when producing distro packages.
 

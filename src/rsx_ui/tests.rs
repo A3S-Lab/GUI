@@ -2109,6 +2109,18 @@ fn rsx_ui_number_field_consumes_number_field_hook_props() {
         Some("true")
     );
     assert_eq!(
+        attribute_value(input, "data-number-field-announce"),
+        Some("true")
+    );
+    assert_eq!(
+        attribute_value(input, "data-number-field-role-description"),
+        Some("auto")
+    );
+    assert_eq!(
+        attribute_value(input, "aria-roledescription"),
+        Some("Number field")
+    );
+    assert_eq!(
         props.events.get("onInput").map(String::as_str),
         Some("setQuantity")
     );
@@ -2128,6 +2140,14 @@ fn rsx_ui_number_field_consumes_number_field_hook_props() {
         panic!("number increment button");
     };
     assert_eq!(attribute_value(decrement, "tabIndex"), Some("-1"));
+    assert_eq!(
+        attribute_value(decrement, "data-number-field-step-label"),
+        Some("auto")
+    );
+    assert_eq!(
+        attribute_value(decrement, "data-number-field-label"),
+        Some("Quantity")
+    );
     assert_eq!(
         decrement_props.events.get("onPress").map(String::as_str),
         Some("setQuantity")
@@ -2182,6 +2202,30 @@ fn rsx_ui_number_field_consumes_number_field_hook_props() {
             .get(crate::native::NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY)
             .map(String::as_str),
         Some("true")
+    );
+    assert_eq!(
+        input_native
+            .props
+            .metadata
+            .get(crate::native::NUMBER_FIELD_ANNOUNCE_METADATA_KEY)
+            .map(String::as_str),
+        Some("true")
+    );
+    assert_eq!(
+        input_native
+            .props
+            .accessibility_description
+            .role_description
+            .as_deref(),
+        Some("Number field")
+    );
+    assert_eq!(
+        controls.children[0]
+            .props
+            .metadata
+            .get(crate::native::NUMBER_FIELD_STEP_LABEL_METADATA_KEY)
+            .map(String::as_str),
+        Some("auto")
     );
 }
 

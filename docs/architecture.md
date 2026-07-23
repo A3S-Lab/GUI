@@ -453,8 +453,8 @@ prefers the GDK Unicode scalar over its symbolic key name, and WinUI uses
 falling back to a stable virtual-key name. Full IME and dead-key composition
 remains an adapter conformance gap.
 `I18nManager` also resolves that inherited locale for reusable
-`LocaleCollator`, `LocaleNumberParser`, `LocaleNumberFormatter`, and
-`LocaleDateFormatter` objects.
+`LocaleCollator`, `LocaleNumberParser`, `LocaleNumberFormatter`,
+`LocaleDateFormatter`, and `LocaleMessageFormatter` objects.
 The public collator exposes search/sort usage, ECMA-402 sensitivity,
 case-first, numeric ordering, and locale-equivalent starts-with, ends-with, and
 contains filters. Decimal parsing exposes complete parsing, partial-input
@@ -472,6 +472,11 @@ uses the same public collator filter. Native number text fields use the cached
 parser and formatter for localized display, range/step normalization, and
 model-space change events, so interactive behavior and application-level
 locale rules cannot drift.
+`LocaleMessageFormatter` owns the small accessibility-message layer that must
+follow inherited locale even though no Web runtime exists. Its NumberField
+catalog contains the same decrease, increase, numeric-role, and empty-value
+messages for 34 React Aria locales. Language fallback is deterministic, with
+separate Portuguese regions and simplified/traditional Chinese resolution.
 NumberField is represented as a native group with separate decrement button,
 numeric text input, and increment button nodes. The semantic hook computes
 button action values and `canIncrement`/`canDecrement` from the same
@@ -494,6 +499,16 @@ or a step boundary stops the active timer; re-entry starts a fresh cycle.
 Native terminal button activation is consumed so it cannot duplicate the
 portable step. Read-only and disabled fields retain focus semantics but do not
 produce step changes.
+Automatic stepper labels and the numeric-input role description are projected
+after locale inheritance, so custom labels remain untouched while native
+buttons receive localized defaults. A focused marked numeric input compares
+its previous and current normalized accessible value after reconciliation.
+Changes emit an assertive `AccessibilityAnnouncement`; empty values use the
+effective locale's message and ASCII minus signs are normalized to U+2212.
+`AccessibilityAnnouncementHost` is an optional host capability. The planning
+host serializes it, headless records it, and the native command stack forwards
+it to AppKit accessibility notifications, GTK4 accessible announcements, or
+WinUI UI Automation notifications.
 AppKit keeps logical item identity separate from the collection selection
 target: a row button is registered as the ListBoxItem or TreeItem responder,
 while activation reports the selected value to the owning collection.
@@ -839,6 +854,13 @@ to execute:
 - `{"type": "insertChild", "parent": ..., "child": ..., "index": ...}`
 - `{"type": "remove", "id": ...}`
 - `{"type": "setRoot", "id": ...}`
+- `{"type": "requestFocus", "id": ...}`
+- `{"type": "positionOverlay", "overlay": ..., "anchor": ..., "request": ...}`
+- `{"type": "accessibilityAnnouncement", "announcement": {"node": ..., "message": ..., "priority": "assertive"}}`
+
+Strict protocol v1 flattens the same announcement payload beside its command
+type (`node`, `message`, and `priority`) and validates a non-zero target plus a
+non-empty message during decoding.
 
 The planning host's command vector is a pending delivery queue, not cumulative
 diagnostic history. `take_commands()` moves all commands produced since the
@@ -937,6 +959,9 @@ before native handles or recorded backend objects are replaced.
 - `insert_child(parent, child, index)`
 - `remove_widget(id)`
 - `set_root_widget(id)`
+- `request_focus(id)`
+- `position_overlay(overlay, anchor, request)`
+- `announce_accessibility(announcement)`
 
 If the platform layer owns event callbacks, it also implements
 `NativeEventSource::take_native_events()` and queues `NativeEvent` records such
@@ -1162,8 +1187,9 @@ Feature-gated platform executor surfaces:
   `autoCapitalize`, `autoCorrect`,
   `virtualKeyboardPolicy`, and `spellCheck` into GTK input purpose and input
   hint flags. It is a Linux-only feature so macOS and Windows builds can enable
-  all portable features without linking GTK. Linux builds require GTK4
-  development libraries and `pkg-config`.
+  all portable features without linking GTK. Linux builds require GTK 4.14 or
+  newer development libraries and `pkg-config`; 4.14 provides the native
+  accessible announcement API used by the typed announcement command.
   GTK callbacks enqueue press, text change, focus, blur, toggle, and
   selection-change events through the same `NativeEventSource` and action
   routing path as AppKit. GTK widgets also attach `EventControllerKey`

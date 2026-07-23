@@ -123,6 +123,52 @@ impl NativeWidgetSurface for AppKitNativeSurface {
         Ok(())
     }
 
+    fn announce_native_accessibility(
+        &mut self,
+        announcement: &AccessibilityAnnouncement,
+        handle: &Self::Handle,
+    ) -> GuiResult<()> {
+        if handle.id != announcement.node {
+            return Err(GuiError::host(format!(
+                "AppKit handle id does not match accessibility announcement target {}",
+                announcement.node.get()
+            )));
+        }
+        if announcement.message.trim().is_empty() {
+            return Ok(());
+        }
+        let view = handle.widget.as_view().ok_or_else(|| {
+            GuiError::host(format!(
+                "AppKit widget {} cannot post an accessibility announcement",
+                announcement.node.get()
+            ))
+        })?;
+        let message = ns_string(&announcement.message);
+        let priority = NSNumber::new_isize(
+            match announcement.priority {
+                AccessibilityAnnouncementPriority::Polite => NSAccessibilityPriorityLevel::Medium,
+                AccessibilityAnnouncementPriority::Assertive => NSAccessibilityPriorityLevel::High,
+            }
+            .0,
+        );
+        let values: [&AnyObject; 2] = [
+            ns_string_as_any(&message),
+            priority.as_super().as_super().as_super(),
+        ];
+        unsafe {
+            let user_info = NSDictionary::from_slices(
+                &[NSAccessibilityAnnouncementKey, NSAccessibilityPriorityKey],
+                &values,
+            );
+            NSAccessibilityPostNotificationWithUserInfo(
+                view.as_super().as_super().as_super(),
+                NSAccessibilityAnnouncementRequestedNotification,
+                Some(&user_info),
+            );
+        }
+        Ok(())
+    }
+
     fn measure_native_collection_layout(
         &mut self,
         collection: HostNodeId,

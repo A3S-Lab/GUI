@@ -10,6 +10,40 @@ pub use conformance::{
 #[cfg(test)]
 mod conformance_tests;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AccessibilityAnnouncementPriority {
+    #[default]
+    Polite,
+    Assertive,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessibilityAnnouncement {
+    pub node: HostNodeId,
+    pub message: String,
+    pub priority: AccessibilityAnnouncementPriority,
+}
+
+impl AccessibilityAnnouncement {
+    pub fn new(
+        node: HostNodeId,
+        message: impl Into<String>,
+        priority: AccessibilityAnnouncementPriority,
+    ) -> Self {
+        Self {
+            node,
+            message: message.into(),
+            priority,
+        }
+    }
+
+    pub fn assertive(node: HostNodeId, message: impl Into<String>) -> Self {
+        Self::new(node, message, AccessibilityAnnouncementPriority::Assertive)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AccessibilityRole {

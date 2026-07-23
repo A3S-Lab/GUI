@@ -248,6 +248,11 @@ impl<H: NativeHost> GuiRuntime<H> {
         }
         self.invalidate_interaction_style_projections(&previous_mounted_props);
         self.project_all_interaction_styles()?;
+        if let Some(announcement) = self.number_field_value_announcement(&previous_mounted_props) {
+            if let Some(host) = self.host.accessibility_announcement_host() {
+                host.announce(announcement)?;
+            }
+        }
         Ok(root)
     }
 

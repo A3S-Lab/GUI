@@ -244,6 +244,9 @@ impl PlatformCommandExecutor for RecordingBackend {
                 self.ensure_object(*id)?;
                 self.focused = Some(*id);
             }
+            PlatformCommand::AccessibilityAnnouncement { announcement } => {
+                self.ensure_object(announcement.node)?;
+            }
             PlatformCommand::PositionOverlay {
                 overlay,
                 anchor,

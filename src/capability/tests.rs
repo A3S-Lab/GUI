@@ -221,6 +221,40 @@ fn programmatic_focus_capability_matches_the_native_binding() {
 }
 
 #[test]
+fn number_field_announcements_report_the_native_os_channel() {
+    let number_field = NativeElement::new("quantity", NativeRole::TextField).with_props(
+        NativeProps::new()
+            .input_type("number")
+            .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true")
+            .metadata(crate::native::NUMBER_FIELD_ANNOUNCE_METADATA_KEY, "true"),
+    );
+
+    for backend in [
+        NativeBackendKind::AppKit,
+        NativeBackendKind::Gtk4,
+        NativeBackendKind::WinUI,
+    ] {
+        let capabilities = NativeCapabilities::for_backend(backend);
+        assert_eq!(
+            capabilities.support(
+                NativeCapabilityFeature::AccessibilityAnnouncements,
+                Some(NativeRole::TextField),
+            ),
+            CapabilitySupport::Native
+        );
+        assert!(capabilities.audit_tree(&number_field).is_empty());
+    }
+
+    assert!(NativeCapabilities::default()
+        .audit_tree(&number_field)
+        .iter()
+        .any(|issue| {
+            issue.feature == NativeCapabilityFeature::AccessibilityAnnouncements
+                && issue.support == CapabilitySupport::Portable
+        }));
+}
+
+#[test]
 fn manifest_round_trips_with_an_explicit_ir_version() {
     let capabilities = NativeCapabilities::for_backend(NativeBackendKind::AppKit);
     let json = serde_json::to_value(&capabilities).unwrap();

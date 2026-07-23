@@ -196,11 +196,17 @@ pub struct NumberFieldInputProps {
     pub input_type: &'static str,
     #[serde(rename = "data-number-field-input")]
     pub data_number_field_input: bool,
+    #[serde(rename = "data-number-field-announce")]
+    pub data_number_field_announce: bool,
+    #[serde(rename = "data-number-field-role-description")]
+    pub data_number_field_role_description: &'static str,
     #[serde(
         rename = "data-number-field-wheel-disabled",
         skip_serializing_if = "is_false"
     )]
     pub data_number_field_wheel_disabled: bool,
+    #[serde(rename = "aria-roledescription")]
+    pub aria_role_description: &'static str,
     #[serde(rename = "aria-label", skip_serializing_if = "Option::is_none")]
     pub aria_label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -263,6 +269,16 @@ pub struct NumberFieldButtonProps {
     pub action_value: String,
     #[serde(rename = "data-number-field-step")]
     pub data_number_field_step: &'static str,
+    #[serde(
+        rename = "data-number-field-step-label",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data_number_field_step_label: Option<&'static str>,
+    #[serde(
+        rename = "data-number-field-label",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data_number_field_label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_press: Option<String>,
     pub disabled: bool,
@@ -311,6 +327,8 @@ pub fn use_number_field(props: UseNumberFieldProps) -> UseNumberFieldResult {
     .unwrap_or(value_number);
     let can_increment = !props.is_disabled && !props.is_read_only && increment_value > value_number;
     let can_decrement = !props.is_disabled && !props.is_read_only && decrement_value < value_number;
+    let uses_default_increment_label = props.increment_aria_label.is_none();
+    let uses_default_decrement_label = props.decrement_aria_label.is_none();
     let increment_aria_label = number_field_button_label(
         props.increment_aria_label.as_deref(),
         "Increase",
@@ -338,7 +356,10 @@ pub fn use_number_field(props: UseNumberFieldProps) -> UseNumberFieldResult {
     let number_field_input_props = NumberFieldInputProps {
         input_type: "number",
         data_number_field_input: true,
+        data_number_field_announce: true,
+        data_number_field_role_description: "auto",
         data_number_field_wheel_disabled: props.is_wheel_disabled,
+        aria_role_description: "Number field",
         aria_label: props.label.clone(),
         placeholder: props.placeholder.clone(),
         value_number,
@@ -376,6 +397,12 @@ pub fn use_number_field(props: UseNumberFieldProps) -> UseNumberFieldResult {
         aria_label: increment_aria_label,
         action_value: format_normalized_number(increment_value),
         data_number_field_step: "increment",
+        data_number_field_step_label: uses_default_increment_label.then_some("auto"),
+        data_number_field_label: if uses_default_increment_label {
+            props.label.clone()
+        } else {
+            None
+        },
         on_press: props.on_change.clone(),
         disabled: !can_increment,
         aria_disabled: !can_increment,
@@ -386,6 +413,12 @@ pub fn use_number_field(props: UseNumberFieldProps) -> UseNumberFieldResult {
         aria_label: decrement_aria_label,
         action_value: format_normalized_number(decrement_value),
         data_number_field_step: "decrement",
+        data_number_field_step_label: uses_default_decrement_label.then_some("auto"),
+        data_number_field_label: if uses_default_decrement_label {
+            props.label.clone()
+        } else {
+            None
+        },
         on_press: props.on_change.clone(),
         disabled: !can_decrement,
         aria_disabled: !can_decrement,
@@ -485,6 +518,28 @@ mod tests {
             result.increment_button_props.on_press.as_deref(),
             Some("setQuantity")
         );
+        assert_eq!(
+            result.increment_button_props.data_number_field_step_label,
+            Some("auto")
+        );
+        assert_eq!(
+            result
+                .increment_button_props
+                .data_number_field_label
+                .as_deref(),
+            Some("Quantity")
+        );
+        assert!(result.number_field_input_props.data_number_field_announce);
+        assert_eq!(
+            result
+                .number_field_input_props
+                .data_number_field_role_description,
+            "auto"
+        );
+        assert_eq!(
+            result.number_field_input_props.aria_role_description,
+            "Number field"
+        );
         assert_eq!(result.increment_button_props.tab_index, -1);
     }
 
@@ -506,6 +561,14 @@ mod tests {
         assert!(result.can_decrement);
         assert_eq!(result.increment_button_props.aria_label, "Add one batch");
         assert_eq!(result.decrement_button_props.aria_label, "Remove one batch");
+        assert_eq!(
+            result.increment_button_props.data_number_field_step_label,
+            None
+        );
+        assert_eq!(
+            result.decrement_button_props.data_number_field_step_label,
+            None
+        );
     }
 
     #[test]

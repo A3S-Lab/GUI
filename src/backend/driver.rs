@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
+use crate::accessibility::AccessibilityAnnouncement;
 use crate::error::{GuiError, GuiResult};
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
@@ -320,6 +321,15 @@ impl<A: NativeHandleAdapter> NativeWidgetDriver for HandleWidgetDriver<A> {
         self.adapter.request_focus_handle(id, &handle)?;
         self.focused = Some(id);
         Ok(())
+    }
+
+    fn announce_accessibility(
+        &mut self,
+        announcement: &AccessibilityAnnouncement,
+    ) -> GuiResult<()> {
+        let handle = self.cloned_handle(announcement.node)?;
+        self.adapter
+            .announce_accessibility_handle(announcement, &handle)
     }
 
     fn position_overlay(

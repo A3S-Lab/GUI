@@ -303,6 +303,78 @@ fn runtime_parses_percent_number_input_changes_in_model_space() {
 }
 
 #[test]
+fn runtime_announces_localized_number_field_value_changes_while_focused() {
+    let number_field = |current| {
+        NativeElement::new("quantity", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .label("Menge")
+                .lang("de-DE")
+                .input_type("number")
+                .range(Some(-10.0), Some(10.0), current)
+                .step(Some(0.5))
+                .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true")
+                .metadata(crate::native::NUMBER_FIELD_ANNOUNCE_METADATA_KEY, "true"),
+        )
+    };
+    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut runtime = GuiRuntime::new(host);
+
+    let field_id = runtime.render_native(&number_field(Some(-1.5))).unwrap();
+    runtime.host_mut().take_commands();
+    runtime
+        .handle_native_event(crate::event::NativeEvent::new(
+            field_id,
+            crate::event::NativeEventKind::Focus,
+        ))
+        .unwrap();
+    runtime.host_mut().take_commands();
+
+    runtime.render_native(&number_field(None)).unwrap();
+    assert!(runtime.host_mut().take_commands().iter().any(|command| {
+        matches!(
+            command,
+            crate::platform::PlatformCommand::AccessibilityAnnouncement { announcement }
+                if announcement.node == field_id
+                    && announcement.message == "Leer"
+                    && announcement.priority
+                        == crate::accessibility::AccessibilityAnnouncementPriority::Assertive
+        )
+    }));
+
+    runtime.render_native(&number_field(Some(-2.5))).unwrap();
+    assert!(runtime.host_mut().take_commands().iter().any(|command| {
+        matches!(
+            command,
+            crate::platform::PlatformCommand::AccessibilityAnnouncement { announcement }
+                if announcement.node == field_id && announcement.message == "\u{2212}2,5"
+        )
+    }));
+
+    runtime.render_native(&number_field(Some(-2.5))).unwrap();
+    assert!(runtime.host_mut().take_commands().iter().all(|command| {
+        !matches!(
+            command,
+            crate::platform::PlatformCommand::AccessibilityAnnouncement { .. }
+        )
+    }));
+
+    runtime
+        .handle_native_event(crate::event::NativeEvent::new(
+            field_id,
+            crate::event::NativeEventKind::Blur,
+        ))
+        .unwrap();
+    runtime.host_mut().take_commands();
+    runtime.render_native(&number_field(Some(-3.5))).unwrap();
+    assert!(runtime.host_mut().take_commands().iter().all(|command| {
+        !matches!(
+            command,
+            crate::platform::PlatformCommand::AccessibilityAnnouncement { .. }
+        )
+    }));
+}
+
+#[test]
 fn runtime_steps_number_fields_with_arrow_keys_on_the_minimum_anchored_grid() {
     let element = NativeElement::new("quantity", NativeRole::TextField).with_props(
         NativeProps::new()

@@ -30,6 +30,8 @@ object graph at the host boundary.
   model/display conversion, minimum-anchored step normalization, grouped
   decrement/input/increment controls, portable Arrow/Page/Home/End and
   focus-gated wheel stepping with native default suppression,
+  34-locale NumberField accessibility messages, focused value announcements
+  through native assistive-technology APIs,
   decimal/percent/date/time formatting, versioned
   capability reporting, shared native event-source state machines, and
   accessibility conformance checks. Versioned
@@ -46,9 +48,9 @@ object graph at the host boundary.
   Populating the AppKit and GTK4 manifests with real platform automation,
   role-edge input parity, real-platform layout-aware page-navigation fixtures,
   IME/dead-key conformance, measured overlay collision/arrow conformance and
-  scroll locking, remaining native focus conformance, message catalogs,
+  scroll locking, remaining native focus conformance, broader message catalogs,
   currency/unit parsing and formatting, date-range/time-zone formatting,
-  and NumberField live announcements are still in progress.
+  and complete native accessibility-property projection are still in progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.

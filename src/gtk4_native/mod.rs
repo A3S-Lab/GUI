@@ -5,6 +5,7 @@ use std::rc::Rc;
 use gtk::prelude::*;
 use gtk4_crate as gtk;
 
+use crate::accessibility::{AccessibilityAnnouncement, AccessibilityAnnouncementPriority};
 use crate::app::{
     ActionPropagation, NativeRuntimeApp, NativeRuntimeEventBatch, NativeRuntimeEventResponse,
 };

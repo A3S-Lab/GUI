@@ -2,10 +2,42 @@ use std::collections::BTreeMap;
 
 use super::GuiRuntime;
 use crate::accessibility::{
-    AccessibilityConformanceReport, AccessibilityNode, AccessibilityRole, AccessibilityTreeHost,
+    AccessibilityAnnouncement, AccessibilityConformanceReport, AccessibilityNode,
+    AccessibilityRole, AccessibilityTreeHost,
 };
 use crate::host::{HostNodeId, NativeHost};
+use crate::i18n::{LocaleMessageFormatter, DEFAULT_FORMATTING_LOCALE};
 use crate::interaction::{InteractionNodeState, InteractionState};
+use crate::native::{
+    effective_input_type, is_number_input_type, normalize_props_for_native_role, NativeProps,
+    NativeRole, NUMBER_FIELD_ANNOUNCE_METADATA_KEY, NUMBER_FIELD_INPUT_METADATA_KEY,
+};
+
+impl<H: NativeHost> GuiRuntime<H> {
+    pub(super) fn number_field_value_announcement(
+        &self,
+        previous_mounted_props: &BTreeMap<HostNodeId, NativeProps>,
+    ) -> Option<AccessibilityAnnouncement> {
+        let focused = self.interaction_state.focused_node()?;
+        let previous_props = previous_mounted_props.get(&focused)?;
+        let current = self
+            .renderer
+            .mounted_snapshot()
+            .into_iter()
+            .find(|mounted| mounted.node == focused)?;
+        if current.role != NativeRole::TextField
+            || !is_announcing_number_field(previous_props)
+            || !is_announcing_number_field(&current.props)
+        {
+            return None;
+        }
+
+        let previous_value = number_field_accessibility_value(previous_props);
+        let current_value = number_field_accessibility_value(&current.props);
+        (previous_value != current_value)
+            .then(|| AccessibilityAnnouncement::assertive(focused, current_value))
+    }
+}
 
 impl<H: NativeHost + AccessibilityTreeHost> GuiRuntime<H> {
     pub fn accessibility_tree(&self) -> Option<AccessibilityNode> {
@@ -233,4 +265,44 @@ fn selected_accessibility_value(child: &AccessibilityNode) -> Option<String> {
 
 fn child_matches_selection_value(child: &AccessibilityNode, value: &str) -> bool {
     child.value.as_deref() == Some(value) || child.label.as_deref() == Some(value)
+}
+
+fn is_announcing_number_field(props: &NativeProps) -> bool {
+    is_number_input_type(effective_input_type(props))
+        && metadata_flag(props, NUMBER_FIELD_INPUT_METADATA_KEY)
+        && metadata_flag(props, NUMBER_FIELD_ANNOUNCE_METADATA_KEY)
+}
+
+fn number_field_accessibility_value(props: &NativeProps) -> String {
+    let normalized = normalize_props_for_native_role(NativeRole::TextField, props);
+    normalized
+        .accessibility_description
+        .value_text
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            normalized
+                .value
+                .as_deref()
+                .filter(|value| !value.is_empty())
+        })
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| {
+            let locale = normalized
+                .lang
+                .as_deref()
+                .unwrap_or(DEFAULT_FORMATTING_LOCALE);
+            LocaleMessageFormatter::for_locale_lossy(locale)
+                .spin_button_empty()
+                .to_string()
+        })
+        .replace('-', "\u{2212}")
+}
+
+fn metadata_flag(props: &NativeProps, key: &str) -> bool {
+    props
+        .metadata
+        .get(key)
+        .or_else(|| props.web.attributes.get(key))
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
 }

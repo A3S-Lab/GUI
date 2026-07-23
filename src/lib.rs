@@ -65,10 +65,10 @@ pub mod winui;
 pub mod winui_native;
 
 pub use accessibility::{
-    AccessibilityConformanceIssue, AccessibilityConformanceReport, AccessibilityDescriptionProps,
-    AccessibilityIssueCode, AccessibilityIssueSeverity, AccessibilityNode,
-    AccessibilityRelationshipProps, AccessibilityRole, AccessibilityStateProps,
-    AccessibilityStructureProps, AccessibilityTreeHost,
+    AccessibilityAnnouncement, AccessibilityAnnouncementPriority, AccessibilityConformanceIssue,
+    AccessibilityConformanceReport, AccessibilityDescriptionProps, AccessibilityIssueCode,
+    AccessibilityIssueSeverity, AccessibilityNode, AccessibilityRelationshipProps,
+    AccessibilityRole, AccessibilityStateProps, AccessibilityStructureProps, AccessibilityTreeHost,
 };
 pub use app::{
     ActionPropagation, BackgroundUpdate, NativeRuntimeApp, NativeRuntimeEventBatch,
@@ -125,8 +125,9 @@ pub use gtk4_native::{
     Gtk4NotebookTab, Gtk4OsHandle, Gtk4OsWidget, Gtk4RuntimeApp, Gtk4RuntimeHost,
 };
 pub use host::{
-    HeadlessHost, HostFrameAck, HostNodeId, HostOperation, NativeHost, OverlayPositionHost,
-    ProgrammaticFocusHost, DEFAULT_HEADLESS_OPERATION_HISTORY_LIMIT,
+    AccessibilityAnnouncementHost, HeadlessHost, HostFrameAck, HostNodeId, HostOperation,
+    NativeHost, OverlayPositionHost, ProgrammaticFocusHost,
+    DEFAULT_HEADLESS_OPERATION_HISTORY_LIMIT,
 };
 pub use html::{
     HtmlActivationProps, HtmlCollectionProps, HtmlDialogProps, HtmlFormAssociationProps,
@@ -137,8 +138,9 @@ pub use i18n::{
     direction_for_locale, direction_name, CollationCaseFirst, CollationOptions,
     CollationSensitivity, CollationUsage, DateFormatKind, DateFormatOptions, DateFormatStyle,
     DateTimeValue, I18nManager, LocaleCollator, LocaleContext, LocaleDateFormatter,
-    LocaleNumberFormatter, LocaleNumberParser, NumberFormatOptions, NumberFormatStyle,
-    NumberGrouping, NumberSignDisplay, DEFAULT_FORMATTING_LOCALE,
+    LocaleMessageFormatter, LocaleNumberFormatter, LocaleNumberParser, NumberFieldStepAction,
+    NumberFormatOptions, NumberFormatStyle, NumberGrouping, NumberSignDisplay,
+    DEFAULT_FORMATTING_LOCALE, NUMBER_FIELD_MESSAGE_LOCALES,
 };
 pub use input::{NativeEventContext, NativeEventPosition, NativeInputModality, NativeKeyModifiers};
 pub use input_conformance::{

@@ -1,3 +1,4 @@
+use crate::accessibility::AccessibilityAnnouncement;
 use crate::error::GuiResult;
 use crate::event::NativeEvent;
 use crate::host::HostNodeId;
@@ -111,6 +112,15 @@ impl<S: NativeWidgetSurface> NativeHandleAdapter for SurfaceHandleAdapter<S> {
 
     fn request_focus_handle(&mut self, id: HostNodeId, handle: &Self::Handle) -> GuiResult<()> {
         self.surface.request_native_focus(id, handle)
+    }
+
+    fn announce_accessibility_handle(
+        &mut self,
+        announcement: &AccessibilityAnnouncement,
+        handle: &Self::Handle,
+    ) -> GuiResult<()> {
+        self.surface
+            .announce_native_accessibility(announcement, handle)
     }
 
     fn position_overlay_handle(

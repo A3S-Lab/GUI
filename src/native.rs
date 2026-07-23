@@ -16,7 +16,12 @@ use crate::web::WebProps;
 use serde::{Deserialize, Serialize};
 
 pub(crate) const NUMBER_FIELD_INPUT_METADATA_KEY: &str = "data-number-field-input";
+pub(crate) const NUMBER_FIELD_ANNOUNCE_METADATA_KEY: &str = "data-number-field-announce";
+pub(crate) const NUMBER_FIELD_LABEL_METADATA_KEY: &str = "data-number-field-label";
+pub(crate) const NUMBER_FIELD_ROLE_DESCRIPTION_METADATA_KEY: &str =
+    "data-number-field-role-description";
 pub(crate) const NUMBER_FIELD_STEP_METADATA_KEY: &str = "data-number-field-step";
+pub(crate) const NUMBER_FIELD_STEP_LABEL_METADATA_KEY: &str = "data-number-field-step-label";
 pub(crate) const NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY: &str =
     "data-number-field-wheel-disabled";
 
@@ -891,7 +896,8 @@ pub(crate) fn normalize_props_for_native_role(
         if role == NativeRole::TextField
             && normalized.accessibility_description.value_text.is_none()
         {
-            normalized.accessibility_description.value_text = Some(formatted.clone());
+            normalized.accessibility_description.value_text =
+                Some(formatted.replace('-', "\u{2212}"));
         }
         normalized.value = Some(formatted);
     }

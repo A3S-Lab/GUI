@@ -2,11 +2,12 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-use crate::accessibility::{AccessibilityNode, AccessibilityTreeHost};
+use crate::accessibility::{AccessibilityAnnouncement, AccessibilityNode, AccessibilityTreeHost};
 use crate::capability::{CapabilityHost, NativeCapabilities};
 use crate::error::{GuiError, GuiResult};
 use crate::host::{
-    HostFrameAck, HostNodeId, NativeHost, OverlayPositionHost, ProgrammaticFocusHost,
+    AccessibilityAnnouncementHost, HostFrameAck, HostNodeId, NativeHost, OverlayPositionHost,
+    ProgrammaticFocusHost,
 };
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::overlay_position::OverlayPositionRequest;
@@ -53,6 +54,9 @@ pub enum PlatformCommand {
         anchor: HostNodeId,
         request: OverlayPositionRequest,
     },
+    AccessibilityAnnouncement {
+        announcement: AccessibilityAnnouncement,
+    },
 }
 
 impl PlatformCommand {
@@ -86,6 +90,9 @@ impl PlatformCommand {
                 overlay: *overlay,
                 anchor: *anchor,
                 request: *request,
+            },
+            Self::AccessibilityAnnouncement { announcement } => Self::AccessibilityAnnouncement {
+                announcement: announcement.clone(),
             },
         }
     }
@@ -514,6 +521,12 @@ impl<A: PlatformAdapter> NativeHost for PlatformPlanningHost<A> {
     fn overlay_position_host(&mut self) -> Option<&mut dyn OverlayPositionHost> {
         Some(self)
     }
+
+    fn accessibility_announcement_host(
+        &mut self,
+    ) -> Option<&mut dyn AccessibilityAnnouncementHost> {
+        Some(self)
+    }
 }
 
 impl<A: PlatformAdapter> ProgrammaticFocusHost for PlatformPlanningHost<A> {
@@ -557,6 +570,18 @@ impl<A: PlatformAdapter> OverlayPositionHost for PlatformPlanningHost<A> {
                 request,
             });
         }
+        Ok(())
+    }
+}
+
+impl<A: PlatformAdapter> AccessibilityAnnouncementHost for PlatformPlanningHost<A> {
+    fn announce(&mut self, announcement: AccessibilityAnnouncement) -> GuiResult<()> {
+        self.ensure_node(announcement.node)?;
+        if announcement.message.trim().is_empty() {
+            return Ok(());
+        }
+        self.commands
+            .push(PlatformCommand::AccessibilityAnnouncement { announcement });
         Ok(())
     }
 }

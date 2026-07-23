@@ -100,6 +100,7 @@ impl<D: NativeWidgetDriver> PlatformCommandExecutor for DriverCommandExecutor<D>
                 | PlatformCommand::Remove { .. }
                 | PlatformCommand::SetRoot { .. }
                 | PlatformCommand::RequestFocus { .. }
+                | PlatformCommand::AccessibilityAnnouncement { .. }
                 | PlatformCommand::PositionOverlay { .. } => {}
             }
         }
@@ -131,6 +132,9 @@ impl<D: NativeWidgetDriver> PlatformCommandExecutor for DriverCommandExecutor<D>
             }
             PlatformCommand::RequestFocus { id } => {
                 self.driver.request_focus(*id)?;
+            }
+            PlatformCommand::AccessibilityAnnouncement { announcement } => {
+                self.driver.announce_accessibility(announcement)?;
             }
             PlatformCommand::PositionOverlay {
                 overlay,

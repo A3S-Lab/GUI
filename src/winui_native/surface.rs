@@ -93,6 +93,63 @@ impl NativeWidgetSurface for WinUiNativeSurface {
         Ok(())
     }
 
+    fn announce_native_accessibility(
+        &mut self,
+        announcement: &AccessibilityAnnouncement,
+        handle: &Self::Handle,
+    ) -> GuiResult<()> {
+        use windows::Win32::UI::Accessibility::{
+            NotificationKind_Other, NotificationProcessing_ImportantMostRecent,
+            NotificationProcessing_MostRecent, UiaHostProviderFromHwnd, UiaRaiseNotificationEvent,
+        };
+
+        if handle.id != announcement.node {
+            return Err(GuiError::host(format!(
+                "WinUI handle id does not match accessibility announcement target {}",
+                announcement.node.get()
+            )));
+        }
+        if announcement.message.trim().is_empty() {
+            return Ok(());
+        }
+        let window = self
+            .widgets
+            .values()
+            .find_map(|widget| match widget {
+                WinUiOsWidget::Window(window) => Some(window),
+                _ => None,
+            })
+            .ok_or_else(|| {
+                GuiError::host("WinUI accessibility announcements require a mounted window")
+            })?;
+        let hwnd = winui_window_hwnd(window)?;
+        let provider = map_winui(
+            "failed to obtain the WinUI accessibility host provider",
+            unsafe { UiaHostProviderFromHwnd(hwnd) },
+        )?;
+        let display = BSTR::from(announcement.message.as_str());
+        let activity = BSTR::from(format!("a3s-gui-accessibility-{}", announcement.node.get()));
+        map_winui(
+            "failed to raise the WinUI accessibility notification",
+            unsafe {
+                UiaRaiseNotificationEvent(
+                    &provider,
+                    NotificationKind_Other,
+                    match announcement.priority {
+                        AccessibilityAnnouncementPriority::Polite => {
+                            NotificationProcessing_MostRecent
+                        }
+                        AccessibilityAnnouncementPriority::Assertive => {
+                            NotificationProcessing_ImportantMostRecent
+                        }
+                    },
+                    &display,
+                    &activity,
+                )
+            },
+        )
+    }
+
     fn measure_native_collection_layout(
         &mut self,
         collection: HostNodeId,

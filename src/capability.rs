@@ -27,6 +27,7 @@ pub enum NativeCapabilityFeature {
     AccessibilityRole,
     AccessibilityRelationships,
     AccessibilityState,
+    AccessibilityAnnouncements,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -254,6 +255,15 @@ impl NativeCapabilities {
                 Feature::AccessibilityState,
                 Portable,
                 Some("state is present in the IR and headless tree but native setters are incomplete"),
+            ),
+            NativeFeatureCapability::new(
+                Feature::AccessibilityAnnouncements,
+                if headless { Portable } else { Native },
+                Some(if headless {
+                    "headless mode records announcements without an OS assistive-technology channel"
+                } else {
+                    "announcements use the backend's native assistive-technology notification API"
+                }),
             ),
         ];
         let mut role_overrides = Vec::new();
@@ -596,6 +606,19 @@ fn requested_features(props: &NativeProps) -> Vec<NativeCapabilityFeature> {
     }
     if props.accessibility_state != Default::default() {
         features.push(Feature::AccessibilityState);
+    }
+    if props
+        .metadata
+        .get(crate::native::NUMBER_FIELD_ANNOUNCE_METADATA_KEY)
+        .or_else(|| {
+            props
+                .web
+                .attributes
+                .get(crate::native::NUMBER_FIELD_ANNOUNCE_METADATA_KEY)
+        })
+        .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+    {
+        features.push(Feature::AccessibilityAnnouncements);
     }
     features.sort_unstable();
     features.dedup();

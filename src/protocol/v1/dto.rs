@@ -602,6 +602,11 @@ pub enum ProtocolCommandV1 {
     RequestFocus {
         id: u64,
     },
+    AccessibilityAnnouncement {
+        node: u64,
+        message: String,
+        priority: AccessibilityAnnouncementPriority,
+    },
     PositionOverlay {
         overlay: u64,
         anchor: u64,
@@ -632,6 +637,13 @@ impl From<&PlatformCommand> for ProtocolCommandV1 {
             PlatformCommand::Remove { id } => Self::Remove { id: id.get() },
             PlatformCommand::SetRoot { id } => Self::SetRoot { id: id.get() },
             PlatformCommand::RequestFocus { id } => Self::RequestFocus { id: id.get() },
+            PlatformCommand::AccessibilityAnnouncement { announcement } => {
+                Self::AccessibilityAnnouncement {
+                    node: announcement.node.get(),
+                    message: announcement.message.clone(),
+                    priority: announcement.priority,
+                }
+            }
             PlatformCommand::PositionOverlay {
                 overlay,
                 anchor,
@@ -680,6 +692,20 @@ impl TryFrom<ProtocolCommandV1> for PlatformCommand {
             ProtocolCommandV1::Remove { id } => Ok(Self::Remove { id: node(id)? }),
             ProtocolCommandV1::SetRoot { id } => Ok(Self::SetRoot { id: node(id)? }),
             ProtocolCommandV1::RequestFocus { id } => Ok(Self::RequestFocus { id: node(id)? }),
+            ProtocolCommandV1::AccessibilityAnnouncement {
+                node: id,
+                message,
+                priority,
+            } => {
+                if message.trim().is_empty() {
+                    return Err(GuiError::host(
+                        "version-1 accessibility announcements require a non-empty message",
+                    ));
+                }
+                Ok(Self::AccessibilityAnnouncement {
+                    announcement: AccessibilityAnnouncement::new(node(id)?, message, priority),
+                })
+            }
             ProtocolCommandV1::PositionOverlay {
                 overlay,
                 anchor,

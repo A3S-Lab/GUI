@@ -1,5 +1,5 @@
 use super::*;
-use crate::accessibility::AccessibilityRole;
+use crate::accessibility::{AccessibilityAnnouncement, AccessibilityRole};
 use crate::compiler::CompiledRsxNode;
 use crate::error::{GuiError, GuiResult};
 use crate::event::{NativeEvent, NativeEventKind};
@@ -172,6 +172,21 @@ impl NativeWidgetSurface for TestNativeSurface {
         self.calls
             .borrow_mut()
             .push(format!("focus:{}:{}", id.get(), handle.widget_class));
+        Ok(())
+    }
+
+    fn announce_native_accessibility(
+        &mut self,
+        announcement: &AccessibilityAnnouncement,
+        handle: &Self::Handle,
+    ) -> GuiResult<()> {
+        self.calls.borrow_mut().push(format!(
+            "announce:{}:{}:{:?}:{}",
+            announcement.node.get(),
+            handle.widget_class,
+            announcement.priority,
+            announcement.message
+        ));
         Ok(())
     }
 
@@ -405,6 +420,19 @@ impl NativeWidgetDriver for TestWidgetDriver {
         self.calls.push(format!("focus:{}", id.get()));
         Ok(())
     }
+
+    fn announce_accessibility(
+        &mut self,
+        announcement: &AccessibilityAnnouncement,
+    ) -> GuiResult<()> {
+        self.calls.push(format!(
+            "announce:{}:{:?}:{}",
+            announcement.node.get(),
+            announcement.priority,
+            announcement.message
+        ));
+        Ok(())
+    }
 }
 
 impl NativeEventSource for TestWidgetDriver {
@@ -435,12 +463,22 @@ fn driver_command_executor_delegates_native_commands_to_driver() {
             id: HostNodeId::new(1),
         })
         .unwrap();
+    executor
+        .execute(&PlatformCommand::AccessibilityAnnouncement {
+            announcement: AccessibilityAnnouncement::assertive(HostNodeId::new(1), "Saved"),
+        })
+        .unwrap();
 
     assert_eq!(
         executor.driver().calls,
-        vec!["create:1:gtk::Button", "root:1", "focus:1"]
+        vec![
+            "create:1:gtk::Button",
+            "root:1",
+            "focus:1",
+            "announce:1:Assertive:Saved"
+        ]
     );
-    assert_eq!(executor.commands().len(), 3);
+    assert_eq!(executor.commands().len(), 4);
 }
 
 #[test]
@@ -1112,6 +1150,11 @@ fn surface_handle_adapter_applies_native_setters_to_surface() {
             id: HostNodeId::new(1),
         })
         .unwrap();
+    executor
+        .execute(&PlatformCommand::AccessibilityAnnouncement {
+            announcement: AccessibilityAnnouncement::assertive(HostNodeId::new(1), "Saved"),
+        })
+        .unwrap();
 
     let calls = calls.borrow();
     assert!(calls.contains(&"create:1:gtk::Button".to_string()));
@@ -1120,6 +1163,7 @@ fn surface_handle_adapter_applies_native_setters_to_surface() {
     assert!(calls.contains(&"setter:1:gtk::Button:label=Saved".to_string()));
     assert!(calls.contains(&"setter:1:gtk::Button:enabled=false".to_string()));
     assert!(calls.contains(&"root:1:gtk::Button".to_string()));
+    assert!(calls.contains(&"announce:1:gtk::Button:Assertive:Saved".to_string()));
     let config = executor.driver().config(HostNodeId::new(1)).unwrap();
     assert_eq!(config.label.as_deref(), Some("Saved"));
     assert!(!config.enabled);

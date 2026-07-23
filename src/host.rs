@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::accessibility::{accessibility_role, AccessibilityNode, AccessibilityTreeHost};
+use crate::accessibility::{
+    accessibility_role, AccessibilityAnnouncement, AccessibilityNode, AccessibilityTreeHost,
+};
 use crate::capability::{CapabilityHost, NativeCapabilities};
 use crate::error::{GuiError, GuiResult};
 use crate::native::{
@@ -85,6 +87,13 @@ pub trait NativeHost {
         None
     }
 
+    /// Returns the host's native assistive announcement capability when available.
+    fn accessibility_announcement_host(
+        &mut self,
+    ) -> Option<&mut dyn AccessibilityAnnouncementHost> {
+        None
+    }
+
     /// Measures collection and item geometry in the collection's content
     /// coordinate space. Hosts that cannot inspect native layout return `None`.
     fn measure_collection_layout(
@@ -112,6 +121,11 @@ pub trait OverlayPositionHost {
         anchor: HostNodeId,
         request: OverlayPositionRequest,
     ) -> GuiResult<()>;
+}
+
+/// Host capability for sending an explicit message to platform assistive technology.
+pub trait AccessibilityAnnouncementHost {
+    fn announce(&mut self, announcement: AccessibilityAnnouncement) -> GuiResult<()>;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -144,6 +158,9 @@ pub enum HostOperation {
         overlay: HostNodeId,
         anchor: HostNodeId,
         request: OverlayPositionRequest,
+    },
+    AccessibilityAnnouncement {
+        announcement: AccessibilityAnnouncement,
     },
 }
 
@@ -482,6 +499,12 @@ impl NativeHost for HeadlessHost {
     fn overlay_position_host(&mut self) -> Option<&mut dyn OverlayPositionHost> {
         Some(self)
     }
+
+    fn accessibility_announcement_host(
+        &mut self,
+    ) -> Option<&mut dyn AccessibilityAnnouncementHost> {
+        Some(self)
+    }
 }
 
 impl ProgrammaticFocusHost for HeadlessHost {
@@ -521,6 +544,17 @@ impl OverlayPositionHost for HeadlessHost {
             anchor,
             request,
         });
+        Ok(())
+    }
+}
+
+impl AccessibilityAnnouncementHost for HeadlessHost {
+    fn announce(&mut self, announcement: AccessibilityAnnouncement) -> GuiResult<()> {
+        self.ensure_node(announcement.node)?;
+        if announcement.message.trim().is_empty() {
+            return Ok(());
+        }
+        self.record_operation(HostOperation::AccessibilityAnnouncement { announcement });
         Ok(())
     }
 }

@@ -1500,17 +1500,19 @@ and control-wheel zoom are ignored. Step boundaries are anchored at
 />
 ```
 
-The accessible-label overrides are optional. Without them, the built-in
-English labels include the field label. Applications should provide localized
-overrides until automatic message catalogs are implemented.
+The accessible-label overrides are optional. Without them, the built-in labels
+include the field label and follow the inherited locale through the 34-locale
+NumberField message catalog. Explicit overrides are never replaced.
 `isWheelDisabled={true}` disables wheel changes without disabling keyboard or
 button stepping. Mouse stepper presses preserve input focus. Mouse and pen
 steppers fire immediately, begin repeating after 400 milliseconds, and repeat
 every 60 milliseconds. Touch steppers begin repeating after 600 milliseconds;
 a shorter touch activates once on release. Leaving, cancellation, a disabled
-or read-only update, and reaching a step boundary stop repetition. Automatic
-localized stepper labels and live value announcements are not yet part of this
-contract.
+or read-only update, and reaching a step boundary stop repetition. The numeric
+input also receives a localized role description. While it is focused,
+normalized value changes are announced assertively through AppKit, GTK4, or
+WinUI's native assistive-technology channel; empty values are localized as
+well.
 
 - `UiButton`
 - `UiBadge`
