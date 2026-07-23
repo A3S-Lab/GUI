@@ -15,6 +15,8 @@ use crate::i18n::{
 use crate::web::WebProps;
 use serde::{Deserialize, Serialize};
 
+pub(crate) const NUMBER_FIELD_INPUT_METADATA_KEY: &str = "data-number-field-input";
+
 mod accessibility_description;
 mod accessibility_relationships;
 mod accessibility_state;
@@ -950,6 +952,56 @@ pub(crate) fn normalize_range_value(
     Some(clamp_range_value(value, min, max))
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RangeStepDirection {
+    Increment,
+    Decrement,
+}
+
+/// Moves a ranged value to the next step boundary in one direction.
+///
+/// Unlike nearest-step normalization, this always chooses a boundary strictly
+/// above or below the current value. A bound that is not itself on the step
+/// grid is not synthesized as an extra step.
+pub(crate) fn step_range_value(
+    current: Option<f64>,
+    min: Option<f64>,
+    max: Option<f64>,
+    step: Option<f64>,
+    direction: RangeStepDirection,
+) -> Option<f64> {
+    let (min, max) = normalize_range_bounds(min, max);
+    let step = normalize_range_step(step).unwrap_or(1.0);
+
+    let Some(current) = current.filter(|value| value.is_finite()) else {
+        let initial = match direction {
+            RangeStepDirection::Increment => min.unwrap_or(0.0),
+            RangeStepDirection::Decrement => max.unwrap_or(0.0),
+        };
+        return Some(clamp_range_value(initial, min, max));
+    };
+    let current = clamp_range_value(current, min, max);
+    let base = min.unwrap_or(0.0);
+    let relative = (current - base) / step;
+    if !relative.is_finite() {
+        return Some(current);
+    }
+
+    let tolerance = f64::EPSILON * relative.abs().max(1.0) * 8.0;
+    let step_count = match direction {
+        RangeStepDirection::Increment => (relative + tolerance).floor() + 1.0,
+        RangeStepDirection::Decrement => (relative - tolerance).ceil() - 1.0,
+    };
+    let candidate = clean_step_rounding(base + step_count * step, base, step);
+    if !candidate.is_finite()
+        || max.is_some_and(|max| candidate > max)
+        || min.is_some_and(|min| candidate < min)
+    {
+        return Some(current);
+    }
+    Some(candidate)
+}
+
 pub(crate) fn format_normalized_number(value: f64) -> String {
     if value.fract() == 0.0 {
         format!("{value:.0}")
@@ -986,12 +1038,38 @@ fn snap_range_step_value(value: f64, min: Option<f64>, step: Option<f64>) -> f64
     };
     let base = min.unwrap_or(0.0);
     let step_count = ((value - base) / step).round();
-    let snapped = base + step_count * step;
+    let snapped = clean_step_rounding(base + step_count * step, base, step);
     if snapped.is_finite() {
         snapped
     } else {
         value
     }
+}
+
+fn clean_step_rounding(value: f64, base: f64, step: f64) -> f64 {
+    let decimal_places = decimal_places(base).max(decimal_places(step));
+    if decimal_places > 15 {
+        return value;
+    }
+    let factor = 10_f64.powi(decimal_places as i32);
+    let scaled = value * factor;
+    if !scaled.is_finite() || scaled.abs() > 9_007_199_254_740_992.0 {
+        return value;
+    }
+    scaled.round() / factor
+}
+
+fn decimal_places(value: f64) -> u32 {
+    let value = value.abs().to_string();
+    let (coefficient, exponent) = value
+        .split_once(['e', 'E'])
+        .map(|(coefficient, exponent)| (coefficient, exponent.parse::<i32>().unwrap_or_default()))
+        .unwrap_or((value.as_str(), 0));
+    let fraction_digits = coefficient
+        .split_once('.')
+        .map(|(_, fraction)| fraction.len() as i32)
+        .unwrap_or_default();
+    fraction_digits.saturating_sub(exponent).max(0) as u32
 }
 
 fn clamp_range_value(value: f64, min: Option<f64>, max: Option<f64>) -> f64 {

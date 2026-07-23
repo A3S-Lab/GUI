@@ -272,6 +272,16 @@ The first shared interaction milestone is available in the portable runtime:
   covers localized short through full styles, seconds, calendar,
   numbering-system, and hour-cycle locale extensions. Collection typeahead
   reuses the public collator filter.
+- `use_number_field` exposes separate group, input, increment-button, and
+  decrement-button prop contracts. `UiNumberField` projects that anatomy as a
+  native group instead of collapsing it into one text field. Buttons are
+  excluded from sequential focus, carry the next model-space value, use
+  field-aware accessible labels (or explicit `incrementAriaLabel` and
+  `decrementAriaLabel` overrides), and disable at step boundaries or for
+  disabled/read-only fields. ArrowUp and ArrowDown use the same
+  minimum-anchored step algorithm, including decimal-noise cleanup. AppKit,
+  GTK4, and WinUI claim those keys before the toolkit default runs, preventing
+  GTK4 `SpinButton` from emitting a duplicate change.
 - Native IR capabilities are versioned. Every host exposes a feature manifest
   with unsupported, portable, or native support levels, role-specific
   overrides, and auditable capability issues. Protocol render responses carry
@@ -311,6 +321,7 @@ existence of a platform object:
 | Complete press lifecycle | Button, disclosure summary, link, image-map area, ListBoxItem, and TreeItem on AppKit, GTK4, and WinUI; WinUI menu items also use the complete lifecycle. |
 | Long press | Shared AppKit, GTK4, and WinUI press sources emit start/end and recognize terminal long press after the configured threshold. `NSTimer`, GTK main-loop timeout, and `DispatcherQueueTimer` provide threshold-time delivery, and release-time evaluation is the fallback. |
 | Move | AppKit mouse/pen drag events, GTK4 `GestureDrag`, and WinUI mouse/touch/pen pointer capture use one incremental move state machine. All three normalize Arrow keys to a complete keyboard lifecycle and prevent the underlying native default. |
+| NumberField stepping | The shared runtime maps ArrowUp/ArrowDown to model-space `Change` events on the next minimum-anchored step boundary. AppKit, GTK4, and WinUI suppress their underlying key default for marked NumberField inputs. Built-in decrement and increment buttons expose the same next values and boundary/read-only state through native Button controls. Continuous pointer-hold stepping, wheel stepping, automatic localized button messages, and live value announcements remain incomplete. |
 | Native menu activation | AppKit and GTK4 menu items emit terminal press only because their menu models do not expose a mounted generic view event source. |
 | Hover and typed modality | View-backed widgets; explicit exceptions are reported for AppKit non-view wrappers/items, GTK4 menu items, and the WinUI window wrapper. |
 | Focus within | Portable runtime routing on AppKit, GTK4, WinUI, and headless hosts. Native blur/focus batches are linked with `relatedTarget`; direct focus callbacks remain target-only while focus-within callbacks run only when a subtree boundary is crossed. |
@@ -390,6 +401,7 @@ props:
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |
 | P1 | Collections and selection | Complete IME/dead-key typeahead conformance and add real-platform fixtures for layout-aware page navigation. |
+| P1 | NumberField interaction | Add continuous press-and-hold stepping, focused vertical-wheel stepping with horizontal-trackpad rejection, automatic localized stepper labels, input-focus preservation on pointer press, and live value announcements. Group/input/button anatomy, minimum-anchored button stepping, ArrowUp/ArrowDown stepping, decimal-noise cleanup, boundary disabling, and native-default suppression are implemented. |
 | P1 | Internationalization | Add message formatting, currency/unit parsing and formatting, and date ranges/time zones. Reusable decimal/percent parsing and formatting, partial-input validation, locale-aware filtering, and localized NumberField model/display conversion now build on inherited locale/direction. |
 | P1 | Accessibility conformance | Complete OS accessibility API projection, relationships, live regions, value announcements, and role-specific native adapter coverage. |
 | P2 | Overlays | Complete measured boundary-driven collision and arrow projection, native scroll locking, configurable outside-interaction filters, multi-window layer coordination, and real-platform positioning conformance fixtures. |

@@ -6071,22 +6071,36 @@ fn component_cx_number_field_hook_returns_props_for_view_consumption() {
             props.number_field_input_props.binding_path(),
             "props.numberFieldInputProps"
         );
+        assert_eq!(
+            props.increment_button_props.binding_path(),
+            "props.incrementButtonProps"
+        );
+        assert_eq!(
+            props.decrement_button_props.binding_path(),
+            "props.decrementButtonProps"
+        );
         assert_eq!(props.label.binding_path(), "props.label");
         assert_eq!(props.placeholder.binding_path(), "props.placeholder");
         assert_eq!(props.value_number.binding_path(), "props.valueNumber");
         assert_eq!(props.format_options.binding_path(), "props.formatOptions");
         assert_eq!(props.format_style.binding_path(), "props.formatStyle");
         assert_eq!(props.value_percent.binding_path(), "props.valuePercent");
+        assert_eq!(props.can_increment.binding_path(), "props.canIncrement");
+        assert_eq!(props.can_decrement.binding_path(), "props.canDecrement");
 
         crate::rsx!(
-            <TextField
+            <Group
               key="root"
               {...props.numberFieldProps}
               data-active-value={props.valueNumber}
               data-active-percent={props.valuePercent}
+              data-can-increment={props.canIncrement}
+              data-can-decrement={props.canDecrement}
             >
+              <button key="decrement" {...props.decrementButtonProps} />
               <Input key="input" {...props.numberFieldInputProps} />
-            </TextField>
+              <button key="increment" {...props.incrementButtonProps} />
+            </Group>
         )
     }
 
@@ -6102,26 +6116,23 @@ fn component_cx_number_field_hook_returns_props_for_view_consumption() {
     else {
         panic!("root element");
     };
-    let input_props = children
+    let child_props = children
         .iter()
-        .find_map(|child| match child {
+        .filter_map(|child| match child {
             CompiledRsxNode::Element { props, .. } => Some(props),
             CompiledRsxNode::Text { .. } => None,
         })
-        .expect("input element");
+        .collect::<Vec<_>>();
+    assert_eq!(child_props.len(), 3);
+    let [decrement_props, input_props, increment_props] = child_props.as_slice() else {
+        panic!("number field controls");
+    };
 
     assert_eq!(props.label.as_deref(), Some("Quantity"));
-    assert_eq!(props.value_number, Some(10.0));
-    assert_eq!(props.min_value, Some(0.0));
-    assert_eq!(props.max_value, Some(10.0));
-    assert_eq!(props.step_value, Some(1.0));
     assert!(props.is_required);
     assert!(props.is_invalid);
     assert!(props.is_read_only);
-    assert_eq!(
-        props.events.get("onChange").map(String::as_str),
-        Some("setQuantity")
-    );
+    assert!(props.events.get("onChange").is_none());
     assert_eq!(
         props
             .attributes
@@ -6129,11 +6140,35 @@ fn component_cx_number_field_hook_returns_props_for_view_consumption() {
             .map(String::as_str),
         Some("100.0")
     );
+    assert_eq!(
+        props
+            .attributes
+            .get("data-can-increment")
+            .map(String::as_str),
+        Some("false")
+    );
+    assert_eq!(
+        props
+            .attributes
+            .get("data-can-decrement")
+            .map(String::as_str),
+        Some("false")
+    );
     assert_eq!(input_props.input_type.as_deref(), Some("number"));
     assert_eq!(input_props.placeholder.as_deref(), Some("0-10"));
     assert_eq!(input_props.value_number, Some(10.0));
     assert_eq!(
         input_props.events.get("onInput").map(String::as_str),
+        Some("setQuantity")
+    );
+    assert!(decrement_props.is_disabled);
+    assert!(increment_props.is_disabled);
+    assert_eq!(
+        decrement_props.events.get("onPress").map(String::as_str),
+        Some("setQuantity")
+    );
+    assert_eq!(
+        increment_props.events.get("onPress").map(String::as_str),
         Some("setQuantity")
     );
 

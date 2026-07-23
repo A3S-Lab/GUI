@@ -145,8 +145,8 @@ pub use menu::{
     UseSubmenuTriggerResult,
 };
 pub use number_field::{
-    use_number_field, use_number_field_value, NumberFieldInputProps, NumberFieldProps,
-    UseNumberFieldProps, UseNumberFieldResult,
+    use_number_field, use_number_field_value, NumberFieldButtonProps, NumberFieldInputProps,
+    NumberFieldProps, UseNumberFieldProps, UseNumberFieldResult,
 };
 pub use overlay::{
     use_overlay, use_overlay_value, OverlayProps, OverlayTriggerKind, OverlayTriggerProps,

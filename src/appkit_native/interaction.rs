@@ -199,6 +199,9 @@ impl AppKitNativeSurface {
                 .push(NativeEvent::new(node, kind).value(key).context(context));
             return false;
         };
+        let number_field_step_handled = registration
+            .profile
+            .handles_number_field_step_key(kind, &key);
         let mut pending =
             if kind == NativeEventKind::KeyDown && registration.profile.tracks_movement() {
                 keyboard_move_events(node, &key, context)
@@ -227,7 +230,7 @@ impl AppKitNativeSurface {
                 .borrow_mut()
                 .insert(node, activation_context);
         }
-        movement_handled
+        movement_handled || number_field_step_handled
     }
 
     fn begin_pointer_press(&self, event: &NSEvent) {

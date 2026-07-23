@@ -80,7 +80,8 @@ use crate::semantic_ui::{
 };
 use crate::semantic_ui::{use_landmark_value, LandmarkProps, UseLandmarkProps};
 use crate::semantic_ui::{
-    use_number_field_value, NumberFieldInputProps, NumberFieldProps, UseNumberFieldProps,
+    use_number_field_value, NumberFieldButtonProps, NumberFieldInputProps, NumberFieldProps,
+    UseNumberFieldProps,
 };
 use crate::semantic_ui::{
     use_overlay_position_value, OverlayArrowProps, OverlayPositionProps, UseOverlayPositionProps,
@@ -1567,6 +1568,8 @@ pub struct ToastRegionHook {
 pub struct NumberFieldHook {
     pub number_field_props: PropHandle<NumberFieldProps>,
     pub number_field_input_props: PropHandle<NumberFieldInputProps>,
+    pub increment_button_props: PropHandle<NumberFieldButtonProps>,
+    pub decrement_button_props: PropHandle<NumberFieldButtonProps>,
     pub label: PropHandle<Option<String>>,
     pub value_number: PropHandle<f64>,
     pub placeholder: PropHandle<Option<String>>,
@@ -1580,6 +1583,8 @@ pub struct NumberFieldHook {
     pub is_required: PropHandle<bool>,
     pub is_invalid: PropHandle<bool>,
     pub is_read_only: PropHandle<bool>,
+    pub can_increment: PropHandle<bool>,
+    pub can_decrement: PropHandle<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -5302,6 +5307,8 @@ impl<S: 'static> ComponentCx<S> {
         for path in [
             "numberFieldProps",
             "numberFieldInputProps",
+            "incrementButtonProps",
+            "decrementButtonProps",
             "label",
             "valueNumber",
             "placeholder",
@@ -5315,12 +5322,16 @@ impl<S: 'static> ComponentCx<S> {
             "isRequired",
             "isInvalid",
             "isReadOnly",
+            "canIncrement",
+            "canDecrement",
         ] {
             self.use_semantic_part(path, &selector, number_field_value_part);
         }
         self.register_prop_aliases(&[
             "numberFieldProps",
             "numberFieldInputProps",
+            "incrementButtonProps",
+            "decrementButtonProps",
             "label",
             "valueNumber",
             "placeholder",
@@ -5334,11 +5345,15 @@ impl<S: 'static> ComponentCx<S> {
             "isRequired",
             "isInvalid",
             "isReadOnly",
+            "canIncrement",
+            "canDecrement",
         ]);
 
         NumberFieldHook {
             number_field_props: PropHandle::new("numberFieldProps"),
             number_field_input_props: PropHandle::new("numberFieldInputProps"),
+            increment_button_props: PropHandle::new("incrementButtonProps"),
+            decrement_button_props: PropHandle::new("decrementButtonProps"),
             label: PropHandle::new("label"),
             value_number: PropHandle::new("valueNumber"),
             placeholder: PropHandle::new("placeholder"),
@@ -5352,6 +5367,8 @@ impl<S: 'static> ComponentCx<S> {
             is_required: PropHandle::new("isRequired"),
             is_invalid: PropHandle::new("isInvalid"),
             is_read_only: PropHandle::new("isReadOnly"),
+            can_increment: PropHandle::new("canIncrement"),
+            can_decrement: PropHandle::new("canDecrement"),
         }
     }
 

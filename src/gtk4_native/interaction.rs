@@ -136,6 +136,9 @@ fn register_key_events(
         let repeat = down_presses.borrow().target_for_key(&key).is_some();
         let context = keyboard_context(modifiers, repeat);
         let current = down_registration.get();
+        let number_field_step_handled = current
+            .profile
+            .handles_number_field_step_key(NativeEventKind::KeyDown, &key);
         if current.native_button {
             remember_activation_context(&down_contexts, id, context);
         }
@@ -154,7 +157,7 @@ fn register_key_events(
             current.profile.subscriptions.tracks_press(),
         ));
         push_events(&down_events, &down_suppressed, pending);
-        if movement_handled {
+        if movement_handled || number_field_step_handled {
             gtk::glib::Propagation::Stop
         } else {
             gtk::glib::Propagation::Proceed

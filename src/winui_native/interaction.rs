@@ -116,6 +116,11 @@ fn register_preview_keyboard_events(
                 .lock()
                 .ok()
                 .map(|registration| *registration);
+            let number_field_step_handled = registration.is_some_and(|registration| {
+                registration
+                    .profile
+                    .handles_number_field_step_key(NativeEventKind::KeyDown, &key)
+            });
             if registration.is_some_and(|registration| registration.awaits_native_activation()) {
                 remember_activation_context(&down_contexts, id, context);
             }
@@ -135,9 +140,10 @@ fn register_preview_keyboard_events(
                         .value(key)
                         .context(context)]
                 });
-            let prevent_default = pending
-                .iter()
-                .any(|event| event.kind == NativeEventKind::MoveStart);
+            let prevent_default = number_field_step_handled
+                || pending
+                    .iter()
+                    .any(|event| event.kind == NativeEventKind::MoveStart);
             push_events(&down_events, pending);
             Ok(prevent_default)
         }),

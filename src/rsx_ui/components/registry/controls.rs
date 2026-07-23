@@ -74,6 +74,8 @@ pub(super) fn with_input_components<S>(component: RsxComponent<S>) -> GuiResult<
             .default_prop_value("minimumFractionDigits", JsonValue::Null)?
             .default_prop_value("maximumFractionDigits", JsonValue::Null)?
             .default_prop("signDisplay", "auto")?
+            .default_prop("incrementAriaLabel", "")?
+            .default_prop("decrementAriaLabel", "")?
             .default_prop("onChange", "")?,
         None,
     )?;

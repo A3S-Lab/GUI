@@ -2295,7 +2295,12 @@ fn props_scope_value(props: &CompiledProps) -> JsonValue {
             &mut scope,
             "numberField",
             number_field,
-            &["numberFieldProps", "numberFieldInputProps"],
+            &[
+                "numberFieldProps",
+                "numberFieldInputProps",
+                "incrementButtonProps",
+                "decrementButtonProps",
+            ],
             &[
                 "label",
                 "valueNumber",
@@ -2310,6 +2315,8 @@ fn props_scope_value(props: &CompiledProps) -> JsonValue {
                 "isRequired",
                 "isInvalid",
                 "isReadOnly",
+                "canIncrement",
+                "canDecrement",
             ],
         );
     }
@@ -4165,6 +4172,14 @@ fn number_field_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
                 non_empty_prop_action(props.events.get("onChange"))
                     .or_else(|| non_empty_prop_action(props.events.get("onInput"))),
             )
+            .increment_aria_label(non_empty_attribute(
+                props,
+                &["incrementAriaLabel", "increment-aria-label"],
+            ))
+            .decrement_aria_label(non_empty_attribute(
+                props,
+                &["decrementAriaLabel", "decrement-aria-label"],
+            ))
             .disabled(props.is_disabled)
             .required(props.is_required)
             .invalid(props.is_invalid)

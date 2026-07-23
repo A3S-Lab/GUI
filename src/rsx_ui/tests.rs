@@ -2086,6 +2086,10 @@ fn rsx_ui_number_field_consumes_number_field_hook_props() {
     let frame = component.render(&RangeUiState { value: -2.0 }).unwrap();
     let number_field = find_element_by_attribute(&frame.root, "data-slot", "number-field").unwrap();
     let input = find_element_by_attribute(&frame.root, "data-slot", "number-field-input").unwrap();
+    let decrement =
+        find_element_by_attribute(&frame.root, "data-slot", "number-field-decrement").unwrap();
+    let increment =
+        find_element_by_attribute(&frame.root, "data-slot", "number-field-increment").unwrap();
     let CompiledRsxNode::Element { props, .. } = input else {
         panic!("number input element");
     };
@@ -2104,17 +2108,68 @@ fn rsx_ui_number_field_consumes_number_field_hook_props() {
         Some("setQuantity")
     );
     assert_eq!(attribute_value(input, "data-value-percent"), Some("0.0"));
+    let CompiledRsxNode::Element {
+        props: decrement_props,
+        ..
+    } = decrement
+    else {
+        panic!("number decrement button");
+    };
+    let CompiledRsxNode::Element {
+        props: increment_props,
+        ..
+    } = increment
+    else {
+        panic!("number increment button");
+    };
+    assert_eq!(attribute_value(decrement, "tabIndex"), Some("-1"));
+    assert_eq!(
+        decrement_props.events.get("onPress").map(String::as_str),
+        Some("setQuantity")
+    );
+    assert_eq!(attribute_value(decrement, "actionValue"), Some("0"));
+    assert_eq!(
+        decrement_props.aria_label.as_deref(),
+        Some("Decrease Quantity")
+    );
+    assert!(decrement_props.is_disabled);
+    assert_eq!(attribute_value(increment, "actionValue"), Some("1"));
+    assert_eq!(
+        increment_props.aria_label.as_deref(),
+        Some("Increase Quantity")
+    );
+    assert!(increment_props.is_disabled);
 
     let native = RsxCompilerBridge::new()
         .lower_to_native(number_field)
         .unwrap();
-    assert_eq!(native.role, NativeRole::TextField);
+    assert_eq!(native.role, NativeRole::View);
     assert_eq!(native.props.label.as_deref(), Some("Quantity"));
-    assert_eq!(native.props.placeholder.as_deref(), Some("0-10"));
-    assert_eq!(native.props.current, Some(0.0));
-    assert!(native.props.required);
-    assert!(native.props.invalid);
     assert!(native.props.read_only);
+    let controls = native
+        .children
+        .iter()
+        .find(|child| child.role == NativeRole::View)
+        .unwrap();
+    assert_eq!(
+        controls
+            .children
+            .iter()
+            .map(|child| child.role)
+            .collect::<Vec<_>>(),
+        vec![
+            NativeRole::Button,
+            NativeRole::TextField,
+            NativeRole::Button
+        ]
+    );
+    let input_native = &controls.children[1];
+    assert_eq!(input_native.props.label.as_deref(), Some("Quantity"));
+    assert_eq!(input_native.props.placeholder.as_deref(), Some("0-10"));
+    assert_eq!(input_native.props.current, Some(0.0));
+    assert!(input_native.props.required);
+    assert!(input_native.props.invalid);
+    assert!(input_native.props.read_only);
 }
 
 #[test]
@@ -2140,6 +2195,10 @@ fn rsx_ui_number_field_formats_percent_values_in_model_space() {
     let frame = component.render(&()).unwrap();
     let number_field = find_element_by_attribute(&frame.root, "data-slot", "number-field").unwrap();
     let input = find_element_by_attribute(&frame.root, "data-slot", "number-field-input").unwrap();
+    let decrement =
+        find_element_by_attribute(&frame.root, "data-slot", "number-field-decrement").unwrap();
+    let increment =
+        find_element_by_attribute(&frame.root, "data-slot", "number-field-increment").unwrap();
     let CompiledRsxNode::Element { props, .. } = input else {
         panic!("percent number input element");
     };
@@ -2159,13 +2218,25 @@ fn rsx_ui_number_field_formats_percent_values_in_model_space() {
         attribute_value(input, "data-number-sign-display"),
         Some("exceptZero")
     );
+    assert_eq!(attribute_value(decrement, "actionValue"), Some("0.44"));
+    assert_eq!(attribute_value(increment, "actionValue"), Some("0.46"));
 
     let native = RsxCompilerBridge::new()
         .lower_to_native(number_field)
         .unwrap();
-    assert_eq!(native.role, NativeRole::TextField);
-    assert_eq!(native.props.current, Some(0.45));
-    let blueprint = AppKitAdapter.blueprint(&native);
+    assert_eq!(native.role, NativeRole::View);
+    let controls = native
+        .children
+        .iter()
+        .find(|child| child.role == NativeRole::View)
+        .unwrap();
+    let input_native = controls
+        .children
+        .iter()
+        .find(|child| child.role == NativeRole::TextField)
+        .unwrap();
+    assert_eq!(input_native.props.current, Some(0.45));
+    let blueprint = AppKitAdapter.blueprint(input_native);
     assert_eq!(blueprint.value.as_deref(), Some("+45.0%"));
     assert_eq!(
         blueprint
@@ -4121,15 +4192,22 @@ fn rsx_ui_renders_collection_overlay_and_toggle_primitives_to_native_roles() {
     assert!(combo_native.children[0].props.selected);
 
     let number_native = bridge.lower_to_native(number_field).unwrap();
-    assert_eq!(number_native.role, NativeRole::TextField);
+    assert_eq!(number_native.role, NativeRole::View);
     assert_eq!(number_native.props.label.as_deref(), Some("Quantity"));
-    assert_eq!(number_native.props.current, Some(35.0));
-    assert_eq!(number_native.props.min, Some(0.0));
-    assert_eq!(number_native.props.max, Some(100.0));
-    assert_eq!(number_native.props.step, Some(5.0));
-    assert_eq!(number_native.props.action.as_deref(), Some("setQuantity"));
+    let number_controls = number_native
+        .children
+        .iter()
+        .find(|child| child.role == NativeRole::View)
+        .unwrap();
+    let number_input = &number_controls.children[1];
+    assert_eq!(number_input.role, NativeRole::TextField);
+    assert_eq!(number_input.props.current, Some(35.0));
+    assert_eq!(number_input.props.min, Some(0.0));
+    assert_eq!(number_input.props.max, Some(100.0));
+    assert_eq!(number_input.props.step, Some(5.0));
+    assert_eq!(number_input.props.action.as_deref(), Some("setQuantity"));
     assert_eq!(
-        number_native
+        number_input
             .props
             .web
             .attributes

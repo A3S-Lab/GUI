@@ -14,8 +14,9 @@ use crate::i18n::{
 use crate::input::NativeInputModality;
 use crate::interaction::{InteractionChange, InteractionState};
 use crate::native::{
-    format_normalized_number, is_number_input_type, normalize_range_value, truncate_to_max_length,
-    NativeElement, NativeProps, ValueSensitivity,
+    format_normalized_number, is_number_input_type, normalize_range_value, step_range_value,
+    truncate_to_max_length, NativeElement, NativeProps, RangeStepDirection, ValueSensitivity,
+    NUMBER_FIELD_INPUT_METADATA_KEY,
 };
 use crate::overlay::{MountedOverlayRegistry, OverlayEventDisposition};
 use crate::overlay_position::mounted_overlay_positions;
@@ -1343,7 +1344,9 @@ impl<H: NativeHost + BlueprintHost> GuiRuntime<H> {
         {
             return self.restore_suppressed_native_selection(event);
         }
-        if !has_explicit_key_down_handler(&blueprint, &route_blueprints)
+        let number_field_step_key_handled = normalize_number_field_step_key(&blueprint, &mut event);
+        if !number_field_step_key_handled
+            && !has_explicit_key_down_handler(&blueprint, &route_blueprints)
             && !move_handles_keyboard_event(&blueprint, &route_blueprints, &event)
         {
             self.refresh_collection_layout_for_page_navigation(&event)?;
@@ -1623,6 +1626,57 @@ fn normalize_keyboard_event_value(mut event: NativeEvent) -> NativeEvent {
         event.value = event.value.as_deref().map(crate::event::native_key_value);
     }
     event
+}
+
+fn normalize_number_field_step_key(
+    blueprint: &NativeWidgetBlueprint,
+    event: &mut NativeEvent,
+) -> bool {
+    if event.kind != crate::event::NativeEventKind::KeyDown
+        || blueprint.role != crate::native::NativeRole::TextField
+        || !is_number_text_input(blueprint)
+        || !blueprint
+            .metadata
+            .get(NUMBER_FIELD_INPUT_METADATA_KEY)
+            .is_some_and(|value| value.eq_ignore_ascii_case("true"))
+    {
+        return false;
+    }
+
+    let direction = match event
+        .value
+        .as_deref()
+        .map(crate::event::native_key_value)
+        .as_deref()
+    {
+        Some("ArrowUp") => RangeStepDirection::Increment,
+        Some("ArrowDown") => RangeStepDirection::Decrement,
+        _ => return false,
+    };
+    if blueprint.control_state.disabled || blueprint.control_state.read_only {
+        return true;
+    }
+
+    let current = blueprint.control_state.current;
+    let Some(next) = step_range_value(
+        current,
+        blueprint.control_state.min,
+        blueprint.control_state.max,
+        blueprint.control_state.step,
+        direction,
+    ) else {
+        return true;
+    };
+    let changed = match (current, direction) {
+        (Some(current), RangeStepDirection::Increment) => next > current,
+        (Some(current), RangeStepDirection::Decrement) => next < current,
+        (None, _) => true,
+    };
+    if changed {
+        event.kind = crate::event::NativeEventKind::Change;
+        event.value = Some(format_normalized_number(next));
+    }
+    true
 }
 
 fn normalize_boolean_event_value(value: Option<&str>, current: bool) -> String {

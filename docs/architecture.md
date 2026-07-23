@@ -472,6 +472,15 @@ uses the same public collator filter. Native number text fields use the cached
 parser and formatter for localized display, range/step normalization, and
 model-space change events, so interactive behavior and application-level
 locale rules cannot drift.
+NumberField is represented as a native group with separate decrement button,
+numeric text input, and increment button nodes. The semantic hook computes
+button action values and `canIncrement`/`canDecrement` from the same
+minimum-anchored step grid used by runtime ArrowUp/ArrowDown handling. The
+shared interaction profile marks these keys as handled on AppKit, GTK4, and
+WinUI so a toolkit-native numeric control cannot apply a second increment.
+Read-only and disabled fields retain focus semantics but do not produce step
+changes. Continuous press and wheel stepping are intentionally separate
+remaining interaction contracts.
 AppKit keeps logical item identity separate from the collection selection
 target: a row button is registered as the ListBoxItem or TreeItem responder,
 while activation reports the selected value to the owning collection.

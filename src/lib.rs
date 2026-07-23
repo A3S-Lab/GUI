@@ -404,8 +404,8 @@ pub use semantic_ui::{
 };
 pub use semantic_ui::{use_form, use_form_value, FormProps, UseFormProps, UseFormResult};
 pub use semantic_ui::{
-    use_number_field, use_number_field_value, NumberFieldInputProps, NumberFieldProps,
-    UseNumberFieldProps, UseNumberFieldResult,
+    use_number_field, use_number_field_value, NumberFieldButtonProps, NumberFieldInputProps,
+    NumberFieldProps, UseNumberFieldProps, UseNumberFieldResult,
 };
 pub use semantic_ui::{
     use_slider_fill, use_slider_fill_value, use_slider_output, use_slider_output_value,

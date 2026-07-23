@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use crate::event::{NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
 use crate::input::{NativeEventContext, NativeInputModality};
-use crate::native::NativeRole;
+use crate::native::{is_number_input_type, NativeRole, NUMBER_FIELD_INPUT_METADATA_KEY};
 use crate::platform::{NativeWidgetBlueprint, NativeWidgetSetter};
 
 use super::move_interaction::PointerMoveState;
@@ -227,6 +227,8 @@ pub(crate) struct NativeInteractionProfile {
     has_terminal_event: bool,
     has_long_press_event: bool,
     has_collection_action: bool,
+    number_field_input: bool,
+    number_input: bool,
     enabled: bool,
     long_press_threshold: Duration,
 }
@@ -243,6 +245,11 @@ impl NativeInteractionProfile {
             &["onLongPressStart", "onLongPressEnd", "onLongPress"],
         );
         let has_collection_action = has_collection_action(blueprint);
+        let number_field_input = blueprint
+            .metadata
+            .get(NUMBER_FIELD_INPUT_METADATA_KEY)
+            .is_some_and(|value| value.eq_ignore_ascii_case("true"));
+        let number_input = is_number_input_type(blueprint.control_state.input_type.as_deref());
         let event_subscriptions = NativeInteractionSubscriptions::from_events(
             &blueprint.events,
             has_action || has_collection_action,
@@ -261,6 +268,8 @@ impl NativeInteractionProfile {
             has_terminal_event,
             has_long_press_event,
             has_collection_action,
+            number_field_input,
+            number_input,
             enabled: !blueprint.control_state.disabled,
             long_press_threshold: long_press_threshold(&blueprint.metadata),
         };
@@ -293,9 +302,15 @@ impl NativeInteractionProfile {
                     .get(crate::selection::COLLECTION_ACTION_METADATA_KEY)
                     .is_some_and(|value| value.eq_ignore_ascii_case("true"));
                 self.long_press_threshold = long_press_threshold(metadata);
+                self.number_field_input = metadata
+                    .get(NUMBER_FIELD_INPUT_METADATA_KEY)
+                    .is_some_and(|value| value.eq_ignore_ascii_case("true"));
                 self.overlay_subscriptions =
                     NativeInteractionSubscriptions::from_metadata(metadata);
                 self.refresh_subscriptions();
+            }
+            NativeWidgetSetter::SetInputType(input_type) => {
+                self.number_input = is_number_input_type(input_type.as_deref());
             }
             NativeWidgetSetter::SetPortableStyle(style) => {
                 self.style_subscriptions = NativeInteractionSubscriptions::from_style(style);
@@ -338,6 +353,17 @@ impl NativeInteractionProfile {
 
     pub(crate) fn tracks_movement(self) -> bool {
         self.enabled && self.subscriptions.movement
+    }
+
+    pub(crate) fn handles_number_field_step_key(self, kind: NativeEventKind, key: &str) -> bool {
+        self.enabled
+            && self.number_field_input
+            && self.number_input
+            && kind == NativeEventKind::KeyDown
+            && matches!(
+                super::native_key_value(key).as_str(),
+                "ArrowUp" | "ArrowDown"
+            )
     }
 
     fn refresh_subscriptions(&mut self) {
@@ -1167,6 +1193,30 @@ mod tests {
         profile.apply_setter(&NativeWidgetSetter::SetAction(Some("activate".to_string())));
         assert!(profile.subscriptions.terminal_press);
         assert!(profile.normalizes_keyboard_press());
+    }
+
+    #[test]
+    fn number_field_profiles_claim_only_the_portable_arrow_step_keys() {
+        let element = NativeElement::new("quantity", NativeRole::TextField).with_props(
+            NativeProps::new()
+                .input_type("number")
+                .metadata(NUMBER_FIELD_INPUT_METADATA_KEY, "true"),
+        );
+        let blueprint = AppKitAdapter.blueprint(&element);
+        let mut profile = NativeInteractionProfile::from_blueprint(&blueprint);
+
+        assert!(profile.handles_number_field_step_key(NativeEventKind::KeyDown, "ArrowUp"));
+        assert!(profile.handles_number_field_step_key(NativeEventKind::KeyDown, "Down"));
+        assert!(!profile.handles_number_field_step_key(NativeEventKind::KeyUp, "ArrowUp"));
+        assert!(!profile.handles_number_field_step_key(NativeEventKind::KeyDown, "ArrowLeft"));
+
+        profile.apply_setter(&NativeWidgetSetter::SetInputType(Some("text".to_string())));
+        assert!(!profile.handles_number_field_step_key(NativeEventKind::KeyDown, "ArrowUp"));
+        profile.apply_setter(&NativeWidgetSetter::SetInputType(Some(
+            "number".to_string(),
+        )));
+        profile.apply_setter(&NativeWidgetSetter::SetMetadata(BTreeMap::new()));
+        assert!(!profile.handles_number_field_step_key(NativeEventKind::KeyDown, "ArrowUp"));
     }
 
     #[test]
