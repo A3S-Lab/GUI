@@ -87,8 +87,9 @@ The following foundations are implemented and are not roadmap placeholders:
   native evidence, and CI publishes each backend's outstanding matrix
 - a Windows OS-input smoke harness that drives real XAML Button-backed
   `Button`, `DisclosureSummary`, `Link`, `ImageMapArea`, and `MenuItem` roles
-  through `SendInput`, synthetic pen/touch injection, and UI Automation,
-  currently covering all 70 of their cases (70 of 98 required WinUI cases)
+  plus list-backed `ListBoxItem` and `TreeItem` roles through `SendInput`,
+  synthetic pen/touch injection, and UI Automation, covering the complete
+  98-case WinUI manifest
 
 ## Delivery Dependency
 

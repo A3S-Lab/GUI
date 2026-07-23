@@ -341,23 +341,23 @@ just native-input-manifest appkit
 just native-input-manifest gtk4
 just native-input-manifest winui
 just native-input-conformance path/to/evidence.json
-just winui-input-smoke path/to/winui-button-backed-smoke.json
+just winui-input-smoke path/to/winui-smoke.json
 ```
 
-The WinUI smoke harness covers the XAML Button-backed `Button`,
-`DisclosureSummary`, `Link`, `ImageMapArea`, and `MenuItem` roles. Mouse and
-keyboard use Windows `SendInput`, pen and touch use synthetic pointer injection,
-and assistive activation uses UI Automation `InvokePattern`. It exercises
+The WinUI smoke harness covers XAML Button-backed `Button`,
+`DisclosureSummary`, `Link`, `ImageMapArea`, and `MenuItem` roles plus
+`ListBoxItem` and `TreeItem` inside real list containers. Mouse and keyboard use
+Windows `SendInput`, pen and touch use synthetic pointer injection, and
+assistive activation uses UI Automation `InvokePattern` or
+`SelectionItemPattern` according to the native control contract. It exercises
 successful activation, mouse/pen/touch cancellation, keyed-rerender
 cancellation, and disabled input inside the production XAML application
 lifecycle. Handled routed pointer events and preview key events feed the same
 portable press state machine while the asynchronous dispatcher loop leaves
-WinUI layout and input dispatch unblocked.
-The strict verifier accepts no semantic defect in the complete 70-case slice,
-but the 28 `ListBoxItem` and `TreeItem` WinUI cases remain. The P0 gap is
-therefore still open. Native automation drivers still need to execute every
-generated case and submit passing run artifacts on real macOS, Linux, and
-Windows runners.
+WinUI layout and input dispatch unblocked. The strict verifier accepts the
+complete 98-case WinUI manifest with no semantic defect. Native automation
+drivers still need to submit complete passing run artifacts on real macOS and
+Linux runners.
 
 ## Known Gaps
 
@@ -366,7 +366,7 @@ props:
 
 | Priority | Area | Required outcome |
 | --- | --- | --- |
-| P0 | Native input conformance | Populate the generated V1 manifests with platform-run mouse, pen, touch where applicable, keyboard, assistive activation, disabled, cancellation, and keyed-rerender fixtures for every role currently marked native; then close or retain evidence-backed menu/item exceptions. |
+| P0 | Native input conformance | WinUI's complete 98-case V1 manifest passes real OS automation. Populate the AppKit and GTK4 manifests with platform-run mouse, pen, touch where applicable, keyboard, assistive activation, disabled, cancellation, and keyed-rerender fixtures for every role currently marked native; then close or retain evidence-backed menu/item exceptions. |
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |
 | P1 | Collections and selection | Add layout-aware page navigation and complete IME/dead-key typeahead conformance. |

@@ -9,12 +9,12 @@ use std::time::{Duration, Instant};
 use a3s_gui::{
     run_winui_application_staged_async, wait_winui_dispatcher, ActionInvocation, GuiError,
     GuiResult, HostNodeId, NativeBackendKind, NativeCapabilities, NativeEvent, NativeEventKind,
-    NativeInputConformanceCaseV1, NativeInputConformanceIssueCodeV1,
-    NativeInputConformanceManifestV1, NativeInputConformanceObservationV1,
-    NativeInputConformanceRunV1, NativeInputConformanceScenarioV1, NativeRole, UiFrame,
-    WinUiEventWait, WinUiOsWidget, WinUiRuntimeApp,
+    NativeInputConformanceCaseV1, NativeInputConformanceManifestV1,
+    NativeInputConformanceObservationV1, NativeInputConformanceRunV1,
+    NativeInputConformanceScenarioV1, NativeRole, UiFrame, WinUiEventWait, WinUiOsWidget,
+    WinUiRuntimeApp,
 };
-use automation::TARGET_LABEL;
+use automation::{position_smoke_window, TARGET_LABEL};
 use scenarios::{capture_smoke_run, create_smoke_app};
 use serde_json::json;
 use windows_core::Interface;
@@ -23,18 +23,20 @@ use winui3::Microsoft::UI::Xaml as xaml;
 const WORKER_TIMEOUT: Duration = Duration::from_secs(10);
 const EVENT_SETTLE_TIME: Duration = Duration::from_millis(250);
 const CASES_PER_ROLE: usize = 14;
-const BUTTON_BACKED_ROLES: [NativeRole; 5] = [
+const NATIVE_INPUT_ROLES: [NativeRole; 7] = [
     NativeRole::Button,
     NativeRole::DisclosureSummary,
     NativeRole::Link,
     NativeRole::ImageMapArea,
     NativeRole::MenuItem,
+    NativeRole::ListBoxItem,
+    NativeRole::TreeItem,
 ];
-const CAPTURED_NATIVE_CASES: usize = BUTTON_BACKED_ROLES.len() * CASES_PER_ROLE;
+const CAPTURED_NATIVE_CASES: usize = NATIVE_INPUT_ROLES.len() * CASES_PER_ROLE;
 
 #[derive(Debug)]
 struct FixtureState {
-    generations: [u32; BUTTON_BACKED_ROLES.len()],
+    generations: [u32; NATIVE_INPUT_ROLES.len()],
     role: NativeRole,
     disabled: bool,
     rerender_on_press_start: bool,
@@ -43,7 +45,7 @@ struct FixtureState {
 impl Default for FixtureState {
     fn default() -> Self {
         Self {
-            generations: [0; BUTTON_BACKED_ROLES.len()],
+            generations: [0; NATIVE_INPUT_ROLES.len()],
             role: NativeRole::Button,
             disabled: false,
             rerender_on_press_start: false,
@@ -72,10 +74,7 @@ pub(super) fn main() -> Result<(), Box<dyn std::error::Error>> {
     let json = serde_json::to_string_pretty(&run)?;
     if let Some(path) = output {
         std::fs::write(&path, format!("{json}\n"))?;
-        eprintln!(
-            "wrote partial WinUI OS-input evidence to {}",
-            path.display()
-        );
+        eprintln!("wrote WinUI OS-input evidence to {}", path.display());
     } else {
         println!("{json}");
     }
@@ -99,34 +98,10 @@ fn parse_output_path() -> Result<Option<PathBuf>, Box<dyn std::error::Error>> {
 }
 
 fn fixture_frame(state: &FixtureState) -> GuiResult<UiFrame> {
-    let children = BUTTON_BACKED_ROLES
+    let children = NATIVE_INPUT_ROLES
         .iter()
         .enumerate()
-        .map(|(index, role)| {
-            let active = *role == state.role;
-            Ok(json!({
-                "kind": "element",
-                "key": format!(
-                    "native-input-target-{index}-{}",
-                    state.generations[index]
-                ),
-                "tag": button_backed_role_tag(*role)?,
-                "props": {
-                    "label": if active {
-                        TARGET_LABEL.to_string()
-                    } else {
-                        format!("Inactive {role:?} input target")
-                    },
-                    "disabled": if active { state.disabled } else { true },
-                    "events": {
-                        "onPressStart": "recordPress",
-                        "onPressUp": "recordPress",
-                        "onPressEnd": "recordPress",
-                        "onPress": "recordPress"
-                    }
-                }
-            }))
-        })
+        .map(|(index, role)| fixture_role(state, index, *role))
         .collect::<GuiResult<Vec<_>>>()?;
     serde_json::from_value(json!({
         "frameId": "winui-native-input-smoke-v1",
@@ -147,22 +122,81 @@ fn fixture_frame(state: &FixtureState) -> GuiResult<UiFrame> {
     .map_err(|error| GuiError::invalid_tree(format!("invalid WinUI input fixture: {error}")))
 }
 
-fn button_backed_role_tag(role: NativeRole) -> GuiResult<&'static str> {
+fn fixture_role(
+    state: &FixtureState,
+    index: usize,
+    role: NativeRole,
+) -> GuiResult<serde_json::Value> {
+    let active = role == state.role;
+    let target = json!({
+        "kind": "element",
+        "key": format!(
+            "native-input-target-{index}-{}",
+            state.generations[index]
+        ),
+        "tag": native_input_role_tag(role)?,
+        "props": {
+            "label": if active {
+                TARGET_LABEL.to_string()
+            } else {
+                format!("Inactive {role:?} input target")
+            },
+            "value": format!("native-input-value-{index}"),
+            "textValue": if active {
+                TARGET_LABEL.to_string()
+            } else {
+                format!("Inactive {role:?} input target")
+            },
+            "disabled": if active { state.disabled } else { true },
+            "events": {
+                "onPressStart": "recordPress",
+                "onPressUp": "recordPress",
+                "onPressEnd": "recordPress",
+                "onPress": "recordPress"
+            }
+        }
+    });
+    match role {
+        NativeRole::ListBoxItem => Ok(json!({
+            "kind": "element",
+            "key": format!("native-input-list-{index}"),
+            "tag": "ListBox",
+            "props": {
+                "label": "WinUI native input list fixture"
+            },
+            "children": [target]
+        })),
+        NativeRole::TreeItem => Ok(json!({
+            "kind": "element",
+            "key": format!("native-input-tree-{index}"),
+            "tag": "Tree",
+            "props": {
+                "label": "WinUI native input tree fixture"
+            },
+            "children": [target]
+        })),
+        _ => Ok(target),
+    }
+}
+
+fn native_input_role_tag(role: NativeRole) -> GuiResult<&'static str> {
     match role {
         NativeRole::Button => Ok("Button"),
         NativeRole::DisclosureSummary => Ok("DisclosureSummary"),
         NativeRole::Link => Ok("Link"),
         NativeRole::ImageMapArea => Ok("ImageMapArea"),
         NativeRole::MenuItem => Ok("MenuItem"),
+        NativeRole::ListBoxItem => Ok("ListBoxItem"),
+        NativeRole::TreeItem => Ok("TreeItem"),
         _ => Err(GuiError::invalid_tree(format!(
-            "unsupported WinUI button-backed smoke role {role:?}"
+            "unsupported WinUI native input smoke role {role:?}"
         ))),
     }
 }
 
 fn fixture_reduce(state: &mut FixtureState, invocation: &ActionInvocation) -> GuiResult<()> {
     if state.rerender_on_press_start && invocation.event == NativeEventKind::PressStart {
-        let index = button_backed_role_index(state.role)?;
+        let index = native_input_role_index(state.role)?;
         state.generations[index] = state.generations[index].saturating_add(1);
         state.rerender_on_press_start = false;
     }
@@ -184,8 +218,8 @@ async fn remount_fixture(
     fixture_target(app, role)
 }
 
-fn button_backed_role_index(role: NativeRole) -> GuiResult<usize> {
-    BUTTON_BACKED_ROLES
+fn native_input_role_index(role: NativeRole) -> GuiResult<usize> {
+    NATIVE_INPUT_ROLES
         .iter()
         .position(|candidate| *candidate == role)
         .ok_or_else(|| GuiError::invalid_tree(format!("unsupported WinUI smoke role {role:?}")))
@@ -218,11 +252,21 @@ fn fixture_target(app: &FixtureApp, role: NativeRole) -> GuiResult<HostNodeId> {
         .handles()
         .get(&target)
         .ok_or_else(|| GuiError::host("WinUI input fixture target has no OS handle"))?;
-    if matches!(handle.widget, WinUiOsWidget::Button(_)) {
+    let expected_widget = match role {
+        NativeRole::Button
+        | NativeRole::DisclosureSummary
+        | NativeRole::Link
+        | NativeRole::ImageMapArea
+        | NativeRole::MenuItem => matches!(handle.widget, WinUiOsWidget::Button(_)),
+        NativeRole::ListBoxItem => matches!(handle.widget, WinUiOsWidget::ListBoxItem(_)),
+        NativeRole::TreeItem => matches!(handle.widget, WinUiOsWidget::ListBoxItem(_)),
+        _ => false,
+    };
+    if expected_widget {
         Ok(target)
     } else {
         Err(GuiError::host(format!(
-            "WinUI {role:?} smoke target is not backed by a XAML Button"
+            "WinUI {role:?} smoke target is not backed by its expected XAML control"
         )))
     }
 }
@@ -253,7 +297,9 @@ fn fixture_handles(
             "WinUI input fixture returned an invalid HWND",
         ));
     }
-    Ok((target, window, hwnd.0 as isize))
+    let hwnd_value = hwnd.0 as isize;
+    position_smoke_window(hwnd_value)?;
+    Ok((target, window, hwnd_value))
 }
 
 async fn run_scenario(
@@ -382,26 +428,28 @@ fn pump_once(app: &mut FixtureApp) -> GuiResult<Vec<NativeEvent>> {
         .collect())
 }
 
-fn validate_partial_smoke(run: &NativeInputConformanceRunV1, diagnostics: &mut Vec<String>) {
+fn validate_smoke(run: &NativeInputConformanceRunV1, diagnostics: &mut Vec<String>) {
     let manifest = NativeInputConformanceManifestV1::from_capabilities(
         &NativeCapabilities::for_backend(NativeBackendKind::WinUI),
     );
     let report = manifest.verify(run);
-    let unexpected = report
-        .issues
-        .iter()
-        .filter(|issue| issue.code != NativeInputConformanceIssueCodeV1::MissingObservation)
-        .map(|issue| issue.message.clone())
-        .collect::<Vec<_>>();
-    if report.verified_cases != run.observations.len() || !unexpected.is_empty() {
+    if !report.is_conformant() {
         diagnostics.push(format!(
-            "partial smoke validation verified {} of {} captured cases{}",
+            "WinUI smoke validation verified {} of {} required cases{}",
             report.verified_cases,
-            run.observations.len(),
-            if unexpected.is_empty() {
+            report.required_cases,
+            if report.issues.is_empty() {
                 String::new()
             } else {
-                format!(": {}", unexpected.join(", "))
+                format!(
+                    ": {}",
+                    report
+                        .issues
+                        .iter()
+                        .map(|issue| issue.message.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
             }
         ));
     }

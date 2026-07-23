@@ -3,7 +3,9 @@ use std::mem::size_of;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use a3s_gui::{GuiError, GuiResult, NativeInputConformanceEnvironmentV1, NativeOperatingSystemV1};
+use a3s_gui::{
+    GuiError, GuiResult, NativeInputConformanceEnvironmentV1, NativeOperatingSystemV1, NativeRole,
+};
 use windows::Win32::Foundation::{GetLastError, HWND, POINT};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED,
@@ -11,18 +13,59 @@ use windows::Win32::System::Com::{
 use windows::Win32::System::SystemInformation::{GetVersionExW, OSVERSIONINFOW};
 use windows::Win32::UI::Accessibility::{
     CUIAutomation, IUIAutomation, IUIAutomationElement, IUIAutomationInvokePattern,
-    TreeScope_Descendants, UIA_ButtonControlTypeId, UIA_InvokePatternId, UIA_E_ELEMENTNOTENABLED,
+    IUIAutomationSelectionItemPattern, TreeScope_Descendants, UIA_ButtonControlTypeId,
+    UIA_InvokePatternId, UIA_ListItemControlTypeId, UIA_SelectionItemPatternId, UIA_CONTROLTYPE_ID,
+    UIA_E_ELEMENTNOTENABLED,
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT, KEYEVENTF_KEYUP,
     MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEINPUT, VK_RETURN,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowThreadProcessId, SetCursorPos, SetForegroundWindow, WindowFromPoint,
+    GetSystemMetrics, GetWindowThreadProcessId, SetCursorPos, SetForegroundWindow, SetWindowPos,
+    WindowFromPoint, SM_CXSCREEN, SWP_NOSIZE, SWP_NOZORDER,
 };
 
 pub(super) const TARGET_LABEL: &str = "A3S WinUI native input target";
 const UI_AUTOMATION_TIMEOUT: Duration = Duration::from_secs(5);
+const SMOKE_WINDOW_OUTER_WIDTH: i32 = 420;
+const SMOKE_WINDOW_MARGIN: i32 = 24;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UiAutomationAction {
+    Invoke,
+    Select,
+}
+
+impl UiAutomationAction {
+    fn for_role(role: NativeRole) -> Result<Self, String> {
+        match role {
+            NativeRole::Button
+            | NativeRole::DisclosureSummary
+            | NativeRole::Link
+            | NativeRole::ImageMapArea
+            | NativeRole::MenuItem => Ok(Self::Invoke),
+            NativeRole::ListBoxItem | NativeRole::TreeItem => Ok(Self::Select),
+            _ => Err(format!(
+                "WinUI input smoke has no UI Automation action for {role:?}"
+            )),
+        }
+    }
+
+    const fn control_type(self) -> UIA_CONTROLTYPE_ID {
+        match self {
+            Self::Invoke => UIA_ButtonControlTypeId,
+            Self::Select => UIA_ListItemControlTypeId,
+        }
+    }
+
+    const fn control_name(self) -> &'static str {
+        match self {
+            Self::Invoke => "button",
+            Self::Select => "list item",
+        }
+    }
+}
 
 struct ComApartment;
 
@@ -46,11 +89,13 @@ impl Drop for ComApartment {
 struct UiAutomationTarget {
     // COM interfaces must release before the apartment is uninitialized.
     element: IUIAutomationElement,
+    action: UiAutomationAction,
     _apartment: ComApartment,
 }
 
 impl UiAutomationTarget {
-    fn find(hwnd: HWND, label: &str) -> Result<Self, String> {
+    fn find(hwnd: HWND, label: &str, role: NativeRole) -> Result<Self, String> {
+        let action = UiAutomationAction::for_role(role)?;
         let apartment = ComApartment::initialize()?;
         let automation: IUIAutomation =
             unsafe { CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER) }.map_err(
@@ -79,9 +124,10 @@ impl UiAutomationTarget {
                 let control_type = unsafe { element.CurrentControlType() }.map_err(|error| {
                     format!("failed to read WinUI automation control type: {error}")
                 })?;
-                if name.to_string() == label && control_type == UIA_ButtonControlTypeId {
+                if name.to_string() == label && control_type == action.control_type() {
                     return Ok(Self {
                         element,
+                        action,
                         _apartment: apartment,
                     });
                 }
@@ -89,7 +135,8 @@ impl UiAutomationTarget {
 
             if started.elapsed() >= UI_AUTOMATION_TIMEOUT {
                 return Err(format!(
-                    "UI Automation did not expose button {label:?} within {} seconds",
+                    "UI Automation did not expose {} {label:?} for {role:?} within {} seconds",
+                    action.control_name(),
                     UI_AUTOMATION_TIMEOUT.as_secs()
                 ));
             }
@@ -144,57 +191,116 @@ impl UiAutomationTarget {
         }
     }
 
-    fn invoke(&self, expected_enabled: bool) -> Result<(), String> {
-        let pattern: IUIAutomationInvokePattern =
-            unsafe { self.element.GetCurrentPatternAs(UIA_InvokePatternId) }
-                .map_err(|error| format!("WinUI target does not expose InvokePattern: {error}"))?;
-        let result = unsafe { pattern.Invoke() };
+    fn activate(&self, expected_enabled: bool) -> Result<(), String> {
+        let (pattern, result) = match self.action {
+            UiAutomationAction::Invoke => {
+                let pattern: IUIAutomationInvokePattern =
+                    unsafe { self.element.GetCurrentPatternAs(UIA_InvokePatternId) }.map_err(
+                        |error| format!("WinUI target does not expose InvokePattern: {error}"),
+                    )?;
+                ("InvokePattern", unsafe { pattern.Invoke() })
+            }
+            UiAutomationAction::Select => {
+                let pattern: IUIAutomationSelectionItemPattern =
+                    unsafe { self.element.GetCurrentPatternAs(UIA_SelectionItemPatternId) }
+                        .map_err(|error| {
+                            format!("WinUI target does not expose SelectionItemPattern: {error}")
+                        })?;
+                if expected_enabled
+                    && unsafe { pattern.CurrentIsSelected() }
+                        .map_err(|error| {
+                            format!(
+                                "failed to read WinUI SelectionItemPattern selected state: {error}"
+                            )
+                        })?
+                        .as_bool()
+                {
+                    unsafe { pattern.RemoveFromSelection() }.map_err(|error| {
+                        format!("failed to reset WinUI SelectionItemPattern state: {error}")
+                    })?;
+                }
+                ("SelectionItemPattern", unsafe { pattern.Select() })
+            }
+        };
         match (expected_enabled, result) {
             (true, Ok(())) => Ok(()),
-            (true, Err(error)) => Err(format!("UI Automation InvokePattern failed: {error}")),
+            (true, Err(error)) => Err(format!("UI Automation {pattern} failed: {error}")),
             (false, Err(error)) if error.code().0 as u32 == UIA_E_ELEMENTNOTENABLED => Ok(()),
-            (false, Ok(())) => {
-                Err("disabled WinUI target unexpectedly accepted InvokePattern".to_string())
-            }
+            (false, Ok(())) => Err(format!(
+                "disabled WinUI target unexpectedly accepted {pattern}"
+            )),
             (false, Err(error)) => Err(format!(
-                "disabled WinUI InvokePattern returned an unexpected error: {error}"
+                "disabled WinUI {pattern} returned an unexpected error: {error}"
             )),
         }
     }
 }
 
-pub(super) fn target_center(hwnd: isize, expected_enabled: bool) -> Result<(i32, i32), String> {
-    let target = UiAutomationTarget::find(hwnd_from_value(hwnd), TARGET_LABEL)?;
+pub(super) fn position_smoke_window(hwnd: isize) -> GuiResult<()> {
+    let screen_width = unsafe { GetSystemMetrics(SM_CXSCREEN) };
+    let x = (screen_width - SMOKE_WINDOW_OUTER_WIDTH - SMOKE_WINDOW_MARGIN).max(0);
+    unsafe {
+        SetWindowPos(
+            hwnd_from_value(hwnd),
+            None,
+            x,
+            SMOKE_WINDOW_MARGIN,
+            0,
+            0,
+            SWP_NOSIZE | SWP_NOZORDER,
+        )
+    }
+    .map_err(|error| GuiError::host(format!("failed to position WinUI smoke window: {error}")))
+}
+
+pub(super) fn target_center(
+    hwnd: isize,
+    role: NativeRole,
+    expected_enabled: bool,
+) -> Result<(i32, i32), String> {
+    let hwnd = hwnd_from_value(hwnd);
+    let _ = unsafe { SetForegroundWindow(hwnd) };
+    thread::sleep(Duration::from_millis(50));
+    let target = UiAutomationTarget::find(hwnd, TARGET_LABEL, role)?;
     target.require_enabled(expected_enabled)?;
     target.verified_center()
 }
 
 pub(super) fn spawn_mouse_activation(
     hwnd: isize,
+    role: NativeRole,
     expected_enabled: bool,
 ) -> JoinHandle<Result<(), String>> {
-    spawn_mouse_input(hwnd, expected_enabled, Duration::from_millis(30))
+    spawn_mouse_input(hwnd, role, expected_enabled, Duration::from_millis(30))
 }
 
-pub(super) fn spawn_keyed_rerender_activation(hwnd: isize) -> JoinHandle<Result<(), String>> {
-    spawn_mouse_input(hwnd, true, Duration::from_millis(200))
+pub(super) fn spawn_keyed_rerender_activation(
+    hwnd: isize,
+    role: NativeRole,
+) -> JoinHandle<Result<(), String>> {
+    spawn_mouse_input(hwnd, role, true, Duration::from_millis(200))
 }
 
-pub(super) fn spawn_mouse_cancellation(hwnd: isize) -> JoinHandle<Result<(), String>> {
-    spawn_mouse_input(hwnd, true, Duration::from_millis(300))
+pub(super) fn spawn_mouse_cancellation(
+    hwnd: isize,
+    role: NativeRole,
+) -> JoinHandle<Result<(), String>> {
+    spawn_mouse_input(hwnd, role, true, Duration::from_millis(300))
 }
 
 fn spawn_mouse_input(
     hwnd: isize,
+    role: NativeRole,
     expected_enabled: bool,
     hold_time: Duration,
 ) -> JoinHandle<Result<(), String>> {
     thread::spawn(move || {
         let hwnd = hwnd_from_value(hwnd);
-        let target = UiAutomationTarget::find(hwnd, TARGET_LABEL)?;
+        let _ = unsafe { SetForegroundWindow(hwnd) };
+        thread::sleep(Duration::from_millis(50));
+        let target = UiAutomationTarget::find(hwnd, TARGET_LABEL, role)?;
         target.require_enabled(expected_enabled)?;
         let (x, y) = target.verified_center()?;
-        let _ = unsafe { SetForegroundWindow(hwnd) };
         unsafe { SetCursorPos(x, y) }
             .map_err(|error| format!("failed to position the OS cursor: {error}"))?;
         thread::sleep(Duration::from_millis(50));
@@ -206,14 +312,15 @@ fn spawn_mouse_input(
 
 pub(super) fn spawn_keyboard_activation(
     hwnd: isize,
+    role: NativeRole,
     expected_enabled: bool,
 ) -> JoinHandle<Result<(), String>> {
     thread::spawn(move || {
         let hwnd = hwnd_from_value(hwnd);
-        let target = UiAutomationTarget::find(hwnd, TARGET_LABEL)?;
-        target.require_enabled(expected_enabled)?;
         let _ = unsafe { SetForegroundWindow(hwnd) };
         thread::sleep(Duration::from_millis(50));
+        let target = UiAutomationTarget::find(hwnd, TARGET_LABEL, role)?;
+        target.require_enabled(expected_enabled)?;
         send_input(keyboard_input(false))?;
         thread::sleep(Duration::from_millis(30));
         send_input(keyboard_input(true))
@@ -222,12 +329,13 @@ pub(super) fn spawn_keyboard_activation(
 
 pub(super) fn spawn_assistive_activation(
     hwnd: isize,
+    role: NativeRole,
     expected_enabled: bool,
 ) -> JoinHandle<Result<(), String>> {
     thread::spawn(move || {
-        let target = UiAutomationTarget::find(hwnd_from_value(hwnd), TARGET_LABEL)?;
+        let target = UiAutomationTarget::find(hwnd_from_value(hwnd), TARGET_LABEL, role)?;
         target.require_enabled(expected_enabled)?;
-        target.invoke(expected_enabled)
+        target.activate(expected_enabled)
     })
 }
 
@@ -245,7 +353,7 @@ pub(super) fn windows_environment() -> GuiResult<NativeInputConformanceEnvironme
             version.dwMajorVersion, version.dwMinorVersion, version.dwBuildNumber
         ),
         "Windows App SDK via winio-winui3 0.4.2",
-        "Windows UI Automation + SendInput + synthetic pointer injection",
+        "Windows UI Automation Invoke/SelectionItem + SendInput + synthetic pointer injection",
     ))
 }
 
@@ -317,5 +425,25 @@ mod tests {
         assert_eq!(unsafe { down.Anonymous.ki }.wVk, VK_RETURN);
         assert_eq!(unsafe { down.Anonymous.ki }.dwFlags, Default::default());
         assert_eq!(unsafe { up.Anonymous.ki }.dwFlags, KEYEVENTF_KEYUP);
+    }
+
+    #[test]
+    fn automation_actions_follow_native_control_semantics() {
+        assert_eq!(
+            UiAutomationAction::for_role(NativeRole::Button).unwrap(),
+            UiAutomationAction::Invoke
+        );
+        assert_eq!(
+            UiAutomationAction::for_role(NativeRole::ListBoxItem).unwrap(),
+            UiAutomationAction::Select
+        );
+        assert_eq!(
+            UiAutomationAction::for_role(NativeRole::TreeItem).unwrap(),
+            UiAutomationAction::Select
+        );
+        assert_eq!(
+            UiAutomationAction::Select.control_type(),
+            UIA_ListItemControlTypeId
+        );
     }
 }

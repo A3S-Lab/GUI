@@ -1,8 +1,8 @@
-use std::ffi::c_void;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use windows::Win32::Foundation::{HWND, POINT, RECT};
+use a3s_gui::NativeRole;
+use windows::Win32::Foundation::{POINT, RECT};
 use windows::Win32::UI::Controls::{
     CreateSyntheticPointerDevice, DestroySyntheticPointerDevice, HSYNTHETICPOINTERDEVICE,
     POINTER_FEEDBACK_NONE, POINTER_TYPE_INFO, POINTER_TYPE_INFO_0,
@@ -15,8 +15,8 @@ use windows::Win32::UI::Input::Pointer::{
     POINTER_PEN_INFO, POINTER_TOUCH_INFO,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    SetForegroundWindow, PEN_MASK_PRESSURE, POINTER_INPUT_TYPE, PT_PEN, PT_TOUCH,
-    TOUCH_MASK_CONTACTAREA, TOUCH_MASK_ORIENTATION, TOUCH_MASK_PRESSURE,
+    PEN_MASK_PRESSURE, POINTER_INPUT_TYPE, PT_PEN, PT_TOUCH, TOUCH_MASK_CONTACTAREA,
+    TOUCH_MASK_ORIENTATION, TOUCH_MASK_PRESSURE,
 };
 
 use super::automation::target_center;
@@ -73,14 +73,13 @@ impl SyntheticPointerKind {
 
 pub(super) fn spawn_synthetic_pointer(
     hwnd: isize,
+    role: NativeRole,
     expected_enabled: bool,
     kind: SyntheticPointerKind,
     completion: SyntheticPointerCompletion,
 ) -> JoinHandle<Result<(), String>> {
     thread::spawn(move || {
-        let (x, y) = target_center(hwnd, expected_enabled)?;
-        let _ = unsafe { SetForegroundWindow(hwnd_from_value(hwnd)) };
-        thread::sleep(Duration::from_millis(50));
+        let (x, y) = target_center(hwnd, role, expected_enabled)?;
 
         let device = SyntheticPointerDevice::create(kind)?;
         device.inject(pointer_type_info(kind, SyntheticPointerPhase::Down, x, y))?;
@@ -197,10 +196,6 @@ fn contact_rect(x: i32, y: i32) -> RECT {
         right: x + 2,
         bottom: y + 2,
     }
-}
-
-fn hwnd_from_value(value: isize) -> HWND {
-    HWND(value as *mut c_void)
 }
 
 #[cfg(test)]

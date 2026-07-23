@@ -67,7 +67,7 @@ impl WinUiWidgetKind {
             NativeWidgetKind::List => Self::ListView,
             NativeWidgetKind::ListItem => Self::ListViewItem,
             NativeWidgetKind::Tree => Self::ListView,
-            NativeWidgetKind::TreeItem => Self::SelectorItem,
+            NativeWidgetKind::TreeItem => Self::ListViewItem,
             NativeWidgetKind::Dialog => Self::ContentDialog,
             NativeWidgetKind::Popover => Self::ToolTip,
             NativeWidgetKind::Tabs => Self::TabView,

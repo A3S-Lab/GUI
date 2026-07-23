@@ -8,6 +8,14 @@ use crate::runtime::GuiRuntime;
 use crate::style::{OverflowMode, StyleLength};
 
 #[test]
+fn winui_tree_items_use_list_view_item_contract() {
+    assert_eq!(
+        WinUiWidgetKind::from_widget_kind(NativeWidgetKind::TreeItem),
+        WinUiWidgetKind::ListViewItem
+    );
+}
+
+#[test]
 fn winui_max_length_value_maps_protocol_limits_to_winui_contract() {
     assert_eq!(winui_max_length_value(None), 0);
     assert_eq!(winui_max_length_value(Some(64)), 64);

@@ -211,6 +211,8 @@ impl WinUiNativeSurface {
                     &self.events,
                     Arc::clone(&self.events_suppressed),
                     Arc::clone(&self.list_values),
+                    Arc::clone(&self.list_nodes),
+                    Arc::clone(&self.activation_contexts),
                 )?;
                 WinUiOsWidget::ListBox(list_box)
             }

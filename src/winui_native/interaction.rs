@@ -5,6 +5,7 @@ use crate::event::{
     keyboard_move_events, virtual_press_events, NativeInteractionProfile, NativeLongPressTimer,
     PointerMoveState, PointerPressState,
 };
+use crate::native::NativeRole;
 use winui3::Microsoft::UI::Dispatching::DispatcherQueueTimer;
 use winui3::Microsoft::UI::Input::PointerDeviceType;
 use xaml::Input::{PointerEventHandler, PointerRoutedEventArgs};
@@ -13,6 +14,7 @@ use xaml::Input::{PointerEventHandler, PointerRoutedEventArgs};
 pub(super) struct WinUiInteractionRegistration {
     profile: NativeInteractionProfile,
     native_button: bool,
+    native_selection_item: bool,
 }
 
 impl WinUiInteractionRegistration {
@@ -20,6 +22,13 @@ impl WinUiInteractionRegistration {
         Self {
             profile: NativeInteractionProfile::from_blueprint(blueprint),
             native_button: matches!(widget, WinUiOsWidget::Button(_)),
+            native_selection_item: matches!(
+                (widget, blueprint.role),
+                (
+                    WinUiOsWidget::ListBoxItem(_) | WinUiOsWidget::ComboBoxItem(_),
+                    NativeRole::ListBoxItem | NativeRole::TreeItem
+                )
+            ),
         }
     }
 
@@ -28,7 +37,7 @@ impl WinUiInteractionRegistration {
     }
 
     pub(super) fn awaits_native_activation(self) -> bool {
-        self.native_button
+        self.native_button || self.native_selection_item
     }
 }
 
@@ -261,7 +270,7 @@ fn register_pointer_press_lifecycle(
             return Ok(());
         }
         let context = pointer_event_context(args, &press_element);
-        if current.native_button {
+        if current.awaits_native_activation() {
             remember_activation_context(&press_contexts, id, context);
         }
         if current.native_button || current.profile.subscriptions.tracks_press() {
@@ -773,7 +782,7 @@ pub(super) fn remember_activation_context(
     }
 }
 
-fn take_activation_context(
+pub(super) fn take_activation_context(
     contexts: &WinUiActivationContexts,
     id: HostNodeId,
 ) -> Option<NativeEventContext> {
@@ -832,6 +841,7 @@ mod tests {
         WinUiInteractionRegistration {
             profile: NativeInteractionProfile::from_blueprint(&blueprint),
             native_button: true,
+            native_selection_item: false,
         }
     }
 
@@ -961,6 +971,7 @@ mod tests {
         let registration = WinUiInteractionRegistration {
             profile: NativeInteractionProfile::from_blueprint(&blueprint),
             native_button: false,
+            native_selection_item: false,
         };
         let active = Mutex::new(KeyboardPressState::default());
         let context = NativeEventContext::new().modality(NativeInputModality::Keyboard);

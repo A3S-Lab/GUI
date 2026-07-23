@@ -262,6 +262,9 @@ impl WinUiNativeSurface {
         if let Ok(mut list_values) = self.list_values.lock() {
             list_values.remove(&id);
         }
+        if let Ok(mut list_nodes) = self.list_nodes.lock() {
+            list_nodes.remove(&id);
+        }
         self.tab_children.remove(&id);
         self.tab_items.remove(&id);
         self.tab_selected_values.remove(&id);

@@ -15,9 +15,9 @@ use super::synthetic_pointer::{
 };
 use super::{
     fixture_frame, fixture_handles, fixture_reduce, pump_for, remount_fixture, run_scenario,
-    run_scenario_with_pointer_release, set_fixture_disabled, validate_partial_smoke, FixtureApp,
-    FixtureState, WindowGuard, BUTTON_BACKED_ROLES, CAPTURED_NATIVE_CASES, CASES_PER_ROLE,
-    EVENT_SETTLE_TIME,
+    run_scenario_with_pointer_release, set_fixture_disabled, validate_smoke, FixtureApp,
+    FixtureState, WindowGuard, CAPTURED_NATIVE_CASES, CASES_PER_ROLE, EVENT_SETTLE_TIME,
+    NATIVE_INPUT_ROLES,
 };
 
 pub(super) fn create_smoke_app() -> GuiResult<FixtureApp> {
@@ -39,14 +39,14 @@ pub(super) async fn capture_smoke_run(
 
     let mut diagnostics = Vec::new();
     let mut observations = Vec::new();
-    for role in BUTTON_BACKED_ROLES {
+    for role in NATIVE_INPUT_ROLES {
         observations
             .extend(capture_role_scenarios(&mut app, hwnd_value, role, &mut diagnostics).await?);
     }
 
     if observations.len() != CAPTURED_NATIVE_CASES {
         diagnostics.push(format!(
-            "WinUI button-backed role smoke captured {} cases, expected {CAPTURED_NATIVE_CASES}",
+            "WinUI native input smoke captured {} cases, expected {CAPTURED_NATIVE_CASES}",
             observations.len()
         ));
     }
@@ -57,7 +57,7 @@ pub(super) async fn capture_smoke_run(
     )
     .environment(windows_environment()?)
     .observations(observations);
-    validate_partial_smoke(&run, &mut diagnostics);
+    validate_smoke(&run, &mut diagnostics);
     Ok((run, diagnostics))
 }
 
@@ -249,9 +249,9 @@ async fn capture_mouse_scenario(
 ) -> GuiResult<NativeInputConformanceObservationV1> {
     let target = remount_fixture(app, role, disabled, keyed_rerender).await?;
     let worker = if keyed_rerender {
-        spawn_keyed_rerender_activation(hwnd)
+        spawn_keyed_rerender_activation(hwnd, role)
     } else {
-        spawn_mouse_activation(hwnd, !disabled)
+        spawn_mouse_activation(hwnd, role, !disabled)
     };
     run_scenario(app, role, target, scenario, worker, diagnostics).await
 }
@@ -268,7 +268,7 @@ async fn capture_mouse_cancellation_scenario(
         role,
         target,
         NativeInputConformanceScenarioV1::MouseCancellation,
-        spawn_mouse_cancellation(hwnd),
+        spawn_mouse_cancellation(hwnd, role),
         diagnostics,
     )
     .await
@@ -285,7 +285,7 @@ async fn capture_synthetic_pointer_scenario(
     diagnostics: &mut Vec<String>,
 ) -> GuiResult<NativeInputConformanceObservationV1> {
     let target = remount_fixture(app, role, disabled, false).await?;
-    let worker = spawn_synthetic_pointer(hwnd, !disabled, kind, completion);
+    let worker = spawn_synthetic_pointer(hwnd, role, !disabled, kind, completion);
     if completion == SyntheticPointerCompletion::Cancel && !disabled {
         run_scenario_with_pointer_release(app, role, target, scenario, worker, diagnostics).await
     } else {
@@ -312,7 +312,7 @@ async fn capture_keyboard_scenario(
         role,
         target,
         scenario,
-        spawn_keyboard_activation(hwnd, !disabled),
+        spawn_keyboard_activation(hwnd, role, !disabled),
         diagnostics,
     )
     .await
@@ -332,7 +332,7 @@ async fn capture_assistive_scenario(
         role,
         target,
         scenario,
-        spawn_assistive_activation(hwnd, !disabled),
+        spawn_assistive_activation(hwnd, role, !disabled),
         diagnostics,
     )
     .await

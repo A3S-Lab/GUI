@@ -120,6 +120,7 @@ pub struct WinUiNativeSurface {
     list_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     list_item_parents: BTreeMap<HostNodeId, HostNodeId>,
     list_values: Arc<Mutex<BTreeMap<HostNodeId, Vec<String>>>>,
+    list_nodes: Arc<Mutex<BTreeMap<HostNodeId, Vec<HostNodeId>>>>,
     tab_children: BTreeMap<HostNodeId, Vec<HostNodeId>>,
     tab_items: BTreeMap<HostNodeId, WinUiTabItem>,
     tab_selected_values: BTreeMap<HostNodeId, Option<String>>,
@@ -197,6 +198,7 @@ impl WinUiNativeSurface {
             list_children: BTreeMap::new(),
             list_item_parents: BTreeMap::new(),
             list_values: Arc::new(Mutex::new(BTreeMap::new())),
+            list_nodes: Arc::new(Mutex::new(BTreeMap::new())),
             tab_children: BTreeMap::new(),
             tab_items: BTreeMap::new(),
             tab_selected_values: BTreeMap::new(),
@@ -216,7 +218,7 @@ impl WinUiNativeSurface {
     }
 
     pub fn cancel_winui_pointer_capture(&self, id: HostNodeId) -> GuiResult<()> {
-        let Some(WinUiOsWidget::Button(button)) = self.widgets.get(&id) else {
+        let Some(element) = self.widgets.get(&id).and_then(WinUiOsWidget::ui_element) else {
             return Err(GuiError::host(format!(
                 "WinUI widget {} does not expose a cancellable pointer capture",
                 id.get()
@@ -225,7 +227,7 @@ impl WinUiNativeSurface {
         if let Ok(mut cancellations) = self.forced_pointer_cancellations.lock() {
             cancellations.insert(id);
         }
-        if let Err(error) = button.ReleasePointerCaptures() {
+        if let Err(error) = element.ReleasePointerCaptures() {
             if let Ok(mut cancellations) = self.forced_pointer_cancellations.lock() {
                 cancellations.remove(&id);
             }
@@ -497,16 +499,22 @@ impl WinUiNativeSurface {
     }
 
     fn sync_list_values(&self, list: HostNodeId) {
-        let values = self
+        let items = self
             .list_children
             .get(&list)
             .into_iter()
             .flatten()
-            .filter_map(|child| self.combo_items.get(child))
-            .map(|item| item.value.clone())
-            .collect();
+            .filter_map(|child| {
+                self.combo_items
+                    .get(child)
+                    .map(|item| (*child, item.value.clone()))
+            })
+            .collect::<Vec<_>>();
         if let Ok(mut list_values) = self.list_values.lock() {
-            list_values.insert(list, values);
+            list_values.insert(list, items.iter().map(|(_, value)| value.clone()).collect());
+        }
+        if let Ok(mut list_nodes) = self.list_nodes.lock() {
+            list_nodes.insert(list, items.into_iter().map(|(node, _)| node).collect());
         }
     }
 

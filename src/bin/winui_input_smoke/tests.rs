@@ -5,7 +5,7 @@ use a3s_gui::{
 };
 
 #[test]
-fn partial_validation_accepts_all_button_backed_role_cases() {
+fn validation_accepts_the_complete_winui_manifest() {
     let manifest = NativeInputConformanceManifestV1::from_capabilities(
         &NativeCapabilities::for_backend(NativeBackendKind::WinUI),
     );
@@ -13,7 +13,7 @@ fn partial_validation_accepts_all_button_backed_role_cases() {
     let observations = manifest
         .requirements
         .iter()
-        .filter(|requirement| BUTTON_BACKED_ROLES.contains(&requirement.case.role))
+        .filter(|requirement| NATIVE_INPUT_ROLES.contains(&requirement.case.role))
         .map(|requirement| valid_observation(target, requirement))
         .collect::<Vec<_>>();
     assert_eq!(observations.len(), CAPTURED_NATIVE_CASES);
@@ -31,18 +31,18 @@ fn partial_validation_accepts_all_button_backed_role_cases() {
     .observations(observations);
 
     let mut diagnostics = Vec::new();
-    validate_partial_smoke(&run, &mut diagnostics);
+    validate_smoke(&run, &mut diagnostics);
     assert!(diagnostics.is_empty());
 
     let mut broken = run;
     broken.observations[0].events.remove(1);
-    validate_partial_smoke(&broken, &mut diagnostics);
+    validate_smoke(&broken, &mut diagnostics);
     assert_eq!(diagnostics.len(), 1);
 }
 
 #[test]
-fn fixture_frames_preserve_each_button_backed_native_role() {
-    for role in BUTTON_BACKED_ROLES {
+fn fixture_frames_preserve_each_native_input_role() {
+    for role in NATIVE_INPUT_ROLES {
         let state = FixtureState {
             role,
             ..FixtureState::default()
@@ -53,20 +53,24 @@ fn fixture_frames_preserve_each_button_backed_native_role() {
             .unwrap();
 
         assert_eq!(native.role, NativeRole::View);
-        assert_eq!(native.children.len(), BUTTON_BACKED_ROLES.len());
+        assert_eq!(native.children.len(), NATIVE_INPUT_ROLES.len());
         assert_eq!(
             native
                 .children
                 .iter()
                 .map(|child| child.role)
                 .collect::<Vec<_>>(),
-            BUTTON_BACKED_ROLES
+            vec![
+                NativeRole::Button,
+                NativeRole::DisclosureSummary,
+                NativeRole::Link,
+                NativeRole::ImageMapArea,
+                NativeRole::MenuItem,
+                NativeRole::ListBox,
+                NativeRole::Tree,
+            ]
         );
-        let active = native
-            .children
-            .iter()
-            .find(|child| child.role == role)
-            .unwrap();
+        let active = find_role(&native, role).unwrap();
         assert_eq!(active.props.label.as_deref(), Some(TARGET_LABEL));
         assert!(!active.props.disabled);
     }
@@ -75,8 +79,8 @@ fn fixture_frames_preserve_each_button_backed_native_role() {
 #[test]
 fn press_start_replaces_the_key_only_for_the_rerender_scenario() {
     let role = NativeRole::MenuItem;
-    let index = button_backed_role_index(role).unwrap();
-    let mut generations = [0; BUTTON_BACKED_ROLES.len()];
+    let index = native_input_role_index(role).unwrap();
+    let mut generations = [0; NATIVE_INPUT_ROLES.len()];
     generations[index] = 4;
     let mut state = FixtureState {
         generations,
@@ -101,6 +105,19 @@ fn press_start_replaces_the_key_only_for_the_rerender_scenario() {
 
     fixture_reduce(&mut state, &invocation).unwrap();
     assert_eq!(state.generations[index], 5);
+}
+
+fn find_role(
+    element: &a3s_gui::NativeElement,
+    role: NativeRole,
+) -> Option<&a3s_gui::NativeElement> {
+    if element.role == role {
+        return Some(element);
+    }
+    element
+        .children
+        .iter()
+        .find_map(|child| find_role(child, role))
 }
 
 fn valid_observation(

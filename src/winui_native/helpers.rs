@@ -648,13 +648,54 @@ pub(super) fn register_list_selection(
     events: &WinUiEventQueue,
     suppressed: Arc<AtomicBool>,
     values_by_list: Arc<Mutex<BTreeMap<HostNodeId, Vec<String>>>>,
+    nodes_by_list: Arc<Mutex<BTreeMap<HostNodeId, Vec<HostNodeId>>>>,
+    activation_contexts: WinUiActivationContexts,
 ) -> GuiResult<()> {
     let events = Arc::clone(events);
     let event_list_box = list_box.clone();
-    let handler = Controls::SelectionChangedEventHandler::new(move |_, _| {
+    let handler = Controls::SelectionChangedEventHandler::new(move |_, args| {
         if !suppressed.load(Ordering::SeqCst) {
             let selected_items = event_list_box.SelectedItems()?;
             let items = event_list_box.Items()?;
+            let nodes = nodes_by_list
+                .lock()
+                .ok()
+                .and_then(|nodes| nodes.get(&id).cloned())
+                .unwrap_or_default();
+            let mut added_nodes = Vec::new();
+            let mut changed_nodes = Vec::new();
+            if let Some(args) = args.as_ref() {
+                let added_items = args.AddedItems()?;
+                for added_index in 0..added_items.Size()? {
+                    let added_item = added_items.GetAt(added_index)?;
+                    let mut item_index = 0;
+                    if items.IndexOf(&added_item, &mut item_index)? {
+                        if let Some(node) = nodes.get(item_index as usize).copied() {
+                            added_nodes.push(node);
+                            changed_nodes.push(node);
+                        }
+                    }
+                }
+                let removed_items = args.RemovedItems()?;
+                for removed_index in 0..removed_items.Size()? {
+                    let removed_item = removed_items.GetAt(removed_index)?;
+                    let mut item_index = 0;
+                    if items.IndexOf(&removed_item, &mut item_index)? {
+                        if let Some(node) = nodes.get(item_index as usize).copied() {
+                            changed_nodes.push(node);
+                        }
+                    }
+                }
+            }
+            let has_direct_activation =
+                take_direct_activation(&activation_contexts, &changed_nodes);
+            if !has_direct_activation {
+                for node in added_nodes {
+                    for event in crate::event::virtual_press_events(node) {
+                        push_event(&events, event);
+                    }
+                }
+            }
             let values = values_by_list
                 .lock()
                 .ok()
@@ -684,6 +725,18 @@ pub(super) fn register_list_selection(
         list_box.SelectionChanged(&handler),
     )?;
     Ok(())
+}
+
+fn take_direct_activation(
+    activation_contexts: &WinUiActivationContexts,
+    nodes: &[HostNodeId],
+) -> bool {
+    let mut found = false;
+    for node in nodes.iter().copied() {
+        found |= interaction::take_activation_context(activation_contexts, node)
+            .is_some_and(|context| context.modality != NativeInputModality::Unknown);
+    }
+    found
 }
 
 pub(super) fn register_tab_selection(
@@ -857,6 +910,20 @@ mod tests {
 
         assert!(!open_dialogs.lock().unwrap().contains(&id));
         assert!(events.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn list_selection_consumes_direct_item_activation_contexts() {
+        let first = HostNodeId::new(11);
+        let second = HostNodeId::new(12);
+        let contexts = Arc::new(Mutex::new(BTreeMap::from([(
+            second,
+            NativeEventContext::new().modality(NativeInputModality::Mouse),
+        )])));
+
+        assert!(take_direct_activation(&contexts, &[first, second]));
+        assert!(contexts.lock().unwrap().is_empty());
+        assert!(!take_direct_activation(&contexts, &[first, second]));
     }
 }
 
