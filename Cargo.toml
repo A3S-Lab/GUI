@@ -116,8 +116,12 @@ gtk4 = []
 gtk4-native = ["gtk4", "dep:gtk4_crate"]
 
 [dependencies]
+fixed_decimal = { version = "0.7.2", features = ["ryu"] }
 icu_collator = "2.2.1"
+icu_datetime = "2.2.0"
+icu_decimal = { version = "2.2.0", features = ["alloc"] }
 icu_locale_core = "2.2.0"
+icu_provider = { version = "2.2.0", features = ["sync"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 swc_atoms = { version = "9.0.3", optional = true }

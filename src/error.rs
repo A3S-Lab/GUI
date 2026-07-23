@@ -19,6 +19,9 @@ pub enum GuiError {
     InvalidTree {
         message: String,
     },
+    Internationalization {
+        message: String,
+    },
     Host {
         message: String,
     },
@@ -41,6 +44,9 @@ impl Display for GuiError {
                 write!(f, "missing required prop {prop:?} on component {component}")
             }
             GuiError::InvalidTree { message } => write!(f, "invalid native UI tree: {message}"),
+            GuiError::Internationalization { message } => {
+                write!(f, "internationalization error: {message}")
+            }
             GuiError::Host { message } => write!(f, "native host error: {message}"),
         }
     }
@@ -57,6 +63,12 @@ impl GuiError {
 
     pub fn invalid_tree(message: impl Into<String>) -> Self {
         GuiError::InvalidTree {
+            message: message.into(),
+        }
+    }
+
+    pub fn internationalization(message: impl Into<String>) -> Self {
+        GuiError::Internationalization {
             message: message.into(),
         }
     }

@@ -25,9 +25,10 @@ object graph at the host boundary.
   touch/pen long-press selection entry, collection keyboard navigation,
   hierarchical tree expansion, activation-ordered overlay dismissal, modal
   background inertness, nested focus containment/restoration, typed anchored
-  overlay placement, inherited locale/direction, versioned capability
-  reporting, shared native event-source state machines, and accessibility
-  conformance checks. Versioned native-input manifests expand every role marked
+  overlay placement, inherited locale/direction, locale-aware collation and
+  decimal/date/time formatting, versioned capability reporting, shared native
+  event-source state machines, and accessibility conformance checks. Versioned
+  native-input manifests expand every role marked
   native into strict OS-automation cases; adapter and headless traces cannot
   satisfy that evidence gate.
   A WinUI smoke runner records real XAML Button and list-item mouse and keyboard
@@ -40,8 +41,9 @@ object graph at the host boundary.
   Populating the AppKit and GTK4 manifests with real platform automation,
   role-edge input parity, real-platform layout-aware page-navigation fixtures,
   IME/dead-key conformance, measured overlay collision/arrow conformance and
-  scroll locking, remaining native focus conformance, and locale formatting
-  are still in progress.
+  scroll locking, remaining native focus conformance, message catalogs,
+  currency/percent/unit and date-range/time-zone formatting are still in
+  progress.
 - `.rsx` component source modules with imports, local Rust types, hook
   registrations, Rust selector/reducer expressions, and a final `rsx!(...)`
   view.

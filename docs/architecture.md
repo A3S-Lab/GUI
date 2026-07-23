@@ -452,6 +452,17 @@ prefers the GDK Unicode scalar over its symbolic key name, and WinUI uses
 `ToUnicode` with the active keyboard layout and the non-mutating flag before
 falling back to a stable virtual-key name. Full IME and dead-key composition
 remains an adapter conformance gap.
+`I18nManager` also resolves that inherited locale for reusable
+`LocaleCollator`, `LocaleNumberFormatter`, and `LocaleDateFormatter` objects.
+The public collator exposes search/sort usage, ECMA-402 sensitivity,
+case-first, and numeric ordering. Decimal formatting exposes grouping,
+sign-display, and bounded fraction digits with half-expand rounding. Date and
+time formatting exposes short through full styles, optional seconds, calendar
+selection, numbering systems, and hour-cycle overrides through BCP 47 Unicode
+extensions. These formatters use compiled ICU4X data, are `Send + Sync`, and
+perform no platform, file, or network I/O. The collection typeahead path uses
+the same public collator implementation so interactive search and application
+sorting cannot drift to separate locale rules.
 AppKit keeps logical item identity separate from the collection selection
 target: a row button is registered as the ListBoxItem or TreeItem responder,
 while activation reports the selected value to the owning collection.

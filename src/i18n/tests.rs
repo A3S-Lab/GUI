@@ -67,3 +67,114 @@ fn default_locale_can_seed_a_tree_without_an_explicit_provider() {
     assert_eq!(root.children[0].props.lang.as_deref(), Some("he-IL"));
     assert_eq!(root.children[0].props.dir.as_deref(), Some("rtl"));
 }
+
+#[test]
+fn collator_supports_search_sensitivity_and_numeric_sorting() {
+    let collator = LocaleCollator::try_new(
+        "fr-FR",
+        CollationOptions::default()
+            .usage(CollationUsage::Search)
+            .sensitivity(CollationSensitivity::Base)
+            .numeric(true),
+    )
+    .expect("French search collator should load");
+
+    assert!(collator.is_equal("\u{00c9}clair", "eclair"));
+    assert_eq!(
+        collator.compare("document2", "document10"),
+        std::cmp::Ordering::Less
+    );
+}
+
+#[test]
+fn number_formatter_localizes_and_applies_intl_fraction_defaults() {
+    let formatter = LocaleNumberFormatter::try_new(
+        "en-US",
+        NumberFormatOptions::default().fraction_digits(2, 2),
+    )
+    .expect("English number formatter should load");
+
+    assert_eq!(formatter.format_decimal("1234.5").unwrap(), "1,234.50");
+    assert_eq!(formatter.format_decimal("1.005").unwrap(), "1.01");
+
+    let french = LocaleNumberFormatter::try_new("fr-FR", NumberFormatOptions::default())
+        .expect("French number formatter should load")
+        .format_decimal("1234.5")
+        .unwrap();
+    assert_ne!(french, "1,234.5");
+    assert!(french.ends_with(",5"));
+}
+
+#[test]
+fn date_formatter_localizes_date_time_and_hour_cycle() {
+    let value =
+        DateTimeValue::date_time(2025, 1, 15, 16, 9, 35).expect("fixture date should be valid");
+    let date = LocaleDateFormatter::try_new("en-US", DateFormatOptions::default())
+        .expect("English date formatter should load");
+    assert_eq!(date.format(value).unwrap(), "Jan 15, 2025");
+
+    let full = LocaleDateFormatter::try_new(
+        "en-US",
+        DateFormatOptions::default().style(DateFormatStyle::Full),
+    )
+    .expect("English full date formatter should load");
+    assert_eq!(full.format(value).unwrap(), "Wednesday, January 15, 2025");
+
+    let time = LocaleDateFormatter::try_new(
+        "en-US-u-hc-h23",
+        DateFormatOptions::default()
+            .kind(DateFormatKind::Time)
+            .style(DateFormatStyle::Short)
+            .include_seconds(true),
+    )
+    .expect("24-hour time formatter should load");
+    assert_eq!(time.format(value).unwrap(), "16:09:35");
+}
+
+#[test]
+fn manager_factories_follow_inherited_locale_and_default_context() {
+    let records = vec![
+        snapshot(1, None, NativeProps::new().lang("fr-FR")),
+        snapshot(2, Some(1), NativeProps::new()),
+    ];
+    let mut manager = I18nManager::new();
+    manager.sync(&records);
+
+    let formatter = manager
+        .number_formatter(HostNodeId::new(2), NumberFormatOptions::default())
+        .expect("inherited formatter should load");
+    assert_eq!(formatter.locale(), "fr-FR");
+
+    manager.set_default_locale(Some("de-DE"));
+    let formatter = manager
+        .date_formatter(HostNodeId::new(99), DateFormatOptions::default())
+        .expect("default formatter should load");
+    assert_eq!(formatter.locale(), "de-DE");
+}
+
+#[test]
+fn formatter_inputs_fail_with_context_instead_of_panicking() {
+    let locale_error =
+        LocaleCollator::try_new("not a locale", CollationOptions::default()).unwrap_err();
+    assert!(locale_error.to_string().contains("invalid BCP 47 locale"));
+
+    let options_error = LocaleNumberFormatter::try_new(
+        "en-US",
+        NumberFormatOptions::default().fraction_digits(4, 2),
+    )
+    .unwrap_err();
+    assert!(options_error
+        .to_string()
+        .contains("minimum fraction digits"));
+
+    assert!(DateTimeValue::date(2025, 2, 29).is_err());
+}
+
+#[test]
+fn reusable_i18n_formatters_are_send_and_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+
+    assert_send_sync::<LocaleCollator>();
+    assert_send_sync::<LocaleNumberFormatter>();
+    assert_send_sync::<LocaleDateFormatter>();
+}

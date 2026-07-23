@@ -1,10 +1,10 @@
 use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
-use icu_collator::options::{CollatorOptions, Strength};
-use icu_collator::preferences::CollationType;
-use icu_collator::{Collator, CollatorBorrowed, CollatorPreferences};
-use icu_locale_core::Locale;
+use crate::i18n::{
+    CollationOptions, CollationSensitivity, CollationUsage, LocaleCollator,
+    DEFAULT_FORMATTING_LOCALE,
+};
 
 use super::CollectionKey;
 
@@ -81,18 +81,16 @@ fn is_printable_character(input: &str) -> bool {
         && characters.next().is_none()
 }
 
-fn search_collator(locale: Option<&str>) -> Option<CollatorBorrowed<'static>> {
-    let locale = locale
-        .and_then(|locale| locale.parse::<Locale>().ok())
-        .unwrap_or(Locale::UNKNOWN);
-    let mut preferences = CollatorPreferences::from(locale);
-    preferences.collation_type = Some(CollationType::Search);
-    let mut options = CollatorOptions::default();
-    options.strength = Some(Strength::Primary);
-    Collator::try_new(preferences, options).ok()
+fn search_collator(locale: Option<&str>) -> Option<LocaleCollator> {
+    let options = CollationOptions::default()
+        .usage(CollationUsage::Search)
+        .sensitivity(CollationSensitivity::Base);
+    LocaleCollator::try_new(locale.unwrap_or(DEFAULT_FORMATTING_LOCALE), options)
+        .or_else(|_| LocaleCollator::try_new(DEFAULT_FORMATTING_LOCALE, options))
+        .ok()
 }
 
-fn prefix_matches(collator: &CollatorBorrowed<'_>, text: &str, search: &str) -> bool {
+fn prefix_matches(collator: &LocaleCollator, text: &str, search: &str) -> bool {
     text.char_indices()
         .skip(1)
         .map(|(index, _)| index)
@@ -184,6 +182,21 @@ mod tests {
         assert_eq!(
             find_match(&candidates, "ga", None, Some("en-US")),
             Some(second)
+        );
+    }
+
+    #[test]
+    fn invalid_inherited_locale_falls_back_without_disabling_typeahead() {
+        let key = CollectionKey::from("alpha");
+        let candidates = [TypeaheadCandidate {
+            key: &key,
+            text: "Alpha",
+            disabled: false,
+        }];
+
+        assert_eq!(
+            find_match(&candidates, "a", None, Some("not a locale")),
+            Some(key)
         );
     }
 }

@@ -133,7 +133,13 @@ pub use html::{
     HtmlMicrodataProps, HtmlResourcePolicyProps, HtmlShadowProps, HtmlTextAnnotationProps,
     HTML_CONFORMING_ELEMENTS, HTML_ELEMENTS, HTML_TAG_METADATA_KEY,
 };
-pub use i18n::{direction_for_locale, direction_name, I18nManager, LocaleContext};
+pub use i18n::{
+    direction_for_locale, direction_name, CollationCaseFirst, CollationOptions,
+    CollationSensitivity, CollationUsage, DateFormatKind, DateFormatOptions, DateFormatStyle,
+    DateTimeValue, I18nManager, LocaleCollator, LocaleContext, LocaleDateFormatter,
+    LocaleNumberFormatter, NumberFormatOptions, NumberGrouping, NumberSignDisplay,
+    DEFAULT_FORMATTING_LOCALE,
+};
 pub use input::{NativeEventContext, NativeEventPosition, NativeInputModality, NativeKeyModifiers};
 pub use input_conformance::{
     NativeInputConformanceCaseV1, NativeInputConformanceEnvironmentV1,

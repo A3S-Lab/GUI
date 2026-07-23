@@ -1,11 +1,27 @@
 use std::collections::BTreeMap;
 
+use icu_locale_core::Locale;
 use serde::{Deserialize, Serialize};
 
+use crate::error::{GuiError, GuiResult};
 use crate::host::HostNodeId;
 use crate::native::{NativeElement, NativeProps};
 use crate::renderer::MountedNodeSnapshot;
 use crate::style::TextDirection;
+
+mod collator;
+mod datetime;
+mod number;
+
+pub use collator::{
+    CollationCaseFirst, CollationOptions, CollationSensitivity, CollationUsage, LocaleCollator,
+};
+pub use datetime::{
+    DateFormatKind, DateFormatOptions, DateFormatStyle, DateTimeValue, LocaleDateFormatter,
+};
+pub use number::{LocaleNumberFormatter, NumberFormatOptions, NumberGrouping, NumberSignDisplay};
+
+pub const DEFAULT_FORMATTING_LOCALE: &str = "und";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,6 +83,36 @@ impl I18nManager {
         self.context(node)
             .map(|context| context.direction)
             .unwrap_or(self.default_context.direction)
+    }
+
+    pub fn formatting_locale(&self, node: HostNodeId) -> &str {
+        self.locale(node)
+            .or(self.default_context.locale.as_deref())
+            .unwrap_or(DEFAULT_FORMATTING_LOCALE)
+    }
+
+    pub fn collator(
+        &self,
+        node: HostNodeId,
+        options: CollationOptions,
+    ) -> GuiResult<LocaleCollator> {
+        LocaleCollator::try_new(self.formatting_locale(node), options)
+    }
+
+    pub fn number_formatter(
+        &self,
+        node: HostNodeId,
+        options: NumberFormatOptions,
+    ) -> GuiResult<LocaleNumberFormatter> {
+        LocaleNumberFormatter::try_new(self.formatting_locale(node), options)
+    }
+
+    pub fn date_formatter(
+        &self,
+        node: HostNodeId,
+        options: DateFormatOptions,
+    ) -> GuiResult<LocaleDateFormatter> {
+        LocaleDateFormatter::try_new(self.formatting_locale(node), options)
     }
 
     pub fn sync(&mut self, snapshot: &[MountedNodeSnapshot]) {
@@ -134,6 +180,12 @@ pub fn direction_name(direction: TextDirection) -> &'static str {
         TextDirection::Ltr => "ltr",
         TextDirection::Rtl => "rtl",
     }
+}
+
+fn parse_locale(locale: &str) -> GuiResult<Locale> {
+    locale.trim().parse::<Locale>().map_err(|error| {
+        GuiError::internationalization(format!("invalid BCP 47 locale {locale:?}: {error}"))
+    })
 }
 
 fn resolve_context(props: &NativeProps, parent: &LocaleContext) -> LocaleContext {
