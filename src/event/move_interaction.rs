@@ -14,6 +14,11 @@ pub(crate) struct PointerMoveState {
 }
 
 impl PointerMoveState {
+    #[cfg(any(
+        test,
+        all(feature = "appkit-native", target_os = "macos"),
+        all(feature = "gtk4-native", target_os = "linux")
+    ))]
     pub(crate) fn begin(&mut self, context: NativeEventContext) {
         self.begin_pointer(0, context);
     }
@@ -25,6 +30,11 @@ impl PointerMoveState {
         self.last_position = self.active.then_some(context.position).flatten();
     }
 
+    #[cfg(any(
+        test,
+        all(feature = "appkit-native", target_os = "macos"),
+        all(feature = "gtk4-native", target_os = "linux")
+    ))]
     pub(crate) fn update(
         &mut self,
         node: HostNodeId,
@@ -70,6 +80,11 @@ impl PointerMoveState {
         }
     }
 
+    #[cfg(any(
+        test,
+        all(feature = "appkit-native", target_os = "macos"),
+        all(feature = "gtk4-native", target_os = "linux")
+    ))]
     pub(crate) fn end(
         &mut self,
         node: HostNodeId,

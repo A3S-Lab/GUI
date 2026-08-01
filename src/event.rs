@@ -10,18 +10,35 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-#[allow(dead_code)]
+#[cfg(any(
+    test,
+    all(feature = "appkit-native", target_os = "macos"),
+    all(feature = "gtk4-native", target_os = "linux"),
+    all(feature = "winui-native", target_os = "windows")
+))]
 mod move_interaction;
-#[allow(dead_code)]
+#[cfg(any(
+    test,
+    all(feature = "appkit-native", target_os = "macos"),
+    all(feature = "gtk4-native", target_os = "linux"),
+    all(feature = "winui-native", target_os = "windows")
+))]
 mod press;
 
-#[allow(unused_imports)]
+#[cfg(any(
+    all(feature = "appkit-native", target_os = "macos"),
+    all(feature = "gtk4-native", target_os = "linux"),
+    all(feature = "winui-native", target_os = "windows")
+))]
 pub(crate) use move_interaction::{keyboard_move_events, PointerMoveState};
-#[allow(unused_imports)]
+#[cfg(any(
+    all(feature = "appkit-native", target_os = "macos"),
+    all(feature = "gtk4-native", target_os = "linux"),
+    all(feature = "winui-native", target_os = "windows")
+))]
 pub(crate) use press::{
-    virtual_press_events, KeyboardPressState, NativeInteractionProfile,
-    NativeInteractionSubscriptions, NativeLongPressConfig, NativeLongPressMode,
-    NativeLongPressTimer, NumberFieldStepperPressState, NumberFieldStepperTimer, PointerPressState,
+    virtual_press_events, KeyboardPressState, NativeInteractionProfile, NativeLongPressTimer,
+    NumberFieldStepperPressState, NumberFieldStepperTimer, PointerPressState,
 };
 
 /// Maximum number of successful action invocations retained for diagnostics by default.

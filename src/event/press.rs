@@ -27,6 +27,7 @@ pub(crate) struct NativeInteractionSubscriptions {
 }
 
 impl NativeInteractionSubscriptions {
+    #[cfg(test)]
     pub(crate) fn from_blueprint(blueprint: &NativeWidgetBlueprint) -> Self {
         let mut subscriptions = Self::from_events(
             &blueprint.events,
@@ -114,6 +115,11 @@ pub(crate) struct NativeLongPressConfig {
 }
 
 impl NativeLongPressConfig {
+    #[cfg(any(
+        test,
+        all(feature = "appkit-native", target_os = "macos"),
+        all(feature = "gtk4-native", target_os = "linux")
+    ))]
     pub(crate) const fn disabled() -> Self {
         Self {
             mode: NativeLongPressMode::Disabled,
@@ -165,12 +171,9 @@ pub(crate) struct NativeLongPressRecognition {
 }
 
 impl NativeLongPressRecognition {
+    #[cfg(all(feature = "appkit-native", target_os = "macos"))]
     pub(crate) fn node(&self) -> HostNodeId {
         self.node
-    }
-
-    pub(crate) fn context(&self) -> NativeEventContext {
-        self.context
     }
 
     pub(crate) fn cancellation_events(&self) -> [NativeEvent; 2] {
@@ -560,6 +563,11 @@ impl NativeInteractionProfile {
         }
     }
 
+    #[cfg(any(
+        test,
+        all(feature = "appkit-native", target_os = "macos"),
+        all(feature = "gtk4-native", target_os = "linux")
+    ))]
     pub(crate) fn normalizes_keyboard_press(self) -> bool {
         self.subscriptions.tracks_press()
             && matches!(
@@ -746,13 +754,22 @@ impl KeyboardPressState {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg(any(
+        all(feature = "appkit-native", target_os = "macos"),
+        all(feature = "gtk4-native", target_os = "linux"),
+        all(feature = "winui-native", target_os = "windows")
+    ))]
     pub(crate) fn remove(&mut self, node: HostNodeId) {
         self.active.remove(&node);
     }
 }
 
 impl PointerPressState {
+    #[cfg(any(
+        test,
+        all(feature = "appkit-native", target_os = "macos"),
+        all(feature = "gtk4-native", target_os = "linux")
+    ))]
     pub(crate) fn begin(
         &mut self,
         node: HostNodeId,
@@ -766,6 +783,11 @@ impl PointerPressState {
         )
     }
 
+    #[cfg(any(
+        all(feature = "appkit-native", target_os = "macos"),
+        all(feature = "gtk4-native", target_os = "linux"),
+        all(feature = "winui-native", target_os = "windows")
+    ))]
     pub(crate) fn begin_with_long_press(
         &mut self,
         node: HostNodeId,
