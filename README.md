@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <em>Reducer-driven Rust components, structured RSX, and direct AppKit, GTK4, and WinUI rendering without a browser runtime.</em>
+  <em>Reducer-driven Rust components, structured RSX, and an A3S-owned GPU rendering engine without a browser runtime.</em>
 </p>
 
 ---
@@ -14,13 +14,15 @@
 
 **A3S GUI** is a native GUI runtime for structured A3S UI frames. Applications
 describe semantic UI in Rust function components or `.rsx` modules, update
-state through reducers, and render the same portable native IR through one of
-four hosts:
+state through reducers, and lower the same portable native IR into layout,
+paint, interaction, and accessibility records. Application pixels are moving
+to the shared [`a3s-graphics`](https://github.com/A3S-Lab/Graphics) engine,
+whose production path uses `wgpu` directly for Metal, Direct3D 12, and Vulkan.
 
-- AppKit on macOS
-- GTK4 on Linux
-- WinUI on Windows
-- a deterministic headless host for tests and protocol integration
+The current AppKit, GTK4, WinUI, and deterministic headless hosts remain as the
+migration baseline. New rendering work targets the self-drawn Graphics path;
+the three control renderers will be removed after the generic calculator,
+input, IME, and accessibility cutover gates pass.
 
 The crate provides:
 
@@ -28,7 +30,7 @@ The crate provides:
   effects, resources, reducers, and interaction hooks
 - static RSX lowering for semantic components, intrinsic elements, bindings,
   actions, fragments, slots, and spreads
-- keyed reconciliation and ordered native command batches
+- stable semantic identity, retained rendering, and ordered frame transactions
 - a strict versioned protocol with prepare, commit, ACK, recovery, replay, and
   sensitive-value redaction
 - portable interaction behavior for press, hover, focus, selection, overlays,
@@ -40,9 +42,10 @@ The crate provides:
 - a built-in `rsx_ui` component registry plus calculator, dogfood, and
   component-playground applications
 
-A3S GUI does not embed a DOM, CSSOM, WebView, or JavaScript object graph. RSX
-uses familiar component syntax, but it compiles into typed native data and
-platform widget operations.
+A3S GUI does not embed a DOM, CSSOM, WebView, framework-owned content renderer,
+or JavaScript object graph.
+RSX uses familiar component syntax, but it compiles into typed semantic,
+layout, graphics-scene, interaction, and accessibility data.
 
 The long-term behavioral direction is a native, cross-platform counterpart to
 [React Aria](https://react-aria.adobe.com/getting-started). This is not a DOM
@@ -60,8 +63,8 @@ a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ```
 
 The default feature set includes the headless runtime, RSX authoring, and the
-built-in design system. Add the matching native feature to open real platform
-widgets:
+built-in design system. During the renderer migration, the matching legacy
+native feature still opens the platform-control baseline:
 
 ```toml
 # macOS
@@ -125,10 +128,10 @@ just playground
 | `headless` | Deterministic runtime and host behavior without an OS GUI |
 | `authoring` | SWC-backed RSX parsing, `ComponentCx`, and explicit component registries |
 | `design-system` | Built-in `rsx_ui` registry; implies `authoring` |
-| `appkit`, `gtk4`, `winui` | Pure planning adapters that do not link an OS widget toolkit |
-| `appkit-native` | Real AppKit surface on macOS |
-| `gtk4-native` | Real GTK4 surface on Linux |
-| `winui-native` | Real WinUI 3 surface on Windows |
+| `appkit`, `gtk4`, `winui` | Legacy planning adapters retained for migration evidence |
+| `appkit-native` | Legacy AppKit control surface on macOS |
+| `gtk4-native` | Legacy GTK4 control surface on Linux |
+| `winui-native` | Legacy WinUI 3 control surface on Windows |
 
 Runtime and protocol consumers can exclude the authoring stack:
 
@@ -150,15 +153,23 @@ Rust ComponentCx function or .rsx module
                     |
                     v
         semantic native UI IR
+          /         |          \
+         v          v           v
+      layout    semantics   interaction/hit tree
+         |          |           |
+         v          |           |
+   Graphics Scene   |           |
+         |          |           |
+         v          |           |
+ software / wgpu    |           |
+         |          |           |
+         +----------+-----------+
                     |
                     v
- keyed reconciliation and command batches
+    thin platform host and normalized events
                     |
                     v
- AppKit / GTK4 / WinUI / headless host
-                    |
-                    v
- normalized native events and action reducers
+              action reducers
 ```
 
 The main ownership boundaries are explicit:
@@ -168,13 +179,13 @@ The main ownership boundaries are explicit:
 | Authoring | Rust components, hooks, RSX parsing, component contracts, and bindings |
 | Protocol | Serializable frames, actions, revisions, events, ACKs, and recovery |
 | Runtime | Reducer flow, interaction state, effects, focus, selection, and overlays |
-| Renderer | Stable-key reconciliation and ordered host operations |
-| Platform planning | Portable widget blueprints, setters, capabilities, and command batches |
-| Native surface | OS widget lifetime, thread affinity, raw input, focus, accessibility, and event delivery |
+| Layout and scene adapter | Stable layout records, paint extraction, hit regions, and explicit projection diagnostics |
+| A3S Graphics | Scene validation, retained damage, render preparation, software reference, shaders, and GPU rendering |
+| Platform host | Window/surface lifetime, raw input, IME, focus, accessibility bridge, system surfaces, and event delivery |
 
-Application state and product I/O remain outside the renderer. Native backends
-never execute component functions, and thread-affine native handles never cross
-the serializable host boundary.
+Application state and product I/O remain outside the renderer. Graphics and
+platform hosts never execute component functions, and thread-affine native or
+GPU handles never cross the serializable boundary.
 
 ## Component And Hook Model
 
@@ -272,7 +283,8 @@ framework.
 | Headless runtime | Usable for deterministic tests, protocol sessions, rendering, accessibility, and capability inspection |
 | Protocol and native execution | Versioned protocol v1 with ordered revisions, retained resend, exact ACK validation, degraded state, and fresh-executor replay |
 | Built-in design system | Broad dogfood component set with calculator and component-atlas coverage |
-| AppKit, GTK4, and WinUI | Real native surfaces with host-native CI; continuing platform-edge hardening |
+| Self-drawn Graphics path | Deterministic scene/reference core exists independently; GPU and GUI lowering are the active P0 work |
+| AppKit, GTK4, and WinUI controls | Migration baseline only; frozen until removal after self-drawn cutover |
 | Native input evidence | Canonical manifests and a strict verifier are implemented; the WinUI harness covers its current 98-case matrix, while AppKit and GTK4 OS-automation evidence is incomplete |
 | Packaging | Reproducible unsigned smoke bundles; signing, notarization, installers, and product update metadata remain application responsibilities |
 | React Aria direction | Substantial shared behavior foundation; full component, platform, and assistive-technology parity is still in progress |
@@ -301,7 +313,7 @@ just playground
 just dogfood-native
 ```
 
-The AppKit, GTK4, and WinUI calculator entrypoints use the same
+The legacy AppKit, GTK4, and WinUI calculator entrypoints use the same
 `shared_calculator_component`, state model, reducer, RSX component tree, window
 constraints, and explicit keypad sizing. Their semantics and layout intent are
 therefore shared. Exact pixels still follow each native toolkit's control
@@ -323,8 +335,9 @@ cargo run --locked --features <backend>-native --example <backend>_dogfood
 | --- | --- |
 | Authoring | Rust-first function components and static RSX, not JavaScript execution |
 | State | Explicit reducers and one-way state-to-frame-to-action flow |
-| Rendering | Semantic native IR and stable-key reconciliation |
-| Widgets | Real AppKit, GTK4, and WinUI controls by default |
+| Rendering | Native IR to deterministic GUI layout and A3S Graphics scene |
+| Pixels | A3S-owned software reference and `wgpu` renderer; no framework-owned content renderer |
+| Platform | Thin window, input, IME, accessibility, system-surface, and presentation hosts |
 | Behavior | Shared headless contracts with field- and role-level native capability reporting |
 | Accessibility | Portable semantic truth plus exact native projection where supported |
 | Styling | Portable native style tokens and selected utility syntax, not a browser CSS engine |
@@ -338,17 +351,17 @@ cargo run --locked --features <backend>-native --example <backend>_dogfood
 src/
 ├── accessibility/    # Semantic tree, conformance, relationships, and native-ready values
 ├── app/              # Reducer-driven native application loop
-├── backend/          # Command execution, recording, and recovery
-├── platform/         # Portable widget planning and setter batches
+├── backend/          # Legacy command execution and recovery during migration
+├── platform/         # Legacy widget planning during migration
 ├── protocol.rs       # Versioned frame, action, event, and ACK boundary
 ├── native.rs         # Portable native UI IR
-├── renderer.rs       # Stable-key reconciliation
+├── renderer.rs       # Legacy stable-key control reconciliation
 ├── runtime/          # Interaction, focus, overlays, effects, and rerender flow
 ├── rsx_app/          # ComponentCx, hooks, components, and binding scope
 ├── rsx_ui/           # Built-in semantic design-system registry
-├── appkit_native/    # Real macOS surface
-├── gtk4_native/      # Real Linux surface
-└── winui_native/     # Real Windows surface
+├── appkit_native/    # Legacy macOS control surface; future thin host
+├── gtk4_native/      # Legacy Linux control surface; future thin host
+└── winui_native/     # Legacy Windows control surface; future thin host
 
 examples/             # Headless, calculator, dogfood, controls, and playground apps
 docs/                 # Architecture, language, platform, packaging, and roadmap contracts

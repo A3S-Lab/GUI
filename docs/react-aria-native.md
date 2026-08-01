@@ -7,8 +7,8 @@ design system without depending on a browser.
 
 This is a behavioral compatibility target, not a DOM compatibility target.
 React Aria's public concepts should have recognizable native equivalents, but
-the implementation must use AppKit, GTK4, and WinUI controls, focus systems,
-accessibility APIs, and input events directly.
+the implementation uses A3S-owned layout and Graphics rendering together with
+the operating system's window, focus, accessibility, IME, and input APIs.
 
 The project does not claim React Aria parity yet.
 
@@ -25,13 +25,20 @@ Headless behavior contracts
 Portable semantic tree and typed Native UI IR
                 |
                 v
-Behavior state machines and keyed reconciliation
+GUI layout, behavior state machines, and stable identity
+                |
+       +--------+--------+
+       |                 |
+       v                 v
+A3S Graphics scene   semantic/accessibility tree
+       |                 |
+       v                 v
+software / wgpu     platform accessibility bridge
+       |                 |
+       +--------+--------+
                 |
                 v
-Versioned platform capabilities
-                |
-                v
-AppKit / GTK4 / WinUI native adapters
+thin macOS / Linux / Windows host
 
 Native input and accessibility events travel upward through the same layers.
 ```

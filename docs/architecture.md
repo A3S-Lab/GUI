@@ -1,13 +1,24 @@
 # a3s-gui Architecture
 
-`a3s-gui` accepts structured UI input and emits native platform commands for
-AppKit, WinUI, and GTK4 backends.
+`a3s-gui` accepts structured UI input and produces a deterministic layout,
+paint scene, interaction tree, and accessibility tree. Application content is
+rendered by the A3S-owned [`a3s-graphics`](https://github.com/A3S-Lab/Graphics)
+engine. Graphics uses a deterministic software reference path and an owned
+`wgpu` path for Metal, Direct3D 12, and Vulkan; it has no RSX, widget,
+accessibility, or window-system dependency.
 
 The input contract is structured RSX element data: protocol element records,
 semantic element names, `className`, inline style objects, `aria-*`, `data-*`,
 and DOM-style event props. Supported `semantic_ui` component names are treated
-as semantic identifiers. The renderer consumes A3S Native UI IR; host adapters
-create platform widgets directly.
+as semantic identifiers. The renderer consumes A3S Native UI IR. Thin platform
+hosts own windows, raw input, IME, accessibility bridges, menus, dialogs,
+clipboard, and frame presentation, but they do not lay out or draw application
+content.
+
+The current AppKit, GTK4, and WinUI control renderers remain a migration
+baseline until the self-drawn calculator passes the cross-platform cutover
+gates. They are compatibility code, not the target architecture. New rendering
+features must enter through the layout and Graphics scene path.
 
 ```text
 Rust ComponentCx function + optional RSX view template
@@ -29,21 +40,30 @@ Semantic UI tree
         |
         v
 A3S Native UI IR
+   /         |          \
+  v          v           v
+layout   semantics   interaction/hit tree
+  |          |           |
+  v          |           |
+A3S Graphics Scene       |
+  |          |           |
+  v          |           |
+FramePlanner |           |
+  |          |           |
+  +----+     |           |
+       |     |           |
+       v     |           |
+software / wgpu renderer |
+       |     |           |
+       v     v           |
+thin platform host <-----+
+  - window + surface presentation
+  - raw input + IME
+  - accessibility bridge
+  - menus, dialogs, clipboard
         |
         v
-Keyed renderer diff engine
-        |
-        v
-Native command stream
-        |
-        v
-NativeHost adapter
-  - AppKit on macOS
-  - WinUI on Windows
-  - GTK4 on Linux
-        |
-        v
-Native events
+Normalized native events
         |
         v
 HostEvent protocol
@@ -61,8 +81,8 @@ Action ids
 ## Contract
 
 The bridge accepts semantic component names, HTML and SVG intrinsic names,
-common Web props, and event names. The native renderer receives a typed,
-portable protocol. Input records come from Rust `ComponentCx` functions,
+common Web props, and event names. The GUI renderer receives a typed, portable
+protocol. Input records come from Rust `ComponentCx` functions,
 registered `.rsx` view templates, `RsxComponent` hook registrations, or Rust
 code that builds the same protocol shape.
 
@@ -132,17 +152,23 @@ semantic mapper, renderer, and planning core compile without SWC or `rsx_ui`.
 The remaining dependencies stay one-way:
 
 - `ComponentCx`, RSX parsing, and `rsx_ui` authoring compile outward-facing
-  syntax into `CompiledRsxNode`; native backends never execute component
-  functions.
+  syntax into `CompiledRsxNode`; layout, Graphics, and platform hosts never
+  execute component functions.
 - `rsx_ui` depends on semantic component contracts. The semantic mapper,
-  native IR, renderer, and platform planning layers do not depend on the
+  native IR, layout, scene adapter, and Graphics layers do not depend on the
   built-in design-system registry.
-- `src/native.rs`, reconciliation, and `src/platform/` remain independent of OS
-  widget handles. AppKit, GTK4, and WinUI surfaces depend on those portable
-  types and are selected behind their target/feature boundaries.
-- `src/backend/` executes planned commands but does not own product state or
-  product I/O. The serializable host boundary carries data and command records,
-  never component runtime instances or thread-affine native handles.
+- GUI layout and scene extraction depend on `a3s-graphics` public scene types.
+  `a3s-graphics` never depends on `a3s-gui`, an operating-system window API, or
+  product code.
+- `wgpu` types remain inside Graphics. They do not leak into protocol,
+  `NativeElement`, portable style, components, or product application APIs.
+- Platform hosts consume GUI interaction/accessibility records and Graphics
+  presentation records. Thread-affine window, accessibility, IME, and surface
+  handles stay at that outer edge.
+- During migration, `src/renderer.rs`, `src/host.rs`, `src/platform/`, and
+  `src/backend/` implement the legacy control path. They may not gain new
+  visual behavior and are deleted when the equivalent scene/presentation and
+  recovery gates pass.
 - `src/effect.rs` defines an executor seam without depending on Tokio or another
   application runtime. An application may inject such an executor at the outer
   edge.
@@ -195,7 +221,11 @@ artifact. The harness requires an interactive Windows desktop and the Windows
 App Runtime 1.7 framework package used by the WinUI backend's dynamic
 dependency.
 
-## NativeHost Boundary
+## Legacy NativeHost Compatibility Boundary
+
+This section documents the current control renderer so its behavior can be
+preserved and then removed deliberately. It is not the destination for new
+rendering work. The removal gates are tracked in `docs/roadmap.md`.
 
 Every platform adapter implements the same host operations:
 
