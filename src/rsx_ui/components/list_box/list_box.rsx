@@ -21,6 +21,20 @@ pub struct UiListBoxProps {
     pub disallow_empty_selection: bool,
     pub should_focus_wrap: bool,
     pub escape_key_behavior: String,
+    pub on_drag_start: String,
+    pub on_drag_move: String,
+    pub on_drag_end: String,
+    pub on_drop: String,
+    pub on_drop_enter: String,
+    pub on_drop_move: String,
+    pub on_drop_exit: String,
+    pub on_root_drop: String,
+    pub on_item_drop: String,
+    pub on_insert: String,
+    pub allowed_drop_operations: String,
+    pub accepted_drag_types: String,
+    pub drop_operation: String,
+    pub drop_orientation: String,
 }
 
 pub fn ui_list_box(cx: &mut ComponentCx<UiListBoxProps>) -> RSX {
@@ -50,6 +64,22 @@ pub fn ui_list_box(cx: &mut ComponentCx<UiListBoxProps>) -> RSX {
             key="root"
             {...props.selectionProps}
             data-slot="list-box"
+            data-draggable-collection="true"
+            data-droppable-collection="true"
+            data-drop-orientation={props.dropOrientation}
+            allowedDropOperations={props.allowedDropOperations}
+            acceptedDragTypes={props.acceptedDragTypes}
+            dropOperation={props.dropOperation}
+            onDragStart={props.onDragStart}
+            onDragMove={props.onDragMove}
+            onDragEnd={props.onDragEnd}
+            onDrop={props.onDrop}
+            onDropEnter={props.onDropEnter}
+            onDropMove={props.onDropMove}
+            onDropExit={props.onDropExit}
+            onRootDrop={props.onRootDrop}
+            onItemDrop={props.onItemDrop}
+            onInsert={props.onInsert}
             class="max-h-72 min-w-32 overflow-auto rounded-md border border-hairline-strong bg-surface-card p-1 text-ink outline-none"
             className={props.className}
         >

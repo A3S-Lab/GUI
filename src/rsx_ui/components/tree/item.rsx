@@ -4,12 +4,17 @@ use crate::semantic_ui::UseTreeItemProps;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct UiTreeItemProps {
     pub class_name: String,
+    pub id: String,
     pub value: String,
     pub text_value: String,
     pub is_expanded: bool,
     pub is_selected: bool,
     pub is_disabled: bool,
     pub has_child_items: bool,
+    pub is_draggable: bool,
+    pub drag_type: String,
+    pub drag_value: String,
+    pub drag_items: String,
 }
 
 pub fn ui_tree_item(cx: &mut ComponentCx<UiTreeItemProps>) -> RSX {
@@ -31,6 +36,13 @@ pub fn ui_tree_item(cx: &mut ComponentCx<UiTreeItemProps>) -> RSX {
             key="root"
             {...props.treeItemProps}
             data-slot="tree-item"
+            data-collection-drop-item="true"
+            data-collection-key={props.id}
+            id={props.id}
+            draggable={props.isDraggable}
+            dragType={props.dragType}
+            dragValue={props.dragValue}
+            dragItems={props.dragItems}
             class="rounded-md px-2 py-1 text-sm outline-none hover:bg-surface-strong hover:text-ink data-[selected=true]:bg-surface-strong data-[selected=true]:text-ink"
             className={props.className}
         >

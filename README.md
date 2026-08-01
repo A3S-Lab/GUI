@@ -69,9 +69,11 @@ versioned [component matrix](docs/react-aria-component-matrix.json) pins
 - `Button` currently has scene/software-pixel smoke evidence through the shared
   calculator, but no component is self-drawn conformant yet;
 - the shared pointer/keyboard drag/drop state machine now covers multi-type,
-  wildcard, multi-item, and per-format payload negotiation for
-  draggable/drop-target authoring, but collection delegates, external
-  transfer, pixels, accessibility, and real hosts still keep `DropZone` below
+  wildcard, multi-item, and per-format payload negotiation plus layout-driven
+  collection `root` and keyed `before`/`on`/`after` targets. Selected
+  collection items drag as one session, and ListBox, GridList, Tree, and Table
+  share the same RSX contract; external transfer, reorder/move policy, pixels,
+  accessibility, and real hosts still keep every affected family below
   conformance;
 - Checkbox, Radio, and Switch Field/Button parts plus ToastList and
   ToastContent are recorded as eight explicit API gaps;
@@ -304,9 +306,12 @@ independently.
   scheduled long press, incremental captured move, and self-drawn drag/drop
   routing over `PlatformElementId`; drag sessions retain multiple text items
   and every MIME/custom representation, filter compatible target items,
-  negotiate wildcards plus copy/move/link/cancel operations, and share
-  event-loop deadlines, stable action bubbling, keyed reconciliation, and
-  reducer rollback in one staged interaction session
+  negotiate wildcards plus copy/move/link/cancel operations, aggregate stable
+  selected collection keys, and resolve root/item/insertion targets from
+  self-drawn layout geometry. A collection is one keyboard Tab stop during a
+  drag, with arrow/Home/End navigation inside it; all paths share event-loop
+  deadlines, stable action bubbling, keyed reconciliation, and reducer
+  rollback in one staged interaction session
 - an identical-frame fast path that performs no layout, scene, host, or
   presentation work, plus semantic-only commits that skip pixel presentation
 - a software Graphics presenter and interactive shared
@@ -322,11 +327,11 @@ independently.
 | M1 · GUI integration | Complete | Pinned Graphics boundary, semantic-only dependency gate, renderer inventory, reference/GPU wrappers, first generic adapter |
 | M2 · GPU backend | Implementation landed | Graphics commit `8748fab`; Metal and Vulkan CI parity evidence remains |
 | M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
-| M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, and drag/drop foundations landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
+| M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, typed and collection drag/drop foundations landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
 | H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, long press, captured move, typed drag/drop negotiation, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
 | T0-T5 · TSX native authoring | Proposed | Automatic JSX runtime, versioned Node-to-host session, state/event runtime, self-drawn native window, packages, and stable SDK |
-| M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped, eight public parts explicitly missing, Button scene smoke only; full software and three-OS self-drawn evidence required |
+| M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped; collection DnD authoring/behavior slice landed; eight public parts, full software, accessibility, and three-OS self-drawn evidence remain |
 
 The dependency-ordered plan and acceptance gates are in the
 [delivery roadmap](docs/roadmap.md).

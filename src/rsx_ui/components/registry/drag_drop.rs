@@ -74,6 +74,8 @@ pub(super) fn with_drag_drop_components<S>(
         ui_drop_indicator,
         passthrough_contract()?
             .default_prop("orientation", "horizontal")?
+            .default_prop("targetKey", "")?
+            .default_prop("dropPosition", "before")?
             .default_prop("isTarget", false)?,
         None,
     )?;

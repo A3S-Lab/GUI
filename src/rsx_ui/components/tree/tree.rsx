@@ -25,6 +25,20 @@ pub struct UiTreeProps {
     pub expanded_keys: Option<Selection>,
     pub default_expanded_keys: Option<Selection>,
     pub on_expanded_change: String,
+    pub on_drag_start: String,
+    pub on_drag_move: String,
+    pub on_drag_end: String,
+    pub on_drop: String,
+    pub on_drop_enter: String,
+    pub on_drop_move: String,
+    pub on_drop_exit: String,
+    pub on_root_drop: String,
+    pub on_item_drop: String,
+    pub on_insert: String,
+    pub allowed_drop_operations: String,
+    pub accepted_drag_types: String,
+    pub drop_operation: String,
+    pub drop_orientation: String,
 }
 
 pub fn ui_tree(cx: &mut ComponentCx<UiTreeProps>) -> RSX {
@@ -66,6 +80,22 @@ pub fn ui_tree(cx: &mut ComponentCx<UiTreeProps>) -> RSX {
             key="root"
             {...props.treeProps}
             data-slot="tree"
+            data-draggable-collection="true"
+            data-droppable-collection="true"
+            data-drop-orientation={props.dropOrientation}
+            allowedDropOperations={props.allowedDropOperations}
+            acceptedDragTypes={props.acceptedDragTypes}
+            dropOperation={props.dropOperation}
+            onDragStart={props.onDragStart}
+            onDragMove={props.onDragMove}
+            onDragEnd={props.onDragEnd}
+            onDrop={props.onDrop}
+            onDropEnter={props.onDropEnter}
+            onDropMove={props.onDropMove}
+            onDropExit={props.onDropExit}
+            onRootDrop={props.onRootDrop}
+            onItemDrop={props.onItemDrop}
+            onInsert={props.onInsert}
             class="grid gap-1"
             className={props.className}
         >

@@ -212,7 +212,7 @@ impl SelfDrawnInteractionSession {
                                     last_position: event.position,
                                     did_move: false,
                                 });
-                        let drag_candidate = tree.drag_source(&target).cloned().map(|source| {
+                        let drag_candidate = tree.drag_source_for_start(&target).map(|source| {
                             SelfDrawnDragCandidate {
                                 source,
                                 start_position: event.position,

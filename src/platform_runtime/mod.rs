@@ -2,6 +2,9 @@
 
 mod accessibility;
 mod drag_drop;
+mod drag_drop_collection;
+#[cfg(test)]
+mod drag_drop_collection_tests;
 mod drag_drop_input;
 #[cfg(test)]
 mod drag_drop_items_tests;
@@ -9,12 +12,17 @@ mod drag_drop_keyboard_input;
 #[cfg(test)]
 mod drag_drop_keyboard_tests;
 #[cfg(test)]
+mod drag_drop_model_tests;
+mod drag_drop_source_input;
+#[cfg(test)]
 mod drag_drop_tests;
 mod events;
 mod frame;
 mod input;
 mod interaction;
 mod interaction_tree;
+mod interaction_tree_drag_drop;
+mod interaction_tree_drag_source;
 mod keyboard_input;
 mod long_press_input;
 #[cfg(test)]
@@ -28,6 +36,7 @@ mod reference_presenter;
 mod runtime;
 
 pub use drag_drop::{SelfDrawnDragContext, SelfDrawnDropItem, SelfDrawnDropOperation};
+pub use drag_drop_collection::{SelfDrawnCollectionDropTarget, SelfDrawnDropPosition};
 pub use frame::{PlatformRenderFrame, SelfDrawnFrameSnapshot};
 pub use interaction::{
     SelfDrawnActionInvocation, SelfDrawnActionPropagation, SelfDrawnElementInteraction,

@@ -4,7 +4,10 @@ use crate::error::GuiResult;
 use crate::rsx_app::RsxComponent;
 
 use super::super::catalog::*;
-use super::super::contract::{passthrough_contract, selection_contract};
+use super::super::contract::{
+    collection_drag_drop_contract, collection_drag_item_contract, passthrough_contract,
+    selection_contract,
+};
 use super::with_builtin_template;
 
 pub(super) fn with_data_components<S>(component: RsxComponent<S>) -> GuiResult<RsxComponent<S>> {
@@ -12,7 +15,7 @@ pub(super) fn with_data_components<S>(component: RsxComponent<S>) -> GuiResult<R
         component,
         "UiTable",
         ui_table,
-        passthrough_contract()?.default_prop("label", "")?,
+        collection_drag_drop_contract(passthrough_contract()?)?.default_prop("label", "")?,
         None,
     )?;
     let component = with_builtin_template(
@@ -47,7 +50,8 @@ pub(super) fn with_data_components<S>(component: RsxComponent<S>) -> GuiResult<R
         component,
         "UiTableRow",
         ui_table_row,
-        passthrough_contract()?.default_prop("isSelected", false)?,
+        collection_drag_item_contract(passthrough_contract()?)?
+            .default_prop("isSelected", false)?,
         None,
     )?;
     let component = with_builtin_template(

@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use crate::native::NativeProps;
 use crate::platform_host::{PlatformElementId, PlatformPoint, PlatformPointerId};
 
+use super::drag_drop_collection::SelfDrawnCollectionDropTarget;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 /// Portable outcome negotiated between a drag source and drop target.
@@ -81,8 +83,11 @@ pub struct SelfDrawnDragContext {
     pub types: Vec<String>,
     pub value: Option<String>,
     pub items: Vec<SelfDrawnDropItem>,
+    pub dragging_keys: Vec<String>,
     pub allowed_operations: Vec<SelfDrawnDropOperation>,
     pub drop_operation: SelfDrawnDropOperation,
+    pub target: Option<SelfDrawnCollectionDropTarget>,
+    pub is_internal: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -91,6 +96,9 @@ pub(super) struct SelfDrawnDragSource {
     pub(super) value: Option<String>,
     pub(super) items: Vec<SelfDrawnDropItem>,
     pub(super) allowed_operations: Vec<SelfDrawnDropOperation>,
+    pub(super) collection: Option<PlatformElementId>,
+    pub(super) dragging_keys: Vec<String>,
+    pub(super) dragging_nodes: Vec<PlatformElementId>,
 }
 
 #[derive(Debug, Clone)]
@@ -113,7 +121,12 @@ pub(super) struct SelfDrawnDragSession {
     pub(super) value: Option<String>,
     pub(super) items: Vec<SelfDrawnDropItem>,
     pub(super) allowed_operations: Vec<SelfDrawnDropOperation>,
+    pub(super) source_collection: Option<PlatformElementId>,
+    pub(super) dragging_keys: Vec<String>,
+    pub(super) dragging_nodes: Vec<PlatformElementId>,
     pub(super) current_target: Option<PlatformElementId>,
+    pub(super) current_collection: Option<PlatformElementId>,
+    pub(super) current_collection_target: Option<SelfDrawnCollectionDropTarget>,
     pub(super) current_item_indices: Vec<usize>,
     pub(super) current_operation: SelfDrawnDropOperation,
     pub(super) last_position: Option<PlatformPoint>,
@@ -122,6 +135,8 @@ pub(super) struct SelfDrawnDragSession {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct SelfDrawnMatchedDropTarget {
     pub(super) id: PlatformElementId,
+    pub(super) collection: Option<PlatformElementId>,
+    pub(super) collection_target: Option<SelfDrawnCollectionDropTarget>,
     pub(super) operation: SelfDrawnDropOperation,
     pub(super) item_indices: Vec<usize>,
 }
@@ -155,12 +170,7 @@ impl SelfDrawnDragSource {
         if !items.is_empty() {
             types = item_types(&items);
         }
-        let mut allowed_operations = attribute(
-            props,
-            &["allowedDropOperations", "data-allowed-drop-operations"],
-        )
-        .map(parse_operations)
-        .unwrap_or_default();
+        let mut allowed_operations = Self::allowed_operations_from_props(props).unwrap_or_default();
         if allowed_operations.is_empty() {
             allowed_operations = vec![
                 SelfDrawnDropOperation::Copy,
@@ -173,7 +183,21 @@ impl SelfDrawnDragSource {
             value,
             items,
             allowed_operations,
+            collection: None,
+            dragging_keys: Vec::new(),
+            dragging_nodes: Vec::new(),
         })
+    }
+
+    pub(super) fn allowed_operations_from_props(
+        props: &NativeProps,
+    ) -> Option<Vec<SelfDrawnDropOperation>> {
+        attribute(
+            props,
+            &["allowedDropOperations", "data-allowed-drop-operations"],
+        )
+        .map(parse_operations)
+        .filter(|operations| !operations.is_empty())
     }
 }
 
@@ -181,6 +205,9 @@ impl SelfDrawnDropTarget {
     pub(super) fn from_props(props: &NativeProps, style_requires_target: bool) -> Option<Self> {
         let has_event = [
             "onDrop",
+            "onRootDrop",
+            "onItemDrop",
+            "onInsert",
             "onDropEnter",
             "onDropMove",
             "onDropExit",
@@ -235,7 +262,7 @@ impl SelfDrawnDropTarget {
 
 impl SelfDrawnDragSession {
     pub(super) fn context(&self, operation: SelfDrawnDropOperation) -> SelfDrawnDragContext {
-        self.context_with_items(operation, self.items.clone())
+        self.context_with_items(operation, self.items.clone(), None, false)
     }
 
     pub(super) fn target_context(&self, operation: SelfDrawnDropOperation) -> SelfDrawnDragContext {
@@ -244,25 +271,37 @@ impl SelfDrawnDragSession {
             .iter()
             .filter_map(|index| self.items.get(*index).cloned())
             .collect();
-        self.context_with_items(operation, items)
+        let is_internal =
+            self.source_collection.is_some() && self.source_collection == self.current_collection;
+        self.context_with_items(
+            operation,
+            items,
+            self.current_collection_target.clone(),
+            is_internal,
+        )
     }
 
     fn context_with_items(
         &self,
         operation: SelfDrawnDropOperation,
         items: Vec<SelfDrawnDropItem>,
+        target: Option<SelfDrawnCollectionDropTarget>,
+        is_internal: bool,
     ) -> SelfDrawnDragContext {
         SelfDrawnDragContext {
             types: self.types.clone(),
             value: self.value.clone(),
             items,
+            dragging_keys: self.dragging_keys.clone(),
             allowed_operations: self.allowed_operations.clone(),
             drop_operation: operation,
+            target,
+            is_internal,
         }
     }
 }
 
-fn parse_drag_items(raw: &str) -> Option<Vec<SelfDrawnDropItem>> {
+pub(super) fn parse_drag_items(raw: &str) -> Option<Vec<SelfDrawnDropItem>> {
     let formats = serde_json::from_str::<Vec<BTreeMap<String, String>>>(raw).ok()?;
     if formats.is_empty() {
         return None;
@@ -368,7 +407,7 @@ fn parse_operation(raw: &str) -> Option<SelfDrawnDropOperation> {
     }
 }
 
-fn accepts_types(patterns: &[String], types: &[String]) -> bool {
+pub(super) fn accepts_types(patterns: &[String], types: &[String]) -> bool {
     if patterns.is_empty()
         || patterns
             .iter()
@@ -393,75 +432,5 @@ fn type_matches(pattern: &str, drag_type: &str) -> bool {
         pattern.eq_ignore_ascii_case(drag_type)
     } else {
         pattern == drag_type
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn type_matching_supports_multiple_queries_and_mime_wildcards() {
-        assert!(accepts_types(
-            &["image/*".to_string(), "application/json".to_string()],
-            &["text/plain".to_string(), "image/png".to_string()]
-        ));
-        assert!(!accepts_types(
-            &["image/*".to_string(), "application/json".to_string()],
-            &["text/plain".to_string(), "application/pdf".to_string()]
-        ));
-        assert!(accepts_types(
-            &["all".to_string()],
-            &["custom-type".to_string()]
-        ));
-    }
-
-    #[test]
-    fn invalid_requested_operation_rejects_instead_of_falling_back() {
-        let props = NativeProps::new().web(
-            crate::web::WebProps::new()
-                .attribute("data-accepted-drag-types", "text/plain")
-                .attribute("data-drop-operation", "archive"),
-        );
-        let target = SelfDrawnDropTarget::from_props(&props, false).unwrap();
-
-        assert_eq!(
-            target.operation_for(
-                &["text/plain".to_string()],
-                &[SelfDrawnDropOperation::Copy, SelfDrawnDropOperation::Move,],
-            ),
-            SelfDrawnDropOperation::Cancel
-        );
-    }
-
-    #[test]
-    fn drag_item_wire_shape_is_typed_and_old_contexts_default_items() {
-        let item = SelfDrawnDropItem::text(BTreeMap::from([
-            ("text/plain".to_string(), "alpha".to_string()),
-            ("text/html".to_string(), "<b>alpha</b>".to_string()),
-        ]));
-        let wire = serde_json::to_value(&item).unwrap();
-        assert_eq!(wire["kind"], "text");
-        assert_eq!(
-            wire["types"],
-            serde_json::json!(["text/html", "text/plain"])
-        );
-        assert_eq!(wire["formats"]["text/plain"], "alpha");
-
-        let old = serde_json::from_value::<SelfDrawnDragContext>(serde_json::json!({
-            "types": ["text/plain"],
-            "value": "alpha",
-            "allowedOperations": ["copy"],
-            "dropOperation": "copy"
-        }))
-        .unwrap();
-        assert!(old.items.is_empty());
-    }
-
-    #[test]
-    fn encoded_drag_items_reject_non_text_or_empty_representations() {
-        assert!(parse_drag_items(r#"[{"text/plain":1}]"#).is_none());
-        assert!(parse_drag_items(r#"[{}]"#).is_none());
-        assert!(parse_drag_items("[]").is_none());
     }
 }

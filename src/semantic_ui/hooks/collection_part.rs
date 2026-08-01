@@ -8,6 +8,8 @@ use super::serde_helpers::is_false;
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UseDropIndicatorProps {
     orientation: Option<String>,
+    target_key: Option<String>,
+    drop_position: Option<String>,
     is_target: bool,
 }
 
@@ -25,6 +27,18 @@ impl UseDropIndicatorProps {
 
     pub fn target(mut self, target: bool) -> Self {
         self.is_target = target;
+        self
+    }
+
+    pub fn target_key(mut self, key: Option<impl Into<String>>) -> Self {
+        self.target_key = key.map(Into::into).filter(|key| !key.is_empty());
+        self
+    }
+
+    pub fn drop_position(mut self, position: Option<impl Into<String>>) -> Self {
+        self.drop_position = position
+            .map(Into::into)
+            .filter(|position| !position.is_empty());
         self
     }
 }
@@ -55,6 +69,10 @@ impl UseSelectionIndicatorProps {
 #[serde(rename_all = "camelCase")]
 pub struct UseDropIndicatorResult {
     pub orientation: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub drop_position: Option<&'static str>,
     pub is_target: bool,
     pub drop_indicator_props: DropIndicatorProps,
 }
@@ -71,12 +89,23 @@ pub struct UseSelectionIndicatorResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DropIndicatorProps {
+    #[serde(rename = "tabIndex")]
+    pub tab_index: i32,
     pub orientation: &'static str,
     #[serde(rename = "data-orientation")]
     pub data_orientation: &'static str,
     pub is_target: bool,
     #[serde(rename = "data-target")]
     pub data_target: bool,
+    #[serde(rename = "data-collection-drop-indicator")]
+    pub data_collection_drop_indicator: bool,
+    #[serde(
+        rename = "data-drop-target-key",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data_drop_target_key: Option<String>,
+    #[serde(rename = "data-drop-position", skip_serializing_if = "Option::is_none")]
+    pub data_drop_position: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -96,15 +125,22 @@ pub struct SelectionIndicatorProps {
 
 pub fn use_drop_indicator(props: UseDropIndicatorProps) -> UseDropIndicatorResult {
     let orientation = orientation_value(props.orientation);
+    let drop_position = drop_position_value(props.drop_position);
 
     UseDropIndicatorResult {
         orientation,
+        target_key: props.target_key.clone(),
+        drop_position,
         is_target: props.is_target,
         drop_indicator_props: DropIndicatorProps {
+            tab_index: -1,
             orientation,
             data_orientation: orientation,
             is_target: props.is_target,
             data_target: props.is_target,
+            data_collection_drop_indicator: true,
+            data_drop_target_key: props.target_key,
+            data_drop_position: drop_position,
         },
     }
 }
@@ -148,5 +184,18 @@ fn orientation_value(orientation: Option<String>) -> &'static str {
     {
         Some("vertical") => "vertical",
         _ => "horizontal",
+    }
+}
+
+fn drop_position_value(position: Option<String>) -> Option<&'static str> {
+    match position
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("before") => Some("before"),
+        Some("after") => Some("after"),
+        _ => None,
     }
 }

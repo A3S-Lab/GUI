@@ -345,8 +345,8 @@ impl SelfDrawnInteractionSession {
                 .filter(|press| tree.is_available(&press.target))
                 .map(|mut press| {
                     if let Some(candidate) = press.drag_candidate.as_mut() {
-                        if let Some(source) = tree.drag_source(&press.target) {
-                            candidate.source = source.clone();
+                        if let Some(source) = tree.drag_source_for_start(&press.target) {
+                            candidate.source = source;
                         } else {
                             press.drag_candidate = None;
                         }
@@ -369,15 +369,21 @@ impl SelfDrawnInteractionSession {
             if let Some(target) = drag.current_target.take() {
                 if let Some(matched) = tree.compatible_drop_target(
                     &target,
+                    drag.current_collection.as_ref(),
+                    drag.current_collection_target.as_ref(),
                     &drag.items,
                     &drag.types,
                     &drag.allowed_operations,
                 ) {
                     drag.current_target = Some(matched.id);
+                    drag.current_collection = matched.collection;
+                    drag.current_collection_target = matched.collection_target;
                     drag.current_operation = matched.operation;
                     drag.current_item_indices = matched.item_indices;
                 } else {
                     drag.current_operation = super::SelfDrawnDropOperation::Cancel;
+                    drag.current_collection = None;
+                    drag.current_collection_target = None;
                     drag.current_item_indices.clear();
                 }
             }
@@ -397,8 +403,15 @@ impl SelfDrawnInteractionSession {
         self.rebuild_long_pressed_counts();
         self.rebuild_moving_counts();
         if let Some(drag) = &self.active_drag {
-            if let Some(state) = self.states.get_mut(&drag.source) {
-                state.dragging = true;
+            let dragging_nodes = if drag.dragging_nodes.is_empty() {
+                std::slice::from_ref(&drag.source)
+            } else {
+                drag.dragging_nodes.as_slice()
+            };
+            for node in dragging_nodes {
+                if let Some(state) = self.states.get_mut(node) {
+                    state.dragging = true;
+                }
             }
             if let Some(target) = &drag.current_target {
                 if let Some(state) = self.states.get_mut(target) {

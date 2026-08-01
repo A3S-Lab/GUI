@@ -84,6 +84,8 @@ pub use components::{
 pub use variants::{ui_badge_variants, ui_button_variants};
 
 #[cfg(test)]
+mod drag_drop_collection_tests;
+#[cfg(test)]
 mod interaction_tests;
 #[cfg(test)]
 mod selection_tests;

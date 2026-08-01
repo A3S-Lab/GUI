@@ -63,6 +63,15 @@ impl SelfDrawnInteractionSession {
                         context,
                         routed,
                     ),
+                    "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "Home" | "End" => self
+                        .move_keyboard_collection_target(
+                            key,
+                            tree,
+                            frame_revision,
+                            event_sequence,
+                            context,
+                            routed,
+                        ),
                     "Enter" => self.finish_keyboard_drag(
                         true,
                         tree,
@@ -90,7 +99,7 @@ impl SelfDrawnInteractionSession {
         let Some(source_id) = self.focused.clone() else {
             return false;
         };
-        let Some(source) = tree.drag_source(&source_id).cloned() else {
+        let Some(source) = tree.drag_source_for_start(&source_id) else {
             return false;
         };
 
@@ -102,14 +111,24 @@ impl SelfDrawnInteractionSession {
             value: source.value,
             items: source.items,
             allowed_operations: source.allowed_operations,
+            source_collection: source.collection,
+            dragging_keys: source.dragging_keys,
+            dragging_nodes: source.dragging_nodes,
             current_target: None,
+            current_collection: None,
+            current_collection_target: None,
             current_item_indices: Vec::new(),
             current_operation: SelfDrawnDropOperation::Cancel,
             last_position: None,
         };
-        self.change_state(&source_id, &mut routed.changes, |state| {
-            state.dragging = true;
-        });
+        let dragging_nodes = if session.dragging_nodes.is_empty() {
+            vec![source_id.clone()]
+        } else {
+            session.dragging_nodes.clone()
+        };
+        for node in dragging_nodes {
+            self.change_state(&node, &mut routed.changes, |state| state.dragging = true);
+        }
         self.emit(
             tree,
             frame_revision,
@@ -153,10 +172,14 @@ impl SelfDrawnInteractionSession {
             &session.types,
             &session.allowed_operations,
         );
-        let current = session.current_target.as_ref().and_then(|current| {
-            candidates
-                .iter()
-                .position(|candidate| candidate.id == *current)
+        let current = candidates.iter().position(|candidate| {
+            if let Some(collection) = session.current_collection.as_ref() {
+                candidate.collection.as_ref() == Some(collection)
+            } else {
+                session.current_target.as_ref().is_some_and(|current| {
+                    candidate.collection.is_none() && candidate.id == *current
+                })
+            }
         });
         let next = if candidates.is_empty() {
             None
@@ -195,6 +218,65 @@ impl SelfDrawnInteractionSession {
                 &mut routed.changes,
             );
             routed.target = Some(focused);
+        }
+        self.active_drag = Some(session);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn move_keyboard_collection_target(
+        &mut self,
+        key: &str,
+        tree: &SelfDrawnInteractionTree,
+        frame_revision: PlatformHostRevision,
+        event_sequence: u64,
+        context: &SelfDrawnEventContext,
+        routed: &mut RoutedInput,
+    ) {
+        let Some(mut session) = self.active_drag.take() else {
+            return;
+        };
+        let next = session
+            .current_collection
+            .as_ref()
+            .zip(session.current_collection_target.as_ref())
+            .and_then(|(collection, target)| {
+                tree.keyboard_collection_target(
+                    collection,
+                    target,
+                    key,
+                    &session.items,
+                    &session.types,
+                    &session.allowed_operations,
+                )
+            });
+        if let Some(next) = next {
+            self.transition_drop_target(
+                &mut session,
+                Some(next),
+                None,
+                true,
+                tree,
+                frame_revision,
+                event_sequence,
+                context,
+                routed,
+            );
+            if let Some(focused) = session
+                .current_target
+                .clone()
+                .filter(|target| tree.is_focusable(target))
+            {
+                self.transition_focus(
+                    tree,
+                    frame_revision,
+                    event_sequence,
+                    Some(focused.clone()),
+                    context,
+                    &mut routed.invocations,
+                    &mut routed.changes,
+                );
+                routed.target = Some(focused);
+            }
         }
         self.active_drag = Some(session);
     }

@@ -396,7 +396,7 @@ Landed evidence:
 - reducer errors restore the staged interaction state and sequence before the
   event is exposed as successful; successful frame reconciliation preserves
   focused stable ids, while rejected frames do not touch them
-- 48 focused runtime/software tests and four recursive feature/source
+- 53 focused runtime/software tests and four recursive feature/source
   firewall tests pass without any legacy renderer or OS toolkit dependency
 - `self_drawn_calculator` reproduces layout fingerprint
   `16529597026056060935`, scene fingerprint `2100550662756266801`, and

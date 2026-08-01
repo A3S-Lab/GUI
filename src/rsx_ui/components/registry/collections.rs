@@ -4,7 +4,10 @@ use crate::error::GuiResult;
 use crate::rsx_app::RsxComponent;
 
 use super::super::catalog::*;
-use super::super::contract::{passthrough_contract, selection_contract};
+use super::super::contract::{
+    collection_drag_drop_contract, collection_drag_item_contract, passthrough_contract,
+    selection_contract,
+};
 use super::with_builtin_template;
 
 pub(super) fn with_selection_input_components<S>(
@@ -84,7 +87,7 @@ pub(super) fn with_collection_components<S>(
         component,
         "UiListBox",
         ui_list_box,
-        selection_contract()?,
+        collection_drag_drop_contract(selection_contract()?)?,
         None,
     )?;
     let component = with_builtin_template(
@@ -107,7 +110,7 @@ pub(super) fn with_collection_components<S>(
         component,
         "UiListBoxItem",
         ui_list_box_item,
-        passthrough_contract()?
+        collection_drag_item_contract(passthrough_contract()?)?
             .default_prop("value", "")?
             .default_prop("textValue", "")?
             .default_prop("isSelected", false)?,
@@ -130,7 +133,7 @@ pub(super) fn with_collection_components<S>(
         component,
         "UiGridList",
         ui_grid_list,
-        selection_contract()?.default_prop("label", "")?,
+        collection_drag_drop_contract(selection_contract()?)?.default_prop("label", "")?,
         None,
     )?;
     let component = with_builtin_template(
@@ -153,7 +156,7 @@ pub(super) fn with_collection_components<S>(
         component,
         "UiGridListItem",
         ui_grid_list_item,
-        passthrough_contract()?
+        collection_drag_item_contract(passthrough_contract()?)?
             .default_prop("value", "")?
             .default_prop("textValue", "")?
             .default_prop("isSelected", false)?,
@@ -201,7 +204,7 @@ pub(super) fn with_collection_components<S>(
         component,
         "UiTree",
         ui_tree,
-        selection_contract()?
+        collection_drag_drop_contract(selection_contract()?)?
             .default_prop("label", "")?
             .default_prop_value("expandedKeys", serde_json::Value::Null)?
             .default_prop_value("defaultExpandedKeys", serde_json::Value::Null)?
@@ -228,7 +231,7 @@ pub(super) fn with_collection_components<S>(
         component,
         "UiTreeItem",
         ui_tree_item,
-        passthrough_contract()?
+        collection_drag_item_contract(passthrough_contract()?)?
             .default_prop("value", "")?
             .default_prop("textValue", "")?
             .default_prop("isExpanded", false)?

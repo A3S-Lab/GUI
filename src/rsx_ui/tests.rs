@@ -6255,6 +6255,8 @@ fn rsx_ui_structure_parts_consume_structure_hook_props() {
         .unwrap()
         .render(&UiDropIndicatorProps {
             orientation: "vertical".to_string(),
+            target_key: "alpha".to_string(),
+            drop_position: "before".to_string(),
             is_target: true,
             class_name: "opacity-100".to_string(),
         })

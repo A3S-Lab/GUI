@@ -597,8 +597,26 @@ Target callbacks receive only matching items, with every representation on
 those items preserved. `UiDraggable`, `UiDroppable`, and `UiDropZone` include a
 keyboard-focusable affordance: Enter starts or commits a drag, Tab cycles
 compatible targets, and Escape cancels. Pointer and keyboard callbacks receive
-the same typed transfer context. External OS files/directories and collection
-before/after insertion targets remain separate work.
+the same typed transfer context.
+
+`UiListBox`, `UiGridList`, `UiTree`, and `UiTable` also expose the shared
+collection contract. Their roots accept `onRootDrop`, `onItemDrop`, `onInsert`,
+the low-level overriding `onDrop`, lifecycle handlers, `acceptedDragTypes`,
+`dropOperation`, `allowedDropOperations`, and `dropOrientation`. Item/row
+components accept a stable `id` plus `isDraggable`, `dragType`, `dragValue`,
+and `dragItems`; `UiDropIndicator.targetKey` references that `id`.
+Dragging a selected item aggregates all selected draggable item keys and
+payloads; dragging an unselected item keeps a single-item session.
+
+Collection callback context adds `draggingKeys`, `isInternal`, and a `target`
+descriptor shaped as `{type: "root"}` or
+`{type: "item", key, dropPosition: "before" | "on" | "after"}`. Pointer
+delegation derives targets from the committed self-drawn boxes. During a
+keyboard drag, Tab visits the collection once and Arrow/Home/End keys navigate
+inside it. `UiDropIndicator targetKey="..." dropPosition="before|after"`
+provides a stable explicit insertion visual. External OS files/directories,
+cross-application transfer, drag previews, reorder/move policy, and final
+accessibility/host conformance remain separate work.
 
 Runtime lifecycle and effects:
 

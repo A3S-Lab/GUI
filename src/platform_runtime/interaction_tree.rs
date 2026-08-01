@@ -9,15 +9,17 @@ use crate::platform_host::{PlatformElementId, PlatformPoint};
 use crate::semantic_event::{long_press_threshold_micros, SemanticActionSource};
 use crate::style::interaction_requirements_from_web;
 
-use super::drag_drop::{
-    SelfDrawnDragSource, SelfDrawnDropItem, SelfDrawnDropTarget, SelfDrawnMatchedDropTarget,
+use super::drag_drop::{SelfDrawnDragSource, SelfDrawnDropTarget};
+use super::drag_drop_collection::{
+    collection_item_key, drop_indicator_target, is_collection_container, is_draggable_collection,
+    SelfDrawnCollectionDropConfig, SelfDrawnCollectionDropTarget,
 };
 
 #[derive(Debug, Clone)]
 pub(super) struct SelfDrawnInteractionTree {
-    nodes: BTreeMap<PlatformElementId, SelfDrawnInteractionNode>,
-    tree_order: Vec<PlatformElementId>,
-    hit_regions: Vec<SelfDrawnHitRegion>,
+    pub(super) nodes: BTreeMap<PlatformElementId, SelfDrawnInteractionNode>,
+    pub(super) tree_order: Vec<PlatformElementId>,
+    pub(super) hit_regions: Vec<SelfDrawnHitRegion>,
 }
 
 #[derive(Debug, Clone)]
@@ -31,10 +33,15 @@ pub(super) struct SelfDrawnInteractionNode {
     pub(super) tab_index: i32,
     pub(super) tree_order: usize,
     pub(super) bounds: Rect,
+    pub(super) collection_container: bool,
+    pub(super) draggable_collection: bool,
+    pub(super) collection_item_key: Option<String>,
+    pub(super) drop_indicator_target: Option<SelfDrawnCollectionDropTarget>,
     tracks_pointer_interaction: bool,
     tracks_movement: bool,
-    drag_source: Option<SelfDrawnDragSource>,
-    drop_target: Option<SelfDrawnDropTarget>,
+    pub(super) drag_source: Option<SelfDrawnDragSource>,
+    pub(super) drop_target: Option<SelfDrawnDropTarget>,
+    pub(super) collection_drop: Option<SelfDrawnCollectionDropConfig>,
     long_press_mode: SelfDrawnLongPressMode,
     long_press_threshold_micros: u64,
 }
@@ -48,9 +55,9 @@ enum SelfDrawnLongPressMode {
 }
 
 #[derive(Debug, Clone)]
-struct SelfDrawnHitRegion {
-    id: PlatformElementId,
-    bounds: Rect,
+pub(super) struct SelfDrawnHitRegion {
+    pub(super) id: PlatformElementId,
+    pub(super) bounds: Rect,
 }
 
 impl SelfDrawnInteractionTree {
@@ -202,90 +209,6 @@ impl SelfDrawnInteractionTree {
             .is_some_and(|node| node.available && node.tracks_movement)
     }
 
-    pub(super) fn drag_source(&self, target: &PlatformElementId) -> Option<&SelfDrawnDragSource> {
-        self.node(target)
-            .filter(|node| node.available)
-            .and_then(|node| node.drag_source.as_ref())
-    }
-
-    pub(super) fn drop_target_at(
-        &self,
-        point: PlatformPoint,
-        items: &[SelfDrawnDropItem],
-        types: &[String],
-        allowed_operations: &[super::SelfDrawnDropOperation],
-    ) -> Option<SelfDrawnMatchedDropTarget> {
-        for region in self.hit_regions.iter().rev() {
-            if !contains(region.bounds, point) {
-                continue;
-            }
-            let node = self.node(&region.id)?;
-            if !node.available {
-                return None;
-            }
-            for id in self.ancestors_inclusive(&region.id) {
-                let node = self.node(&id)?;
-                let Some(target) = node.drop_target.as_ref() else {
-                    continue;
-                };
-                let operation = target.operation_for(types, allowed_operations);
-                if operation != super::SelfDrawnDropOperation::Cancel {
-                    return Some(SelfDrawnMatchedDropTarget {
-                        id,
-                        operation,
-                        item_indices: target.matching_item_indices(items),
-                    });
-                }
-                return None;
-            }
-            return None;
-        }
-        None
-    }
-
-    pub(super) fn compatible_drop_targets(
-        &self,
-        items: &[SelfDrawnDropItem],
-        types: &[String],
-        allowed_operations: &[super::SelfDrawnDropOperation],
-    ) -> Vec<SelfDrawnMatchedDropTarget> {
-        self.tree_order
-            .iter()
-            .filter_map(|id| {
-                let node = self.node(id)?;
-                if !node.available {
-                    return None;
-                }
-                let target = node.drop_target.as_ref()?;
-                let operation = target.operation_for(types, allowed_operations);
-                (operation != super::SelfDrawnDropOperation::Cancel).then(|| {
-                    SelfDrawnMatchedDropTarget {
-                        id: id.clone(),
-                        operation,
-                        item_indices: target.matching_item_indices(items),
-                    }
-                })
-            })
-            .collect()
-    }
-
-    pub(super) fn compatible_drop_target(
-        &self,
-        id: &PlatformElementId,
-        items: &[SelfDrawnDropItem],
-        types: &[String],
-        allowed_operations: &[super::SelfDrawnDropOperation],
-    ) -> Option<SelfDrawnMatchedDropTarget> {
-        let node = self.node(id).filter(|node| node.available)?;
-        let target = node.drop_target.as_ref()?;
-        let operation = target.operation_for(types, allowed_operations);
-        (operation != super::SelfDrawnDropOperation::Cancel).then(|| SelfDrawnMatchedDropTarget {
-            id: id.clone(),
-            operation,
-            item_indices: target.matching_item_indices(items),
-        })
-    }
-
     pub(super) fn local_position(
         &self,
         target: &PlatformElementId,
@@ -348,10 +271,17 @@ impl SelfDrawnInteractionTree {
                     .is_some_and(|action| !action.is_empty())
             });
         let tracks_movement = interaction_requirements.movement || has_move_event;
-        let drag_source =
-            SelfDrawnDragSource::from_props(&props, interaction_requirements.dragging);
+        let draggable_collection = is_draggable_collection(&props);
+        let drag_source = (!draggable_collection)
+            .then(|| SelfDrawnDragSource::from_props(&props, interaction_requirements.dragging))
+            .flatten();
         let drop_target =
             SelfDrawnDropTarget::from_props(&props, interaction_requirements.drop_target);
+        let collection_drop =
+            SelfDrawnCollectionDropConfig::from_props(&props, drop_target.clone());
+        let collection_container = is_collection_container(element.role, &props);
+        let collection_item_key = collection_item_key(element.role, element.key.as_str(), &props);
+        let drop_indicator_target = drop_indicator_target(&props);
         let tracks_pointer_interaction = interaction_requirements.press
             || interaction_requirements.long_press
             || tracks_movement
@@ -391,10 +321,15 @@ impl SelfDrawnInteractionTree {
                 focusable,
                 tree_order,
                 bounds,
+                collection_container,
+                draggable_collection,
+                collection_item_key,
+                drop_indicator_target,
                 tracks_pointer_interaction,
                 tracks_movement,
                 drag_source,
                 drop_target,
+                collection_drop,
                 long_press_mode,
                 long_press_threshold_micros,
             },
@@ -407,7 +342,7 @@ impl SelfDrawnInteractionTree {
     }
 }
 
-fn contains(bounds: Rect, point: PlatformPoint) -> bool {
+pub(super) fn contains(bounds: Rect, point: PlatformPoint) -> bool {
     bounds.width > 0.0
         && bounds.height > 0.0
         && point.x >= bounds.x

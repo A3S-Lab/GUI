@@ -2888,6 +2888,14 @@ fn drop_indicator_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
     use_drop_indicator_value(
         UseDropIndicatorProps::new()
             .orientation(orientation_attribute_value(props))
+            .target_key(non_empty_attribute(
+                props,
+                &["targetKey", "data-drop-target-key"],
+            ))
+            .drop_position(non_empty_attribute(
+                props,
+                &["dropPosition", "data-drop-position"],
+            ))
             .target(
                 bool_attribute_value(props, &["isTarget", "target", "data-target"])
                     .unwrap_or(false),

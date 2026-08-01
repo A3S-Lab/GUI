@@ -149,11 +149,22 @@ The first shared interaction milestone is available in the portable runtime:
   representations. Keyboard Tab cycles compatible targets only; Enter drops
   and Escape cancels. Source/target state, keyed reconciliation, and reducer
   rollback remain one transaction.
+- Selected draggable collection items now aggregate their stable keys, typed
+  payloads, and `data-[dragging]` state into one session. A layout-backed
+  delegate resolves `{type: root}` and keyed `before`/`on`/`after` targets,
+  filters every target item by accepted type, and exposes `draggingKeys`,
+  `target`, and `isInternal` in the shared context. During keyboard drag, each
+  collection is one Tab stop and Arrow/Home/End keys navigate its internal
+  targets.
 - `use_drag`, `use_drop`, `UiDraggable`, `UiDroppable`, and `UiDropZone` lower
   their source/target metadata and focusable keyboard affordances into that
-  shared runtime. Collection item/between/root delegates, external files and
-  directories, cross-application transfer, and drag previews remain separate
-  M7 work, so the DropZone family is not yet marked conformant.
+  shared runtime. ListBox, GridList, Tree, and Table roots additionally lower
+  `onRootDrop`, `onItemDrop`, `onInsert`, and low-level `onDrop` precedence;
+  their items/rows and explicit DropIndicator parts use the same self-drawn
+  target model. Reorder/move policy, dynamic acceptance, external files and
+  directories, cross-application transfer, drag previews, and conformance
+  evidence remain separate M7 work, so no affected family is marked
+  conformant.
 
 - `NativeInputModality` represents keyboard, mouse, touch, pen, virtual, and
   unknown input.
@@ -587,7 +598,7 @@ props:
 | Priority | Area | Required outcome |
 | --- | --- | --- |
 | P0 | Self-drawn component accounting | Keep all 51 React Aria 1.19.0 families in the executable matrix, implement the eight recorded public-part gaps, and require every upstream catalog delta to update code, matrix, tests, and milestones together. |
-| P0 | Shared self-drawn interaction | Extend the landed stable-id pointer, keyboard, Tab-focus, hover, press, scheduled generic long press, incremental captured move, typed source/target drag negotiation, cancellation, wheel, bubbling, and reducer path with collection item/between/root drag delegates, external file/directory transfer, drag previews, collection long-press selection mode, focus-scope restoration, overlay gestures, text editing/IME, and accessibility activation. |
+| P0 | Shared self-drawn interaction | Extend the landed stable-id pointer, keyboard, Tab-focus, hover, press, scheduled generic long press, incremental captured move, typed source/target drag negotiation, collection item/between/root delegates, cancellation, wheel, bubbling, and reducer path with reorder/move policy, dynamic item acceptance, external file/directory transfer, drag previews, collection long-press selection mode, focus-scope restoration, overlay gestures, text editing/IME, and accessibility activation. |
 | P0 | Native input conformance | WinUI's complete 98-case V1 manifest passes real OS automation. Populate the AppKit and GTK4 manifests with platform-run mouse, pen, touch where applicable, keyboard, assistive activation, disabled, cancellation, and keyed-rerender fixtures for every role currently marked native; then close or retain evidence-backed menu/item exceptions. |
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |

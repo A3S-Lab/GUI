@@ -49,7 +49,12 @@ impl SelfDrawnInteractionSession {
                         value: candidate.source.value,
                         items: candidate.source.items,
                         allowed_operations: candidate.source.allowed_operations,
+                        source_collection: candidate.source.collection,
+                        dragging_keys: candidate.source.dragging_keys,
+                        dragging_nodes: candidate.source.dragging_nodes,
                         current_target: None,
+                        current_collection: None,
+                        current_collection_target: None,
                         current_item_indices: Vec::new(),
                         current_operation: SelfDrawnDropOperation::Cancel,
                         last_position: Some(candidate.start_position),
@@ -76,9 +81,14 @@ impl SelfDrawnInteractionSession {
                 context,
                 routed,
             );
-            self.change_state(&session.source, &mut routed.changes, |state| {
-                state.dragging = true;
-            });
+            let dragging_nodes = if session.dragging_nodes.is_empty() {
+                vec![session.source.clone()]
+            } else {
+                session.dragging_nodes.clone()
+            };
+            for node in dragging_nodes {
+                self.change_state(&node, &mut routed.changes, |state| state.dragging = true);
+            }
             let drag_context = source_context(&session, context, SelfDrawnDropOperation::Cancel);
             self.emit(
                 tree,
@@ -294,8 +304,16 @@ impl SelfDrawnInteractionSession {
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
     ) {
-        let next_id = next.as_ref().map(|target| &target.id);
-        if session.current_target.as_ref() != next_id {
+        let same_target = match (&session.current_target, &next) {
+            (None, None) => true,
+            (Some(current), Some(next)) => {
+                current == &next.id
+                    && session.current_collection.as_ref() == next.collection.as_ref()
+                    && session.current_collection_target.as_ref() == next.collection_target.as_ref()
+            }
+            _ => false,
+        };
+        if !same_target {
             if let Some(previous) = session.current_target.take() {
                 self.change_state(&previous, &mut routed.changes, |state| {
                     state.drop_target = false;
@@ -313,6 +331,8 @@ impl SelfDrawnInteractionSession {
                     routed,
                 );
             }
+            session.current_collection = None;
+            session.current_collection_target = None;
             session.current_item_indices.clear();
             session.current_operation = SelfDrawnDropOperation::Cancel;
             if let Some(next) = next {
@@ -320,6 +340,8 @@ impl SelfDrawnInteractionSession {
                     state.drop_target = true;
                 });
                 session.current_target = Some(next.id.clone());
+                session.current_collection = next.collection;
+                session.current_collection_target = next.collection_target;
                 session.current_item_indices = next.item_indices;
                 session.current_operation = next.operation;
                 self.emit_drop_event(
@@ -335,6 +357,8 @@ impl SelfDrawnInteractionSession {
                 );
             }
         } else if let Some(next) = next {
+            session.current_collection = next.collection;
+            session.current_collection_target = next.collection_target;
             session.current_item_indices = next.item_indices;
             session.current_operation = next.operation;
         }
@@ -384,35 +408,11 @@ impl SelfDrawnInteractionSession {
         self.change_state(&target, &mut routed.changes, |state| {
             state.drop_target = false;
         });
+        session.current_collection = None;
+        session.current_collection_target = None;
         session.current_item_indices.clear();
         session.current_operation = SelfDrawnDropOperation::Cancel;
         operation
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub(super) fn end_drag_source(
-        &mut self,
-        session: &SelfDrawnDragSession,
-        operation: SelfDrawnDropOperation,
-        tree: &SelfDrawnInteractionTree,
-        frame_revision: PlatformHostRevision,
-        event_sequence: u64,
-        context: &SelfDrawnEventContext,
-        routed: &mut RoutedInput,
-    ) {
-        self.change_state(&session.source, &mut routed.changes, |state| {
-            state.dragging = false;
-        });
-        self.emit(
-            tree,
-            frame_revision,
-            event_sequence,
-            &session.source,
-            NativeEventKind::DragEnd,
-            source_context(session, context, operation),
-            session.value.clone(),
-            &mut routed.invocations,
-        );
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -432,6 +432,26 @@ impl SelfDrawnInteractionSession {
         drop_context.drag = Some(session.target_context(operation));
         if let Some(position) = context.position {
             drop_context.position = tree.local_position(target, position);
+        }
+        if kind == NativeEventKind::Drop {
+            if let (Some(collection), Some(collection_target)) = (
+                session.current_collection.as_ref(),
+                session.current_collection_target.as_ref(),
+            ) {
+                if let Some(action) = tree.collection_drop_action(collection, collection_target) {
+                    routed.invocations.push(super::SelfDrawnActionInvocation {
+                        frame_revision,
+                        event_sequence,
+                        node: target.clone(),
+                        current_target: (collection != target).then(|| collection.clone()),
+                        action: action.to_string(),
+                        event: kind,
+                        context: drop_context,
+                        value: session.value.clone(),
+                    });
+                    return;
+                }
+            }
         }
         self.emit(
             tree,

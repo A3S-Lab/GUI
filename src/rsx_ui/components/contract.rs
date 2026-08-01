@@ -325,6 +325,9 @@ pub(super) fn passthrough_contract() -> GuiResult<RsxComponentContract> {
             "onEndChange",
             "onOpenChange",
             "onDrop",
+            "onRootDrop",
+            "onItemDrop",
+            "onInsert",
             "onDragEnter",
             "onDragLeave",
             "dragType",
@@ -333,6 +336,10 @@ pub(super) fn passthrough_contract() -> GuiResult<RsxComponentContract> {
             "allowedDropOperations",
             "acceptedDragTypes",
             "dropOperation",
+            "dropOrientation",
+            "dropPosition",
+            "targetKey",
+            "isDraggable",
             "copyValue",
             "copyMimeType",
             "acceptedMimeTypes",
@@ -406,4 +413,35 @@ pub(super) fn selection_contract() -> GuiResult<RsxComponentContract> {
         .default_prop("escapeKeyBehavior", "clearSelection")?
         .default_prop("onAction", "")?
         .default_prop("onSelectionChange", "")
+}
+
+pub(super) fn collection_drag_drop_contract(
+    contract: RsxComponentContract,
+) -> GuiResult<RsxComponentContract> {
+    contract
+        .default_prop("onDragStart", "")?
+        .default_prop("onDragMove", "")?
+        .default_prop("onDragEnd", "")?
+        .default_prop("onDrop", "")?
+        .default_prop("onDropEnter", "")?
+        .default_prop("onDropMove", "")?
+        .default_prop("onDropExit", "")?
+        .default_prop("onRootDrop", "")?
+        .default_prop("onItemDrop", "")?
+        .default_prop("onInsert", "")?
+        .default_prop("allowedDropOperations", "")?
+        .default_prop("acceptedDragTypes", "")?
+        .default_prop("dropOperation", "")?
+        .default_prop("dropOrientation", "vertical")
+}
+
+pub(super) fn collection_drag_item_contract(
+    contract: RsxComponentContract,
+) -> GuiResult<RsxComponentContract> {
+    contract
+        .default_prop("id", "")?
+        .default_prop("isDraggable", false)?
+        .default_prop("dragType", "")?
+        .default_prop("dragValue", "")?
+        .default_prop("dragItems", "")
 }

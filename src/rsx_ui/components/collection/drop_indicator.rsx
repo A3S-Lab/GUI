@@ -5,6 +5,8 @@ use crate::semantic_ui::UseDropIndicatorProps;
 pub struct UiDropIndicatorProps {
     pub class_name: String,
     pub orientation: String,
+    pub target_key: String,
+    pub drop_position: String,
     pub is_target: bool,
 }
 
@@ -12,6 +14,8 @@ pub fn ui_drop_indicator(cx: &mut ComponentCx<UiDropIndicatorProps>) -> RSX {
     cx.use_drop_indicator(|props: &UiDropIndicatorProps| {
         UseDropIndicatorProps::new()
             .orientation(Some(props.orientation.clone()))
+            .target_key(Some(props.target_key.clone()))
+            .drop_position(Some(props.drop_position.clone()))
             .target(props.is_target)
     });
     cx.use_prop("className", |props: &UiDropIndicatorProps| {

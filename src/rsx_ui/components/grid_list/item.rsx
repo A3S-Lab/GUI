@@ -4,10 +4,15 @@ use crate::semantic_ui::UseCollectionItemProps;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct UiGridListItemProps {
     pub class_name: String,
+    pub id: String,
     pub value: String,
     pub text_value: String,
     pub is_selected: bool,
     pub is_disabled: bool,
+    pub is_draggable: bool,
+    pub drag_type: String,
+    pub drag_value: String,
+    pub drag_items: String,
 }
 
 pub fn ui_grid_list_item(cx: &mut ComponentCx<UiGridListItemProps>) -> RSX {
@@ -27,6 +32,13 @@ pub fn ui_grid_list_item(cx: &mut ComponentCx<UiGridListItemProps>) -> RSX {
             key="root"
             {...props.collectionItemProps}
             data-slot="grid-list-item"
+            data-collection-drop-item="true"
+            data-collection-key={props.id}
+            id={props.id}
+            draggable={props.isDraggable}
+            dragType={props.dragType}
+            dragValue={props.dragValue}
+            dragItems={props.dragItems}
             class="rounded-md border border-hairline-strong bg-surface-card p-3 text-ink outline-none hover:bg-surface-strong hover:text-ink data-[selected=true]:border-ink data-[selected=true]:bg-surface-strong"
             className={props.className}
         >
