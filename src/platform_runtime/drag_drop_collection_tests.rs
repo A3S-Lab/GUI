@@ -13,7 +13,7 @@ const SOURCE_ITEMS: [(&str, &str, bool, u32); 3] = [
     ("source-c", "gamma", false, 85),
 ];
 
-fn collection_tree(low_level_drop: bool) -> NativeElement {
+pub(super) fn collection_tree(low_level_drop: bool) -> NativeElement {
     let source = NativeElement::new("source-list", NativeRole::ListBox)
         .with_props(
             NativeProps::new().tab_index(Some(-1)).web(
@@ -88,7 +88,7 @@ fn target_item(key: &str, top: u32) -> NativeElement {
     )
 }
 
-fn start_selected_pointer_drag(
+pub(super) fn start_selected_pointer_drag(
     runtime: &mut super::SelfDrawnWindowRuntime<
         crate::platform_host::RecordingPlatformHost,
         super::RecordingScenePresenter,
@@ -342,4 +342,53 @@ fn keyboard_uses_one_collection_tab_stop_then_arrows_within_it() {
             .unwrap(),
     );
     assert_eq!(dropped.invocations[0].action, "itemDrop");
+}
+
+#[test]
+fn adjacent_insertion_boundaries_are_one_logical_target() {
+    let mut runtime = runtime();
+    runtime.render(collection_tree(false)).unwrap();
+    start_selected_pointer_drag(&mut runtime);
+
+    let after_first = input(
+        runtime
+            .handle_event(pointer_event(PlatformPointerPhase::Moved, 125.0, 47.0, 30))
+            .unwrap(),
+    );
+    assert_eq!(
+        action_events(&after_first),
+        vec![
+            ("collectionDragMove", NativeEventKind::DragMove),
+            ("collectionEnter", NativeEventKind::DropEnter),
+            ("collectionMove", NativeEventKind::DropMove),
+        ]
+    );
+
+    let before_second = input(
+        runtime
+            .handle_event(pointer_event(PlatformPointerPhase::Moved, 125.0, 67.0, 40))
+            .unwrap(),
+    );
+    assert_eq!(
+        action_events(&before_second),
+        vec![
+            ("collectionDragMove", NativeEventKind::DragMove),
+            ("collectionMove", NativeEventKind::DropMove),
+        ]
+    );
+    assert_eq!(
+        before_second
+            .invocations
+            .last()
+            .unwrap()
+            .context
+            .drag
+            .as_ref()
+            .unwrap()
+            .target,
+        Some(SelfDrawnCollectionDropTarget::Item {
+            key: "target-a".to_string(),
+            drop_position: SelfDrawnDropPosition::After,
+        })
+    );
 }

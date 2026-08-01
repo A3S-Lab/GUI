@@ -513,14 +513,17 @@ Landed evidence:
 - collection drag sources aggregate the stable keys, payloads, and visual
   dragging state of selected draggable items. The layout-backed delegate emits
   React Aria-shaped root and keyed before/on/after targets, routes
-  `onRootDrop`/`onItemDrop`/`onInsert` with low-level `onDrop` precedence, and
-  treats a collection as one Tab target with arrow/Home/End navigation inside
-  it. ListBox, GridList, Tree, Table, and explicit DropIndicator authoring all
-  lower to this shared self-drawn path
+  external `onRootDrop`/`onInsert`, item `onItemDrop`, internal `onMove`, and
+  same-parent `onReorder` with ordered multi-callback dispatch and low-level
+  `onDrop` precedence. It filters selected descendants, rejects internal
+  self/descendant targets, treats adjacent insertion descriptors as one target,
+  and exposes each collection as one Tab stop with arrow/Home/End navigation.
+  ListBox, GridList, Tree, Table, and explicit DropIndicator authoring all lower
+  to this shared self-drawn path
 - the shared 410x620 calculator preserves its reviewed layout and scene
   fingerprints, routes eight fake-host events through four reducer actions,
   commits the resulting frames, and reaches display value `10`
-- 53 focused runtime/software tests plus four recursive H1 firewall tests are
+- 59 focused runtime/software tests plus four recursive H1 firewall tests are
   included in `just verify`
 
 Remaining H1 work:
@@ -529,10 +532,10 @@ Remaining H1 work:
   pinned Graphics commit `8748fab` owns only a surface-independent texture and
   readback today, so its safe host-owned surface attachment/recovery contract
   must land before GUI can implement this edge without duplicating `wgpu`
-- collection reorder/move policy and acceptance callbacks, native
-  file/directory and cross-application transfer, drag previews, text editing,
-  IME, overlay gestures, and component-specific pixel/accessibility/real-host
-  conformance remain explicit M4 and M6-M8 work
+- dynamic collection item/operation acceptance callbacks, native file/directory
+  and cross-application transfer, drag previews, text editing, IME, overlay
+  gestures, and component-specific pixel/accessibility/real-host conformance
+  remain explicit M4 and M6-M8 work
 
 Gates:
 
@@ -742,9 +745,9 @@ self-drawn conformance.
 - close the executable 1.19.0 behavior deltas: embedded-control keyboard
   navigation for GridList/Tree, Menu action key plus value, arbitrary Popover
   target rectangles, and multi-MIME/wildcard drag type negotiation
-- build on the landed shared collection root/item/insertion delegate with
-  reorder, cross-collection move, dynamic item acceptance, drag previews, and
-  software/accessibility/three-host conformance stories
+- build on the landed shared collection root/item/insertion delegate and
+  reorder/move policies with dynamic item/operation acceptance, OS transfer,
+  drag previews, and software/accessibility/three-host conformance stories
 
 ### M8 - Date, color, tables, and advanced data
 

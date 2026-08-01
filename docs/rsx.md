@@ -601,10 +601,12 @@ the same typed transfer context.
 
 `UiListBox`, `UiGridList`, `UiTree`, and `UiTable` also expose the shared
 collection contract. Their roots accept `onRootDrop`, `onItemDrop`, `onInsert`,
-the low-level overriding `onDrop`, lifecycle handlers, `acceptedDragTypes`,
-`dropOperation`, `allowedDropOperations`, and `dropOrientation`. Item/row
-components accept a stable `id` plus `isDraggable`, `dragType`, `dragValue`,
-and `dragItems`; `UiDropIndicator.targetKey` references that `id`.
+`onReorder`, `onMove`, the low-level overriding `onDrop`, lifecycle handlers,
+`acceptedDragTypes`, `dropOperation`, `allowedDropOperations`, and
+`dropOrientation`. Collection `onMove` lowers to a dedicated native event so
+it does not collide with the generic move-gesture callback. Item/row components
+accept a stable `id` plus `isDraggable`, `dragType`, `dragValue`, and
+`dragItems`; `UiDropIndicator.targetKey` references that `id`.
 Dragging a selected item aggregates all selected draggable item keys and
 payloads; dragging an unselected item keeps a single-item session.
 
@@ -614,9 +616,15 @@ descriptor shaped as `{type: "root"}` or
 delegation derives targets from the committed self-drawn boxes. During a
 keyboard drag, Tab visits the collection once and Arrow/Home/End keys navigate
 inside it. `UiDropIndicator targetKey="..." dropPosition="before|after"`
-provides a stable explicit insertion visual. External OS files/directories,
-cross-application transfer, drag previews, reorder/move policy, and final
-accessibility/host conformance remain separate work.
+provides a stable explicit insertion visual. `onInsert` and `onRootDrop` accept
+external collection sessions; internal `onMove` accepts item/on-or-between
+targets, while `onReorder` accepts same-parent boundaries. `onItemDrop` plus
+`onMove`, or `onMove` plus `onReorder`, may both run in React Aria order;
+low-level `onDrop` replaces this routing. Self and descendant targets are
+rejected, and adjacent `after`/`before` boundaries are equivalent. Dynamic
+acceptance/operation callbacks, external OS files/directories,
+cross-application transfer, drag previews, and final accessibility/host
+conformance remain separate work.
 
 Runtime lifecycle and effects:
 

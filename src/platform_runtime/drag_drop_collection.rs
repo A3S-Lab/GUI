@@ -47,10 +47,12 @@ impl SelfDrawnCollectionDropTarget {
 pub(super) struct SelfDrawnCollectionDropConfig {
     pub(super) target: SelfDrawnDropTarget,
     pub(super) orientation: Orientation,
-    low_level_drop: bool,
-    allows_root: bool,
-    allows_item: bool,
-    allows_insert: bool,
+    low_level_drop: Option<String>,
+    root_drop: Option<String>,
+    item_drop: Option<String>,
+    insert: Option<String>,
+    reorder: Option<String>,
+    move_within: Option<String>,
 }
 
 impl SelfDrawnCollectionDropConfig {
@@ -62,47 +64,93 @@ impl SelfDrawnCollectionDropConfig {
             return None;
         }
         let target = target?;
-        let low_level_drop = has_event(props, "onDrop");
-        let allows_root = low_level_drop || has_event(props, "onRootDrop");
-        let allows_item = low_level_drop || has_event(props, "onItemDrop");
-        let allows_insert = low_level_drop || has_event(props, "onInsert");
-        if !allows_root && !allows_item && !allows_insert {
+        let low_level_drop = event_action(props, "onDrop");
+        let root_drop = event_action(props, "onRootDrop");
+        let item_drop = event_action(props, "onItemDrop");
+        let insert = event_action(props, "onInsert");
+        let reorder = event_action(props, "onReorder");
+        let move_within = event_action(props, "onCollectionMove");
+        if low_level_drop.is_none()
+            && root_drop.is_none()
+            && item_drop.is_none()
+            && insert.is_none()
+            && reorder.is_none()
+            && move_within.is_none()
+        {
             return None;
         }
         Some(Self {
             target,
             orientation: drop_orientation(props),
             low_level_drop,
-            allows_root,
-            allows_item,
-            allows_insert,
+            root_drop,
+            item_drop,
+            insert,
+            reorder,
+            move_within,
         })
     }
 
-    pub(super) fn allows_root(&self) -> bool {
-        self.allows_root
+    pub(super) fn has_low_level_drop(&self) -> bool {
+        self.low_level_drop.is_some()
     }
 
-    pub(super) fn allows_item(&self) -> bool {
-        self.allows_item
+    pub(super) fn has_root_drop(&self) -> bool {
+        self.root_drop.is_some()
     }
 
-    pub(super) fn allows_insert(&self) -> bool {
-        self.allows_insert
+    pub(super) fn has_item_drop(&self) -> bool {
+        self.item_drop.is_some()
     }
 
-    pub(super) fn drop_event_name(&self, target: &SelfDrawnCollectionDropTarget) -> &'static str {
-        if self.low_level_drop {
-            return "onDrop";
-        }
-        match target {
-            SelfDrawnCollectionDropTarget::Root => "onRootDrop",
-            SelfDrawnCollectionDropTarget::Item {
-                drop_position: SelfDrawnDropPosition::On,
-                ..
-            } => "onItemDrop",
-            SelfDrawnCollectionDropTarget::Item { .. } => "onInsert",
-        }
+    pub(super) fn has_insert(&self) -> bool {
+        self.insert.is_some()
+    }
+
+    pub(super) fn has_reorder(&self) -> bool {
+        self.reorder.is_some()
+    }
+
+    pub(super) fn has_move(&self) -> bool {
+        self.move_within.is_some()
+    }
+
+    pub(super) fn allows_root(&self, is_internal: bool) -> bool {
+        self.has_low_level_drop() || (!is_internal && self.has_root_drop())
+    }
+
+    pub(super) fn allows_item(&self, is_internal: bool) -> bool {
+        self.has_low_level_drop() || self.has_item_drop() || (is_internal && self.has_move())
+    }
+
+    pub(super) fn allows_insert(&self, is_internal: bool) -> bool {
+        self.has_low_level_drop()
+            || (!is_internal && self.has_insert())
+            || (is_internal && (self.has_reorder() || self.has_move()))
+    }
+
+    pub(super) fn low_level_action(&self) -> Option<&str> {
+        self.low_level_drop.as_deref()
+    }
+
+    pub(super) fn root_action(&self) -> Option<&str> {
+        self.root_drop.as_deref()
+    }
+
+    pub(super) fn item_action(&self) -> Option<&str> {
+        self.item_drop.as_deref()
+    }
+
+    pub(super) fn insert_action(&self) -> Option<&str> {
+        self.insert.as_deref()
+    }
+
+    pub(super) fn reorder_action(&self) -> Option<&str> {
+        self.reorder.as_deref()
+    }
+
+    pub(super) fn move_action(&self) -> Option<&str> {
+        self.move_within.as_deref()
     }
 }
 
@@ -163,12 +211,14 @@ fn drop_orientation(props: &NativeProps) -> Orientation {
     }
 }
 
-fn has_event(props: &NativeProps, name: &str) -> bool {
+fn event_action(props: &NativeProps, name: &str) -> Option<String> {
     props
         .web
         .events
         .get(name)
-        .is_some_and(|action| !action.trim().is_empty())
+        .map(|action| action.trim())
+        .filter(|action| !action.is_empty())
+        .map(str::to_string)
 }
 
 fn bool_attribute(props: &NativeProps, name: &str) -> bool {

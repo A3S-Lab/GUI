@@ -171,6 +171,8 @@ impl SelfDrawnInteractionSession {
             &session.items,
             &session.types,
             &session.allowed_operations,
+            session.source_collection.as_ref(),
+            &session.dragging_keys,
         );
         let current = candidates.iter().position(|candidate| {
             if let Some(collection) = session.current_collection.as_ref() {
@@ -247,6 +249,8 @@ impl SelfDrawnInteractionSession {
                     &session.items,
                     &session.types,
                     &session.allowed_operations,
+                    session.source_collection.as_ref(),
+                    &session.dragging_keys,
                 )
             });
         if let Some(next) = next {

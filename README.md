@@ -72,7 +72,10 @@ versioned [component matrix](docs/react-aria-component-matrix.json) pins
   wildcard, multi-item, and per-format payload negotiation plus layout-driven
   collection `root` and keyed `before`/`on`/`after` targets. Selected
   collection items drag as one session, and ListBox, GridList, Tree, and Table
-  share the same RSX contract; external transfer, reorder/move policy, pixels,
+  share the same RSX contract. External `onInsert`/`onRootDrop`, internal
+  `onMove`, same-parent `onReorder`, multi-callback routing, equivalent adjacent
+  boundaries, and self/descendant guards now follow the React Aria collection
+  policy; dynamic acceptance, OS/cross-application transfer, previews, pixels,
   accessibility, and real hosts still keep every affected family below
   conformance;
 - Checkbox, Radio, and Switch Field/Button parts plus ToastList and
@@ -308,10 +311,13 @@ independently.
   and every MIME/custom representation, filter compatible target items,
   negotiate wildcards plus copy/move/link/cancel operations, aggregate stable
   selected collection keys, and resolve root/item/insertion targets from
-  self-drawn layout geometry. A collection is one keyboard Tab stop during a
-  drag, with arrow/Home/End navigation inside it; all paths share event-loop
-  deadlines, stable action bubbling, keyed reconciliation, and reducer
-  rollback in one staged interaction session
+  self-drawn layout geometry. Collection policy distinguishes external insert
+  and root drops from internal move/reorder, rejects self and descendant
+  targets, and preserves one logical boundary between adjacent items. A
+  collection is one keyboard Tab stop during a drag, with arrow/Home/End
+  navigation inside it; all paths share event-loop deadlines, stable action
+  bubbling, keyed reconciliation, and reducer rollback in one staged
+  interaction session
 - an identical-frame fast path that performs no layout, scene, host, or
   presentation work, plus semantic-only commits that skip pixel presentation
 - a software Graphics presenter and interactive shared

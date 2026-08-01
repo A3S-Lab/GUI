@@ -4,6 +4,8 @@ mod accessibility;
 mod drag_drop;
 mod drag_drop_collection;
 #[cfg(test)]
+mod drag_drop_collection_policy_tests;
+#[cfg(test)]
 mod drag_drop_collection_tests;
 mod drag_drop_input;
 #[cfg(test)]
@@ -21,6 +23,7 @@ mod frame;
 mod input;
 mod interaction;
 mod interaction_tree;
+mod interaction_tree_collection_policy;
 mod interaction_tree_drag_drop;
 mod interaction_tree_drag_source;
 mod keyboard_input;

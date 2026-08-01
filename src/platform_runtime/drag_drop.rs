@@ -208,6 +208,8 @@ impl SelfDrawnDropTarget {
             "onRootDrop",
             "onItemDrop",
             "onInsert",
+            "onReorder",
+            "onCollectionMove",
             "onDropEnter",
             "onDropMove",
             "onDropExit",

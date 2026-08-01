@@ -16,6 +16,8 @@ impl SelfDrawnInteractionTree {
         items: &[SelfDrawnDropItem],
         types: &[String],
         allowed_operations: &[SelfDrawnDropOperation],
+        source_collection: Option<&PlatformElementId>,
+        dragging_keys: &[String],
     ) -> Option<SelfDrawnMatchedDropTarget> {
         for region in self.hit_regions.iter().rev() {
             if !contains(region.bounds, point) {
@@ -37,6 +39,8 @@ impl SelfDrawnInteractionTree {
                         items,
                         types,
                         allowed_operations,
+                        source_collection,
+                        dragging_keys,
                     );
                 }
                 let Some(target) = node.drop_target.as_ref() else {
@@ -54,24 +58,30 @@ impl SelfDrawnInteractionTree {
         items: &[SelfDrawnDropItem],
         types: &[String],
         allowed_operations: &[SelfDrawnDropOperation],
+        source_collection: Option<&PlatformElementId>,
+        dragging_keys: &[String],
     ) -> Vec<SelfDrawnMatchedDropTarget> {
         self.tree_order
             .iter()
             .filter_map(|id| {
                 let node = self.node(id).filter(|node| node.available)?;
                 if let Some(config) = node.collection_drop.as_ref() {
-                    let descriptor = self
-                        .collection_keyboard_positions(id, config)
-                        .first()?
-                        .clone();
-                    return self.collection_match(
-                        id,
-                        config,
-                        descriptor,
-                        items,
-                        types,
-                        allowed_operations,
-                    );
+                    let is_internal = source_collection == Some(id);
+                    return self
+                        .collection_keyboard_positions(id, config, is_internal)
+                        .into_iter()
+                        .find_map(|descriptor| {
+                            self.collection_match(
+                                id,
+                                config,
+                                descriptor,
+                                items,
+                                types,
+                                allowed_operations,
+                                source_collection,
+                                dragging_keys,
+                            )
+                        });
                 }
                 let target = node.drop_target.as_ref()?;
                 self.generic_match(id, target, items, types, allowed_operations)
@@ -88,6 +98,8 @@ impl SelfDrawnInteractionTree {
         items: &[SelfDrawnDropItem],
         types: &[String],
         allowed_operations: &[SelfDrawnDropOperation],
+        source_collection: Option<&PlatformElementId>,
+        dragging_keys: &[String],
     ) -> Option<SelfDrawnMatchedDropTarget> {
         if let (Some(collection), Some(descriptor)) = (collection, collection_target) {
             let config = self
@@ -102,6 +114,8 @@ impl SelfDrawnInteractionTree {
                 items,
                 types,
                 allowed_operations,
+                source_collection,
+                dragging_keys,
             );
         }
         let node = self.node(id).filter(|node| node.available)?;
@@ -118,6 +132,8 @@ impl SelfDrawnInteractionTree {
         items: &[SelfDrawnDropItem],
         types: &[String],
         allowed_operations: &[SelfDrawnDropOperation],
+        source_collection: Option<&PlatformElementId>,
+        dragging_keys: &[String],
     ) -> Option<SelfDrawnMatchedDropTarget> {
         let config = self.node(collection)?.collection_drop.as_ref()?;
         let direction = match (config.orientation, key) {
@@ -127,8 +143,28 @@ impl SelfDrawnInteractionTree {
             (_, "End") => 2_i8,
             _ => return None,
         };
-        let positions = self.collection_keyboard_positions(collection, config);
-        let current_index = positions.iter().position(|target| target == current)?;
+        let is_internal = source_collection == Some(collection);
+        let positions = self
+            .collection_keyboard_positions(collection, config, is_internal)
+            .into_iter()
+            .filter_map(|target| {
+                self.collection_match(
+                    collection,
+                    config,
+                    target,
+                    items,
+                    types,
+                    allowed_operations,
+                    source_collection,
+                    dragging_keys,
+                )
+            })
+            .collect::<Vec<_>>();
+        let current_index = positions.iter().position(|candidate| {
+            candidate.collection_target.as_ref().is_some_and(|target| {
+                self.collection_targets_equivalent(collection, target, current)
+            })
+        })?;
         let next_index = match direction {
             -2 => 0,
             2 => positions.len().saturating_sub(1),
@@ -136,29 +172,7 @@ impl SelfDrawnInteractionTree {
             1 if current_index + 1 < positions.len() => current_index + 1,
             _ => return None,
         };
-        self.collection_match(
-            collection,
-            config,
-            positions[next_index].clone(),
-            items,
-            types,
-            allowed_operations,
-        )
-    }
-
-    pub(super) fn collection_drop_action<'a>(
-        &'a self,
-        collection: &PlatformElementId,
-        target: &SelfDrawnCollectionDropTarget,
-    ) -> Option<&'a str> {
-        let node = self.node(collection)?;
-        let event_name = node.collection_drop.as_ref()?.drop_event_name(target);
-        node.props
-            .web
-            .events
-            .get(event_name)
-            .map(String::as_str)
-            .filter(|action| !action.is_empty())
+        positions.get(next_index).cloned()
     }
 
     fn generic_match(
@@ -189,15 +203,34 @@ impl SelfDrawnInteractionTree {
         items: &[SelfDrawnDropItem],
         types: &[String],
         allowed_operations: &[SelfDrawnDropOperation],
+        source_collection: Option<&PlatformElementId>,
+        dragging_keys: &[String],
     ) -> Option<SelfDrawnMatchedDropTarget> {
-        let descriptor = self.collection_descriptor_at(collection, config, path, point)?;
-        self.collection_match(
+        let is_internal = source_collection == Some(collection);
+        let descriptor =
+            self.collection_descriptor_at(collection, config, path, point, is_internal)?;
+        let matched = self.collection_match(
             collection,
             config,
-            descriptor,
+            descriptor.clone(),
             items,
             types,
             allowed_operations,
+            source_collection,
+            dragging_keys,
+        );
+        if matched.is_some() || matches!(descriptor, SelfDrawnCollectionDropTarget::Root) {
+            return matched;
+        }
+        self.collection_match(
+            collection,
+            config,
+            SelfDrawnCollectionDropTarget::Root,
+            items,
+            types,
+            allowed_operations,
+            source_collection,
+            dragging_keys,
         )
     }
 
@@ -207,8 +240,9 @@ impl SelfDrawnInteractionTree {
         config: &SelfDrawnCollectionDropConfig,
         path: &[PlatformElementId],
         point: PlatformPoint,
+        is_internal: bool,
     ) -> Option<SelfDrawnCollectionDropTarget> {
-        if config.allows_insert() {
+        if config.allows_insert(is_internal) {
             if let Some(target) = path.iter().find_map(|id| {
                 let node = self.node(id)?;
                 (self.collection_owner(id).as_ref() == Some(collection))
@@ -224,25 +258,25 @@ impl SelfDrawnInteractionTree {
                 && self.collection_owner(id).as_ref() == Some(collection))
             .then_some(node)
         }) {
-            return descriptor_for_item(item, config, point);
+            return descriptor_for_item(item, config, point, is_internal);
         }
         if let Some(item) = self
             .collection_items(collection)
             .into_iter()
             .find(|item| contains(item.bounds, point))
         {
-            return descriptor_for_item(item, config, point);
+            return descriptor_for_item(item, config, point, is_internal);
         }
-        if config.allows_insert() {
+        if config.allows_insert(is_internal) {
             if let Some(target) = self.nearest_insertion_target(collection, config, point, true) {
                 return Some(target);
             }
         }
-        if config.allows_root() {
+        if config.allows_root(is_internal) {
             return Some(SelfDrawnCollectionDropTarget::Root);
         }
         config
-            .allows_insert()
+            .allows_insert(is_internal)
             .then(|| self.nearest_insertion_target(collection, config, point, false))
             .flatten()
     }
@@ -279,6 +313,7 @@ impl SelfDrawnInteractionTree {
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn collection_match(
         &self,
         collection: &PlatformElementId,
@@ -287,8 +322,16 @@ impl SelfDrawnInteractionTree {
         items: &[SelfDrawnDropItem],
         types: &[String],
         allowed_operations: &[SelfDrawnDropOperation],
+        source_collection: Option<&PlatformElementId>,
+        dragging_keys: &[String],
     ) -> Option<SelfDrawnMatchedDropTarget> {
-        if !target_allowed(config, &descriptor) {
+        if !self.collection_target_allowed(
+            collection,
+            config,
+            &descriptor,
+            source_collection,
+            dragging_keys,
+        ) {
             return None;
         }
         let operation = config.target.operation_for(types, allowed_operations);
@@ -332,13 +375,14 @@ impl SelfDrawnInteractionTree {
         &self,
         collection: &PlatformElementId,
         config: &SelfDrawnCollectionDropConfig,
+        is_internal: bool,
     ) -> Vec<SelfDrawnCollectionDropTarget> {
         let items = self.collection_items(collection);
         let mut targets = Vec::new();
-        if config.allows_root() {
+        if config.allows_root(is_internal) {
             targets.push(SelfDrawnCollectionDropTarget::Root);
         }
-        if config.allows_insert() {
+        if config.allows_insert(is_internal) {
             if let Some(first) = items
                 .first()
                 .and_then(|item| item.collection_item_key.clone())
@@ -353,13 +397,13 @@ impl SelfDrawnInteractionTree {
             let Some(key) = item.collection_item_key.clone() else {
                 continue;
             };
-            if config.allows_item() {
+            if config.allows_item(is_internal) {
                 targets.push(SelfDrawnCollectionDropTarget::Item {
                     key: key.clone(),
                     drop_position: SelfDrawnDropPosition::On,
                 });
             }
-            if config.allows_insert() {
+            if config.allows_insert(is_internal) {
                 targets.push(SelfDrawnCollectionDropTarget::Item {
                     key,
                     drop_position: SelfDrawnDropPosition::After,
@@ -368,69 +412,35 @@ impl SelfDrawnInteractionTree {
         }
         targets
     }
-
-    pub(super) fn collection_items(
-        &self,
-        collection: &PlatformElementId,
-    ) -> Vec<&SelfDrawnInteractionNode> {
-        self.tree_order
-            .iter()
-            .filter_map(|id| {
-                let node = self.node(id)?;
-                (node.available
-                    && node.collection_item_key.is_some()
-                    && self.collection_owner(id).as_ref() == Some(collection))
-                .then_some(node)
-            })
-            .collect()
-    }
-
-    pub(super) fn collection_owner(&self, id: &PlatformElementId) -> Option<PlatformElementId> {
-        self.ancestors_inclusive(id)
-            .into_iter()
-            .skip(1)
-            .find(|ancestor| {
-                self.node(ancestor)
-                    .is_some_and(|node| node.collection_container)
-            })
-    }
 }
 
 fn descriptor_for_item(
     item: &SelfDrawnInteractionNode,
     config: &SelfDrawnCollectionDropConfig,
     point: PlatformPoint,
+    is_internal: bool,
 ) -> Option<SelfDrawnCollectionDropTarget> {
     let key = item.collection_item_key.clone()?;
     let ratio = match config.orientation {
         Orientation::Vertical => (point.y - item.bounds.y) / item.bounds.height.max(1.0),
         Orientation::Horizontal => (point.x - item.bounds.x) / item.bounds.width.max(1.0),
     };
-    let drop_position = match (config.allows_insert(), config.allows_item()) {
+    let drop_position = match (
+        config.allows_insert(is_internal),
+        config.allows_item(is_internal),
+    ) {
         (true, true) if ratio < 0.25 => SelfDrawnDropPosition::Before,
         (true, true) if ratio >= 0.75 => SelfDrawnDropPosition::After,
         (true, true) => SelfDrawnDropPosition::On,
         (true, false) if ratio < 0.5 => SelfDrawnDropPosition::Before,
         (true, false) => SelfDrawnDropPosition::After,
         (false, true) => SelfDrawnDropPosition::On,
-        (false, false) if config.allows_root() => return Some(SelfDrawnCollectionDropTarget::Root),
+        (false, false) if config.allows_root(is_internal) => {
+            return Some(SelfDrawnCollectionDropTarget::Root);
+        }
         (false, false) => return None,
     };
     Some(SelfDrawnCollectionDropTarget::Item { key, drop_position })
-}
-
-fn target_allowed(
-    config: &SelfDrawnCollectionDropConfig,
-    target: &SelfDrawnCollectionDropTarget,
-) -> bool {
-    match target {
-        SelfDrawnCollectionDropTarget::Root => config.allows_root(),
-        SelfDrawnCollectionDropTarget::Item {
-            drop_position: SelfDrawnDropPosition::On,
-            ..
-        } => config.allows_item(),
-        SelfDrawnCollectionDropTarget::Item { .. } => config.allows_insert(),
-    }
 }
 
 fn insertion_distance(

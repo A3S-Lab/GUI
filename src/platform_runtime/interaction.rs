@@ -374,6 +374,8 @@ impl SelfDrawnInteractionSession {
                     &drag.items,
                     &drag.types,
                     &drag.allowed_operations,
+                    drag.source_collection.as_ref(),
+                    &drag.dragging_keys,
                 ) {
                     drag.current_target = Some(matched.id);
                     drag.current_collection = matched.collection;

@@ -31,6 +31,8 @@ pub struct UiListBoxProps {
     pub on_root_drop: String,
     pub on_item_drop: String,
     pub on_insert: String,
+    pub on_reorder: String,
+    pub on_move: String,
     pub allowed_drop_operations: String,
     pub accepted_drag_types: String,
     pub drop_operation: String,
@@ -80,6 +82,8 @@ pub fn ui_list_box(cx: &mut ComponentCx<UiListBoxProps>) -> RSX {
             onRootDrop={props.onRootDrop}
             onItemDrop={props.onItemDrop}
             onInsert={props.onInsert}
+            onReorder={props.onReorder}
+            onCollectionMove={props.onMove}
             class="max-h-72 min-w-32 overflow-auto rounded-md border border-hairline-strong bg-surface-card p-1 text-ink outline-none"
             className={props.className}
         >

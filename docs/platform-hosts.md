@@ -392,11 +392,14 @@ Landed evidence:
   wildcard types, and negotiates copy/move/link/cancel operations; pointer
   drags report target-local coordinates, keyboard Enter/Tab/Escape provides the
   same accessible source/compatible-target lifecycle, and keyed frames plus
-  reducer errors preserve or roll back the entire session atomically
+  reducer errors preserve or roll back the entire session atomically. Collection
+  targets additionally distinguish external insertion/root drops from internal
+  move and same-parent reorder, reject self/descendant drops, and coalesce
+  adjacent insertion boundaries
 - reducer errors restore the staged interaction state and sequence before the
   event is exposed as successful; successful frame reconciliation preserves
   focused stable ids, while rejected frames do not touch them
-- 53 focused runtime/software tests and four recursive feature/source
+- 59 focused runtime/software tests and four recursive feature/source
   firewall tests pass without any legacy renderer or OS toolkit dependency
 - `self_drawn_calculator` reproduces layout fingerprint
   `16529597026056060935`, scene fingerprint `2100550662756266801`, and

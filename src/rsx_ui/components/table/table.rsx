@@ -15,6 +15,8 @@ pub struct UiTableProps {
     pub on_root_drop: String,
     pub on_item_drop: String,
     pub on_insert: String,
+    pub on_reorder: String,
+    pub on_move: String,
     pub allowed_drop_operations: String,
     pub accepted_drag_types: String,
     pub drop_operation: String,
@@ -46,6 +48,8 @@ pub fn ui_table(cx: &mut ComponentCx<UiTableProps>) -> RSX {
             onRootDrop={props.onRootDrop}
             onItemDrop={props.onItemDrop}
             onInsert={props.onInsert}
+            onReorder={props.onReorder}
+            onCollectionMove={props.onMove}
             class="w-full caption-bottom text-sm"
             className={props.className}
         >

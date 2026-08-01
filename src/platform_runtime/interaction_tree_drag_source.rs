@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use crate::platform_host::PlatformElementId;
 
 use super::drag_drop::{SelfDrawnDragSource, SelfDrawnDropItem};
@@ -31,6 +33,12 @@ impl SelfDrawnInteractionTree {
             return Some(source);
         }
 
+        let selected_keys = self
+            .collection_items(&collection)
+            .into_iter()
+            .filter(|candidate| candidate.props.selected && candidate.drag_source.is_some())
+            .filter_map(|candidate| candidate.collection_item_key.clone())
+            .collect::<BTreeSet<_>>();
         let mut keys = Vec::new();
         let mut items = Vec::new();
         let mut nodes = Vec::new();
@@ -44,6 +52,9 @@ impl SelfDrawnInteractionTree {
             let Some(candidate_key) = candidate.collection_item_key.as_ref() else {
                 continue;
             };
+            if self.has_selected_collection_ancestor(&collection, candidate, &selected_keys) {
+                continue;
+            }
             keys.push(candidate_key.clone());
             nodes.push(candidate.id.clone());
             items.extend(candidate_source.items.iter().cloned());

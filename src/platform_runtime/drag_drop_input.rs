@@ -119,6 +119,8 @@ impl SelfDrawnInteractionSession {
             &session.items,
             &session.types,
             &session.allowed_operations,
+            session.source_collection.as_ref(),
+            &session.dragging_keys,
         );
         self.transition_drop_target(
             &mut session,
@@ -197,6 +199,8 @@ impl SelfDrawnInteractionSession {
                     &session.items,
                     &session.types,
                     &session.allowed_operations,
+                    session.source_collection.as_ref(),
+                    &session.dragging_keys,
                 )
             });
             self.transition_drop_target(
@@ -304,7 +308,7 @@ impl SelfDrawnInteractionSession {
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
     ) {
-        let same_target = match (&session.current_target, &next) {
+        let exact_target = match (&session.current_target, &next) {
             (None, None) => true,
             (Some(current), Some(next)) => {
                 current == &next.id
@@ -313,6 +317,21 @@ impl SelfDrawnInteractionSession {
             }
             _ => false,
         };
+        let equivalent_collection_target = match (
+            session.current_collection.as_ref(),
+            session.current_collection_target.as_ref(),
+            next.as_ref(),
+        ) {
+            (Some(collection), Some(current), Some(next))
+                if next.collection.as_ref() == Some(collection) =>
+            {
+                next.collection_target.as_ref().is_some_and(|candidate| {
+                    tree.collection_targets_equivalent(collection, current, candidate)
+                })
+            }
+            _ => false,
+        };
+        let same_target = exact_target || equivalent_collection_target;
         if !same_target {
             if let Some(previous) = session.current_target.take() {
                 self.change_state(&previous, &mut routed.changes, |state| {
@@ -357,8 +376,10 @@ impl SelfDrawnInteractionSession {
                 );
             }
         } else if let Some(next) = next {
-            session.current_collection = next.collection;
-            session.current_collection_target = next.collection_target;
+            if !equivalent_collection_target {
+                session.current_collection = next.collection;
+                session.current_collection_target = next.collection_target;
+            }
             session.current_item_indices = next.item_indices;
             session.current_operation = next.operation;
         }
@@ -438,17 +459,25 @@ impl SelfDrawnInteractionSession {
                 session.current_collection.as_ref(),
                 session.current_collection_target.as_ref(),
             ) {
-                if let Some(action) = tree.collection_drop_action(collection, collection_target) {
-                    routed.invocations.push(super::SelfDrawnActionInvocation {
-                        frame_revision,
-                        event_sequence,
-                        node: target.clone(),
-                        current_target: (collection != target).then(|| collection.clone()),
-                        action: action.to_string(),
-                        event: kind,
-                        context: drop_context,
-                        value: session.value.clone(),
-                    });
+                let actions = tree.collection_drop_actions(
+                    collection,
+                    collection_target,
+                    session.source_collection.as_ref(),
+                    &session.dragging_keys,
+                );
+                if !actions.is_empty() {
+                    for action in actions {
+                        routed.invocations.push(super::SelfDrawnActionInvocation {
+                            frame_revision,
+                            event_sequence,
+                            node: target.clone(),
+                            current_target: (collection != target).then(|| collection.clone()),
+                            action: action.to_string(),
+                            event: kind,
+                            context: drop_context.clone(),
+                            value: session.value.clone(),
+                        });
+                    }
                     return;
                 }
             }
