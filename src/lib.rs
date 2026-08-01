@@ -37,6 +37,7 @@ pub mod i18n;
 pub mod input;
 pub mod input_conformance;
 pub mod interaction;
+pub mod layout;
 pub mod native;
 #[cfg(any(
     all(feature = "appkit-native", target_os = "macos"),

@@ -161,6 +161,17 @@ enumerates all current `PortableStyle` fields and exhaustively assigns native
 roles and normalized input events to their first complete delivery milestone.
 Later-milestone fields remain explicit diagnostics in earlier renderer slices.
 
+The [layout and scene contract](layout-scene.md) now implements the first
+generic vertical slice. `NativeElement` keys become collision-safe stable layout
+paths; boxes are quantized to 1/64 logical point; paint, hit regions, and
+diagnostics share those identities. The semantic-only layout module produces a
+versioned `LayoutSnapshot`, while the optional Graphics adapter rejects
+error-level M3 omissions and derives stable `DrawId` values from layout paths.
+The existing shared calculator tree pins layout and scene fingerprints plus
+software and local Direct3D 12 image evidence. This is rectangle-path evidence,
+not a claim that text, full flex/grid behavior, presentation, or M4 interaction
+has landed.
+
 The remaining dependencies stay one-way:
 
 - `ComponentCx`, RSX parsing, and `rsx_ui` authoring compile outward-facing

@@ -39,6 +39,8 @@ The crate provides:
   announcements, and field-level backend capability reporting
 - Tailwind-compatible utility parsing into a platform-neutral native style
   model
+- versioned 1/64-point layout snapshots, stable keyed hit regions, explicit
+  projection diagnostics, and Native IR-to-Graphics rectangle lowering
 - a built-in `rsx_ui` component registry plus calculator, dogfood, and
   component-playground applications
 
@@ -326,6 +328,11 @@ constraints, and explicit keypad sizing. Their semantics and layout intent are
 therefore shared. Exact pixels still follow each native toolkit's control
 metrics, font fallback, DPI scaling, and rendering behavior.
 
+The self-drawn rectangle fixture now compiles that same shared calculator tree
+into versioned layout records and a Graphics Scene. It pins deterministic
+layout/scene fingerprints, retained software output, and a reviewed local DX12
+readback threshold; text and real window presentation remain roadmap work.
+
 Direct native examples follow the same naming pattern:
 
 ```sh
@@ -413,6 +420,7 @@ libraries.
 
 - [Runtime and protocol architecture](docs/architecture.md)
 - [Renderer field inventory](docs/renderer-field-inventory.md)
+- [Layout and Graphics scene contract](docs/layout-scene.md)
 - [Native app shell](docs/app-shell.md)
 - [Native packaging](docs/packaging.md)
 - [React Aria native direction](docs/react-aria-native.md)

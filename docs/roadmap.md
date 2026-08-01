@@ -219,7 +219,7 @@ Acceptance gates:
 
 ### M1 - GUI architecture cleanup and dependency integration
 
-Status: current.
+Status: complete.
 
 Landed evidence:
 
@@ -238,8 +238,8 @@ Landed evidence:
 - the versioned renderer inventory accounts for all 504 `PortableStyle`
   fields, every `NativeRole`, all normalized input events, and the focus,
   overlay, text, and accessibility records required by cutover
-
-Remaining work is the first `NativeElement` layout-to-scene adapter.
+- the first generic `NativeElement -> LayoutSnapshot -> Graphics Scene`
+  adapter landed with stable keyed identity and explicit projection diagnostics
 
 Deliverables:
 
@@ -285,7 +285,28 @@ Acceptance gates:
 
 ### M3 - Generic layout and scene vertical slice
 
-Status: planned after M2.
+Status: current.
+
+Landed evidence:
+
+- layout schema version 1 records 1/64-point quantized boxes, stable
+  length-prefixed element paths, paint, clips, z/order, and separate hit regions
+- the generic engine covers the calculator's row/column flow, box model,
+  explicit/min/max size, alignment, absolute positioning, overflow clipping,
+  opacity, and solid rectangle paint without a calculator renderer model
+- unsupported M3 fields are error diagnostics rejected by scene extraction;
+  later role/style work remains visible as warnings
+- stable layout diffs feed the Graphics scene/damage diff, and stable layout
+  paths derive retained `DrawId` values
+- the existing shared 410 by 620 calculator Native IR pins layout fingerprint
+  `16529597026056060935` and scene fingerprint `2100550662756266801`
+- repeated software output is byte-identical with no retained damage; the local
+  Direct3D 12 readback passed the reviewed 0.5%/96 non-text threshold with
+  exact solid-color checkpoints
+
+Remaining work includes full flex growth/shrink/wrap, complete stacking
+contexts, redraw scheduling, Metal/Vulkan evidence, and real thin-host window
+presentation.
 
 Deliverables:
 

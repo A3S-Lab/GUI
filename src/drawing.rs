@@ -10,6 +10,9 @@ pub use a3s_graphics::{
     Primitive, Rect, Scene, SceneBuilder, Size, StrokeRect, SCENE_SCHEMA_VERSION,
 };
 
+mod layout_scene;
+pub use layout_scene::{scene_from_layout, LayoutSceneOptions};
+
 #[cfg(feature = "gpu")]
 pub use a3s_graphics::{
     GpuBackend, GpuBackendPreference, GpuCapabilities, GpuDeviceType, GpuFrame, GpuPowerPreference,
