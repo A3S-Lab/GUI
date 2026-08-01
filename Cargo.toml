@@ -88,8 +88,10 @@ name = "winui_dogfood"
 required-features = ["winui-native"]
 
 [features]
-default = ["headless", "authoring", "design-system"]
+default = ["headless", "authoring", "design-system", "software-reference"]
 headless = []
+graphics = ["dep:a3s-graphics"]
+software-reference = ["graphics", "a3s-graphics/software"]
 authoring = [
     "dep:swc_atoms",
     "dep:swc_common",
@@ -117,6 +119,7 @@ gtk4 = []
 gtk4-native = ["gtk4", "dep:gtk4_crate"]
 
 [dependencies]
+a3s-graphics = { git = "https://github.com/A3S-Lab/Graphics", rev = "2cad948189eec816d38f0df01ea38993f92118a5", optional = true, default-features = false }
 fixed_decimal = { version = "0.7.2", features = ["ryu"] }
 icu_collator = "2.2.1"
 icu_datetime = "2.2.0"

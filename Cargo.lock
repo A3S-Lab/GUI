@@ -3,9 +3,18 @@
 version = 4
 
 [[package]]
+name = "a3s-graphics"
+version = "0.1.0"
+source = "git+https://github.com/A3S-Lab/Graphics?rev=2cad948189eec816d38f0df01ea38993f92118a5#2cad948189eec816d38f0df01ea38993f92118a5"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "a3s-gui"
 version = "0.1.0"
 dependencies = [
+ "a3s-graphics",
  "fixed_decimal",
  "gtk4",
  "icu_collator",

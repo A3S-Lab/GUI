@@ -198,7 +198,7 @@ another catch-all file.
 
 ### M0 - Graphics boundary and deterministic core
 
-Status: Graphics foundation pushed; GUI integration pending.
+Status: complete at Graphics commit `2cad948` and the pinned GUI boundary.
 
 Deliverables:
 
@@ -220,6 +220,22 @@ Acceptance gates:
 ### M1 - GUI architecture cleanup and dependency integration
 
 Status: current.
+
+Landed evidence:
+
+- architecture and public docs now select A3S Graphics with no framework-owned
+  renderer residue
+- the engine dependency is pinned to full commit
+  `2cad948189eec816d38f0df01ea38993f92118a5`
+- `graphics` and `software-reference` separate scene consumers from reference
+  rasterization while no-default remains semantic-only
+- `ReferenceRenderer` preserves frame fingerprints and retained damage behind a
+  GUI-owned error boundary
+- the first compatibility cleanup removed class-name widget mapping shims and
+  replaced broad dead-code allowances with target-accurate compilation
+
+Remaining work is the field inventory, dependency-direction automation, and
+the first `NativeElement` layout-to-scene adapter.
 
 Deliverables:
 

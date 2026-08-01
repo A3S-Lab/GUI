@@ -142,12 +142,17 @@ lowering pipeline.
 
 ## Dependency Direction
 
-Cargo features enforce the authoring/runtime split inside the current crate.
-`authoring` enables SWC-backed RSX parsing and `ComponentCx`; `design-system`
-depends on `authoring` and enables the built-in `rsx_ui` registry. The default
-feature set keeps the existing authoring experience, while
-`cargo check --no-default-features --lib` proves that the runtime, protocol,
-semantic mapper, renderer, and planning core compile without SWC or `rsx_ui`.
+Cargo features enforce both the authoring/runtime split and the graphics
+backend boundary inside the current crate. `authoring` enables SWC-backed RSX
+parsing and `ComponentCx`; `design-system` depends on `authoring` and enables
+the built-in `rsx_ui` registry. `graphics` enables only the pinned engine scene
+contract, while `software-reference` adds deterministic retained
+rasterization. The GPU feature is introduced only when the M2 backend is real;
+there is no placeholder backend. The default feature set keeps the existing
+authoring experience plus software reference evidence, while
+`cargo check --no-default-features --lib` proves that protocol, semantic,
+interaction, focus, selection, i18n, and accessibility remain usable without
+Graphics, SWC, or `rsx_ui`.
 
 The remaining dependencies stay one-way:
 

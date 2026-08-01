@@ -20,6 +20,8 @@ pub mod compiler;
 mod css_text;
 #[cfg(feature = "authoring")]
 mod default_components;
+#[cfg(feature = "graphics")]
+pub mod drawing;
 pub mod effect;
 pub mod error;
 pub mod event;
@@ -101,6 +103,8 @@ pub use compiler::{
     CompiledBinding, CompiledBindingSource, CompiledProps, CompiledRsxNode, ComponentClassVariants,
     RsxCompilerBridge,
 };
+#[cfg(feature = "software-reference")]
+pub use drawing::{ReferenceFrame, ReferenceRenderer};
 pub use effect::{
     Effect, EffectCancellation, EffectCompletion, EffectExecutor, EffectId, EffectRuntime,
     EffectWaker, EffectWorker, ThreadEffectExecutor, DEFAULT_EFFECT_IN_FLIGHT_LIMIT,

@@ -22,6 +22,9 @@ pub enum GuiError {
     Internationalization {
         message: String,
     },
+    Graphics {
+        message: String,
+    },
     Host {
         message: String,
     },
@@ -47,6 +50,7 @@ impl Display for GuiError {
             GuiError::Internationalization { message } => {
                 write!(f, "internationalization error: {message}")
             }
+            GuiError::Graphics { message } => write!(f, "graphics error: {message}"),
             GuiError::Host { message } => write!(f, "native host error: {message}"),
         }
     }
@@ -71,5 +75,18 @@ impl GuiError {
         GuiError::Internationalization {
             message: message.into(),
         }
+    }
+
+    pub fn graphics(message: impl Into<String>) -> Self {
+        GuiError::Graphics {
+            message: message.into(),
+        }
+    }
+}
+
+#[cfg(feature = "graphics")]
+impl From<a3s_graphics::GraphicsError> for GuiError {
+    fn from(error: a3s_graphics::GraphicsError) -> Self {
+        Self::graphics(error.to_string())
     }
 }

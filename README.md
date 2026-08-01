@@ -17,7 +17,8 @@ describe semantic UI in Rust function components or `.rsx` modules, update
 state through reducers, and lower the same portable native IR into layout,
 paint, interaction, and accessibility records. Application pixels are moving
 to the shared [`a3s-graphics`](https://github.com/A3S-Lab/Graphics) engine,
-whose production path uses `wgpu` directly for Metal, Direct3D 12, and Vulkan.
+whose production GPU path is being built on `wgpu` directly for Metal,
+Direct3D 12, and Vulkan.
 
 The current AppKit, GTK4, WinUI, and deterministic headless hosts remain as the
 migration baseline. New rendering work targets the self-drawn Graphics path;
@@ -62,9 +63,10 @@ The crate is currently consumed from its Git repository:
 a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ```
 
-The default feature set includes the headless runtime, RSX authoring, and the
-built-in design system. During the renderer migration, the matching legacy
-native feature still opens the platform-control baseline:
+The default feature set includes the headless runtime, RSX authoring, the
+built-in design system, and the deterministic Graphics software reference.
+During the renderer migration, the matching legacy native feature still opens
+the platform-control baseline:
 
 ```toml
 # macOS
@@ -126,6 +128,8 @@ just playground
 | Feature | Purpose |
 | --- | --- |
 | `headless` | Deterministic runtime and host behavior without an OS GUI |
+| `graphics` | Pinned A3S Graphics scene vocabulary without a renderer backend |
+| `software-reference` | Deterministic retained reference renderer; implies `graphics` |
 | `authoring` | SWC-backed RSX parsing, `ComponentCx`, and explicit component registries |
 | `design-system` | Built-in `rsx_ui` registry; implies `authoring` |
 | `appkit`, `gtk4`, `winui` | Legacy planning adapters retained for migration evidence |
@@ -138,6 +142,8 @@ Runtime and protocol consumers can exclude the authoring stack:
 ```sh
 cargo check --locked --no-default-features --lib
 cargo check --locked --no-default-features --features authoring --lib
+cargo check --locked --no-default-features --features graphics --lib
+cargo check --locked --no-default-features --features software-reference --lib
 ```
 
 ## Runtime Architecture
