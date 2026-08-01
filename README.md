@@ -1,86 +1,60 @@
-# A3S GUI
-
 <p align="center">
-  <strong>Rust-Native Cross-Platform GUI Runtime for A3S</strong>
+  <img src="./assets/readme/hero.svg" width="100%" alt="A3S GUI turns semantic Rust RSX into deterministic layout records and retained A3S Graphics scenes">
 </p>
 
 <p align="center">
-  <em>Reducer-driven Rust components, structured RSX, and an A3S-owned GPU rendering engine without a browser runtime.</em>
+  <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
+  <img alt="Roadmap milestone M3 current" src="https://img.shields.io/badge/roadmap-M3%20current-0067C0?style=flat-square">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2F3945?style=flat-square"></a>
 </p>
 
----
+**A3S GUI** is a Rust-native, cross-platform runtime for reducer-driven
+components and structured RSX. One semantic `NativeElement` tree feeds layout,
+interaction, accessibility, and an A3S-owned rendering path—without a DOM,
+CSSOM, WebView, JavaScript object graph, or framework-owned content renderer.
 
-## Overview
+> [!IMPORTANT]
+> The repository is in its P0 renderer migration. The semantic runtime and
+> AppKit/GTK4/WinUI control hosts are established dogfood baselines. The first
+> generic self-drawn layout-to-Scene slice has landed; self-drawn text, input,
+> IME, accessibility bridges, and real thin-host presentation remain roadmap
+> work.
 
-**A3S GUI** is a native GUI runtime for structured A3S UI frames. Applications
-describe semantic UI in Rust function components or `.rsx` modules, update
-state through reducers, and lower the same portable native IR into layout,
-paint, interaction, and accessibility records. Application pixels are moving
-to the shared [`a3s-graphics`](https://github.com/A3S-Lab/Graphics) engine,
-whose GPU path uses `wgpu` directly for Metal, Direct3D 12, and Vulkan.
+## One tree, measured end to end
 
-The current AppKit, GTK4, WinUI, and deterministic headless hosts remain as the
-migration baseline. New rendering work targets the self-drawn Graphics path;
-the three control renderers will be removed after the generic calculator,
-input, IME, and accessibility cutover gates pass.
+<p align="center">
+  <img src="./docs/assets/calculator-rsx-tailwind.png" width="320" alt="A3S Calculator rendered by a legacy native-control migration host">
+</p>
 
-The crate provides:
+<p align="center"><sub>The shared calculator on a native-control migration host. The same state, reducers, RSX components, window constraints, and Native IR now drive the generic rectangle layout/Scene fixture.</sub></p>
 
-- `ComponentCx` function components with state, props, context, derived values,
-  effects, resources, reducers, and interaction hooks
-- static RSX lowering for semantic components, intrinsic elements, bindings,
-  actions, fragments, slots, and spreads
-- stable semantic identity, retained rendering, and ordered frame transactions
-- a strict versioned protocol with prepare, commit, ACK, recovery, replay, and
-  sensitive-value redaction
-- portable interaction behavior for press, hover, focus, selection, overlays,
-  collections, keyboard navigation, and localized number fields
-- accessibility tree generation, conformance checks, live regions, native
-  announcements, and field-level backend capability reporting
-- Tailwind-compatible utility parsing into a platform-neutral native style
-  model
-- versioned 1/64-point layout snapshots, stable keyed hit regions, explicit
-  projection diagnostics, and Native IR-to-Graphics rectangle lowering
-- a built-in `rsx_ui` component registry plus calculator, dogfood, and
-  component-playground applications
+The calculator is the first fixed renderer proof at `410 × 620` logical
+pixels. The fixture does not introduce a calculator-only visual model.
 
-A3S GUI does not embed a DOM, CSSOM, WebView, framework-owned content renderer,
-or JavaScript object graph.
-RSX uses familiar component syntax, but it compiles into typed semantic,
-layout, graphics-scene, interaction, and accessibility data.
+| Gate | Checked evidence |
+| --- | --- |
+| Input | The existing calculator RSX lowers through `RsxCompilerBridge` into the real window-wrapped `NativeElement` tree |
+| Field ownership | All 504 top-level `PortableStyle` fields, every `NativeRole`, and every normalized event kind have executable milestone assignments |
+| Layout | Schema v1, 1/64-point quantization, stable keyed records, separate hit regions, and fingerprint `16529597026056060935` |
+| Scene | Stable layout paths derive retained `DrawId` values and scene fingerprint `2100550662756266801` |
+| Software | Repeated reference output is byte-identical; an unchanged second frame produces no retained damage |
+| GPU | Local Direct3D 12 readback passed the reviewed non-text gate: 0.370% differing edge pixels, maximum channel delta 91 |
 
-The long-term behavioral direction is a native, cross-platform counterpart to
-[React Aria](https://react-aria.adobe.com/getting-started). This is not a DOM
-compatibility target, and the project does not claim full React Aria parity
-yet. See [React Aria Native Direction](docs/react-aria-native.md) for the
-implemented contracts and remaining gaps.
+The GPU result is local DX12 evidence, not a Metal/Vulkan parity claim. Text and
+real self-drawn window presentation are not represented by the screenshot
+above.
 
-## Quick Start
+## Quick start
 
-The crate is currently consumed from its Git repository:
+The crate is currently consumed from Git:
 
 ```toml
 [dependencies]
 a3s-gui = { git = "https://github.com/A3S-Lab/GUI" }
 ```
 
-The default feature set includes the headless runtime, RSX authoring, the
-built-in design system, and the deterministic Graphics software reference.
-During the renderer migration, the matching legacy native feature still opens
-the platform-control baseline:
-
-```toml
-# macOS
-a3s-gui = { git = "https://github.com/A3S-Lab/GUI", features = ["appkit-native"] }
-
-# Linux
-a3s-gui = { git = "https://github.com/A3S-Lab/GUI", features = ["gtk4-native"] }
-
-# Windows
-a3s-gui = { git = "https://github.com/A3S-Lab/GUI", features = ["winui-native"] }
-```
-
-Define state, register behavior, and return an RSX view:
+Define state, register a reducer, and return semantic RSX:
 
 ```rust
 use a3s_gui::{rsx, ComponentCx, GuiResult, RSX};
@@ -92,7 +66,7 @@ struct CounterState {
 
 fn counter(cx: &mut ComponentCx<CounterState>) -> RSX {
     let count = cx.use_state("count", |state: &CounterState| state.count);
-    let increment = cx.use_reducer("increment", |state: &mut CounterState, _action| {
+    let increment = cx.use_reducer("increment", |state: &mut CounterState, _| {
         state.count += 1;
         Ok(())
     });
@@ -107,24 +81,124 @@ fn counter(cx: &mut ComponentCx<CounterState>) -> RSX {
 fn main() -> GuiResult<()> {
     let component = ComponentCx::compile("counter", counter)?;
     let frame = component.render(&CounterState::default())?;
-    println!("rendered {} with {} action(s)", frame.frame_id, frame.actions.len());
+    println!("{} action(s)", frame.actions.len());
     Ok(())
 }
 ```
 
-Run the headless component atlas from this repository:
+From this repository, run the headless component atlas:
 
 ```sh
 cargo run --locked --example component_playground
 ```
 
-Open the native atlas on the current operating system:
+Or open the native atlas for the current operating system:
 
 ```sh
 just playground
 ```
 
-## Cargo Features
+## Architecture
+
+```text
+ComponentCx function / .rsx module
+                 |
+                 v
+         CompiledRsxNode
+                 |
+                 v
+       versioned UiFrame protocol
+                 |
+                 v
+          NativeElement tree
+          /        |         \
+         v         v          v
+ LayoutSnapshot  semantics  interaction + hit regions
+         |         + a11y
+         v
+ A3S Graphics Scene
+         |
+         v
+ FramePlanner -> software reference / wgpu
+                                  |
+                       Metal / DX12 / Vulkan
+                                  |
+                         thin platform host
+                                  |
+                     normalized events -> reducers
+```
+
+These products share stable element identity, but they stay separate. Paint
+commands never become the accessibility tree, and Graphics never infers an
+action from a colored rectangle.
+
+| Layer | Owns | Does not own |
+| --- | --- | --- |
+| Authoring and design system | Rust components, RSX, typed props, contracts, variants, and tokens | GPU resources, native handles, product workflows |
+| Semantic runtime | `NativeElement`, reducers, actions, interaction, focus, selection, overlays, i18n, capabilities, and accessibility | Graphics devices, toolkit state, product I/O |
+| Layout and scene adapter | Portable style resolution, quantized boxes, paint extraction, hit regions, diffs, and diagnostics | Product state, OS widget geometry, backend-specific GPU calls |
+| [A3S Graphics](https://github.com/A3S-Lab/Graphics) | Scene schema, stable draw identity, retained damage, preparation, software rasterization, shaders, and GPU rendering | RSX, widgets, accessibility, IME, windows |
+| Platform host | Windows, event loop, raw input, IME, accessibility bridge, clipboard, system surfaces, and presentation | Component layout, style interpretation, application-content drawing |
+
+`layout` remains available in semantic-only builds. Scene extraction is gated
+by `graphics`; the deterministic reference renderer and GPU renderer are gated
+independently.
+
+## What exists today
+
+### Authoring and runtime
+
+- `ComponentCx` function components with state, props, context, memoized and
+  derived values, effects, resources, references, reducers, and interaction
+  hooks
+- static RSX lowering for semantic components, intrinsic elements, actions,
+  bindings, fragments, slots, and spreads
+- stable semantic identity and ordered prepare/commit/ACK transactions with
+  rollback, degraded-state recovery, replay, and sensitive-value redaction
+- a broad built-in `rsx_ui` registry covering foundations, forms, collections,
+  overlays, date/time, color, feedback, routing, and drag/drop semantics
+
+### Interaction and accessibility
+
+- normalized keyboard, mouse, touch, pen, wheel, focus, hover, press,
+  long-press, and move lifecycles
+- keyed focus and interaction state, collection navigation, selection models,
+  overlay dismissal/containment, and logical LTR/RTL placement
+- ICU4X-backed locale, collation, date/number formatting, decimal/percent
+  parsing, localized stepping, and NumberField announcements
+- portable accessibility trees, conformance checks, relationships, state,
+  structure, live regions, announcements, and field-level capability reports
+
+### Layout and owned pixels
+
+- collision-safe path identities derived from stable sibling keys
+- versioned `LayoutSnapshot` records with quantized border/content boxes,
+  clips, z/order, paint, structured diagnostics, stable diffs, and hit regions
+- calculator-grade block and no-wrap row/column flow, box model, constrained
+  size, alignment, positioning, overflow clipping, opacity, backgrounds,
+  per-edge borders, and circular radii
+- `NativeElement -> LayoutSnapshot -> Graphics Scene` lowering with stable
+  draw IDs and rejection of error-level projection gaps
+- deterministic retained software rendering and an owned `wgpu` renderer
+  boundary with asynchronous readback
+
+## Roadmap at a glance
+
+| Milestone | State | Evidence or next gate |
+| --- | --- | --- |
+| M0 · Graphics boundary | Complete | Versioned scene, validation, fingerprints, retained damage, and deterministic reference core |
+| M1 · GUI integration | Complete | Pinned Graphics boundary, semantic-only dependency gate, renderer inventory, reference/GPU wrappers, first generic adapter |
+| M2 · GPU backend | Implementation landed | Graphics commit `8748fab`; Metal and Vulkan CI parity evidence remains |
+| M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
+| M4 · Text and interaction cutover | Planned | Shaping, glyphs, GUI-owned input, IME, accessibility bridges, overlays, and complete calculator scenarios |
+| M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
+
+The dependency-ordered plan and acceptance gates are in the
+[delivery roadmap](docs/roadmap.md).
+
+## Cargo features
+
+The default set is `headless + authoring + design-system + software-reference`.
 
 | Feature | Purpose |
 | --- | --- |
@@ -136,10 +210,10 @@ just playground
 | `design-system` | Built-in `rsx_ui` registry; implies `authoring` |
 | `appkit`, `gtk4`, `winui` | Legacy planning adapters retained for migration evidence |
 | `appkit-native` | Legacy AppKit control surface on macOS |
-| `gtk4-native` | Legacy GTK4 control surface on Linux |
+| `gtk4-native` | Legacy GTK4 control surface on Linux 4.14+ |
 | `winui-native` | Legacy WinUI 3 control surface on Windows |
 
-Runtime and protocol consumers can exclude the authoring stack:
+The runtime core can stay independent of authoring and Graphics:
 
 ```sh
 cargo check --locked --no-default-features --lib
@@ -149,161 +223,23 @@ cargo check --locked --no-default-features --features software-reference --lib
 cargo check --locked --no-default-features --features gpu --lib
 ```
 
-## Runtime Architecture
+## Platform baseline
 
-```text
-Rust ComponentCx function or .rsx module
-                    |
-                    v
-          CompiledRsxNode tree
-                    |
-                    v
-       versioned UiFrame protocol
-                    |
-                    v
-        semantic native UI IR
-          /         |          \
-         v          v           v
-      layout    semantics   interaction/hit tree
-         |          |           |
-         v          |           |
-   Graphics Scene   |           |
-         |          |           |
-         v          |           |
- software / wgpu    |           |
-         |          |           |
-         +----------+-----------+
-                    |
-                    v
-    thin platform host and normalized events
-                    |
-                    v
-              action reducers
-```
-
-The main ownership boundaries are explicit:
-
-| Layer | Responsibility |
-| --- | --- |
-| Authoring | Rust components, hooks, RSX parsing, component contracts, and bindings |
-| Protocol | Serializable frames, actions, revisions, events, ACKs, and recovery |
-| Runtime | Reducer flow, interaction state, effects, focus, selection, and overlays |
-| Layout and scene adapter | Stable layout records, paint extraction, hit regions, and explicit projection diagnostics |
-| A3S Graphics | Scene validation, retained damage, render preparation, software reference, shaders, and GPU rendering |
-| Platform host | Window/surface lifetime, raw input, IME, focus, accessibility bridge, system surfaces, and event delivery |
-
-Application state and product I/O remain outside the renderer. Graphics and
-platform hosts never execute component functions, and thread-affine native or
-GPU handles never cross the serializable boundary.
-
-## Component And Hook Model
-
-`ComponentCx` keeps React-aligned names where the same mental model is useful
-and exposes explicit native extensions where browser behavior does not map
-cleanly.
-
-| Concern | A3S GUI API |
-| --- | --- |
-| State projection | `use_selector`, legacy `use_state`, and object-valued `use_reactive` |
-| State transition | `use_reducer`, `use_value_reducer`, and `use_payload_reducer` |
-| Props and context | `use_prop`, `use_context`, and `use_id` |
-| Derived values | `use_memo` and `use_derived` |
-| Lifecycle and work | effect variants, transition effects, mount/unmount hooks, and `use_resource` |
-| References | `use_ref` and `use_imperative_handle` |
-| Interaction | press, hover, focus, keyboard, move, long-press, selection, and overlay hooks |
-| Semantic controls | button, form, text field, table, tree, menu, slider, date, color, and related hooks |
-
-RSX is structural. Template braces resolve registered state, prop, derived,
-context, resource, local-item, or action bindings. Arbitrary computation,
-mutation, and asynchronous work belong in Rust selectors, reducers, effects,
-and resources before the final `rsx!(...)` expression.
-
-## Interaction And Accessibility
-
-The portable behavior layer currently includes:
-
-- normalized keyboard, mouse, touch, pen, virtual, and unknown input modality
-- press start, release, end, cancellation, long press, hover, move, wheel, and
-  direct focus/focus-within lifecycles
-- modality-aware focus visibility and keyed interaction-state preservation
-- single, multiple, range, toggle, replace, select-all, and clear selection
-  over stable collection keys
-- list, grid-list, table, menu, tabs, and tree keyboard behavior, including tree
-  expansion and layout-aware page navigation
-- activation-ordered overlay dismissal, modal background inertness, focus
-  containment/restoration, and logical LTR/RTL placement
-- inherited locale and direction, ICU4X collation, decimal and percent parsing,
-  localized stepping, and a 34-locale NumberField accessibility catalog
-- independent visible labels and accessible names
-- native accessibility descriptions, supported ID-reference relationships,
-  ARIA state, live-region, and structural metadata projection
-- field-level `Native`, `Portable`, or `Unsupported` capability audits
-
-Native accessibility support is intentionally reported per field. GTK4 has the
-broadest generic accessibility property and relation surface. AppKit and WinUI
-project exact native equivalents where they exist and retain the remaining
-semantic data in the portable accessibility tree instead of claiming false
-native parity.
-
-## Styling
-
-`class` and `className` are aliases. Supported Tailwind-compatible utilities,
-interaction variants, React Aria `data-*` variants, inline style objects, and
-CSS declaration strings lower into `PortableStyle`; there is no runtime CSS
-engine.
-
-Prefer semantic components and tokenized utilities:
-
-```rust
-rsx!(
-    <UiButton
-      key="run"
-      variant="outline"
-      size="lg"
-      className="w-full justify-start border-hairline-strong bg-surface-card text-ink active:bg-surface-strong"
-      onPress={run}
-    >
-      Run command
-    </UiButton>
-)
-```
-
-Arbitrary native sizing values such as `w-[396px]`, `rounded-[12px]`, and
-platform font stacks are available when a fixed design requires them.
-
-## Platform Support
-
-| Host | Cargo feature | Current role |
+| Host | Feature | Current role |
 | --- | --- | --- |
-| Headless | default `headless` | Protocol tests, deterministic reducer flow, command inspection, capability audits, and accessibility snapshots |
-| macOS | `appkit-native` | AppKit dogfood and smoke applications with native controls, input, focus, menus, overlays, and accessibility |
-| Linux | `gtk4-native` | GTK4 4.14+ dogfood and smoke applications with native controls, input, focus, menus, dialogs, scrolling, and accessibility |
-| Windows | `winui-native` | WinUI 3 dogfood and smoke applications with native controls, input, focus, dialogs, overlays, and accessibility |
+| Headless | default `headless` | Protocol tests, reducer flow, command inspection, capability audits, accessibility snapshots, and reference rendering |
+| macOS | `appkit-native` | AppKit dogfood/smoke baseline for controls, input, focus, menus, overlays, and accessibility |
+| Linux | `gtk4-native` | GTK4 dogfood/smoke baseline for controls, input, focus, menus, dialogs, scrolling, and accessibility |
+| Windows | `winui-native` | WinUI 3 dogfood/smoke baseline for controls, input, focus, dialogs, overlays, and accessibility |
 
-All three native surfaces are suitable for project dogfood and focused smoke
-testing. They are not yet presented as a stable production application
-framework.
-
-## Current Status
-
-| Area | Readiness |
-| --- | --- |
-| RSX and `ComponentCx` authoring | Usable; component contracts, bindings, routing, effects, resources, and the built-in registry are implemented |
-| Headless runtime | Usable for deterministic tests, protocol sessions, rendering, accessibility, and capability inspection |
-| Protocol and native execution | Versioned protocol v1 with ordered revisions, retained resend, exact ACK validation, degraded state, and fresh-executor replay |
-| Built-in design system | Broad dogfood component set with calculator and component-atlas coverage |
-| Self-drawn Graphics path | Deterministic scene/reference core exists independently; GPU and GUI lowering are the active P0 work |
-| AppKit, GTK4, and WinUI controls | Migration baseline only; frozen until removal after self-drawn cutover |
-| Native input evidence | Canonical manifests and a strict verifier are implemented; the WinUI harness covers its current 98-case matrix, while AppKit and GTK4 OS-automation evidence is incomplete |
-| Packaging | Reproducible unsigned smoke bundles; signing, notarization, installers, and product update metadata remain application responsibilities |
-| React Aria direction | Substantial shared behavior foundation; full component, platform, and assistive-technology parity is still in progress |
-
-The dependency-ordered delivery plan and acceptance gates live in
-[docs/roadmap.md](docs/roadmap.md).
+The native surfaces are useful for project dogfood and focused smoke evidence;
+they are not presented as a stable production application framework. Their
+application-content widgets remain frozen migration code and will be removed
+only after the self-drawn cutover gates pass.
 
 ## Examples
 
-Headless examples:
+Headless and protocol examples:
 
 ```sh
 cargo run --locked --example protocol_session
@@ -322,18 +258,7 @@ just playground
 just dogfood-native
 ```
 
-The legacy AppKit, GTK4, and WinUI calculator entrypoints use the same
-`shared_calculator_component`, state model, reducer, RSX component tree, window
-constraints, and explicit keypad sizing. Their semantics and layout intent are
-therefore shared. Exact pixels still follow each native toolkit's control
-metrics, font fallback, DPI scaling, and rendering behavior.
-
-The self-drawn rectangle fixture now compiles that same shared calculator tree
-into versioned layout records and a Graphics Scene. It pins deterministic
-layout/scene fingerprints, retained software output, and a reviewed local DX12
-readback threshold; text and real window presentation remain roadmap work.
-
-Direct native examples follow the same naming pattern:
+Direct native entrypoints follow the same pattern:
 
 ```sh
 # Replace <backend> with appkit, gtk4, or winui on the matching host.
@@ -343,67 +268,21 @@ cargo run --locked --features <backend>-native --example <backend>_component_pla
 cargo run --locked --features <backend>-native --example <backend>_dogfood
 ```
 
-## Design Direction
-
-| Concept | Direction |
-| --- | --- |
-| Authoring | Rust-first function components and static RSX, not JavaScript execution |
-| State | Explicit reducers and one-way state-to-frame-to-action flow |
-| Rendering | Native IR to deterministic GUI layout and A3S Graphics scene |
-| Pixels | A3S-owned software reference and `wgpu` renderer; no framework-owned content renderer |
-| Platform | Thin window, input, IME, accessibility, system-surface, and presentation hosts |
-| Behavior | Shared headless contracts with field- and role-level native capability reporting |
-| Accessibility | Portable semantic truth plus exact native projection where supported |
-| Styling | Portable native style tokens and selected utility syntax, not a browser CSS engine |
-| Configuration | Product-owned typed grants; new product configuration uses ACL outside GUI core |
-| Testing | Semantic trees, events, capabilities, and OS evidence over platform class-name assertions |
-| Packaging | Runtime-owned smoke bundles; product repositories own signing and distribution |
-
-## Source Layout
-
-```text
-src/
-├── accessibility/    # Semantic tree, conformance, relationships, and native-ready values
-├── app/              # Reducer-driven native application loop
-├── backend/          # Legacy command execution and recovery during migration
-├── platform/         # Legacy widget planning during migration
-├── protocol.rs       # Versioned frame, action, event, and ACK boundary
-├── native.rs         # Portable native UI IR
-├── renderer.rs       # Legacy stable-key control reconciliation
-├── runtime/          # Interaction, focus, overlays, effects, and rerender flow
-├── rsx_app/          # ComponentCx, hooks, components, and binding scope
-├── rsx_ui/           # Built-in semantic design-system registry
-├── appkit_native/    # Legacy macOS control surface; future thin host
-├── gtk4_native/      # Legacy Linux control surface; future thin host
-└── winui_native/     # Legacy Windows control surface; future thin host
-
-examples/             # Headless, calculator, dogfood, controls, and playground apps
-docs/                 # Architecture, language, platform, packaging, and roadmap contracts
-packaging/            # Unsigned native smoke-bundle assets and validators
-```
-
 ## Development
 
-The repository pins Rust 1.95.0 in `rust-toolchain.toml` and commits
-`Cargo.lock`. Run commands from this crate directory.
-
-Run the complete portable verification gate:
+The repository pins Rust 1.95.0 and commits `Cargo.lock`. Run commands from the
+crate root.
 
 ```sh
+# Portable formatting, dependency boundaries, lint, docs, tests, adapters,
+# Graphics paths, examples, and whitespace.
 just verify
-```
 
-This checks formatting, runtime-only build boundaries, high-confidence Clippy
-groups, rustdoc warnings, library tests, example tests, all planning adapters,
-and diff whitespace.
-
-Run the matching host-native library tests and all-target compile check:
-
-```sh
+# Matching host-native library tests and all-target compile check.
 just native-ci
 ```
 
-Generate or verify native input conformance artifacts:
+Native input evidence is generated and verified independently:
 
 ```sh
 just native-input-manifest winui
@@ -411,24 +290,50 @@ just native-input-conformance path/to/native-evidence.json
 just winui-input-smoke path/to/winui-smoke.json
 ```
 
-The WinUI smoke runner requires an interactive Windows desktop and the Windows
-App Runtime 1.7 framework package. AppKit and GTK4 native checks require their
-matching host toolchains; GTK4 requires version 4.14 or newer development
-libraries.
+The WinUI smoke runner requires an interactive Windows desktop and Windows App
+Runtime 1.7. AppKit and GTK4 native checks require their matching host
+toolchains; GTK4 requires 4.14 or newer development libraries.
+
+<details>
+<summary><strong>Repository map</strong></summary>
+
+```text
+src/
+|- accessibility/       semantic tree, conformance, and native-ready values
+|- app/ + runtime/       reducer loop, interaction, focus, overlays, and effects
+|- compiler.rs           structured RSX to compiled semantic nodes
+|- rsx_app/              ComponentCx, hooks, components, and binding scope
+|- rsx_ui/               built-in semantic design-system registry
+|- protocol.rs           versioned frame, event, action, ACK, and recovery boundary
+|- native.rs             portable NativeElement UI IR
+|- layout/               deterministic records, style projection, diffs, and tests
+|- drawing.rs            Graphics boundary and reference/GPU renderer wrappers
+|- drawing/layout_scene.rs
+|                        LayoutSnapshot to Graphics Scene lowering
+|- render_contract.rs    executable field/role/event milestone inventory
+|- backend/ + platform/  legacy execution/planning migration baseline
+`- *_native/             AppKit, GTK4, and WinUI control hosts during migration
+
+examples/                headless, calculator, dogfood, controls, and playground apps
+docs/                    architecture, contracts, packaging, language, and roadmap
+packaging/               unsigned native smoke-bundle assets and validators
+```
+
+</details>
 
 ## Documentation
 
-- [Runtime and protocol architecture](docs/architecture.md)
+- [Architecture and ownership boundaries](docs/architecture.md)
+- [Layout and Graphics Scene contract](docs/layout-scene.md)
 - [Renderer field inventory](docs/renderer-field-inventory.md)
-- [Layout and Graphics scene contract](docs/layout-scene.md)
-- [Native app shell](docs/app-shell.md)
-- [Native packaging](docs/packaging.md)
-- [React Aria native direction](docs/react-aria-native.md)
 - [RSX language and hooks](docs/rsx.md)
 - [RSX framework plan](docs/rsx-framework.md)
 - [Native style contract](docs/style-contract.md)
+- [React Aria native direction](docs/react-aria-native.md)
+- [Native app shell](docs/app-shell.md)
+- [Native packaging](docs/packaging.md)
 - [Delivery roadmap](docs/roadmap.md)
 
 ## License
 
-MIT
+[MIT](LICENSE)
