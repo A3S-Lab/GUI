@@ -2,10 +2,13 @@ use crate::accessibility::AccessibilityRole;
 use crate::geometry::{Rect, Size};
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::platform_host::{
-    PlatformHostEvent, PlatformPresentationAck, PlatformPresentationStatus, PlatformWindowEvent,
+    PlatformHostEvent, PlatformInputDeviceId, PlatformInputEvent, PlatformKeyEvent,
+    PlatformKeyState, PlatformPointerButton, PlatformPointerEvent, PlatformPointerId,
+    PlatformPointerPhase, PlatformPresentationAck, PlatformPresentationStatus, PlatformWindowEvent,
     PlatformWindowId, PlatformWindowSpec, RecordingPlatformHost,
 };
 use crate::web::WebProps;
+use crate::{GuiError, NativeEventKind, NativeInputModality, NativeKeyModifiers, PlatformPoint};
 
 use super::*;
 
@@ -47,6 +50,127 @@ fn runtime() -> SelfDrawnWindowRuntime<RecordingPlatformHost, RecordingScenePres
     .unwrap()
 }
 
+fn interaction_tree() -> NativeElement {
+    NativeElement::new("root", NativeRole::View)
+        .with_props(
+            NativeProps::new().web(
+                WebProps::new()
+                    .class_name("relative h-[80px] w-[100px] bg-white")
+                    .on_press("rootPress")
+                    .on_focus_within_change("rootFocusWithin"),
+            ),
+        )
+        .child(
+            NativeElement::new("first", NativeRole::Button)
+                .with_props(
+                    NativeProps::new()
+                        .label("First")
+                        .metadata("actionValue", "first-value")
+                        .web(
+                            WebProps::new()
+                                .class_name(
+                                    "absolute left-[10px] top-[10px] h-[20px] w-[35px] bg-black",
+                                )
+                                .on_press_start("firstStart")
+                                .on_press_end("firstEnd")
+                                .on_press_up("firstUp")
+                                .on_press_change("firstPressed")
+                                .on_press("firstPress")
+                                .on_focus("firstFocus")
+                                .on_blur("firstBlur")
+                                .on_key_down("firstKeyDown")
+                                .on_key_up("firstKeyUp"),
+                        ),
+                )
+                .child(NativeElement::text("label", "First")),
+        )
+        .child(
+            NativeElement::new("second", NativeRole::Button).with_props(
+                NativeProps::new().label("Second").web(
+                    WebProps::new()
+                        .class_name("absolute left-[55px] top-[10px] h-[20px] w-[35px] bg-black")
+                        .on_press("secondPress")
+                        .on_focus("secondFocus")
+                        .on_blur("secondBlur"),
+                ),
+            ),
+        )
+}
+
+fn disabled_overlay_tree() -> NativeElement {
+    NativeElement::new("root", NativeRole::View)
+        .with_props(
+            NativeProps::new()
+                .web(WebProps::new().class_name("relative h-[80px] w-[100px] bg-white")),
+        )
+        .child(
+            NativeElement::new("back", NativeRole::Button).with_props(
+                NativeProps::new().label("Back").web(
+                    WebProps::new()
+                        .class_name("absolute left-[10px] top-[10px] h-[30px] w-[50px]")
+                        .on_press("backPress"),
+                ),
+            ),
+        )
+        .child(
+            NativeElement::new("front", NativeRole::Button).with_props(
+                NativeProps::new().label("Front").disabled(true).web(
+                    WebProps::new()
+                        .class_name("absolute z-10 left-[10px] top-[10px] h-[30px] w-[50px]")
+                        .on_press("frontPress"),
+                ),
+            ),
+        )
+}
+
+fn pointer_event(
+    phase: PlatformPointerPhase,
+    x: f64,
+    y: f64,
+    timestamp_micros: u64,
+) -> PlatformHostEvent {
+    let button = matches!(
+        phase,
+        PlatformPointerPhase::Pressed | PlatformPointerPhase::Released
+    )
+    .then_some(PlatformPointerButton::Primary);
+    PlatformHostEvent::Input {
+        event: PlatformInputEvent::Pointer {
+            event: PlatformPointerEvent {
+                window: spec().id,
+                device: PlatformInputDeviceId::new(1),
+                pointer: PlatformPointerId::new(1),
+                modality: NativeInputModality::Mouse,
+                phase,
+                position: PlatformPoint::new(x, y),
+                button,
+                pressed_buttons: u32::from(phase == PlatformPointerPhase::Pressed),
+                pressure: None,
+                modifiers: NativeKeyModifiers::new(),
+                timestamp_micros,
+            },
+        },
+    }
+}
+
+fn key_event(key: &str, state: PlatformKeyState, timestamp_micros: u64) -> PlatformHostEvent {
+    PlatformHostEvent::Input {
+        event: PlatformInputEvent::Key {
+            event: PlatformKeyEvent {
+                window: spec().id,
+                device: PlatformInputDeviceId::new(2),
+                physical_key: key.to_string(),
+                logical_key: key.to_string(),
+                text: None,
+                state,
+                repeat: false,
+                modifiers: NativeKeyModifiers::new(),
+                timestamp_micros,
+            },
+        },
+    }
+}
+
 #[test]
 fn first_frame_commits_layout_scene_accessibility_and_presentation_together() {
     let mut runtime = runtime();
@@ -71,6 +195,258 @@ fn first_frame_commits_layout_scene_accessibility_and_presentation_together() {
     );
     assert_eq!(runtime.host().committed().len(), 1);
     assert_eq!(runtime.presenter().publish_count(), 1);
+}
+
+#[test]
+fn raw_pointer_routes_stable_press_lifecycle_and_bubbling_without_a_widget_plan() {
+    let mut runtime = runtime();
+    let revision = runtime.render(interaction_tree()).unwrap().revision;
+
+    let pressed = runtime
+        .handle_event(pointer_event(PlatformPointerPhase::Pressed, 14.0, 14.0, 10))
+        .unwrap();
+    let SelfDrawnHostEventOutcome::Input(pressed) = pressed else {
+        panic!("pointer input should be routed by the self-drawn runtime");
+    };
+    assert_eq!(pressed.frame_revision, revision);
+    assert_eq!(pressed.event_sequence, 1);
+    assert_eq!(pressed.target.as_ref().unwrap().as_str(), "4:root/5:first");
+    assert_eq!(
+        pressed
+            .invocations
+            .iter()
+            .map(|invocation| (
+                invocation.action.as_str(),
+                invocation.event,
+                invocation.value()
+            ))
+            .collect::<Vec<_>>(),
+        vec![
+            ("firstFocus", NativeEventKind::Focus, Some("true")),
+            ("rootFocusWithin", NativeEventKind::Focus, Some("true")),
+            ("firstStart", NativeEventKind::PressStart, Some("true")),
+            ("firstPressed", NativeEventKind::PressStart, Some("true")),
+        ]
+    );
+    assert_eq!(
+        runtime.focused_element().map(|id| id.as_str()),
+        Some("4:root/5:first")
+    );
+    assert!(
+        runtime
+            .element_interaction(pressed.target.as_ref().unwrap())
+            .unwrap()
+            .pressed
+    );
+
+    let released = runtime
+        .handle_event(pointer_event(
+            PlatformPointerPhase::Released,
+            14.0,
+            14.0,
+            20,
+        ))
+        .unwrap();
+    let SelfDrawnHostEventOutcome::Input(released) = released else {
+        panic!("pointer release should be routed");
+    };
+    assert_eq!(released.frame_revision, revision);
+    assert_eq!(released.event_sequence, 2);
+    assert_eq!(
+        released
+            .invocations
+            .iter()
+            .map(|invocation| (
+                invocation.action.as_str(),
+                invocation.event,
+                invocation.value()
+            ))
+            .collect::<Vec<_>>(),
+        vec![
+            ("firstUp", NativeEventKind::PressUp, Some("first-value")),
+            ("firstEnd", NativeEventKind::PressEnd, Some("false")),
+            ("firstPressed", NativeEventKind::PressEnd, Some("false")),
+            ("firstPress", NativeEventKind::Press, Some("first-value")),
+            ("rootPress", NativeEventKind::Press, None),
+        ]
+    );
+    assert_eq!(
+        released
+            .invocations
+            .last()
+            .unwrap()
+            .current_target()
+            .as_str(),
+        "4:root"
+    );
+    assert!(
+        !runtime
+            .element_interaction(released.target.as_ref().unwrap())
+            .unwrap()
+            .pressed
+    );
+}
+
+#[test]
+fn keyboard_tab_focus_and_activation_use_the_same_stable_action_route() {
+    let mut runtime = runtime();
+    runtime.render(interaction_tree()).unwrap();
+
+    let tab = runtime
+        .handle_event(key_event("Tab", PlatformKeyState::Pressed, 10))
+        .unwrap();
+    let SelfDrawnHostEventOutcome::Input(tab) = tab else {
+        panic!("tab should be routed");
+    };
+    assert_eq!(tab.event_sequence, 1);
+    assert_eq!(
+        runtime.focused_element().map(|id| id.as_str()),
+        Some("4:root/5:first")
+    );
+
+    let down = runtime
+        .handle_event(key_event("Space", PlatformKeyState::Pressed, 20))
+        .unwrap();
+    let SelfDrawnHostEventOutcome::Input(down) = down else {
+        panic!("space key down should be routed");
+    };
+    assert_eq!(
+        down.invocations
+            .iter()
+            .map(|invocation| (invocation.action.as_str(), invocation.event))
+            .collect::<Vec<_>>(),
+        vec![
+            ("firstStart", NativeEventKind::PressStart),
+            ("firstPressed", NativeEventKind::PressStart),
+            ("firstKeyDown", NativeEventKind::KeyDown),
+        ]
+    );
+
+    let up = runtime
+        .handle_event(key_event("Space", PlatformKeyState::Released, 30))
+        .unwrap();
+    let SelfDrawnHostEventOutcome::Input(up) = up else {
+        panic!("space key up should be routed");
+    };
+    assert_eq!(
+        up.invocations
+            .iter()
+            .map(|invocation| (invocation.action.as_str(), invocation.event))
+            .collect::<Vec<_>>(),
+        vec![
+            ("firstUp", NativeEventKind::PressUp),
+            ("firstEnd", NativeEventKind::PressEnd),
+            ("firstPressed", NativeEventKind::PressEnd),
+            ("firstPress", NativeEventKind::Press),
+            ("rootPress", NativeEventKind::Press),
+            ("firstKeyUp", NativeEventKind::KeyUp),
+        ]
+    );
+}
+
+#[test]
+fn reducer_failure_rolls_back_the_staged_portable_interaction() {
+    let mut runtime = runtime();
+    runtime.render(interaction_tree()).unwrap();
+
+    let error = runtime
+        .handle_event_with_reducer(
+            pointer_event(PlatformPointerPhase::Pressed, 14.0, 14.0, 10),
+            |_| Err(GuiError::host("injected reducer failure")),
+        )
+        .unwrap_err();
+
+    assert!(error.to_string().contains("injected reducer failure"));
+    assert!(runtime.focused_element().is_none());
+    assert_eq!(runtime.event_sequence(), 0);
+
+    let retried = runtime
+        .handle_event_with_reducer(
+            pointer_event(PlatformPointerPhase::Pressed, 14.0, 14.0, 20),
+            |_| Ok(SelfDrawnActionPropagation::Continue),
+        )
+        .unwrap();
+    let SelfDrawnHostEventOutcome::Input(retried) = retried else {
+        panic!("retry should route input");
+    };
+    assert_eq!(retried.event_sequence, 1);
+}
+
+#[test]
+fn disabled_topmost_hit_region_blocks_actions_instead_of_clicking_through() {
+    let mut runtime = runtime();
+    runtime.render(disabled_overlay_tree()).unwrap();
+
+    let outcome = runtime
+        .handle_event(pointer_event(PlatformPointerPhase::Pressed, 20.0, 20.0, 10))
+        .unwrap();
+    let SelfDrawnHostEventOutcome::Input(dispatch) = outcome else {
+        panic!("disabled hit should still consume the raw input sequence");
+    };
+
+    assert!(dispatch.target.is_none());
+    assert!(dispatch.invocations.is_empty());
+    assert!(runtime.focused_element().is_none());
+}
+
+#[test]
+fn reducer_stop_prevents_later_ancestor_callbacks_without_dropping_diagnostics() {
+    let mut runtime = runtime();
+    runtime.render(interaction_tree()).unwrap();
+    runtime
+        .handle_event_with_reducer(
+            pointer_event(PlatformPointerPhase::Pressed, 14.0, 14.0, 10),
+            |_| Ok(SelfDrawnActionPropagation::Continue),
+        )
+        .unwrap();
+    let mut reduced = Vec::new();
+
+    let outcome = runtime
+        .handle_event_with_reducer(
+            pointer_event(PlatformPointerPhase::Released, 14.0, 14.0, 20),
+            |invocation| {
+                reduced.push(invocation.action.clone());
+                Ok(if invocation.action == "firstPress" {
+                    SelfDrawnActionPropagation::Stop
+                } else {
+                    SelfDrawnActionPropagation::Continue
+                })
+            },
+        )
+        .unwrap();
+    let SelfDrawnHostEventOutcome::Input(dispatch) = outcome else {
+        panic!("release should route an action batch");
+    };
+
+    assert_eq!(
+        reduced,
+        ["firstUp", "firstEnd", "firstPressed", "firstPress"]
+    );
+    assert_eq!(dispatch.invocations.last().unwrap().action, "rootPress");
+    assert_eq!(
+        dispatch
+            .propagation_stopped_at
+            .as_ref()
+            .map(|id| id.as_str()),
+        Some("4:root/5:first")
+    );
+}
+
+#[test]
+fn successful_frame_reconciliation_preserves_stable_focus_and_rejected_frames_do_not_touch_it() {
+    let mut runtime = runtime();
+    runtime.render(interaction_tree()).unwrap();
+    runtime
+        .handle_event(pointer_event(PlatformPointerPhase::Pressed, 14.0, 14.0, 10))
+        .unwrap();
+    let focused = runtime.focused_element().cloned().unwrap();
+    runtime.host_mut().fail_next_commit("injected");
+
+    assert!(runtime.render(tree("Changed", "bg-black")).is_err());
+    assert_eq!(runtime.focused_element(), Some(&focused));
+
+    runtime.render(interaction_tree()).unwrap();
+    assert_eq!(runtime.focused_element(), Some(&focused));
 }
 
 #[test]
@@ -383,6 +759,11 @@ fn public_runtime_records_are_send_and_sync() {
     assert_send_sync::<SelfDrawnFrameSnapshot>();
     assert_send_sync::<SelfDrawnFrameCommit>();
     assert_send_sync::<SelfDrawnRuntimeStats>();
+    assert_send_sync::<SelfDrawnEventContext>();
+    assert_send_sync::<SelfDrawnActionInvocation>();
+    assert_send_sync::<SelfDrawnElementInteraction>();
+    assert_send_sync::<SelfDrawnInteractionChange>();
+    assert_send_sync::<SelfDrawnInputDispatch>();
 }
 
 #[cfg(feature = "software-reference")]

@@ -66,6 +66,16 @@ fn platform_runtime_source_has_no_legacy_widget_or_toolkit_path() {
         }
     }
 
+    let shared_semantics = manifest_path("src/semantic_event.rs");
+    let source = fs::read_to_string(&shared_semantics).unwrap();
+    for token in forbidden {
+        assert!(
+            !source.contains(token),
+            "{} crosses the shared semantic-event firewall with {token:?}",
+            shared_semantics.display()
+        );
+    }
+
     let example = fs::read_to_string(manifest_path("examples/self_drawn_calculator.rs")).unwrap();
     for token in forbidden {
         assert!(

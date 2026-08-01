@@ -5,6 +5,8 @@ mod view;
 use std::sync::Arc;
 
 use a3s_gui::{ActionInvocation, GuiResult, RsxComponent, UiFrame};
+#[cfg(feature = "platform-runtime")]
+use a3s_gui::{HostNodeId, NativeEventContext, SelfDrawnActionInvocation};
 
 pub use model::CalculatorState;
 
@@ -27,6 +29,44 @@ pub fn calculator_reduce(
     invocation: &ActionInvocation,
 ) -> GuiResult<()> {
     component.reduce(state, invocation)
+}
+
+#[cfg(feature = "platform-runtime")]
+pub fn calculator_reduce_self_drawn(
+    component: &CalculatorComponent,
+    state: &mut CalculatorState,
+    invocation: &SelfDrawnActionInvocation,
+) -> GuiResult<()> {
+    let mut context = NativeEventContext::new()
+        .modality(invocation.context.modality)
+        .modifiers(invocation.context.modifiers)
+        .repeat(invocation.context.repeat)
+        .click_count(invocation.context.click_count)
+        .handled_activation(invocation.context.handled_activation);
+    if let Some(position) = invocation.context.position {
+        context = context.position(position.x, position.y);
+    }
+    if let Some(delta) = invocation.context.delta {
+        context = context.delta(delta.x, delta.y);
+    }
+    let mut action = ActionInvocation::new(
+        reducer_node_id(invocation.node.as_str()),
+        invocation.action.clone(),
+        invocation.event,
+    )
+    .with_context(context);
+    action.value = invocation.value.clone();
+    component.reduce(state, &action)
+}
+
+#[cfg(feature = "platform-runtime")]
+fn reducer_node_id(stable_id: &str) -> HostNodeId {
+    let mut fingerprint = 0xcbf29ce484222325_u64;
+    for byte in stable_id.bytes() {
+        fingerprint ^= u64::from(byte);
+        fingerprint = fingerprint.wrapping_mul(0x100000001b3);
+    }
+    HostNodeId::new(fingerprint.max(1))
 }
 
 #[cfg(test)]

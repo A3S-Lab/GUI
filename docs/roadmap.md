@@ -458,9 +458,9 @@ Evidence:
 
 ### H1 - Shared self-drawn window runtime
 
-Status: in progress; atomic frame orchestration and presentation lifecycle
-landed, while portable input/reducer routing and a real raw-surface presenter
-remain.
+Status: in progress; atomic frame orchestration, presentation lifecycle, and
+portable input/reducer routing landed, while a real raw-surface presenter
+remains.
 
 - transact scene, hit-region, accessibility, and window state as one committed
   host frame
@@ -479,16 +479,24 @@ Landed evidence:
   semantic-only changes avoid redundant presentation
 - resize, fractional scale, damage, occlusion, redraw, delayed acknowledgement,
   dropped-frame, and surface-loss tests preserve stable semantic ids
-- the shared 410x620 calculator passes through the runtime and deterministic
-  software presenter with its reviewed layout and scene fingerprints unchanged
-- 14 focused runtime/software tests plus three recursive H1 firewall tests are
+- raw pointer, keyboard, Tab-focus, hover, press, cancellation, and wheel events
+  resolve through committed layout hit regions and `PlatformElementId` paths;
+  action selection shares the semantic callback rules used during migration
+  without importing a widget blueprint or legacy runtime
+- ordered action batches carry the hit-tested frame revision and monotonic
+  event sequence, preserve bubbling current targets and static payloads, and
+  restore staged interaction state if an application reducer fails
+- the shared 410x620 calculator preserves its reviewed layout and scene
+  fingerprints, routes eight fake-host events through four reducer actions,
+  commits the resulting frames, and reaches display value `10`
+- 20 focused runtime/software tests plus three recursive H1 firewall tests are
   included in `just verify`
 
 Remaining H1 work:
 
-- portable hit testing, focus, interaction, action, and reducer routing from
-  raw host events without depending on the legacy widget blueprint/runtime
-- a Graphics raw-surface presenter implementation for the H2-H4 OS shells
+- a Graphics raw-surface presenter implementation for the H2-H4 OS shells;
+  richer text editing, IME, overlay gestures, and component-specific
+  interaction conformance remain explicit M4 and M6-M8 work
 
 Gates:
 
@@ -790,8 +798,8 @@ A component or subsystem is complete only when:
 
 ## Immediate Commit Sequence
 
-1. Finish H1 portable event/reducer routing and the Graphics raw-surface
-   presenter edge.
+1. Finish the H1 Graphics raw-surface presenter edge now that portable
+   event/reducer routing is executable.
 2. Present the generic rectangle slice through the H2 Windows Win32 host.
 3. Present the same slice through the H3 macOS system-shell host.
 4. Present it through H4 Wayland, then the separately gated X11 fallback.

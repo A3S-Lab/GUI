@@ -1,8 +1,8 @@
 # Self-Drawn Platform Host Architecture
 
-Status: H0 complete; H1 atomic frame orchestration and presentation lifecycle
-in progress. Portable input/reducer routing and real desktop OS shells are not
-implemented yet.
+Status: H0 complete; H1 atomic frames, presentation lifecycle, and portable
+input/reducer routing implemented. The real Graphics raw-surface presenter and
+desktop OS shells are not implemented yet.
 
 Updated: 2026-08-02
 
@@ -44,15 +44,15 @@ The repository currently contains three distinct layers:
    system-service records; atomic revision transactions; a recording host; and
    executable dependency/source firewalls.
 
-The first H1 layer now connects committed Native IR, layout, scene, hit-region,
-and accessibility state to the new host contract. It also owns transactional
-scene preparation/publication plus resize, scale, damage, occlusion, redraw,
-delayed acknowledgement, and surface-loss replay. Portable hit/focus/action
-routing is the next H1 slice. Production H2-H4 hosts must then attach Graphics
-to real top-level surfaces and return OS services without constructing content
-controls. The old control backends are frozen until this replacement passes
-its gates. They are migration inputs, not the target architecture and not a
-base for new TSX work.
+The shared H1 layer connects committed Native IR, layout, scene, hit-region,
+interaction, and accessibility state to the new host contract. It owns
+transactional scene preparation/publication; resize, scale, damage, occlusion,
+redraw, delayed acknowledgement, and surface-loss replay; and stable-id raw
+pointer, keyboard, focus, wheel, action, and reducer routing. Production H2-H4
+hosts must next attach Graphics to real top-level surfaces and return OS
+services without constructing content controls. The old control backends are
+frozen until this replacement passes its gates. They are migration inputs, not
+the target architecture and not a base for new TSX work.
 
 ## Target Pipeline
 
@@ -207,18 +207,21 @@ tests/platform_host_firewall.rs
 src/platform_runtime/
 |- frame.rs             committed Native IR/layout/scene/a11y snapshot
 |- runtime.rs           atomic candidate preparation and host commit
-|- events.rs            resize, scale, occlusion, redraw, and ack lifecycle
+|- events.rs            lifecycle plus ordered input/reducer dispatch
+|- interaction_tree.rs  stable path index, hit testing, and focus order
+|- interaction.rs       portable state, actions, changes, and event context
+|- input.rs             pointer capture, hover, press, and cancellation
+|- keyboard_input.rs    keyboard activation, Tab focus, and wheel routing
 |- presenter.rs         raw-surface prepare/publish contract and recorder
 |- reference_presenter.rs
 |                       transactional software Graphics evidence
 |- accessibility.rs     stable layout-path semantic projection
-`- tests.rs             atomicity, no-op, recovery, and identity gates
+`- tests.rs             atomicity, input, reducer, recovery, and identity gates
 
 tests/platform_runtime_firewall.rs
 examples/self_drawn_calculator.rs
 
 Planned next:
-src/platform_runtime/interaction.rs
 src/platform_host/macos/
 src/platform_host/windows/
 src/platform_host/linux/
@@ -325,7 +328,8 @@ Evidence:
 
 ### H1 - Shared self-drawn window runtime
 
-Status: in progress; atomic frame and presentation-lifecycle slice landed.
+Status: in progress; atomic frame, presentation lifecycle, and portable
+input/reducer slices landed. The raw-surface presenter remains.
 
 Deliverables:
 
@@ -347,16 +351,22 @@ Landed evidence:
   changes commit accessibility without presenting identical pixels
 - resize, fractional scale, damage, occlusion, redraw, delayed acknowledgements,
   dropped frames, and surface loss replay the retained scene deterministically
-- 14 focused runtime/software tests and three recursive feature/source
+- raw pointer, keyboard, Tab-focus, hover, press, cancellation, and wheel input
+  route through committed hit regions and stable `PlatformElementId` paths;
+  ordered action batches retain frame revision, event sequence, bubbling
+  target, input context, and static action payload
+- reducer errors restore the staged interaction state and sequence before the
+  event is exposed as successful; successful frame reconciliation preserves
+  focused stable ids, while rejected frames do not touch them
+- 20 focused runtime/software tests and three recursive feature/source
   firewall tests pass without any legacy renderer or OS toolkit dependency
-- `self_drawn_calculator` commits the existing 410x620 shared Native IR and
-  reproduces layout fingerprint `16529597026056060935`, scene fingerprint
-  `2100550662756266801`, and deterministic RGBA pixels
+- `self_drawn_calculator` reproduces layout fingerprint
+  `16529597026056060935`, scene fingerprint `2100550662756266801`, and
+  deterministic RGBA pixels, then routes eight fake-host events through four
+  reducers and reaches display value `10`
 
 Remaining before H1 is complete:
 
-- route raw host input through portable hit testing, focus, interaction state,
-  action selection, and the application reducer without a legacy widget plan
 - implement the Graphics raw-surface presenter used by H2-H4; the landed
   presenter contract and software implementation deliberately expose no raw
   handle to components or common host records
@@ -505,8 +515,8 @@ or dependency-boundary evidence.
 
 ## First Reviewable Commit Sequence
 
-1. Finish H1 portable hit/focus/reducer routing and bind its presenter contract
-   to the Graphics raw-surface edge.
+1. Finish the H1 Graphics raw-surface presenter edge using the landed portable
+   hit/focus/reducer routing.
 2. Present the rectangle-only shared calculator through the Windows host.
 3. Present the same rectangle-only calculator through the macOS host.
 4. Present it through Wayland, then add the separately gated X11 fallback.

@@ -321,7 +321,7 @@ window control use typed session commands with capability checks.
 | style object | scalar style map | `CompiledStyleValue` conversion |
 | portable props | resolved compiled props | semantic component and intrinsic mapping |
 | `aria-*`, HTML, `data-*` | typed fields or attribute map | accessibility and metadata projection |
-| event callback | action id in `events` | action registration and `EventRouter` |
+| event callback | action id in `events` | shared semantic action selection and the stable-id self-drawn interaction session |
 | `Window` | frame `window` metadata | platform window session |
 | custom function component | evaluated before transport | no native node |
 

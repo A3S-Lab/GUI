@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use crate::error::{GuiError, GuiResult};
 use crate::platform_host::{
     PlatformHost, PlatformHostCommand, PlatformHostEvent, PlatformHostTransaction,
-    PlatformPresentationAck, PlatformPresentationStatus, PlatformWindowEvent, PlatformWindowId,
+    PlatformInputEvent, PlatformPresentationAck, PlatformPresentationStatus, PlatformWindowEvent,
+    PlatformWindowId,
 };
 
 use super::runtime::{
@@ -10,6 +13,7 @@ use super::runtime::{
     SelfDrawnWindowRuntime,
 };
 use super::PlatformScenePresenter;
+use super::{SelfDrawnActionInvocation, SelfDrawnActionPropagation};
 
 impl<H, P> SelfDrawnWindowRuntime<H, P>
 where
@@ -83,11 +87,53 @@ where
         match event {
             PlatformHostEvent::Window { event } => self.handle_window_event(event),
             PlatformHostEvent::Presentation { ack } => self.handle_presentation_ack(ack),
-            event @ (PlatformHostEvent::Input { .. }
-            | PlatformHostEvent::TextInput { .. }
+            PlatformHostEvent::Input { event } => self.handle_input_event(event),
+            event @ (PlatformHostEvent::TextInput { .. }
             | PlatformHostEvent::Accessibility { .. }
             | PlatformHostEvent::System { .. }) => Ok(SelfDrawnHostEventOutcome::Forwarded(event)),
         }
+    }
+
+    /// Routes an event and synchronously applies every selected action in
+    /// target-to-ancestor order. A reducer error restores the staged portable
+    /// interaction state and event sequence before returning the error.
+    pub fn handle_event_with_reducer<R>(
+        &mut self,
+        event: PlatformHostEvent,
+        mut reducer: R,
+    ) -> GuiResult<SelfDrawnHostEventOutcome>
+    where
+        R: FnMut(&SelfDrawnActionInvocation) -> GuiResult<SelfDrawnActionPropagation>,
+    {
+        let interaction = self.interaction.clone();
+        let stats = self.stats;
+        let mut outcome = self.handle_event(event)?;
+        let SelfDrawnHostEventOutcome::Input(dispatch) = &mut outcome else {
+            return Ok(outcome);
+        };
+        let mut stopped_at = None;
+        for invocation in &dispatch.invocations {
+            if stopped_at
+                .as_ref()
+                .is_some_and(|target| invocation.current_target() != target)
+            {
+                continue;
+            }
+            match reducer(invocation) {
+                Ok(SelfDrawnActionPropagation::Continue) => {}
+                Ok(SelfDrawnActionPropagation::Stop) => {
+                    stopped_at = Some(invocation.current_target().clone());
+                }
+                Err(error) => {
+                    self.interaction = interaction;
+                    self.stats = stats;
+                    self.stats.reducer_failures = self.stats.reducer_failures.saturating_add(1);
+                    return Err(error);
+                }
+            }
+        }
+        dispatch.propagation_stopped_at = stopped_at;
+        Ok(outcome)
     }
 
     pub fn poll_event(&mut self) -> GuiResult<Option<SelfDrawnHostEventOutcome>> {
@@ -95,6 +141,29 @@ where
             return Ok(None);
         };
         self.handle_event(event).map(Some)
+    }
+
+    fn handle_input_event(
+        &mut self,
+        event: PlatformInputEvent,
+    ) -> GuiResult<SelfDrawnHostEventOutcome> {
+        if input_window(&event) != self.window_spec.id {
+            return Ok(SelfDrawnHostEventOutcome::Forwarded(
+                PlatformHostEvent::Input { event },
+            ));
+        }
+        let Some(snapshot) = self.committed.as_ref() else {
+            return Ok(SelfDrawnHostEventOutcome::Ignored);
+        };
+        let revision = snapshot.revision();
+        let tree = Arc::clone(snapshot.interaction_tree());
+        let dispatch = self.interaction.route_input(&event, revision, &tree)?;
+        self.stats.input_events = self.stats.input_events.saturating_add(1);
+        self.stats.action_invocations = self
+            .stats
+            .action_invocations
+            .saturating_add(dispatch.invocations.len() as u64);
+        Ok(SelfDrawnHostEventOutcome::Input(dispatch))
     }
 
     fn handle_window_event(
@@ -203,5 +272,14 @@ fn window_event_id(event: &PlatformWindowEvent) -> PlatformWindowId {
         | PlatformWindowEvent::RedrawRequested { window }
         | PlatformWindowEvent::CloseRequested { window }
         | PlatformWindowEvent::Closed { window } => *window,
+    }
+}
+
+fn input_window(event: &PlatformInputEvent) -> PlatformWindowId {
+    match event {
+        PlatformInputEvent::Pointer { event } => event.window,
+        PlatformInputEvent::Key { event } => event.window,
+        PlatformInputEvent::Wheel { event } => event.window,
+        PlatformInputEvent::ModifiersChanged { window, .. } => *window,
     }
 }

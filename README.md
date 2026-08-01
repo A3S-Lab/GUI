@@ -294,10 +294,15 @@ independently.
   exposure, published only after host commit, and discarded on rejection
 - retained resize, fractional-scale, damage, occlusion, redraw, delayed
   acknowledgement, and surface-loss replay without changing semantic identity
+- raw pointer, keyboard, Tab-focus, hover, press, cancellation, wheel, stable
+  action bubbling, and reducer dispatch over `PlatformElementId`; failed
+  reducers restore the complete staged interaction session
 - an identical-frame fast path that performs no layout, scene, host, or
   presentation work, plus semantic-only commits that skip pixel presentation
-- a software Graphics presenter and shared `self_drawn_calculator` smoke that
-  preserve the reviewed 410x620 layout and scene fingerprints
+- a software Graphics presenter and interactive shared
+  `self_drawn_calculator` smoke that preserves the reviewed 410x620 layout and
+  scene fingerprints, routes eight fake-host events through four reducers, and
+  reaches the expected display value `10`
 
 ## Roadmap at a glance
 
@@ -309,7 +314,7 @@ independently.
 | M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
 | M4 · Text and interaction cutover | Planned | Shaping, glyphs, GUI-owned input, IME, accessibility bridges, overlays, and complete calculator scenarios |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
-| H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic shared frames, transactional presentation, lifecycle recovery, zero-toolkit firewalls, and calculator pixels landed; portable input/reducer routing and a real raw-surface presenter remain |
+| H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducer routing, zero-toolkit firewalls, and an interactive calculator landed; a real raw-surface presenter remains |
 | T0-T5 · TSX native authoring | Proposed | Automatic JSX runtime, versioned Node-to-host session, state/event runtime, self-drawn native window, packages, and stable SDK |
 | M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped, eight public parts explicitly missing, Button scene smoke only; full software and three-OS self-drawn evidence required |
 
@@ -327,7 +332,7 @@ The default set is `headless + authoring + design-system + software-reference`.
 | `software-reference` | Deterministic retained reference renderer; implies `graphics` |
 | `gpu` | Owned offscreen GPU renderer and readback path; implies `graphics` |
 | `platform-host` | H0 zero-widget records, transaction trait, recording host, and conformance tests; no Graphics or OS dependency |
-| `platform-runtime` | H1 Native IR/layout/scene/accessibility frame orchestration over `platform-host + graphics`; no OS toolkit dependency |
+| `platform-runtime` | H1 Native IR/layout/scene/accessibility frames plus stable-id raw input, interaction, action, and reducer routing over `platform-host + graphics`; no OS toolkit dependency |
 | `host-macos`, `host-windows` | H0 target markers over `platform-host`; OS shell implementations land in H2/H3 |
 | `host-linux-wayland`, `host-linux-x11`, `host-linux` | H0 target markers over `platform-host`; Linux implementations land in H4 |
 | `authoring` | SWC-backed RSX parsing, `ComponentCx`, and explicit component registries |
@@ -461,7 +466,7 @@ src/
 |                        LayoutSnapshot to Graphics Scene lowering
 |- render_contract.rs    executable field/role/event milestone inventory
 |- platform_host/        H0 zero-widget records, transactions, recorder, and validation
-|- platform_runtime/     H1 atomic frames, presentation lifecycle, and Graphics smoke
+|- platform_runtime/     H1 atomic frames, presentation lifecycle, stable-id input/reducers, and Graphics smoke
 |- backend/ + platform/  legacy execution/planning migration baseline
 `- *_native/             AppKit, GTK4, and WinUI control hosts during migration
 

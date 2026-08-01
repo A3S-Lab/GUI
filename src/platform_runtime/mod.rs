@@ -3,12 +3,20 @@
 mod accessibility;
 mod events;
 mod frame;
+mod input;
+mod interaction;
+mod interaction_tree;
+mod keyboard_input;
 mod presenter;
 #[cfg(feature = "software-reference")]
 mod reference_presenter;
 mod runtime;
 
 pub use frame::{PlatformRenderFrame, SelfDrawnFrameSnapshot};
+pub use interaction::{
+    SelfDrawnActionInvocation, SelfDrawnActionPropagation, SelfDrawnElementInteraction,
+    SelfDrawnEventContext, SelfDrawnInputDispatch, SelfDrawnInteractionChange,
+};
 pub use presenter::{
     PlatformScenePresenter, RecordingPreparedFrame, RecordingScenePresenter,
     DEFAULT_RECORDING_SCENE_HISTORY_LIMIT,

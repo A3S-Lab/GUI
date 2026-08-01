@@ -11,6 +11,7 @@ use crate::platform_host::{
 };
 
 use super::accessibility::accessibility_snapshot;
+use super::interaction_tree::SelfDrawnInteractionTree;
 
 /// Immutable Graphics work prepared for an already-attached platform surface.
 ///
@@ -92,6 +93,7 @@ pub struct SelfDrawnFrameSnapshot {
     layout: Arc<LayoutSnapshot>,
     scene: Arc<Scene>,
     accessibility: PlatformAccessibilitySnapshot,
+    interaction: Arc<SelfDrawnInteractionTree>,
     damage: Vec<Rect>,
 }
 
@@ -107,6 +109,7 @@ impl std::fmt::Debug for SelfDrawnFrameSnapshot {
             .field("scene_fingerprint", &self.scene_fingerprint)
             .field("layout_nodes", &self.layout.nodes.len())
             .field("hit_regions", &self.layout.hit_regions.len())
+            .field("interaction_nodes", &self.interaction.len())
             .field("scene_commands", &self.scene.commands.len())
             .field("damage", &self.damage)
             .finish()
@@ -158,6 +161,10 @@ impl SelfDrawnFrameSnapshot {
         &self.damage
     }
 
+    pub(super) fn interaction_tree(&self) -> &Arc<SelfDrawnInteractionTree> {
+        &self.interaction
+    }
+
     pub(super) fn render_frame(&self) -> PlatformRenderFrame {
         PlatformRenderFrame {
             revision: self.revision,
@@ -207,6 +214,7 @@ pub(super) fn build_snapshot(
     let scale_factor = f64::from(narrowed_scale);
     let layout = layout_native_tree(&native_root, logical_size)?;
     layout.require_supported()?;
+    let interaction = SelfDrawnInteractionTree::build(&native_root, &layout)?;
     let layout_fingerprint = layout.fingerprint()?;
     let scene = crate::drawing::scene_from_layout(
         &layout,
@@ -229,6 +237,7 @@ pub(super) fn build_snapshot(
         layout: Arc::new(layout),
         scene: Arc::new(scene),
         accessibility,
+        interaction: Arc::new(interaction),
         damage,
     };
     snapshot.render_frame().validate()?;

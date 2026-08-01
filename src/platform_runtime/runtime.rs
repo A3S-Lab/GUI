@@ -3,13 +3,14 @@ use crate::geometry::Size;
 use crate::layout::LAYOUT_QUANTIZATION;
 use crate::native::NativeElement;
 use crate::platform_host::{
-    PlatformHost, PlatformHostCommand, PlatformHostEvent, PlatformHostRevision,
+    PlatformElementId, PlatformHost, PlatformHostCommand, PlatformHostEvent, PlatformHostRevision,
     PlatformHostTransaction, PlatformPresentationRequest, PlatformWindowCommand,
     PlatformWindowSpec,
 };
 
 use super::frame::build_snapshot;
-use super::{PlatformScenePresenter, SelfDrawnFrameSnapshot};
+use super::interaction::{SelfDrawnElementInteraction, SelfDrawnInteractionSession};
+use super::{PlatformScenePresenter, SelfDrawnFrameSnapshot, SelfDrawnInputDispatch};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelfDrawnFrameCommitStatus {
@@ -31,6 +32,8 @@ pub struct SelfDrawnFrameCommit {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SelfDrawnHostEventOutcome {
     Frame(SelfDrawnFrameCommit),
+    /// Raw host input routed against the last atomically committed frame.
+    Input(SelfDrawnInputDispatch),
     StateChanged,
     Forwarded(PlatformHostEvent),
     Ignored,
@@ -45,6 +48,9 @@ pub struct SelfDrawnRuntimeStats {
     pub rejected_frames: u64,
     pub redraws: u64,
     pub surface_recoveries: u64,
+    pub input_events: u64,
+    pub action_invocations: u64,
+    pub reducer_failures: u64,
 }
 
 /// Shared H1 coordinator for one self-drawn top-level window.
@@ -63,6 +69,7 @@ where
     pub(super) window_spec: PlatformWindowSpec,
     pub(super) scale_factor: f64,
     pub(super) committed: Option<SelfDrawnFrameSnapshot>,
+    pub(super) interaction: SelfDrawnInteractionSession,
     pub(super) last_presentation_revision: Option<PlatformHostRevision>,
     pub(super) occluded: bool,
     pub(super) pending_redraw: bool,
@@ -90,6 +97,8 @@ where
                     .map(SelfDrawnFrameSnapshot::revision),
             )
             .field("occluded", &self.occluded)
+            .field("event_sequence", &self.interaction.event_sequence)
+            .field("focused_element", &self.interaction.focused)
             .field("pending_redraw", &self.pending_redraw)
             .field("closed", &self.closed)
             .field("shutdown", &self.shutdown)
@@ -117,6 +126,7 @@ where
             window_spec,
             scale_factor,
             committed: None,
+            interaction: SelfDrawnInteractionSession::default(),
             last_presentation_revision: None,
             occluded: false,
             pending_redraw: false,
@@ -166,6 +176,24 @@ where
         self.closed
     }
 
+    /// Stable layout-path identity that currently owns portable focus.
+    pub fn focused_element(&self) -> Option<&PlatformElementId> {
+        self.interaction.focused.as_ref()
+    }
+
+    /// Last committed portable interaction state for a mounted element.
+    pub fn element_interaction(
+        &self,
+        id: &PlatformElementId,
+    ) -> Option<&SelfDrawnElementInteraction> {
+        self.interaction.element(id)
+    }
+
+    /// Last successfully routed input sequence for this window runtime.
+    pub fn event_sequence(&self) -> u64 {
+        self.interaction.event_sequence
+    }
+
     pub fn render(&mut self, native_root: NativeElement) -> GuiResult<SelfDrawnFrameCommit> {
         self.ensure_running()?;
         if self.closed {
@@ -191,6 +219,7 @@ where
         self.presenter.shutdown()?;
         self.host.shutdown()?;
         self.committed = None;
+        self.interaction = SelfDrawnInteractionSession::default();
         self.pending_redraw = false;
         self.shutdown = true;
         Ok(())
@@ -286,6 +315,7 @@ where
         self.window_spec = desired_spec;
         self.scale_factor = desired_scale;
         self.pending_redraw = visual_changed && self.occluded;
+        self.interaction.reconcile(candidate.interaction_tree());
         self.committed = Some(candidate);
         self.stats.host_commits = self.stats.host_commits.saturating_add(1);
         Ok(SelfDrawnFrameCommit {

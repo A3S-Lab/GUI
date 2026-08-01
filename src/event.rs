@@ -10,6 +10,12 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
+pub(crate) use crate::semantic_event::{
+    actions_for_event as semantic_actions_for_event,
+    focus_within_actions_for_event as semantic_focus_within_actions_for_event, is_activation_key,
+    native_key_value, SemanticActionSource, SemanticEventData,
+};
+
 #[cfg(any(
     test,
     all(feature = "appkit-native", target_os = "macos"),
@@ -583,174 +589,44 @@ fn is_false(value: &bool) -> bool {
     !*value
 }
 
-fn action_for_event<'a>(
-    blueprint: &'a NativeWidgetBlueprint,
-    event: &NativeEvent,
-) -> Option<&'a str> {
-    let events = &blueprint.events;
-    match event.kind {
-        NativeEventKind::PressStart => non_empty_action(events.get("onPressStart"))
-            .or_else(|| non_empty_action(events.get("onPressChange"))),
-        NativeEventKind::PressEnd => non_empty_action(events.get("onPressEnd"))
-            .or_else(|| non_empty_action(events.get("onPressChange"))),
-        NativeEventKind::PressUp => non_empty_action(events.get("onPressUp")),
-        NativeEventKind::PressCancel => non_empty_action(events.get("onPressEnd"))
-            .or_else(|| non_empty_action(events.get("onPressChange"))),
-        NativeEventKind::Press => press_action(blueprint),
-        NativeEventKind::LongPressStart => non_empty_action(events.get("onLongPressStart")),
-        NativeEventKind::LongPressEnd => non_empty_action(events.get("onLongPressEnd")),
-        NativeEventKind::LongPress => non_empty_action(events.get("onLongPress")),
-        NativeEventKind::MoveStart => non_empty_action(events.get("onMoveStart")),
-        NativeEventKind::Move => non_empty_action(events.get("onMove")),
-        NativeEventKind::MoveEnd => non_empty_action(events.get("onMoveEnd")),
-        NativeEventKind::Action => non_empty_action(events.get("onAction")),
-        NativeEventKind::HoverStart if event.effective_modality().supports_hover() => {
-            non_empty_action(events.get("onHoverStart"))
-                .or_else(|| non_empty_action(events.get("onHoverChange")))
-        }
-        NativeEventKind::HoverEnd if event.effective_modality().supports_hover() => {
-            non_empty_action(events.get("onHoverEnd"))
-                .or_else(|| non_empty_action(events.get("onHoverChange")))
-        }
-        NativeEventKind::HoverStart | NativeEventKind::HoverEnd => None,
-        NativeEventKind::Change => non_empty_action(events.get("onChange"))
-            .or_else(|| non_empty_action(events.get("onInput")))
-            .or_else(|| non_empty_action(blueprint.action.as_ref())),
-        NativeEventKind::SelectionChange => non_empty_action(events.get("onSelectionChange"))
-            .or_else(|| non_empty_action(events.get("onChange")))
-            .or_else(|| non_empty_action(events.get("onInput")))
-            .or_else(|| non_empty_action(blueprint.action.as_ref())),
-        NativeEventKind::Toggle
-            if blueprint.role == crate::native::NativeRole::Tree
-                || is_expansion_toggle(blueprint) =>
-        {
-            non_empty_action(events.get("onExpandedChange"))
-                .or_else(|| non_empty_action(events.get("onToggle")))
-                .or_else(|| non_empty_action(events.get("onChange")))
-                .or_else(|| non_empty_action(blueprint.action.as_ref()))
-        }
-        NativeEventKind::Toggle => non_empty_action(events.get("onChange"))
-            .or_else(|| non_empty_action(events.get("onInput")))
-            .or_else(|| non_empty_action(events.get("onToggle")))
-            .or_else(|| non_empty_action(events.get("onClick")))
-            .or_else(|| non_empty_action(blueprint.action.as_ref())),
-        NativeEventKind::Focus => non_empty_action(events.get("onFocus"))
-            .or_else(|| non_empty_action(events.get("onFocusChange"))),
-        NativeEventKind::Blur => non_empty_action(events.get("onBlur"))
-            .or_else(|| non_empty_action(events.get("onFocusChange"))),
-        NativeEventKind::KeyDown => non_empty_action(events.get("onKeyDown"))
-            .or_else(|| activation_key_action(blueprint, event)),
-        NativeEventKind::KeyUp => non_empty_action(events.get("onKeyUp")),
-        NativeEventKind::Wheel => non_empty_action(events.get("onWheel")),
-        NativeEventKind::Copy => non_empty_action(events.get("onCopy")),
-        NativeEventKind::Cut => non_empty_action(events.get("onCut")),
-        NativeEventKind::Paste => non_empty_action(events.get("onPaste")),
-        NativeEventKind::Close => non_empty_action(events.get("onClose"))
-            .or_else(|| non_empty_action(events.get("onCloseRequest"))),
-    }
-}
-
 fn actions_for_event<'a>(
     blueprint: &'a NativeWidgetBlueprint,
     event: &NativeEvent,
 ) -> Vec<&'a str> {
-    let events = &blueprint.events;
-    match event.kind {
-        NativeEventKind::PressStart => [
-            non_empty_action(events.get("onPressStart")),
-            non_empty_action(events.get("onPressChange")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect(),
-        NativeEventKind::PressEnd | NativeEventKind::PressCancel => [
-            non_empty_action(events.get("onPressEnd")),
-            non_empty_action(events.get("onPressChange")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect(),
-        NativeEventKind::HoverStart if event.effective_modality().supports_hover() => [
-            non_empty_action(events.get("onHoverStart")),
-            non_empty_action(events.get("onHoverChange")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect(),
-        NativeEventKind::HoverEnd if event.effective_modality().supports_hover() => [
-            non_empty_action(events.get("onHoverEnd")),
-            non_empty_action(events.get("onHoverChange")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect(),
-        NativeEventKind::Focus => [
-            non_empty_action(events.get("onFocus")),
-            non_empty_action(events.get("onFocusChange")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect(),
-        NativeEventKind::Blur => [
-            non_empty_action(events.get("onBlur")),
-            non_empty_action(events.get("onFocusChange")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect(),
-        _ => action_for_event(blueprint, event).into_iter().collect(),
-    }
+    semantic_actions_for_event(semantic_source(blueprint), semantic_event(event))
 }
 
 fn focus_within_actions_for_event<'a>(
     blueprint: &'a NativeWidgetBlueprint,
     event: &NativeEvent,
 ) -> Vec<&'a str> {
-    let events = &blueprint.events;
-    match event.kind {
-        NativeEventKind::Focus => [
-            non_empty_action(events.get("onFocusWithin")),
-            non_empty_action(events.get("onFocusWithinChange")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect(),
-        NativeEventKind::Blur => [
-            non_empty_action(events.get("onBlurWithin")),
-            non_empty_action(events.get("onFocusWithinChange")),
-        ]
-        .into_iter()
-        .flatten()
-        .collect(),
-        _ => Vec::new(),
-    }
-}
-
-fn press_action(blueprint: &NativeWidgetBlueprint) -> Option<&str> {
-    non_empty_action(blueprint.events.get("onPress"))
-        .or_else(|| non_empty_action(blueprint.events.get("onClick")))
-        .or_else(|| non_empty_action(blueprint.action.as_ref()))
+    semantic_focus_within_actions_for_event(semantic_source(blueprint), event.kind)
 }
 
 fn static_action_value(blueprint: &NativeWidgetBlueprint) -> Option<String> {
-    [
-        "actionValue",
-        "action-value",
-        "actionPayload",
-        "action-payload",
-        "data-action-value",
-        "data-action-payload",
-        "data-a3s-action-value",
-        "data-a3s-action-payload",
-    ]
-    .into_iter()
-    .find_map(|name| {
-        blueprint
-            .metadata
-            .get(name)
-            .filter(|value| !value.is_empty())
-            .cloned()
-    })
+    semantic_source(blueprint)
+        .static_action_value()
+        .map(str::to_string)
+}
+
+fn semantic_source(blueprint: &NativeWidgetBlueprint) -> SemanticActionSource<'_> {
+    SemanticActionSource::new(
+        blueprint.role,
+        blueprint.action.as_deref(),
+        &blueprint.events,
+        &blueprint.metadata,
+        None,
+        blueprint.control_state.expanded,
+    )
+}
+
+fn semantic_event(event: &NativeEvent) -> SemanticEventData<'_> {
+    SemanticEventData {
+        kind: event.kind,
+        modality: event.effective_modality(),
+        value: event.value.as_deref(),
+        handled_activation: event.context.handled_activation,
+    }
 }
 
 fn action_payload_json(raw: &str) -> GuiResult<JsonValue> {
@@ -761,83 +637,6 @@ pub(crate) fn non_empty_action(action: Option<&String>) -> Option<&str> {
     action
         .map(String::as_str)
         .filter(|action| !action.is_empty())
-}
-
-pub(crate) fn native_key_value(raw: &str) -> String {
-    if raw == " " {
-        return " ".to_string();
-    }
-    let trimmed = raw.trim();
-    match trimmed {
-        "Return" | "KP_Enter" | "ISO_Enter" => "Enter".to_string(),
-        "space" | "Space" | "Spacebar" => " ".to_string(),
-        "BackSpace" => "Backspace".to_string(),
-        "Esc" => "Escape".to_string(),
-        "ISO_Left_Tab" => "Tab".to_string(),
-        "Left" => "ArrowLeft".to_string(),
-        "Right" => "ArrowRight".to_string(),
-        "Up" => "ArrowUp".to_string(),
-        "Down" => "ArrowDown".to_string(),
-        "Page_Up" => "PageUp".to_string(),
-        "Page_Down" => "PageDown".to_string(),
-        "" => String::new(),
-        value => value.to_string(),
-    }
-}
-
-fn activation_key_action<'a>(
-    blueprint: &'a NativeWidgetBlueprint,
-    event: &NativeEvent,
-) -> Option<&'a str> {
-    if event.context.handled_activation
-        || !is_press_activation_key(blueprint.role, event.value.as_deref())
-    {
-        return None;
-    }
-
-    press_action(blueprint)
-}
-
-pub(crate) fn is_press_activation_key(
-    role: crate::native::NativeRole,
-    value: Option<&str>,
-) -> bool {
-    let Some(value) = value else {
-        return false;
-    };
-    let normalized = native_key_value(value);
-    match role {
-        crate::native::NativeRole::Link | crate::native::NativeRole::ImageMapArea => {
-            normalized.eq_ignore_ascii_case("enter")
-        }
-        crate::native::NativeRole::Button
-        | crate::native::NativeRole::DisclosureSummary
-        | crate::native::NativeRole::MenuItem => is_activation_key(Some(&normalized)),
-        crate::native::NativeRole::ListBoxItem | crate::native::NativeRole::TreeItem => {
-            normalized.eq_ignore_ascii_case("enter")
-        }
-        _ => false,
-    }
-}
-
-pub(crate) fn is_activation_key(value: Option<&str>) -> bool {
-    let Some(value) = value else {
-        return false;
-    };
-    let normalized = native_key_value(value);
-    normalized.eq_ignore_ascii_case("enter")
-        || normalized == " "
-        || normalized.eq_ignore_ascii_case("space")
-        || normalized.eq_ignore_ascii_case("spacebar")
-}
-
-fn is_expansion_toggle(blueprint: &NativeWidgetBlueprint) -> bool {
-    matches!(
-        blueprint.role,
-        crate::native::NativeRole::Disclosure
-            | crate::native::NativeRole::DisclosureSummary
-            | crate::native::NativeRole::Popover
-    ) || blueprint.control_state.expanded.is_some()
 }
 
 #[cfg(test)]

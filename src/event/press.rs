@@ -12,6 +12,7 @@ use crate::native::{
     NUMBER_FIELD_WHEEL_DISABLED_METADATA_KEY,
 };
 use crate::platform::{NativeWidgetBlueprint, NativeWidgetSetter};
+use crate::semantic_event::is_press_activation_key;
 
 use super::move_interaction::PointerMoveState;
 
@@ -701,7 +702,7 @@ impl KeyboardPressState {
         role: NativeRole,
         tracks_press: bool,
     ) -> Vec<NativeEvent> {
-        if !tracks_press || !super::is_press_activation_key(role, Some(&key)) {
+        if !tracks_press || !is_press_activation_key(role, Some(&key)) {
             return vec![NativeEvent::new(node, kind).value(key).context(context)];
         }
 

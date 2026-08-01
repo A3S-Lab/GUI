@@ -63,6 +63,7 @@ pub mod rsx_app;
 pub mod rsx_ui;
 pub mod runtime;
 pub mod selection;
+mod semantic_event;
 pub mod semantic_ui;
 pub mod style;
 pub mod svg;
@@ -206,8 +207,10 @@ pub use platform_host::{
 #[cfg(feature = "platform-runtime")]
 pub use platform_runtime::{
     PlatformRenderFrame, PlatformScenePresenter, RecordingPreparedFrame, RecordingScenePresenter,
-    SelfDrawnFrameCommit, SelfDrawnFrameCommitStatus, SelfDrawnFrameSnapshot,
-    SelfDrawnHostEventOutcome, SelfDrawnRuntimeStats, SelfDrawnWindowRuntime,
+    SelfDrawnActionInvocation, SelfDrawnActionPropagation, SelfDrawnElementInteraction,
+    SelfDrawnEventContext, SelfDrawnFrameCommit, SelfDrawnFrameCommitStatus,
+    SelfDrawnFrameSnapshot, SelfDrawnHostEventOutcome, SelfDrawnInputDispatch,
+    SelfDrawnInteractionChange, SelfDrawnRuntimeStats, SelfDrawnWindowRuntime,
 };
 #[cfg(all(feature = "platform-runtime", feature = "software-reference"))]
 pub use platform_runtime::{
