@@ -188,6 +188,9 @@ The repository already provides:
 - a shared calculator state model, reducer, RSX component tree, and three
   platform entrypoints
 - AppKit, GTK4, and WinUI control backends used as migration baselines
+- an H0 zero-widget platform-host contract with stable accessibility identity,
+  bounded revision transactions, a recording host, target feature markers, and
+  executable dependency/source firewalls
 
 The independent Graphics repository has a versioned scene, stable draw IDs,
 canonical fingerprints, retained damage, affine transforms, clipping, opacity,
@@ -407,7 +410,7 @@ Acceptance gates:
 
 ## P0-H Self-Drawn Platform Host Track
 
-Status: architecture planned; implementation has not started.
+Status: H0 complete; H1 is next.
 
 This track turns the existing offscreen layout/scene/GPU boundary into real
 windows without moving component rendering back into an OS toolkit. All
@@ -421,7 +424,7 @@ migration rules, and verification matrix are recorded in
 
 ### H0 - Host contract and dependency firewall
 
-Status: next; may begin during M3.
+Status: complete.
 
 - add typed window, presentation, input, text-input, accessibility, and system
   service records under a new `platform_host/` boundary
@@ -433,14 +436,26 @@ Status: next; may begin during M3.
 Gates:
 
 - the contract exposes no widget create/update/remove operation
-- host records contain no component style, Node, toolkit object, or `wgpu`
-  handle
+- host records contain no component style, Node.js value, toolkit object, or
+  `wgpu` handle
 - semantic-only builds stay free of Graphics and platform dependencies
 - target features do not import or enable legacy renderer modules
 
+Evidence:
+
+- `platform_host/` owns bounded records for windows, presentation, raw input,
+  text input, stable-id accessibility, system services, and ordered events
+- `PlatformHostTransaction` validates one monotonic revision before mutation;
+  `RecordingPlatformHost` proves prepare/commit/rollback, failed-commit
+  recovery, bounded queues/history, redaction, and explicit shutdown
+- `platform-host`, `host-macos`, `host-windows`, `host-linux-wayland`,
+  `host-linux-x11`, and `host-linux` compile without enabling a legacy backend
+- 13 focused contract tests and three recursive source/feature firewall tests
+  cover the H0 gates; `just verify` includes their build, graph, and test lanes
+
 ### H1 - Shared self-drawn window runtime
 
-Status: planned after H0; depends on M3 presentation work.
+Status: next; depends on M3 presentation work.
 
 - transact scene, hit-region, accessibility, and window state as one committed
   host frame
@@ -730,15 +745,13 @@ A component or subsystem is complete only when:
 
 ## Immediate Commit Sequence
 
-1. Land H0 host contracts, fake-host conformance, target feature boundaries,
-   and dependency firewalls.
-2. Land H1 shared frame orchestration and raw-surface presentation lifecycle.
-3. Present the generic rectangle slice through the H2 Windows Win32 host.
-4. Present the same slice through the H3 macOS system-shell host.
-5. Present it through H4 Wayland, then the separately gated X11 fallback.
-6. Add text shaping/rasterization, hit testing, input, IME, and accessibility
+1. Land H1 shared frame orchestration and raw-surface presentation lifecycle.
+2. Present the generic rectangle slice through the H2 Windows Win32 host.
+3. Present the same slice through the H3 macOS system-shell host.
+4. Present it through H4 Wayland, then the separately gated X11 fallback.
+5. Add text shaping/rasterization, hit testing, input, IME, and accessibility
    against the shared host contract.
-7. Pass the shared calculator cutover matrix on all three platforms.
-8. Delete WinUI/XAML, GTK4, and AppKit content-control code and all final
+6. Pass the shared calculator cutover matrix on all three platforms.
+7. Delete WinUI/XAML, GTK4, and AppKit content-control code and all final
    consumers in reviewable, platform-scoped commits while preserving the thin
    OS shells.

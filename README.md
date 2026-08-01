@@ -245,6 +245,20 @@ independently.
 - deterministic retained software rendering and an owned `wgpu` renderer
   boundary with asynchronous readback
 
+### Zero-widget platform boundary
+
+- opt-in `platform-host` contracts for top-level windows, presentation,
+  un-targeted input, text/IME state, accessibility snapshots and actions,
+  explicit system services, and ordered host events
+- stable `PlatformElementId` accessibility identity independent from the
+  legacy control renderer and its `HostNodeId`
+- one bounded, validated revision transaction with prepare, atomic commit,
+  rollback, monotonic ordering, and explicit teardown semantics
+- a deterministic `RecordingPlatformHost` with bounded event/history storage,
+  commit-failure recovery, and sensitive diagnostic redaction
+- executable source and Cargo-feature firewalls proving the common contract has
+  no Graphics, OS toolkit, or legacy renderer dependency
+
 ## Roadmap at a glance
 
 | Milestone | State | Evidence or next gate |
@@ -255,7 +269,7 @@ independently.
 | M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
 | M4 · Text and interaction cutover | Planned | Shaping, glyphs, GUI-owned input, IME, accessibility bridges, overlays, and complete calculator scenarios |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
-| H0-H5 · Thin platform hosts | Planned | Zero-widget host contract, shared window runtime, Win32/macOS/Wayland-X11 slices, and dependency-audited cutover |
+| H0-H5 · Thin platform hosts | H0 complete; H1 next | Zero-widget records, transactions, recording host, target feature markers, and dependency/source firewalls landed; shared window runtime is next |
 | T0-T5 · TSX native authoring | Proposed | Automatic JSX runtime, versioned Node-to-host session, state/event runtime, self-drawn native window, packages, and stable SDK |
 
 The dependency-ordered plan and acceptance gates are in the
@@ -271,6 +285,9 @@ The default set is `headless + authoring + design-system + software-reference`.
 | `graphics` | Pinned A3S Graphics scene vocabulary without a renderer backend |
 | `software-reference` | Deterministic retained reference renderer; implies `graphics` |
 | `gpu` | Owned offscreen GPU renderer and readback path; implies `graphics` |
+| `platform-host` | H0 zero-widget records, transaction trait, recording host, and conformance tests; no Graphics or OS dependency |
+| `host-macos`, `host-windows` | H0 target markers over `platform-host`; OS shell implementations land in H2/H3 |
+| `host-linux-wayland`, `host-linux-x11`, `host-linux` | H0 target markers over `platform-host`; Linux implementations land in H4 |
 | `authoring` | SWC-backed RSX parsing, `ComponentCx`, and explicit component registries |
 | `design-system` | Built-in `rsx_ui` registry; implies `authoring` |
 | `appkit`, `gtk4`, `winui` | Legacy planning adapters retained for migration evidence |
@@ -286,6 +303,8 @@ cargo check --locked --no-default-features --features authoring --lib
 cargo check --locked --no-default-features --features graphics --lib
 cargo check --locked --no-default-features --features software-reference --lib
 cargo check --locked --no-default-features --features gpu --lib
+cargo check --locked --no-default-features --features platform-host --lib
+cargo test --locked --no-default-features --features platform-host --lib platform_host::
 ```
 
 ## Platform hosts: migration baseline and target
@@ -395,7 +414,7 @@ src/
 |- drawing/layout_scene.rs
 |                        LayoutSnapshot to Graphics Scene lowering
 |- render_contract.rs    executable field/role/event milestone inventory
-|- platform_host/        planned zero-widget OS shell and presentation boundary
+|- platform_host/        H0 zero-widget records, transactions, recorder, and validation
 |- backend/ + platform/  legacy execution/planning migration baseline
 `- *_native/             AppKit, GTK4, and WinUI control hosts during migration
 

@@ -1,7 +1,7 @@
 # Self-Drawn Platform Host Architecture
 
-Status: planned. The all-content self-drawn direction is decided; the thin
-desktop hosts described here are not implemented yet.
+Status: H0 contract and dependency firewall complete; H1 shared window runtime
+is next. The desktop OS shells described here are not implemented yet.
 
 Updated: 2026-08-01
 
@@ -30,7 +30,7 @@ or layout container with a toolkit widget.
 
 ## Current State and Gap
 
-The repository currently contains two different generations of code:
+The repository currently contains three distinct layers:
 
 1. `appkit_native/`, `gtk4_native/`, and `winui_native/` create toolkit
    controls. They provide migration evidence for behavior, input,
@@ -38,12 +38,17 @@ The repository currently contains two different generations of code:
 2. `layout/` and `drawing/layout_scene.rs` form the new generic self-drawn
    path. The calculator already lowers into stable layout and scene records,
    and the software and offscreen GPU renderers have executable evidence.
+3. `platform_host/` is the H0 zero-widget boundary. It provides bounded window,
+   presentation, raw-input, text-input, stable-id accessibility, and explicit
+   system-service records; atomic revision transactions; a recording host; and
+   executable dependency/source firewalls.
 
-The missing layer is a production window host that attaches the Graphics GPU
-renderer to a real top-level surface and returns OS services to the portable
-runtime without constructing content controls. The old control backends are
-frozen until this replacement passes its gates. They are migration inputs,
-not the target architecture and not a base for new TSX work.
+The next missing layer is the H1 shared runtime that connects committed layout,
+scene, hit-region, accessibility, and service state to the new host contract.
+Production H2-H4 hosts must then attach Graphics to real top-level surfaces and
+return OS services without constructing content controls. The old control
+backends are frozen until this replacement passes its gates. They are migration
+inputs, not the target architecture and not a base for new TSX work.
 
 ## Target Pipeline
 
@@ -178,31 +183,62 @@ a fake host and by all three desktop shells.
 - avoid exposing native handles or arbitrary platform calls to components or
   the TSX process
 
-## Planned Repository Shape
+## Repository Shape
 
 ```text
 src/platform_host/
-|- mod.rs
-|- contract.rs          window, frame, event, and service records
-|- runtime.rs           render/service transaction orchestration
-|- conformance.rs       shared fake-host and zero-widget assertions
-|- macos/               NSWindow + custom NSView shell
-|- windows/             Win32 HWND shell
-`- linux/               Wayland primary + X11 fallback shell
+|- mod.rs               public H0 boundary
+|- contract.rs          revision transaction, presentation, events, host trait
+|- window.rs            top-level window records only
+|- input.rs             un-targeted pointer, key, and wheel records
+|- text_input.rs        bounded IME/edit-session state and events
+|- accessibility.rs     stable PlatformElementId tree, bounds, and actions
+|- system.rs            typed clipboard, picker, URL, permission, menu services
+|- recording.rs         bounded deterministic fake host
+|- validation.rs        shared record validation
+`- tests.rs             contract, recovery, redaction, and wire-shape tests
+
+tests/platform_host_firewall.rs
+
+Planned next:
+src/platform_host/runtime.rs
+src/platform_host/macos/
+src/platform_host/windows/
+src/platform_host/linux/
 
 examples/self_drawn_calculator.rs
 src/bin/a3s_gui_host.rs
 ```
 
-The target Cargo feature names are planned as `host-macos`, `host-windows`,
-`host-linux-wayland`, and `host-linux-x11`, with an optional `host-linux`
-aggregate. They are not public features until H0 lands. None may enable or
-import `appkit-native`, `gtk4-native`, `winui-native`, or the legacy
-widget-planning modules.
+The `platform-host`, `host-macos`, `host-windows`, `host-linux-wayland`,
+`host-linux-x11`, and `host-linux` features landed in H0. The target features
+currently select the common contract only; OS dependencies arrive with their
+H2-H4 implementation. None enables or imports `appkit-native`, `gtk4-native`,
+`winui-native`, or the legacy widget-planning modules.
 
 The new modules are created beside the legacy directories rather than by
 renaming a control backend. This makes accidental content-widget reuse visible
 and lets each old backend be deleted after its replacement evidence exists.
+
+## H0 Transaction and Thread Contract
+
+`PlatformHost` is intentionally thread-affine. The trait does not require
+`Send` or `Sync`, so an H2-H4 implementation can stay on its owning OS event
+loop. Every public record crossing the boundary is `Send + Sync` and contains
+no native or GPU handle.
+
+The runtime prepares one complete `PlatformHostTransaction` at a monotonically
+increasing `PlatformHostRevision`. Validation runs before host mutation and
+enforces bounded command counts, finite geometry, stable accessibility ids,
+UTF-8 text ranges, sensitive-value rules, and unique per-revision presentation,
+accessibility, and system-request identities.
+
+Commit atomically applies the pending revision. A failed commit leaves that
+revision pending so the owner must explicitly retry or roll it back; rollback
+does not advance the last committed revision. Shutdown rejects a pending
+transaction, releases queued events, and makes later operations fail. The
+recording host keeps bounded diagnostic history with text-input and sensitive
+clipboard payloads redacted while preserving byte lengths and command shape.
 
 ## Delivery Plan
 
@@ -237,7 +273,7 @@ accessibility gates require M4.
 
 ### H0 - Contract and dependency firewall
 
-Status: next.
+Status: complete.
 
 Deliverables:
 
@@ -251,15 +287,27 @@ Deliverables:
 Gates:
 
 - the contract contains no widget create/update/remove operation
-- platform-host records contain no `NativeElement`, portable style, Node,
-  toolkit object, or `wgpu` handle
+- platform-host records contain no `NativeElement`, portable style, Node.js
+  runtime value, toolkit object, or `wgpu` handle
 - semantic-only builds remain free of Graphics and platform dependencies
 - every host-facing record is bounded, deterministic, and `Send + Sync` where
   thread affinity does not require an owning executor
 
+Evidence:
+
+- all six H0/target marker features compile without a legacy renderer
+- the common `platform-host` dependency graph contains no Graphics or OS
+  toolkit package
+- 13 unit tests cover validation, stable ids, wire shape, atomic revisions,
+  commit failure, rollback, teardown, bounded storage, and redaction
+- three integration tests recursively audit source imports, Cargo feature
+  edges, the public feature gate, and absence of widget CRUD
+- `just verify` runs the H0 compile, dependency-graph, contract, and firewall
+  gates on every normal CI change
+
 ### H1 - Shared self-drawn window runtime
 
-Status: planned after H0; depends on the M3 presentation boundary.
+Status: next; depends on the M3 presentation boundary.
 
 Deliverables:
 
@@ -415,17 +463,16 @@ or dependency-boundary evidence.
 
 ## First Reviewable Commit Sequence
 
-1. Add H0 contract records, fake-host conformance, feature firewall, and tests.
-2. Add H1 shared frame orchestration and raw-surface presentation lifecycle.
-3. Present the rectangle-only shared calculator through the Windows host.
-4. Present the same rectangle-only calculator through the macOS host.
-5. Present it through Wayland, then add the separately gated X11 fallback.
-6. Land text shaping, editing, input/IME, and accessibility slices against the
+1. Add H1 shared frame orchestration and raw-surface presentation lifecycle.
+2. Present the rectangle-only shared calculator through the Windows host.
+3. Present the same rectangle-only calculator through the macOS host.
+4. Present it through Wayland, then add the separately gated X11 fallback.
+5. Land text shaping, editing, input/IME, and accessibility slices against the
    shared host contract, one subsystem at a time.
-7. Pass the full calculator cutover matrix on all three platforms.
-8. Delete WinUI/XAML, GTK4, and AppKit content-control code in independent
+6. Pass the full calculator cutover matrix on all three platforms.
+7. Delete WinUI/XAML, GTK4, and AppKit content-control code in independent
    platform commits while preserving the new shells.
-9. Switch defaults, examples, packaging, and documentation, then run the final
+8. Switch defaults, examples, packaging, and documentation, then run the final
    repository-wide dead-code and dependency audit.
 
 Each commit must leave the tree buildable for its declared feature set. No

@@ -48,6 +48,8 @@ mod native_backends;
 pub mod overlay;
 pub mod overlay_position;
 pub mod platform;
+#[cfg(feature = "platform-host")]
+pub mod platform_host;
 pub mod protocol;
 pub mod render_contract;
 pub mod renderer;
@@ -179,6 +181,25 @@ pub use platform::{
     NativeWidgetConfigPatch, NativeWidgetKind, NativeWidgetReplacement, NativeWidgetSetter,
     NativeWidgetSetterBatch, PlatformAdapter, PlatformCommand, PlatformPlannedNode,
     PlatformPlanningHost, WinUiAdapter, DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
+};
+#[cfg(feature = "platform-host")]
+pub use platform_host::{
+    PlatformAccessibilityAction, PlatformAccessibilityActionKind, PlatformAccessibilityNode,
+    PlatformAccessibilitySnapshot, PlatformClipboardContent, PlatformClipboardFormat,
+    PlatformElementId, PlatformFileFilter, PlatformFilePickerMode, PlatformFilePickerRequest,
+    PlatformHost, PlatformHostCommand, PlatformHostCommitAck, PlatformHostEvent,
+    PlatformHostRevision, PlatformHostTransaction, PlatformInputDeviceId, PlatformInputEvent,
+    PlatformKeyEvent, PlatformKeyState, PlatformMenuItem, PlatformNotification, PlatformPermission,
+    PlatformPoint, PlatformPointerButton, PlatformPointerEvent, PlatformPointerId,
+    PlatformPointerPhase, PlatformPresentationAck, PlatformPresentationRequest,
+    PlatformPresentationStatus, PlatformSystemCommand, PlatformSystemEvent, PlatformSystemOutcome,
+    PlatformSystemRequest, PlatformSystemRequestId, PlatformTextInputCommand,
+    PlatformTextInputEvent, PlatformTextInputPurpose, PlatformTextInputSessionId,
+    PlatformTextInputState, PlatformTextInputUpdate, PlatformTextRange, PlatformWheelDeltaMode,
+    PlatformWheelEvent, PlatformWindowCommand, PlatformWindowEvent, PlatformWindowId,
+    PlatformWindowSpec, RecordingPlatformHost, DEFAULT_PLATFORM_HOST_EVENT_QUEUE_LIMIT,
+    DEFAULT_PLATFORM_HOST_HISTORY_LIMIT, MAX_PLATFORM_HOST_COMMANDS, MAX_PLATFORM_HOST_EVENT_BYTES,
+    MAX_PLATFORM_HOST_TRANSACTION_BYTES,
 };
 pub use protocol::*;
 pub use renderer::{MountedNodeSnapshot, Renderer};

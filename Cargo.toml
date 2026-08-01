@@ -93,6 +93,12 @@ headless = []
 graphics = ["dep:a3s-graphics"]
 software-reference = ["graphics", "a3s-graphics/software"]
 gpu = ["graphics", "a3s-graphics/gpu"]
+platform-host = []
+host-macos = ["platform-host"]
+host-windows = ["platform-host"]
+host-linux-wayland = ["platform-host"]
+host-linux-x11 = ["platform-host"]
+host-linux = ["host-linux-wayland", "host-linux-x11"]
 authoring = [
     "dep:swc_atoms",
     "dep:swc_common",

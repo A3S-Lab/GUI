@@ -311,6 +311,11 @@ check-core:
     cargo check --locked --no-default-features --features graphics --lib
     cargo check --locked --no-default-features --features software-reference --lib
     cargo check --locked --no-default-features --features gpu --lib
+    cargo check --locked --no-default-features --features platform-host --lib
+
+# Compile every zero-widget host marker without a legacy renderer
+check-platform-host:
+    cargo check --locked --no-default-features --features platform-host,host-macos,host-windows,host-linux --lib
 
 # Prove semantic-only builds do not acquire Graphics or wgpu
 check-core-graph:
@@ -322,6 +327,22 @@ check-core-graph:
         echo "graphics dependencies entered the semantic-only graph" >&2
         exit 1
     fi
+
+# Prove the H0 contract graph contains no renderer or OS toolkit dependency
+check-platform-host-graph:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    host_graph="$(cargo tree --locked --no-default-features --features platform-host --prefix none)"
+    if grep -Eq '^(a3s-graphics|wgpu|gtk4|gdk4|gsk4|winio-winui3|windows-collections|objc2-app-kit) ' <<<"$host_graph"; then
+        echo "renderer or toolkit dependencies entered the H0 platform-host graph" >&2
+        exit 1
+    fi
+
+# Run the zero-widget platform-host contract and firewall suites
+test-platform-host:
+    cargo test --locked --no-default-features --features platform-host --lib platform_host::
+    cargo test --locked --no-default-features --features platform-host --test platform_host_firewall
 
 # Run native-feature library tests for this operating system
 test-native:
@@ -361,14 +382,15 @@ winui-input-smoke EVIDENCE:
 
 # Lint every target and deny high-confidence Clippy and Rust warnings
 clippy:
-    cargo clippy --locked --all-targets --features appkit,winui,gtk4,gpu -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused
+    cargo clippy --locked --all-targets --features appkit,winui,gtk4,gpu,platform-host -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused
 
 # Build crate documentation and fail on rustdoc warnings
 doc-check:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --document-private-items
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-default-features --features platform-host --no-deps --document-private-items
 
 # Run the full local verification suite
-verify: fmt-check check-core check-core-graph clippy doc-check test test-examples test-platforms test-graphics diff-check
+verify: fmt-check check-core check-core-graph check-platform-host check-platform-host-graph clippy doc-check test test-examples test-platforms test-platform-host test-graphics diff-check
 
 # Run dogfood reducer and protocol-boundary regression tests
 dogfood-regression:
