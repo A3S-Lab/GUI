@@ -140,6 +140,24 @@ This is a runtime ownership boundary, not a second component model. All three
 paths produce the same compiled RSX tree and enter the same semantic/native
 lowering pipeline.
 
+### React Aria catalog gate
+
+The built-in registry is checked against the complete official React Aria
+Components 1.19.0 navigation catalog. The versioned
+[`react-aria-component-matrix.json`](react-aria-component-matrix.json) contains
+all 51 top-level families, their registered A3S component parts, the eight
+currently missing public parts, delivery milestones, self-drawn status, and
+evidence links. `tests/react_aria_component_matrix.rs` rejects a missing family,
+an unregistered mapping, an untracked newly implemented part, or a conformance
+claim without software and all three operating-system lanes.
+
+Registry coverage proves that an author can name and lower a component. It
+does not prove self-drawn parity. Component completion additionally requires
+portable behavior, layout and hit regions, Graphics scene and deterministic
+pixels, accessibility semantics, and real self-drawn macOS/Windows/Linux host
+automation. AppKit, GTK4, and WinUI content-control runs remain migration
+oracles only.
+
 ## Dependency Direction
 
 Cargo features enforce both the authoring/runtime split and the graphics
@@ -149,8 +167,11 @@ the built-in `rsx_ui` registry. `graphics` enables only the pinned engine scene
 contract, while `software-reference` adds deterministic retained
 rasterization. `gpu` adds the real offscreen renderer, capability report, and
 readback path from pinned Graphics commit `8748fab`; there is no placeholder
-backend. The default feature set keeps the existing authoring experience plus
-software reference evidence, while
+backend. `platform-host` adds only bounded zero-widget OS records, while
+`platform-runtime` adds the one-way Native IR/layout/scene/accessibility frame
+coordinator and Graphics presentation seam without enabling an OS toolkit. The
+default feature set keeps the existing authoring experience plus software
+reference evidence, while
 `cargo check --no-default-features --lib` proves that protocol, semantic,
 interaction, focus, selection, i18n, and accessibility remain usable without
 Graphics, SWC, or `rsx_ui`.
@@ -168,9 +189,13 @@ diagnostics share those identities. The semantic-only layout module produces a
 versioned `LayoutSnapshot`, while the optional Graphics adapter rejects
 error-level M3 omissions and derives stable `DrawId` values from layout paths.
 The existing shared calculator tree pins layout and scene fingerprints plus
-software and local Direct3D 12 image evidence. This is rectangle-path evidence,
-not a claim that text, full flex/grid behavior, presentation, or M4 interaction
-has landed.
+software and local Direct3D 12 image evidence. The H1-in-progress
+`SelfDrawnWindowRuntime` now commits that same tree, layout, hit data, scene,
+and accessibility projection as one monotonic host frame. Its transactional
+presenter publishes software Graphics pixels only after host commit and replays
+the last scene after surface loss. This remains rectangle-path evidence, not a
+claim that text, full flex/grid behavior, a real OS swapchain, or portable M4
+input routing has landed.
 
 The remaining dependencies stay one-way:
 
@@ -204,6 +229,11 @@ immutable capability grants across the outer boundary. The GUI core owns the
 capability types but must not depend on the ACL parser or its AST.
 
 ## Native Input Evidence Boundary
+
+The existing capability manifests in this section describe the legacy
+content-control baseline that the self-drawn runtime must preserve. They do not
+complete a React Aria matrix entry. Final component evidence must drive the
+zero-widget platform hosts and A3S-owned pixels.
 
 `NativeCapabilities` describes the behavior a backend claims for each role.
 `NativeInputConformanceManifestV1` turns native press claims into a canonical

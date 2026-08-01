@@ -1,9 +1,10 @@
 # Self-Drawn Platform Host Architecture
 
-Status: H0 contract and dependency firewall complete; H1 shared window runtime
-is next. The desktop OS shells described here are not implemented yet.
+Status: H0 complete; H1 atomic frame orchestration and presentation lifecycle
+in progress. Portable input/reducer routing and real desktop OS shells are not
+implemented yet.
 
-Updated: 2026-08-01
+Updated: 2026-08-02
 
 ## Decision
 
@@ -43,12 +44,15 @@ The repository currently contains three distinct layers:
    system-service records; atomic revision transactions; a recording host; and
    executable dependency/source firewalls.
 
-The next missing layer is the H1 shared runtime that connects committed layout,
-scene, hit-region, accessibility, and service state to the new host contract.
-Production H2-H4 hosts must then attach Graphics to real top-level surfaces and
-return OS services without constructing content controls. The old control
-backends are frozen until this replacement passes its gates. They are migration
-inputs, not the target architecture and not a base for new TSX work.
+The first H1 layer now connects committed Native IR, layout, scene, hit-region,
+and accessibility state to the new host contract. It also owns transactional
+scene preparation/publication plus resize, scale, damage, occlusion, redraw,
+delayed acknowledgement, and surface-loss replay. Portable hit/focus/action
+routing is the next H1 slice. Production H2-H4 hosts must then attach Graphics
+to real top-level surfaces and return OS services without constructing content
+controls. The old control backends are frozen until this replacement passes
+its gates. They are migration inputs, not the target architecture and not a
+base for new TSX work.
 
 ## Target Pipeline
 
@@ -200,21 +204,35 @@ src/platform_host/
 
 tests/platform_host_firewall.rs
 
+src/platform_runtime/
+|- frame.rs             committed Native IR/layout/scene/a11y snapshot
+|- runtime.rs           atomic candidate preparation and host commit
+|- events.rs            resize, scale, occlusion, redraw, and ack lifecycle
+|- presenter.rs         raw-surface prepare/publish contract and recorder
+|- reference_presenter.rs
+|                       transactional software Graphics evidence
+|- accessibility.rs     stable layout-path semantic projection
+`- tests.rs             atomicity, no-op, recovery, and identity gates
+
+tests/platform_runtime_firewall.rs
+examples/self_drawn_calculator.rs
+
 Planned next:
-src/platform_host/runtime.rs
+src/platform_runtime/interaction.rs
 src/platform_host/macos/
 src/platform_host/windows/
 src/platform_host/linux/
 
-examples/self_drawn_calculator.rs
 src/bin/a3s_gui_host.rs
 ```
 
 The `platform-host`, `host-macos`, `host-windows`, `host-linux-wayland`,
-`host-linux-x11`, and `host-linux` features landed in H0. The target features
-currently select the common contract only; OS dependencies arrive with their
-H2-H4 implementation. None enables or imports `appkit-native`, `gtk4-native`,
-`winui-native`, or the legacy widget-planning modules.
+`host-linux-x11`, and `host-linux` features landed in H0. H1 adds the separate
+`platform-runtime = platform-host + graphics` feature so the H0 wire boundary
+stays Graphics-free. The target features currently select the common contract
+only; OS dependencies arrive with their H2-H4 implementation. Neither H0 nor
+H1 enables or imports `appkit-native`, `gtk4-native`, `winui-native`, or the
+legacy widget-planning modules.
 
 The new modules are created beside the legacy directories rather than by
 renaming a control backend. This makes accidental content-widget reuse visible
@@ -307,7 +325,7 @@ Evidence:
 
 ### H1 - Shared self-drawn window runtime
 
-Status: next; depends on the M3 presentation boundary.
+Status: in progress; atomic frame and presentation-lifecycle slice landed.
 
 Deliverables:
 
@@ -318,6 +336,30 @@ Deliverables:
 - route normalized host events through the existing interaction and reducer
   pipeline
 - add the shared `self_drawn_calculator` entrypoint and fake-host smoke runner
+
+Landed evidence:
+
+- `SelfDrawnWindowRuntime` builds one immutable Native IR, layout, hit-region,
+  scene, and stable-id accessibility snapshot before host mutation
+- `PlatformScenePresenter` prepares candidate pixels, publishes only after a
+  matching host commit, and discards rejected candidates
+- identical frames skip layout, scene, host, and presenter work; semantic-only
+  changes commit accessibility without presenting identical pixels
+- resize, fractional scale, damage, occlusion, redraw, delayed acknowledgements,
+  dropped frames, and surface loss replay the retained scene deterministically
+- 14 focused runtime/software tests and three recursive feature/source
+  firewall tests pass without any legacy renderer or OS toolkit dependency
+- `self_drawn_calculator` commits the existing 410x620 shared Native IR and
+  reproduces layout fingerprint `16529597026056060935`, scene fingerprint
+  `2100550662756266801`, and deterministic RGBA pixels
+
+Remaining before H1 is complete:
+
+- route raw host input through portable hit testing, focus, interaction state,
+  action selection, and the application reducer without a legacy widget plan
+- implement the Graphics raw-surface presenter used by H2-H4; the landed
+  presenter contract and software implementation deliberately expose no raw
+  handle to components or common host records
 
 Gates:
 
@@ -463,7 +505,8 @@ or dependency-boundary evidence.
 
 ## First Reviewable Commit Sequence
 
-1. Add H1 shared frame orchestration and raw-surface presentation lifecycle.
+1. Finish H1 portable hit/focus/reducer routing and bind its presenter contract
+   to the Graphics raw-surface edge.
 2. Present the rectangle-only shared calculator through the Windows host.
 3. Present the same rectangle-only calculator through the macOS host.
 4. Present it through Wayland, then add the separately gated X11 fallback.

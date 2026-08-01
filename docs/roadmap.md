@@ -1,6 +1,6 @@
 # A3S GUI Roadmap
 
-Updated: 2026-08-01
+Updated: 2026-08-02
 
 ## Product Direction
 
@@ -40,6 +40,9 @@ It does not choose component geometry or draw content.
   the cutover gate passes.
 - Every visual fixture must lower the shared `NativeElement` tree. A bespoke
   calculator or component-only scene does not count as renderer progress.
+- The complete official React Aria component catalog is version-pinned in
+  `docs/react-aria-component-matrix.json`. Every upstream release requires an
+  audited matrix delta; a registered component name alone is not parity.
 - Unsupported style, text, graphics, input, or accessibility fields are
   explicit diagnostics. No layer silently discards a built-in requirement.
 - Files over 1,000 lines are split when their area is changed; new files target
@@ -50,7 +53,7 @@ It does not choose component geometry or draw content.
 | P0 | Architecture cleanup, Graphics GPU foundation, generic layout/scene path, calculator slice, input/IME/accessibility, and legacy backend removal |
 | P0-H | Zero-widget platform-host contract, shared presentation runtime, macOS/Windows/Linux shells, and dependency-audited cutover |
 | P0-T | Optional TSX-to-native authoring track: automatic JSX runtime, versioned local session, Node-owned component state, and self-drawn host integration |
-| P1 | Full design-system projection, overlays, collections, date/color controls, tables, virtualization, themes, assets, and localization |
+| P1 | All 51 React Aria 1.19.0 component families and public semantic parts, including full self-drawn behavior, accessibility, overlays, collections, date/color controls, tables, virtualization, themes, assets, and localization |
 | P2 | Developer tooling, animation, advanced content surfaces, performance work, and shared Graphics capabilities needed by future game runtimes |
 
 ## Non-Negotiable Architecture
@@ -410,7 +413,7 @@ Acceptance gates:
 
 ## P0-H Self-Drawn Platform Host Track
 
-Status: H0 complete; H1 is next.
+Status: H0 complete; H1 atomic frame/lifecycle work is in progress.
 
 This track turns the existing offscreen layout/scene/GPU boundary into real
 windows without moving component rendering back into an OS toolkit. All
@@ -455,7 +458,9 @@ Evidence:
 
 ### H1 - Shared self-drawn window runtime
 
-Status: next; depends on M3 presentation work.
+Status: in progress; atomic frame orchestration and presentation lifecycle
+landed, while portable input/reducer routing and a real raw-surface presenter
+remain.
 
 - transact scene, hit-region, accessibility, and window state as one committed
   host frame
@@ -463,6 +468,27 @@ Status: next; depends on M3 presentation work.
   occlusion, redraw, surface loss, and presentation acknowledgements
 - route host events through portable interaction, focus, and reducer state
 - add one shared self-drawn calculator and fake-host smoke entrypoint
+
+Landed evidence:
+
+- `platform-runtime` connects one candidate Native IR, layout, hit-region,
+  Graphics Scene, and accessibility snapshot to a monotonic host transaction
+- scene candidates use prepare/publish/discard semantics so rejected host
+  commits retain the complete previous frame and pixels
+- unchanged frames perform no layout, scene, host, or present work;
+  semantic-only changes avoid redundant presentation
+- resize, fractional scale, damage, occlusion, redraw, delayed acknowledgement,
+  dropped-frame, and surface-loss tests preserve stable semantic ids
+- the shared 410x620 calculator passes through the runtime and deterministic
+  software presenter with its reviewed layout and scene fingerprints unchanged
+- 14 focused runtime/software tests plus three recursive H1 firewall tests are
+  included in `just verify`
+
+Remaining H1 work:
+
+- portable hit testing, focus, interaction, action, and reducer routing from
+  raw host events without depending on the legacy widget blueprint/runtime
+- a Graphics raw-surface presenter implementation for the H2-H4 OS shells
 
 Gates:
 
@@ -635,29 +661,48 @@ compatibility matrix.
 
 ## P1 Component Projection
 
-P1 starts only after the default cutover. Every component lands through its
-semantic behavior, layout, scene, hit testing, accessibility, and visual Story
-together.
+Catalog accounting starts before the default cutover so no semantic family is
+lost during the renderer migration. Component completion starts after the
+shared self-drawn runtime gate. The executable matrix pins all 51 official
+React Aria Components 1.19.0 families and currently records eight public-part
+gaps: the Field/Button splits for Checkbox, Radio, and Switch, plus ToastList
+and ToastContent.
+
+Every family advances independently from `planned` to `scene-smoke` and then
+to `conformant`. A family lands through its semantic behavior, layout, scene,
+hit testing, accessibility, visual Story, software oracle, and real
+macOS/Windows/Linux host evidence together. Existing AppKit, GTK4, or WinUI
+content-control execution is migration comparison evidence, never final
+self-drawn conformance.
 
 ### M6 - Foundations and forms
 
-- Box/View, text, heading, separators, icons, images, buttons, links, fields,
-  text areas, checkboxes, radios, switches, sliders, progress, and meters
+- Breadcrumbs, Button, Checkbox, CheckboxGroup, FileTrigger, Form, Group, Link,
+  Meter, NumberField, ProgressBar, RadioGroup, SearchField, Separator, Slider,
+  Switch, TextField, ToggleButton, ToggleButtonGroup, and Toolbar
 - tokens, themes, density, disabled/read-only/invalid states, focus rings, and
   reduced motion
 - intrinsic sizing and baseline alignment
+- implement CheckboxField/CheckboxButton, RadioField/RadioButton, and
+  SwitchField/SwitchButton composition without duplicating shared state
 
 ### M7 - Overlays, selection, and collections
 
-- dialogs, popovers, tooltips, menus, combo boxes, select, tabs, disclosures,
-  toasts, drag/drop, list boxes, grid lists, and trees
+- Autocomplete, ComboBox, Disclosure, DisclosureGroup, DropZone, GridList,
+  ListBox, Menu, Modal, Popover, Select, Tabs, TagGroup, Toast, Tooltip, Tree,
+  and Virtualizer
 - portals/layers, anchored placement, scroll containers, virtualization,
   typeahead, range selection, and collection mutation
+- implement ToastList and ToastContent and preserve drag/drop, focus-scope,
+  selection-indicator, collection-section, and load-more semantic parts
 
 ### M8 - Date, color, tables, and advanced data
 
-- calendars, date/time/range fields, color controls, tables, data grids,
-  column resizing, sorting, large data sets, and localized formatting
+- Calendar, ColorArea, ColorField, ColorPicker, ColorSlider, ColorSwatch,
+  ColorSwatchPicker, ColorWheel, DateField, DatePicker, DateRangePicker,
+  RangeCalendar, Table, and TimeField
+- date/time/range state, color models, data grids, column resizing, sorting,
+  large data sets, and localized formatting
 - virtualization budgets and stable accessibility semantics for recycled views
 
 ## P2 Runtime, Tooling, and Shared Graphics
@@ -745,7 +790,8 @@ A component or subsystem is complete only when:
 
 ## Immediate Commit Sequence
 
-1. Land H1 shared frame orchestration and raw-surface presentation lifecycle.
+1. Finish H1 portable event/reducer routing and the Graphics raw-surface
+   presenter edge.
 2. Present the generic rectangle slice through the H2 Windows Win32 host.
 3. Present the same slice through the H3 macOS system-shell host.
 4. Present it through H4 Wayland, then the separately gated X11 fallback.
@@ -755,3 +801,6 @@ A component or subsystem is complete only when:
 7. Delete WinUI/XAML, GTK4, and AppKit content-control code and all final
    consumers in reviewable, platform-scoped commits while preserving the thin
    OS shells.
+8. Execute M6, M7, and M8 against the versioned React Aria matrix until all 51
+   families and their public semantic parts have self-drawn software and real
+   macOS/Windows/Linux conformance evidence.

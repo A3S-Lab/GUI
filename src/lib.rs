@@ -50,6 +50,8 @@ pub mod overlay_position;
 pub mod platform;
 #[cfg(feature = "platform-host")]
 pub mod platform_host;
+#[cfg(feature = "platform-runtime")]
+pub mod platform_runtime;
 pub mod protocol;
 pub mod render_contract;
 pub mod renderer;
@@ -200,6 +202,16 @@ pub use platform_host::{
     PlatformWindowSpec, RecordingPlatformHost, DEFAULT_PLATFORM_HOST_EVENT_QUEUE_LIMIT,
     DEFAULT_PLATFORM_HOST_HISTORY_LIMIT, MAX_PLATFORM_HOST_COMMANDS, MAX_PLATFORM_HOST_EVENT_BYTES,
     MAX_PLATFORM_HOST_TRANSACTION_BYTES,
+};
+#[cfg(feature = "platform-runtime")]
+pub use platform_runtime::{
+    PlatformRenderFrame, PlatformScenePresenter, RecordingPreparedFrame, RecordingScenePresenter,
+    SelfDrawnFrameCommit, SelfDrawnFrameCommitStatus, SelfDrawnFrameSnapshot,
+    SelfDrawnHostEventOutcome, SelfDrawnRuntimeStats, SelfDrawnWindowRuntime,
+};
+#[cfg(all(feature = "platform-runtime", feature = "software-reference"))]
+pub use platform_runtime::{
+    ReferencePreparedFrame, ReferencePresentedFrame, ReferenceScenePresenter,
 };
 pub use protocol::*;
 pub use renderer::{MountedNodeSnapshot, Renderer};

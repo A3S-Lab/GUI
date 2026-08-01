@@ -28,6 +28,10 @@ name = "component_playground"
 required-features = ["authoring"]
 
 [[example]]
+name = "self_drawn_calculator"
+required-features = ["authoring", "platform-runtime", "software-reference"]
+
+[[example]]
 name = "appkit_counter"
 required-features = ["appkit-native"]
 
@@ -94,6 +98,7 @@ graphics = ["dep:a3s-graphics"]
 software-reference = ["graphics", "a3s-graphics/software"]
 gpu = ["graphics", "a3s-graphics/gpu"]
 platform-host = []
+platform-runtime = ["platform-host", "graphics"]
 host-macos = ["platform-host"]
 host-windows = ["platform-host"]
 host-linux-wayland = ["platform-host"]

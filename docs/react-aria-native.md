@@ -12,6 +12,41 @@ the operating system's window, focus, accessibility, IME, and input APIs.
 
 The project does not claim React Aria parity yet.
 
+## Versioned Component Scope
+
+The component target is the complete official React Aria Components catalog,
+not a calculator-sized subset. The current checked baseline is
+[`react-aria-components` 1.19.0](https://react-aria.adobe.com/releases/v1-19-0),
+released on 2026-06-18. Its documentation navigation contains 51 top-level
+component families. Every family is represented in the executable
+[`react-aria-component-matrix.json`](react-aria-component-matrix.json), along
+with its A3S authoring components, milestone, known public-part gaps,
+self-drawn status, and evidence.
+
+The matrix currently establishes these facts without overstating parity:
+
+- all 51 official top-level families map to registered A3S RSX components;
+- `Button` has a deterministic self-drawn scene/software-pixel smoke through
+  the shared calculator, but is not interaction or OS conformant yet;
+- the other 50 families remain planned on the new self-drawn host path;
+- `CheckboxField`, `CheckboxButton`, `RadioField`, `RadioButton`,
+  `SwitchField`, `SwitchButton`, `ToastList`, and `ToastContent` are explicit
+  public-part gaps rather than silent omissions;
+- no family may be marked `conformant` without software, macOS, Windows, and
+  Linux evidence in addition to its semantic and accessibility tests.
+
+`tests/react_aria_component_matrix.rs` schema-checks the file, pins the exact
+official family list, verifies every available A3S mapping against the built-in
+component registry, and rejects unsupported completion claims. Each upstream
+React Aria Components release requires a reviewed matrix-delta commit before
+the project can continue to describe the catalog as current.
+
+An authoring name is only the first dimension. A component is complete only
+when its authoring contract, behavior state machines, Native IR, layout and hit
+regions, Graphics scene, deterministic software pixels, accessibility tree,
+and real self-drawn macOS/Windows/Linux host evidence pass together. Existing
+platform-widget execution does not satisfy this gate.
+
 ## Target Architecture
 
 ```text
@@ -43,9 +78,12 @@ thin macOS / Linux / Windows host
 Native input and accessibility events travel upward through the same layers.
 ```
 
-The behavior layer owns platform-independent semantics. Native adapters own
-thread affinity, widget lifetime, raw event capture, accessibility projection,
-and translation between platform event data and portable event context.
+The behavior layer owns platform-independent semantics. The target platform
+hosts own thread affinity, window and raw-surface lifetime, raw event capture,
+IME, accessibility projection, and translation between operating-system event
+data and portable event context. They do not create application-content
+widgets. The existing AppKit, GTK4, and WinUI control adapters are frozen
+migration evidence and are removed after equivalent self-drawn host gates pass.
 
 ## Required Invariants
 
@@ -405,7 +443,14 @@ The first shared interaction milestone is available in the portable runtime:
 This foundation is covered by serialization, routing, state-machine, rerender,
 and built-in RSX component tests.
 
-## Native Capability Boundary
+## Legacy Native Capability Boundary
+
+This section records the behavior and accessibility evidence that must be
+preserved while the old content-control backends are replaced. It is a
+migration oracle, not evidence that a component is complete on the self-drawn
+runtime. Final evidence comes from the `host-macos`, `host-windows`,
+`host-linux-wayland`, and `host-linux-x11` paths with application content
+rendered only by A3S Graphics.
 
 The generic interaction source is now present on all three native backends, but
 support is deliberately reported by role rather than inferred from the mere
@@ -437,7 +482,7 @@ conservative and role overrides opt into verified behavior. This prevents a
 native wrapper, menu model, or logical collection item from being advertised as
 interactive merely because another role on that backend is interactive.
 
-## Native Input Evidence Gate
+## Legacy Native Input Evidence Gate
 
 `NativeInputConformanceManifestV1::from_capabilities` expands each role whose
 press support is marked `Native` into a machine-readable automation matrix. A
@@ -501,6 +546,8 @@ props:
 
 | Priority | Area | Required outcome |
 | --- | --- | --- |
+| P0 | Self-drawn component accounting | Keep all 51 React Aria 1.19.0 families in the executable matrix, implement the eight recorded public-part gaps, and require every upstream catalog delta to update code, matrix, tests, and milestones together. |
+| P0 | Shared self-drawn interaction | Route raw host input through hit testing, focus, interaction, action, and reducer state so component behavior no longer depends on AppKit, GTK4, or WinUI content controls. |
 | P0 | Native input conformance | WinUI's complete 98-case V1 manifest passes real OS automation. Populate the AppKit and GTK4 manifests with platform-run mouse, pen, touch where applicable, keyboard, assistive activation, disabled, cancellation, and keyed-rerender fixtures for every role currently marked native; then close or retain evidence-backed menu/item exceptions. |
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |
@@ -522,14 +569,18 @@ logic.
 A behavior is complete only when all of the following are true:
 
 1. Its portable contract and state machine are specified and tested.
-2. AppKit, GTK4, and WinUI translate native input into the same observable
-   behavior, with documented capability differences where exact parity is not
-   possible.
+2. The self-drawn macOS, Windows, Wayland, and X11 hosts translate raw input
+   into the same observable behavior, with documented operating-system
+   capability differences where exact parity is not possible. Legacy
+   AppKit/GTK4/WinUI content-control evidence is comparison data only.
 3. Keyboard, pointer, touch, virtual accessibility activation, disabled state,
    cancellation, and rerender cases are covered where applicable.
 4. Accessibility role, name, state, relationships, and focus behavior are
    asserted semantically.
 5. The public documentation describes the supported contract without implying
    broader parity.
-6. A real operating-system automation run satisfies the generated versioned
-   manifest; portable or adapter-only tests do not count as native evidence.
+6. Real operating-system automation drives the self-drawn window and satisfies
+   the generated versioned manifest; portable, adapter-only, or legacy-widget
+   tests do not count as final native evidence.
+7. The component and every public semantic part are present in the versioned
+   React Aria matrix with software, macOS, Windows, and Linux evidence links.

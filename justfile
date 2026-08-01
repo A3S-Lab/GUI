@@ -296,6 +296,10 @@ test:
 test-examples:
     cargo test --locked --examples
 
+# Pin every official React Aria component family to an explicit A3S status
+test-react-aria-catalog:
+    cargo test --locked --test react_aria_component_matrix
+
 # Run adapter planning tests without native OS bindings
 test-platforms:
     cargo test --locked --features appkit,winui,gtk4,gpu
@@ -316,6 +320,10 @@ check-core:
 # Compile every zero-widget host marker without a legacy renderer
 check-platform-host:
     cargo check --locked --no-default-features --features platform-host,host-macos,host-windows,host-linux --lib
+
+# Compile the shared self-drawn frame runtime over the zero-widget host edge
+check-platform-runtime:
+    cargo check --locked --no-default-features --features platform-runtime --lib
 
 # Prove semantic-only builds do not acquire Graphics or wgpu
 check-core-graph:
@@ -339,10 +347,27 @@ check-platform-host-graph:
         exit 1
     fi
 
+# Prove the H1 runtime graph adds Graphics but no renderer toolkit or legacy host
+check-platform-runtime-graph:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    runtime_graph="$(cargo tree --locked --no-default-features --features platform-runtime --prefix none)"
+    if grep -Eq '^(gtk4|gdk4|gsk4|winio-winui3|windows-collections|objc2-app-kit) ' <<<"$runtime_graph"; then
+        echo "toolkit dependencies entered the H1 platform-runtime graph" >&2
+        exit 1
+    fi
+
 # Run the zero-widget platform-host contract and firewall suites
 test-platform-host:
     cargo test --locked --no-default-features --features platform-host --lib platform_host::
     cargo test --locked --no-default-features --features platform-host --test platform_host_firewall
+
+# Exercise atomic H1 frames, lifecycle recovery, firewalls, and shared pixels
+test-platform-runtime:
+    cargo test --locked --no-default-features --features platform-runtime --lib platform_runtime::
+    cargo test --locked --no-default-features --features platform-runtime --test platform_runtime_firewall
+    cargo test --locked --no-default-features --features authoring,platform-runtime,software-reference --example self_drawn_calculator
 
 # Run native-feature library tests for this operating system
 test-native:
@@ -382,15 +407,16 @@ winui-input-smoke EVIDENCE:
 
 # Lint every target and deny high-confidence Clippy and Rust warnings
 clippy:
-    cargo clippy --locked --all-targets --features appkit,winui,gtk4,gpu,platform-host -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused
+    cargo clippy --locked --all-targets --features appkit,winui,gtk4,gpu,platform-host,platform-runtime -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused
 
 # Build crate documentation and fail on rustdoc warnings
 doc-check:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --document-private-items
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-default-features --features platform-host --no-deps --document-private-items
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-default-features --features platform-runtime --no-deps --document-private-items
 
 # Run the full local verification suite
-verify: fmt-check check-core check-core-graph check-platform-host check-platform-host-graph clippy doc-check test test-examples test-platforms test-platform-host test-graphics diff-check
+verify: fmt-check check-core check-core-graph check-platform-host check-platform-host-graph check-platform-runtime check-platform-runtime-graph clippy doc-check test test-examples test-react-aria-catalog test-platforms test-platform-host test-platform-runtime test-graphics diff-check
 
 # Run dogfood reducer and protocol-boundary regression tests
 dogfood-regression:

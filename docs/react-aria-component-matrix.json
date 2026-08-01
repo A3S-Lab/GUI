@@ -1,0 +1,562 @@
+{
+  "schema_version": 1,
+  "upstream": {
+    "package": "react-aria-components",
+    "version": "1.19.0",
+    "release_date": "2026-06-18",
+    "catalog_url": "https://react-aria.adobe.com/",
+    "release_url": "https://react-aria.adobe.com/releases/v1-19-0"
+  },
+  "acceptance_dimensions": [
+    "authoring",
+    "behavior",
+    "scene",
+    "software-pixels",
+    "accessibility",
+    "native-host"
+  ],
+  "families": [
+    {
+      "upstream": "Autocomplete",
+      "category": "collection",
+      "milestone": "M7",
+      "a3s_components": ["UiAutocomplete"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Breadcrumbs",
+      "category": "foundation",
+      "milestone": "M6",
+      "a3s_components": ["UiBreadcrumbs", "UiBreadcrumb"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Button",
+      "category": "foundation",
+      "milestone": "M6",
+      "a3s_components": ["UiButton"],
+      "planned_parts": [],
+      "self_drawn_status": "scene-smoke",
+      "evidence": [
+        "software:examples/self_drawn_calculator.rs",
+        "test:self_drawn_calculator::tests::calculator_self_drawn_smoke_is_deterministic"
+      ]
+    },
+    {
+      "upstream": "Calendar",
+      "category": "date-time",
+      "milestone": "M8",
+      "a3s_components": [
+        "UiCalendar",
+        "UiCalendarHeading",
+        "UiCalendarGrid",
+        "UiCalendarGridHeader",
+        "UiCalendarGridBody",
+        "UiCalendarHeaderCell",
+        "UiCalendarCell",
+        "UiCalendarMonthPicker",
+        "UiCalendarYearPicker"
+      ],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Checkbox",
+      "category": "form",
+      "milestone": "M6",
+      "a3s_components": ["UiCheckbox"],
+      "planned_parts": [
+        {"upstream": "CheckboxField", "a3s_target": "UiCheckboxField"},
+        {"upstream": "CheckboxButton", "a3s_target": "UiCheckboxButton"}
+      ],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "CheckboxGroup",
+      "category": "form",
+      "milestone": "M6",
+      "a3s_components": ["UiCheckboxGroup"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ColorArea",
+      "category": "color",
+      "milestone": "M8",
+      "a3s_components": ["UiColorArea", "UiColorThumb"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ColorField",
+      "category": "color",
+      "milestone": "M8",
+      "a3s_components": ["UiColorField"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ColorPicker",
+      "category": "color",
+      "milestone": "M8",
+      "a3s_components": ["UiColorPicker"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ColorSlider",
+      "category": "color",
+      "milestone": "M8",
+      "a3s_components": ["UiColorSlider"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ColorSwatch",
+      "category": "color",
+      "milestone": "M8",
+      "a3s_components": ["UiColorSwatch"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ColorSwatchPicker",
+      "category": "color",
+      "milestone": "M8",
+      "a3s_components": ["UiColorSwatchPicker", "UiColorSwatchPickerItem"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ColorWheel",
+      "category": "color",
+      "milestone": "M8",
+      "a3s_components": ["UiColorWheel", "UiColorWheelTrack"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ComboBox",
+      "category": "collection",
+      "milestone": "M7",
+      "a3s_components": ["UiComboBox", "UiComboBoxValue"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "DateField",
+      "category": "date-time",
+      "milestone": "M8",
+      "a3s_components": ["UiDateField", "UiDateInput", "UiDateSegment"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "DatePicker",
+      "category": "date-time",
+      "milestone": "M8",
+      "a3s_components": ["UiDatePicker"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "DateRangePicker",
+      "category": "date-time",
+      "milestone": "M8",
+      "a3s_components": ["UiDateRangePicker"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Disclosure",
+      "category": "overlay",
+      "milestone": "M7",
+      "a3s_components": ["UiDisclosure", "UiDisclosureSummary", "UiDisclosurePanel"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "DisclosureGroup",
+      "category": "overlay",
+      "milestone": "M7",
+      "a3s_components": ["UiDisclosureGroup"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "DropZone",
+      "category": "collection",
+      "milestone": "M7",
+      "a3s_components": ["UiDropZone", "UiDraggable", "UiDroppable", "UiDropIndicator"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "FileTrigger",
+      "category": "form",
+      "milestone": "M6",
+      "a3s_components": ["UiFileTrigger"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Form",
+      "category": "form",
+      "milestone": "M6",
+      "a3s_components": [
+        "UiForm",
+        "UiFieldError",
+        "UiFieldSet",
+        "UiLegend",
+        "UiLabel",
+        "UiDescription"
+      ],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "GridList",
+      "category": "collection",
+      "milestone": "M7",
+      "a3s_components": [
+        "UiGridList",
+        "UiGridListSection",
+        "UiGridListHeader",
+        "UiGridListItem",
+        "UiGridListLoadMoreItem"
+      ],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Group",
+      "category": "foundation",
+      "milestone": "M6",
+      "a3s_components": ["UiGroup"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Link",
+      "category": "foundation",
+      "milestone": "M6",
+      "a3s_components": ["UiLink"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ListBox",
+      "category": "collection",
+      "milestone": "M7",
+      "a3s_components": [
+        "UiListBox",
+        "UiListBoxSection",
+        "UiListBoxHeader",
+        "UiListBoxItem",
+        "UiListBoxLoadMoreItem"
+      ],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Menu",
+      "category": "collection",
+      "milestone": "M7",
+      "a3s_components": [
+        "UiMenu",
+        "UiMenuTrigger",
+        "UiSubmenuTrigger",
+        "UiMenuSection",
+        "UiMenuItem",
+        "UiKeyboard"
+      ],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Meter",
+      "category": "foundation",
+      "milestone": "M6",
+      "a3s_components": ["UiMeter"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Modal",
+      "category": "overlay",
+      "milestone": "M7",
+      "a3s_components": ["UiModal", "UiModalOverlay", "UiDialog", "UiDialogTrigger"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "NumberField",
+      "category": "form",
+      "milestone": "M6",
+      "a3s_components": ["UiNumberField"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Popover",
+      "category": "overlay",
+      "milestone": "M7",
+      "a3s_components": ["UiPopover", "UiOverlayArrow"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ProgressBar",
+      "category": "foundation",
+      "milestone": "M6",
+      "a3s_components": ["UiProgressBar"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "RadioGroup",
+      "category": "form",
+      "milestone": "M6",
+      "a3s_components": ["UiRadioGroup", "UiRadio"],
+      "planned_parts": [
+        {"upstream": "RadioField", "a3s_target": "UiRadioField"},
+        {"upstream": "RadioButton", "a3s_target": "UiRadioButton"}
+      ],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "RangeCalendar",
+      "category": "date-time",
+      "milestone": "M8",
+      "a3s_components": ["UiRangeCalendar"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "SearchField",
+      "category": "form",
+      "milestone": "M6",
+      "a3s_components": ["UiSearchField"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Select",
+      "category": "collection",
+      "milestone": "M7",
+      "a3s_components": ["UiSelect", "UiSelectValue"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Separator",
+      "category": "foundation",
+      "milestone": "M6",
+      "a3s_components": ["UiSeparator"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Slider",
+      "category": "form",
+      "milestone": "M6",
+      "a3s_components": [
+        "UiSlider",
+        "UiSliderTrack",
+        "UiSliderFill",
+        "UiSliderThumb",
+        "UiSliderOutput"
+      ],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Switch",
+      "category": "form",
+      "milestone": "M6",
+      "a3s_components": ["UiSwitch"],
+      "planned_parts": [
+        {"upstream": "SwitchField", "a3s_target": "UiSwitchField"},
+        {"upstream": "SwitchButton", "a3s_target": "UiSwitchButton"}
+      ],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Table",
+      "category": "data",
+      "milestone": "M8",
+      "a3s_components": [
+        "UiResizableTableContainer",
+        "UiTable",
+        "UiTableHeader",
+        "UiTableColumn",
+        "UiColumnResizer",
+        "UiTableBody",
+        "UiTableFooter",
+        "UiTableRow",
+        "UiTableCell",
+        "UiTableLoadMoreItem",
+        "UiTableCaption"
+      ],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Tabs",
+      "category": "collection",
+      "milestone": "M7",
+      "a3s_components": [
+        "UiTabs",
+        "UiTabsList",
+        "UiTabsTrigger",
+        "UiTabPanels",
+        "UiTabsContent",
+        "UiSelectionIndicator"
+      ],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "TagGroup",
+      "category": "collection",
+      "milestone": "M7",
+      "a3s_components": ["UiTagGroup", "UiTagList", "UiTag"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "TextField",
+      "category": "form",
+      "milestone": "M6",
+      "a3s_components": ["UiTextField", "UiInput", "UiTextarea", "UiText", "UiHeading"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "TimeField",
+      "category": "date-time",
+      "milestone": "M8",
+      "a3s_components": ["UiTimeField"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Toast",
+      "category": "overlay",
+      "milestone": "M7",
+      "a3s_components": ["UiToastRegion", "UiToast"],
+      "planned_parts": [
+        {"upstream": "ToastList", "a3s_target": "UiToastList"},
+        {"upstream": "ToastContent", "a3s_target": "UiToastContent"}
+      ],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ToggleButton",
+      "category": "foundation",
+      "milestone": "M6",
+      "a3s_components": ["UiToggleButton"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "ToggleButtonGroup",
+      "category": "foundation",
+      "milestone": "M6",
+      "a3s_components": ["UiToggleButtonGroup"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Toolbar",
+      "category": "foundation",
+      "milestone": "M6",
+      "a3s_components": ["UiToolbar"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Tooltip",
+      "category": "overlay",
+      "milestone": "M7",
+      "a3s_components": ["UiTooltip", "UiTooltipTrigger"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Tree",
+      "category": "data",
+      "milestone": "M7",
+      "a3s_components": [
+        "UiTree",
+        "UiTreeSection",
+        "UiTreeHeader",
+        "UiTreeItem",
+        "UiTreeItemContent",
+        "UiTreeLoadMoreItem"
+      ],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    },
+    {
+      "upstream": "Virtualizer",
+      "category": "data",
+      "milestone": "M7",
+      "a3s_components": ["UiVirtualizer"],
+      "planned_parts": [],
+      "self_drawn_status": "planned",
+      "evidence": []
+    }
+  ]
+}

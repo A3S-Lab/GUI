@@ -21,7 +21,8 @@ path uses a DOM, CSSOM, WebView, or framework-owned content renderer.
 > generic self-drawn layout-to-Scene slice has landed; self-drawn text, input,
 > IME, accessibility bridges, and real thin-host presentation remain roadmap
 > work. The TSX runtime, local host session, and npm packages are architecture
-> only and have not been implemented yet.
+> only and have not been implemented yet. React Aria component parity is not
+> claimed yet.
 
 The target is unambiguous: A3S draws all application content. The existing
 `appkit-native`, `gtk4-native`, and `winui-native` modules create controls only
@@ -54,6 +55,29 @@ pixels. The fixture does not introduce a calculator-only visual model.
 The GPU result is local DX12 evidence, not a Metal/Vulkan parity claim. Text and
 real self-drawn window presentation are not represented by the screenshot
 above.
+
+## Complete React Aria scope
+
+The calculator is only the first vertical renderer fixture. The product target
+remains every semantic component in the official React Aria catalog. The
+versioned [component matrix](docs/react-aria-component-matrix.json) pins
+`react-aria-components` 1.19.0 and is schema-checked in CI:
+
+- all 51 official top-level component families map to registered A3S RSX
+  authoring components;
+- `Button` currently has scene/software-pixel smoke evidence through the shared
+  calculator, but no component is self-drawn conformant yet;
+- Checkbox, Radio, and Switch Field/Button parts plus ToastList and
+  ToastContent are recorded as eight explicit API gaps;
+- a component reaches `conformant` only with behavior, layout/hit, Graphics
+  scene, deterministic software, accessibility, and real self-drawn macOS,
+  Windows, and Linux evidence.
+
+Existing AppKit, GTK4, and WinUI control paths cannot satisfy that final gate.
+They remain frozen comparison baselines until the equivalent A3S-drawn stories
+pass and their content-control code is removed. See the
+[React Aria native direction](docs/react-aria-native.md) for the acceptance
+contract.
 
 ## TSX to native, without a browser
 
@@ -218,8 +242,10 @@ independently.
   bindings, fragments, slots, and spreads
 - stable semantic identity and ordered prepare/commit/ACK transactions with
   rollback, degraded-state recovery, replay, and sensitive-value redaction
-- a broad built-in `rsx_ui` registry covering foundations, forms, collections,
-  overlays, date/time, color, feedback, routing, and drag/drop semantics
+- a broad built-in `rsx_ui` registry with name-level coverage for all 51 pinned
+  React Aria families across foundations, forms, collections, overlays,
+  date/time, color, feedback, routing, and drag/drop semantics; this is
+  authoring coverage, not a self-drawn parity claim
 
 ### Interaction and accessibility
 
@@ -259,6 +285,20 @@ independently.
 - executable source and Cargo-feature firewalls proving the common contract has
   no Graphics, OS toolkit, or legacy renderer dependency
 
+### Atomic self-drawn frames
+
+- opt-in `platform-runtime` orchestration from one owned `NativeElement` tree
+  through layout, hit regions, Graphics Scene, accessibility, and a monotonic
+  zero-widget host transaction
+- a transactional `PlatformScenePresenter` seam: pixels are prepared without
+  exposure, published only after host commit, and discarded on rejection
+- retained resize, fractional-scale, damage, occlusion, redraw, delayed
+  acknowledgement, and surface-loss replay without changing semantic identity
+- an identical-frame fast path that performs no layout, scene, host, or
+  presentation work, plus semantic-only commits that skip pixel presentation
+- a software Graphics presenter and shared `self_drawn_calculator` smoke that
+  preserve the reviewed 410x620 layout and scene fingerprints
+
 ## Roadmap at a glance
 
 | Milestone | State | Evidence or next gate |
@@ -269,8 +309,9 @@ independently.
 | M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
 | M4 · Text and interaction cutover | Planned | Shaping, glyphs, GUI-owned input, IME, accessibility bridges, overlays, and complete calculator scenarios |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
-| H0-H5 · Thin platform hosts | H0 complete; H1 next | Zero-widget records, transactions, recording host, target feature markers, and dependency/source firewalls landed; shared window runtime is next |
+| H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic shared frames, transactional presentation, lifecycle recovery, zero-toolkit firewalls, and calculator pixels landed; portable input/reducer routing and a real raw-surface presenter remain |
 | T0-T5 · TSX native authoring | Proposed | Automatic JSX runtime, versioned Node-to-host session, state/event runtime, self-drawn native window, packages, and stable SDK |
+| M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped, eight public parts explicitly missing, Button scene smoke only; full software and three-OS self-drawn evidence required |
 
 The dependency-ordered plan and acceptance gates are in the
 [delivery roadmap](docs/roadmap.md).
@@ -286,6 +327,7 @@ The default set is `headless + authoring + design-system + software-reference`.
 | `software-reference` | Deterministic retained reference renderer; implies `graphics` |
 | `gpu` | Owned offscreen GPU renderer and readback path; implies `graphics` |
 | `platform-host` | H0 zero-widget records, transaction trait, recording host, and conformance tests; no Graphics or OS dependency |
+| `platform-runtime` | H1 Native IR/layout/scene/accessibility frame orchestration over `platform-host + graphics`; no OS toolkit dependency |
 | `host-macos`, `host-windows` | H0 target markers over `platform-host`; OS shell implementations land in H2/H3 |
 | `host-linux-wayland`, `host-linux-x11`, `host-linux` | H0 target markers over `platform-host`; Linux implementations land in H4 |
 | `authoring` | SWC-backed RSX parsing, `ComponentCx`, and explicit component registries |
@@ -305,6 +347,9 @@ cargo check --locked --no-default-features --features software-reference --lib
 cargo check --locked --no-default-features --features gpu --lib
 cargo check --locked --no-default-features --features platform-host --lib
 cargo test --locked --no-default-features --features platform-host --lib platform_host::
+cargo check --locked --no-default-features --features platform-runtime --lib
+cargo test --locked --no-default-features --features platform-runtime --lib platform_runtime::
+cargo test --locked --test react_aria_component_matrix
 ```
 
 ## Platform hosts: migration baseline and target
@@ -350,6 +395,7 @@ cargo run --locked --example state_loop
 cargo run --locked --example native_runtime_app
 cargo run --locked --example dogfood_session
 cargo run --locked --example component_playground
+cargo run --locked --no-default-features --features authoring,platform-runtime,software-reference --example self_drawn_calculator
 ```
 
 Host-selecting recipes:
@@ -415,10 +461,11 @@ src/
 |                        LayoutSnapshot to Graphics Scene lowering
 |- render_contract.rs    executable field/role/event milestone inventory
 |- platform_host/        H0 zero-widget records, transactions, recorder, and validation
+|- platform_runtime/     H1 atomic frames, presentation lifecycle, and Graphics smoke
 |- backend/ + platform/  legacy execution/planning migration baseline
 `- *_native/             AppKit, GTK4, and WinUI control hosts during migration
 
-examples/                headless, calculator, dogfood, controls, and playground apps
+examples/                headless, self-drawn, calculator, dogfood, controls, and playground apps
 docs/                    architecture, contracts, packaging, language, and roadmap
 packaging/               unsigned native smoke-bundle assets and validators
 ```
@@ -436,6 +483,7 @@ packaging/               unsigned native smoke-bundle assets and validators
 - [TSX to native runtime architecture](docs/tsx-native-runtime.md)
 - [Native style contract](docs/style-contract.md)
 - [React Aria native direction](docs/react-aria-native.md)
+- [Executable React Aria component matrix](docs/react-aria-component-matrix.json)
 - [Native app shell](docs/app-shell.md)
 - [Native packaging](docs/packaging.md)
 - [Delivery roadmap](docs/roadmap.md)
