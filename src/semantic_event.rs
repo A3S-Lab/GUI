@@ -218,6 +218,17 @@ fn action_for_event<'a>(
         NativeEventKind::MoveStart => source.event("onMoveStart"),
         NativeEventKind::Move => source.event("onMove"),
         NativeEventKind::MoveEnd => source.event("onMoveEnd"),
+        NativeEventKind::DragStart => source.event("onDragStart"),
+        NativeEventKind::DragMove => source.event("onDragMove"),
+        NativeEventKind::DragEnd => source.event("onDragEnd"),
+        NativeEventKind::DropEnter => source
+            .event("onDropEnter")
+            .or_else(|| source.event("onDragEnter")),
+        NativeEventKind::DropMove => source.event("onDropMove"),
+        NativeEventKind::DropExit => source
+            .event("onDropExit")
+            .or_else(|| source.event("onDragLeave")),
+        NativeEventKind::Drop => source.event("onDrop"),
         NativeEventKind::Action => source.event("onAction"),
         NativeEventKind::HoverStart if event.modality.supports_hover() => source
             .event("onHoverStart")

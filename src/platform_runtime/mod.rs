@@ -1,6 +1,13 @@
 //! Shared self-drawn window runtime above the zero-widget platform boundary.
 
 mod accessibility;
+mod drag_drop;
+mod drag_drop_input;
+mod drag_drop_keyboard_input;
+#[cfg(test)]
+mod drag_drop_keyboard_tests;
+#[cfg(test)]
+mod drag_drop_tests;
 mod events;
 mod frame;
 mod input;
@@ -18,6 +25,7 @@ mod presenter;
 mod reference_presenter;
 mod runtime;
 
+pub use drag_drop::{SelfDrawnDragContext, SelfDrawnDropOperation};
 pub use frame::{PlatformRenderFrame, SelfDrawnFrameSnapshot};
 pub use interaction::{
     SelfDrawnActionInvocation, SelfDrawnActionPropagation, SelfDrawnElementInteraction,

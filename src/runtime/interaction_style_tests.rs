@@ -210,6 +210,49 @@ fn long_press_and_move_data_variants_track_runtime_lifecycles() {
 }
 
 #[test]
+fn drag_and_drop_data_variants_track_runtime_lifecycles() {
+    let mut runtime = runtime();
+    let target = runtime
+        .render_native(&NativeElement::new("target", NativeRole::View).with_props(
+            NativeProps::new().web(WebProps::new().class_name(
+                "opacity-25 data-[dragging=true]:opacity-50 \
+                 data-[drop-target=true]:opacity-75",
+            )),
+        ))
+        .unwrap();
+
+    runtime
+        .handle_native_event_with_changes(
+            NativeEvent::new(target, NativeEventKind::DragStart)
+                .context(NativeEventContext::new().modality(NativeInputModality::Mouse)),
+        )
+        .unwrap();
+    assert_eq!(projected_opacity(&runtime, target), Some(0.5));
+    runtime
+        .handle_native_event_with_changes(
+            NativeEvent::new(target, NativeEventKind::DragEnd)
+                .context(NativeEventContext::new().modality(NativeInputModality::Mouse)),
+        )
+        .unwrap();
+    assert_eq!(projected_opacity(&runtime, target), Some(0.25));
+
+    runtime
+        .handle_native_event_with_changes(
+            NativeEvent::new(target, NativeEventKind::DropEnter)
+                .context(NativeEventContext::new().modality(NativeInputModality::Mouse)),
+        )
+        .unwrap();
+    assert_eq!(projected_opacity(&runtime, target), Some(0.75));
+    runtime
+        .handle_native_event_with_changes(
+            NativeEvent::new(target, NativeEventKind::DropExit)
+                .context(NativeEventContext::new().modality(NativeInputModality::Mouse)),
+        )
+        .unwrap();
+    assert_eq!(projected_opacity(&runtime, target), Some(0.25));
+}
+
+#[test]
 fn focus_visible_style_follows_global_input_modality() {
     let mut runtime = runtime();
     let root =

@@ -5,6 +5,7 @@ use crate::platform_host::{
     PlatformPointerEvent, PlatformPointerPhase,
 };
 
+use super::drag_drop::SelfDrawnDragCandidate;
 use super::interaction::{
     ActivePress, LastClick, LongPressTracking, PointerInteraction, PointerMoveTracking,
     RoutedSemanticEvent, SelfDrawnEventContext, SelfDrawnInputDispatch, SelfDrawnInteractionChange,
@@ -93,6 +94,17 @@ impl SelfDrawnInteractionSession {
                         ) {
                             routed.target = Some(active.target.clone());
                         }
+                        if self.update_pointer_drag(
+                            event.pointer,
+                            active,
+                            tree,
+                            frame_revision,
+                            event_sequence,
+                            &context,
+                            &mut routed,
+                        ) {
+                            routed.target = Some(active.target.clone());
+                        }
                     }
                 }
                 self.transition_hover(
@@ -128,6 +140,14 @@ impl SelfDrawnInteractionSession {
                     &context,
                     &mut routed,
                 );
+                self.leave_pointer_drag(
+                    event.pointer,
+                    tree,
+                    frame_revision,
+                    event_sequence,
+                    &context,
+                    &mut routed,
+                );
                 self.transition_active_press_boundary(
                     &mut pointer,
                     None,
@@ -149,15 +169,26 @@ impl SelfDrawnInteractionSession {
                     &mut routed,
                 );
                 if event.button == Some(PlatformPointerButton::Primary) {
-                    if let Some(active) = pointer.active_press.take() {
-                        self.cancel_active_press(
-                            active,
+                    if let Some(mut active) = pointer.active_press.take() {
+                        if !self.finish_pointer_drag(
+                            event.pointer,
+                            &mut active,
+                            false,
                             tree,
                             frame_revision,
                             event_sequence,
                             &context,
                             &mut routed,
-                        );
+                        ) {
+                            self.cancel_active_press(
+                                active,
+                                tree,
+                                frame_revision,
+                                event_sequence,
+                                &context,
+                                &mut routed,
+                            );
+                        }
                     }
                     if let Some(target) = hit_target {
                         let click_count =
@@ -181,6 +212,12 @@ impl SelfDrawnInteractionSession {
                                     last_position: event.position,
                                     did_move: false,
                                 });
+                        let drag_candidate = tree.drag_source(&target).cloned().map(|source| {
+                            SelfDrawnDragCandidate {
+                                source,
+                                start_position: event.position,
+                            }
+                        });
                         let long_press = long_press_threshold_micros.map(|threshold| {
                             let mut long_press_context = context.clone();
                             long_press_context.click_count = click_count;
@@ -222,6 +259,7 @@ impl SelfDrawnInteractionSession {
                             long_press,
                             long_press_recognized: false,
                             movement,
+                            drag_candidate,
                         });
                         routed.target = Some(target);
                     }
@@ -239,133 +277,145 @@ impl SelfDrawnInteractionSession {
                 );
                 if event.button == Some(PlatformPointerButton::Primary) {
                     if let Some(mut active) = pointer.active_press.take() {
-                        routed.target = Some(active.target.clone());
-                        let over_target = hit_target.as_ref() == Some(&active.target);
-                        let recognized_now = over_target
-                            && self.recognize_long_press_if_due(
-                                &mut active,
-                                event.timestamp_micros,
-                                tree,
-                                frame_revision,
-                                event_sequence,
-                                &mut routed,
-                            );
-                        if !recognized_now && !active.long_press_recognized {
-                            context.click_count = active.click_count;
-                            self.end_active_move(
-                                &mut active,
-                                tree,
-                                frame_revision,
-                                event_sequence,
-                                &context,
-                                &mut routed,
-                            );
-                        }
-                        if !recognized_now
-                            && !active.long_press_recognized
-                            && over_target
-                            && !active.start_emitted
-                        {
-                            context.click_count = active.click_count;
-                            self.start_active_long_press(
-                                &mut active,
-                                tree,
-                                frame_revision,
-                                event_sequence,
-                                &context,
-                                &mut routed,
-                            );
-                            self.begin_press(&active.target, &mut routed.changes);
-                            self.emit(
-                                tree,
-                                frame_revision,
-                                event_sequence,
-                                &active.target,
-                                NativeEventKind::PressStart,
-                                context.clone(),
-                                Some("true".to_string()),
-                                &mut routed.invocations,
-                            );
-                            active.start_emitted = true;
-                        } else if !active.long_press_recognized
-                            && !over_target
-                            && active.start_emitted
-                        {
-                            context.click_count = active.click_count;
-                            self.end_active_long_press(
-                                &mut active,
-                                tree,
-                                frame_revision,
-                                event_sequence,
-                                &context,
-                                &mut routed,
-                            );
-                            self.end_press(&active.target, &mut routed.changes);
-                            self.emit(
-                                tree,
-                                frame_revision,
-                                event_sequence,
-                                &active.target,
-                                NativeEventKind::PressEnd,
-                                context.clone(),
-                                Some("false".to_string()),
-                                &mut routed.invocations,
-                            );
-                            active.start_emitted = false;
-                        }
-                        if !recognized_now
-                            && !active.long_press_recognized
-                            && over_target
-                            && active.start_emitted
-                        {
-                            context.click_count = active.click_count;
-                            self.end_active_long_press(
-                                &mut active,
-                                tree,
-                                frame_revision,
-                                event_sequence,
-                                &context,
-                                &mut routed,
-                            );
-                            self.emit(
-                                tree,
-                                frame_revision,
-                                event_sequence,
-                                &active.target,
-                                NativeEventKind::PressUp,
-                                context.clone(),
-                                None,
-                                &mut routed.invocations,
-                            );
-                            self.end_press(&active.target, &mut routed.changes);
-                            self.emit(
-                                tree,
-                                frame_revision,
-                                event_sequence,
-                                &active.target,
-                                NativeEventKind::PressEnd,
-                                context.clone(),
-                                Some("false".to_string()),
-                                &mut routed.invocations,
-                            );
-                            self.emit(
-                                tree,
-                                frame_revision,
-                                event_sequence,
-                                &active.target,
-                                NativeEventKind::Press,
-                                context,
-                                None,
-                                &mut routed.invocations,
-                            );
-                            self.last_clicks.insert(
-                                event.pointer,
-                                LastClick {
-                                    target: active.target,
-                                    timestamp_micros: event.timestamp_micros,
-                                    count: active.click_count,
-                                },
-                            );
+                        let drag_finished = self.finish_pointer_drag(
+                            event.pointer,
+                            &mut active,
+                            true,
+                            tree,
+                            frame_revision,
+                            event_sequence,
+                            &context,
+                            &mut routed,
+                        );
+                        if !drag_finished {
+                            routed.target = Some(active.target.clone());
+                            let over_target = hit_target.as_ref() == Some(&active.target);
+                            let recognized_now = over_target
+                                && self.recognize_long_press_if_due(
+                                    &mut active,
+                                    event.timestamp_micros,
+                                    tree,
+                                    frame_revision,
+                                    event_sequence,
+                                    &mut routed,
+                                );
+                            if !recognized_now && !active.long_press_recognized {
+                                context.click_count = active.click_count;
+                                self.end_active_move(
+                                    &mut active,
+                                    tree,
+                                    frame_revision,
+                                    event_sequence,
+                                    &context,
+                                    &mut routed,
+                                );
+                            }
+                            if !recognized_now
+                                && !active.long_press_recognized
+                                && over_target
+                                && !active.start_emitted
+                            {
+                                context.click_count = active.click_count;
+                                self.start_active_long_press(
+                                    &mut active,
+                                    tree,
+                                    frame_revision,
+                                    event_sequence,
+                                    &context,
+                                    &mut routed,
+                                );
+                                self.begin_press(&active.target, &mut routed.changes);
+                                self.emit(
+                                    tree,
+                                    frame_revision,
+                                    event_sequence,
+                                    &active.target,
+                                    NativeEventKind::PressStart,
+                                    context.clone(),
+                                    Some("true".to_string()),
+                                    &mut routed.invocations,
+                                );
+                                active.start_emitted = true;
+                            } else if !active.long_press_recognized
+                                && !over_target
+                                && active.start_emitted
+                            {
+                                context.click_count = active.click_count;
+                                self.end_active_long_press(
+                                    &mut active,
+                                    tree,
+                                    frame_revision,
+                                    event_sequence,
+                                    &context,
+                                    &mut routed,
+                                );
+                                self.end_press(&active.target, &mut routed.changes);
+                                self.emit(
+                                    tree,
+                                    frame_revision,
+                                    event_sequence,
+                                    &active.target,
+                                    NativeEventKind::PressEnd,
+                                    context.clone(),
+                                    Some("false".to_string()),
+                                    &mut routed.invocations,
+                                );
+                                active.start_emitted = false;
+                            }
+                            if !recognized_now
+                                && !active.long_press_recognized
+                                && over_target
+                                && active.start_emitted
+                            {
+                                context.click_count = active.click_count;
+                                self.end_active_long_press(
+                                    &mut active,
+                                    tree,
+                                    frame_revision,
+                                    event_sequence,
+                                    &context,
+                                    &mut routed,
+                                );
+                                self.emit(
+                                    tree,
+                                    frame_revision,
+                                    event_sequence,
+                                    &active.target,
+                                    NativeEventKind::PressUp,
+                                    context.clone(),
+                                    None,
+                                    &mut routed.invocations,
+                                );
+                                self.end_press(&active.target, &mut routed.changes);
+                                self.emit(
+                                    tree,
+                                    frame_revision,
+                                    event_sequence,
+                                    &active.target,
+                                    NativeEventKind::PressEnd,
+                                    context.clone(),
+                                    Some("false".to_string()),
+                                    &mut routed.invocations,
+                                );
+                                self.emit(
+                                    tree,
+                                    frame_revision,
+                                    event_sequence,
+                                    &active.target,
+                                    NativeEventKind::Press,
+                                    context,
+                                    None,
+                                    &mut routed.invocations,
+                                );
+                                self.last_clicks.insert(
+                                    event.pointer,
+                                    LastClick {
+                                        target: active.target,
+                                        timestamp_micros: event.timestamp_micros,
+                                        count: active.click_count,
+                                    },
+                                );
+                            }
                         }
                     }
                 }
@@ -384,15 +434,26 @@ impl SelfDrawnInteractionSession {
                     &context,
                     &mut routed,
                 );
-                if let Some(active) = pointer.active_press.take() {
-                    self.cancel_active_press(
-                        active,
+                if let Some(mut active) = pointer.active_press.take() {
+                    if !self.finish_pointer_drag(
+                        event.pointer,
+                        &mut active,
+                        false,
                         tree,
                         frame_revision,
                         event_sequence,
                         &context,
                         &mut routed,
-                    );
+                    ) {
+                        self.cancel_active_press(
+                            active,
+                            tree,
+                            frame_revision,
+                            event_sequence,
+                            &context,
+                            &mut routed,
+                        );
+                    }
                 }
             }
         }
@@ -461,6 +522,14 @@ impl SelfDrawnInteractionSession {
             return;
         };
         let over_target = hit_target == Some(&active.target);
+        if context.pointer.is_some_and(|pointer| {
+            self.active_drag
+                .as_ref()
+                .is_some_and(|drag| drag.pointer == Some(pointer))
+        }) {
+            active.over_target = over_target;
+            return;
+        }
         if active.long_press_recognized {
             active.over_target = over_target;
             return;

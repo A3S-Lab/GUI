@@ -124,8 +124,9 @@ The first shared interaction milestone is available in the portable runtime:
 - `SelfDrawnWindowRuntime` builds its hit/focus/action index from the atomically
   committed Native IR and layout snapshot. Raw pointer, keyboard, Tab-focus,
   hover, press, cancellation, wheel, scheduled long press, incremental move,
-  bubbling, and reducer dispatch retain stable `PlatformElementId` identity
-  without importing a widget blueprint or platform content-control runtime.
+  typed drag/drop negotiation, bubbling, and reducer dispatch retain stable
+  `PlatformElementId` identity without importing a widget blueprint or
+  platform content-control runtime.
 - `SelfDrawnActionInvocation` carries the committed frame revision, monotonic
   event sequence, target/current-target pair, modality and input context, plus
   static action payloads. Reducer failure restores the staged interaction
@@ -140,6 +141,18 @@ The first shared interaction milestone is available in the portable runtime:
   incremental position across keyed frames, and reference-counts concurrent
   pointer state. Release, cancellation, and terminal long press end the move;
   arrow keys emit a handled one-unit lifecycle before `KeyDown`.
+- Self-drawn drag routing starts on the first non-zero primary-pointer delta or
+  keyboard Enter. It negotiates multiple MIME/custom source types, `image/*`
+  and `all` patterns, allowed copy/move/link/cancel operations, and target-local
+  pointer coordinates. Keyboard Tab cycles compatible targets only; Enter
+  drops and Escape cancels. Source/target state, keyed reconciliation, and
+  reducer rollback remain one transaction.
+- `use_drag`, `use_drop`, `UiDraggable`, `UiDroppable`, and `UiDropZone` lower
+  their source/target metadata and focusable keyboard affordances into that
+  shared runtime. Multi-item and per-format payloads, collection
+  item/between/root delegates, external files and directories,
+  cross-application transfer, and drag previews remain separate M7 work, so
+  the DropZone family is not yet marked conformant.
 
 - `NativeInputModality` represents keyboard, mouse, touch, pen, virtual, and
   unknown input.
@@ -573,7 +586,7 @@ props:
 | Priority | Area | Required outcome |
 | --- | --- | --- |
 | P0 | Self-drawn component accounting | Keep all 51 React Aria 1.19.0 families in the executable matrix, implement the eight recorded public-part gaps, and require every upstream catalog delta to update code, matrix, tests, and milestones together. |
-| P0 | Shared self-drawn interaction | Extend the landed stable-id pointer, keyboard, Tab-focus, hover, press, scheduled generic long press, incremental captured move, cancellation, wheel, bubbling, and reducer path with drag-and-drop source/target negotiation, collection long-press selection mode, focus-scope restoration, overlay gestures, text editing/IME, and accessibility activation. |
+| P0 | Shared self-drawn interaction | Extend the landed stable-id pointer, keyboard, Tab-focus, hover, press, scheduled generic long press, incremental captured move, typed source/target drag negotiation, cancellation, wheel, bubbling, and reducer path with collection item/between/root drag delegates, external file/directory transfer, drag previews, collection long-press selection mode, focus-scope restoration, overlay gestures, text editing/IME, and accessibility activation. |
 | P0 | Native input conformance | WinUI's complete 98-case V1 manifest passes real OS automation. Populate the AppKit and GTK4 manifests with platform-run mouse, pen, touch where applicable, keyboard, assistive activation, disabled, cancellation, and keyed-rerender fixtures for every role currently marked native; then close or retain evidence-backed menu/item exceptions. |
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |

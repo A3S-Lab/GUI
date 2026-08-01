@@ -27,6 +27,10 @@ pub struct InteractionNodeState {
     #[serde(default)]
     pub y_delta: f64,
     #[serde(default)]
+    pub dragging: bool,
+    #[serde(default)]
+    pub drop_target: bool,
+    #[serde(default)]
     pub hovered: bool,
     pub value: Option<String>,
     pub selected: bool,
@@ -41,6 +45,8 @@ impl std::fmt::Debug for InteractionNodeState {
             .field("focused", &self.focused)
             .field("focus_within", &self.focus_within)
             .field("pressed", &self.pressed)
+            .field("dragging", &self.dragging)
+            .field("drop_target", &self.drop_target)
             .field("has_value", &self.value.is_some())
             .field("selected", &self.selected)
             .field("checked", &self.checked)
@@ -152,6 +158,8 @@ impl InteractionState {
                 state.moving,
                 state.x_delta,
                 state.y_delta,
+                state.dragging,
+                state.drop_target,
                 state.hovered,
             )
         });
@@ -165,6 +173,8 @@ impl InteractionState {
             moving,
             x_delta,
             y_delta,
+            dragging,
+            drop_target,
             hovered,
         )) = transient_state
         {
@@ -176,6 +186,8 @@ impl InteractionState {
             state.moving = moving;
             state.x_delta = x_delta;
             state.y_delta = y_delta;
+            state.dragging = dragging;
+            state.drop_target = drop_target;
             state.hovered = hovered;
         }
         self.nodes.insert(id, state);
@@ -198,6 +210,8 @@ impl InteractionState {
                 state.moving,
                 state.x_delta,
                 state.y_delta,
+                state.dragging,
+                state.drop_target,
                 state.hovered,
             )
         });
@@ -215,6 +229,8 @@ impl InteractionState {
             moving,
             x_delta,
             y_delta,
+            dragging,
+            drop_target,
             hovered,
         )) = transient_state
         {
@@ -226,6 +242,8 @@ impl InteractionState {
             state.moving = moving;
             state.x_delta = x_delta;
             state.y_delta = y_delta;
+            state.dragging = dragging;
+            state.drop_target = drop_target;
             state.hovered = hovered;
         }
         self.nodes.insert(id, state);
@@ -278,6 +296,8 @@ impl InteractionState {
                 state.moving,
                 state.x_delta,
                 state.y_delta,
+                state.dragging,
+                state.drop_target,
                 state.hovered,
             )
         });
@@ -292,6 +312,8 @@ impl InteractionState {
             moving,
             x_delta,
             y_delta,
+            dragging,
+            drop_target,
             hovered,
         )) = transient_state
         {
@@ -303,6 +325,8 @@ impl InteractionState {
             state.moving = moving;
             state.x_delta = x_delta;
             state.y_delta = y_delta;
+            state.dragging = dragging;
+            state.drop_target = drop_target;
             state.hovered = hovered;
         }
         self.nodes.insert(id, state);
@@ -459,6 +483,18 @@ impl InteractionState {
             NativeEventKind::MoveEnd => {
                 after.moving = false;
             }
+            NativeEventKind::DragStart | NativeEventKind::DragMove => {
+                after.dragging = true;
+            }
+            NativeEventKind::DragEnd => {
+                after.dragging = false;
+            }
+            NativeEventKind::DropEnter | NativeEventKind::DropMove => {
+                after.drop_target = true;
+            }
+            NativeEventKind::DropExit | NativeEventKind::Drop => {
+                after.drop_target = false;
+            }
             NativeEventKind::HoverStart => {
                 if event.effective_modality().supports_hover() {
                     after.hovered = true;
@@ -533,6 +569,13 @@ impl InteractionState {
                     | NativeEventKind::MoveStart
                     | NativeEventKind::Move
                     | NativeEventKind::MoveEnd
+                    | NativeEventKind::DragStart
+                    | NativeEventKind::DragMove
+                    | NativeEventKind::DragEnd
+                    | NativeEventKind::DropEnter
+                    | NativeEventKind::DropMove
+                    | NativeEventKind::DropExit
+                    | NativeEventKind::Drop
                     | NativeEventKind::Focus
                     | NativeEventKind::KeyDown
                     | NativeEventKind::KeyUp
@@ -635,6 +678,8 @@ fn initial_state_from_blueprint(blueprint: &NativeWidgetBlueprint) -> Interactio
         moving: false,
         x_delta: 0.0,
         y_delta: 0.0,
+        dragging: false,
+        drop_target: false,
         hovered: false,
         value: blueprint.value.clone(),
         selected: blueprint.control_state.selected,
@@ -653,6 +698,8 @@ fn initial_state_from_props(props: &NativeProps) -> InteractionNodeState {
         moving: false,
         x_delta: 0.0,
         y_delta: 0.0,
+        dragging: false,
+        drop_target: false,
         hovered: false,
         value: props.value.clone(),
         selected: props.selected,
@@ -1121,6 +1168,48 @@ mod tests {
     }
 
     #[test]
+    fn drag_and_drop_lifecycles_track_transient_source_and_target_state() {
+        let blueprint = Gtk4Adapter.blueprint(&NativeElement::new("drag", NativeRole::View));
+        let source = HostNodeId::new(16);
+        let target = HostNodeId::new(17);
+        let mut state = InteractionState::new();
+
+        let drag_start = state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(source, NativeEventKind::DragStart)
+                    .modality(NativeInputModality::Keyboard),
+            )
+            .unwrap();
+        assert!(drag_start.after.dragging);
+        assert_eq!(state.input_modality(), NativeInputModality::Keyboard);
+        let enter = state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(target, NativeEventKind::DropEnter)
+                    .modality(NativeInputModality::Keyboard),
+            )
+            .unwrap();
+        assert!(enter.after.drop_target);
+        let drop = state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(target, NativeEventKind::Drop)
+                    .modality(NativeInputModality::Keyboard),
+            )
+            .unwrap();
+        assert!(!drop.after.drop_target);
+        let drag_end = state
+            .apply_event(
+                &blueprint,
+                &NativeEvent::new(source, NativeEventKind::DragEnd)
+                    .modality(NativeInputModality::Keyboard),
+            )
+            .unwrap();
+        assert!(!drag_end.after.dragging);
+    }
+
+    #[test]
     fn blueprint_sync_preserves_transient_interaction_state() {
         let first = Gtk4Adapter.blueprint(&NativeElement::new("save", NativeRole::Button));
         let second = Gtk4Adapter.blueprint(
@@ -1145,6 +1234,16 @@ mod tests {
             &NativeEvent::new(node, NativeEventKind::PressStart)
                 .modality(NativeInputModality::Mouse),
         );
+        state.apply_event(
+            &first,
+            &NativeEvent::new(node, NativeEventKind::DragStart)
+                .modality(NativeInputModality::Mouse),
+        );
+        state.apply_event(
+            &first,
+            &NativeEvent::new(node, NativeEventKind::DropEnter)
+                .modality(NativeInputModality::Mouse),
+        );
 
         state.sync_node_from_blueprint(node, &second);
 
@@ -1152,6 +1251,8 @@ mod tests {
         assert!(current.focused);
         assert!(current.hovered);
         assert!(current.pressed);
+        assert!(current.dragging);
+        assert!(current.drop_target);
         assert!(current.selected);
     }
 }

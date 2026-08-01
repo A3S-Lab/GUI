@@ -782,6 +782,7 @@ pub struct DropZoneHook {
     pub drop_zone_props: PropHandle<DropZoneProps>,
     pub label: PropHandle<Option<String>>,
     pub is_disabled: PropHandle<bool>,
+    pub is_drop_target: PropHandle<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2632,15 +2633,16 @@ impl<S: 'static> ComponentCx<S> {
         F: Fn(&S) -> UseDropZoneProps + Send + Sync + 'static,
     {
         let selector: Arc<dyn Fn(&S) -> UseDropZoneProps + Send + Sync> = Arc::new(selector);
-        for path in ["dropZoneProps", "label", "isDisabled"] {
+        for path in ["dropZoneProps", "label", "isDisabled", "isDropTarget"] {
             self.use_semantic_part(path, &selector, drop_zone_value_part);
         }
-        self.register_prop_aliases(&["dropZoneProps", "label", "isDisabled"]);
+        self.register_prop_aliases(&["dropZoneProps", "label", "isDisabled", "isDropTarget"]);
 
         DropZoneHook {
             drop_zone_props: PropHandle::new("dropZoneProps"),
             label: PropHandle::new("label"),
             is_disabled: PropHandle::new("isDisabled"),
+            is_drop_target: PropHandle::new("isDropTarget"),
         }
     }
 

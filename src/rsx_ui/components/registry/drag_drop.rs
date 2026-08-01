@@ -27,7 +27,13 @@ pub(super) fn with_drag_drop_components<S>(
             .default_prop("label", "")?
             .default_prop("onDrop", "")?
             .default_prop("onDragEnter", "")?
-            .default_prop("onDragLeave", "")?,
+            .default_prop("onDragLeave", "")?
+            .default_prop("onDropEnter", "")?
+            .default_prop("onDropMove", "")?
+            .default_prop("onDropExit", "")?
+            .default_prop("acceptedDragTypes", "")?
+            .default_prop("dropOperation", "")?
+            .default_prop("isDropTarget", false)?,
         None,
     )?;
     let component = with_builtin_template(
@@ -40,6 +46,7 @@ pub(super) fn with_drag_drop_components<S>(
             .default_prop("onDragEnd", "")?
             .default_prop("dragType", "")?
             .default_prop("dragValue", "")?
+            .default_prop("allowedDropOperations", "")?
             .default_prop("isDisabled", false)?
             .default_prop("isDragging", false)?,
         None,

@@ -36,6 +36,7 @@ pub fn ui_droppable(cx: &mut ComponentCx<UiDroppableProps>) -> RSX {
         <Group
             key="root"
             {...props.dropProps}
+            {...props.dropButtonProps}
             data-slot="droppable"
             data-drop-target={props.isDropTarget}
             class="outline-none data-[drop-target=true]:ring-[2px] data-[drop-target=true]:ring-ink/40 disabled:pointer-events-none disabled:text-muted-soft"

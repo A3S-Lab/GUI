@@ -18,8 +18,9 @@ path uses a DOM, CSSOM, WebView, or framework-owned content renderer.
 > [!IMPORTANT]
 > The repository is in its P0 renderer migration. The semantic runtime and
 > AppKit/GTK4/WinUI control hosts are established dogfood baselines. The first
-> generic self-drawn layout-to-Scene slice has landed; self-drawn text, input,
-> IME, accessibility bridges, and real thin-host presentation remain roadmap
+> generic self-drawn layout-to-Scene slice has landed; self-drawn text shaping,
+> editing/IME, accessibility bridges, and real thin-host presentation remain
+> roadmap
 > work. The TSX runtime, local host session, and npm packages are architecture
 > only and have not been implemented yet. React Aria component parity is not
 > claimed yet.
@@ -67,6 +68,10 @@ versioned [component matrix](docs/react-aria-component-matrix.json) pins
   authoring components;
 - `Button` currently has scene/software-pixel smoke evidence through the shared
   calculator, but no component is self-drawn conformant yet;
+- the shared pointer/keyboard drag/drop state machine now covers multi-type and
+  wildcard negotiation for draggable/drop-target authoring, but multi-item and
+  per-format payloads, collection delegates, external transfer, pixels,
+  accessibility, and real hosts still keep `DropZone` below conformance;
 - Checkbox, Radio, and Switch Field/Button parts plus ToastList and
   ToastContent are recorded as eight explicit API gaps;
 - a component reaches `conformant` only with behavior, layout/hit, Graphics
@@ -295,9 +300,11 @@ independently.
 - retained resize, fractional-scale, damage, occlusion, redraw, delayed
   acknowledgement, and surface-loss replay without changing semantic identity
 - raw pointer, keyboard, Tab-focus, hover, press, cancellation, wheel,
-  scheduled long press, and incremental captured move routing over
-  `PlatformElementId`; event-loop deadlines, release-time fallback, stable
-  action bubbling, and reducer rollback share one staged interaction session
+  scheduled long press, incremental captured move, and self-drawn drag/drop
+  routing over `PlatformElementId`; drag sessions negotiate multiple MIME
+  types and wildcards plus copy/move/link/cancel operations, while event-loop
+  deadlines, stable action bubbling, keyed reconciliation, and reducer rollback
+  share one staged interaction session
 - an identical-frame fast path that performs no layout, scene, host, or
   presentation work, plus semantic-only commits that skip pixel presentation
 - a software Graphics presenter and interactive shared
@@ -313,9 +320,9 @@ independently.
 | M1 · GUI integration | Complete | Pinned Graphics boundary, semantic-only dependency gate, renderer inventory, reference/GPU wrappers, first generic adapter |
 | M2 · GPU backend | Implementation landed | Graphics commit `8748fab`; Metal and Vulkan CI parity evidence remains |
 | M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
-| M4 · Text and interaction cutover | Planned | Shaping, glyphs, GUI-owned input, IME, accessibility bridges, overlays, and complete calculator scenarios |
+| M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, and drag/drop foundations landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
-| H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, scheduled long press, captured move, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
+| H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, long press, captured move, typed drag/drop negotiation, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
 | T0-T5 · TSX native authoring | Proposed | Automatic JSX runtime, versioned Node-to-host session, state/event runtime, self-drawn native window, packages, and stable SDK |
 | M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped, eight public parts explicitly missing, Button scene smoke only; full software and three-OS self-drawn evidence required |
 

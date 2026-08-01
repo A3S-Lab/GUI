@@ -433,7 +433,8 @@ pub fn native_event_render_milestone(kind: NativeEventKind) -> RenderFieldMilest
     use NativeEventKind::*;
     match kind {
         PressStart | PressEnd | PressUp | PressCancel | Press | LongPressStart | LongPressEnd
-        | LongPress | MoveStart | Move | MoveEnd | Action | HoverStart | HoverEnd | Change
+        | LongPress | MoveStart | Move | MoveEnd | DragStart | DragMove | DragEnd | DropEnter
+        | DropMove | DropExit | Drop | Action | HoverStart | HoverEnd | Change
         | SelectionChange | Toggle | Focus | Blur | KeyDown | KeyUp | Wheel | Copy | Cut
         | Paste | Close => RenderFieldMilestone::M4InteractionText,
     }

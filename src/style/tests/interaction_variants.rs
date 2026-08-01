@@ -62,7 +62,8 @@ fn interaction_requirements_cover_pseudo_and_react_aria_data_variants() {
         "hover:opacity-75 active:opacity-50 focus-visible:opacity-100 \
          focus-within:opacity-90 data-[pressed=true]:opacity-25 \
          data-[hovered=true]:opacity-80 data-[long-pressed=true]:opacity-60 \
-         data-[moving=true]:opacity-70 \
+         data-[moving=true]:opacity-70 data-[dragging=true]:opacity-65 \
+         data-[drop-target=true]:opacity-55 \
          data-[focus-visible-within=true]:opacity-100",
     ));
     let requirements = style.interaction_requirements();
@@ -71,6 +72,8 @@ fn interaction_requirements_cover_pseudo_and_react_aria_data_variants() {
     assert!(requirements.press);
     assert!(requirements.long_press);
     assert!(requirements.movement);
+    assert!(requirements.dragging);
+    assert!(requirements.drop_target);
     assert!(requirements.keyboard_modality);
     assert!(requirements.focus_within);
 }

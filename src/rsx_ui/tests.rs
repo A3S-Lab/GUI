@@ -852,6 +852,7 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
             onDragEnd={dragEndAlias}
             dragType="text/plain"
             dragValue="profile"
+            allowedDropOperations="copy,move"
             isDragging={true}
           >
             Drag
@@ -1104,6 +1105,12 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
             attribute_value(draggable, "data-drag-value"),
             Some("profile")
         );
+        assert_eq!(
+            attribute_value(draggable, "data-allowed-drop-operations"),
+            Some("copy,move")
+        );
+        assert_eq!(attribute_value(draggable, "role"), Some("button"));
+        assert_eq!(attribute_value(draggable, "tabIndex"), Some("0"));
         assert_eq!(attribute_value(droppable, "data-drop-target"), Some("true"));
         assert_eq!(
             attribute_value(droppable, "data-accepted-drag-types"),
@@ -1113,6 +1120,8 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
             attribute_value(droppable, "data-drop-operation"),
             Some("move")
         );
+        assert_eq!(attribute_value(droppable, "role"), Some("button"));
+        assert_eq!(attribute_value(droppable, "tabIndex"), Some("0"));
         assert_eq!(attribute_value(focusable, "data-focused"), Some("true"));
         assert_eq!(attribute_value(focusable, "tabIndex"), Some("2"));
         assert_eq!(attribute_value(focusable, "autoFocus"), Some("true"));
@@ -4427,6 +4436,9 @@ fn rsx_ui_renders_structure_collection_and_file_primitives_to_native_roles() {
             onDrop={dropFiles}
             onDragEnter={dragEnter}
             onDragLeave={dragLeave}
+            acceptedDragTypes="image/*,text/plain"
+            dropOperation="copy"
+            isDropTarget={true}
           >
             Drop files
           </UiDropZone>
@@ -4601,6 +4613,7 @@ fn rsx_ui_renders_structure_collection_and_file_primitives_to_native_roles() {
 
     let drop_native = bridge.lower_to_native(drop_zone).unwrap();
     assert_eq!(drop_native.role, NativeRole::View);
+    assert_eq!(drop_native.props.explicit_role.as_deref(), Some("button"));
     assert_eq!(drop_native.props.label.as_deref(), Some("Drop files"));
     assert_eq!(
         drop_native
@@ -4611,6 +4624,26 @@ fn rsx_ui_renders_structure_collection_and_file_primitives_to_native_roles() {
             .map(String::as_str),
         Some("dropFiles")
     );
+    assert_eq!(drop_native.props.tab_index, Some(0));
+    assert_eq!(
+        drop_native
+            .props
+            .web
+            .attributes
+            .get("data-accepted-drag-types")
+            .map(String::as_str),
+        Some("image/*,text/plain")
+    );
+    assert_eq!(
+        drop_native
+            .props
+            .web
+            .attributes
+            .get("data-drop-operation")
+            .map(String::as_str),
+        Some("copy")
+    );
+    assert_eq!(attribute_value(drop_zone, "data-drop-target"), Some("true"));
 
     let virtualizer_native = bridge.lower_to_native(virtualizer).unwrap();
     assert_eq!(virtualizer_native.role, NativeRole::View);

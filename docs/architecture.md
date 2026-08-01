@@ -194,8 +194,8 @@ software and local Direct3D 12 image evidence. The H1-in-progress
 and accessibility projection as one monotonic host frame. Its transactional
 presenter publishes software Graphics pixels only after host commit and replays
 the last scene after surface loss. This remains rectangle-path evidence, not a
-claim that text, full flex/grid behavior, a real OS swapchain, or portable M4
-input routing has landed.
+claim that text, full flex/grid behavior, a real OS swapchain, editing/IME, or
+complete M4 component interaction has landed.
 
 The remaining dependencies stay one-way:
 
@@ -471,13 +471,15 @@ metadata.
 `GuiRuntime` is the public orchestration API. It accepts compiled RSX trees,
 supported semantic component trees, or native IR trees and renders them into any
 `NativeHost`. `InteractionState` updates platform-independent focus, press,
-long-press, movement and its latest incremental delta, value, checked,
-selected, and expanded state from native events before action routing.
-`EventRouter` maps native events such as press, long-press, move lifecycle,
-collection action, change, focus, toggle, selection change, key down, and key
-up back to serialized action identifiers such as `onClick`, `onLongPress`,
-`onMoveStart`, `onMove`, `onMoveEnd`, `onChange`, `onInput`, `onFocusChange`,
-`onAction`, `onExpandedChange`, `onKeyDown`, and `onKeyUp`.
+long-press, movement and its latest incremental delta, dragging, active drop
+target, value, checked, selected, and expanded state from native events before
+action routing. `EventRouter` maps native events such as press, long-press,
+move lifecycle, drag/drop lifecycle, collection action, change, focus, toggle,
+selection change, key down, and key up back to serialized action identifiers
+such as `onClick`, `onLongPress`, `onMoveStart`, `onMove`, `onMoveEnd`,
+`onDragStart`, `onDragMove`, `onDragEnd`, `onDropEnter`, `onDropMove`,
+`onDropExit`, `onDrop`, `onChange`, `onInput`, `onFocusChange`, `onAction`,
+`onExpandedChange`, `onKeyDown`, and `onKeyUp`.
 Focus and blur events always carry canonical `true` and `false` payloads for
 `onFocusChange`. These direct focus callbacks are target-only. The runtime
 separately derives `onFocusWithin`, `onBlurWithin`, and

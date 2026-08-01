@@ -16,6 +16,7 @@ use crate::semantic_event::{
     focus_within_actions_for_event as semantic_focus_within_actions_for_event, SemanticEventData,
 };
 
+use super::drag_drop::{SelfDrawnDragCandidate, SelfDrawnDragContext, SelfDrawnDragSession};
 use super::interaction_tree::SelfDrawnInteractionTree;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -47,6 +48,8 @@ pub struct SelfDrawnEventContext {
     pub handled_activation: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub related_target: Option<PlatformElementId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drag: Option<SelfDrawnDragContext>,
     pub timestamp_micros: u64,
 }
 
@@ -75,6 +78,7 @@ impl SelfDrawnEventContext {
             click_count: 0,
             handled_activation: false,
             related_target: None,
+            drag: None,
             timestamp_micros,
         }
     }
@@ -99,6 +103,7 @@ impl SelfDrawnEventContext {
             click_count: 0,
             handled_activation: false,
             related_target: None,
+            drag: None,
             timestamp_micros,
         }
     }
@@ -125,6 +130,7 @@ impl SelfDrawnEventContext {
             click_count: 0,
             handled_activation: false,
             related_target: None,
+            drag: None,
             timestamp_micros,
         }
     }
@@ -208,6 +214,8 @@ pub struct SelfDrawnElementInteraction {
     pub pressed: bool,
     pub long_pressed: bool,
     pub moving: bool,
+    pub dragging: bool,
+    pub drop_target: bool,
     pub focused: bool,
     pub focus_visible: bool,
     pub focus_within: bool,
@@ -259,6 +267,7 @@ pub(super) struct SelfDrawnInteractionSession {
     pub(super) pressed_counts: BTreeMap<PlatformElementId, u32>,
     pub(super) long_pressed_counts: BTreeMap<PlatformElementId, u32>,
     pub(super) moving_counts: BTreeMap<PlatformElementId, u32>,
+    pub(super) active_drag: Option<SelfDrawnDragSession>,
     pub(super) event_sequence: u64,
 }
 
@@ -278,6 +287,7 @@ pub(super) struct ActivePress {
     pub(super) long_press: Option<LongPressTracking>,
     pub(super) long_press_recognized: bool,
     pub(super) movement: Option<PointerMoveTracking>,
+    pub(super) drag_candidate: Option<SelfDrawnDragCandidate>,
 }
 
 #[derive(Debug, Clone)]
@@ -332,7 +342,17 @@ impl SelfDrawnInteractionSession {
             pointer.active_press = pointer
                 .active_press
                 .take()
-                .filter(|press| tree.is_available(&press.target));
+                .filter(|press| tree.is_available(&press.target))
+                .map(|mut press| {
+                    if let Some(candidate) = press.drag_candidate.as_mut() {
+                        if let Some(source) = tree.drag_source(&press.target) {
+                            candidate.source = source.clone();
+                        } else {
+                            press.drag_candidate = None;
+                        }
+                    }
+                    press
+                });
             pointer.hover_target.is_some() || pointer.active_press.is_some()
         });
         self.keyboard_presses
@@ -344,6 +364,20 @@ impl SelfDrawnInteractionSession {
             .take()
             .filter(|id| tree.node(id).is_some_and(|node| node.focusable))
             .or_else(|| tree.auto_focus_target());
+        self.active_drag = self.active_drag.take().and_then(|mut drag| {
+            tree.drag_source(&drag.source)?;
+            if let Some(target) = drag.current_target.take() {
+                if let Some(matched) =
+                    tree.compatible_drop_target(&target, &drag.types, &drag.allowed_operations)
+                {
+                    drag.current_target = Some(matched.id);
+                    drag.current_operation = matched.operation;
+                } else {
+                    drag.current_operation = super::SelfDrawnDropOperation::Cancel;
+                }
+            }
+            Some(drag)
+        });
 
         let focus_visible = self
             .focused
@@ -357,6 +391,16 @@ impl SelfDrawnInteractionSession {
         self.rebuild_pressed_counts();
         self.rebuild_long_pressed_counts();
         self.rebuild_moving_counts();
+        if let Some(drag) = &self.active_drag {
+            if let Some(state) = self.states.get_mut(&drag.source) {
+                state.dragging = true;
+            }
+            if let Some(target) = &drag.current_target {
+                if let Some(state) = self.states.get_mut(target) {
+                    state.drop_target = true;
+                }
+            }
+        }
         if let Some(focused) = &self.focused {
             if let Some(state) = self.states.get_mut(focused) {
                 state.focused = true;

@@ -13,6 +13,7 @@ pub struct UseDragProps {
     on_drag_end: Option<String>,
     drag_type: Option<String>,
     drag_value: Option<String>,
+    allowed_drop_operations: Option<String>,
     is_disabled: bool,
     is_dragging: bool,
 }
@@ -44,6 +45,14 @@ impl UseDragProps {
 
     pub fn drag_value(mut self, drag_value: Option<impl Into<String>>) -> Self {
         self.drag_value = non_empty(drag_value);
+        self
+    }
+
+    pub fn allowed_drop_operations(
+        mut self,
+        allowed_drop_operations: Option<impl Into<String>>,
+    ) -> Self {
+        self.allowed_drop_operations = non_empty(allowed_drop_operations);
         self
     }
 
@@ -81,10 +90,17 @@ pub struct DragProps {
     pub drag_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub drag_value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowed_drop_operations: Option<String>,
     #[serde(rename = "data-drag-type", skip_serializing_if = "Option::is_none")]
     pub data_drag_type: Option<String>,
     #[serde(rename = "data-drag-value", skip_serializing_if = "Option::is_none")]
     pub data_drag_value: Option<String>,
+    #[serde(
+        rename = "data-allowed-drop-operations",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data_allowed_drop_operations: Option<String>,
     #[serde(skip_serializing_if = "is_false")]
     pub disabled: bool,
     #[serde(rename = "aria-disabled", skip_serializing_if = "is_false")]
@@ -122,8 +138,10 @@ pub fn use_drag(props: UseDragProps) -> UseDragResult {
             on_drag_end: props.on_drag_end,
             drag_type: props.drag_type.clone(),
             drag_value: props.drag_value.clone(),
+            allowed_drop_operations: props.allowed_drop_operations.clone(),
             data_drag_type: props.drag_type,
             data_drag_value: props.drag_value,
+            data_allowed_drop_operations: props.allowed_drop_operations,
             disabled: props.is_disabled,
             aria_disabled: props.is_disabled,
             data_dragging: props.is_dragging,

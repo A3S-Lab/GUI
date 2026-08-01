@@ -1368,6 +1368,7 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
                 .on_drag_end(Some(&drag_end_action))
                 .drag_type(Some("text/plain"))
                 .drag_value(Some("alpha"))
+                .allowed_drop_operations(Some("copy,move"))
                 .dragging(state.dragging)
         });
         let drop_action = drop_action.clone();
@@ -1654,6 +1655,12 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
         drag.attributes.get("data-drag-value").map(String::as_str),
         Some("alpha")
     );
+    assert_eq!(
+        drag.attributes
+            .get("data-allowed-drop-operations")
+            .map(String::as_str),
+        Some("copy,move")
+    );
 
     let drop = child_props("drop");
     assert_eq!(drop.label.as_deref(), Some("Drop target"));
@@ -1768,10 +1775,14 @@ fn component_cx_file_hooks_return_file_props_for_view_consumption() {
                 .on_drop(Some(&action))
                 .on_drag_enter(Some(&enter))
                 .on_drag_leave(Some(&leave))
+                .accepted_drag_types(Some("image/*,text/plain"))
+                .drop_operation(Some("copy"))
                 .disabled(state.disabled)
+                .drop_target(true)
         });
         assert_eq!(props.drop_zone_props.binding_path(), "props.dropZoneProps");
         assert_eq!(props.label.binding_path(), "props.label");
+        assert_eq!(props.is_drop_target.binding_path(), "props.isDropTarget");
 
         crate::rsx!(<Group key="root" {...props.dropZoneProps} />)
     }
@@ -1823,6 +1834,32 @@ fn component_cx_file_hooks_return_file_props_for_view_consumption() {
     assert_eq!(
         props.events.get("onDragEnter").map(String::as_str),
         Some("enterDrop")
+    );
+    assert_eq!(
+        props.attributes.get("role").map(String::as_str),
+        Some("button")
+    );
+    assert_eq!(
+        props.attributes.get("tabIndex").map(String::as_str),
+        Some("0")
+    );
+    assert_eq!(
+        props
+            .attributes
+            .get("data-accepted-drag-types")
+            .map(String::as_str),
+        Some("image/*,text/plain")
+    );
+    assert_eq!(
+        props
+            .attributes
+            .get("data-drop-operation")
+            .map(String::as_str),
+        Some("copy")
+    );
+    assert_eq!(
+        props.attributes.get("data-drop-target").map(String::as_str),
+        Some("true")
     );
 
     component

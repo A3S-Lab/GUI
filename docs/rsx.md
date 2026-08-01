@@ -582,6 +582,17 @@ Semantic UI projections:
 only direct focus by default. Set `within={true}` when descendant focus should
 also display the ring.
 
+Self-drawn drag sources expose `dragType`, `dragValue`, and
+`allowedDropOperations` (comma- or whitespace-separated
+`copy`/`move`/`link`). Drop targets expose `acceptedDragTypes` and
+`dropOperation`; accepted types may contain multiple exact values, `all`, or a
+MIME wildcard such as `image/*`. `UiDraggable`, `UiDroppable`, and `UiDropZone`
+include a keyboard-focusable affordance: Enter starts or commits a drag, Tab
+cycles compatible targets, and Escape cancels. Pointer and keyboard callbacks
+receive the same typed transfer context. External OS files/directories and
+collection before/after insertion targets are not part of this first shared
+runtime slice.
+
 Runtime lifecycle and effects:
 
 - `cx.use_mount(handler)` and `cx.use_mount_result(handler)` run synchronous

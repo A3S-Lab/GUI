@@ -9,6 +9,8 @@ use crate::platform_host::{PlatformElementId, PlatformPoint};
 use crate::semantic_event::{long_press_threshold_micros, SemanticActionSource};
 use crate::style::interaction_requirements_from_web;
 
+use super::drag_drop::{SelfDrawnDragSource, SelfDrawnDropTarget, SelfDrawnMatchedDropTarget};
+
 #[derive(Debug, Clone)]
 pub(super) struct SelfDrawnInteractionTree {
     nodes: BTreeMap<PlatformElementId, SelfDrawnInteractionNode>,
@@ -26,8 +28,11 @@ pub(super) struct SelfDrawnInteractionNode {
     pub(super) focusable: bool,
     pub(super) tab_index: i32,
     pub(super) tree_order: usize,
+    pub(super) bounds: Rect,
     tracks_pointer_interaction: bool,
     tracks_movement: bool,
+    drag_source: Option<SelfDrawnDragSource>,
+    drop_target: Option<SelfDrawnDropTarget>,
     long_press_mode: SelfDrawnLongPressMode,
     long_press_threshold_micros: u64,
 }
@@ -195,6 +200,96 @@ impl SelfDrawnInteractionTree {
             .is_some_and(|node| node.available && node.tracks_movement)
     }
 
+    pub(super) fn drag_source(&self, target: &PlatformElementId) -> Option<&SelfDrawnDragSource> {
+        self.node(target)
+            .filter(|node| node.available)
+            .and_then(|node| node.drag_source.as_ref())
+    }
+
+    pub(super) fn drop_target_at(
+        &self,
+        point: PlatformPoint,
+        types: &[String],
+        allowed_operations: &[super::SelfDrawnDropOperation],
+    ) -> Option<SelfDrawnMatchedDropTarget> {
+        for region in self.hit_regions.iter().rev() {
+            if !contains(region.bounds, point) {
+                continue;
+            }
+            let node = self.node(&region.id)?;
+            if !node.available {
+                return None;
+            }
+            for id in self.ancestors_inclusive(&region.id) {
+                let node = self.node(&id)?;
+                let Some(target) = node.drop_target.as_ref() else {
+                    continue;
+                };
+                let operation = target.operation_for(types, allowed_operations);
+                if operation != super::SelfDrawnDropOperation::Cancel {
+                    return Some(SelfDrawnMatchedDropTarget { id, operation });
+                }
+                return None;
+            }
+            return None;
+        }
+        None
+    }
+
+    pub(super) fn compatible_drop_targets(
+        &self,
+        types: &[String],
+        allowed_operations: &[super::SelfDrawnDropOperation],
+    ) -> Vec<SelfDrawnMatchedDropTarget> {
+        self.tree_order
+            .iter()
+            .filter_map(|id| {
+                let node = self.node(id)?;
+                if !node.available {
+                    return None;
+                }
+                let target = node.drop_target.as_ref()?;
+                let operation = target.operation_for(types, allowed_operations);
+                (operation != super::SelfDrawnDropOperation::Cancel).then(|| {
+                    SelfDrawnMatchedDropTarget {
+                        id: id.clone(),
+                        operation,
+                    }
+                })
+            })
+            .collect()
+    }
+
+    pub(super) fn compatible_drop_target(
+        &self,
+        id: &PlatformElementId,
+        types: &[String],
+        allowed_operations: &[super::SelfDrawnDropOperation],
+    ) -> Option<SelfDrawnMatchedDropTarget> {
+        let node = self.node(id).filter(|node| node.available)?;
+        let operation = node
+            .drop_target
+            .as_ref()?
+            .operation_for(types, allowed_operations);
+        (operation != super::SelfDrawnDropOperation::Cancel).then(|| SelfDrawnMatchedDropTarget {
+            id: id.clone(),
+            operation,
+        })
+    }
+
+    pub(super) fn local_position(
+        &self,
+        target: &PlatformElementId,
+        point: PlatformPoint,
+    ) -> Option<PlatformPoint> {
+        let bounds = self.node(target)?.bounds;
+        Some(PlatformPoint::new(point.x - bounds.x, point.y - bounds.y))
+    }
+
+    pub(super) fn is_focusable(&self, target: &PlatformElementId) -> bool {
+        self.node(target).is_some_and(|node| node.focusable)
+    }
+
     fn interaction_target(&self, target: &PlatformElementId) -> Option<PlatformElementId> {
         self.ancestors_inclusive(target).into_iter().find(|id| {
             self.node(id).is_some_and(|node| {
@@ -219,6 +314,10 @@ impl SelfDrawnInteractionTree {
         let props = normalize_props_for_native_role(element.role, &element.props);
         let id = PlatformElementId::new(layout_id.as_str())?;
         let has_layout = layout.node(layout_id).is_some();
+        let bounds = layout
+            .node(layout_id)
+            .map(|node| node.border_box)
+            .unwrap_or_else(|| Rect::new(0.0, 0.0, 0.0, 0.0));
         let available = parent_available
             && has_layout
             && !props.disabled
@@ -240,9 +339,14 @@ impl SelfDrawnInteractionTree {
                     .is_some_and(|action| !action.is_empty())
             });
         let tracks_movement = interaction_requirements.movement || has_move_event;
+        let drag_source =
+            SelfDrawnDragSource::from_props(&props, interaction_requirements.dragging);
+        let drop_target =
+            SelfDrawnDropTarget::from_props(&props, interaction_requirements.drop_target);
         let tracks_pointer_interaction = interaction_requirements.press
             || interaction_requirements.long_press
             || tracks_movement
+            || drag_source.is_some()
             || interaction_requirements.hover;
         let has_long_press_event = ["onLongPressStart", "onLongPressEnd", "onLongPress"]
             .into_iter()
@@ -277,8 +381,11 @@ impl SelfDrawnInteractionTree {
                 available,
                 focusable,
                 tree_order,
+                bounds,
                 tracks_pointer_interaction,
                 tracks_movement,
+                drag_source,
+                drop_target,
                 long_press_mode,
                 long_press_threshold_micros,
             },

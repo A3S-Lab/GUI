@@ -9,6 +9,7 @@ pub struct UiDraggableProps {
     pub on_drag_end: Option<String>,
     pub drag_type: Option<String>,
     pub drag_value: Option<String>,
+    pub allowed_drop_operations: Option<String>,
     pub is_disabled: bool,
     pub is_dragging: bool,
 }
@@ -21,6 +22,7 @@ pub fn ui_draggable(cx: &mut ComponentCx<UiDraggableProps>) -> RSX {
             .on_drag_end(props.on_drag_end.clone())
             .drag_type(props.drag_type.clone())
             .drag_value(props.drag_value.clone())
+            .allowed_drop_operations(props.allowed_drop_operations.clone())
             .disabled(props.is_disabled)
             .dragging(props.is_dragging)
     });
@@ -32,6 +34,7 @@ pub fn ui_draggable(cx: &mut ComponentCx<UiDraggableProps>) -> RSX {
         <Group
             key="root"
             {...props.dragProps}
+            {...props.dragButtonProps}
             data-slot="draggable"
             data-dragging={props.isDragging}
             class="outline-none transition-opacity data-[dragging=true]:opacity-70 disabled:pointer-events-none disabled:text-muted-soft"

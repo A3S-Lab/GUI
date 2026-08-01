@@ -961,7 +961,7 @@ fn props_scope_value(props: &CompiledProps) -> JsonValue {
             "dropZone",
             drop_zone,
             &["dropZoneProps"],
-            &["label", "isDisabled"],
+            &["label", "isDisabled", "isDropTarget"],
         );
     }
 
@@ -2561,7 +2561,22 @@ fn drop_zone_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             .on_drop(non_empty_prop_action(props.events.get("onDrop")))
             .on_drag_enter(non_empty_prop_action(props.events.get("onDragEnter")))
             .on_drag_leave(non_empty_prop_action(props.events.get("onDragLeave")))
-            .disabled(props.is_disabled),
+            .on_drop_enter(non_empty_prop_action(props.events.get("onDropEnter")))
+            .on_drop_move(non_empty_prop_action(props.events.get("onDropMove")))
+            .on_drop_exit(non_empty_prop_action(props.events.get("onDropExit")))
+            .accepted_drag_types(non_empty_attribute(
+                props,
+                &["acceptedDragTypes", "data-accepted-drag-types"],
+            ))
+            .drop_operation(non_empty_attribute(
+                props,
+                &["dropOperation", "dropEffect", "data-drop-operation"],
+            ))
+            .disabled(props.is_disabled)
+            .drop_target(
+                bool_attribute_value(props, &["isDropTarget", "dropTarget", "data-drop-target"])
+                    .unwrap_or(false),
+            ),
     )
 }
 
@@ -2575,6 +2590,10 @@ fn drag_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             .drag_value(non_empty_attribute(
                 props,
                 &["dragValue", "data-drag-value"],
+            ))
+            .allowed_drop_operations(non_empty_attribute(
+                props,
+                &["allowedDropOperations", "data-allowed-drop-operations"],
             ))
             .disabled(props.is_disabled)
             .dragging(

@@ -123,6 +123,8 @@ impl<H: NativeHost> GuiRuntime<H> {
             state.moving = previous.moving;
             state.x_delta = previous.x_delta;
             state.y_delta = previous.y_delta;
+            state.dragging = previous.dragging;
+            state.drop_target = previous.drop_target;
             state.hovered = previous.hovered;
         }
         state
@@ -245,6 +247,8 @@ fn data_attribute(
         "pressed" => Some(state.pressed),
         "long-pressed" => Some(state.long_pressed),
         "moving" => Some(state.moving),
+        "dragging" => Some(state.dragging),
+        "drop-target" => Some(state.drop_target),
         "hovered" => Some(state.hovered),
         "focused" => Some(state.focused),
         "focus-visible" => Some(state.focus_visible),

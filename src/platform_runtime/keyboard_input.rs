@@ -36,57 +36,71 @@ impl SelfDrawnInteractionSession {
             PlatformKeyState::Pressed => {
                 let focused = self.focused.clone();
                 routed.target = focused.clone();
-                if let Some(target) = focused {
-                    self.route_keyboard_move(
-                        &target,
-                        &key,
-                        tree,
-                        frame_revision,
-                        event_sequence,
-                        &mut context,
-                        &mut routed,
-                    );
-                    let tracks_press = tree
-                        .source(&target)
-                        .is_some_and(|source| source.tracks_press());
-                    let role = tree.node(&target).map(|node| node.role);
-                    let activates = tracks_press
-                        && role.is_some_and(|role| self_drawn_activation_key(role, &key));
-                    if activates && !event.repeat && !self.keyboard_presses.contains_key(&press_key)
-                    {
-                        context.handled_activation = true;
-                        self.keyboard_presses.insert(
-                            press_key.clone(),
-                            KeyboardPress {
-                                target: target.clone(),
-                            },
+                let drag_handled = self.route_keyboard_drag(
+                    &key,
+                    event.modifiers.shift,
+                    event.repeat,
+                    tree,
+                    frame_revision,
+                    event_sequence,
+                    &mut context,
+                    &mut routed,
+                );
+                if !drag_handled {
+                    if let Some(target) = focused {
+                        self.route_keyboard_move(
+                            &target,
+                            &key,
+                            tree,
+                            frame_revision,
+                            event_sequence,
+                            &mut context,
+                            &mut routed,
                         );
-                        self.begin_press(&target, &mut routed.changes);
+                        let tracks_press = tree
+                            .source(&target)
+                            .is_some_and(|source| source.tracks_press());
+                        let role = tree.node(&target).map(|node| node.role);
+                        let activates = tracks_press
+                            && role.is_some_and(|role| self_drawn_activation_key(role, &key));
+                        if activates
+                            && !event.repeat
+                            && !self.keyboard_presses.contains_key(&press_key)
+                        {
+                            context.handled_activation = true;
+                            self.keyboard_presses.insert(
+                                press_key.clone(),
+                                KeyboardPress {
+                                    target: target.clone(),
+                                },
+                            );
+                            self.begin_press(&target, &mut routed.changes);
+                            self.emit(
+                                tree,
+                                frame_revision,
+                                event_sequence,
+                                &target,
+                                NativeEventKind::PressStart,
+                                context.clone(),
+                                Some("true".to_string()),
+                                &mut routed.invocations,
+                            );
+                        } else if activates {
+                            context.handled_activation = true;
+                        }
                         self.emit(
                             tree,
                             frame_revision,
                             event_sequence,
                             &target,
-                            NativeEventKind::PressStart,
+                            NativeEventKind::KeyDown,
                             context.clone(),
-                            Some("true".to_string()),
+                            Some(key.clone()),
                             &mut routed.invocations,
                         );
-                    } else if activates {
-                        context.handled_activation = true;
                     }
-                    self.emit(
-                        tree,
-                        frame_revision,
-                        event_sequence,
-                        &target,
-                        NativeEventKind::KeyDown,
-                        context.clone(),
-                        Some(key.clone()),
-                        &mut routed.invocations,
-                    );
                 }
-                if key == "Tab" && !event.repeat {
+                if !drag_handled && key == "Tab" && !event.repeat {
                     let next = tree.tab_target(self.focused.as_ref(), event.modifiers.shift);
                     self.transition_focus(
                         tree,
