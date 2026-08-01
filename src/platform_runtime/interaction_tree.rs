@@ -2,10 +2,12 @@ use std::collections::BTreeMap;
 
 use crate::error::GuiResult;
 use crate::geometry::Rect;
+use crate::input::NativeInputModality;
 use crate::layout::{LayoutElementId, LayoutSnapshot};
 use crate::native::{normalize_props_for_native_role, NativeElement, NativeProps, NativeRole};
 use crate::platform_host::{PlatformElementId, PlatformPoint};
-use crate::semantic_event::SemanticActionSource;
+use crate::semantic_event::{long_press_threshold_micros, SemanticActionSource};
+use crate::style::interaction_requirements_from_web;
 
 #[derive(Debug, Clone)]
 pub(super) struct SelfDrawnInteractionTree {
@@ -24,6 +26,17 @@ pub(super) struct SelfDrawnInteractionNode {
     pub(super) focusable: bool,
     pub(super) tab_index: i32,
     pub(super) tree_order: usize,
+    tracks_pointer_interaction: bool,
+    long_press_mode: SelfDrawnLongPressMode,
+    long_press_threshold_micros: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+enum SelfDrawnLongPressMode {
+    #[default]
+    Disabled,
+    AnyPointer,
+    TouchOrPen,
 }
 
 #[derive(Debug, Clone)]
@@ -154,11 +167,34 @@ impl SelfDrawnInteractionTree {
         })
     }
 
+    pub(super) fn long_press_threshold_micros(
+        &self,
+        target: &PlatformElementId,
+        modality: NativeInputModality,
+    ) -> Option<u64> {
+        let node = self.node(target)?;
+        let accepted = match node.long_press_mode {
+            SelfDrawnLongPressMode::Disabled => false,
+            SelfDrawnLongPressMode::AnyPointer => matches!(
+                modality,
+                NativeInputModality::Mouse | NativeInputModality::Touch | NativeInputModality::Pen
+            ),
+            SelfDrawnLongPressMode::TouchOrPen => {
+                matches!(
+                    modality,
+                    NativeInputModality::Touch | NativeInputModality::Pen
+                )
+            }
+        };
+        accepted.then_some(node.long_press_threshold_micros)
+    }
+
     fn interaction_target(&self, target: &PlatformElementId) -> Option<PlatformElementId> {
         self.ancestors_inclusive(target).into_iter().find(|id| {
             self.node(id).is_some_and(|node| {
                 node.available
                     && (node.focusable
+                        || node.tracks_pointer_interaction
                         || self
                             .source(id)
                             .is_some_and(|source| source.has_interaction_binding()))
@@ -186,6 +222,32 @@ impl SelfDrawnInteractionTree {
         let tree_order = self.tree_order.len();
         let focusable =
             available && !is_focus_scope(&props) && role_is_focusable(element.role, &props);
+        let interaction_requirements = interaction_requirements_from_web(&props.web);
+        let style_requires_long_press = interaction_requirements.long_press;
+        let tracks_pointer_interaction = interaction_requirements.press
+            || interaction_requirements.long_press
+            || interaction_requirements.hover;
+        let has_long_press_event = ["onLongPressStart", "onLongPressEnd", "onLongPress"]
+            .into_iter()
+            .any(|name| {
+                props
+                    .web
+                    .events
+                    .get(name)
+                    .is_some_and(|action| !action.is_empty())
+            });
+        let has_collection_action = props
+            .metadata
+            .get(crate::selection::COLLECTION_ACTION_METADATA_KEY)
+            .is_some_and(|value| value.eq_ignore_ascii_case("true"));
+        let long_press_mode = if has_long_press_event || style_requires_long_press {
+            SelfDrawnLongPressMode::AnyPointer
+        } else if has_collection_action {
+            SelfDrawnLongPressMode::TouchOrPen
+        } else {
+            SelfDrawnLongPressMode::Disabled
+        };
+        let long_press_threshold_micros = long_press_threshold_micros(&props.metadata);
         self.tree_order.push(id.clone());
         self.nodes.insert(
             id.clone(),
@@ -198,6 +260,9 @@ impl SelfDrawnInteractionTree {
                 available,
                 focusable,
                 tree_order,
+                tracks_pointer_interaction,
+                long_press_mode,
+                long_press_threshold_micros,
             },
         );
         for child in &element.children {

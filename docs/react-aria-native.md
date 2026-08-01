@@ -123,14 +123,18 @@ The first shared interaction milestone is available in the portable runtime:
 
 - `SelfDrawnWindowRuntime` builds its hit/focus/action index from the atomically
   committed Native IR and layout snapshot. Raw pointer, keyboard, Tab-focus,
-  hover, press, cancellation, wheel, bubbling, and reducer dispatch retain
-  stable `PlatformElementId` identity without importing a widget blueprint or
-  platform content-control runtime.
+  hover, press, cancellation, wheel, scheduled long press, bubbling, and
+  reducer dispatch retain stable `PlatformElementId` identity without
+  importing a widget blueprint or platform content-control runtime.
 - `SelfDrawnActionInvocation` carries the committed frame revision, monotonic
   event sequence, target/current-target pair, modality and input context, plus
   static action payloads. Reducer failure restores the staged interaction
   session and sequence; keyed successful frames reconcile focus and transient
   state by stable id.
+- `next_interaction_deadline_micros` lets a thin OS host schedule its native
+  event-loop timer without exporting a toolkit timer into portable state.
+  Deadline recognition and release-time fallback share the same ordering and
+  reducer rollback, while pointer leave/re-entry cancels and restarts the hold.
 
 - `NativeInputModality` represents keyboard, mouse, touch, pen, virtual, and
   unknown input.
@@ -564,7 +568,7 @@ props:
 | Priority | Area | Required outcome |
 | --- | --- | --- |
 | P0 | Self-drawn component accounting | Keep all 51 React Aria 1.19.0 families in the executable matrix, implement the eight recorded public-part gaps, and require every upstream catalog delta to update code, matrix, tests, and milestones together. |
-| P0 | Shared self-drawn interaction | Extend the landed stable-id pointer, keyboard, Tab-focus, hover, press, cancellation, wheel, bubbling, and reducer path with long press, move/drag, focus-scope restoration, overlay gestures, text editing/IME, and accessibility activation. |
+| P0 | Shared self-drawn interaction | Extend the landed stable-id pointer, keyboard, Tab-focus, hover, press, scheduled generic long press, cancellation, wheel, bubbling, and reducer path with move/drag, collection long-press selection mode, focus-scope restoration, overlay gestures, text editing/IME, and accessibility activation. |
 | P0 | Native input conformance | WinUI's complete 98-case V1 manifest passes real OS automation. Populate the AppKit and GTK4 manifests with platform-run mouse, pen, touch where applicable, keyboard, assistive activation, disabled, cancellation, and keyed-rerender fixtures for every role currently marked native; then close or retain evidence-backed menu/item exceptions. |
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |

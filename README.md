@@ -294,9 +294,10 @@ independently.
   exposure, published only after host commit, and discarded on rejection
 - retained resize, fractional-scale, damage, occlusion, redraw, delayed
   acknowledgement, and surface-loss replay without changing semantic identity
-- raw pointer, keyboard, Tab-focus, hover, press, cancellation, wheel, stable
-  action bubbling, and reducer dispatch over `PlatformElementId`; failed
-  reducers restore the complete staged interaction session
+- raw pointer, keyboard, Tab-focus, hover, press, cancellation, wheel, and
+  scheduled long-press routing over `PlatformElementId`; event-loop deadlines,
+  release-time fallback, stable action bubbling, and reducer rollback share one
+  staged interaction session
 - an identical-frame fast path that performs no layout, scene, host, or
   presentation work, plus semantic-only commits that skip pixel presentation
 - a software Graphics presenter and interactive shared
@@ -314,7 +315,7 @@ independently.
 | M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
 | M4 · Text and interaction cutover | Planned | Shaping, glyphs, GUI-owned input, IME, accessibility bridges, overlays, and complete calculator scenarios |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
-| H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducer routing, zero-toolkit firewalls, and an interactive calculator landed; a real raw-surface presenter remains |
+| H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, scheduled long press, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
 | T0-T5 · TSX native authoring | Proposed | Automatic JSX runtime, versioned Node-to-host session, state/event runtime, self-drawn native window, packages, and stable SDK |
 | M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped, eight public parts explicitly missing, Button scene smoke only; full software and three-OS self-drawn evidence required |
 

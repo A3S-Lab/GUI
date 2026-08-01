@@ -1,5 +1,8 @@
 use std::collections::BTreeSet;
 
+#[cfg(feature = "platform-runtime")]
+use crate::web::WebProps;
+
 use super::PortableStyle;
 
 /// Native input streams required to keep stateful style variants current.
@@ -59,6 +62,11 @@ impl PortableStyle {
         }
         requirements
     }
+}
+
+#[cfg(feature = "platform-runtime")]
+pub(crate) fn interaction_requirements_from_web(web: &WebProps) -> InteractionStyleRequirements {
+    PortableStyle::from_web(web).interaction_requirements()
 }
 
 fn apply_variant_property(

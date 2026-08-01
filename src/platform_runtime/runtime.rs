@@ -49,6 +49,7 @@ pub struct SelfDrawnRuntimeStats {
     pub redraws: u64,
     pub surface_recoveries: u64,
     pub input_events: u64,
+    pub interaction_ticks: u64,
     pub action_invocations: u64,
     pub reducer_failures: u64,
 }

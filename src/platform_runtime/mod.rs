@@ -7,6 +7,9 @@ mod input;
 mod interaction;
 mod interaction_tree;
 mod keyboard_input;
+mod long_press_input;
+#[cfg(test)]
+mod long_press_tests;
 mod presenter;
 #[cfg(feature = "software-reference")]
 mod reference_presenter;

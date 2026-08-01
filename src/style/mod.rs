@@ -18,6 +18,8 @@ mod tests;
 mod types;
 mod value_parsing;
 
+#[cfg(feature = "platform-runtime")]
+pub(crate) use interaction::interaction_requirements_from_web;
 pub(crate) use interaction::variant_segments;
 pub use interaction::InteractionStyleRequirements;
 pub use portable::{NativeSizeConstraints, PortableStyle};

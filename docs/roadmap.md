@@ -486,17 +486,24 @@ Landed evidence:
 - ordered action batches carry the hit-tested frame revision and monotonic
   event sequence, preserve bubbling current targets and static payloads, and
   restore staged interaction state if an application reducer fails
+- long press exposes a monotonic event-loop deadline, tracks style-only and
+  callback-driven targets, resets across pointer leave/re-entry, recognizes at
+  the deadline or on release as a scheduling fallback, and atomically emits
+  `LongPressEnd`, `PressCancel`, then terminal `LongPress`
 - the shared 410x620 calculator preserves its reviewed layout and scene
   fingerprints, routes eight fake-host events through four reducer actions,
   commits the resulting frames, and reaches display value `10`
-- 20 focused runtime/software tests plus three recursive H1 firewall tests are
+- 26 focused runtime/software tests plus four recursive H1 firewall tests are
   included in `just verify`
 
 Remaining H1 work:
 
 - a Graphics raw-surface presenter implementation for the H2-H4 OS shells;
-  richer text editing, IME, overlay gestures, and component-specific
-  interaction conformance remain explicit M4 and M6-M8 work
+  pinned Graphics commit `8748fab` owns only a surface-independent texture and
+  readback today, so its safe host-owned surface attachment/recovery contract
+  must land before GUI can implement this edge without duplicating `wgpu`
+- richer move/drag, text editing, IME, overlay gestures, and
+  component-specific interaction conformance remain explicit M4 and M6-M8 work
 
 Gates:
 

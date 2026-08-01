@@ -7,6 +7,23 @@ use crate::native::NativeRole;
 
 use crate::event::{non_empty_action, NativeEventKind};
 
+#[cfg(any(
+    test,
+    feature = "platform-runtime",
+    all(feature = "appkit-native", target_os = "macos"),
+    all(feature = "gtk4-native", target_os = "linux"),
+    all(feature = "winui-native", target_os = "windows")
+))]
+pub(crate) const DEFAULT_LONG_PRESS_THRESHOLD_MICROS: u64 = 500_000;
+#[cfg(any(
+    test,
+    feature = "platform-runtime",
+    all(feature = "appkit-native", target_os = "macos"),
+    all(feature = "gtk4-native", target_os = "linux"),
+    all(feature = "winui-native", target_os = "windows")
+))]
+pub(crate) const MAX_LONG_PRESS_THRESHOLD_MICROS: u64 = 60_000_000;
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct SemanticEventData<'a> {
     pub(crate) kind: NativeEventKind,
@@ -275,6 +292,24 @@ pub(crate) fn native_key_value(raw: &str) -> String {
         "" => String::new(),
         value => value.to_string(),
     }
+}
+
+#[cfg(any(
+    test,
+    feature = "platform-runtime",
+    all(feature = "appkit-native", target_os = "macos"),
+    all(feature = "gtk4-native", target_os = "linux"),
+    all(feature = "winui-native", target_os = "windows")
+))]
+pub(crate) fn long_press_threshold_micros(metadata: &BTreeMap<String, String>) -> u64 {
+    ["threshold", "data-long-press-threshold"]
+        .into_iter()
+        .find_map(|name| metadata.get(name))
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .map(|millis| millis.saturating_mul(1_000))
+        .map(|micros| micros.min(MAX_LONG_PRESS_THRESHOLD_MICROS))
+        .unwrap_or(DEFAULT_LONG_PRESS_THRESHOLD_MICROS)
 }
 
 pub(crate) fn is_press_activation_key(role: NativeRole, value: Option<&str>) -> bool {

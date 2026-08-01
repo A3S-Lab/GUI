@@ -1115,13 +1115,7 @@ fn is_number_field_stepper(blueprint: &NativeWidgetBlueprint) -> bool {
 }
 
 fn long_press_threshold(metadata: &BTreeMap<String, String>) -> Duration {
-    ["threshold", "data-long-press-threshold"]
-        .into_iter()
-        .find_map(|name| metadata.get(name))
-        .and_then(|value| value.trim().parse::<u64>().ok())
-        .filter(|value| *value > 0)
-        .map(|value| Duration::from_millis(value.min(60_000)))
-        .unwrap_or(DEFAULT_LONG_PRESS_THRESHOLD)
+    Duration::from_micros(crate::semantic_event::long_press_threshold_micros(metadata))
 }
 
 #[cfg(test)]

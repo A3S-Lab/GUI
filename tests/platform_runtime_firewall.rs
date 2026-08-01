@@ -32,6 +32,23 @@ fn platform_runtime_feature_owns_only_the_shared_host_and_graphics_edges() {
 }
 
 #[test]
+fn raw_surface_ownership_stays_behind_the_pinned_graphics_edge() {
+    let manifest = fs::read_to_string(manifest_path("Cargo.toml")).unwrap();
+    let dependency = manifest
+        .lines()
+        .find(|line| line.starts_with("a3s-graphics ="))
+        .expect("a3s-graphics dependency must stay explicit");
+    assert!(dependency.contains("https://github.com/A3S-Lab/Graphics"));
+    assert!(dependency.contains("8748fab595f8dd7f7ca28767f1c58bd7f3f34ee0"));
+    assert!(dependency.contains("default-features = false"));
+    assert!(manifest.contains("gpu = [\"graphics\", \"a3s-graphics/gpu\"]"));
+    assert!(
+        !manifest.lines().any(|line| line.starts_with("wgpu =")),
+        "GUI must not duplicate Graphics-owned device or raw-surface state"
+    );
+}
+
+#[test]
 fn platform_runtime_source_has_no_legacy_widget_or_toolkit_path() {
     let source_root = manifest_path("src/platform_runtime");
     let mut files = Vec::new();

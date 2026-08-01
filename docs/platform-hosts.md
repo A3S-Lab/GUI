@@ -212,6 +212,7 @@ src/platform_runtime/
 |- interaction.rs       portable state, actions, changes, and event context
 |- input.rs             pointer capture, hover, press, and cancellation
 |- keyboard_input.rs    keyboard activation, Tab focus, and wheel routing
+|- long_press_input.rs  event-loop deadlines and terminal hold recognition
 |- presenter.rs         raw-surface prepare/publish contract and recorder
 |- reference_presenter.rs
 |                       transactional software Graphics evidence
@@ -240,6 +241,17 @@ legacy widget-planning modules.
 The new modules are created beside the legacy directories rather than by
 renaming a control backend. This makes accidental content-widget reuse visible
 and lets each old backend be deleted after its replacement evidence exists.
+
+### Graphics surface capability gate
+
+The pinned Graphics commit `8748fab` currently renders to a
+surface-independent texture and supports deterministic readback; it does not
+yet expose its planned safe window-surface attachment API. GUI therefore does
+not import `wgpu`, create a second device/queue owner, or place raw handles in
+`PlatformHost` records. H1's remaining presenter can land only after Graphics
+provides host-owned attachment, configure/acquire/present, resize/suspend, and
+surface/device recovery while retaining Graphics resource identity. The H1
+firewall pins that dependency and rejects a direct GUI `wgpu` dependency.
 
 ## H0 Transaction and Thread Contract
 
@@ -355,10 +367,14 @@ Landed evidence:
   route through committed hit regions and stable `PlatformElementId` paths;
   ordered action batches retain frame revision, event sequence, bubbling
   target, input context, and static action payload
+- callback-driven and style-only long press exposes the next monotonic host
+  deadline, cancels and restarts across pointer boundaries, falls back to
+  release-time recognition, and routes the terminal action through the same
+  rollback-aware reducer path
 - reducer errors restore the staged interaction state and sequence before the
   event is exposed as successful; successful frame reconciliation preserves
   focused stable ids, while rejected frames do not touch them
-- 20 focused runtime/software tests and three recursive feature/source
+- 26 focused runtime/software tests and four recursive feature/source
   firewall tests pass without any legacy renderer or OS toolkit dependency
 - `self_drawn_calculator` reproduces layout fingerprint
   `16529597026056060935`, scene fingerprint `2100550662756266801`, and
@@ -369,7 +385,8 @@ Remaining before H1 is complete:
 
 - implement the Graphics raw-surface presenter used by H2-H4; the landed
   presenter contract and software implementation deliberately expose no raw
-  handle to components or common host records
+  handle to components or common host records, and pinned Graphics commit
+  `8748fab` must first supply its planned safe surface attachment API
 
 Gates:
 

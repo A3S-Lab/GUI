@@ -40,7 +40,7 @@ fn tree(label: &str, color: &str) -> NativeElement {
         )
 }
 
-fn runtime() -> SelfDrawnWindowRuntime<RecordingPlatformHost, RecordingScenePresenter> {
+pub(super) fn runtime() -> SelfDrawnWindowRuntime<RecordingPlatformHost, RecordingScenePresenter> {
     SelfDrawnWindowRuntime::new(
         RecordingPlatformHost::new(),
         RecordingScenePresenter::new(),
@@ -123,7 +123,17 @@ fn disabled_overlay_tree() -> NativeElement {
         )
 }
 
-fn pointer_event(
+pub(super) fn pointer_event(
+    phase: PlatformPointerPhase,
+    x: f64,
+    y: f64,
+    timestamp_micros: u64,
+) -> PlatformHostEvent {
+    pointer_event_for(PlatformPointerId::new(1), phase, x, y, timestamp_micros)
+}
+
+pub(super) fn pointer_event_for(
+    pointer: PlatformPointerId,
     phase: PlatformPointerPhase,
     x: f64,
     y: f64,
@@ -139,7 +149,7 @@ fn pointer_event(
             event: PlatformPointerEvent {
                 window: spec().id,
                 device: PlatformInputDeviceId::new(1),
-                pointer: PlatformPointerId::new(1),
+                pointer,
                 modality: NativeInputModality::Mouse,
                 phase,
                 position: PlatformPoint::new(x, y),
@@ -764,6 +774,12 @@ fn public_runtime_records_are_send_and_sync() {
     assert_send_sync::<SelfDrawnElementInteraction>();
     assert_send_sync::<SelfDrawnInteractionChange>();
     assert_send_sync::<SelfDrawnInputDispatch>();
+}
+
+#[test]
+fn interaction_wire_defaults_new_transient_state_fields() {
+    let state: SelfDrawnElementInteraction = serde_json::from_str("{}").unwrap();
+    assert_eq!(state, SelfDrawnElementInteraction::default());
 }
 
 #[cfg(feature = "software-reference")]

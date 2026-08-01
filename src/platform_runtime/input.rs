@@ -6,8 +6,9 @@ use crate::platform_host::{
 };
 
 use super::interaction::{
-    ActivePress, LastClick, PointerInteraction, RoutedSemanticEvent, SelfDrawnEventContext,
-    SelfDrawnInputDispatch, SelfDrawnInteractionChange, SelfDrawnInteractionSession,
+    ActivePress, LastClick, LongPressTracking, PointerInteraction, RoutedSemanticEvent,
+    SelfDrawnEventContext, SelfDrawnInputDispatch, SelfDrawnInteractionChange,
+    SelfDrawnInteractionSession,
 };
 use super::interaction_tree::SelfDrawnInteractionTree;
 
@@ -158,6 +159,29 @@ impl SelfDrawnInteractionSession {
                             &mut routed.invocations,
                             &mut routed.changes,
                         );
+                        let long_press_threshold_micros =
+                            tree.long_press_threshold_micros(&target, context.modality);
+                        let long_press = long_press_threshold_micros.map(|threshold| {
+                            let mut long_press_context = context.clone();
+                            long_press_context.click_count = click_count;
+                            LongPressTracking {
+                                deadline_micros: event.timestamp_micros.saturating_add(threshold),
+                                context: long_press_context,
+                            }
+                        });
+                        if long_press.is_some() {
+                            self.begin_long_press(&target, &mut routed.changes);
+                            self.emit(
+                                tree,
+                                frame_revision,
+                                event_sequence,
+                                &target,
+                                NativeEventKind::LongPressStart,
+                                context.clone(),
+                                None,
+                                &mut routed.invocations,
+                            );
+                        }
                         self.begin_press(&target, &mut routed.changes);
                         self.emit(
                             tree,
@@ -174,6 +198,9 @@ impl SelfDrawnInteractionSession {
                             over_target: true,
                             start_emitted: true,
                             click_count,
+                            long_press_threshold_micros,
+                            long_press,
+                            long_press_recognized: false,
                         });
                         routed.target = Some(target);
                     }
@@ -193,8 +220,29 @@ impl SelfDrawnInteractionSession {
                     if let Some(mut active) = pointer.active_press.take() {
                         routed.target = Some(active.target.clone());
                         let over_target = hit_target.as_ref() == Some(&active.target);
-                        if over_target && !active.start_emitted {
+                        let recognized_now = over_target
+                            && self.recognize_long_press_if_due(
+                                &mut active,
+                                event.timestamp_micros,
+                                tree,
+                                frame_revision,
+                                event_sequence,
+                                &mut routed,
+                            );
+                        if !recognized_now
+                            && !active.long_press_recognized
+                            && over_target
+                            && !active.start_emitted
+                        {
                             context.click_count = active.click_count;
+                            self.start_active_long_press(
+                                &mut active,
+                                tree,
+                                frame_revision,
+                                event_sequence,
+                                &context,
+                                &mut routed,
+                            );
                             self.begin_press(&active.target, &mut routed.changes);
                             self.emit(
                                 tree,
@@ -207,8 +255,19 @@ impl SelfDrawnInteractionSession {
                                 &mut routed.invocations,
                             );
                             active.start_emitted = true;
-                        } else if !over_target && active.start_emitted {
+                        } else if !active.long_press_recognized
+                            && !over_target
+                            && active.start_emitted
+                        {
                             context.click_count = active.click_count;
+                            self.end_active_long_press(
+                                &mut active,
+                                tree,
+                                frame_revision,
+                                event_sequence,
+                                &context,
+                                &mut routed,
+                            );
                             self.end_press(&active.target, &mut routed.changes);
                             self.emit(
                                 tree,
@@ -222,8 +281,20 @@ impl SelfDrawnInteractionSession {
                             );
                             active.start_emitted = false;
                         }
-                        if over_target && active.start_emitted {
+                        if !recognized_now
+                            && !active.long_press_recognized
+                            && over_target
+                            && active.start_emitted
+                        {
                             context.click_count = active.click_count;
+                            self.end_active_long_press(
+                                &mut active,
+                                tree,
+                                frame_revision,
+                                event_sequence,
+                                &context,
+                                &mut routed,
+                            );
                             self.emit(
                                 tree,
                                 frame_revision,
@@ -358,6 +429,10 @@ impl SelfDrawnInteractionSession {
             return;
         };
         let over_target = hit_target == Some(&active.target);
+        if active.long_press_recognized {
+            active.over_target = over_target;
+            return;
+        }
         if over_target == active.over_target {
             return;
         }
@@ -365,6 +440,14 @@ impl SelfDrawnInteractionSession {
         let mut context = context.clone();
         context.click_count = active.click_count;
         if over_target {
+            self.start_active_long_press(
+                active,
+                tree,
+                frame_revision,
+                event_sequence,
+                &context,
+                routed,
+            );
             self.begin_press(&active.target, &mut routed.changes);
             self.emit(
                 tree,
@@ -378,6 +461,14 @@ impl SelfDrawnInteractionSession {
             );
             active.start_emitted = true;
         } else if active.start_emitted {
+            self.end_active_long_press(
+                active,
+                tree,
+                frame_revision,
+                event_sequence,
+                &context,
+                routed,
+            );
             self.end_press(&active.target, &mut routed.changes);
             self.emit(
                 tree,
@@ -396,18 +487,29 @@ impl SelfDrawnInteractionSession {
     #[allow(clippy::too_many_arguments)]
     fn cancel_active_press(
         &mut self,
-        active: ActivePress,
+        mut active: ActivePress,
         tree: &SelfDrawnInteractionTree,
         frame_revision: PlatformHostRevision,
         event_sequence: u64,
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
     ) {
-        if !active.start_emitted {
+        if active.long_press_recognized {
             return;
         }
         let mut context = context.clone();
         context.click_count = active.click_count;
+        self.end_active_long_press(
+            &mut active,
+            tree,
+            frame_revision,
+            event_sequence,
+            &context,
+            routed,
+        );
+        if !active.start_emitted {
+            return;
+        }
         self.end_press(&active.target, &mut routed.changes);
         self.emit(
             tree,

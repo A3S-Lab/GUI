@@ -111,29 +111,71 @@ where
         let SelfDrawnHostEventOutcome::Input(dispatch) = &mut outcome else {
             return Ok(outcome);
         };
-        let mut stopped_at = None;
-        for invocation in &dispatch.invocations {
-            if stopped_at
-                .as_ref()
-                .is_some_and(|target| invocation.current_target() != target)
-            {
-                continue;
-            }
-            match reducer(invocation) {
-                Ok(SelfDrawnActionPropagation::Continue) => {}
-                Ok(SelfDrawnActionPropagation::Stop) => {
-                    stopped_at = Some(invocation.current_target().clone());
-                }
-                Err(error) => {
-                    self.interaction = interaction;
-                    self.stats = stats;
-                    self.stats.reducer_failures = self.stats.reducer_failures.saturating_add(1);
-                    return Err(error);
-                }
-            }
+        if let Err(error) = reduce_dispatch(dispatch, &mut reducer) {
+            self.interaction = interaction;
+            self.stats = stats;
+            self.stats.reducer_failures = self.stats.reducer_failures.saturating_add(1);
+            return Err(error);
         }
-        dispatch.propagation_stopped_at = stopped_at;
         Ok(outcome)
+    }
+
+    /// Earliest monotonic host-clock timestamp at which portable interaction
+    /// state needs another event-loop callback.
+    pub fn next_interaction_deadline_micros(&self) -> Option<u64> {
+        self.interaction.next_interaction_deadline_micros()
+    }
+
+    /// Advances scheduled portable interaction state without synthesizing an
+    /// operating-system input event. Hosts call this at or after the deadline
+    /// returned by [`Self::next_interaction_deadline_micros`]. Each call drains
+    /// one stable pointer deadline; call again while the next deadline is not
+    /// later than the current host timestamp.
+    pub fn advance_interaction_time(
+        &mut self,
+        timestamp_micros: u64,
+    ) -> GuiResult<Option<super::SelfDrawnInputDispatch>> {
+        self.ensure_running()?;
+        let Some(snapshot) = self.committed.as_ref() else {
+            return Ok(None);
+        };
+        let revision = snapshot.revision();
+        let tree = Arc::clone(snapshot.interaction_tree());
+        let dispatch =
+            self.interaction
+                .route_interaction_time(timestamp_micros, revision, &tree)?;
+        if let Some(dispatch) = &dispatch {
+            self.stats.interaction_ticks = self.stats.interaction_ticks.saturating_add(1);
+            self.stats.action_invocations = self
+                .stats
+                .action_invocations
+                .saturating_add(dispatch.invocations.len() as u64);
+        }
+        Ok(dispatch)
+    }
+
+    /// Advances a scheduled interaction deadline and applies its ordered
+    /// action batch transactionally to the portable interaction session.
+    pub fn advance_interaction_time_with_reducer<R>(
+        &mut self,
+        timestamp_micros: u64,
+        mut reducer: R,
+    ) -> GuiResult<Option<super::SelfDrawnInputDispatch>>
+    where
+        R: FnMut(&SelfDrawnActionInvocation) -> GuiResult<SelfDrawnActionPropagation>,
+    {
+        let interaction = self.interaction.clone();
+        let stats = self.stats;
+        let Some(mut dispatch) = self.advance_interaction_time(timestamp_micros)? else {
+            return Ok(None);
+        };
+        if let Err(error) = reduce_dispatch(&mut dispatch, &mut reducer) {
+            self.interaction = interaction;
+            self.stats = stats;
+            self.stats.reducer_failures = self.stats.reducer_failures.saturating_add(1);
+            return Err(error);
+        }
+        Ok(Some(dispatch))
     }
 
     pub fn poll_event(&mut self) -> GuiResult<Option<SelfDrawnHostEventOutcome>> {
@@ -282,4 +324,30 @@ fn input_window(event: &PlatformInputEvent) -> PlatformWindowId {
         PlatformInputEvent::Wheel { event } => event.window,
         PlatformInputEvent::ModifiersChanged { window, .. } => *window,
     }
+}
+
+fn reduce_dispatch<R>(
+    dispatch: &mut super::SelfDrawnInputDispatch,
+    reducer: &mut R,
+) -> GuiResult<()>
+where
+    R: FnMut(&SelfDrawnActionInvocation) -> GuiResult<SelfDrawnActionPropagation>,
+{
+    let mut stopped_at = None;
+    for invocation in &dispatch.invocations {
+        if stopped_at
+            .as_ref()
+            .is_some_and(|target| invocation.current_target() != target)
+        {
+            continue;
+        }
+        match reducer(invocation)? {
+            SelfDrawnActionPropagation::Continue => {}
+            SelfDrawnActionPropagation::Stop => {
+                stopped_at = Some(invocation.current_target().clone());
+            }
+        }
+    }
+    dispatch.propagation_stopped_at = stopped_at;
+    Ok(())
 }
