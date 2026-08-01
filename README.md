@@ -17,8 +17,7 @@ describe semantic UI in Rust function components or `.rsx` modules, update
 state through reducers, and lower the same portable native IR into layout,
 paint, interaction, and accessibility records. Application pixels are moving
 to the shared [`a3s-graphics`](https://github.com/A3S-Lab/Graphics) engine,
-whose production GPU path is being built on `wgpu` directly for Metal,
-Direct3D 12, and Vulkan.
+whose GPU path uses `wgpu` directly for Metal, Direct3D 12, and Vulkan.
 
 The current AppKit, GTK4, WinUI, and deterministic headless hosts remain as the
 migration baseline. New rendering work targets the self-drawn Graphics path;
@@ -130,6 +129,7 @@ just playground
 | `headless` | Deterministic runtime and host behavior without an OS GUI |
 | `graphics` | Pinned A3S Graphics scene vocabulary without a renderer backend |
 | `software-reference` | Deterministic retained reference renderer; implies `graphics` |
+| `gpu` | Owned offscreen GPU renderer and readback path; implies `graphics` |
 | `authoring` | SWC-backed RSX parsing, `ComponentCx`, and explicit component registries |
 | `design-system` | Built-in `rsx_ui` registry; implies `authoring` |
 | `appkit`, `gtk4`, `winui` | Legacy planning adapters retained for migration evidence |
@@ -144,6 +144,7 @@ cargo check --locked --no-default-features --lib
 cargo check --locked --no-default-features --features authoring --lib
 cargo check --locked --no-default-features --features graphics --lib
 cargo check --locked --no-default-features --features software-reference --lib
+cargo check --locked --no-default-features --features gpu --lib
 ```
 
 ## Runtime Architecture

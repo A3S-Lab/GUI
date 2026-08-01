@@ -147,9 +147,10 @@ backend boundary inside the current crate. `authoring` enables SWC-backed RSX
 parsing and `ComponentCx`; `design-system` depends on `authoring` and enables
 the built-in `rsx_ui` registry. `graphics` enables only the pinned engine scene
 contract, while `software-reference` adds deterministic retained
-rasterization. The GPU feature is introduced only when the M2 backend is real;
-there is no placeholder backend. The default feature set keeps the existing
-authoring experience plus software reference evidence, while
+rasterization. `gpu` adds the real offscreen renderer, capability report, and
+readback path from pinned Graphics commit `8748fab`; there is no placeholder
+backend. The default feature set keeps the existing authoring experience plus
+software reference evidence, while
 `cargo check --no-default-features --lib` proves that protocol, semantic,
 interaction, focus, selection, i18n, and accessibility remain usable without
 Graphics, SWC, or `rsx_ui`.

@@ -298,12 +298,30 @@ test-examples:
 
 # Run adapter planning tests without native OS bindings
 test-platforms:
-    cargo test --locked --features appkit,winui,gtk4
+    cargo test --locked --features appkit,winui,gtk4,gpu
+
+# Exercise both GUI-to-Graphics renderer boundaries
+test-graphics:
+    cargo test --locked --no-default-features --features software-reference,gpu --lib drawing::
 
 # Prove the runtime core builds without SWC or the built-in design system
 check-core:
     cargo check --locked --no-default-features --lib
     cargo check --locked --no-default-features --features authoring --lib
+    cargo check --locked --no-default-features --features graphics --lib
+    cargo check --locked --no-default-features --features software-reference --lib
+    cargo check --locked --no-default-features --features gpu --lib
+
+# Prove semantic-only builds do not acquire Graphics or wgpu
+check-core-graph:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    core_graph="$(cargo tree --locked --no-default-features --prefix none)"
+    if grep -Eq '^(a3s-graphics|wgpu) ' <<<"$core_graph"; then
+        echo "graphics dependencies entered the semantic-only graph" >&2
+        exit 1
+    fi
 
 # Run native-feature library tests for this operating system
 test-native:
@@ -343,14 +361,14 @@ winui-input-smoke EVIDENCE:
 
 # Lint every target and deny high-confidence Clippy and Rust warnings
 clippy:
-    cargo clippy --locked --all-targets --features appkit,winui,gtk4 -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused
+    cargo clippy --locked --all-targets --features appkit,winui,gtk4,gpu -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused
 
 # Build crate documentation and fail on rustdoc warnings
 doc-check:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --document-private-items
 
 # Run the full local verification suite
-verify: fmt-check check-core clippy doc-check test test-examples test-platforms diff-check
+verify: fmt-check check-core check-core-graph clippy doc-check test test-examples test-platforms test-graphics diff-check
 
 # Run dogfood reducer and protocol-boundary regression tests
 dogfood-regression:

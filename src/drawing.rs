@@ -10,10 +10,18 @@ pub use a3s_graphics::{
     Primitive, Rect, Scene, SceneBuilder, Size, StrokeRect, SCENE_SCHEMA_VERSION,
 };
 
-#[cfg(feature = "software-reference")]
-use a3s_graphics::{FramePlanner, SoftwareRenderer};
+#[cfg(feature = "gpu")]
+pub use a3s_graphics::{
+    GpuBackend, GpuBackendPreference, GpuCapabilities, GpuDeviceType, GpuFrame, GpuPowerPreference,
+    GpuReadback, GpuRendererOptions,
+};
 
+#[cfg(any(feature = "software-reference", feature = "gpu"))]
+use a3s_graphics::FramePlanner;
 #[cfg(feature = "software-reference")]
+use a3s_graphics::SoftwareRenderer;
+
+#[cfg(any(feature = "software-reference", feature = "gpu"))]
 use crate::GuiResult;
 
 /// Metadata and pixels produced by one deterministic reference frame.
@@ -95,6 +103,69 @@ impl ReferenceRenderer {
     }
 }
 
+/// GPU renderer that plans retained frames directly from GUI-produced scenes.
+#[cfg(feature = "gpu")]
+#[derive(Debug)]
+pub struct GpuSceneRenderer {
+    planner: FramePlanner,
+    renderer: a3s_graphics::GpuRenderer,
+}
+
+#[cfg(feature = "gpu")]
+impl GpuSceneRenderer {
+    pub async fn request(options: GpuRendererOptions) -> GuiResult<Self> {
+        Ok(Self {
+            planner: FramePlanner::new(),
+            renderer: a3s_graphics::GpuRenderer::request(options).await?,
+        })
+    }
+
+    pub fn capabilities(&self) -> &GpuCapabilities {
+        self.renderer.capabilities()
+    }
+
+    pub async fn render(&mut self, scene: Scene) -> GuiResult<GpuFrame> {
+        let frame = self.planner.plan(scene)?;
+        Ok(self.renderer.render(&frame).await?)
+    }
+
+    pub async fn request_readback(&self) -> GuiResult<GpuReadbackTicket> {
+        Ok(GpuReadbackTicket {
+            inner: self.renderer.request_readback().await?,
+        })
+    }
+
+    pub fn poll(&self) -> GuiResult<bool> {
+        Ok(self.renderer.poll()?)
+    }
+
+    pub fn wait(&self) -> GuiResult<()> {
+        Ok(self.renderer.wait()?)
+    }
+
+    pub fn reset(&mut self) {
+        self.planner.reset();
+    }
+}
+
+/// GUI-error-aware handle for an asynchronous GPU readback.
+#[cfg(feature = "gpu")]
+#[derive(Debug)]
+pub struct GpuReadbackTicket {
+    inner: a3s_graphics::GpuReadbackTicket,
+}
+
+#[cfg(feature = "gpu")]
+impl GpuReadbackTicket {
+    pub fn try_finish(&mut self) -> GuiResult<Option<GpuReadback>> {
+        Ok(self.inner.try_finish()?)
+    }
+
+    pub fn finish(self) -> GuiResult<GpuReadback> {
+        Ok(self.inner.finish()?)
+    }
+}
+
 #[cfg(all(test, feature = "software-reference"))]
 mod tests {
     use super::*;
@@ -155,5 +226,66 @@ mod tests {
     fn reference_renderer_is_send_and_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<ReferenceRenderer>();
+    }
+}
+
+#[cfg(all(test, feature = "gpu"))]
+mod gpu_tests {
+    use super::*;
+    use crate::GuiError;
+
+    fn scene() -> Scene {
+        let mut builder = SceneBuilder::new(Size::new(4.0, 3.0), 1.0, Color::WHITE);
+        builder
+            .push(DrawCommand::new(
+                DrawId::new(1).unwrap(),
+                Primitive::FillRect(FillRect {
+                    rect: Rect::new(1.0, 1.0, 2.0, 1.0),
+                    color: Color::BLACK,
+                }),
+            ))
+            .unwrap();
+        builder.finish().unwrap()
+    }
+
+    #[test]
+    fn invalid_gpu_options_keep_the_gui_error_boundary() {
+        let options = GpuRendererOptions {
+            max_instances_per_frame: 0,
+            ..Default::default()
+        };
+        let error = pollster::block_on(GpuSceneRenderer::request(options)).unwrap_err();
+        assert!(matches!(error, GuiError::Graphics { .. }));
+        assert!(error.to_string().contains("max_instances_per_frame"));
+    }
+
+    #[test]
+    fn gpu_scene_renderer_completes_the_gui_scene_boundary() {
+        let options = GpuRendererOptions {
+            power_preference: GpuPowerPreference::None,
+            allow_software_adapter: true,
+            ..Default::default()
+        };
+        let mut renderer = match pollster::block_on(GpuSceneRenderer::request(options)) {
+            Ok(renderer) => renderer,
+            Err(error) if error.to_string().contains("no compatible GPU adapter") => return,
+            Err(error) => panic!("failed to initialize GUI test GPU: {error}"),
+        };
+
+        let frame = pollster::block_on(renderer.render(scene())).unwrap();
+        assert!(frame.rendered);
+        let image = pollster::block_on(renderer.request_readback())
+            .unwrap()
+            .finish()
+            .unwrap();
+        assert_eq!(image.pixel(1, 1), Some(Color::BLACK));
+    }
+
+    #[test]
+    fn gpu_scene_renderer_is_send_and_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        fn assert_send<T: Send>() {}
+        assert_send_sync::<GpuSceneRenderer>();
+        assert_send::<GpuReadbackTicket>();
     }
 }

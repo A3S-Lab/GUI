@@ -103,6 +103,8 @@ pub use compiler::{
     CompiledBinding, CompiledBindingSource, CompiledProps, CompiledRsxNode, ComponentClassVariants,
     RsxCompilerBridge,
 };
+#[cfg(feature = "gpu")]
+pub use drawing::{GpuReadbackTicket, GpuSceneRenderer};
 #[cfg(feature = "software-reference")]
 pub use drawing::{ReferenceFrame, ReferenceRenderer};
 pub use effect::{

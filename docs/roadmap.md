@@ -169,9 +169,9 @@ The repository already provides:
 
 The independent Graphics repository has a versioned scene, stable draw IDs,
 canonical fingerprints, retained damage, affine transforms, clipping, opacity,
-solid and rounded rectangles, borders, and a deterministic software renderer as
-of commit `2cad948`. Its GPU backend is not yet complete and must not be claimed
-as production-ready before M2 passes.
+solid and rounded rectangles, borders, a deterministic software renderer, and
+an owned `wgpu` rectangle backend as of commit `8748fab`. The GPU backend has
+local Direct3D 12 evidence; Metal and Vulkan CI evidence remains an M2 gate.
 
 ## Cleanup Inventory
 
@@ -226,16 +226,18 @@ Landed evidence:
 - architecture and public docs now select A3S Graphics with no framework-owned
   renderer residue
 - the engine dependency is pinned to full commit
-  `2cad948189eec816d38f0df01ea38993f92118a5`
-- `graphics` and `software-reference` separate scene consumers from reference
-  rasterization while no-default remains semantic-only
+  `8748fab595f8dd7f7ca28767f1c58bd7f3f34ee0`
+- `graphics`, `software-reference`, and `gpu` separate scene consumers from
+  reference and accelerated rendering while no-default remains semantic-only
 - `ReferenceRenderer` preserves frame fingerprints and retained damage behind a
   GUI-owned error boundary
+- `GpuSceneRenderer` preserves the same scene/planner boundary and maps GPU and
+  readback failures into the GUI error contract
 - the first compatibility cleanup removed class-name widget mapping shims and
   replaced broad dead-code allowances with target-accurate compilation
 
-Remaining work is the field inventory, dependency-direction automation, and
-the first `NativeElement` layout-to-scene adapter.
+Remaining work is the field inventory and the first `NativeElement`
+layout-to-scene adapter.
 
 Deliverables:
 
@@ -259,7 +261,8 @@ Acceptance gates:
 
 ### M2 - Graphics GPU backend
 
-Status: planned after M1.
+Status: implementation landed at Graphics commit `8748fab`; cross-platform CI
+evidence pending.
 
 Deliverables:
 
@@ -267,8 +270,9 @@ Deliverables:
 - surface-independent sRGB render target and asynchronous readback
 - WGSL pipelines for fills, rounded rectangles, borders, affine transforms,
   clipping, opacity, and ordered source-over blending
-- bounded instance/staging buffers, pipeline cache, and frame diagnostics
-- typed adapter absence, device loss, out-of-memory, and surface errors
+- bounded grow-only instance buffers and frame diagnostics
+- typed adapter absence, device loss, validation, internal, out-of-memory,
+  capacity, and readback errors
 
 Acceptance gates:
 
@@ -276,7 +280,6 @@ Acceptance gates:
 - GPU output matches the software fixtures within reviewed edge-AA thresholds
 - transparent overlap preserves command order
 - GPU-disabled Graphics builds contain no `wgpu` dependency
-- device recreation can replay all resources required by the rectangle fixture
 
 ### M3 - Generic layout and scene vertical slice
 
