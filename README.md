@@ -1,25 +1,27 @@
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="A3S GUI turns semantic Rust RSX into deterministic layout records and retained A3S Graphics scenes">
+  <img src="./assets/readme/hero.svg" width="100%" alt="A3S GUI converges Rust RSX and planned TSX authoring into one native semantic, layout, interaction, accessibility, and Graphics pipeline">
 </p>
 
 <p align="center">
   <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
   <img alt="Roadmap milestone M3 current" src="https://img.shields.io/badge/roadmap-M3%20current-0067C0?style=flat-square">
+  <img alt="TSX architecture milestone T0 proposed" src="https://img.shields.io/badge/TSX-T0%20proposed-1687D9?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2F3945?style=flat-square"></a>
 </p>
 
-**A3S GUI** is a Rust-native, cross-platform runtime for reducer-driven
-components and structured RSX. One semantic `NativeElement` tree feeds layout,
-interaction, accessibility, and an A3S-owned rendering path—without a DOM,
-CSSOM, WebView, JavaScript object graph, or framework-owned content renderer.
+**A3S GUI** is a Rust-native, cross-platform semantic UI and rendering runtime.
+Rust RSX is available today; a planned `@a3s/gui` automatic JSX runtime will
+let standard TSX executed by Node or Nub feed the same native pipeline. Neither
+path uses a DOM, CSSOM, WebView, or framework-owned content renderer.
 
 > [!IMPORTANT]
 > The repository is in its P0 renderer migration. The semantic runtime and
 > AppKit/GTK4/WinUI control hosts are established dogfood baselines. The first
 > generic self-drawn layout-to-Scene slice has landed; self-drawn text, input,
 > IME, accessibility bridges, and real thin-host presentation remain roadmap
-> work.
+> work. The TSX runtime, local host session, and npm packages are architecture
+> only and have not been implemented yet.
 
 ## One tree, measured end to end
 
@@ -45,7 +47,54 @@ The GPU result is local DX12 evidence, not a Metal/Vulkan parity claim. Text and
 real self-drawn window presentation are not represented by the screenshot
 above.
 
-## Quick start
+## TSX to native, without a browser
+
+The proposed TypeScript path follows
+[Nub](https://github.com/nubjs/nub)'s strongest runtime idea: keep stock Node,
+transform `.tsx` through its normal loader pipeline, and let a narrow Rust
+boundary own native work. A3S adds a standard automatic JSX runtime and a
+supervised native host; it does not fork Nub or add another TSX compiler.
+
+```text
+app.tsx -> Nub / Node -> @a3s/gui/jsx-runtime -> versioned UI frame
+                                                    |
+                                                    v
+                                           Rust native host
+                                                    |
+                         NativeElement -> layout -> Graphics -> OS window
+                                                    |
+                                                    v
+                                  ordered actions -> TypeScript callbacks
+```
+
+The intended API is ordinary TSX:
+
+```tsx
+import { Button, Text, View, Window, createApp, useState } from "@a3s/gui";
+
+function Counter() {
+  const [count, setCount] = useState(0);
+  return (
+    <Window title="Counter" width={360} height={220}>
+      <View className="flex-col gap-4 p-6">
+        <Text>Count: {count}</Text>
+        <Button onPress={() => setCount((value) => value + 1)}>Increment</Button>
+      </View>
+    </Window>
+  );
+}
+
+await createApp(Counter).run();
+```
+
+This sample documents the target API; it is not runnable yet. The proposed
+design keeps component state and callbacks in Node, keeps platform/GPU handles
+inside a separate Rust process, reuses resolved `ProtocolUiFrameV1` records,
+and sends complete frames so Rust remains the only native reconciler. Read the
+[TSX native runtime architecture](docs/tsx-native-runtime.md) for protocol,
+identity, failure recovery, packaging, and T0-T5 delivery gates.
+
+## Quick start: Rust RSX today
 
 The crate is currently consumed from Git:
 
@@ -101,31 +150,33 @@ just playground
 ## Architecture
 
 ```text
-ComponentCx function / .rsx module
+Rust ComponentCx / .rsx          planned TSX in Node / Nub
+            |                              |
+            |                     @a3s/gui/jsx-runtime
+            |                              |
+            +--------------+---------------+
+                           |
+                           v
+                resolved versioned UI frame
+                           |
+                           v
+                   NativeElement tree
+                  /         |          \
+                 v          v           v
+       LayoutSnapshot   semantics   interaction + hit regions
+                 |      + a11y
+                 v
+         A3S Graphics Scene
                  |
                  v
-         CompiledRsxNode
-                 |
-                 v
-       versioned UiFrame protocol
-                 |
-                 v
-          NativeElement tree
-          /        |         \
-         v         v          v
- LayoutSnapshot  semantics  interaction + hit regions
-         |         + a11y
-         v
- A3S Graphics Scene
-         |
-         v
- FramePlanner -> software reference / wgpu
-                                  |
-                       Metal / DX12 / Vulkan
-                                  |
-                         thin platform host
-                                  |
-                     normalized events -> reducers
+       FramePlanner -> software reference / wgpu
+                                        |
+                             Metal / DX12 / Vulkan
+                                        |
+                               thin platform host
+                                        |
+                       normalized events -> Rust reducers
+                                  or TSX callbacks
 ```
 
 These products share stable element identity, but they stay separate. Paint
@@ -134,7 +185,7 @@ action from a colored rectangle.
 
 | Layer | Owns | Does not own |
 | --- | --- | --- |
-| Authoring and design system | Rust components, RSX, typed props, contracts, variants, and tokens | GPU resources, native handles, product workflows |
+| Authoring and design system | Rust components and RSX today; planned Node-owned TSX components and hooks; typed props, contracts, variants, and tokens | GPU resources, native handles, layout truth, product workflows inside GUI core |
 | Semantic runtime | `NativeElement`, reducers, actions, interaction, focus, selection, overlays, i18n, capabilities, and accessibility | Graphics devices, toolkit state, product I/O |
 | Layout and scene adapter | Portable style resolution, quantized boxes, paint extraction, hit regions, diffs, and diagnostics | Product state, OS widget geometry, backend-specific GPU calls |
 | [A3S Graphics](https://github.com/A3S-Lab/Graphics) | Scene schema, stable draw identity, retained damage, preparation, software rasterization, shaders, and GPU rendering | RSX, widgets, accessibility, IME, windows |
@@ -192,6 +243,7 @@ independently.
 | M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
 | M4 · Text and interaction cutover | Planned | Shaping, glyphs, GUI-owned input, IME, accessibility bridges, overlays, and complete calculator scenarios |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
+| T0-T5 · TSX native authoring | Proposed | Automatic JSX runtime, versioned Node-to-host session, state/event runtime, self-drawn native window, packages, and stable SDK |
 
 The dependency-ordered plan and acceptance gates are in the
 [delivery roadmap](docs/roadmap.md).
@@ -328,6 +380,7 @@ packaging/               unsigned native smoke-bundle assets and validators
 - [Renderer field inventory](docs/renderer-field-inventory.md)
 - [RSX language and hooks](docs/rsx.md)
 - [RSX framework plan](docs/rsx-framework.md)
+- [TSX to native runtime architecture](docs/tsx-native-runtime.md)
 - [Native style contract](docs/style-contract.md)
 - [React Aria native direction](docs/react-aria-native.md)
 - [Native app shell](docs/app-shell.md)

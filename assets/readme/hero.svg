@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg"
      width="1200" height="420" viewBox="0 0 1200 420"
      role="img" aria-labelledby="title desc">
-  <title id="title">A3S GUI — Rust-native semantic UI to owned pixels</title>
-  <desc id="desc">A technical system map showing Rust RSX lowering through NativeElement and versioned layout records into A3S Graphics software and wgpu renderers, while semantics and interaction remain separate data products.</desc>
+  <title id="title">A3S GUI - Rust RSX today, native TSX planned</title>
+  <desc id="desc">A technical system map showing Rust RSX and planned TSX through Nub converging into one versioned A3S UI frame, then producing native layout, Graphics, semantics, accessibility, and interaction records.</desc>
 
   <defs>
     <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
@@ -15,69 +15,69 @@
 
   <g id="title-block" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif">
     <text x="58" y="66" fill="#8FA1B2" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" letter-spacing="2.4">RUST-NATIVE · CROSS-PLATFORM</text>
-    <text x="54" y="157" fill="#F5F7FA" font-size="84" font-weight="760" letter-spacing="-3">A3S GUI</text>
-    <text x="58" y="216" fill="#D7E0E8" font-size="29" font-weight="520">Semantic RSX becomes deterministic</text>
-    <text x="58" y="255" fill="#D7E0E8" font-size="29" font-weight="520">layout and retained Graphics scenes.</text>
+    <text x="54" y="151" fill="#F5F7FA" font-size="82" font-weight="760" letter-spacing="-3">A3S GUI</text>
+    <text x="58" y="207" fill="#D7E0E8" font-size="28" font-weight="540">Rust RSX today. Standard TSX planned.</text>
+    <text x="58" y="246" fill="#D7E0E8" font-size="28" font-weight="540">One tree owns semantics and pixels.</text>
 
-    <g transform="translate(58 300)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
-      <rect width="252" height="50" rx="10" fill="#101A24" stroke="#2C4053"/>
+    <g transform="translate(58 289)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+      <rect width="246" height="50" rx="10" fill="#101A24" stroke="#2C4053"/>
       <circle cx="22" cy="25" r="5" fill="#1687D9"/>
-      <text x="38" y="31" fill="#BFD0DE" font-size="18">4:root/6:button</text>
+      <text x="38" y="31" fill="#BFD0DE" font-size="18">ProtocolUiFrameV1</text>
     </g>
-    <g transform="translate(326 300)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
-      <rect width="178" height="50" rx="10" fill="#101A24" stroke="#2C4053"/>
+    <g transform="translate(320 289)" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+      <rect width="170" height="50" rx="10" fill="#101A24" stroke="#2C4053"/>
       <text x="22" y="31" fill="#BFD0DE" font-size="18">1 / 64 pt</text>
     </g>
 
-    <text x="58" y="390" fill="#718496" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17" letter-spacing="1.5">PROTOCOL V1  ·  LAYOUT V1  ·  M3 CURRENT</text>
+    <text x="58" y="390" fill="#718496" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17" letter-spacing="1.35">M3 RENDERER CURRENT  ·  T0 TSX PROPOSED</text>
   </g>
 
   <g id="quantization-ruler" stroke="#263545" stroke-width="2">
-    <path d="M610 48V372"/>
-    <path d="M598 72H622M602 104H618M602 136H618M598 168H622M602 200H618M602 232H618M598 264H622M602 296H618M602 328H618M598 360H622"/>
-    <path d="M598 264H622" stroke="#1687D9" stroke-width="4"/>
+    <path d="M598 48V372"/>
+    <path d="M586 72H610M590 104H606M590 136H606M586 168H610M590 200H606M590 232H606M586 264H610M590 296H606M590 328H606M586 360H610"/>
+    <path d="M586 264H610" stroke="#1687D9" stroke-width="4"/>
   </g>
 
   <g id="project-proof" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif">
-    <text x="652" y="57" fill="#8FA1B2" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" letter-spacing="1.7">ONE TREE · SEPARATE RECORDS</text>
+    <text x="638" y="55" fill="#8FA1B2" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18" letter-spacing="1.35">TWO AUTHORING PATHS · ONE NATIVE TREE</text>
 
-    <rect x="714" y="82" width="398" height="64" rx="12" fill="#0E2131" stroke="#1687D9" stroke-width="2"/>
-    <text x="742" y="121" fill="#F5F7FA" font-size="23" font-weight="680">NativeElement</text>
-    <text x="934" y="120" fill="#79BDF0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">stable key</text>
+    <rect x="638" y="76" width="236" height="66" rx="12" fill="#111923" stroke="#314457"/>
+    <text x="662" y="106" fill="#F5F7FA" font-size="21" font-weight="680">Rust RSX</text>
+    <text x="662" y="130" fill="#8FA1B2" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">ComponentCx</text>
 
-    <g fill="none" stroke="#4AA8F0" stroke-width="2" marker-end="url(#arrow)">
-      <path d="M913 146V166H725V184"/>
-      <path d="M913 146V184"/>
-      <path d="M913 146V166H1097V184"/>
-    </g>
-
-    <g id="parallel-records">
-      <rect x="640" y="186" width="170" height="70" rx="11" fill="#111923" stroke="#314457"/>
-      <text x="666" y="216" fill="#F5F7FA" font-size="20" font-weight="650">Layout v1</text>
-      <text x="666" y="241" fill="#8FA1B2" font-size="17">boxes · paint</text>
-
-      <rect x="828" y="186" width="170" height="70" rx="11" fill="#111923" stroke="#314457"/>
-      <text x="850" y="216" fill="#F5F7FA" font-size="20" font-weight="650">Semantics</text>
-      <text x="850" y="241" fill="#8FA1B2" font-size="17">a11y · roles</text>
-
-      <rect x="1016" y="186" width="152" height="70" rx="11" fill="#111923" stroke="#314457"/>
-      <text x="1035" y="216" fill="#F5F7FA" font-size="20" font-weight="650">Interaction</text>
-      <text x="1035" y="241" fill="#8FA1B2" font-size="17">hit · focus</text>
-    </g>
-
-    <path d="M725 256V278" fill="none" stroke="#4AA8F0" stroke-width="2" marker-end="url(#arrow)"/>
-    <rect x="640" y="282" width="258" height="58" rx="11" fill="#0E2131" stroke="#1687D9" stroke-width="2"/>
-    <text x="666" y="318" fill="#F5F7FA" font-size="21" font-weight="680">A3S Graphics Scene</text>
+    <rect x="902" y="76" width="266" height="66" rx="12" fill="#0E2131" stroke="#1687D9" stroke-width="2"/>
+    <text x="926" y="106" fill="#F5F7FA" font-size="21" font-weight="680">TSX / Nub</text>
+    <text x="926" y="130" fill="#79BDF0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">jsx-runtime · planned</text>
 
     <g fill="none" stroke="#4AA8F0" stroke-width="2" marker-end="url(#arrow)">
-      <path d="M768 340V355H698V367"/>
-      <path d="M768 340V355H834V367"/>
+      <path d="M756 142V158H886V174"/>
+      <path d="M1035 142V158H920V174"/>
     </g>
-    <rect x="640" y="369" width="120" height="34" rx="8" fill="#111923" stroke="#314457"/>
-    <text x="658" y="392" fill="#BFD0DE" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17">software</text>
-    <rect x="776" y="369" width="116" height="34" rx="8" fill="#111923" stroke="#314457"/>
-    <text x="798" y="392" fill="#BFD0DE" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17">wgpu</text>
-    <path d="M892 386H921" fill="none" stroke="#4AA8F0" stroke-width="2" marker-end="url(#arrow)"/>
-    <text x="936" y="392" fill="#8FA1B2" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="17">Metal · DX12 · Vulkan</text>
+
+    <rect x="706" y="178" width="402" height="54" rx="11" fill="#0E2131" stroke="#1687D9" stroke-width="2"/>
+    <text x="742" y="211" fill="#F5F7FA" font-size="21" font-weight="680">resolved versioned UI frame</text>
+
+    <path d="M907 232V247" fill="none" stroke="#4AA8F0" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="750" y="251" width="314" height="54" rx="11" fill="#111923" stroke="#314457"/>
+    <text x="776" y="284" fill="#F5F7FA" font-size="22" font-weight="680">NativeElement</text>
+    <text x="952" y="284" fill="#8FA1B2" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">stable key</text>
+
+    <g fill="none" stroke="#4AA8F0" stroke-width="2" marker-end="url(#arrow)">
+      <path d="M907 305V318H720V329"/>
+      <path d="M907 305V329"/>
+      <path d="M907 305V318H1090V329"/>
+    </g>
+
+    <rect x="626" y="333" width="188" height="70" rx="11" fill="#0E2131" stroke="#1687D9" stroke-width="2"/>
+    <text x="648" y="363" fill="#F5F7FA" font-size="20" font-weight="680">Layout → Scene</text>
+    <text x="648" y="388" fill="#79BDF0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">A3S Graphics</text>
+
+    <rect x="828" y="333" width="160" height="70" rx="11" fill="#111923" stroke="#314457"/>
+    <text x="848" y="363" fill="#F5F7FA" font-size="20" font-weight="680">Semantics</text>
+    <text x="848" y="388" fill="#8FA1B2" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">a11y · roles</text>
+
+    <rect x="1002" y="333" width="176" height="70" rx="11" fill="#111923" stroke="#314457"/>
+    <text x="1021" y="363" fill="#F5F7FA" font-size="20" font-weight="680">Interaction</text>
+    <text x="1021" y="388" fill="#8FA1B2" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">hit · focus</text>
   </g>
 </svg>

@@ -1,8 +1,14 @@
 # RSX Framework Plan
 
 RSX is a Rust-owned UI language with `ComponentCx` function components and
-`.rsx` component source modules. It should feel familiar to React authors without
-inheriting the JavaScript runtime, DOM, CSSOM, or browser routing model.
+`.rsx` component source modules. It should feel familiar to React authors
+without requiring a JavaScript runtime, DOM, CSSOM, or browser routing model.
+
+The optional [TSX native runtime](tsx-native-runtime.md) is a peer authoring
+frontend, not a replacement for RSX. It executes TypeScript components in an
+application-owned Node process and lowers fully resolved element records into
+the same versioned protocol and native pipeline. The Rust GUI core and platform
+host still do not embed or execute JavaScript.
 
 ## Direction
 
@@ -20,6 +26,9 @@ The framework should keep these boundaries stable:
   metadata, and platform-neutral control state.
 - Familiar intrinsic names are an authoring affordance, not a compatibility
   target or runtime dependency.
+- Optional TSX authoring must lower to the same `CompiledRsxNode` contract and
+  cannot introduce a second semantic, layout, scene, interaction, or
+  accessibility model.
 
 ## Layers
 
@@ -322,6 +331,9 @@ have different semantics: they are pending commands since the previous
   applications inject I/O and executor implementations at the outer boundary.
 - Protocol and command boundaries carry serializable records, never component
   runtime objects or native widget handles.
+- The optional TypeScript SDK and its Node process sit outside the Rust crate's
+  authoring/runtime feature boundary. Rust-only and no-default-feature builds
+  do not depend on Node, Nub, N-API, or an npm package.
 
 ## Framework Milestones
 
@@ -403,12 +415,13 @@ Status: planned across the 31-90 day roadmap.
 - source span and template/import provenance queries
 - diagnostics that point at component contract violations
 - static RSX diagnostics that help React developers migrate simple component
-  shapes by hand without introducing a JavaScript runtime
+  shapes into the Rust-only authoring path
 
 ## Non-Goals
 
-- No JavaScript runtime.
-- No JavaScript hook execution.
+- No JavaScript engine embedded in the Rust GUI core or native platform host.
+- No JavaScript hook execution inside semantic, layout, renderer, or platform
+  layers; optional TSX hooks execute only in the application-owned Node process.
 - No DOM or CSSOM compatibility layer.
 - No arbitrary JS expressions inside RSX.
 - No WebView requirement for native desktop surfaces.

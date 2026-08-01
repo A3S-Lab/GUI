@@ -17,11 +17,14 @@ software reference renderer, and GPU rendering. Its production GPU backend is
 built directly on `wgpu` for Metal, Direct3D 12, and Vulkan. No UI framework
 owns the scene, layout, or content renderer.
 
-A3S GUI continues to own the UI-specific layers: RSX, semantic components,
-portable style, layout, text editing, hit testing, interaction, focus,
-selection, IME coordination, and accessibility. Platform code becomes a thin
-host for windows, input, IME, accessibility bridges, menus, dialogs, clipboard,
-and presentation. It does not choose component geometry or draw content.
+A3S GUI continues to own the UI-specific layers: semantic components, portable
+style, layout, text editing, hit testing, interaction, focus, selection, IME
+coordination, and accessibility. Rust RSX remains the in-process authoring path.
+An optional TypeScript TSX frontend is planned as an external Node application
+runtime that emits the same resolved, versioned UI records; it does not add a
+browser or a second renderer. Platform code becomes a thin host for windows,
+input, IME, accessibility bridges, menus, dialogs, clipboard, and presentation.
+It does not choose component geometry or draw content.
 
 ## Planning Rules
 
@@ -45,16 +48,22 @@ and presentation. It does not choose component geometry or draw content.
 | Priority | Scope |
 | --- | --- |
 | P0 | Architecture cleanup, Graphics GPU foundation, generic layout/scene path, calculator slice, input/IME/accessibility, and legacy backend removal |
+| P0-T | Optional TSX-to-native authoring track: automatic JSX runtime, versioned local session, Node-owned component state, and self-drawn host integration |
 | P1 | Full design-system projection, overlays, collections, date/color controls, tables, virtualization, themes, assets, and localization |
 | P2 | Developer tooling, animation, advanced content surfaces, performance work, and shared Graphics capabilities needed by future game runtimes |
 
 ## Non-Negotiable Architecture
 
 ```text
-Rust ComponentCx function + optional RSX template
-                         |
-                         v
-                 CompiledRsxNode
+Rust ComponentCx + optional RSX       TSX components in Node / Nub
+                    |                         |
+                    |                         v
+                    |               @a3s/gui JSX runtime
+                    |                         |
+                    +------------+------------+
+                                 |
+                                 v
+                 resolved, versioned UI frame
                          |
                          v
               semantic NativeElement tree
@@ -100,7 +109,7 @@ action from a colored rectangle.
 
 | Layer | Owns | Must not own |
 | --- | --- | --- |
-| Authoring and design system | Rust components, RSX, typed props, contracts, variants, tokens, and Stories | GPU resources, native handles, product workflows |
+| Authoring and design system | Rust components and RSX; optional Node-owned TSX components and hooks; typed props, contracts, variants, tokens, and Stories | GPU resources, native handles, layout truth, product workflows inside the GUI core |
 | GUI semantic runtime | `NativeElement`, reducer flow, actions, interaction, focus, selection, overlays, i18n, capabilities, and accessibility | Graphics device, window toolkit state, product I/O |
 | GUI layout and scene adapter | portable style resolution, intrinsic measurement requests, layout boxes, paint extraction, hit regions, scene diagnostics | product state, backend-specific GPU calls, OS widget geometry |
 | A3S Graphics | scene schema, geometry, draw identity, damage, preparation, resources, shaders, software reference, and GPU rendering | RSX, CSS, widgets, accessibility, IME, game world/ECS, windows |
@@ -111,6 +120,11 @@ Graphics types may flow into the GUI scene adapter and platform presentation
 edge. `wgpu` types remain inside `a3s-graphics` and its surface integration.
 Thread-affine platform and GPU handles never enter protocol, semantic, or
 authoring APIs.
+
+The TSX process/session boundary and its dependency-ordered delivery gates are
+defined in the [TSX native runtime architecture](tsx-native-runtime.md). The
+TSX SDK reuses the resolved frame input vocabulary but does not expose legacy
+planned-widget commands as its public host protocol.
 
 ## Cross-Platform Consistency Contract
 
@@ -378,6 +392,106 @@ Acceptance gates:
 - fresh builds prove removed toolkit dependencies are absent from Cargo.lock
   and distribution artifacts
 - repository file-size and dead-code audits pass
+
+## P0-T TSX Native Authoring Track
+
+Status: architecture proposed; implementation has not started.
+
+This track is dependency-coupled to the renderer program without blocking Rust
+RSX work. Headless protocol and JSX-runtime work can begin during M3. A
+supported visible TSX application cannot ship until the self-drawn thin host
+and the minimum M4 text, input, focus, and accessibility slice are complete.
+
+The target command is `nub app.tsx`. Nub or another standard TSX tool emits
+automatic JSX-runtime calls into `@a3s/gui`; the TypeScript runtime resolves
+components and callbacks into versioned frame records; an independent Rust
+host owns native windows and the existing Native IR/layout/Graphics pipeline.
+No DOM, WebView, React renderer, embedded JavaScript engine, or default N-API
+GUI host enters the core.
+
+The full process, protocol, identity, package, failure, security, and testing
+decisions are recorded in
+[`tsx-native-runtime.md`](tsx-native-runtime.md).
+
+### T0 - Architecture and cross-language contract
+
+- accept the process boundary, ownership model, full-frame transport, action
+  identity, and no-install-script packaging decisions
+- reuse the resolved `ProtocolUiFrameV1` input vocabulary behind a new TSX
+  session envelope
+- pin Rust RSX and TSX counter/calculator parity fixtures
+
+Gate: TSX is a peer authoring frontend and cannot bypass Native IR, layout,
+Graphics, interaction, accessibility, or capability checks.
+
+### T1 - Headless JSX and protocol slice
+
+- generated TypeScript declarations from versioned Rust DTOs
+- automatic `jsx-runtime` and `jsx-dev-runtime` exports
+- deterministic child, prop, key, and event normalization
+- bounded length-prefixed IPC, handshake, revisions, event sequencing, and
+  structured diagnostics
+- static TSX counter rendered through the current headless semantic path
+
+Gates:
+
+- cross-language golden frames canonicalize identically
+- malformed and stale input fails before committed-state mutation
+- Rust RSX and static TSX counter Native IR/accessibility fingerprints match
+- Rust-only and semantic-only builds contain no Node, Nub, N-API, or npm
+  dependency
+
+### T2 - Stateful TypeScript runtime
+
+- function components, state/reducer/memo/ref/context hooks, and post-commit
+  effects
+- revision-scoped callback registry and ordered multi-invocation event batches
+- rerender coalescing, rollback, cleanup, graceful shutdown, and development
+  host replay
+
+Gates:
+
+- counter interaction, keyed rerender, stale event, effect, cleanup, host loss,
+  and replay tests pass
+- one event batch schedules at most one next frame
+- a rejected frame preserves the last committed UI and callback scope
+
+### T3 - Self-drawn native window
+
+Dependencies: M3 thin-host presentation plus minimum M4 text/input work.
+
+- launch the real platform host from `nub app.tsx`
+- present the TSX counter and shared calculator through A3S Graphics
+- expose typed focus, clipboard, window, inspector, and shutdown commands
+
+Gates:
+
+- TSX creates no legacy application-content widget
+- Rust RSX and TSX calculator scenarios produce the same model, Native IR,
+  layout, scene, interaction, and accessibility evidence
+- software, GPU, input, focus, and OS accessibility gates pass
+
+### T4 - Watch mode and tri-platform packaging
+
+- transactional last-good-frame reload under `nub watch`
+- TSX source mapping for native diagnostics
+- prebuilt optional platform packages with no install-time downloader
+- macOS, Linux, and Windows launch, signing, packaging, and recovery lanes
+
+Gate: editing keeps the last good frame on errors, clean installs resolve the
+correct signed host without runtime downloads, and all three platform packages
+pass the counter and calculator smoke matrix.
+
+### T5 - Production SDK
+
+- stable public TypeScript API and semantic component declarations
+- cross-version SDK/host compatibility policy and release automation
+- inspector, replay, accessibility audit, and performance telemetry
+- production examples and browser React/TSX migration guidance
+
+Gate: TSX is documented as supported only after macOS, Linux, and Windows pass
+the renderer, interaction, accessibility, recovery, packaging, and protocol
+compatibility matrix.
 
 ## P1 Component Projection
 
