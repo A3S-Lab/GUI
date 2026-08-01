@@ -412,6 +412,7 @@ libraries.
 ## Documentation
 
 - [Runtime and protocol architecture](docs/architecture.md)
+- [Renderer field inventory](docs/renderer-field-inventory.md)
 - [Native app shell](docs/app-shell.md)
 - [Native packaging](docs/packaging.md)
 - [React Aria native direction](docs/react-aria-native.md)

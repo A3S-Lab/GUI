@@ -48,6 +48,7 @@ pub mod overlay;
 pub mod overlay_position;
 pub mod platform;
 pub mod protocol;
+pub mod render_contract;
 pub mod renderer;
 #[cfg(feature = "authoring")]
 pub mod rsx;

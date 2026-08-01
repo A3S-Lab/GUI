@@ -235,9 +235,11 @@ Landed evidence:
   readback failures into the GUI error contract
 - the first compatibility cleanup removed class-name widget mapping shims and
   replaced broad dead-code allowances with target-accurate compilation
+- the versioned renderer inventory accounts for all 504 `PortableStyle`
+  fields, every `NativeRole`, all normalized input events, and the focus,
+  overlay, text, and accessibility records required by cutover
 
-Remaining work is the field inventory and the first `NativeElement`
-layout-to-scene adapter.
+Remaining work is the first `NativeElement` layout-to-scene adapter.
 
 Deliverables:
 

@@ -155,6 +155,12 @@ software reference evidence, while
 interaction, focus, selection, i18n, and accessibility remain usable without
 Graphics, SWC, or `rsx_ui`.
 
+The versioned [renderer field inventory](renderer-field-inventory.md) keeps
+parsing coverage separate from renderer coverage. Its executable contract
+enumerates all current `PortableStyle` fields and exhaustively assigns native
+roles and normalized input events to their first complete delivery milestone.
+Later-milestone fields remain explicit diagnostics in earlier renderer slices.
+
 The remaining dependencies stay one-way:
 
 - `ComponentCx`, RSX parsing, and `rsx_ui` authoring compile outward-facing
