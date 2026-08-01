@@ -703,6 +703,9 @@ self-drawn conformance.
   typeahead, range selection, and collection mutation
 - implement ToastList and ToastContent and preserve drag/drop, focus-scope,
   selection-indicator, collection-section, and load-more semantic parts
+- close the executable 1.19.0 behavior deltas: embedded-control keyboard
+  navigation for GridList/Tree, Menu action key plus value, arbitrary Popover
+  target rectangles, and multi-MIME/wildcard drag type negotiation
 
 ### M8 - Date, color, tables, and advanced data
 

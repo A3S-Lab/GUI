@@ -76,6 +76,16 @@ struct Upstream {
     release_date: String,
     catalog_url: String,
     release_url: String,
+    contract_deltas: Vec<ContractDelta>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContractDelta {
+    id: String,
+    families: Vec<String>,
+    milestone: String,
+    requirement: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -106,7 +116,7 @@ fn matrix() -> ComponentMatrix {
 fn matrix_pins_the_complete_official_1_19_component_catalog() {
     let matrix = matrix();
 
-    assert_eq!(matrix.schema_version, 1);
+    assert_eq!(matrix.schema_version, 2);
     assert_eq!(matrix.upstream.package, "react-aria-components");
     assert_eq!(matrix.upstream.version, "1.19.0");
     assert_eq!(matrix.upstream.release_date, "2026-06-18");
@@ -115,6 +125,30 @@ fn matrix_pins_the_complete_official_1_19_component_catalog() {
         matrix.upstream.release_url,
         "https://react-aria.adobe.com/releases/v1-19-0"
     );
+    let contract_ids = matrix
+        .upstream
+        .contract_deltas
+        .iter()
+        .map(|delta| delta.id.as_str())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        contract_ids,
+        BTreeSet::from([
+            "drag-types-multiple-wildcards",
+            "grid-tree-embedded-interaction",
+            "menu-action-key-value",
+            "popover-arbitrary-target-rect",
+        ])
+    );
+    for delta in &matrix.upstream.contract_deltas {
+        assert_eq!(delta.milestone, "M7");
+        assert!(!delta.requirement.trim().is_empty());
+        assert!(!delta.families.is_empty());
+        assert!(delta
+            .families
+            .iter()
+            .all(|family| OFFICIAL_COMPONENT_FAMILIES.contains(&family.as_str())));
+    }
 
     let names = matrix
         .families

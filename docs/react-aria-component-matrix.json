@@ -1,11 +1,37 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "upstream": {
     "package": "react-aria-components",
     "version": "1.19.0",
     "release_date": "2026-06-18",
     "catalog_url": "https://react-aria.adobe.com/",
-    "release_url": "https://react-aria.adobe.com/releases/v1-19-0"
+    "release_url": "https://react-aria.adobe.com/releases/v1-19-0",
+    "contract_deltas": [
+      {
+        "id": "grid-tree-embedded-interaction",
+        "families": ["GridList", "Tree"],
+        "milestone": "M7",
+        "requirement": "Support keyboardNavigationBehavior for keyboard traversal between rows and embedded interactive controls."
+      },
+      {
+        "id": "menu-action-key-value",
+        "families": ["Menu"],
+        "milestone": "M7",
+        "requirement": "Deliver both the item key and action value through Menu onAction without losing stable native identity."
+      },
+      {
+        "id": "popover-arbitrary-target-rect",
+        "families": ["Popover"],
+        "milestone": "M7",
+        "requirement": "Position Popover against an arbitrary target or character rectangle equivalent to getTargetRect."
+      },
+      {
+        "id": "drag-types-multiple-wildcards",
+        "families": ["DropZone", "GridList", "ListBox", "Table", "Tree"],
+        "milestone": "M7",
+        "requirement": "Match multiple MIME types and wildcard patterns in portable drag and drop type negotiation."
+      }
+    ]
   },
   "acceptance_dimensions": [
     "authoring",
