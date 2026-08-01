@@ -163,7 +163,11 @@ pub(super) fn pointer_event_for(
     }
 }
 
-fn key_event(key: &str, state: PlatformKeyState, timestamp_micros: u64) -> PlatformHostEvent {
+pub(super) fn key_event(
+    key: &str,
+    state: PlatformKeyState,
+    timestamp_micros: u64,
+) -> PlatformHostEvent {
     PlatformHostEvent::Input {
         event: PlatformInputEvent::Key {
             event: PlatformKeyEvent {

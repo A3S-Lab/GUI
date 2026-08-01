@@ -490,10 +490,14 @@ Landed evidence:
   callback-driven targets, resets across pointer leave/re-entry, recognizes at
   the deadline or on release as a scheduling fallback, and atomically emits
   `LongPressEnd`, `PressCancel`, then terminal `LongPress`
+- move starts only after the first non-zero pointer delta, stays captured
+  outside the original hit region, preserves initiating pointer identity and
+  incremental deltas across keyed frames, reference-counts concurrent moves,
+  and shares reducer rollback; arrow keys emit a handled one-unit lifecycle
 - the shared 410x620 calculator preserves its reviewed layout and scene
   fingerprints, routes eight fake-host events through four reducer actions,
   commits the resulting frames, and reaches display value `10`
-- 26 focused runtime/software tests plus four recursive H1 firewall tests are
+- 33 focused runtime/software tests plus four recursive H1 firewall tests are
   included in `just verify`
 
 Remaining H1 work:
@@ -502,8 +506,9 @@ Remaining H1 work:
   pinned Graphics commit `8748fab` owns only a surface-independent texture and
   readback today, so its safe host-owned surface attachment/recovery contract
   must land before GUI can implement this edge without duplicating `wgpu`
-- richer move/drag, text editing, IME, overlay gestures, and
-  component-specific interaction conformance remain explicit M4 and M6-M8 work
+- drag-and-drop source/target negotiation, text editing, IME, overlay gestures,
+  and component-specific interaction conformance remain explicit M4 and M6-M8
+  work
 
 Gates:
 

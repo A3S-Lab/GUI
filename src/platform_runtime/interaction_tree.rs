@@ -27,6 +27,7 @@ pub(super) struct SelfDrawnInteractionNode {
     pub(super) tab_index: i32,
     pub(super) tree_order: usize,
     tracks_pointer_interaction: bool,
+    tracks_movement: bool,
     long_press_mode: SelfDrawnLongPressMode,
     long_press_threshold_micros: u64,
 }
@@ -189,6 +190,11 @@ impl SelfDrawnInteractionTree {
         accepted.then_some(node.long_press_threshold_micros)
     }
 
+    pub(super) fn tracks_movement(&self, target: &PlatformElementId) -> bool {
+        self.node(target)
+            .is_some_and(|node| node.available && node.tracks_movement)
+    }
+
     fn interaction_target(&self, target: &PlatformElementId) -> Option<PlatformElementId> {
         self.ancestors_inclusive(target).into_iter().find(|id| {
             self.node(id).is_some_and(|node| {
@@ -224,8 +230,19 @@ impl SelfDrawnInteractionTree {
             available && !is_focus_scope(&props) && role_is_focusable(element.role, &props);
         let interaction_requirements = interaction_requirements_from_web(&props.web);
         let style_requires_long_press = interaction_requirements.long_press;
+        let has_move_event = ["onMoveStart", "onMove", "onMoveEnd"]
+            .into_iter()
+            .any(|name| {
+                props
+                    .web
+                    .events
+                    .get(name)
+                    .is_some_and(|action| !action.is_empty())
+            });
+        let tracks_movement = interaction_requirements.movement || has_move_event;
         let tracks_pointer_interaction = interaction_requirements.press
             || interaction_requirements.long_press
+            || tracks_movement
             || interaction_requirements.hover;
         let has_long_press_event = ["onLongPressStart", "onLongPressEnd", "onLongPress"]
             .into_iter()
@@ -261,6 +278,7 @@ impl SelfDrawnInteractionTree {
                 focusable,
                 tree_order,
                 tracks_pointer_interaction,
+                tracks_movement,
                 long_press_mode,
                 long_press_threshold_micros,
             },

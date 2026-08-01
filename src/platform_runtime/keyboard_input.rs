@@ -37,6 +37,15 @@ impl SelfDrawnInteractionSession {
                 let focused = self.focused.clone();
                 routed.target = focused.clone();
                 if let Some(target) = focused {
+                    self.route_keyboard_move(
+                        &target,
+                        &key,
+                        tree,
+                        frame_revision,
+                        event_sequence,
+                        &mut context,
+                        &mut routed,
+                    );
                     let tracks_press = tree
                         .source(&target)
                         .is_some_and(|source| source.tracks_press());

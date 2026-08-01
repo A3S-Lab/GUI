@@ -6,8 +6,8 @@ use crate::platform_host::{
 };
 
 use super::interaction::{
-    ActivePress, LastClick, LongPressTracking, PointerInteraction, RoutedSemanticEvent,
-    SelfDrawnEventContext, SelfDrawnInputDispatch, SelfDrawnInteractionChange,
+    ActivePress, LastClick, LongPressTracking, PointerInteraction, PointerMoveTracking,
+    RoutedSemanticEvent, SelfDrawnEventContext, SelfDrawnInputDispatch, SelfDrawnInteractionChange,
     SelfDrawnInteractionSession,
 };
 use super::interaction_tree::SelfDrawnInteractionTree;
@@ -81,6 +81,20 @@ impl SelfDrawnInteractionSession {
 
         match event.phase {
             PlatformPointerPhase::Entered | PlatformPointerPhase::Moved => {
+                if event.phase == PlatformPointerPhase::Moved {
+                    if let Some(active) = pointer.active_press.as_mut() {
+                        if self.update_active_move(
+                            active,
+                            tree,
+                            frame_revision,
+                            event_sequence,
+                            &context,
+                            &mut routed,
+                        ) {
+                            routed.target = Some(active.target.clone());
+                        }
+                    }
+                }
                 self.transition_hover(
                     &mut pointer,
                     hit_target.clone(),
@@ -161,6 +175,12 @@ impl SelfDrawnInteractionSession {
                         );
                         let long_press_threshold_micros =
                             tree.long_press_threshold_micros(&target, context.modality);
+                        let movement =
+                            tree.tracks_movement(&target)
+                                .then_some(PointerMoveTracking {
+                                    last_position: event.position,
+                                    did_move: false,
+                                });
                         let long_press = long_press_threshold_micros.map(|threshold| {
                             let mut long_press_context = context.clone();
                             long_press_context.click_count = click_count;
@@ -201,6 +221,7 @@ impl SelfDrawnInteractionSession {
                             long_press_threshold_micros,
                             long_press,
                             long_press_recognized: false,
+                            movement,
                         });
                         routed.target = Some(target);
                     }
@@ -229,6 +250,17 @@ impl SelfDrawnInteractionSession {
                                 event_sequence,
                                 &mut routed,
                             );
+                        if !recognized_now && !active.long_press_recognized {
+                            context.click_count = active.click_count;
+                            self.end_active_move(
+                                &mut active,
+                                tree,
+                                frame_revision,
+                                event_sequence,
+                                &context,
+                                &mut routed,
+                            );
+                        }
                         if !recognized_now
                             && !active.long_press_recognized
                             && over_target
@@ -494,11 +526,19 @@ impl SelfDrawnInteractionSession {
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
     ) {
+        let mut context = context.clone();
+        context.click_count = active.click_count;
+        self.end_active_move(
+            &mut active,
+            tree,
+            frame_revision,
+            event_sequence,
+            &context,
+            routed,
+        );
         if active.long_press_recognized {
             return;
         }
-        let mut context = context.clone();
-        context.click_count = active.click_count;
         self.end_active_long_press(
             &mut active,
             tree,

@@ -10,6 +10,9 @@ mod keyboard_input;
 mod long_press_input;
 #[cfg(test)]
 mod long_press_tests;
+mod move_input;
+#[cfg(test)]
+mod move_tests;
 mod presenter;
 #[cfg(feature = "software-reference")]
 mod reference_presenter;

@@ -213,6 +213,9 @@ src/platform_runtime/
 |- input.rs             pointer capture, hover, press, and cancellation
 |- keyboard_input.rs    keyboard activation, Tab focus, and wheel routing
 |- long_press_input.rs  event-loop deadlines and terminal hold recognition
+|- move_input.rs        captured incremental pointer and keyboard movement
+|- long_press_tests.rs  scheduled hold ordering and recovery gates
+|- move_tests.rs        move capture, identity, rollback, and reconcile gates
 |- presenter.rs         raw-surface prepare/publish contract and recorder
 |- reference_presenter.rs
 |                       transactional software Graphics evidence
@@ -371,10 +374,14 @@ Landed evidence:
   deadline, cancels and restarts across pointer boundaries, falls back to
   release-time recognition, and routes the terminal action through the same
   rollback-aware reducer path
+- callback-driven and style-only move starts on the first non-zero pointer
+  delta, remains captured outside its hit region, retains incremental delta and
+  pointer identity, and ends on release, cancellation, or terminal long press;
+  arrow keys route a handled one-unit lifecycle through the same action batch
 - reducer errors restore the staged interaction state and sequence before the
   event is exposed as successful; successful frame reconciliation preserves
   focused stable ids, while rejected frames do not touch them
-- 26 focused runtime/software tests and four recursive feature/source
+- 33 focused runtime/software tests and four recursive feature/source
   firewall tests pass without any legacy renderer or OS toolkit dependency
 - `self_drawn_calculator` reproduces layout fingerprint
   `16529597026056060935`, scene fingerprint `2100550662756266801`, and

@@ -207,6 +207,7 @@ pub struct SelfDrawnElementInteraction {
     pub hovered: bool,
     pub pressed: bool,
     pub long_pressed: bool,
+    pub moving: bool,
     pub focused: bool,
     pub focus_visible: bool,
     pub focus_within: bool,
@@ -257,6 +258,7 @@ pub(super) struct SelfDrawnInteractionSession {
     pub(super) hover_counts: BTreeMap<PlatformElementId, u32>,
     pub(super) pressed_counts: BTreeMap<PlatformElementId, u32>,
     pub(super) long_pressed_counts: BTreeMap<PlatformElementId, u32>,
+    pub(super) moving_counts: BTreeMap<PlatformElementId, u32>,
     pub(super) event_sequence: u64,
 }
 
@@ -275,12 +277,19 @@ pub(super) struct ActivePress {
     pub(super) long_press_threshold_micros: Option<u64>,
     pub(super) long_press: Option<LongPressTracking>,
     pub(super) long_press_recognized: bool,
+    pub(super) movement: Option<PointerMoveTracking>,
 }
 
 #[derive(Debug, Clone)]
 pub(super) struct LongPressTracking {
     pub(super) deadline_micros: u64,
     pub(super) context: SelfDrawnEventContext,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct PointerMoveTracking {
+    pub(super) last_position: PlatformPoint,
+    pub(super) did_move: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -347,6 +356,7 @@ impl SelfDrawnInteractionSession {
         self.rebuild_hover_counts();
         self.rebuild_pressed_counts();
         self.rebuild_long_pressed_counts();
+        self.rebuild_moving_counts();
         if let Some(focused) = &self.focused {
             if let Some(state) = self.states.get_mut(focused) {
                 state.focused = true;
@@ -560,6 +570,19 @@ impl SelfDrawnInteractionSession {
         }
     }
 
+    pub(super) fn begin_move(
+        &mut self,
+        id: &PlatformElementId,
+        changes: &mut Vec<SelfDrawnInteractionChange>,
+    ) {
+        let count = self.moving_counts.entry(id.clone()).or_default();
+        let was_zero = *count == 0;
+        *count = count.saturating_add(1);
+        if was_zero {
+            self.change_state(id, changes, |state| state.moving = true);
+        }
+    }
+
     pub(super) fn end_hover(
         &mut self,
         id: &PlatformElementId,
@@ -602,6 +625,21 @@ impl SelfDrawnInteractionSession {
         if *count == 0 {
             self.long_pressed_counts.remove(id);
             self.change_state(id, changes, |state| state.long_pressed = false);
+        }
+    }
+
+    pub(super) fn end_move(
+        &mut self,
+        id: &PlatformElementId,
+        changes: &mut Vec<SelfDrawnInteractionChange>,
+    ) {
+        let Some(count) = self.moving_counts.get_mut(id) else {
+            return;
+        };
+        *count = count.saturating_sub(1);
+        if *count == 0 {
+            self.moving_counts.remove(id);
+            self.change_state(id, changes, |state| state.moving = false);
         }
     }
 
@@ -697,6 +735,30 @@ impl SelfDrawnInteractionSession {
             if *count > 0 {
                 if let Some(state) = self.states.get_mut(id) {
                     state.long_pressed = true;
+                }
+            }
+        }
+    }
+
+    fn rebuild_moving_counts(&mut self) {
+        self.moving_counts.clear();
+        for press in self
+            .pointers
+            .values()
+            .filter_map(|pointer| pointer.active_press.as_ref())
+            .filter(|press| {
+                press
+                    .movement
+                    .as_ref()
+                    .is_some_and(|movement| movement.did_move)
+            })
+        {
+            *self.moving_counts.entry(press.target.clone()).or_default() += 1;
+        }
+        for (id, count) in &self.moving_counts {
+            if *count > 0 {
+                if let Some(state) = self.states.get_mut(id) {
+                    state.moving = true;
                 }
             }
         }

@@ -172,6 +172,14 @@ impl SelfDrawnInteractionSession {
             );
             active.start_emitted = false;
         }
+        self.end_active_move(
+            active,
+            tree,
+            frame_revision,
+            event_sequence,
+            &context,
+            routed,
+        );
         self.emit(
             tree,
             frame_revision,
