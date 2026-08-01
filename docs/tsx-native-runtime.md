@@ -35,6 +35,12 @@ transpiler.
 - native events return as ordered A3S action invocations and never as DOM
   events.
 
+Those operating-system responsibilities follow the
+[self-drawn platform host architecture](platform-hosts.md): macOS keeps only an
+AppKit system shell around one custom Metal-backed view, Linux uses
+Wayland/X11 without GTK4, and Windows uses Win32 without WinUI/XAML. No TSX
+element can request a platform content control.
+
 "Direct" does not mean that JavaScript receives a native widget pointer or a
 `wgpu` handle. Those handles remain thread-affine and process-local.
 
@@ -87,9 +93,10 @@ The A3S package only needs to provide `@a3s/gui/jsx-runtime` and
 - A3S does not depend on Nub's internal preload modules, cache format, or N-API
   addon.
 - A3S does not load the GUI runtime as a Node N-API `cdylib` by default.
-  AppKit requires main-thread ownership, native event loops are thread-affine,
-  and a same-process native failure would terminate application state with the
-  window host.
+  The macOS application/window shell requires main-thread ownership, native
+  event loops are thread-affine, and a same-process native failure would
+  terminate application state with the window host. This does not make AppKit
+  controls part of the content renderer.
 - A3S does not implement a DOM facade, synthetic browser layout, or a React
   custom renderer.
 - A3S does not serialize closures, promises, class instances, native handles,
@@ -423,6 +430,7 @@ src/tsx_protocol/
 |- limits.rs
 `- tests.rs
 
+src/platform_host/       shared zero-widget host contract and OS shells
 src/bin/a3s_gui_host.rs
 tests/fixtures/tsx-protocol/
 packaging/npm/
@@ -438,6 +446,9 @@ boundaries are:
 - the TypeScript package contains no native rendering implementation
 - the platform host binary depends on the self-drawn Graphics path and one
   thin platform integration
+- target hosts do not enable the legacy content-widget features; macOS uses
+  only the audited AppKit system-shell subset, Linux has no GTK4 dependency,
+  and Windows has no WinUI/XAML dependency
 - generated platform packages contain prebuilt binaries and checksums, not
   install-time download code
 - legacy `appkit-native`, `gtk4-native`, and `winui-native` content-widget
@@ -490,7 +501,8 @@ newest SDK against the oldest supported host.
 ## Delivery Track
 
 This track can begin during renderer M3, but the first supported visible TSX
-application depends on the self-drawn host and the minimum M4 text/input slice.
+application depends on host H1, one supported H2-H4 platform slice, and the
+minimum M4 text/input slice.
 
 ### T0 - Contract and Architecture
 
@@ -539,8 +551,8 @@ Gates:
 
 ### T3 - First Self-Drawn Native Window
 
-Dependencies: renderer M3 thin-host presentation and the minimum M4 text,
-pointer, keyboard, focus, and accessibility slice.
+Dependencies: host H1, one supported H2-H4 platform slice, and the minimum M4
+text, pointer, keyboard, focus, and accessibility slice.
 
 - launch the real host binary from `nub app.tsx`
 - present the TSX counter and shared calculator through A3S Graphics

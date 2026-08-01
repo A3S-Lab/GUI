@@ -23,6 +23,14 @@ path uses a DOM, CSSOM, WebView, or framework-owned content renderer.
 > work. The TSX runtime, local host session, and npm packages are architecture
 > only and have not been implemented yet.
 
+The target is unambiguous: A3S draws all application content. The existing
+`appkit-native`, `gtk4-native`, and `winui-native` modules create controls only
+as frozen migration baselines. The final macOS host keeps AppKit only for the
+application/window shell, one custom Metal-backed view, input, IME,
+accessibility, and explicit system services. The final Linux host uses
+Wayland/X11 without GTK4; the final Windows host uses Win32 without WinUI or
+XAML. See the [self-drawn platform host plan](docs/platform-hosts.md).
+
 ## One tree, measured end to end
 
 <p align="center">
@@ -170,13 +178,17 @@ Rust ComponentCx / .rsx          planned TSX in Node / Nub
                  |
                  v
        FramePlanner -> software reference / wgpu
-                                        |
-                             Metal / DX12 / Vulkan
-                                        |
-                               thin platform host
-                                        |
-                       normalized events -> Rust reducers
-                                  or TSX callbacks
+                            /          |          \
+                           v           v           v
+                        Metal        DX12       Vulkan
+                           |           |           |
+                           v           v           v
+                  macOS OS shell    Win32    Wayland / X11
+                           \           |           /
+                            +----------+----------+
+                                       |
+                      normalized events -> Rust reducers
+                                 or TSX callbacks
 ```
 
 These products share stable element identity, but they stay separate. Paint
@@ -243,6 +255,7 @@ independently.
 | M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
 | M4 · Text and interaction cutover | Planned | Shaping, glyphs, GUI-owned input, IME, accessibility bridges, overlays, and complete calculator scenarios |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
+| H0-H5 · Thin platform hosts | Planned | Zero-widget host contract, shared window runtime, Win32/macOS/Wayland-X11 slices, and dependency-audited cutover |
 | T0-T5 · TSX native authoring | Proposed | Automatic JSX runtime, versioned Node-to-host session, state/event runtime, self-drawn native window, packages, and stable SDK |
 
 The dependency-ordered plan and acceptance gates are in the
@@ -275,9 +288,12 @@ cargo check --locked --no-default-features --features software-reference --lib
 cargo check --locked --no-default-features --features gpu --lib
 ```
 
-## Platform baseline
+## Platform hosts: migration baseline and target
 
-| Host | Feature | Current role |
+The currently executable native features are migration evidence, not the
+renderer destination:
+
+| Host | Current feature | Current role |
 | --- | --- | --- |
 | Headless | default `headless` | Protocol tests, reducer flow, command inspection, capability audits, accessibility snapshots, and reference rendering |
 | macOS | `appkit-native` | AppKit dogfood/smoke baseline for controls, input, focus, menus, overlays, and accessibility |
@@ -288,6 +304,22 @@ The native surfaces are useful for project dogfood and focused smoke evidence;
 they are not presented as a stable production application framework. Their
 application-content widgets remain frozen migration code and will be removed
 only after the self-drawn cutover gates pass.
+
+The target hosts expose one top-level window/surface plus OS services. They do
+not receive widget create/update/remove commands:
+
+| Host | Target shell and presentation | Forbidden content path |
+| --- | --- | --- |
+| macOS | AppKit lifecycle, `NSWindow`, one custom `NSView`/`CAMetalLayer`, Metal | AppKit buttons, fields, stacks, or toolkit layout |
+| Linux | Wayland + `xdg-shell`, separately gated X11 fallback, Vulkan | GTK4, GDK, GSK, or GTK controls |
+| Windows | Win32 `HWND`/message loop, DX12/DXGI presentation | WinUI 3, XAML, or WinUI controls |
+
+Input, IME, accessibility, clipboard, file pickers, permission prompts, and
+native window chrome remain OS integration. Layout, text, forms, menus,
+popovers, ordinary dialogs, hit testing, and every application-content pixel
+remain A3S-owned. The dependency firewall, H0-H5 milestones, and platform
+acceptance matrix are specified in the
+[platform host architecture](docs/platform-hosts.md).
 
 ## Examples
 
@@ -363,6 +395,7 @@ src/
 |- drawing/layout_scene.rs
 |                        LayoutSnapshot to Graphics Scene lowering
 |- render_contract.rs    executable field/role/event milestone inventory
+|- platform_host/        planned zero-widget OS shell and presentation boundary
 |- backend/ + platform/  legacy execution/planning migration baseline
 `- *_native/             AppKit, GTK4, and WinUI control hosts during migration
 
@@ -378,6 +411,7 @@ packaging/               unsigned native smoke-bundle assets and validators
 - [Architecture and ownership boundaries](docs/architecture.md)
 - [Layout and Graphics Scene contract](docs/layout-scene.md)
 - [Renderer field inventory](docs/renderer-field-inventory.md)
+- [Self-drawn platform host architecture](docs/platform-hosts.md)
 - [RSX language and hooks](docs/rsx.md)
 - [RSX framework plan](docs/rsx-framework.md)
 - [TSX to native runtime architecture](docs/tsx-native-runtime.md)

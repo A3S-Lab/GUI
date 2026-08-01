@@ -48,6 +48,7 @@ It does not choose component geometry or draw content.
 | Priority | Scope |
 | --- | --- |
 | P0 | Architecture cleanup, Graphics GPU foundation, generic layout/scene path, calculator slice, input/IME/accessibility, and legacy backend removal |
+| P0-H | Zero-widget platform-host contract, shared presentation runtime, macOS/Windows/Linux shells, and dependency-audited cutover |
 | P0-T | Optional TSX-to-native authoring track: automatic JSX runtime, versioned local session, Node-owned component state, and self-drawn host integration |
 | P1 | Full design-system projection, overlays, collections, date/color controls, tables, virtualization, themes, assets, and localization |
 | P2 | Developer tooling, animation, advanced content surfaces, performance work, and shared Graphics capabilities needed by future game runtimes |
@@ -126,6 +127,13 @@ defined in the [TSX native runtime architecture](tsx-native-runtime.md). The
 TSX SDK reuses the resolved frame input vocabulary but does not expose legacy
 planned-widget commands as its public host protocol.
 
+The operating-system boundary and its H0-H5 delivery gates are defined in the
+[self-drawn platform host architecture](platform-hosts.md). The target macOS
+binary uses AppKit only as the system application/window shell around one
+custom Metal-backed view. Linux uses Wayland/X11 without GTK4, and Windows uses
+Win32 without WinUI/XAML. None of these shells owns application-content
+layout, controls, or pixels.
+
 ## Cross-Platform Consistency Contract
 
 One scene and one renderer eliminate toolkit layout divergence, but GPU drivers
@@ -197,7 +205,7 @@ Its removal gates are explicit so “temporary” code cannot become permanent.
 | `renderer.rs`, `host.rs` | Stable-tree and rollback baseline | New layout/scene renderer preserves keyed state, transaction behavior, and runtime queries |
 | `platform/`, `backend/` | Portable command and recovery baseline | Scene frames, resource commits, presentation ACKs, and recovery have equivalent tests |
 | `appkit.rs`, `gtk4.rs`, `winui.rs` | Headless widget-planning evidence | Generic scene and capability audits replace class/setter assertions |
-| `appkit_native/`, `gtk4_native/`, `winui_native/` | Current real input, IME, accessibility, menu, dialog, and window evidence | Thin hosts cover those services and all three self-drawn calculator lanes pass |
+| `appkit_native/`, `gtk4_native/`, `winui_native/` | Current real input, IME, accessibility, menu, dialog, and window evidence | H2-H4 hosts cover those services and all three self-drawn calculator lanes pass |
 | platform-specific examples | Migration comparison and OS smoke | One shared self-drawn example plus platform-host smoke runners covers the same scenarios |
 | legacy Cargo features and dependencies | Build compatibility | Their final source and CI consumer is deleted in the same commit |
 | native-input conformance artifacts | Behavioral evidence | Generalized host manifests preserve or strengthen every claimed scenario |
@@ -340,7 +348,8 @@ Acceptance gates:
   three desktop systems
 - unsupported required style fails the fixture instead of being omitted
 - incremental layout and scene output equals a clean rebuild
-- the rectangle-only path presents inside real macOS, Linux, and Windows windows
+- the rectangle-only path presents through the H1 contract inside real H2-H4
+  macOS, Linux, and Windows windows
 
 ### M4 - Text, input, IME, accessibility, and overlays
 
@@ -389,18 +398,134 @@ Acceptance gates:
 - default macOS, Linux, and Windows builds open the self-drawn calculator
 - the full semantic, interaction, accessibility, reference-image, GPU-image,
   recovery, packaging, and platform smoke matrix passes
-- fresh builds prove removed toolkit dependencies are absent from Cargo.lock
-  and distribution artifacts
+- target Linux and Windows dependency trees and artifacts contain no
+  GTK4/GDK/GSK or WinUI/XAML runtime; macOS retains only an audited AppKit
+  system-shell feature allowlist with no content-control path
+- fresh builds prove removed legacy dependencies and features are absent from
+  `Cargo.lock`, `cargo tree -e features`, and distribution imports
 - repository file-size and dead-code audits pass
+
+## P0-H Self-Drawn Platform Host Track
+
+Status: architecture planned; implementation has not started.
+
+This track turns the existing offscreen layout/scene/GPU boundary into real
+windows without moving component rendering back into an OS toolkit. All
+application content remains A3S-owned. A top-level `NSWindow`, `wl_surface`,
+X11 window, or `HWND` is an operating-system presentation target, not a native
+component tree.
+
+The complete ownership model, target platform API matrix, contract surface,
+migration rules, and verification matrix are recorded in
+[`platform-hosts.md`](platform-hosts.md).
+
+### H0 - Host contract and dependency firewall
+
+Status: next; may begin during M3.
+
+- add typed window, presentation, input, text-input, accessibility, and system
+  service records under a new `platform_host/` boundary
+- add fake-host conformance and complete frame/service transaction tests
+- plan `host-macos`, `host-windows`, `host-linux-wayland`, and
+  `host-linux-x11` features without enabling legacy backends
+- add dependency and source audits that forbid application-content widgets
+
+Gates:
+
+- the contract exposes no widget create/update/remove operation
+- host records contain no component style, Node, toolkit object, or `wgpu`
+  handle
+- semantic-only builds stay free of Graphics and platform dependencies
+- target features do not import or enable legacy renderer modules
+
+### H1 - Shared self-drawn window runtime
+
+Status: planned after H0; depends on M3 presentation work.
+
+- transact scene, hit-region, accessibility, and window state as one committed
+  host frame
+- attach Graphics to a raw platform surface and handle resize, scale, damage,
+  occlusion, redraw, surface loss, and presentation acknowledgements
+- route host events through portable interaction, focus, and reducer state
+- add one shared self-drawn calculator and fake-host smoke entrypoint
+
+Gates:
+
+- unchanged frames produce no layout, scene, or present work
+- rejected frames retain the last committed visual, interaction, and
+  accessibility revisions
+- resize and scale changes preserve stable semantic identity
+- the fake host proves zero application-content widgets by construction
+
+### H2 - Windows Win32 host
+
+Status: planned after H1; its rectangle slice can land during M3 and its full
+input/IME/accessibility gate depends on M4.
+
+- own `HWND` lifecycle, message pumping, and DX12-backed Graphics presentation
+- translate pointer, keyboard, wheel, focus, DPI, clipboard, and window events
+- bridge Text Services Framework and UI Automation directly to portable state
+- package and automate without initializing XAML
+
+Gate: the shared calculator passes rendering, input, composition, UI
+Automation, resize/DPI, recovery, and close scenarios with no WinUI/XAML
+content object or dependency.
+
+### H3 - macOS system-shell host
+
+Status: planned after H1; its full gate depends on M4.
+
+- own `NSApplication`, `NSWindow`, and one custom root `NSView`
+- attach a `CAMetalLayer`, translate `NSEvent`, and handle scale/occlusion
+- implement `NSTextInputClient` over GUI-owned text state
+- project the portable accessibility tree through method-based APIs
+
+Gate: the shared calculator passes rendering, input, composition,
+VoiceOver-facing semantics, resize/scale, recovery, and close scenarios without
+creating `NSButton`, `NSTextField`, `NSStackView`, or any application-content
+AppKit control.
+
+### H4 - Linux Wayland/X11 host
+
+Status: planned after H1; its full gate depends on M4.
+
+- use Wayland plus `xdg-shell` as the primary window path, with X11 behind a
+  separate fallback feature
+- attach Vulkan-backed Graphics surfaces and translate compositor/input state
+- integrate compositor text input, AT-SPI2, clipboard protocols, and portals
+- report unsupported compositor/IME capabilities instead of dropping them
+
+Gate: the shared calculator passes the declared Wayland/X11 compositor, input,
+IME, AT-SPI, scale/configure, portal, recovery, and disconnect matrix with no
+GTK4, GDK, or GSK dependency.
+
+### H5 - Host cutover and legacy deletion
+
+Status: planned after H2-H4 and M4; completes M5.
+
+- switch desktop defaults, shared examples, packaging, and CI to the new hosts
+- pass one cross-platform calculator/control conformance matrix
+- delete legacy renderer features, controls, adapters, examples, dependencies,
+  packaging, tests, and documentation in platform-scoped commits
+- retain only the audited macOS system-shell AppKit binding surface
+
+Gates:
+
+- source and runtime audits report zero application-content platform widgets
+- target dependency trees and packaged imports pass the platform allowlists
+- all semantic, layout, scene, software/GPU, input, IME, accessibility,
+  recovery, packaging, and teardown evidence is green
+- every superseded legacy consumer is removed in the same platform cutover
 
 ## P0-T TSX Native Authoring Track
 
 Status: architecture proposed; implementation has not started.
 
-This track is dependency-coupled to the renderer program without blocking Rust
-RSX work. Headless protocol and JSX-runtime work can begin during M3. A
-supported visible TSX application cannot ship until the self-drawn thin host
-and the minimum M4 text, input, focus, and accessibility slice are complete.
+This track is dependency-coupled to the renderer and H0-H5 host programs
+without blocking Rust RSX work. Headless protocol and JSX-runtime work can
+begin during M3. A supported visible TSX application cannot ship until H1, at
+least one H2-H4 platform slice, and the minimum M4 text, input, focus, and
+accessibility slice are complete.
 
 The target command is `nub app.tsx`. Nub or another standard TSX tool emits
 automatic JSX-runtime calls into `@a3s/gui`; the TypeScript runtime resolves
@@ -458,7 +583,7 @@ Gates:
 
 ### T3 - Self-drawn native window
 
-Dependencies: M3 thin-host presentation plus minimum M4 text/input work.
+Dependencies: H1, one supported H2-H4 host, and minimum M4 text/input work.
 
 - launch the real platform host from `nub app.tsx`
 - present the TSX counter and shared calculator through A3S Graphics
@@ -605,12 +730,15 @@ A component or subsystem is complete only when:
 
 ## Immediate Commit Sequence
 
-1. Push the standalone deterministic Graphics core and accepted architecture.
-2. Replace the obsolete renderer documentation, pin Graphics, and audit dead residue.
-3. Land the Graphics GPU rectangle pipeline with software parity tests.
-4. Land generic GUI layout records and Native IR-to-scene rectangle lowering.
-5. Present the generic rectangle slice in thin macOS, Linux, and Windows hosts.
-6. Add text shaping/rasterization, hit testing, input, IME, and accessibility.
-7. Pass the shared calculator cutover matrix.
-8. Delete the three legacy application-content widget backends and all final
-   consumers in reviewable, platform-scoped commits.
+1. Land H0 host contracts, fake-host conformance, target feature boundaries,
+   and dependency firewalls.
+2. Land H1 shared frame orchestration and raw-surface presentation lifecycle.
+3. Present the generic rectangle slice through the H2 Windows Win32 host.
+4. Present the same slice through the H3 macOS system-shell host.
+5. Present it through H4 Wayland, then the separately gated X11 fallback.
+6. Add text shaping/rasterization, hit testing, input, IME, and accessibility
+   against the shared host contract.
+7. Pass the shared calculator cutover matrix on all three platforms.
+8. Delete WinUI/XAML, GTK4, and AppKit content-control code and all final
+   consumers in reviewable, platform-scoped commits while preserving the thin
+   OS shells.
