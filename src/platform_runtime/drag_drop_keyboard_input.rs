@@ -3,6 +3,7 @@ use crate::platform_host::PlatformHostRevision;
 
 use super::drag_drop::{SelfDrawnDragSession, SelfDrawnDropOperation};
 use super::drag_drop_input::source_context;
+use super::drop_policy::SelfDrawnDropPolicyEvaluation;
 use super::input::RoutedInput;
 use super::interaction::{SelfDrawnEventContext, SelfDrawnInteractionSession};
 use super::interaction_tree::SelfDrawnInteractionTree;
@@ -19,6 +20,7 @@ impl SelfDrawnInteractionSession {
         event_sequence: u64,
         context: &mut SelfDrawnEventContext,
         routed: &mut RoutedInput,
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> bool {
         if key == "Escape" && !repeat {
             if let Some(pointer_id) = self.active_drag.as_ref().and_then(|drag| drag.pointer) {
@@ -34,6 +36,7 @@ impl SelfDrawnInteractionSession {
                             event_sequence,
                             context,
                             routed,
+                            drop_policy,
                         );
                         if pointer.hover_target.is_some() || pointer.active_press.is_some() {
                             self.pointers.insert(pointer_id, pointer);
@@ -62,6 +65,7 @@ impl SelfDrawnInteractionSession {
                         event_sequence,
                         context,
                         routed,
+                        drop_policy,
                     ),
                     "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "Home" | "End" => self
                         .move_keyboard_collection_target(
@@ -71,6 +75,7 @@ impl SelfDrawnInteractionSession {
                             event_sequence,
                             context,
                             routed,
+                            drop_policy,
                         ),
                     "Enter" => self.finish_keyboard_drag(
                         true,
@@ -79,6 +84,7 @@ impl SelfDrawnInteractionSession {
                         event_sequence,
                         context,
                         routed,
+                        drop_policy,
                     ),
                     "Escape" => self.finish_keyboard_drag(
                         false,
@@ -87,6 +93,7 @@ impl SelfDrawnInteractionSession {
                         event_sequence,
                         context,
                         routed,
+                        drop_policy,
                     ),
                     _ => {}
                 }
@@ -164,6 +171,7 @@ impl SelfDrawnInteractionSession {
         event_sequence: u64,
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) {
         let Some(mut session) = self.active_drag.take() else {
             return;
@@ -174,6 +182,7 @@ impl SelfDrawnInteractionSession {
             &session.allowed_operations,
             session.source_collection.as_ref(),
             &session.dragging_keys,
+            drop_policy,
         );
         let current = candidates.iter().position(|candidate| {
             if let Some(collection) = session.current_collection.as_ref() {
@@ -234,6 +243,7 @@ impl SelfDrawnInteractionSession {
         event_sequence: u64,
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) {
         let Some(mut session) = self.active_drag.take() else {
             return;
@@ -252,6 +262,7 @@ impl SelfDrawnInteractionSession {
                     &session.allowed_operations,
                     session.source_collection.as_ref(),
                     &session.dragging_keys,
+                    drop_policy,
                 )
             });
         if let Some(next) = next {
@@ -295,6 +306,7 @@ impl SelfDrawnInteractionSession {
         event_sequence: u64,
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) {
         let Some(mut session) = self.active_drag.take() else {
             return;
@@ -311,6 +323,7 @@ impl SelfDrawnInteractionSession {
                 event_sequence,
                 context,
                 routed,
+                drop_policy,
             )
         } else {
             self.transition_drop_target(

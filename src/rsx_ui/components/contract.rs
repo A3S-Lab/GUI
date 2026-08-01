@@ -339,6 +339,8 @@ pub(super) fn passthrough_contract() -> GuiResult<RsxComponentContract> {
             "allowedDropOperations",
             "acceptedDragTypes",
             "dropOperation",
+            "getDropOperation",
+            "shouldAcceptItemDrop",
             "dropOrientation",
             "dropPosition",
             "targetKey",
@@ -438,6 +440,8 @@ pub(super) fn collection_drag_drop_contract(
         .default_prop("allowedDropOperations", "")?
         .default_prop("acceptedDragTypes", "")?
         .default_prop("dropOperation", "")?
+        .default_prop("getDropOperation", "")?
+        .default_prop("shouldAcceptItemDrop", "")?
         .default_prop("dropOrientation", "vertical")
 }
 

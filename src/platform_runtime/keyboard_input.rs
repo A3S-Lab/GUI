@@ -5,6 +5,7 @@ use crate::platform_host::{
 };
 use crate::semantic_event::is_press_activation_key;
 
+use super::drop_policy::SelfDrawnDropPolicyEvaluation;
 use super::input::RoutedInput;
 use super::interaction::{
     KeyboardPress, KeyboardPressKey, SelfDrawnEventContext, SelfDrawnInteractionSession,
@@ -18,6 +19,7 @@ impl SelfDrawnInteractionSession {
         frame_revision: PlatformHostRevision,
         event_sequence: u64,
         tree: &SelfDrawnInteractionTree,
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> RoutedInput {
         let key = native_key_value(&event.logical_key);
         let mut context = SelfDrawnEventContext::keyboard(
@@ -45,6 +47,7 @@ impl SelfDrawnInteractionSession {
                     event_sequence,
                     &mut context,
                     &mut routed,
+                    drop_policy,
                 );
                 if !drag_handled {
                     if let Some(target) = focused {

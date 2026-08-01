@@ -76,9 +76,14 @@ versioned [component matrix](docs/react-aria-component-matrix.json) pins
   `onMove`, same-parent `onReorder`, multi-callback routing, equivalent adjacent
   boundaries, and self/descendant guards now follow the React Aria collection
   policy. Ordinary targets and collection items also share the exact 800ms
-  `onDropActivate` hold lifecycle across pointer and keyboard drags; dynamic
-  acceptance, OS/cross-application transfer, previews, pixels, accessibility,
-  and real hosts still keep every affected family below conformance;
+  `onDropActivate` hold lifecycle across pointer and keyboard drags. Dynamic
+  `shouldAcceptItemDrop` and `getDropOperation` policies now resolve before hit
+  feedback through a synchronous, revision-scoped boundary: high-level item
+  drops are filtered again per transferred item, low-level `onDrop` retains
+  override semantics, and missing, stale, timed-out, malformed, or disallowed
+  answers fail closed to `cancel`. OS/cross-application transfer, previews,
+  pixels, accessibility, and real hosts still keep every affected family below
+  conformance;
 - Checkbox, Radio, and Switch Field/Button parts plus ToastList and
   ToastContent are recorded as eight explicit API gaps;
 - a component reaches `conformant` only with behavior, layout/hit, Graphics
@@ -320,7 +325,12 @@ independently.
   one React Aria-compatible `DropActivate` after 800ms without delaying the
   deadline as the pointer moves inside the same target; all paths share
   event-loop deadlines, stable action bubbling, keyed reconciliation, and
-  reducer rollback in one staged interaction session
+  reducer rollback in one staged interaction session. Generic and collection
+  targets can additionally invoke typed `getDropOperation` policies, while
+  collection `shouldAcceptItemDrop` runs at target resolution and once per item
+  before high-level drop dispatch. Versioned frame/event/query correlation and
+  the protocol-v1 exchange adapter reject stale or failed process answers as
+  `cancel`; Rust never evaluates JavaScript
 - an identical-frame fast path that performs no layout, scene, host, or
   presentation work, plus semantic-only commits that skip pixel presentation
 - a software Graphics presenter and interactive shared
@@ -336,10 +346,10 @@ independently.
 | M1 · GUI integration | Complete | Pinned Graphics boundary, semantic-only dependency gate, renderer inventory, reference/GPU wrappers, first generic adapter |
 | M2 · GPU backend | Implementation landed | Graphics commit `8748fab`; Metal and Vulkan CI parity evidence remains |
 | M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
-| M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, typed and collection drag/drop plus timed drop activation landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
+| M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, typed and collection drag/drop, timed drop activation, and fail-closed dynamic drop policy resolution landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
 | H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, long press, captured move, typed drag/drop negotiation and timed target activation, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
-| T0-T5 · TSX native authoring | Proposed | Automatic JSX runtime, versioned Node-to-host session, state/event runtime, self-drawn native window, packages, and stable SDK |
+| T0-T5 · TSX native authoring | First protocol slice landed | Rust-side revision-scoped drop-policy DTOs and resolver bridge landed; automatic JSX runtime, Node transport/callback registry, state/event runtime, self-drawn native window, packages, and stable SDK remain |
 | M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped; collection DnD authoring/behavior slice landed; eight public parts, full software, accessibility, and three-OS self-drawn evidence remain |
 
 The dependency-ordered plan and acceptance gates are in the

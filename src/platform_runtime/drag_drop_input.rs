@@ -4,6 +4,7 @@ use crate::platform_host::{
 };
 
 use super::drag_drop::{SelfDrawnDragSession, SelfDrawnDropOperation, SelfDrawnMatchedDropTarget};
+use super::drop_policy::SelfDrawnDropPolicyEvaluation;
 use super::input::RoutedInput;
 use super::interaction::{ActivePress, SelfDrawnEventContext, SelfDrawnInteractionSession};
 use super::interaction_tree::SelfDrawnInteractionTree;
@@ -19,6 +20,7 @@ impl SelfDrawnInteractionSession {
         event_sequence: u64,
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> bool {
         let Some(position) = context.position else {
             return false;
@@ -122,6 +124,7 @@ impl SelfDrawnInteractionSession {
             &session.allowed_operations,
             session.source_collection.as_ref(),
             &session.dragging_keys,
+            drop_policy,
         );
         self.transition_drop_target(
             &mut session,
@@ -179,6 +182,7 @@ impl SelfDrawnInteractionSession {
         event_sequence: u64,
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> bool {
         let Some(mut session) = self.take_pointer_drag(pointer) else {
             return false;
@@ -202,6 +206,7 @@ impl SelfDrawnInteractionSession {
                     &session.allowed_operations,
                     session.source_collection.as_ref(),
                     &session.dragging_keys,
+                    drop_policy,
                 )
             });
             self.transition_drop_target(
@@ -222,6 +227,7 @@ impl SelfDrawnInteractionSession {
                 event_sequence,
                 context,
                 routed,
+                drop_policy,
             )
         } else {
             self.transition_drop_target(
@@ -414,11 +420,13 @@ impl SelfDrawnInteractionSession {
         event_sequence: u64,
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> SelfDrawnDropOperation {
         let Some(target) = session.current_target.take() else {
             return SelfDrawnDropOperation::Cancel;
         };
         session.drop_activation = None;
+        tree.filter_collection_drop_items(session, drop_policy);
         let operation = session.current_operation;
         self.emit_drop_event(
             session,
@@ -471,6 +479,11 @@ impl SelfDrawnInteractionSession {
                     &session.dragging_keys,
                 );
                 if !actions.is_empty() {
+                    if !tree.collection_drop_is_low_level(collection)
+                        && session.current_item_indices.is_empty()
+                    {
+                        return;
+                    }
                     for action in actions {
                         routed.invocations.push(super::SelfDrawnActionInvocation {
                             frame_revision,

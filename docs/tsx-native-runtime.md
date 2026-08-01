@@ -293,11 +293,17 @@ Callbacks that decide hit testing before an event is dispatched are a distinct
 protocol concern. In particular, React Aria's `shouldAcceptItemDrop` and
 `getDropOperation` require a synchronous answer while resolving the current
 collection target. They must not be encoded as ordinary action ids, serialized
-closures, or post-event reducers. Before these APIs are exposed to TSX, the
-session protocol must define a revision-scoped policy decision/query contract
-with bounded execution, stale-revision rejection, and `cancel` as the safe
-timeout/failure result (or an equivalent declarative decision table). Node
-continues to own JavaScript callbacks; the Rust host never executes JS.
+closures, or post-event reducers. The Rust boundary now defines
+`SelfDrawnDropPolicyQuery`/`Response`, strict
+`ProtocolDropPolicyQueryV1`/`ResponseV1` envelopes, and
+`ProtocolDropPolicyResolverV1`. Every query identifies the committed frame,
+event, query sequence, policy id, typed target, drag types, and allowed
+operations; stale or malformed responses and source-disallowed operations fail
+closed. The exchange trait makes timeout, unavailable transport, and handler
+failure explicit and maps all three to `cancel`. Before these APIs are exposed
+to TSX, the Node runtime must bind its revision-scoped callback registry to a
+bounded implementation of that exchange. Node continues to own JavaScript
+callbacks; the Rust host never executes JS.
 
 ### Components and Hooks
 
@@ -516,7 +522,9 @@ minimum M4 text/input slice.
 
 ### T0 - Contract and Architecture
 
-Status: this proposal.
+Status: architecture accepted; the Rust-side drop-policy DTO and resolver
+adapter are implemented. The remaining T0 review fixtures and Node-side
+transport are pending.
 
 - accept process, ownership, identity, protocol, and packaging decisions
 - pin cross-language golden frame and event fixtures
@@ -529,6 +537,8 @@ cannot bypass Native IR, layout, Graphics, interaction, or accessibility.
 ### T1 - Headless Protocol and JSX Core
 
 - add the bounded framed transport and handshake DTOs in Rust
+- connect the landed strict drop-policy query/response DTOs to that transport
+  and the Node callback registry
 - generate TypeScript protocol declarations from Rust DTOs
 - publish local development exports for `jsx-runtime` and `jsx-dev-runtime`
 - implement element/child/prop normalization, keys, and action registration

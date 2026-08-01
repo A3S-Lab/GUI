@@ -208,11 +208,13 @@ pub use platform_host::{
 pub use platform_runtime::{
     PlatformRenderFrame, PlatformScenePresenter, RecordingPreparedFrame, RecordingScenePresenter,
     SelfDrawnActionInvocation, SelfDrawnActionPropagation, SelfDrawnCollectionDropTarget,
-    SelfDrawnDragContext, SelfDrawnDropItem, SelfDrawnDropOperation, SelfDrawnDropPosition,
-    SelfDrawnElementInteraction, SelfDrawnEventContext, SelfDrawnFrameCommit,
-    SelfDrawnFrameCommitStatus, SelfDrawnFrameSnapshot, SelfDrawnHostEventOutcome,
-    SelfDrawnInputDispatch, SelfDrawnInteractionChange, SelfDrawnRuntimeStats,
-    SelfDrawnWindowRuntime,
+    SelfDrawnDragContext, SelfDrawnDropItem, SelfDrawnDropOperation, SelfDrawnDropPolicyDecision,
+    SelfDrawnDropPolicyQuery, SelfDrawnDropPolicyRequest, SelfDrawnDropPolicyResolution,
+    SelfDrawnDropPolicyResolver, SelfDrawnDropPolicyResponse, SelfDrawnDropPolicyTarget,
+    SelfDrawnDropPosition, SelfDrawnElementInteraction, SelfDrawnEventContext,
+    SelfDrawnFrameCommit, SelfDrawnFrameCommitStatus, SelfDrawnFrameSnapshot,
+    SelfDrawnHostEventOutcome, SelfDrawnInputDispatch, SelfDrawnInteractionChange,
+    SelfDrawnRuntimeStats, SelfDrawnWindowRuntime,
 };
 #[cfg(all(feature = "platform-runtime", feature = "software-reference"))]
 pub use platform_runtime::{

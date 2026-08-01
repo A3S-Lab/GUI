@@ -14,6 +14,7 @@ pub struct UiDropZoneProps {
     pub on_drop_exit: Option<String>,
     pub accepted_drag_types: Option<String>,
     pub drop_operation: Option<String>,
+    pub get_drop_operation: Option<String>,
     pub is_disabled: bool,
     pub is_drop_target: bool,
 }
@@ -31,6 +32,7 @@ pub fn ui_drop_zone(cx: &mut ComponentCx<UiDropZoneProps>) -> RSX {
             .on_drop_exit(props.on_drop_exit.clone())
             .accepted_drag_types(props.accepted_drag_types.clone())
             .drop_operation(props.drop_operation.clone())
+            .get_drop_operation(props.get_drop_operation.clone())
             .disabled(props.is_disabled)
             .drop_target(props.is_drop_target)
     });
@@ -44,6 +46,7 @@ pub fn ui_drop_zone(cx: &mut ComponentCx<UiDropZoneProps>) -> RSX {
             {...props.dropZoneProps}
             data-slot="drop-zone"
             data-drop-target={props.isDropTarget}
+            data-get-drop-operation-policy={props.getDropOperation}
             class="grid min-h-24 place-items-center rounded-md border border-dashed border-hairline-strong bg-canvas-soft p-3 text-sm text-body outline-none data-[drop-target=true]:ring-[2px] data-[drop-target=true]:ring-ink/40"
             className={props.className}
         >

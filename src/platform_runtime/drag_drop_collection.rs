@@ -53,6 +53,7 @@ pub(super) struct SelfDrawnCollectionDropConfig {
     insert: Option<String>,
     reorder: Option<String>,
     move_within: Option<String>,
+    should_accept_item_drop_policy: Option<String>,
 }
 
 impl SelfDrawnCollectionDropConfig {
@@ -70,6 +71,13 @@ impl SelfDrawnCollectionDropConfig {
         let insert = event_action(props, "onInsert");
         let reorder = event_action(props, "onReorder");
         let move_within = event_action(props, "onCollectionMove");
+        let should_accept_item_drop_policy = policy_attribute(
+            props,
+            &[
+                "shouldAcceptItemDrop",
+                "data-should-accept-item-drop-policy",
+            ],
+        );
         if low_level_drop.is_none()
             && root_drop.is_none()
             && item_drop.is_none()
@@ -88,6 +96,7 @@ impl SelfDrawnCollectionDropConfig {
             insert,
             reorder,
             move_within,
+            should_accept_item_drop_policy,
         })
     }
 
@@ -151,6 +160,10 @@ impl SelfDrawnCollectionDropConfig {
 
     pub(super) fn move_action(&self) -> Option<&str> {
         self.move_within.as_deref()
+    }
+
+    pub(super) fn should_accept_item_drop_policy(&self) -> Option<&str> {
+        self.should_accept_item_drop_policy.as_deref()
     }
 }
 
@@ -218,6 +231,14 @@ fn event_action(props: &NativeProps, name: &str) -> Option<String> {
         .get(name)
         .map(|action| action.trim())
         .filter(|action| !action.is_empty())
+        .map(str::to_string)
+}
+
+fn policy_attribute(props: &NativeProps, names: &[&str]) -> Option<String> {
+    names
+        .iter()
+        .find_map(|name| attribute(props, name))
+        .filter(|value| !value.is_empty())
         .map(str::to_string)
 }
 

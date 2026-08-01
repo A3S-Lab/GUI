@@ -37,6 +37,8 @@ pub struct UiGridListProps {
     pub allowed_drop_operations: String,
     pub accepted_drag_types: String,
     pub drop_operation: String,
+    pub get_drop_operation: String,
+    pub should_accept_item_drop: String,
     pub drop_orientation: String,
 }
 
@@ -73,6 +75,8 @@ pub fn ui_grid_list(cx: &mut ComponentCx<UiGridListProps>) -> RSX {
             allowedDropOperations={props.allowedDropOperations}
             acceptedDragTypes={props.acceptedDragTypes}
             dropOperation={props.dropOperation}
+            data-get-drop-operation-policy={props.getDropOperation}
+            data-should-accept-item-drop-policy={props.shouldAcceptItemDrop}
             onDragStart={props.onDragStart}
             onDragMove={props.onDragMove}
             onDragEnd={props.onDragEnd}

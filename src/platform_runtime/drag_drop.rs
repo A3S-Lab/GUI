@@ -108,6 +108,7 @@ pub(super) struct SelfDrawnDragSource {
 pub(super) struct SelfDrawnDropTarget {
     accepted_types: Vec<String>,
     requested_operation: Option<SelfDrawnDropOperation>,
+    get_drop_operation_policy: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -237,7 +238,16 @@ impl SelfDrawnDropTarget {
             props,
             &["dropOperation", "dropEffect", "data-drop-operation"],
         );
-        if !has_event && !style_requires_target && accepted.is_none() && operation.is_none() {
+        let get_drop_operation_policy = attribute(
+            props,
+            &["getDropOperation", "data-get-drop-operation-policy"],
+        );
+        if !has_event
+            && !style_requires_target
+            && accepted.is_none()
+            && operation.is_none()
+            && get_drop_operation_policy.is_none()
+        {
             return None;
         }
         Some(Self {
@@ -245,17 +255,30 @@ impl SelfDrawnDropTarget {
             requested_operation: operation.map(|operation| {
                 parse_operation(operation).unwrap_or(SelfDrawnDropOperation::Cancel)
             }),
+            get_drop_operation_policy: get_drop_operation_policy.map(str::to_string),
         })
     }
 
+    #[cfg(test)]
     pub(super) fn operation_for(
         &self,
         types: &[String],
         allowed_operations: &[SelfDrawnDropOperation],
     ) -> SelfDrawnDropOperation {
-        if !accepts_types(&self.accepted_types, types) {
+        if !self.accepts(types) {
             return SelfDrawnDropOperation::Cancel;
         }
+        self.default_operation_for(allowed_operations)
+    }
+
+    pub(super) fn accepts(&self, types: &[String]) -> bool {
+        accepts_types(&self.accepted_types, types)
+    }
+
+    pub(super) fn default_operation_for(
+        &self,
+        allowed_operations: &[SelfDrawnDropOperation],
+    ) -> SelfDrawnDropOperation {
         match self.requested_operation {
             Some(operation) if allowed_operations.contains(&operation) => operation,
             Some(_) => SelfDrawnDropOperation::Cancel,
@@ -273,6 +296,10 @@ impl SelfDrawnDropTarget {
             .enumerate()
             .filter_map(|(index, item)| item.matches(&self.accepted_types).then_some(index))
             .collect()
+    }
+
+    pub(super) fn get_drop_operation_policy(&self) -> Option<&str> {
+        self.get_drop_operation_policy.as_deref()
     }
 }
 

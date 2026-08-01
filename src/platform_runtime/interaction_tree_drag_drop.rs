@@ -7,6 +7,7 @@ use super::drag_drop::{
 use super::drag_drop_collection::{
     SelfDrawnCollectionDropConfig, SelfDrawnCollectionDropTarget, SelfDrawnDropPosition,
 };
+use super::drop_policy::{SelfDrawnDropPolicyEvaluation, SelfDrawnDropPolicyTarget};
 use super::interaction_tree::{contains, SelfDrawnInteractionNode, SelfDrawnInteractionTree};
 
 impl SelfDrawnInteractionTree {
@@ -18,6 +19,7 @@ impl SelfDrawnInteractionTree {
         allowed_operations: &[SelfDrawnDropOperation],
         source_collection: Option<&PlatformElementId>,
         dragging_keys: &[String],
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> Option<SelfDrawnMatchedDropTarget> {
         for region in self.hit_regions.iter().rev() {
             if !contains(region.bounds, point) {
@@ -41,12 +43,20 @@ impl SelfDrawnInteractionTree {
                         allowed_operations,
                         source_collection,
                         dragging_keys,
+                        drop_policy,
                     );
                 }
                 let Some(target) = node.drop_target.as_ref() else {
                     continue;
                 };
-                return self.generic_match(id, target, items, types, allowed_operations);
+                return self.generic_match(
+                    id,
+                    target,
+                    items,
+                    types,
+                    allowed_operations,
+                    drop_policy,
+                );
             }
             return None;
         }
@@ -60,6 +70,7 @@ impl SelfDrawnInteractionTree {
         allowed_operations: &[SelfDrawnDropOperation],
         source_collection: Option<&PlatformElementId>,
         dragging_keys: &[String],
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> Vec<SelfDrawnMatchedDropTarget> {
         self.tree_order
             .iter()
@@ -80,11 +91,12 @@ impl SelfDrawnInteractionTree {
                                 allowed_operations,
                                 source_collection,
                                 dragging_keys,
+                                drop_policy,
                             )
                         });
                 }
                 let target = node.drop_target.as_ref()?;
-                self.generic_match(id, target, items, types, allowed_operations)
+                self.generic_match(id, target, items, types, allowed_operations, drop_policy)
             })
             .collect()
     }
@@ -100,6 +112,7 @@ impl SelfDrawnInteractionTree {
         allowed_operations: &[SelfDrawnDropOperation],
         source_collection: Option<&PlatformElementId>,
         dragging_keys: &[String],
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> Option<SelfDrawnMatchedDropTarget> {
         if let (Some(collection), Some(descriptor)) = (collection, collection_target) {
             let config = self
@@ -116,11 +129,12 @@ impl SelfDrawnInteractionTree {
                 allowed_operations,
                 source_collection,
                 dragging_keys,
+                drop_policy,
             );
         }
         let node = self.node(id).filter(|node| node.available)?;
         let target = node.drop_target.as_ref()?;
-        self.generic_match(id, target, items, types, allowed_operations)
+        self.generic_match(id, target, items, types, allowed_operations, drop_policy)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -134,6 +148,7 @@ impl SelfDrawnInteractionTree {
         allowed_operations: &[SelfDrawnDropOperation],
         source_collection: Option<&PlatformElementId>,
         dragging_keys: &[String],
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> Option<SelfDrawnMatchedDropTarget> {
         let config = self.node(collection)?.collection_drop.as_ref()?;
         let direction = match (config.orientation, key) {
@@ -157,6 +172,7 @@ impl SelfDrawnInteractionTree {
                     allowed_operations,
                     source_collection,
                     dragging_keys,
+                    drop_policy,
                 )
             })
             .collect::<Vec<_>>();
@@ -182,8 +198,22 @@ impl SelfDrawnInteractionTree {
         items: &[SelfDrawnDropItem],
         types: &[String],
         allowed_operations: &[SelfDrawnDropOperation],
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> Option<SelfDrawnMatchedDropTarget> {
-        let operation = target.operation_for(types, allowed_operations);
+        if !target.accepts(types) {
+            return None;
+        }
+        let operation = target.get_drop_operation_policy().map_or_else(
+            || target.default_operation_for(allowed_operations),
+            |policy_id| {
+                drop_policy.get_drop_operation(
+                    policy_id,
+                    SelfDrawnDropPolicyTarget::Generic { id: id.clone() },
+                    types,
+                    allowed_operations,
+                )
+            },
+        );
         (operation != SelfDrawnDropOperation::Cancel).then(|| SelfDrawnMatchedDropTarget {
             id: id.clone(),
             collection: None,
@@ -205,6 +235,7 @@ impl SelfDrawnInteractionTree {
         allowed_operations: &[SelfDrawnDropOperation],
         source_collection: Option<&PlatformElementId>,
         dragging_keys: &[String],
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> Option<SelfDrawnMatchedDropTarget> {
         let is_internal = source_collection == Some(collection);
         let descriptor =
@@ -218,6 +249,7 @@ impl SelfDrawnInteractionTree {
             allowed_operations,
             source_collection,
             dragging_keys,
+            drop_policy,
         );
         if matched.is_some() || matches!(descriptor, SelfDrawnCollectionDropTarget::Root) {
             return matched;
@@ -231,6 +263,7 @@ impl SelfDrawnInteractionTree {
             allowed_operations,
             source_collection,
             dragging_keys,
+            drop_policy,
         )
     }
 
@@ -324,6 +357,7 @@ impl SelfDrawnInteractionTree {
         allowed_operations: &[SelfDrawnDropOperation],
         source_collection: Option<&PlatformElementId>,
         dragging_keys: &[String],
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> Option<SelfDrawnMatchedDropTarget> {
         if !self.collection_target_allowed(
             collection,
@@ -334,7 +368,36 @@ impl SelfDrawnInteractionTree {
         ) {
             return None;
         }
-        let operation = config.target.operation_for(types, allowed_operations);
+        if !config.target.accepts(types) {
+            return None;
+        }
+        let policy_target = SelfDrawnDropPolicyTarget::Collection {
+            id: collection.clone(),
+            target: descriptor.clone(),
+        };
+        if !config.has_low_level_drop()
+            && matches!(
+                descriptor,
+                SelfDrawnCollectionDropTarget::Item {
+                    drop_position: SelfDrawnDropPosition::On,
+                    ..
+                }
+            )
+        {
+            if let Some(policy_id) = config.should_accept_item_drop_policy() {
+                let accepted =
+                    drop_policy.should_accept_item_drop(policy_id, policy_target.clone(), types);
+                if !accepted && !config.has_low_level_drop() {
+                    return None;
+                }
+            }
+        }
+        let operation = config.target.get_drop_operation_policy().map_or_else(
+            || config.target.default_operation_for(allowed_operations),
+            |policy_id| {
+                drop_policy.get_drop_operation(policy_id, policy_target, types, allowed_operations)
+            },
+        );
         if operation == SelfDrawnDropOperation::Cancel {
             return None;
         }
@@ -344,7 +407,11 @@ impl SelfDrawnInteractionTree {
             collection: Some(collection.clone()),
             collection_target: Some(descriptor),
             operation,
-            item_indices: config.target.matching_item_indices(items),
+            item_indices: if config.has_low_level_drop() {
+                (0..items.len()).collect()
+            } else {
+                config.target.matching_item_indices(items)
+            },
         })
     }
 

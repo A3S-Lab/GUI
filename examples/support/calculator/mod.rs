@@ -32,6 +32,7 @@ pub fn calculator_reduce(
 }
 
 #[cfg(feature = "platform-runtime")]
+#[allow(dead_code)]
 pub fn calculator_reduce_self_drawn(
     component: &CalculatorComponent,
     state: &mut CalculatorState,
@@ -60,6 +61,7 @@ pub fn calculator_reduce_self_drawn(
 }
 
 #[cfg(feature = "platform-runtime")]
+#[allow(dead_code)]
 fn reducer_node_id(stable_id: &str) -> HostNodeId {
     let mut fingerprint = 0xcbf29ce484222325_u64;
     for byte in stable_id.bytes() {

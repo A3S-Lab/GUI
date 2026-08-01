@@ -21,6 +21,7 @@ mod drag_drop_model_tests;
 mod drag_drop_source_input;
 #[cfg(test)]
 mod drag_drop_tests;
+mod drop_policy;
 mod events;
 mod frame;
 mod input;
@@ -43,6 +44,11 @@ mod runtime;
 
 pub use drag_drop::{SelfDrawnDragContext, SelfDrawnDropItem, SelfDrawnDropOperation};
 pub use drag_drop_collection::{SelfDrawnCollectionDropTarget, SelfDrawnDropPosition};
+pub use drop_policy::{
+    SelfDrawnDropPolicyDecision, SelfDrawnDropPolicyQuery, SelfDrawnDropPolicyRequest,
+    SelfDrawnDropPolicyResolution, SelfDrawnDropPolicyResolver, SelfDrawnDropPolicyResponse,
+    SelfDrawnDropPolicyTarget,
+};
 pub use frame::{PlatformRenderFrame, SelfDrawnFrameSnapshot};
 pub use interaction::{
     SelfDrawnActionInvocation, SelfDrawnActionPropagation, SelfDrawnElementInteraction,

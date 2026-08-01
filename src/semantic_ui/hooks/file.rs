@@ -96,6 +96,7 @@ pub struct UseDropZoneProps {
     on_drop_exit: Option<String>,
     accepted_drag_types: Option<String>,
     drop_operation: Option<String>,
+    get_drop_operation: Option<String>,
     is_disabled: bool,
     is_drop_target: bool,
 }
@@ -155,6 +156,11 @@ impl UseDropZoneProps {
         self
     }
 
+    pub fn get_drop_operation(mut self, policy: Option<impl Into<String>>) -> Self {
+        self.get_drop_operation = non_empty(policy);
+        self
+    }
+
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.is_disabled = disabled;
         self
@@ -202,6 +208,8 @@ pub struct DropZoneProps {
     pub accepted_drag_types: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub drop_operation: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub get_drop_operation: Option<String>,
     #[serde(
         rename = "data-accepted-drag-types",
         skip_serializing_if = "Option::is_none"
@@ -212,6 +220,11 @@ pub struct DropZoneProps {
         skip_serializing_if = "Option::is_none"
     )]
     pub data_drop_operation: Option<String>,
+    #[serde(
+        rename = "data-get-drop-operation-policy",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub data_get_drop_operation_policy: Option<String>,
     #[serde(skip_serializing_if = "is_false")]
     pub disabled: bool,
     #[serde(rename = "aria-disabled", skip_serializing_if = "is_false")]
@@ -258,8 +271,10 @@ pub fn use_drop_zone(props: UseDropZoneProps) -> UseDropZoneResult {
             on_drop_exit: props.on_drop_exit,
             accepted_drag_types: props.accepted_drag_types.clone(),
             drop_operation: props.drop_operation.clone(),
+            get_drop_operation: props.get_drop_operation.clone(),
             data_accepted_drag_types: props.accepted_drag_types,
             data_drop_operation: props.drop_operation,
+            data_get_drop_operation_policy: props.get_drop_operation,
             disabled: props.is_disabled,
             aria_disabled: props.is_disabled,
             data_drop_target: props.is_drop_target,

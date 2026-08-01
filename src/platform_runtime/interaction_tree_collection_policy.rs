@@ -3,9 +3,11 @@ use std::collections::BTreeSet;
 use crate::native::NativeRole;
 use crate::platform_host::PlatformElementId;
 
+use super::drag_drop::SelfDrawnDragSession;
 use super::drag_drop_collection::{
     SelfDrawnCollectionDropConfig, SelfDrawnCollectionDropTarget, SelfDrawnDropPosition,
 };
+use super::drop_policy::{SelfDrawnDropPolicyEvaluation, SelfDrawnDropPolicyTarget};
 use super::interaction_tree::{SelfDrawnInteractionNode, SelfDrawnInteractionTree};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -116,6 +118,64 @@ impl SelfDrawnInteractionTree {
             SelfDrawnCollectionDropTarget::Root => {}
         }
         actions
+    }
+
+    pub(super) fn filter_collection_drop_items(
+        &self,
+        session: &mut SelfDrawnDragSession,
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
+    ) {
+        let (Some(collection), Some(target)) = (
+            session.current_collection.as_ref(),
+            session.current_collection_target.as_ref(),
+        ) else {
+            return;
+        };
+        let Some(config) = self
+            .node(collection)
+            .and_then(|node| node.collection_drop.as_ref())
+        else {
+            session.current_item_indices.clear();
+            return;
+        };
+        if config.has_low_level_drop()
+            || !matches!(
+                target,
+                SelfDrawnCollectionDropTarget::Item {
+                    drop_position: SelfDrawnDropPosition::On,
+                    ..
+                }
+            )
+        {
+            return;
+        }
+        let Some(policy_id) = config.should_accept_item_drop_policy() else {
+            return;
+        };
+        let policy_target = SelfDrawnDropPolicyTarget::Collection {
+            id: collection.clone(),
+            target: target.clone(),
+        };
+        session.current_item_indices = session
+            .current_item_indices
+            .iter()
+            .copied()
+            .filter(|index| {
+                session.items.get(*index).is_some_and(|item| {
+                    drop_policy.should_accept_item_drop(
+                        policy_id,
+                        policy_target.clone(),
+                        item.types(),
+                    )
+                })
+            })
+            .collect();
+    }
+
+    pub(super) fn collection_drop_is_low_level(&self, collection: &PlatformElementId) -> bool {
+        self.node(collection)
+            .and_then(|node| node.collection_drop.as_ref())
+            .is_some_and(SelfDrawnCollectionDropConfig::has_low_level_drop)
     }
 
     pub(super) fn collection_targets_equivalent(

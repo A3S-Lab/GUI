@@ -12,6 +12,7 @@ pub struct UiDroppableProps {
     pub on_drop_activate: Option<String>,
     pub accepted_drag_types: Option<String>,
     pub drop_operation: Option<String>,
+    pub get_drop_operation: Option<String>,
     pub is_disabled: bool,
     pub is_drop_target: bool,
 }
@@ -27,6 +28,7 @@ pub fn ui_droppable(cx: &mut ComponentCx<UiDroppableProps>) -> RSX {
             .on_drop_activate(props.on_drop_activate.clone())
             .accepted_drag_types(props.accepted_drag_types.clone())
             .drop_operation(props.drop_operation.clone())
+            .get_drop_operation(props.get_drop_operation.clone())
             .disabled(props.is_disabled)
             .drop_target(props.is_drop_target)
     });
@@ -41,6 +43,7 @@ pub fn ui_droppable(cx: &mut ComponentCx<UiDroppableProps>) -> RSX {
             {...props.dropButtonProps}
             data-slot="droppable"
             data-drop-target={props.isDropTarget}
+            data-get-drop-operation-policy={props.getDropOperation}
             class="outline-none data-[drop-target=true]:ring-[2px] data-[drop-target=true]:ring-ink/40 disabled:pointer-events-none disabled:text-muted-soft"
             className={props.className}
         >

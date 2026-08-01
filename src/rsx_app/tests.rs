@@ -1396,6 +1396,7 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
                 .on_drop_activate(Some(&drop_activate_action))
                 .accepted_drag_types(Some("text/plain"))
                 .drop_operation(Some("move"))
+                .get_drop_operation(Some("chooseDropOperation"))
                 .drop_target(state.drop_target)
         });
 
@@ -1715,6 +1716,12 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
         Some("move")
     );
     assert_eq!(
+        drop.attributes
+            .get("data-get-drop-operation-policy")
+            .map(String::as_str),
+        Some("chooseDropOperation")
+    );
+    assert_eq!(
         drop.attributes.get("data-drop-target").map(String::as_str),
         Some("true")
     );
@@ -1816,6 +1823,7 @@ fn component_cx_file_hooks_return_file_props_for_view_consumption() {
                 .on_drop_activate(Some(&activate))
                 .accepted_drag_types(Some("image/*,text/plain"))
                 .drop_operation(Some("copy"))
+                .get_drop_operation(Some("chooseFileDropOperation"))
                 .disabled(state.disabled)
                 .drop_target(true)
         });
@@ -1899,6 +1907,13 @@ fn component_cx_file_hooks_return_file_props_for_view_consumption() {
             .get("data-drop-operation")
             .map(String::as_str),
         Some("copy")
+    );
+    assert_eq!(
+        props
+            .attributes
+            .get("data-get-drop-operation-policy")
+            .map(String::as_str),
+        Some("chooseFileDropOperation")
     );
     assert_eq!(
         props.attributes.get("data-drop-target").map(String::as_str),

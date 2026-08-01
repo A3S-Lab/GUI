@@ -34,6 +34,7 @@ pub(super) fn with_drag_drop_components<S>(
             .default_prop("onDropExit", "")?
             .default_prop("acceptedDragTypes", "")?
             .default_prop("dropOperation", "")?
+            .default_prop("getDropOperation", "")?
             .default_prop("isDropTarget", false)?,
         None,
     )?;
@@ -66,6 +67,7 @@ pub(super) fn with_drag_drop_components<S>(
             .default_prop("onDropActivate", "")?
             .default_prop("acceptedDragTypes", "")?
             .default_prop("dropOperation", "")?
+            .default_prop("getDropOperation", "")?
             .default_prop("isDisabled", false)?
             .default_prop("isDropTarget", false)?,
         None,

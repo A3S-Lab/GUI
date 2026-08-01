@@ -5,8 +5,9 @@ use crate::{GuiError, NativeEventKind, PlatformPoint};
 
 use super::tests::{pointer_event, runtime};
 use super::{
-    SelfDrawnActionPropagation, SelfDrawnDropOperation, SelfDrawnHostEventOutcome,
-    SelfDrawnInputDispatch,
+    SelfDrawnActionPropagation, SelfDrawnDropOperation, SelfDrawnDropPolicyQuery,
+    SelfDrawnDropPolicyRequest, SelfDrawnDropPolicyResolution, SelfDrawnDropPolicyResponse,
+    SelfDrawnDropPolicyTarget, SelfDrawnHostEventOutcome, SelfDrawnInputDispatch,
 };
 
 pub(super) const SOURCE_ID: &str = "4:root/6:source";
@@ -224,6 +225,83 @@ fn pointer_drag_negotiates_wildcard_target_and_reports_local_drop_context() {
     );
     assert!(!runtime.element_interaction(&source).unwrap().dragging);
     assert!(!runtime.element_interaction(&target).unwrap().drop_target);
+}
+
+#[test]
+fn generic_target_uses_synchronous_get_drop_operation_policy() {
+    let mut tree = drag_drop_tree("text/plain", "text/plain", "", "bg-black");
+    tree.children[1].props.web.attributes.insert(
+        "data-get-drop-operation-policy".to_string(),
+        "chooseGenericOperation".to_string(),
+    );
+    let mut runtime = runtime();
+    runtime.render(tree).unwrap();
+    runtime
+        .handle_event(pointer_event(PlatformPointerPhase::Pressed, 10.0, 20.0, 10))
+        .unwrap();
+    runtime
+        .handle_event(pointer_event(PlatformPointerPhase::Moved, 15.0, 20.0, 20))
+        .unwrap();
+
+    let mut queries = Vec::<SelfDrawnDropPolicyQuery>::new();
+    let mut resolver = |query: &SelfDrawnDropPolicyQuery| {
+        queries.push(query.clone());
+        SelfDrawnDropPolicyResolution::Resolved(SelfDrawnDropPolicyResponse::drop_operation(
+            query,
+            SelfDrawnDropOperation::Copy,
+        ))
+    };
+    let entered = input(
+        runtime
+            .handle_event_with_drop_policy(
+                pointer_event(PlatformPointerPhase::Moved, 45.0, 20.0, 30),
+                &mut resolver,
+            )
+            .unwrap(),
+    );
+    assert_eq!(
+        action_events(&entered),
+        [
+            ("dragMove", NativeEventKind::DragMove),
+            ("entera", NativeEventKind::DropEnter),
+            ("movea", NativeEventKind::DropMove),
+        ]
+    );
+    assert_eq!(
+        entered.invocations[1]
+            .context
+            .drag
+            .as_ref()
+            .unwrap()
+            .drop_operation,
+        SelfDrawnDropOperation::Copy
+    );
+    let dropped = input(
+        runtime
+            .handle_event_with_drop_policy(
+                pointer_event(PlatformPointerPhase::Released, 45.0, 20.0, 40),
+                &mut resolver,
+            )
+            .unwrap(),
+    );
+    assert_eq!(
+        action_events(&dropped),
+        [
+            ("dropa", NativeEventKind::Drop),
+            ("dragEnd", NativeEventKind::DragEnd),
+        ]
+    );
+    assert!(queries.iter().all(|query| {
+        query.policy_id == "chooseGenericOperation"
+            && matches!(
+                &query.request,
+                SelfDrawnDropPolicyRequest::GetDropOperation {
+                    target: SelfDrawnDropPolicyTarget::Generic { .. },
+                    allowed_operations,
+                    ..
+                } if allowed_operations.contains(&SelfDrawnDropOperation::Copy)
+            )
+    }));
 }
 
 #[test]

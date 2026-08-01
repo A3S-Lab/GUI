@@ -17,6 +17,7 @@ use crate::semantic_event::{
 };
 
 use super::drag_drop::{SelfDrawnDragCandidate, SelfDrawnDragContext, SelfDrawnDragSession};
+use super::drop_policy::SelfDrawnDropPolicyEvaluation;
 use super::interaction_tree::SelfDrawnInteractionTree;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -329,7 +330,11 @@ pub(super) struct RoutedSemanticEvent {
 }
 
 impl SelfDrawnInteractionSession {
-    pub(super) fn reconcile(&mut self, tree: &SelfDrawnInteractionTree) {
+    pub(super) fn reconcile(
+        &mut self,
+        tree: &SelfDrawnInteractionTree,
+        frame_revision: PlatformHostRevision,
+    ) {
         self.states.retain(|id, _| tree.contains(id));
         for id in tree.ids() {
             self.states.entry(id.clone()).or_default();
@@ -365,6 +370,8 @@ impl SelfDrawnInteractionSession {
             .filter(|id| tree.node(id).is_some_and(|node| node.focusable))
             .or_else(|| tree.auto_focus_target());
         let previous_drag = self.active_drag.take();
+        let mut drop_policy =
+            SelfDrawnDropPolicyEvaluation::new(frame_revision, self.event_sequence, None);
         let active_drag =
             previous_drag.and_then(|mut drag| {
                 tree.drag_source(&drag.source)?;
@@ -378,6 +385,7 @@ impl SelfDrawnInteractionSession {
                         &drag.allowed_operations,
                         drag.source_collection.as_ref(),
                         &drag.dragging_keys,
+                        &mut drop_policy,
                     ) {
                         drag.current_target = Some(matched.id);
                         drag.current_collection = matched.collection;

@@ -7,6 +7,7 @@ use crate::platform_host::{
     PlatformWindowId,
 };
 
+use super::drop_policy::SelfDrawnDropPolicyResolver;
 use super::runtime::{
     canonical_scale_factor, next_revision, presentation_request, rollback_after_commit_error,
     validate_ack, SelfDrawnFrameCommit, SelfDrawnFrameCommitStatus, SelfDrawnHostEventOutcome,
@@ -82,12 +83,32 @@ where
         &mut self,
         event: PlatformHostEvent,
     ) -> GuiResult<SelfDrawnHostEventOutcome> {
+        self.handle_event_with_optional_drop_policy(event, None)
+    }
+
+    /// Routes an event with a synchronous, revision-scoped drop policy
+    /// resolver. Missing, stale, malformed, timed-out, or failed answers are
+    /// converted to a canceled target without surfacing a partially accepted
+    /// drag state.
+    pub fn handle_event_with_drop_policy(
+        &mut self,
+        event: PlatformHostEvent,
+        resolver: &mut dyn SelfDrawnDropPolicyResolver,
+    ) -> GuiResult<SelfDrawnHostEventOutcome> {
+        self.handle_event_with_optional_drop_policy(event, Some(resolver))
+    }
+
+    fn handle_event_with_optional_drop_policy(
+        &mut self,
+        event: PlatformHostEvent,
+        resolver: Option<&mut dyn SelfDrawnDropPolicyResolver>,
+    ) -> GuiResult<SelfDrawnHostEventOutcome> {
         self.ensure_running()?;
         event.validate()?;
         match event {
             PlatformHostEvent::Window { event } => self.handle_window_event(event),
             PlatformHostEvent::Presentation { ack } => self.handle_presentation_ack(ack),
-            PlatformHostEvent::Input { event } => self.handle_input_event(event),
+            PlatformHostEvent::Input { event } => self.handle_input_event(event, resolver),
             event @ (PlatformHostEvent::TextInput { .. }
             | PlatformHostEvent::Accessibility { .. }
             | PlatformHostEvent::System { .. }) => Ok(SelfDrawnHostEventOutcome::Forwarded(event)),
@@ -108,6 +129,32 @@ where
         let interaction = self.interaction.clone();
         let stats = self.stats;
         let mut outcome = self.handle_event(event)?;
+        let SelfDrawnHostEventOutcome::Input(dispatch) = &mut outcome else {
+            return Ok(outcome);
+        };
+        if let Err(error) = reduce_dispatch(dispatch, &mut reducer) {
+            self.interaction = interaction;
+            self.stats = stats;
+            self.stats.reducer_failures = self.stats.reducer_failures.saturating_add(1);
+            return Err(error);
+        }
+        Ok(outcome)
+    }
+
+    /// Combines synchronous drop-policy resolution with transactional action
+    /// reduction for a single committed-frame event.
+    pub fn handle_event_with_drop_policy_and_reducer<R>(
+        &mut self,
+        event: PlatformHostEvent,
+        resolver: &mut dyn SelfDrawnDropPolicyResolver,
+        mut reducer: R,
+    ) -> GuiResult<SelfDrawnHostEventOutcome>
+    where
+        R: FnMut(&SelfDrawnActionInvocation) -> GuiResult<SelfDrawnActionPropagation>,
+    {
+        let interaction = self.interaction.clone();
+        let stats = self.stats;
+        let mut outcome = self.handle_event_with_drop_policy(event, resolver)?;
         let SelfDrawnHostEventOutcome::Input(dispatch) = &mut outcome else {
             return Ok(outcome);
         };
@@ -185,9 +232,21 @@ where
         self.handle_event(event).map(Some)
     }
 
+    pub fn poll_event_with_drop_policy(
+        &mut self,
+        resolver: &mut dyn SelfDrawnDropPolicyResolver,
+    ) -> GuiResult<Option<SelfDrawnHostEventOutcome>> {
+        let Some(event) = self.host.poll_event()? else {
+            return Ok(None);
+        };
+        self.handle_event_with_drop_policy(event, resolver)
+            .map(Some)
+    }
+
     fn handle_input_event(
         &mut self,
         event: PlatformInputEvent,
+        resolver: Option<&mut dyn SelfDrawnDropPolicyResolver>,
     ) -> GuiResult<SelfDrawnHostEventOutcome> {
         if input_window(&event) != self.window_spec.id {
             return Ok(SelfDrawnHostEventOutcome::Forwarded(
@@ -199,12 +258,22 @@ where
         };
         let revision = snapshot.revision();
         let tree = Arc::clone(snapshot.interaction_tree());
-        let dispatch = self.interaction.route_input(&event, revision, &tree)?;
+        let (dispatch, policy_stats) = self
+            .interaction
+            .route_input(&event, revision, &tree, resolver)?;
         self.stats.input_events = self.stats.input_events.saturating_add(1);
         self.stats.action_invocations = self
             .stats
             .action_invocations
             .saturating_add(dispatch.invocations.len() as u64);
+        self.stats.drop_policy_queries = self
+            .stats
+            .drop_policy_queries
+            .saturating_add(policy_stats.queries);
+        self.stats.drop_policy_failures = self
+            .stats
+            .drop_policy_failures
+            .saturating_add(policy_stats.failures);
         Ok(SelfDrawnHostEventOutcome::Input(dispatch))
     }
 

@@ -647,3 +647,129 @@ fn legacy_native_render_response_redacts_password_commands() {
     assert!(!wire.contains("legacy-password-secret"));
     assert!(!wire.contains("legacy-described-secret"));
 }
+
+#[cfg(feature = "platform-runtime")]
+#[test]
+fn drop_policy_exchange_is_strictly_session_and_revision_scoped() {
+    use crate::platform_host::{PlatformElementId, PlatformHostRevision};
+    use crate::platform_runtime::{
+        SelfDrawnCollectionDropTarget, SelfDrawnDropOperation, SelfDrawnDropPolicyQuery,
+        SelfDrawnDropPolicyRequest, SelfDrawnDropPolicyTarget, SelfDrawnDropPosition,
+    };
+
+    let query = SelfDrawnDropPolicyQuery {
+        frame_revision: PlatformHostRevision::new(7),
+        event_sequence: 11,
+        query_sequence: 2,
+        policy_id: "chooseFolderOperation".to_string(),
+        request: SelfDrawnDropPolicyRequest::GetDropOperation {
+            target: SelfDrawnDropPolicyTarget::Collection {
+                id: PlatformElementId::new("root/list").unwrap(),
+                target: SelfDrawnCollectionDropTarget::Item {
+                    key: "folder-a".to_string(),
+                    drop_position: SelfDrawnDropPosition::On,
+                },
+            },
+            types: vec!["application/json".to_string(), "text/plain".to_string()],
+            allowed_operations: vec![SelfDrawnDropOperation::Copy, SelfDrawnDropOperation::Move],
+        },
+    };
+    let request = protocol_drop_policy_query_v1("tsx-session", &query);
+    assert_eq!(
+        request.metadata.protocol_version,
+        NATIVE_PROTOCOL_VERSION_V1
+    );
+    assert_eq!(request.metadata.render_revision, 7);
+    assert_eq!(request.metadata.event_sequence, Some(11));
+    assert_eq!(request.payload.query_sequence, 2);
+    let wire = serde_json::to_value(&request).unwrap();
+    assert_eq!(wire["payload"]["policyId"], "chooseFolderOperation");
+    assert_eq!(wire["payload"]["request"]["kind"], "getDropOperation");
+    assert_eq!(
+        wire["payload"]["request"]["target"]["target"]["dropPosition"],
+        "on"
+    );
+    assert_eq!(
+        wire["payload"]["request"]["allowedOperations"],
+        serde_json::json!(["copy", "move"])
+    );
+
+    let response = ProtocolEnvelopeV1::new(
+        ProtocolMetadataV1::event("tsx-session", 7, 11),
+        ProtocolDropPolicyResponsePayloadV1 {
+            query_sequence: 2,
+            decision: ProtocolDropPolicyDecisionV1::DropOperation {
+                operation: ProtocolDropOperationV1::Move,
+            },
+        },
+    );
+    let resolved =
+        self_drawn_drop_policy_response_from_v1(response.clone(), "tsx-session", &query).unwrap();
+    assert_eq!(resolved.frame_revision, query.frame_revision);
+    assert_eq!(resolved.event_sequence, 11);
+
+    let exchange = |request: ProtocolDropPolicyQueryV1| {
+        ProtocolDropPolicyExchangeResultV1::Response(ProtocolEnvelopeV1::new(
+            request.metadata,
+            ProtocolDropPolicyResponsePayloadV1 {
+                query_sequence: request.payload.query_sequence,
+                decision: ProtocolDropPolicyDecisionV1::DropOperation {
+                    operation: ProtocolDropOperationV1::Copy,
+                },
+            },
+        ))
+    };
+    let mut resolver = ProtocolDropPolicyResolverV1::new("tsx-session", exchange).unwrap();
+    assert!(matches!(
+        crate::platform_runtime::SelfDrawnDropPolicyResolver::resolve(&mut resolver, &query),
+        crate::platform_runtime::SelfDrawnDropPolicyResolution::Resolved(_)
+    ));
+
+    let mut stale_revision = response.clone();
+    stale_revision.metadata.render_revision = 6;
+    assert!(
+        self_drawn_drop_policy_response_from_v1(stale_revision, "tsx-session", &query).is_err()
+    );
+    let mut wrong_session = response.clone();
+    wrong_session.metadata.session_id = "other-session".to_string();
+    assert!(self_drawn_drop_policy_response_from_v1(wrong_session, "tsx-session", &query).is_err());
+    let mut wrong_query = response;
+    wrong_query.payload.query_sequence = 3;
+    assert!(self_drawn_drop_policy_response_from_v1(wrong_query, "tsx-session", &query).is_err());
+}
+
+#[test]
+fn drop_policy_response_rejects_unknown_wire_fields() {
+    let wire = serde_json::json!({
+        "metadata": {
+            "protocolVersion": 1,
+            "sessionId": "tsx-session",
+            "renderRevision": 7,
+            "eventSequence": 11
+        },
+        "payload": {
+            "querySequence": 2,
+            "decision": {"kind": "acceptItemDrop", "accepted": true},
+            "unexpected": true
+        }
+    });
+    assert!(serde_json::from_value::<ProtocolDropPolicyResponseV1>(wire).is_err());
+
+    let nested = serde_json::json!({
+        "metadata": {
+            "protocolVersion": 1,
+            "sessionId": "tsx-session",
+            "renderRevision": 7,
+            "eventSequence": 11
+        },
+        "payload": {
+            "querySequence": 2,
+            "decision": {
+                "kind": "acceptItemDrop",
+                "accepted": true,
+                "unexpected": true
+            }
+        }
+    });
+    assert!(serde_json::from_value::<ProtocolDropPolicyResponseV1>(nested).is_err());
+}

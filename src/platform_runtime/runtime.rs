@@ -52,6 +52,8 @@ pub struct SelfDrawnRuntimeStats {
     pub interaction_ticks: u64,
     pub action_invocations: u64,
     pub reducer_failures: u64,
+    pub drop_policy_queries: u64,
+    pub drop_policy_failures: u64,
 }
 
 /// Shared H1 coordinator for one self-drawn top-level window.
@@ -316,7 +318,8 @@ where
         self.window_spec = desired_spec;
         self.scale_factor = desired_scale;
         self.pending_redraw = visual_changed && self.occluded;
-        self.interaction.reconcile(candidate.interaction_tree());
+        self.interaction
+            .reconcile(candidate.interaction_tree(), revision);
         self.committed = Some(candidate);
         self.stats.host_commits = self.stats.host_commits.saturating_add(1);
         Ok(SelfDrawnFrameCommit {

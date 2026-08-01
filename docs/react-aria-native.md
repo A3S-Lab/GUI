@@ -174,10 +174,22 @@ The first shared interaction milestone is available in the portable runtime:
   combined callbacks retain React Aria order, while low-level `onDrop`
   overrides high-level dispatch.
   Selected descendants are removed when their selected ancestor is dragged,
-  and internal self/descendant targets are rejected. Dynamic item acceptance
-  and operation callbacks, external files/directories and cross-application
-  transfer, drag previews, and conformance evidence remain separate M7 work,
-  so no affected family is marked conformant.
+  and internal self/descendant targets are rejected.
+- Dynamic `shouldAcceptItemDrop` and `getDropOperation` identifiers are not
+  ordinary action ids. The self-drawn runtime issues a synchronous typed query
+  with committed frame, event, and query sequences before exposing a target as
+  valid. Collection item-on targets run aggregate acceptance during feedback
+  and per-item acceptance before high-level dispatch; low-level `onDrop`
+  preserves its override and receives the complete drag-session item list once
+  target-level type negotiation succeeds.
+  A returned operation must be allowed by the source. Missing resolvers,
+  timeout/disconnect/failure, mismatched response metadata, wrong decision
+  types, and disallowed operations all fail closed to `cancel`. Strict protocol
+  v1 DTOs and `ProtocolDropPolicyResolverV1` bridge this contract without Rust
+  evaluating JavaScript. The Node callback registry/transport, external
+  files/directories and cross-application transfer, drag previews, and full
+  conformance evidence remain separate M7 work, so no affected family is
+  marked conformant.
 
 - `NativeInputModality` represents keyboard, mouse, touch, pen, virtual, and
   unknown input.
@@ -611,7 +623,7 @@ props:
 | Priority | Area | Required outcome |
 | --- | --- | --- |
 | P0 | Self-drawn component accounting | Keep all 51 React Aria 1.19.0 families in the executable matrix, implement the eight recorded public-part gaps, and require every upstream catalog delta to update code, matrix, tests, and milestones together. |
-| P0 | Shared self-drawn interaction | Extend the landed stable-id pointer, keyboard, Tab-focus, hover, press, scheduled generic long press, incremental captured move, typed source/target drag negotiation, collection item/between/root delegates plus reorder/move policy, cancellation, wheel, bubbling, and reducer path with dynamic item/operation acceptance, external file/directory transfer, drag previews, collection long-press selection mode, focus-scope restoration, overlay gestures, text editing/IME, and accessibility activation. |
+| P0 | Shared self-drawn interaction | Extend the landed stable-id pointer, keyboard, Tab-focus, hover, press, scheduled generic long press, incremental captured move, typed source/target drag negotiation, collection item/between/root delegates plus reorder/move and dynamic item/operation policy, cancellation, wheel, bubbling, and reducer path with external file/directory transfer, drag previews, collection long-press selection mode, focus-scope restoration, overlay gestures, text editing/IME, and accessibility activation. |
 | P0 | Native input conformance | WinUI's complete 98-case V1 manifest passes real OS automation. Populate the AppKit and GTK4 manifests with platform-run mouse, pen, touch where applicable, keyboard, assistive activation, disabled, cancellation, and keyed-rerender fixtures for every role currently marked native; then close or retain evidence-backed menu/item exceptions. |
 | P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
 | P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |

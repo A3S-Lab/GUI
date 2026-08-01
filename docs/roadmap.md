@@ -526,10 +526,20 @@ Landed evidence:
   and exposes each collection as one Tab stop with arrow/Home/End navigation.
   ListBox, GridList, Tree, Table, and explicit DropIndicator authoring all lower
   to this shared self-drawn path
+- generic targets and collection targets expose a synchronous
+  `getDropOperation` policy, and collection item-on targets expose
+  `shouldAcceptItemDrop`. Queries carry the committed frame revision, event
+  sequence, query sequence, stable policy id, typed target, drag types, and
+  allowed operations. High-level collection drops filter each item again at
+  drop time, low-level `onDrop` bypasses that high-level filter, and missing,
+  stale, timed-out, malformed, or disallowed responses resolve to `cancel`.
+  Protocol v1 includes strict query/response DTOs and an exchange adapter whose
+  transport must own the bounded wait; the future Node runtime still owns
+  callback execution
 - the shared 410x620 calculator preserves its reviewed layout and scene
   fingerprints, routes eight fake-host events through four reducer actions,
   commits the resulting frames, and reaches display value `10`
-- 63 focused runtime/software tests plus four recursive H1 firewall tests are
+- 67 focused runtime/software tests plus four recursive H1 firewall tests are
   included in `just verify`
 
 Remaining H1 work:
@@ -538,10 +548,10 @@ Remaining H1 work:
   pinned Graphics commit `8748fab` owns only a surface-independent texture and
   readback today, so its safe host-owned surface attachment/recovery contract
   must land before GUI can implement this edge without duplicating `wgpu`
-- dynamic collection item/operation acceptance callbacks, native file/directory
-  and cross-application transfer, drag previews, text editing, IME, overlay
-  gestures, and component-specific pixel/accessibility/real-host conformance
-  remain explicit M4 and M6-M8 work
+- native file/directory and cross-application transfer, drag previews, text
+  editing, IME, overlay gestures, the Node-side policy callback transport, and
+  component-specific pixel/accessibility/real-host conformance remain explicit
+  M4 and M6-M8 work
 
 Gates:
 
@@ -613,7 +623,9 @@ Gates:
 
 ## P0-T TSX Native Authoring Track
 
-Status: architecture proposed; implementation has not started.
+Status: architecture accepted; the first Rust-side revision-scoped drop-policy
+protocol and resolver adapter has landed, while the JSX runtime, Node callback
+registry, process transport, and visible TSX application have not started.
 
 This track is dependency-coupled to the renderer and H0-H5 host programs
 without blocking Rust RSX work. Headless protocol and JSX-runtime work can
@@ -751,9 +763,10 @@ self-drawn conformance.
 - close the executable 1.19.0 behavior deltas: embedded-control keyboard
   navigation for GridList/Tree, Menu action key plus value, arbitrary Popover
   target rectangles, and multi-MIME/wildcard drag type negotiation
-- build on the landed shared collection root/item/insertion delegate and
-  reorder/move policies with dynamic item/operation acceptance, OS transfer,
-  drag previews, and software/accessibility/three-host conformance stories
+- build on the landed shared collection root/item/insertion delegate,
+  reorder/move policies, and dynamic item/operation acceptance with OS
+  transfer, drag previews, the Node policy transport, and
+  software/accessibility/three-host conformance stories
 
 ### M8 - Date, color, tables, and advanced data
 

@@ -961,6 +961,17 @@ and events are rejected until delivery is acknowledged. Password values remain
 available to in-process reducers but are removed from commands, accessibility,
 responses, session debug output, and retained diagnostics.
 
+Drop policies that participate in hit testing use a separate synchronous
+protocol-v1 exchange rather than an action invocation. A
+`ProtocolDropPolicyQueryV1` carries the session, committed render revision,
+event sequence, query sequence, policy id, typed generic/collection target,
+drag types, and allowed operations. `ProtocolDropPolicyResolverV1` validates
+the exact response envelope before returning it to the self-drawn runtime; a
+timeout, unavailable transport, handler failure, stale response, wrong
+decision type, or source-disallowed operation becomes `cancel`. This boundary
+supports React Aria `shouldAcceptItemDrop` and `getDropOperation` without
+serializing closures or executing JavaScript in Rust.
+
 `NativeProtocolApp` remains the convenience state/reducer loop for the legacy
 in-process API. Strict-v1 is deliberately a transport-owned
 `NativeProtocolSession` primitive: the transport owns resend/ACK ordering and

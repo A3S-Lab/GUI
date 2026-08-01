@@ -866,6 +866,7 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
             onDropActivate={dropActivateAlias}
             acceptedDragTypes="text/plain"
             dropOperation="move"
+            getDropOperation="chooseProfileOperation"
             isDropTarget={true}
           >
             Drop
@@ -1142,6 +1143,10 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
         assert_eq!(
             attribute_value(droppable, "data-drop-operation"),
             Some("move")
+        );
+        assert_eq!(
+            attribute_value(droppable, "data-get-drop-operation-policy"),
+            Some("chooseProfileOperation")
         );
         assert_eq!(attribute_value(droppable, "role"), Some("button"));
         assert_eq!(attribute_value(droppable, "tabIndex"), Some("0"));
@@ -4471,6 +4476,7 @@ fn rsx_ui_renders_structure_collection_and_file_primitives_to_native_roles() {
             onDropActivate={dropActivate}
             acceptedDragTypes="image/*,text/plain"
             dropOperation="copy"
+            getDropOperation="chooseFileOperation"
             isDropTarget={true}
           >
             Drop files
@@ -4685,6 +4691,15 @@ fn rsx_ui_renders_structure_collection_and_file_primitives_to_native_roles() {
             .get("data-drop-operation")
             .map(String::as_str),
         Some("copy")
+    );
+    assert_eq!(
+        drop_native
+            .props
+            .web
+            .attributes
+            .get("data-get-drop-operation-policy")
+            .map(String::as_str),
+        Some("chooseFileOperation")
     );
     assert_eq!(attribute_value(drop_zone, "data-drop-target"), Some("true"));
 

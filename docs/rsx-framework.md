@@ -370,6 +370,11 @@ Status: initial implementation.
   Link, and text primitives
 - Rust function components stored as `.rsx` source modules and written with
   `ComponentCx` and `rsx!`
+- `UiDroppable` and `UiDropZone` accept a stable `getDropOperation` policy id.
+  `UiListBox`, `UiGridList`, `UiTree`, and `UiTable` additionally accept
+  `shouldAcceptItemDrop`; both lower to dedicated `data-*-policy` metadata and
+  are resolved synchronously by the self-drawn runtime rather than registered
+  as ordinary reducer actions
 - `UiTextarea`
 - class merging for static base classes plus caller `className`
 - focused module split for classes, component source modules, variants, and

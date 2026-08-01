@@ -6,6 +6,9 @@ use crate::platform_host::{
 };
 
 use super::drag_drop::SelfDrawnDragCandidate;
+use super::drop_policy::{
+    SelfDrawnDropPolicyEvaluation, SelfDrawnDropPolicyEvaluationStats, SelfDrawnDropPolicyResolver,
+};
 use super::interaction::{
     ActivePress, LastClick, LongPressTracking, PointerInteraction, PointerMoveTracking,
     RoutedSemanticEvent, SelfDrawnEventContext, SelfDrawnInputDispatch, SelfDrawnInteractionChange,
@@ -28,32 +31,46 @@ impl SelfDrawnInteractionSession {
         event: &PlatformInputEvent,
         frame_revision: PlatformHostRevision,
         tree: &SelfDrawnInteractionTree,
-    ) -> GuiResult<SelfDrawnInputDispatch> {
+        resolver: Option<&mut dyn SelfDrawnDropPolicyResolver>,
+    ) -> GuiResult<(SelfDrawnInputDispatch, SelfDrawnDropPolicyEvaluationStats)> {
         let event_sequence = self
             .event_sequence
             .checked_add(1)
             .ok_or_else(|| GuiError::host("self-drawn input event sequence overflowed"))?;
+        let mut drop_policy =
+            SelfDrawnDropPolicyEvaluation::new(frame_revision, event_sequence, resolver);
         let routed = match event {
-            PlatformInputEvent::Pointer { event } => {
-                self.route_pointer(event, frame_revision, event_sequence, tree)
-            }
-            PlatformInputEvent::Key { event } => {
-                self.route_key(event, frame_revision, event_sequence, tree)
-            }
+            PlatformInputEvent::Pointer { event } => self.route_pointer(
+                event,
+                frame_revision,
+                event_sequence,
+                tree,
+                &mut drop_policy,
+            ),
+            PlatformInputEvent::Key { event } => self.route_key(
+                event,
+                frame_revision,
+                event_sequence,
+                tree,
+                &mut drop_policy,
+            ),
             PlatformInputEvent::Wheel { event } => {
                 self.route_wheel(event, frame_revision, event_sequence, tree)
             }
             PlatformInputEvent::ModifiersChanged { .. } => RoutedInput::default(),
         };
         self.event_sequence = event_sequence;
-        Ok(SelfDrawnInputDispatch {
-            frame_revision,
-            event_sequence,
-            target: routed.target,
-            invocations: routed.invocations,
-            interaction_changes: routed.changes,
-            propagation_stopped_at: None,
-        })
+        Ok((
+            SelfDrawnInputDispatch {
+                frame_revision,
+                event_sequence,
+                target: routed.target,
+                invocations: routed.invocations,
+                interaction_changes: routed.changes,
+                propagation_stopped_at: None,
+            },
+            drop_policy.stats(),
+        ))
     }
 
     fn route_pointer(
@@ -62,6 +79,7 @@ impl SelfDrawnInteractionSession {
         frame_revision: PlatformHostRevision,
         event_sequence: u64,
         tree: &SelfDrawnInteractionTree,
+        drop_policy: &mut SelfDrawnDropPolicyEvaluation<'_>,
     ) -> RoutedInput {
         let hit_target = tree.hit_test(event.position);
         let mut pointer = self.pointers.remove(&event.pointer).unwrap_or_default();
@@ -102,6 +120,7 @@ impl SelfDrawnInteractionSession {
                             event_sequence,
                             &context,
                             &mut routed,
+                            drop_policy,
                         ) {
                             routed.target = Some(active.target.clone());
                         }
@@ -179,6 +198,7 @@ impl SelfDrawnInteractionSession {
                             event_sequence,
                             &context,
                             &mut routed,
+                            drop_policy,
                         ) {
                             self.cancel_active_press(
                                 active,
@@ -286,6 +306,7 @@ impl SelfDrawnInteractionSession {
                             event_sequence,
                             &context,
                             &mut routed,
+                            drop_policy,
                         );
                         if !drag_finished {
                             routed.target = Some(active.target.clone());
@@ -444,6 +465,7 @@ impl SelfDrawnInteractionSession {
                         event_sequence,
                         &context,
                         &mut routed,
+                        drop_policy,
                     ) {
                         self.cancel_active_press(
                             active,

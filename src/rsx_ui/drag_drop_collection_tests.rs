@@ -7,17 +7,17 @@ fn collection_components_lower_shared_native_drag_and_drop_contract() {
         "collection-drag-drop",
         r#"
         <View key="root">
-          <UiListBox key="list" onInsert="listInsert" onReorder="listReorder" onDropActivate="listActivate" acceptedDragTypes="text/plain">
+          <UiListBox key="list" onInsert="listInsert" onReorder="listReorder" onDropActivate="listActivate" acceptedDragTypes="text/plain" shouldAcceptItemDrop="listAccept" getDropOperation="listOperation">
             <UiListBoxItem key="list-a" id="list-a" isDraggable={true} dragType="text/plain" dragValue="a">A</UiListBoxItem>
             <UiDropIndicator key="list-before" targetKey="list-a" dropPosition="before" />
           </UiListBox>
-          <UiGridList key="grid" onItemDrop="gridItemDrop" onMove="gridMove" onDropActivate="gridActivate" acceptedDragTypes="text/plain">
+          <UiGridList key="grid" onItemDrop="gridItemDrop" onMove="gridMove" onDropActivate="gridActivate" acceptedDragTypes="text/plain" shouldAcceptItemDrop="gridAccept" getDropOperation="gridOperation">
             <UiGridListItem key="grid-a" id="grid-a" isDraggable={true} dragType="text/plain" dragValue="a">A</UiGridListItem>
           </UiGridList>
-          <UiTree key="tree" onRootDrop="treeRootDrop" onReorder="treeReorder" onDropActivate="treeActivate" acceptedDragTypes="text/plain">
+          <UiTree key="tree" onRootDrop="treeRootDrop" onReorder="treeReorder" onDropActivate="treeActivate" acceptedDragTypes="text/plain" shouldAcceptItemDrop="treeAccept" getDropOperation="treeOperation">
             <UiTreeItem key="tree-a" id="tree-a" isDraggable={true} dragType="text/plain" dragValue="a">A</UiTreeItem>
           </UiTree>
-          <UiTable key="table" onDrop="tableDrop" onMove="tableMove" onDropActivate="tableActivate" acceptedDragTypes="text/plain">
+          <UiTable key="table" onDrop="tableDrop" onMove="tableMove" onDropActivate="tableActivate" acceptedDragTypes="text/plain" shouldAcceptItemDrop="tableAccept" getDropOperation="tableOperation">
             <UiTableBody key="body">
               <UiTableRow key="row-a" id="row-a" isDraggable={true} dragType="text/plain" dragValue="a" />
             </UiTableBody>
@@ -73,6 +73,29 @@ fn collection_components_lower_shared_native_drag_and_drop_contract() {
                 .get("data-drop-orientation")
                 .map(String::as_str),
             Some("vertical")
+        );
+    }
+
+    for (slot, accept_policy, operation_policy) in [
+        ("list-box", "listAccept", "listOperation"),
+        ("grid-list", "gridAccept", "gridOperation"),
+        ("tree", "treeAccept", "treeOperation"),
+        ("table", "tableAccept", "tableOperation"),
+    ] {
+        let props = props_by_slot(&frame.root, slot);
+        assert_eq!(
+            props
+                .attributes
+                .get("data-should-accept-item-drop-policy")
+                .map(String::as_str),
+            Some(accept_policy)
+        );
+        assert_eq!(
+            props
+                .attributes
+                .get("data-get-drop-operation-policy")
+                .map(String::as_str),
+            Some(operation_policy)
         );
     }
 
