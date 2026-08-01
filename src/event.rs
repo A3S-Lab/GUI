@@ -69,6 +69,7 @@ pub enum NativeEventKind {
     DragEnd,
     DropEnter,
     DropMove,
+    DropActivate,
     DropExit,
     Drop,
     Action,
@@ -209,6 +210,7 @@ impl NativeEvent {
             | NativeEventKind::DragEnd
             | NativeEventKind::DropEnter
             | NativeEventKind::DropMove
+            | NativeEventKind::DropActivate
             | NativeEventKind::DropExit
             | NativeEventKind::Drop
             | NativeEventKind::Wheel => NativeInputModality::Mouse,

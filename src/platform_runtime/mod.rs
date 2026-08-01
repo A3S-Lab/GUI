@@ -2,6 +2,9 @@
 
 mod accessibility;
 mod drag_drop;
+mod drag_drop_activation_input;
+#[cfg(test)]
+mod drag_drop_activation_tests;
 mod drag_drop_collection;
 #[cfg(test)]
 mod drag_drop_collection_policy_tests;

@@ -6,6 +6,9 @@ use crate::native::NativeProps;
 use crate::platform_host::{PlatformElementId, PlatformPoint, PlatformPointerId};
 
 use super::drag_drop_collection::SelfDrawnCollectionDropTarget;
+use super::interaction::SelfDrawnEventContext;
+
+pub(super) const DEFAULT_DROP_ACTIVATE_THRESHOLD_MICROS: u64 = 800_000;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -130,6 +133,16 @@ pub(super) struct SelfDrawnDragSession {
     pub(super) current_item_indices: Vec<usize>,
     pub(super) current_operation: SelfDrawnDropOperation,
     pub(super) last_position: Option<PlatformPoint>,
+    pub(super) drop_activation: Option<SelfDrawnDropActivationTracking>,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct SelfDrawnDropActivationTracking {
+    pub(super) deadline_micros: u64,
+    pub(super) target: PlatformElementId,
+    pub(super) collection: Option<PlatformElementId>,
+    pub(super) collection_target: Option<SelfDrawnCollectionDropTarget>,
+    pub(super) context: SelfDrawnEventContext,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -212,6 +225,7 @@ impl SelfDrawnDropTarget {
             "onCollectionMove",
             "onDropEnter",
             "onDropMove",
+            "onDropActivate",
             "onDropExit",
             "onDragEnter",
             "onDragLeave",

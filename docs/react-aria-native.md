@@ -136,6 +136,12 @@ The first shared interaction milestone is available in the portable runtime:
   event-loop timer without exporting a toolkit timer into portable state.
   Deadline recognition and release-time fallback share the same ordering and
   reducer rollback, while pointer leave/re-entry cancels and restarts the hold.
+- The same portable deadline channel now implements React Aria's 800ms
+  `onDropActivate` hold. Moving inside one logical target refreshes event
+  context without postponing activation; changing targets restarts the timer,
+  while exit, drop, cancellation, and invalid keyed reconciliation clear it.
+  Pointer and keyboard drags share the lifecycle, and collection activation is
+  intentionally limited to item targets rather than `{type: root}`.
 - Self-drawn move routing starts on the first non-zero delta, keeps the
   initiating pointer captured outside its original hit region, preserves
   incremental position across keyed frames, and reference-counts concurrent
@@ -161,11 +167,12 @@ The first shared interaction milestone is available in the portable runtime:
   their source/target metadata and focusable keyboard affordances into that
   shared runtime. ListBox, GridList, Tree, and Table roots additionally lower
   `onRootDrop`, `onItemDrop`, `onInsert`, `onReorder`, `onMove`, and low-level
-  `onDrop` precedence; their items/rows and explicit DropIndicator parts use
-  the same self-drawn target model. Insert and root callbacks accept external
-  sessions, move accepts internal item/on-or-between targets, and reorder is
-  limited to internal same-parent boundaries. Valid combined callbacks retain
-  React Aria order, while low-level `onDrop` overrides high-level dispatch.
+  `onDrop` precedence plus `onDropActivate`; their items/rows and explicit
+  DropIndicator parts use the same self-drawn target model. Insert and root
+  callbacks accept external sessions, move accepts internal item/on-or-between
+  targets, and reorder is limited to internal same-parent boundaries. Valid
+  combined callbacks retain React Aria order, while low-level `onDrop`
+  overrides high-level dispatch.
   Selected descendants are removed when their selected ancestor is dragged,
   and internal self/descendant targets are rejected. Dynamic item acceptance
   and operation callbacks, external files/directories and cross-application

@@ -1312,6 +1312,10 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
             "dropEnter",
             |_state: &mut InteractionHookState, _invocation| Ok(()),
         );
+        let drop_activate = cx.use_reducer(
+            "dropActivate",
+            |_state: &mut InteractionHookState, _invocation| Ok(()),
+        );
 
         let hover_action = hover_start.clone();
         let hover = cx.use_hover(move |state: &InteractionHookState| {
@@ -1383,11 +1387,13 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
         });
         let drop_action = drop_action.clone();
         let drop_enter_action = drop_enter.clone();
+        let drop_activate_action = drop_activate.clone();
         let drop = cx.use_drop(move |state: &InteractionHookState| {
             crate::semantic_ui::UseDropProps::new()
                 .label(Some("Drop target"))
                 .on_drop(Some(&drop_action))
                 .on_drop_enter(Some(&drop_enter_action))
+                .on_drop_activate(Some(&drop_activate_action))
                 .accepted_drag_types(Some("text/plain"))
                 .drop_operation(Some("move"))
                 .drop_target(state.drop_target)
@@ -1693,6 +1699,10 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
         Some("dropEnter")
     );
     assert_eq!(
+        drop.events.get("onDropActivate").map(String::as_str),
+        Some("dropActivate")
+    );
+    assert_eq!(
         drop.attributes
             .get("data-accepted-drag-types")
             .map(String::as_str),
@@ -1789,15 +1799,21 @@ fn component_cx_file_hooks_return_file_props_for_view_consumption() {
             "leaveDrop",
             |_state: &mut FileHookState, _invocation| Ok(()),
         );
+        let activate_action = cx
+            .use_reducer("activateDrop", |_state: &mut FileHookState, _invocation| {
+                Ok(())
+            });
         let action = drop_action.clone();
         let enter = enter_action.clone();
         let leave = leave_action.clone();
+        let activate = activate_action.clone();
         let props = cx.use_drop_zone(move |state: &FileHookState| {
             crate::semantic_ui::UseDropZoneProps::new()
                 .label(Some("Drop files"))
                 .on_drop(Some(&action))
                 .on_drag_enter(Some(&enter))
                 .on_drag_leave(Some(&leave))
+                .on_drop_activate(Some(&activate))
                 .accepted_drag_types(Some("image/*,text/plain"))
                 .drop_operation(Some("copy"))
                 .disabled(state.disabled)
@@ -1857,6 +1873,10 @@ fn component_cx_file_hooks_return_file_props_for_view_consumption() {
     assert_eq!(
         props.events.get("onDragEnter").map(String::as_str),
         Some("enterDrop")
+    );
+    assert_eq!(
+        props.events.get("onDropActivate").map(String::as_str),
+        Some("activateDrop")
     );
     assert_eq!(
         props.attributes.get("role").map(String::as_str),

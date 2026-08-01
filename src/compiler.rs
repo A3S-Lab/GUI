@@ -2563,6 +2563,7 @@ fn drop_zone_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             .on_drag_leave(non_empty_prop_action(props.events.get("onDragLeave")))
             .on_drop_enter(non_empty_prop_action(props.events.get("onDropEnter")))
             .on_drop_move(non_empty_prop_action(props.events.get("onDropMove")))
+            .on_drop_activate(non_empty_prop_action(props.events.get("onDropActivate")))
             .on_drop_exit(non_empty_prop_action(props.events.get("onDropExit")))
             .accepted_drag_types(non_empty_attribute(
                 props,
@@ -2615,6 +2616,7 @@ fn drop_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
             .on_drop_enter(non_empty_prop_action(props.events.get("onDropEnter")))
             .on_drop_exit(non_empty_prop_action(props.events.get("onDropExit")))
             .on_drop_move(non_empty_prop_action(props.events.get("onDropMove")))
+            .on_drop_activate(non_empty_prop_action(props.events.get("onDropActivate")))
             .accepted_drag_types(non_empty_attribute(
                 props,
                 &["acceptedDragTypes", "data-accepted-drag-types"],

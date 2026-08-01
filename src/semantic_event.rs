@@ -225,6 +225,7 @@ fn action_for_event<'a>(
             .event("onDropEnter")
             .or_else(|| source.event("onDragEnter")),
         NativeEventKind::DropMove => source.event("onDropMove"),
+        NativeEventKind::DropActivate => source.event("onDropActivate"),
         NativeEventKind::DropExit => source
             .event("onDropExit")
             .or_else(|| source.event("onDragLeave")),

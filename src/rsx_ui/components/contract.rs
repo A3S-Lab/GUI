@@ -287,6 +287,7 @@ pub(super) fn passthrough_contract() -> GuiResult<RsxComponentContract> {
             "onDropEnter",
             "onDropExit",
             "onDropMove",
+            "onDropActivate",
             "onFocus",
             "onBlur",
             "onFocusChange",
@@ -427,6 +428,7 @@ pub(super) fn collection_drag_drop_contract(
         .default_prop("onDrop", "")?
         .default_prop("onDropEnter", "")?
         .default_prop("onDropMove", "")?
+        .default_prop("onDropActivate", "")?
         .default_prop("onDropExit", "")?
         .default_prop("onRootDrop", "")?
         .default_prop("onItemDrop", "")?

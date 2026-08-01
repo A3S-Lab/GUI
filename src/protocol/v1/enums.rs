@@ -156,8 +156,8 @@ define_protocol_leaf_enum! {
     ProtocolNativeEventKindV1 => NativeEventKind {
         PressStart, PressEnd, PressUp, PressCancel, Press, LongPressStart, LongPressEnd,
         LongPress, MoveStart, Move, MoveEnd, DragStart, DragMove, DragEnd, DropEnter, DropMove,
-        DropExit, Drop, Action, HoverStart, HoverEnd, Change, SelectionChange, Toggle, Focus, Blur,
-        KeyDown, KeyUp, Wheel, Copy, Cut, Paste, Close,
+        DropActivate, DropExit, Drop, Action, HoverStart, HoverEnd, Change, SelectionChange, Toggle,
+        Focus, Blur, KeyDown, KeyUp, Wheel, Copy, Cut, Paste, Close,
     }
 }
 

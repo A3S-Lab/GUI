@@ -80,6 +80,7 @@ fn drop_target(
                 .attribute("data-drop-operation", operation)
                 .event("onDropEnter", format!("enter{action_suffix}"))
                 .event("onDropMove", format!("move{action_suffix}"))
+                .event("onDropActivate", format!("activate{action_suffix}"))
                 .event("onDropExit", format!("exit{action_suffix}"))
                 .event("onDrop", format!("drop{action_suffix}")),
         ),

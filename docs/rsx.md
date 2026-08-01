@@ -597,12 +597,16 @@ Target callbacks receive only matching items, with every representation on
 those items preserved. `UiDraggable`, `UiDroppable`, and `UiDropZone` include a
 keyboard-focusable affordance: Enter starts or commits a drag, Tab cycles
 compatible targets, and Escape cancels. Pointer and keyboard callbacks receive
-the same typed transfer context.
+the same typed transfer context. `UiDroppable` and `UiDropZone` accept
+`onDropActivate`; a valid target held for 800ms emits it once, movement inside
+that target keeps the original deadline, and exit, drop, cancellation, or a
+target change clears or restarts it.
 
 `UiListBox`, `UiGridList`, `UiTree`, and `UiTable` also expose the shared
 collection contract. Their roots accept `onRootDrop`, `onItemDrop`, `onInsert`,
-`onReorder`, `onMove`, the low-level overriding `onDrop`, lifecycle handlers,
-`acceptedDragTypes`, `dropOperation`, `allowedDropOperations`, and
+`onReorder`, `onMove`, the low-level overriding `onDrop`, lifecycle handlers
+including `onDropActivate`, `acceptedDragTypes`, `dropOperation`,
+`allowedDropOperations`, and
 `dropOrientation`. Collection `onMove` lowers to a dedicated native event so
 it does not collide with the generic move-gesture callback. Item/row components
 accept a stable `id` plus `isDraggable`, `dragType`, `dragValue`, and
@@ -621,7 +625,9 @@ external collection sessions; internal `onMove` accepts item/on-or-between
 targets, while `onReorder` accepts same-parent boundaries. `onItemDrop` plus
 `onMove`, or `onMove` plus `onReorder`, may both run in React Aria order;
 low-level `onDrop` replaces this routing. Self and descendant targets are
-rejected, and adjacent `after`/`before` boundaries are equivalent. Dynamic
+rejected, and adjacent `after`/`before` boundaries are equivalent.
+`onDropActivate` runs only for collection item descriptors, never the root
+descriptor. Dynamic
 acceptance/operation callbacks, external OS files/directories,
 cross-application transfer, drag previews, and final accessibility/host
 conformance remain separate work.

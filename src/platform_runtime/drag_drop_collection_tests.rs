@@ -36,6 +36,7 @@ pub(super) fn collection_tree(low_level_drop: bool) -> NativeElement {
         .attribute("data-drop-operation", "move")
         .event("onDropEnter", "collectionEnter")
         .event("onDropMove", "collectionMove")
+        .event("onDropActivate", "collectionActivate")
         .event("onDropExit", "collectionExit")
         .event("onRootDrop", "rootDrop")
         .event("onItemDrop", "itemDrop")

@@ -75,9 +75,10 @@ versioned [component matrix](docs/react-aria-component-matrix.json) pins
   share the same RSX contract. External `onInsert`/`onRootDrop`, internal
   `onMove`, same-parent `onReorder`, multi-callback routing, equivalent adjacent
   boundaries, and self/descendant guards now follow the React Aria collection
-  policy; dynamic acceptance, OS/cross-application transfer, previews, pixels,
-  accessibility, and real hosts still keep every affected family below
-  conformance;
+  policy. Ordinary targets and collection items also share the exact 800ms
+  `onDropActivate` hold lifecycle across pointer and keyboard drags; dynamic
+  acceptance, OS/cross-application transfer, previews, pixels, accessibility,
+  and real hosts still keep every affected family below conformance;
 - Checkbox, Radio, and Switch Field/Button parts plus ToastList and
   ToastContent are recorded as eight explicit API gaps;
 - a component reaches `conformant` only with behavior, layout/hit, Graphics
@@ -315,9 +316,11 @@ independently.
   and root drops from internal move/reorder, rejects self and descendant
   targets, and preserves one logical boundary between adjacent items. A
   collection is one keyboard Tab stop during a drag, with arrow/Home/End
-  navigation inside it; all paths share event-loop deadlines, stable action
-  bubbling, keyed reconciliation, and reducer rollback in one staged
-  interaction session
+  navigation inside it. Valid ordinary targets and collection items schedule
+  one React Aria-compatible `DropActivate` after 800ms without delaying the
+  deadline as the pointer moves inside the same target; all paths share
+  event-loop deadlines, stable action bubbling, keyed reconciliation, and
+  reducer rollback in one staged interaction session
 - an identical-frame fast path that performs no layout, scene, host, or
   presentation work, plus semantic-only commits that skip pixel presentation
 - a software Graphics presenter and interactive shared
@@ -333,9 +336,9 @@ independently.
 | M1 · GUI integration | Complete | Pinned Graphics boundary, semantic-only dependency gate, renderer inventory, reference/GPU wrappers, first generic adapter |
 | M2 · GPU backend | Implementation landed | Graphics commit `8748fab`; Metal and Vulkan CI parity evidence remains |
 | M3 · Layout and Scene | Current | Generic calculator rectangle slice landed; full flex, stacking, redraw scheduling, cross-platform fingerprints, and thin-host presentation remain |
-| M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, typed and collection drag/drop foundations landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
+| M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, typed and collection drag/drop plus timed drop activation landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
-| H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, long press, captured move, typed drag/drop negotiation, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
+| H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, long press, captured move, typed drag/drop negotiation and timed target activation, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
 | T0-T5 · TSX native authoring | Proposed | Automatic JSX runtime, versioned Node-to-host session, state/event runtime, self-drawn native window, packages, and stable SDK |
 | M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped; collection DnD authoring/behavior slice landed; eight public parts, full software, accessibility, and three-OS self-drawn evidence remain |
 

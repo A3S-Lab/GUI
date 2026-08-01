@@ -10,6 +10,7 @@ pub struct UiDropZoneProps {
     pub on_drag_leave: String,
     pub on_drop_enter: Option<String>,
     pub on_drop_move: Option<String>,
+    pub on_drop_activate: Option<String>,
     pub on_drop_exit: Option<String>,
     pub accepted_drag_types: Option<String>,
     pub drop_operation: Option<String>,
@@ -26,6 +27,7 @@ pub fn ui_drop_zone(cx: &mut ComponentCx<UiDropZoneProps>) -> RSX {
             .on_drag_leave(Some(props.on_drag_leave.clone()))
             .on_drop_enter(props.on_drop_enter.clone())
             .on_drop_move(props.on_drop_move.clone())
+            .on_drop_activate(props.on_drop_activate.clone())
             .on_drop_exit(props.on_drop_exit.clone())
             .accepted_drag_types(props.accepted_drag_types.clone())
             .drop_operation(props.drop_operation.clone())

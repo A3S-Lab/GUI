@@ -58,6 +58,7 @@ impl SelfDrawnInteractionSession {
                         current_item_indices: Vec::new(),
                         current_operation: SelfDrawnDropOperation::Cancel,
                         last_position: Some(candidate.start_position),
+                        drop_activation: None,
                     },
                     true,
                 )
@@ -333,6 +334,7 @@ impl SelfDrawnInteractionSession {
         };
         let same_target = exact_target || equivalent_collection_target;
         if !same_target {
+            session.drop_activation = None;
             if let Some(previous) = session.current_target.take() {
                 self.change_state(&previous, &mut routed.changes, |state| {
                     state.drop_target = false;
@@ -374,6 +376,7 @@ impl SelfDrawnInteractionSession {
                     context,
                     routed,
                 );
+                self.start_drop_activation(session, tree, context);
             }
         } else if let Some(next) = next {
             if !equivalent_collection_target {
@@ -382,6 +385,7 @@ impl SelfDrawnInteractionSession {
             }
             session.current_item_indices = next.item_indices;
             session.current_operation = next.operation;
+            self.refresh_drop_activation(session, context);
         }
 
         if emit_move {
@@ -414,6 +418,7 @@ impl SelfDrawnInteractionSession {
         let Some(target) = session.current_target.take() else {
             return SelfDrawnDropOperation::Cancel;
         };
+        session.drop_activation = None;
         let operation = session.current_operation;
         self.emit_drop_event(
             session,

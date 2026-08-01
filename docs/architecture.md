@@ -478,7 +478,8 @@ move lifecycle, drag/drop lifecycle, collection action, change, focus, toggle,
 selection change, key down, and key up back to serialized action identifiers
 such as `onClick`, `onLongPress`, `onMoveStart`, `onMove`, `onMoveEnd`,
 `onDragStart`, `onDragMove`, `onDragEnd`, `onDropEnter`, `onDropMove`,
-`onDropExit`, `onDrop`, `onChange`, `onInput`, `onFocusChange`, `onAction`,
+`onDropActivate`, `onDropExit`, `onDrop`, `onChange`, `onInput`,
+`onFocusChange`, `onAction`,
 `onExpandedChange`, `onKeyDown`, and `onKeyUp`.
 Self-drawn drag callbacks carry a typed item array. Each text item preserves its
 complete format map; source events receive every item, while target events

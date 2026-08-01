@@ -289,6 +289,16 @@ The action registry retains callbacks for the active committed revision and
 one rollback revision. A commit atomically replaces the active action scope.
 Late events for an older revision are rejected before callback dispatch.
 
+Callbacks that decide hit testing before an event is dispatched are a distinct
+protocol concern. In particular, React Aria's `shouldAcceptItemDrop` and
+`getDropOperation` require a synchronous answer while resolving the current
+collection target. They must not be encoded as ordinary action ids, serialized
+closures, or post-event reducers. Before these APIs are exposed to TSX, the
+session protocol must define a revision-scoped policy decision/query contract
+with bounded execution, stale-revision rejection, and `cancel` as the safe
+timeout/failure result (or an equivalent declarative decision table). Node
+continues to own JavaScript callbacks; the Rust host never executes JS.
+
 ### Components and Hooks
 
 The initial runtime is intentionally smaller than React:

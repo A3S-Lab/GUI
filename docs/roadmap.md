@@ -506,6 +506,12 @@ Landed evidence:
   custom exact types, and `all`; `DropEnter`/`DropMove`/`DropExit` ordering,
   `data-[dragging]`/`data-[drop-target]` state, keyed-frame reconciliation, and
   reducer failure rollback share the same transactional interaction session
+- valid ordinary targets and collection item targets schedule React Aria's
+  800ms `DropActivate` lifecycle through the same monotonic host deadline;
+  movement inside an equivalent target updates context without postponing the
+  timer, while target changes, exit, drop, cancellation, and invalid
+  reconciliation reset or clear it. Keyboard and pointer paths are identical,
+  and collection root targets intentionally do not activate
 - drag sources retain multiple text items and every per-item MIME/custom
   representation; target callbacks receive only matching items without losing
   the other representations on those items, while legacy `dragType` plus
@@ -523,7 +529,7 @@ Landed evidence:
 - the shared 410x620 calculator preserves its reviewed layout and scene
   fingerprints, routes eight fake-host events through four reducer actions,
   commits the resulting frames, and reaches display value `10`
-- 59 focused runtime/software tests plus four recursive H1 firewall tests are
+- 63 focused runtime/software tests plus four recursive H1 firewall tests are
   included in `just verify`
 
 Remaining H1 work:

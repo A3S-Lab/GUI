@@ -489,7 +489,9 @@ impl InteractionState {
             NativeEventKind::DragEnd => {
                 after.dragging = false;
             }
-            NativeEventKind::DropEnter | NativeEventKind::DropMove => {
+            NativeEventKind::DropEnter
+            | NativeEventKind::DropMove
+            | NativeEventKind::DropActivate => {
                 after.drop_target = true;
             }
             NativeEventKind::DropExit | NativeEventKind::Drop => {
@@ -574,6 +576,7 @@ impl InteractionState {
                     | NativeEventKind::DragEnd
                     | NativeEventKind::DropEnter
                     | NativeEventKind::DropMove
+                    | NativeEventKind::DropActivate
                     | NativeEventKind::DropExit
                     | NativeEventKind::Drop
                     | NativeEventKind::Focus

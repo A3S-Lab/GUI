@@ -215,6 +215,8 @@ src/platform_runtime/
 |- long_press_input.rs  event-loop deadlines and terminal hold recognition
 |- move_input.rs        captured incremental pointer and keyboard movement
 |- drag_drop.rs         typed transfer data and source/target negotiation
+|- drag_drop_activation_input.rs
+|                       800ms target hold deadline and activation routing
 |- drag_drop_input.rs   captured pointer drag lifecycle and target routing
 |- drag_drop_keyboard_input.rs
 |                       Enter/Tab/Escape accessible drag lifecycle
@@ -225,6 +227,8 @@ src/platform_runtime/
 |                       keyboard and style-only drag/drop gates
 |- drag_drop_items_tests.rs
 |                       multi-item/per-format transfer and filtering gates
+|- drag_drop_activation_tests.rs
+|                       pointer/keyboard/item timing and rollback gates
 |- presenter.rs         raw-surface prepare/publish contract and recorder
 |- reference_presenter.rs
 |                       transactional software Graphics evidence
@@ -395,11 +399,14 @@ Landed evidence:
   reducer errors preserve or roll back the entire session atomically. Collection
   targets additionally distinguish external insertion/root drops from internal
   move and same-parent reorder, reject self/descendant drops, and coalesce
-  adjacent insertion boundaries
+  adjacent insertion boundaries. Ordinary targets and collection items emit
+  `DropActivate` after an exact 800ms hold through the same host deadline;
+  collection roots do not activate, and target exit/change/cancel/drop clears
+  or restarts the timer
 - reducer errors restore the staged interaction state and sequence before the
   event is exposed as successful; successful frame reconciliation preserves
   focused stable ids, while rejected frames do not touch them
-- 59 focused runtime/software tests and four recursive feature/source
+- 63 focused runtime/software tests and four recursive feature/source
   firewall tests pass without any legacy renderer or OS toolkit dependency
 - `self_drawn_calculator` reproduces layout fingerprint
   `16529597026056060935`, scene fingerprint `2100550662756266801`, and

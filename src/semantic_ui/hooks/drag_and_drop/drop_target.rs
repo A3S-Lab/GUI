@@ -13,6 +13,7 @@ pub struct UseDropProps {
     on_drop_enter: Option<String>,
     on_drop_exit: Option<String>,
     on_drop_move: Option<String>,
+    on_drop_activate: Option<String>,
     accepted_drag_types: Option<String>,
     drop_operation: Option<String>,
     is_disabled: bool,
@@ -46,6 +47,11 @@ impl UseDropProps {
 
     pub fn on_drop_move(mut self, action: Option<impl Into<String>>) -> Self {
         self.on_drop_move = non_empty(action);
+        self
+    }
+
+    pub fn on_drop_activate(mut self, action: Option<impl Into<String>>) -> Self {
+        self.on_drop_activate = non_empty(action);
         self
     }
 
@@ -94,6 +100,8 @@ pub struct DropProps {
     pub on_drop_exit: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_drop_move: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_drop_activate: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accepted_drag_types: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -144,6 +152,7 @@ pub fn use_drop(props: UseDropProps) -> UseDropResult {
             on_drop_enter: props.on_drop_enter,
             on_drop_exit: props.on_drop_exit,
             on_drop_move: props.on_drop_move,
+            on_drop_activate: props.on_drop_activate,
             accepted_drag_types: props.accepted_drag_types.clone(),
             drop_operation: props.drop_operation.clone(),
             data_accepted_drag_types: props.accepted_drag_types,

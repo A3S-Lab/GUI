@@ -863,6 +863,7 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
             label="Drop profile"
             onDrop={dropAlias}
             onDropEnter={dropEnterAlias}
+            onDropActivate={dropActivateAlias}
             acceptedDragTypes="text/plain"
             dropOperation="move"
             isDropTarget={true}
@@ -1004,6 +1005,10 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
         .use_reducer("dropEnterAlias", |_state: &mut FormState, _invocation| {
             Ok(())
         })
+        .use_reducer(
+            "dropActivateAlias",
+            |_state: &mut FormState, _invocation| Ok(()),
+        )
         .use_reducer("loadMore", |_state: &mut FormState, _invocation| Ok(()));
 
         let frame = component
@@ -1311,6 +1316,15 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
                 .get("onDrop")
                 .map(String::as_str),
             Some("dropAlias")
+        );
+        assert_eq!(
+            droppable_native
+                .props
+                .web
+                .events
+                .get("onDropActivate")
+                .map(String::as_str),
+            Some("dropActivateAlias")
         );
         let focusable_native = bridge.lower_to_native(focusable).unwrap();
         assert_eq!(focusable_native.role, NativeRole::View);
@@ -4454,6 +4468,7 @@ fn rsx_ui_renders_structure_collection_and_file_primitives_to_native_roles() {
             onDrop={dropFiles}
             onDragEnter={dragEnter}
             onDragLeave={dragLeave}
+            onDropActivate={dropActivate}
             acceptedDragTypes="image/*,text/plain"
             dropOperation="copy"
             isDropTarget={true}
@@ -4508,6 +4523,7 @@ fn rsx_ui_renders_structure_collection_and_file_primitives_to_native_roles() {
     .use_reducer("dropFiles", |_state, _invocation| Ok(()))
     .use_reducer("dragEnter", |_state, _invocation| Ok(()))
     .use_reducer("dragLeave", |_state, _invocation| Ok(()))
+    .use_reducer("dropActivate", |_state, _invocation| Ok(()))
     .use_reducer("dismissToast", |state: &mut StructureState, _invocation| {
         state.toast_open = false;
         Ok(())
@@ -4641,6 +4657,15 @@ fn rsx_ui_renders_structure_collection_and_file_primitives_to_native_roles() {
             .get("onDrop")
             .map(String::as_str),
         Some("dropFiles")
+    );
+    assert_eq!(
+        drop_native
+            .props
+            .web
+            .events
+            .get("onDropActivate")
+            .map(String::as_str),
+        Some("dropActivate")
     );
     assert_eq!(drop_native.props.tab_index, Some(0));
     assert_eq!(

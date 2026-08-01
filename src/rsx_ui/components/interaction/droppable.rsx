@@ -9,6 +9,7 @@ pub struct UiDroppableProps {
     pub on_drop_enter: Option<String>,
     pub on_drop_exit: Option<String>,
     pub on_drop_move: Option<String>,
+    pub on_drop_activate: Option<String>,
     pub accepted_drag_types: Option<String>,
     pub drop_operation: Option<String>,
     pub is_disabled: bool,
@@ -23,6 +24,7 @@ pub fn ui_droppable(cx: &mut ComponentCx<UiDroppableProps>) -> RSX {
             .on_drop_enter(props.on_drop_enter.clone())
             .on_drop_exit(props.on_drop_exit.clone())
             .on_drop_move(props.on_drop_move.clone())
+            .on_drop_activate(props.on_drop_activate.clone())
             .accepted_drag_types(props.accepted_drag_types.clone())
             .drop_operation(props.drop_operation.clone())
             .disabled(props.is_disabled)

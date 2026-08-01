@@ -27,9 +27,21 @@ impl SelfDrawnInteractionSession {
                     .filter(|tracking| tracking.deadline_micros <= timestamp_micros)
                     .map(|tracking| (tracking.deadline_micros, *pointer))
             })
-            .min()
-            .map(|(_, pointer)| pointer);
-        let Some(pointer_id) = due_pointer else {
+            .min();
+        let due_drop_activation = self
+            .next_drop_activation_deadline_micros()
+            .filter(|deadline| *deadline <= timestamp_micros);
+        if due_drop_activation.is_some_and(|drop_deadline| {
+            due_pointer
+                .as_ref()
+                .is_none_or(|(long_press_deadline, _)| drop_deadline < *long_press_deadline)
+        }) {
+            return self.route_drop_activation_time(timestamp_micros, frame_revision, tree);
+        }
+        let Some((_, pointer_id)) = due_pointer else {
+            if due_drop_activation.is_some() {
+                return self.route_drop_activation_time(timestamp_micros, frame_revision, tree);
+            }
             return Ok(None);
         };
         let event_sequence = self

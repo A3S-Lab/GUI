@@ -7,17 +7,17 @@ fn collection_components_lower_shared_native_drag_and_drop_contract() {
         "collection-drag-drop",
         r#"
         <View key="root">
-          <UiListBox key="list" onInsert="listInsert" onReorder="listReorder" acceptedDragTypes="text/plain">
+          <UiListBox key="list" onInsert="listInsert" onReorder="listReorder" onDropActivate="listActivate" acceptedDragTypes="text/plain">
             <UiListBoxItem key="list-a" id="list-a" isDraggable={true} dragType="text/plain" dragValue="a">A</UiListBoxItem>
             <UiDropIndicator key="list-before" targetKey="list-a" dropPosition="before" />
           </UiListBox>
-          <UiGridList key="grid" onItemDrop="gridItemDrop" onMove="gridMove" acceptedDragTypes="text/plain">
+          <UiGridList key="grid" onItemDrop="gridItemDrop" onMove="gridMove" onDropActivate="gridActivate" acceptedDragTypes="text/plain">
             <UiGridListItem key="grid-a" id="grid-a" isDraggable={true} dragType="text/plain" dragValue="a">A</UiGridListItem>
           </UiGridList>
-          <UiTree key="tree" onRootDrop="treeRootDrop" onReorder="treeReorder" acceptedDragTypes="text/plain">
+          <UiTree key="tree" onRootDrop="treeRootDrop" onReorder="treeReorder" onDropActivate="treeActivate" acceptedDragTypes="text/plain">
             <UiTreeItem key="tree-a" id="tree-a" isDraggable={true} dragType="text/plain" dragValue="a">A</UiTreeItem>
           </UiTree>
-          <UiTable key="table" onDrop="tableDrop" onMove="tableMove" acceptedDragTypes="text/plain">
+          <UiTable key="table" onDrop="tableDrop" onMove="tableMove" onDropActivate="tableActivate" acceptedDragTypes="text/plain">
             <UiTableBody key="body">
               <UiTableRow key="row-a" id="row-a" isDraggable={true} dragType="text/plain" dragValue="a" />
             </UiTableBody>
@@ -34,6 +34,11 @@ fn collection_components_lower_shared_native_drag_and_drop_contract() {
     .use_reducer("treeReorder", |_state: &mut (), _| Ok(()))
     .use_reducer("tableDrop", |_state: &mut (), _| Ok(()))
     .use_reducer("tableMove", |_state: &mut (), _| Ok(()));
+    let component = component
+        .use_reducer("listActivate", |_state: &mut (), _| Ok(()))
+        .use_reducer("gridActivate", |_state: &mut (), _| Ok(()))
+        .use_reducer("treeActivate", |_state: &mut (), _| Ok(()))
+        .use_reducer("tableActivate", |_state: &mut (), _| Ok(()));
 
     let frame = component.render(&()).unwrap();
     for (slot, event, action) in [
@@ -68,6 +73,21 @@ fn collection_components_lower_shared_native_drag_and_drop_contract() {
                 .get("data-drop-orientation")
                 .map(String::as_str),
             Some("vertical")
+        );
+    }
+
+    for (slot, action) in [
+        ("list-box", "listActivate"),
+        ("grid-list", "gridActivate"),
+        ("tree", "treeActivate"),
+        ("table", "tableActivate"),
+    ] {
+        assert_eq!(
+            props_by_slot(&frame.root, slot)
+                .events
+                .get("onDropActivate")
+                .map(String::as_str),
+            Some(action)
         );
     }
 

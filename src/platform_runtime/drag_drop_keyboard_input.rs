@@ -120,6 +120,7 @@ impl SelfDrawnInteractionSession {
             current_item_indices: Vec::new(),
             current_operation: SelfDrawnDropOperation::Cancel,
             last_position: None,
+            drop_activation: None,
         };
         let dragging_nodes = if session.dragging_nodes.is_empty() {
             vec![source_id.clone()]

@@ -27,6 +27,7 @@ pub struct UiListBoxProps {
     pub on_drop: String,
     pub on_drop_enter: String,
     pub on_drop_move: String,
+    pub on_drop_activate: String,
     pub on_drop_exit: String,
     pub on_root_drop: String,
     pub on_item_drop: String,
@@ -78,6 +79,7 @@ pub fn ui_list_box(cx: &mut ComponentCx<UiListBoxProps>) -> RSX {
             onDrop={props.onDrop}
             onDropEnter={props.onDropEnter}
             onDropMove={props.onDropMove}
+            onDropActivate={props.onDropActivate}
             onDropExit={props.onDropExit}
             onRootDrop={props.onRootDrop}
             onItemDrop={props.onItemDrop}

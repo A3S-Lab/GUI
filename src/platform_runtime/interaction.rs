@@ -364,33 +364,41 @@ impl SelfDrawnInteractionSession {
             .take()
             .filter(|id| tree.node(id).is_some_and(|node| node.focusable))
             .or_else(|| tree.auto_focus_target());
-        self.active_drag = self.active_drag.take().and_then(|mut drag| {
-            tree.drag_source(&drag.source)?;
-            if let Some(target) = drag.current_target.take() {
-                if let Some(matched) = tree.compatible_drop_target(
-                    &target,
-                    drag.current_collection.as_ref(),
-                    drag.current_collection_target.as_ref(),
-                    &drag.items,
-                    &drag.types,
-                    &drag.allowed_operations,
-                    drag.source_collection.as_ref(),
-                    &drag.dragging_keys,
-                ) {
-                    drag.current_target = Some(matched.id);
-                    drag.current_collection = matched.collection;
-                    drag.current_collection_target = matched.collection_target;
-                    drag.current_operation = matched.operation;
-                    drag.current_item_indices = matched.item_indices;
-                } else {
-                    drag.current_operation = super::SelfDrawnDropOperation::Cancel;
-                    drag.current_collection = None;
-                    drag.current_collection_target = None;
-                    drag.current_item_indices.clear();
+        let previous_drag = self.active_drag.take();
+        let active_drag =
+            previous_drag.and_then(|mut drag| {
+                tree.drag_source(&drag.source)?;
+                if let Some(target) = drag.current_target.take() {
+                    if let Some(matched) = tree.compatible_drop_target(
+                        &target,
+                        drag.current_collection.as_ref(),
+                        drag.current_collection_target.as_ref(),
+                        &drag.items,
+                        &drag.types,
+                        &drag.allowed_operations,
+                        drag.source_collection.as_ref(),
+                        &drag.dragging_keys,
+                    ) {
+                        drag.current_target = Some(matched.id);
+                        drag.current_collection = matched.collection;
+                        drag.current_collection_target = matched.collection_target;
+                        drag.current_operation = matched.operation;
+                        drag.current_item_indices = matched.item_indices;
+                    } else {
+                        drag.current_operation = super::SelfDrawnDropOperation::Cancel;
+                        drag.current_collection = None;
+                        drag.current_collection_target = None;
+                        drag.current_item_indices.clear();
+                    }
                 }
-            }
-            Some(drag)
-        });
+                if drag.drop_activation.as_ref().is_some_and(|tracking| {
+                    !tree.drop_activation_tracking_is_valid(&drag, tracking)
+                }) {
+                    drag.drop_activation = None;
+                }
+                Some(drag)
+            });
+        self.active_drag = active_drag;
 
         let focus_visible = self
             .focused
@@ -708,12 +716,18 @@ impl SelfDrawnInteractionSession {
     }
 
     pub(super) fn next_interaction_deadline_micros(&self) -> Option<u64> {
-        self.pointers
+        let long_press = self
+            .pointers
             .values()
             .filter_map(|pointer| pointer.active_press.as_ref())
             .filter_map(|press| press.long_press.as_ref())
             .map(|tracking| tracking.deadline_micros)
-            .min()
+            .min();
+        match (long_press, self.next_drop_activation_deadline_micros()) {
+            (Some(left), Some(right)) => Some(left.min(right)),
+            (Some(deadline), None) | (None, Some(deadline)) => Some(deadline),
+            (None, None) => None,
+        }
     }
 
     fn route_focus_within(
