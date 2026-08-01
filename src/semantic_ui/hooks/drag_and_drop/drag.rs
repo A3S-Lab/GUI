@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 
@@ -6,6 +8,9 @@ use crate::error::{GuiError, GuiResult};
 use super::super::serde_helpers::is_false;
 use super::shared::non_empty;
 
+/// One declarative drag item containing all of its text representations.
+pub type DragItem = BTreeMap<String, String>;
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UseDragProps {
     on_drag_start: Option<String>,
@@ -13,6 +18,7 @@ pub struct UseDragProps {
     on_drag_end: Option<String>,
     drag_type: Option<String>,
     drag_value: Option<String>,
+    drag_items: Option<String>,
     allowed_drop_operations: Option<String>,
     is_disabled: bool,
     is_dragging: bool,
@@ -45,6 +51,18 @@ impl UseDragProps {
 
     pub fn drag_value(mut self, drag_value: Option<impl Into<String>>) -> Self {
         self.drag_value = non_empty(drag_value);
+        self
+    }
+
+    /// Supplies the React Aria-style `getItems()` result as typed maps.
+    pub fn drag_items(mut self, drag_items: Vec<DragItem>) -> Self {
+        self.drag_items = encode_drag_items(drag_items);
+        self
+    }
+
+    /// Supplies encoded drag items for declarative RSX/TSX protocol props.
+    pub fn drag_items_json(mut self, drag_items: Option<impl Into<String>>) -> Self {
+        self.drag_items = non_empty(drag_items).and_then(normalize_drag_items_json);
         self
     }
 
@@ -91,11 +109,15 @@ pub struct DragProps {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub drag_value: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub drag_items: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub allowed_drop_operations: Option<String>,
     #[serde(rename = "data-drag-type", skip_serializing_if = "Option::is_none")]
     pub data_drag_type: Option<String>,
     #[serde(rename = "data-drag-value", skip_serializing_if = "Option::is_none")]
     pub data_drag_value: Option<String>,
+    #[serde(rename = "data-drag-items", skip_serializing_if = "Option::is_none")]
+    pub data_drag_items: Option<String>,
     #[serde(
         rename = "data-allowed-drop-operations",
         skip_serializing_if = "Option::is_none"
@@ -138,9 +160,11 @@ pub fn use_drag(props: UseDragProps) -> UseDragResult {
             on_drag_end: props.on_drag_end,
             drag_type: props.drag_type.clone(),
             drag_value: props.drag_value.clone(),
+            drag_items: props.drag_items.clone(),
             allowed_drop_operations: props.allowed_drop_operations.clone(),
             data_drag_type: props.drag_type,
             data_drag_value: props.drag_value,
+            data_drag_items: props.drag_items,
             data_allowed_drop_operations: props.allowed_drop_operations,
             disabled: props.is_disabled,
             aria_disabled: props.is_disabled,
@@ -155,6 +179,71 @@ pub fn use_drag(props: UseDragProps) -> UseDragResult {
             aria_pressed: props.is_dragging,
             data_dragging: props.is_dragging,
         },
+    }
+}
+
+fn normalize_drag_items_json(raw: String) -> Option<String> {
+    let items = serde_json::from_str::<Vec<DragItem>>(&raw).ok()?;
+    encode_drag_items(items)
+}
+
+fn encode_drag_items(items: Vec<DragItem>) -> Option<String> {
+    if items.is_empty() {
+        return None;
+    }
+    let items = items
+        .into_iter()
+        .map(|item| {
+            item.into_iter()
+                .filter_map(|(format, value)| {
+                    let format = format.trim();
+                    (!format.is_empty()).then(|| (format.to_string(), value))
+                })
+                .collect::<DragItem>()
+        })
+        .collect::<Vec<_>>();
+    if items.iter().any(DragItem::is_empty) {
+        return None;
+    }
+    serde_json::to_string(&items).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn typed_drag_items_encode_multiple_items_and_formats() {
+        let result = use_drag(UseDragProps::new().drag_items(vec![
+            DragItem::from([
+                ("text/plain".to_string(), "alpha".to_string()),
+                ("text/html".to_string(), "<b>alpha</b>".to_string()),
+            ]),
+            DragItem::from([("text/plain".to_string(), "beta".to_string())]),
+        ]));
+
+        let encoded = result.drag_props.data_drag_items.as_deref().unwrap();
+        let items = serde_json::from_str::<Vec<DragItem>>(encoded).unwrap();
+        assert_eq!(items.len(), 2);
+        assert_eq!(
+            items[0].get("text/html").map(String::as_str),
+            Some("<b>alpha</b>")
+        );
+        assert_eq!(items[1].get("text/plain").map(String::as_str), Some("beta"));
+    }
+
+    #[test]
+    fn malformed_or_empty_drag_items_are_not_lowered() {
+        assert!(
+            use_drag(UseDragProps::new().drag_items_json(Some("not-json")))
+                .drag_props
+                .data_drag_items
+                .is_none()
+        );
+        assert!(use_drag(UseDragProps::new().drag_items(Vec::new()))
+            .drag_props
+            .data_drag_items
+            .is_none());
     }
 }
 

@@ -329,6 +329,8 @@ pub(super) fn passthrough_contract() -> GuiResult<RsxComponentContract> {
             "onDragLeave",
             "dragType",
             "dragValue",
+            "dragItems",
+            "allowedDropOperations",
             "acceptedDragTypes",
             "dropOperation",
             "copyValue",

@@ -9,7 +9,9 @@ use crate::platform_host::{PlatformElementId, PlatformPoint};
 use crate::semantic_event::{long_press_threshold_micros, SemanticActionSource};
 use crate::style::interaction_requirements_from_web;
 
-use super::drag_drop::{SelfDrawnDragSource, SelfDrawnDropTarget, SelfDrawnMatchedDropTarget};
+use super::drag_drop::{
+    SelfDrawnDragSource, SelfDrawnDropItem, SelfDrawnDropTarget, SelfDrawnMatchedDropTarget,
+};
 
 #[derive(Debug, Clone)]
 pub(super) struct SelfDrawnInteractionTree {
@@ -209,6 +211,7 @@ impl SelfDrawnInteractionTree {
     pub(super) fn drop_target_at(
         &self,
         point: PlatformPoint,
+        items: &[SelfDrawnDropItem],
         types: &[String],
         allowed_operations: &[super::SelfDrawnDropOperation],
     ) -> Option<SelfDrawnMatchedDropTarget> {
@@ -227,7 +230,11 @@ impl SelfDrawnInteractionTree {
                 };
                 let operation = target.operation_for(types, allowed_operations);
                 if operation != super::SelfDrawnDropOperation::Cancel {
-                    return Some(SelfDrawnMatchedDropTarget { id, operation });
+                    return Some(SelfDrawnMatchedDropTarget {
+                        id,
+                        operation,
+                        item_indices: target.matching_item_indices(items),
+                    });
                 }
                 return None;
             }
@@ -238,6 +245,7 @@ impl SelfDrawnInteractionTree {
 
     pub(super) fn compatible_drop_targets(
         &self,
+        items: &[SelfDrawnDropItem],
         types: &[String],
         allowed_operations: &[super::SelfDrawnDropOperation],
     ) -> Vec<SelfDrawnMatchedDropTarget> {
@@ -254,6 +262,7 @@ impl SelfDrawnInteractionTree {
                     SelfDrawnMatchedDropTarget {
                         id: id.clone(),
                         operation,
+                        item_indices: target.matching_item_indices(items),
                     }
                 })
             })
@@ -263,17 +272,17 @@ impl SelfDrawnInteractionTree {
     pub(super) fn compatible_drop_target(
         &self,
         id: &PlatformElementId,
+        items: &[SelfDrawnDropItem],
         types: &[String],
         allowed_operations: &[super::SelfDrawnDropOperation],
     ) -> Option<SelfDrawnMatchedDropTarget> {
         let node = self.node(id).filter(|node| node.available)?;
-        let operation = node
-            .drop_target
-            .as_ref()?
-            .operation_for(types, allowed_operations);
+        let target = node.drop_target.as_ref()?;
+        let operation = target.operation_for(types, allowed_operations);
         (operation != super::SelfDrawnDropOperation::Cancel).then(|| SelfDrawnMatchedDropTarget {
             id: id.clone(),
             operation,
+            item_indices: target.matching_item_indices(items),
         })
     }
 

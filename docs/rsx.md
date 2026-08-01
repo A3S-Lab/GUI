@@ -582,16 +582,23 @@ Semantic UI projections:
 only direct focus by default. Set `within={true}` when descendant focus should
 also display the ring.
 
-Self-drawn drag sources expose `dragType`, `dragValue`, and
-`allowedDropOperations` (comma- or whitespace-separated
-`copy`/`move`/`link`). Drop targets expose `acceptedDragTypes` and
-`dropOperation`; accepted types may contain multiple exact values, `all`, or a
-MIME wildcard such as `image/*`. `UiDraggable`, `UiDroppable`, and `UiDropZone`
-include a keyboard-focusable affordance: Enter starts or commits a drag, Tab
-cycles compatible targets, and Escape cancels. Pointer and keyboard callbacks
-receive the same typed transfer context. External OS files/directories and
-collection before/after insertion targets are not part of this first shared
-runtime slice.
+Self-drawn drag sources expose `dragItems`, a JSON array equivalent to React
+Aria's `getItems()` result. Each array entry maps MIME/custom types to their
+text representation, for example
+`[{"text/plain":"alpha","text/html":"<b>alpha</b>"}]`. Rust hooks may use
+`UseDragProps::drag_items(Vec<DragItem>)` instead of encoding JSON. The legacy
+`dragType` and `dragValue` pair remains supported and normalizes to one text
+item. `allowedDropOperations` accepts comma- or whitespace-separated
+`copy`/`move`/`link` values.
+
+Drop targets expose `acceptedDragTypes` and `dropOperation`; accepted types may
+contain multiple exact values, `all`, or a MIME wildcard such as `image/*`.
+Target callbacks receive only matching items, with every representation on
+those items preserved. `UiDraggable`, `UiDroppable`, and `UiDropZone` include a
+keyboard-focusable affordance: Enter starts or commits a drag, Tab cycles
+compatible targets, and Escape cancels. Pointer and keyboard callbacks receive
+the same typed transfer context. External OS files/directories and collection
+before/after insertion targets remain separate work.
 
 Runtime lifecycle and effects:
 

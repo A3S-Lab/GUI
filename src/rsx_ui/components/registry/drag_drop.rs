@@ -46,6 +46,7 @@ pub(super) fn with_drag_drop_components<S>(
             .default_prop("onDragEnd", "")?
             .default_prop("dragType", "")?
             .default_prop("dragValue", "")?
+            .default_prop("dragItems", "")?
             .default_prop("allowedDropOperations", "")?
             .default_prop("isDisabled", false)?
             .default_prop("isDragging", false)?,

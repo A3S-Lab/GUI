@@ -185,6 +185,9 @@ fn pointer_drag_negotiates_wildcard_target_and_reports_local_drop_context() {
     let drag = drop_move.context.drag.as_ref().unwrap();
     assert_eq!(drag.types, ["image/png", "text/plain"]);
     assert_eq!(drag.value.as_deref(), Some("alpha"));
+    assert_eq!(drag.items.len(), 1);
+    assert_eq!(drag.items[0].get_text("image/png"), Some("alpha"));
+    assert_eq!(drag.items[0].get_text("text/plain"), Some("alpha"));
     assert_eq!(drag.drop_operation, SelfDrawnDropOperation::Move);
     assert_eq!(drop_move.value(), Some("alpha"));
     assert!(runtime.element_interaction(&target).unwrap().drop_target);

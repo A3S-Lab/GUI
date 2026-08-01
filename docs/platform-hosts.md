@@ -223,6 +223,8 @@ src/platform_runtime/
 |- drag_drop_tests.rs   pointer negotiation, rollback, and reconcile gates
 |- drag_drop_keyboard_tests.rs
 |                       keyboard and style-only drag/drop gates
+|- drag_drop_items_tests.rs
+|                       multi-item/per-format transfer and filtering gates
 |- presenter.rs         raw-surface prepare/publish contract and recorder
 |- reference_presenter.rs
 |                       transactional software Graphics evidence
@@ -385,15 +387,16 @@ Landed evidence:
   delta, remains captured outside its hit region, retains incremental delta and
   pointer identity, and ends on release, cancellation, or terminal long press;
   arrow keys route a handled one-unit lifecycle through the same action batch
-- callback-driven and style-only drag/drop negotiates multiple MIME/custom
-  types, wildcard patterns, and copy/move/link/cancel operations; pointer drags
-  report target-local coordinates, keyboard Enter/Tab/Escape provides the same
-  accessible source/compatible-target lifecycle, and keyed frames plus reducer
-  errors preserve or roll back the entire session atomically
+- callback-driven and style-only drag/drop retains multiple text items and all
+  per-item MIME/custom representations, filters target items by exact or
+  wildcard types, and negotiates copy/move/link/cancel operations; pointer
+  drags report target-local coordinates, keyboard Enter/Tab/Escape provides the
+  same accessible source/compatible-target lifecycle, and keyed frames plus
+  reducer errors preserve or roll back the entire session atomically
 - reducer errors restore the staged interaction state and sequence before the
   event is exposed as successful; successful frame reconciliation preserves
   focused stable ids, while rejected frames do not touch them
-- 44 focused runtime/software tests and four recursive feature/source
+- 48 focused runtime/software tests and four recursive feature/source
   firewall tests pass without any legacy renderer or OS toolkit dependency
 - `self_drawn_calculator` reproduces layout fingerprint
   `16529597026056060935`, scene fingerprint `2100550662756266801`, and

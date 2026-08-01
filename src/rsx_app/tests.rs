@@ -1368,6 +1368,16 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
                 .on_drag_end(Some(&drag_end_action))
                 .drag_type(Some("text/plain"))
                 .drag_value(Some("alpha"))
+                .drag_items(vec![
+                    crate::semantic_ui::DragItem::from([
+                        ("text/plain".to_string(), "alpha".to_string()),
+                        ("text/html".to_string(), "<b>alpha</b>".to_string()),
+                    ]),
+                    crate::semantic_ui::DragItem::from([(
+                        "text/plain".to_string(),
+                        "beta".to_string(),
+                    )]),
+                ])
                 .allowed_drop_operations(Some("copy,move"))
                 .dragging(state.dragging)
         });
@@ -1654,6 +1664,19 @@ fn component_cx_interaction_hooks_return_props_for_view_consumption() {
     assert_eq!(
         drag.attributes.get("data-drag-value").map(String::as_str),
         Some("alpha")
+    );
+    let drag_items = serde_json::from_str::<Vec<crate::semantic_ui::DragItem>>(
+        drag.attributes.get("data-drag-items").unwrap(),
+    )
+    .unwrap();
+    assert_eq!(drag_items.len(), 2);
+    assert_eq!(
+        drag_items[0].get("text/html").map(String::as_str),
+        Some("<b>alpha</b>")
+    );
+    assert_eq!(
+        drag_items[1].get("text/plain").map(String::as_str),
+        Some("beta")
     );
     assert_eq!(
         drag.attributes

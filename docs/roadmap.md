@@ -506,10 +506,14 @@ Landed evidence:
   custom exact types, and `all`; `DropEnter`/`DropMove`/`DropExit` ordering,
   `data-[dragging]`/`data-[drop-target]` state, keyed-frame reconciliation, and
   reducer failure rollback share the same transactional interaction session
+- drag sources retain multiple text items and every per-item MIME/custom
+  representation; target callbacks receive only matching items without losing
+  the other representations on those items, while legacy `dragType` plus
+  `dragValue` normalizes to one compatible text item
 - the shared 410x620 calculator preserves its reviewed layout and scene
   fingerprints, routes eight fake-host events through four reducer actions,
   commits the resulting frames, and reaches display value `10`
-- 44 focused runtime/software tests plus four recursive H1 firewall tests are
+- 48 focused runtime/software tests plus four recursive H1 firewall tests are
   included in `just verify`
 
 Remaining H1 work:
@@ -518,10 +522,10 @@ Remaining H1 work:
   pinned Graphics commit `8748fab` owns only a surface-independent texture and
   readback today, so its safe host-owned surface attachment/recovery contract
   must land before GUI can implement this edge without duplicating `wgpu`
-- multi-item and per-format drag payloads, collection item/between/root drag
-  delegates, native file/directory and cross-application transfer, drag
-  previews, text editing, IME, overlay gestures, and component-specific
-  interaction conformance remain explicit M4 and M6-M8 work
+- collection item/between/root drag delegates, native file/directory and
+  cross-application transfer, drag previews, text editing, IME, overlay
+  gestures, and component-specific interaction conformance remain explicit M4
+  and M6-M8 work
 
 Gates:
 

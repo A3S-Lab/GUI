@@ -100,8 +100,10 @@ impl SelfDrawnInteractionSession {
             pointer: None,
             types: source.types,
             value: source.value,
+            items: source.items,
             allowed_operations: source.allowed_operations,
             current_target: None,
+            current_item_indices: Vec::new(),
             current_operation: SelfDrawnDropOperation::Cancel,
             last_position: None,
         };
@@ -146,7 +148,11 @@ impl SelfDrawnInteractionSession {
         let Some(mut session) = self.active_drag.take() else {
             return;
         };
-        let candidates = tree.compatible_drop_targets(&session.types, &session.allowed_operations);
+        let candidates = tree.compatible_drop_targets(
+            &session.items,
+            &session.types,
+            &session.allowed_operations,
+        );
         let current = session.current_target.as_ref().and_then(|current| {
             candidates
                 .iter()

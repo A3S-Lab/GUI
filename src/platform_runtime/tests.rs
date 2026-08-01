@@ -775,6 +775,7 @@ fn public_runtime_records_are_send_and_sync() {
     assert_send_sync::<SelfDrawnRuntimeStats>();
     assert_send_sync::<SelfDrawnEventContext>();
     assert_send_sync::<SelfDrawnDragContext>();
+    assert_send_sync::<SelfDrawnDropItem>();
     assert_send_sync::<SelfDrawnDropOperation>();
     assert_send_sync::<SelfDrawnActionInvocation>();
     assert_send_sync::<SelfDrawnElementInteraction>();

@@ -2591,6 +2591,10 @@ fn drag_scope_value(props: &CompiledProps) -> GuiResult<JsonValue> {
                 props,
                 &["dragValue", "data-drag-value"],
             ))
+            .drag_items_json(non_empty_attribute(
+                props,
+                &["dragItems", "data-drag-items"],
+            ))
             .allowed_drop_operations(non_empty_attribute(
                 props,
                 &["allowedDropOperations", "data-allowed-drop-operations"],

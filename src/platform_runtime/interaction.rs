@@ -367,13 +367,18 @@ impl SelfDrawnInteractionSession {
         self.active_drag = self.active_drag.take().and_then(|mut drag| {
             tree.drag_source(&drag.source)?;
             if let Some(target) = drag.current_target.take() {
-                if let Some(matched) =
-                    tree.compatible_drop_target(&target, &drag.types, &drag.allowed_operations)
-                {
+                if let Some(matched) = tree.compatible_drop_target(
+                    &target,
+                    &drag.items,
+                    &drag.types,
+                    &drag.allowed_operations,
+                ) {
                     drag.current_target = Some(matched.id);
                     drag.current_operation = matched.operation;
+                    drag.current_item_indices = matched.item_indices;
                 } else {
                     drag.current_operation = super::SelfDrawnDropOperation::Cancel;
+                    drag.current_item_indices.clear();
                 }
             }
             Some(drag)

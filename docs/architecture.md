@@ -480,6 +480,9 @@ such as `onClick`, `onLongPress`, `onMoveStart`, `onMove`, `onMoveEnd`,
 `onDragStart`, `onDragMove`, `onDragEnd`, `onDropEnter`, `onDropMove`,
 `onDropExit`, `onDrop`, `onChange`, `onInput`, `onFocusChange`, `onAction`,
 `onExpandedChange`, `onKeyDown`, and `onKeyUp`.
+Self-drawn drag callbacks carry a typed item array. Each text item preserves its
+complete format map; source events receive every item, while target events
+receive the subset matching that target without flattening per-format data.
 Focus and blur events always carry canonical `true` and `false` payloads for
 `onFocusChange`. These direct focus callbacks are target-only. The runtime
 separately derives `onFocusWithin`, `onBlurWithin`, and

@@ -207,10 +207,11 @@ pub use platform_host::{
 #[cfg(feature = "platform-runtime")]
 pub use platform_runtime::{
     PlatformRenderFrame, PlatformScenePresenter, RecordingPreparedFrame, RecordingScenePresenter,
-    SelfDrawnActionInvocation, SelfDrawnActionPropagation, SelfDrawnElementInteraction,
-    SelfDrawnEventContext, SelfDrawnFrameCommit, SelfDrawnFrameCommitStatus,
-    SelfDrawnFrameSnapshot, SelfDrawnHostEventOutcome, SelfDrawnInputDispatch,
-    SelfDrawnInteractionChange, SelfDrawnRuntimeStats, SelfDrawnWindowRuntime,
+    SelfDrawnActionInvocation, SelfDrawnActionPropagation, SelfDrawnDragContext, SelfDrawnDropItem,
+    SelfDrawnDropOperation, SelfDrawnElementInteraction, SelfDrawnEventContext,
+    SelfDrawnFrameCommit, SelfDrawnFrameCommitStatus, SelfDrawnFrameSnapshot,
+    SelfDrawnHostEventOutcome, SelfDrawnInputDispatch, SelfDrawnInteractionChange,
+    SelfDrawnRuntimeStats, SelfDrawnWindowRuntime,
 };
 #[cfg(all(feature = "platform-runtime", feature = "software-reference"))]
 pub use platform_runtime::{
@@ -437,7 +438,7 @@ pub use semantic_ui::{
     UseLongPressResult, UseMoveProps, UseMoveResult,
 };
 pub use semantic_ui::{
-    use_drag, use_drag_value, use_drop, use_drop_value, DragButtonProps, DragProps,
+    use_drag, use_drag_value, use_drop, use_drop_value, DragButtonProps, DragItem, DragProps,
     DropButtonProps, DropProps, UseDragProps, UseDragResult, UseDropProps, UseDropResult,
 };
 pub use semantic_ui::{

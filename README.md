@@ -68,10 +68,11 @@ versioned [component matrix](docs/react-aria-component-matrix.json) pins
   authoring components;
 - `Button` currently has scene/software-pixel smoke evidence through the shared
   calculator, but no component is self-drawn conformant yet;
-- the shared pointer/keyboard drag/drop state machine now covers multi-type and
-  wildcard negotiation for draggable/drop-target authoring, but multi-item and
-  per-format payloads, collection delegates, external transfer, pixels,
-  accessibility, and real hosts still keep `DropZone` below conformance;
+- the shared pointer/keyboard drag/drop state machine now covers multi-type,
+  wildcard, multi-item, and per-format payload negotiation for
+  draggable/drop-target authoring, but collection delegates, external
+  transfer, pixels, accessibility, and real hosts still keep `DropZone` below
+  conformance;
 - Checkbox, Radio, and Switch Field/Button parts plus ToastList and
   ToastContent are recorded as eight explicit API gaps;
 - a component reaches `conformant` only with behavior, layout/hit, Graphics
@@ -301,10 +302,11 @@ independently.
   acknowledgement, and surface-loss replay without changing semantic identity
 - raw pointer, keyboard, Tab-focus, hover, press, cancellation, wheel,
   scheduled long press, incremental captured move, and self-drawn drag/drop
-  routing over `PlatformElementId`; drag sessions negotiate multiple MIME
-  types and wildcards plus copy/move/link/cancel operations, while event-loop
-  deadlines, stable action bubbling, keyed reconciliation, and reducer rollback
-  share one staged interaction session
+  routing over `PlatformElementId`; drag sessions retain multiple text items
+  and every MIME/custom representation, filter compatible target items,
+  negotiate wildcards plus copy/move/link/cancel operations, and share
+  event-loop deadlines, stable action bubbling, keyed reconciliation, and
+  reducer rollback in one staged interaction session
 - an identical-frame fast path that performs no layout, scene, host, or
   presentation work, plus semantic-only commits that skip pixel presentation
 - a software Graphics presenter and interactive shared

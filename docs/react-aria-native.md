@@ -144,15 +144,16 @@ The first shared interaction milestone is available in the portable runtime:
 - Self-drawn drag routing starts on the first non-zero primary-pointer delta or
   keyboard Enter. It negotiates multiple MIME/custom source types, `image/*`
   and `all` patterns, allowed copy/move/link/cancel operations, and target-local
-  pointer coordinates. Keyboard Tab cycles compatible targets only; Enter
-  drops and Escape cancels. Source/target state, keyed reconciliation, and
-  reducer rollback remain one transaction.
+  pointer coordinates. Multiple text items retain all per-item formats, and
+  accepted types filter whole target items without removing their fallback
+  representations. Keyboard Tab cycles compatible targets only; Enter drops
+  and Escape cancels. Source/target state, keyed reconciliation, and reducer
+  rollback remain one transaction.
 - `use_drag`, `use_drop`, `UiDraggable`, `UiDroppable`, and `UiDropZone` lower
   their source/target metadata and focusable keyboard affordances into that
-  shared runtime. Multi-item and per-format payloads, collection
-  item/between/root delegates, external files and directories,
-  cross-application transfer, and drag previews remain separate M7 work, so
-  the DropZone family is not yet marked conformant.
+  shared runtime. Collection item/between/root delegates, external files and
+  directories, cross-application transfer, and drag previews remain separate
+  M7 work, so the DropZone family is not yet marked conformant.
 
 - `NativeInputModality` represents keyboard, mouse, touch, pen, virtual, and
   unknown input.

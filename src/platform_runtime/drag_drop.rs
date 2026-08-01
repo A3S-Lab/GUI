@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::native::NativeProps;
@@ -14,12 +16,71 @@ pub enum SelfDrawnDropOperation {
     Cancel,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[non_exhaustive]
+/// One portable item transferred through a self-drawn drag session.
+///
+/// Text items retain every representation supplied by the source. File and
+/// directory variants can be added without changing the surrounding event
+/// context once external platform transfer lands.
+pub enum SelfDrawnDropItem {
+    Text {
+        types: Vec<String>,
+        formats: BTreeMap<String, String>,
+    },
+}
+
+impl SelfDrawnDropItem {
+    /// Creates a text item and derives its stable type list from the formats.
+    pub fn text(formats: BTreeMap<String, String>) -> Self {
+        let formats = formats
+            .into_iter()
+            .filter_map(|(format, value)| {
+                let format = format.trim();
+                (!format.is_empty()).then(|| (format.to_string(), value))
+            })
+            .collect::<BTreeMap<_, _>>();
+        let types = formats.keys().cloned().collect();
+        Self::Text { types, formats }
+    }
+
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Text { .. } => "text",
+        }
+    }
+
+    pub fn types(&self) -> &[String] {
+        match self {
+            Self::Text { types, .. } => types,
+        }
+    }
+
+    pub fn formats(&self) -> &BTreeMap<String, String> {
+        match self {
+            Self::Text { formats, .. } => formats,
+        }
+    }
+
+    pub fn get_text(&self, format: &str) -> Option<&str> {
+        match self {
+            Self::Text { formats, .. } => formats.get(format).map(String::as_str),
+        }
+    }
+
+    fn matches(&self, patterns: &[String]) -> bool {
+        accepts_types(patterns, self.types())
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 /// Typed transfer details attached to self-drawn drag and drop callbacks.
 pub struct SelfDrawnDragContext {
     pub types: Vec<String>,
     pub value: Option<String>,
+    pub items: Vec<SelfDrawnDropItem>,
     pub allowed_operations: Vec<SelfDrawnDropOperation>,
     pub drop_operation: SelfDrawnDropOperation,
 }
@@ -28,6 +89,7 @@ pub struct SelfDrawnDragContext {
 pub(super) struct SelfDrawnDragSource {
     pub(super) types: Vec<String>,
     pub(super) value: Option<String>,
+    pub(super) items: Vec<SelfDrawnDropItem>,
     pub(super) allowed_operations: Vec<SelfDrawnDropOperation>,
 }
 
@@ -49,8 +111,10 @@ pub(super) struct SelfDrawnDragSession {
     pub(super) pointer: Option<PlatformPointerId>,
     pub(super) types: Vec<String>,
     pub(super) value: Option<String>,
+    pub(super) items: Vec<SelfDrawnDropItem>,
     pub(super) allowed_operations: Vec<SelfDrawnDropOperation>,
     pub(super) current_target: Option<PlatformElementId>,
+    pub(super) current_item_indices: Vec<usize>,
     pub(super) current_operation: SelfDrawnDropOperation,
     pub(super) last_position: Option<PlatformPoint>,
 }
@@ -59,6 +123,7 @@ pub(super) struct SelfDrawnDragSession {
 pub(super) struct SelfDrawnMatchedDropTarget {
     pub(super) id: PlatformElementId,
     pub(super) operation: SelfDrawnDropOperation,
+    pub(super) item_indices: Vec<usize>,
 }
 
 impl SelfDrawnDragSource {
@@ -70,17 +135,25 @@ impl SelfDrawnDragSource {
             || attribute(props, &["draggable"]).is_some_and(truthy);
         let type_value = attribute(props, &["dragType", "data-drag-type"]);
         let value = attribute(props, &["dragValue", "data-drag-value"]).map(str::to_string);
+        let item_value = attribute(props, &["dragItems", "data-drag-items"]);
         if !draggable
             && !has_event
             && !style_requires_drag
             && type_value.is_none()
             && value.is_none()
+            && item_value.is_none()
         {
             return None;
         }
         let mut types = type_value.map(parse_tokens).unwrap_or_default();
         if types.is_empty() && value.is_some() {
             types.push("text/plain".to_string());
+        }
+        let items = item_value
+            .and_then(parse_drag_items)
+            .unwrap_or_else(|| legacy_drag_items(&types, value.as_deref()));
+        if !items.is_empty() {
+            types = item_types(&items);
         }
         let mut allowed_operations = attribute(
             props,
@@ -98,6 +171,7 @@ impl SelfDrawnDragSource {
         Some(Self {
             types,
             value,
+            items,
             allowed_operations,
         })
     }
@@ -149,17 +223,82 @@ impl SelfDrawnDropTarget {
                 .unwrap_or(SelfDrawnDropOperation::Cancel),
         }
     }
+
+    pub(super) fn matching_item_indices(&self, items: &[SelfDrawnDropItem]) -> Vec<usize> {
+        items
+            .iter()
+            .enumerate()
+            .filter_map(|(index, item)| item.matches(&self.accepted_types).then_some(index))
+            .collect()
+    }
 }
 
 impl SelfDrawnDragSession {
     pub(super) fn context(&self, operation: SelfDrawnDropOperation) -> SelfDrawnDragContext {
+        self.context_with_items(operation, self.items.clone())
+    }
+
+    pub(super) fn target_context(&self, operation: SelfDrawnDropOperation) -> SelfDrawnDragContext {
+        let items = self
+            .current_item_indices
+            .iter()
+            .filter_map(|index| self.items.get(*index).cloned())
+            .collect();
+        self.context_with_items(operation, items)
+    }
+
+    fn context_with_items(
+        &self,
+        operation: SelfDrawnDropOperation,
+        items: Vec<SelfDrawnDropItem>,
+    ) -> SelfDrawnDragContext {
         SelfDrawnDragContext {
             types: self.types.clone(),
             value: self.value.clone(),
+            items,
             allowed_operations: self.allowed_operations.clone(),
             drop_operation: operation,
         }
     }
+}
+
+fn parse_drag_items(raw: &str) -> Option<Vec<SelfDrawnDropItem>> {
+    let formats = serde_json::from_str::<Vec<BTreeMap<String, String>>>(raw).ok()?;
+    if formats.is_empty() {
+        return None;
+    }
+    let items = formats
+        .into_iter()
+        .map(SelfDrawnDropItem::text)
+        .collect::<Vec<_>>();
+    items
+        .iter()
+        .all(|item| !item.types().is_empty())
+        .then_some(items)
+}
+
+fn legacy_drag_items(types: &[String], value: Option<&str>) -> Vec<SelfDrawnDropItem> {
+    let Some(value) = value else {
+        return Vec::new();
+    };
+    let formats = types
+        .iter()
+        .cloned()
+        .map(|format| (format, value.to_string()))
+        .collect();
+    vec![SelfDrawnDropItem::text(formats)]
+}
+
+fn item_types(items: &[SelfDrawnDropItem]) -> Vec<String> {
+    items
+        .iter()
+        .flat_map(SelfDrawnDropItem::types)
+        .fold(Vec::new(), |mut types, drag_type| {
+            if !types.contains(drag_type) {
+                types.push(drag_type.clone());
+            }
+            types
+        })
 }
 
 fn attribute<'a>(props: &'a NativeProps, names: &[&str]) -> Option<&'a str> {
@@ -293,5 +432,36 @@ mod tests {
             ),
             SelfDrawnDropOperation::Cancel
         );
+    }
+
+    #[test]
+    fn drag_item_wire_shape_is_typed_and_old_contexts_default_items() {
+        let item = SelfDrawnDropItem::text(BTreeMap::from([
+            ("text/plain".to_string(), "alpha".to_string()),
+            ("text/html".to_string(), "<b>alpha</b>".to_string()),
+        ]));
+        let wire = serde_json::to_value(&item).unwrap();
+        assert_eq!(wire["kind"], "text");
+        assert_eq!(
+            wire["types"],
+            serde_json::json!(["text/html", "text/plain"])
+        );
+        assert_eq!(wire["formats"]["text/plain"], "alpha");
+
+        let old = serde_json::from_value::<SelfDrawnDragContext>(serde_json::json!({
+            "types": ["text/plain"],
+            "value": "alpha",
+            "allowedOperations": ["copy"],
+            "dropOperation": "copy"
+        }))
+        .unwrap();
+        assert!(old.items.is_empty());
+    }
+
+    #[test]
+    fn encoded_drag_items_reject_non_text_or_empty_representations() {
+        assert!(parse_drag_items(r#"[{"text/plain":1}]"#).is_none());
+        assert!(parse_drag_items(r#"[{}]"#).is_none());
+        assert!(parse_drag_items("[]").is_none());
     }
 }

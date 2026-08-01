@@ -47,8 +47,10 @@ impl SelfDrawnInteractionSession {
                         pointer: Some(pointer),
                         types: candidate.source.types,
                         value: candidate.source.value,
+                        items: candidate.source.items,
                         allowed_operations: candidate.source.allowed_operations,
                         current_target: None,
+                        current_item_indices: Vec::new(),
                         current_operation: SelfDrawnDropOperation::Cancel,
                         last_position: Some(candidate.start_position),
                     },
@@ -102,7 +104,12 @@ impl SelfDrawnInteractionSession {
             session.value.clone(),
             &mut routed.invocations,
         );
-        let next = tree.drop_target_at(position, &session.types, &session.allowed_operations);
+        let next = tree.drop_target_at(
+            position,
+            &session.items,
+            &session.types,
+            &session.allowed_operations,
+        );
         self.transition_drop_target(
             &mut session,
             next,
@@ -175,7 +182,12 @@ impl SelfDrawnInteractionSession {
 
         let operation = if drop_requested {
             let next = context.position.and_then(|position| {
-                tree.drop_target_at(position, &session.types, &session.allowed_operations)
+                tree.drop_target_at(
+                    position,
+                    &session.items,
+                    &session.types,
+                    &session.allowed_operations,
+                )
             });
             self.transition_drop_target(
                 &mut session,
@@ -301,12 +313,14 @@ impl SelfDrawnInteractionSession {
                     routed,
                 );
             }
+            session.current_item_indices.clear();
             session.current_operation = SelfDrawnDropOperation::Cancel;
             if let Some(next) = next {
                 self.change_state(&next.id, &mut routed.changes, |state| {
                     state.drop_target = true;
                 });
                 session.current_target = Some(next.id.clone());
+                session.current_item_indices = next.item_indices;
                 session.current_operation = next.operation;
                 self.emit_drop_event(
                     session,
@@ -321,6 +335,7 @@ impl SelfDrawnInteractionSession {
                 );
             }
         } else if let Some(next) = next {
+            session.current_item_indices = next.item_indices;
             session.current_operation = next.operation;
         }
 
@@ -369,6 +384,7 @@ impl SelfDrawnInteractionSession {
         self.change_state(&target, &mut routed.changes, |state| {
             state.drop_target = false;
         });
+        session.current_item_indices.clear();
         session.current_operation = SelfDrawnDropOperation::Cancel;
         operation
     }
@@ -412,7 +428,8 @@ impl SelfDrawnInteractionSession {
         context: &SelfDrawnEventContext,
         routed: &mut RoutedInput,
     ) {
-        let mut drop_context = source_context(session, context, operation);
+        let mut drop_context = context.clone();
+        drop_context.drag = Some(session.target_context(operation));
         if let Some(position) = context.position {
             drop_context.position = tree.local_position(target, position);
         }

@@ -852,6 +852,7 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
             onDragEnd={dragEndAlias}
             dragType="text/plain"
             dragValue="profile"
+            dragItems={state.dragItems}
             allowedDropOperations="copy,move"
             isDragging={true}
           >
@@ -962,6 +963,10 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
         .use_state("tab", |state: &FormState| state.tab.clone())
         .use_state("profileSelected", |state: &FormState| {
             state.tab == "profile"
+        })
+        .use_state("dragItems", |_state: &FormState| {
+            r#"[{"text/plain":"profile","text/html":"<b>profile</b>"},{"text/plain":"settings"}]"#
+                .to_string()
         })
         .use_value_reducer("setEmail", |state: &mut FormState, email: String| {
             state.email = email;
@@ -1104,6 +1109,19 @@ fn rsx_ui_renders_collection_interaction_and_structure_parts() {
         assert_eq!(
             attribute_value(draggable, "data-drag-value"),
             Some("profile")
+        );
+        let drag_items = serde_json::from_str::<Vec<crate::semantic_ui::DragItem>>(
+            attribute_value(draggable, "data-drag-items").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(drag_items.len(), 2);
+        assert_eq!(
+            drag_items[0].get("text/html").map(String::as_str),
+            Some("<b>profile</b>")
+        );
+        assert_eq!(
+            drag_items[1].get("text/plain").map(String::as_str),
+            Some("settings")
         );
         assert_eq!(
             attribute_value(draggable, "data-allowed-drop-operations"),

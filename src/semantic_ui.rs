@@ -117,7 +117,7 @@ pub use hooks::{
     UseLongPressResult, UseMoveProps, UseMoveResult,
 };
 pub use hooks::{
-    use_drag, use_drag_value, use_drop, use_drop_value, DragButtonProps, DragProps,
+    use_drag, use_drag_value, use_drop, use_drop_value, DragButtonProps, DragItem, DragProps,
     DropButtonProps, DropProps, UseDragProps, UseDragResult, UseDropProps, UseDropResult,
 };
 pub use hooks::{
