@@ -148,8 +148,9 @@ On Windows, `host-windows` adds only `windows-sys` and `raw-window-handle` and
 provides the first real, thread-affine `WindowsPlatformHost`. It stages raw
 top-level HWNDs while hidden, owns their bounded message pump and DPI-aware
 lifecycle, and lends Graphics an owned surface token. An active token prevents
-HWND destruction. It does not create child controls or draw application
-content. `host-macos`, `host-linux-wayland`, and
+HWND destruction. The same pump normalizes DPI-aware legacy mouse, keyboard,
+wheel, modifier, capture, and focus-loss state. It does not create child
+controls or draw application content. `host-macos`, `host-linux-wayland`, and
 `host-linux-x11` remain capability markers until their raw hosts land.
 
 ## Shared self-drawn runtime (H1)
@@ -275,10 +276,11 @@ The portable `just verify` gate covers:
 - React Aria catalog schema and coverage;
 - software and GPU boundary tests.
 
-Target-native CI additionally runs Win32 lifecycle, H1 first-frame transaction,
-surface-lease rollback, and real Graphics/DX12 presentation tests. Equivalent
-macOS/Linux lanes arrive with their hosts. Deleted toolkit and bundle lanes are
-not retained as migration evidence.
+Target-native CI additionally runs Win32 lifecycle, normalized legacy input and
+cancellation, H1 first-frame transaction, surface-lease rollback, and real
+Graphics/DX12 presentation tests. Equivalent macOS/Linux lanes arrive with
+their hosts. Deleted toolkit and bundle lanes are not retained as migration
+evidence.
 
 ## Current gaps
 
@@ -292,8 +294,8 @@ restarted-process keyboard/stale-event gates. The remaining critical work is:
 1. production font discovery/shaping and glyph encoding behind the landed
    generic layout/scene contracts, followed by editing, IME, and accessibility
    semantics;
-2. Windows input/TSF/UIA, device-loss evidence, and visible TSX completion plus
-   raw macOS and Wayland/X11 hosts;
+2. Windows touch/pen, TSF/UIA, device-loss evidence, and visible TSX completion
+   plus raw macOS and Wayland/X11 hosts;
 3. component-by-component React Aria conformance;
 4. packaging, signing, installers, and real tri-platform evidence.
 

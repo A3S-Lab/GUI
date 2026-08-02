@@ -66,6 +66,9 @@ fn raw_platform_unsafe_is_confined_to_reviewed_windows_abi_files() {
     let mut files = Vec::new();
     collect_rust_files(&source_root, &mut files);
     let allowed = [
+        source_root.join("windows/input.rs"),
+        source_root.join("windows/input/mouse.rs"),
+        source_root.join("windows/keyboard.rs"),
         source_root.join("windows/native.rs"),
         source_root.join("windows/surface.rs"),
     ];

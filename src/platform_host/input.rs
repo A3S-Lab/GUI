@@ -95,6 +95,9 @@ pub struct PlatformPointerEvent {
     pub position: PlatformPoint,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub button: Option<PlatformPointerButton>,
+    /// Currently pressed buttons using the UI Events `buttons` layout for the
+    /// standard five buttons: primary `1`, secondary `2`, auxiliary `4`, back
+    /// `8`, and forward `16`.
     #[serde(default)]
     pub pressed_buttons: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -161,8 +164,11 @@ pub enum PlatformKeyState {
 pub struct PlatformKeyEvent {
     pub window: PlatformWindowId,
     pub device: PlatformInputDeviceId,
+    /// Stable physical key location, using UI Events `code` names when known.
     pub physical_key: String,
+    /// Layout-aware key value, using the UI Events `key` vocabulary.
     pub logical_key: String,
+    /// Printable text produced by a press; releases and composition use `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     pub state: PlatformKeyState,

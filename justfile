@@ -119,7 +119,7 @@ test-platform-runtime:
     cargo test --locked --no-default-features --features platform-runtime --test platform_runtime_firewall
     cargo test --locked --no-default-features --features authoring,platform-runtime,software-reference --example self_drawn_calculator
 
-# Exercise real Win32 lifecycle plus the H1-to-H2 first-frame integration on Windows
+# Exercise real Win32 lifecycle/input plus H1-to-H2 and DX12 presentation on Windows
 test-windows-host:
     cargo test --locked --no-default-features --features host-windows --test windows_platform_host -- --test-threads=1
     cargo test --locked --no-default-features --features host-windows,platform-runtime --test windows_platform_host shared_self_drawn_runtime_commits_into_the_real_hidden_win32_host -- --exact --test-threads=1

@@ -122,7 +122,8 @@ The current runtime already provides reusable behavior for component families:
 - revision-scoped dynamic acceptance/operation policy that fails closed.
 
 OS and cross-application transfer, drag previews, accessibility exposure, and
-real host input evidence remain unfinished.
+tri-platform touch/pen input evidence remain unfinished. The Win32 host now
+provides real legacy mouse, keyboard, and wheel translation evidence.
 
 ### Accessibility and i18n
 

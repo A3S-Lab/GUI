@@ -1,5 +1,6 @@
 #![allow(unsafe_code)]
 
+use std::cell::RefCell;
 use std::ffi::c_void;
 use std::mem::ManuallyDrop;
 use std::num::NonZeroIsize;
@@ -33,6 +34,7 @@ use crate::geometry::Size;
 
 use super::super::{PlatformHostEvent, PlatformWindowEvent, PlatformWindowId, PlatformWindowSpec};
 use super::events::WindowsEventQueue;
+use super::input::WindowsInputState;
 use super::surface::WindowsSurfaceState;
 
 const WINDOW_CLASS_NAME: &str = "A3S.Gui.SelfDrawn.Window.v1";
@@ -141,6 +143,7 @@ impl NativeWindow {
             max_size: spec.max_size,
             dpi,
             occluded: false,
+            input: RefCell::new(WindowsInputState::new()),
             events,
         });
         let context_pointer = context.as_mut() as *mut WindowContext;
@@ -366,6 +369,7 @@ struct WindowContext {
     max_size: Option<Size>,
     dpi: u32,
     occluded: bool,
+    input: RefCell<WindowsInputState>,
     events: WindowsEventQueue,
 }
 
@@ -475,7 +479,51 @@ unsafe fn window_proc_inner(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LP
         // SAFETY: no A3S context is installed, so default handling is required.
         return unsafe { DefWindowProcW(hwnd, message, wparam, lparam) };
     }
-    // SAFETY: the Box owning this context outlives the HWND callback.
+    let input_message = {
+        // SAFETY: the Box owning this context outlives the HWND callback. The
+        // RefCell borrow is dropped before any deferred Win32 call can reenter
+        // this window procedure.
+        let context = unsafe { &*context };
+        let mut input = context.input.borrow_mut();
+        input.handle_message(
+            hwnd,
+            context.id,
+            context.dpi,
+            message,
+            wparam,
+            lparam,
+            &context.events,
+        )
+    };
+    if let Some(input_message) = input_message {
+        if let Some(result) = input_message.apply(hwnd) {
+            return result;
+        }
+        // SAFETY: system-key input was observed by A3S and still requires
+        // default Windows handling for system menus and shortcuts.
+        return unsafe { DefWindowProcW(hwnd, message, wparam, lparam) };
+    }
+
+    if message == WM_KILLFOCUS {
+        let input_message = {
+            // SAFETY: same stable WindowContext contract as above. The input
+            // borrow ends before capture release can synchronously reenter.
+            let context = unsafe { &*context };
+            let mut input = context.input.borrow_mut();
+            input.focus_lost(context.id, &context.events)
+        };
+        let _ = input_message.apply(hwnd);
+        // SAFETY: no WindowContext reference is held across the Win32 call.
+        let context = unsafe { &*context };
+        context.window_event(PlatformWindowEvent::FocusChanged {
+            window: context.id,
+            focused: false,
+        });
+        return 0;
+    }
+
+    // SAFETY: the Box owning this context outlives the HWND callback, and the
+    // input borrow above has ended.
     let context = unsafe { &mut *context };
 
     match message {
@@ -491,13 +539,6 @@ unsafe fn window_proc_inner(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LP
             context.window_event(PlatformWindowEvent::FocusChanged {
                 window: context.id,
                 focused: true,
-            });
-            0
-        }
-        WM_KILLFOCUS => {
-            context.window_event(PlatformWindowEvent::FocusChanged {
-                window: context.id,
-                focused: false,
             });
             0
         }

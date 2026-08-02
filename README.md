@@ -20,9 +20,10 @@ uses a DOM, CSSOM, WebView, or platform content-widget toolkit.
 > content backends, features, dependencies, examples, packaging scripts, and CI
 > lanes have been deleted. `platform-host` defines the zero-widget boundary,
 > `platform-runtime` implements the shared atomic self-drawn frame runtime, and
-> `host-windows` provides the first raw Win32 window lifecycle and owned surface
-> lease. The Graphics-owned presenter now submits and presents the first real
-> DX12 window frame. Raw macOS/Linux hosts remain roadmap work.
+> `host-windows` provides the first raw Win32 window lifecycle, owned surface
+> lease, and normalized legacy mouse/keyboard/wheel input. The Graphics-owned
+> presenter submits and presents the first real DX12 window frame. Raw
+> macOS/Linux hosts remain roadmap work.
 
 ## One semantic tree, one owned-pixel pipeline
 
@@ -89,8 +90,9 @@ The repository already provides:
   firewalls;
 - a target-gated `WindowsPlatformHost` with real Win32 `HWND` lifecycle,
   per-monitor-v2 DPI client sizing, message pumping, focus/close/occlusion
-  events, hidden first-frame staging, owned raw-surface leases that prevent
-  premature HWND destruction, atomic prepare/commit/rollback, and
+  events, DPI-correct legacy mouse/keyboard/wheel translation, capture and
+  focus-loss cancellation, hidden first-frame staging, owned raw-surface leases
+  that prevent premature HWND destruction, atomic prepare/commit/rollback, and
   Windows-native CI evidence;
 - `SelfDrawnWindowRuntime` with atomic prepare/commit/reject, recovery,
   typed presentation outcomes, normalized input, hit testing, drag/drop,
@@ -140,8 +142,8 @@ The repository already provides:
 
 Still required before a production native application:
 
-- full Windows input, TSF, UI Automation, system services, device-loss fault
-  injection, and reviewed GPU capture evidence;
+- Windows touch/pen input, TSF, UI Automation, system services, device-loss
+  fault injection, and reviewed GPU capture evidence;
 - real zero-widget macOS and Wayland/X11 hosts;
 - a production font database/shaper and glyph raster/atlas encoder, followed by
   text editing, IME, and assistive-technology bridges;
@@ -284,7 +286,7 @@ cargo run --locked --no-default-features \
 | `gpu` | Graphics-owned offscreen and native-surface GPU paths |
 | `platform-host` | Zero-widget OS boundary contracts and recording host |
 | `platform-runtime` | Shared self-drawn frame/input/accessibility runtime |
-| `host-windows` | Raw Win32 top-level host and owned `HWND` surface-lifetime target; no WinUI/XAML |
+| `host-windows` | Raw Win32 top-level host, owned `HWND` surface target, and normalized legacy input; no WinUI/XAML |
 | `host-macos`, `host-linux-*` | Zero-widget host capability markers; concrete hosts are not implemented yet |
 | `typescript-schema` | Rust-to-TypeScript protocol declaration generation |
 
@@ -316,9 +318,9 @@ just test-tsx-host
 
 `just verify` also checks dependency firewalls, formatting, Clippy, rustdoc,
 all Rust tests and examples, the React Aria catalog, TypeScript fixtures, and
-whitespace. CI adds Windows-native lifecycle, H1 transaction, and real DX12
-presentation evidence. Toolkit-specific content-host and legacy bundle lanes
-do not exist.
+whitespace. CI adds Windows-native lifecycle, input/cancellation, H1
+transaction, and real DX12 presentation evidence. Toolkit-specific content-host
+and legacy bundle lanes do not exist.
 
 ## Repository map
 
@@ -343,8 +345,8 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. complete Windows pointer/keyboard/wheel input, TSF, UI Automation, system
-   services, minimize/restore recovery, and device-loss fault injection;
+1. complete Windows touch/pen input, TSF, UI Automation, system services,
+   minimize/restore recovery, and device-loss fault injection;
 2. implement the font discovery/shaping and glyph raster/atlas backends on the
    landed generic text contracts, then add editing and IME;
 3. connect the completed T2 TSX runtime to the visible Windows GPU path, then port

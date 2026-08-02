@@ -28,7 +28,7 @@ or fallback renderer.
 | M5 cutover/deletion | Partial | Legacy deletion complete; real OS-host cutover cannot occur until H2-H4 |
 | H0 host contract | Complete | Zero-widget transaction/event/API contract and dependency firewall |
 | H1 shared runtime | Complete | Host-first staging, owned presentation targets, typed completion, rollback ordering, input/hit/a11y routing |
-| H2 Windows host | In progress | Real HWND lifecycle, owned surface leases, Graphics/DX12 presentation, PMv2 DPI, atomic transactions, Windows CI |
+| H2 Windows host | In progress | Real HWND lifecycle, owned surface leases, Graphics/DX12 presentation, PMv2 DPI, legacy mouse/keyboard/wheel input, atomic transactions, Windows CI |
 | H3-H4 real hosts | Planned | macOS and Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
@@ -246,6 +246,9 @@ Delivered:
   prepared-frame discard, presentation, and surface recreation;
 - real Windows lifecycle, lease rollback, H1 first-frame, and DX12 presentation
   tests in target CI;
+- DPI-correct legacy mouse buttons/motion, vertical and horizontal wheel,
+  physical/logical keyboard translation, repeat/modifier state, mouse capture,
+  and focus-loss cancellation in the bounded message pump;
 - source/dependency firewalls confining unsafe Win32 ABI calls and rejecting
   content toolkits.
 
@@ -253,7 +256,7 @@ Remaining:
 
 - device-loss fault injection, minimize/restore recovery, and reviewed GPU
   capture evidence;
-- pointer, keyboard, wheel, and complete focus translation;
+- WM_POINTER touch/pen translation and extended input conformance;
 - TSF, UI Automation, clipboard, and explicit system services;
 - visible RSX/TSX story plus deterministic/GPU capture evidence.
 
@@ -434,9 +437,10 @@ The portable CI gate must always cover:
 - React Aria matrix validation;
 - software and GPU boundaries.
 
-The first target-native job now runs real Win32 lifecycle, H1 integration, and
-firewall evidence. Equivalent macOS/Linux jobs are added with their raw hosts;
-packaging jobs are added only with real self-drawn artifacts.
+The first target-native job now runs real Win32 lifecycle, legacy input and
+cancellation, H1 integration, DX12 presentation, and firewall evidence.
+Equivalent macOS/Linux jobs are added with their raw hosts; packaging jobs are
+added only with real self-drawn artifacts.
 
 ## Reliability budgets
 
@@ -480,11 +484,15 @@ skeleton and its target-native CI lane.
 
 Completed on 2026-08-03: owned HWND surface leases, host-first hidden staging,
 Graphics swapchain preparation, real DX12 presentation, typed completion, and
-destruction-order tests. This is presentation evidence, not complete Windows
-input/text/accessibility or reviewed visual-parity evidence.
+destruction-order tests.
 
-1. Translate Windows pointer/keyboard/wheel events and connect completed T2
-   frame commits to a visible host executable.
+Completed on 2026-08-03: DPI-correct Win32 legacy mouse, keyboard, and wheel
+translation with capture, modifier/repeat tracking, system-key default handling,
+and focus-loss cancellation. Touch/pen, text/IME, accessibility, system-service,
+and reviewed visual-parity evidence remain incomplete.
+
+1. Connect completed T2 frame commits to a visible host executable and add
+   WM_POINTER touch/pen translation.
 2. Add minimize/restore and device-loss fault injection, then capture the same
    deterministic story through DX12.
 3. Implement production font/shaping and glyph encoder backends, then TSF and

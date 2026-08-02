@@ -10,9 +10,18 @@ use a3s_gui::platform_host::{
     PlatformWindowSpec, WindowsPlatformHost,
 };
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
+use windows_sys::Win32::Foundation::POINT;
+use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    GetWindowTextW, IsWindow, IsWindowVisible, PostMessageW, WM_CLOSE,
+    GetWindowTextW, IsWindow, IsWindowVisible, PostMessageW, WM_CLOSE, WM_KEYDOWN, WM_KEYUP,
+    WM_KILLFOCUS, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL,
 };
+
+const WM_MOUSELEAVE: u32 = 0x02a3;
+const MK_LBUTTON: usize = 0x0001;
+const VK_SHIFT: usize = 0x10;
+const VK_SPACE: usize = 0x20;
+const VK_A: usize = 0x41;
 
 fn window_id() -> PlatformWindowId {
     PlatformWindowId::new(41)
@@ -82,6 +91,34 @@ fn native_title(hwnd: NonZeroIsize) -> String {
 
 fn drain_events(host: &mut WindowsPlatformHost) {
     while host.poll_event().unwrap().is_some() {}
+}
+
+fn collect_events(host: &mut WindowsPlatformHost) -> Vec<PlatformHostEvent> {
+    let mut events = Vec::new();
+    while let Some(event) = host.poll_event().unwrap() {
+        events.push(event);
+    }
+    events
+}
+
+fn client_lparam(x: i16, y: i16) -> isize {
+    ((u32::from(y as u16) << 16) | u32::from(x as u16)) as isize
+}
+
+fn key_lparam(scan_code: u8, released: bool) -> isize {
+    let mut value = 1_u32 | (u32::from(scan_code) << 16);
+    if released {
+        value |= (1 << 30) | (1 << 31);
+    }
+    value as isize
+}
+
+fn repeated_key_lparam(scan_code: u8) -> isize {
+    key_lparam(scan_code, false) | (1 << 30)
+}
+
+fn wheel_wparam(delta: i16) -> usize {
+    (u32::from(delta as u16) << 16) as usize
 }
 
 #[test]
@@ -286,6 +323,268 @@ fn unsupported_service_commands_fail_during_prepare_without_partial_state() {
     assert!(error.to_string().contains("TSF"));
     assert_eq!(host.window_count(), 0);
     assert!(host.rollback().is_ok());
+    host.shutdown().unwrap();
+}
+
+#[test]
+fn raw_win32_mouse_keyboard_and_wheel_messages_become_normalized_input() {
+    use a3s_gui::input::NativeInputModality;
+    use a3s_gui::platform_host::{
+        PlatformInputEvent, PlatformKeyState, PlatformPointerButton, PlatformPointerPhase,
+        PlatformWheelDeltaMode,
+    };
+
+    let mut host = WindowsPlatformHost::new().unwrap();
+    host.prepare(open_transaction(1)).unwrap();
+    host.commit().unwrap();
+    drain_events(&mut host);
+    let hwnd = native_hwnd(&host);
+    let scale_factor = host.surface(window_id()).unwrap().scale_factor();
+
+    assert_ne!(
+        unsafe { PostMessageW(hwnd.get() as _, WM_MOUSEMOVE, 0, client_lparam(96, 48)) },
+        0
+    );
+    assert_ne!(
+        unsafe {
+            PostMessageW(
+                hwnd.get() as _,
+                WM_LBUTTONDOWN,
+                MK_LBUTTON,
+                client_lparam(96, 48),
+            )
+        },
+        0
+    );
+    assert_ne!(
+        unsafe {
+            PostMessageW(
+                hwnd.get() as _,
+                WM_MOUSEMOVE,
+                MK_LBUTTON,
+                client_lparam(120, 72),
+            )
+        },
+        0
+    );
+    assert_ne!(
+        unsafe { PostMessageW(hwnd.get() as _, WM_LBUTTONUP, 0, client_lparam(120, 72)) },
+        0
+    );
+    let mut wheel_position = POINT { x: 120, y: 72 };
+    assert_ne!(
+        unsafe { ClientToScreen(hwnd.get() as _, &mut wheel_position) },
+        0
+    );
+    assert_ne!(
+        unsafe {
+            PostMessageW(
+                hwnd.get() as _,
+                WM_MOUSEWHEEL,
+                wheel_wparam(120),
+                client_lparam(wheel_position.x as i16, wheel_position.y as i16),
+            )
+        },
+        0
+    );
+    assert_ne!(
+        unsafe {
+            PostMessageW(
+                hwnd.get() as _,
+                WM_MOUSEHWHEEL,
+                wheel_wparam(120),
+                client_lparam(wheel_position.x as i16, wheel_position.y as i16),
+            )
+        },
+        0
+    );
+    assert_ne!(
+        unsafe {
+            PostMessageW(
+                hwnd.get() as _,
+                WM_KEYDOWN,
+                VK_SHIFT,
+                key_lparam(0x2a, false),
+            )
+        },
+        0
+    );
+    assert_ne!(
+        unsafe { PostMessageW(hwnd.get() as _, WM_KEYDOWN, VK_A, key_lparam(0x1e, false)) },
+        0
+    );
+    assert_ne!(
+        unsafe { PostMessageW(hwnd.get() as _, WM_KEYDOWN, VK_A, repeated_key_lparam(0x1e)) },
+        0
+    );
+    assert_ne!(
+        unsafe { PostMessageW(hwnd.get() as _, WM_KEYUP, VK_A, key_lparam(0x1e, true)) },
+        0
+    );
+    assert_ne!(
+        unsafe { PostMessageW(hwnd.get() as _, WM_KEYUP, VK_SHIFT, key_lparam(0x2a, true)) },
+        0
+    );
+    assert_ne!(
+        unsafe { PostMessageW(hwnd.get() as _, WM_MOUSELEAVE, 0, 0) },
+        0
+    );
+
+    let inputs = collect_events(&mut host)
+        .into_iter()
+        .filter_map(|event| match event {
+            PlatformHostEvent::Input { event } => Some(event),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert!(matches!(
+        &inputs[0],
+        PlatformInputEvent::Pointer { event }
+            if event.modality == NativeInputModality::Mouse
+                && event.phase == PlatformPointerPhase::Entered
+    ));
+    assert!(matches!(
+        &inputs[1],
+        PlatformInputEvent::Pointer { event }
+            if event.phase == PlatformPointerPhase::Moved
+                && (event.position.x - 96.0 / scale_factor).abs() < 0.01
+                && (event.position.y - 48.0 / scale_factor).abs() < 0.01
+    ));
+    assert!(inputs.iter().any(|event| matches!(
+        event,
+        PlatformInputEvent::Pointer { event }
+            if event.phase == PlatformPointerPhase::Pressed
+                && event.button == Some(PlatformPointerButton::Primary)
+                && event.pressed_buttons == 1
+    )));
+    assert!(inputs.iter().any(|event| matches!(
+        event,
+        PlatformInputEvent::Pointer { event }
+            if event.phase == PlatformPointerPhase::Released
+                && event.button == Some(PlatformPointerButton::Primary)
+                && event.pressed_buttons == 0
+    )));
+    assert!(
+        !inputs.iter().any(|event| matches!(
+            event,
+            PlatformInputEvent::Pointer { event }
+                if event.phase == PlatformPointerPhase::Cancelled
+        )),
+        "{inputs:#?}"
+    );
+    assert!(inputs.iter().any(|event| matches!(
+        event,
+        PlatformInputEvent::Wheel { event }
+            if event.delta_mode == PlatformWheelDeltaMode::Lines
+                && event.delta.x == 0.0
+                && event.delta.y == -1.0
+    )));
+    assert!(inputs.iter().any(|event| matches!(
+        event,
+        PlatformInputEvent::Wheel { event }
+            if event.delta_mode == PlatformWheelDeltaMode::Lines
+                && event.delta.x == 1.0
+                && event.delta.y == 0.0
+    )));
+    assert!(inputs.iter().any(|event| matches!(
+        event,
+        PlatformInputEvent::ModifiersChanged { modifiers, .. } if modifiers.shift
+    )));
+    assert!(inputs.iter().any(|event| matches!(
+        event,
+        PlatformInputEvent::Key { event }
+            if event.physical_key == "KeyA"
+                && event.logical_key == "A"
+                && event.text.as_deref() == Some("A")
+                && event.state == PlatformKeyState::Pressed
+                && event.modifiers.shift
+    )));
+    assert!(inputs.iter().any(|event| matches!(
+        event,
+        PlatformInputEvent::Key { event }
+            if event.physical_key == "KeyA"
+                && event.state == PlatformKeyState::Pressed
+                && event.repeat
+                && event.text.as_deref() == Some("A")
+    )));
+    assert!(inputs.iter().any(|event| matches!(
+        event,
+        PlatformInputEvent::Key { event }
+            if event.physical_key == "KeyA"
+                && event.state == PlatformKeyState::Released
+                && event.text.is_none()
+    )));
+    assert!(matches!(
+        inputs.last(),
+        Some(PlatformInputEvent::Pointer { event })
+            if event.phase == PlatformPointerPhase::Left
+    ));
+
+    host.shutdown().unwrap();
+}
+
+#[test]
+fn focus_loss_cancels_pressed_pointer_and_keyboard_state() {
+    use a3s_gui::platform_host::{PlatformInputEvent, PlatformKeyState, PlatformPointerPhase};
+
+    let mut host = WindowsPlatformHost::new().unwrap();
+    host.prepare(open_transaction(1)).unwrap();
+    host.commit().unwrap();
+    drain_events(&mut host);
+    let hwnd = native_hwnd(&host);
+
+    assert_ne!(
+        unsafe { PostMessageW(hwnd.get() as _, WM_MOUSEMOVE, 0, client_lparam(20, 20)) },
+        0
+    );
+    assert_ne!(
+        unsafe {
+            PostMessageW(
+                hwnd.get() as _,
+                WM_LBUTTONDOWN,
+                MK_LBUTTON,
+                client_lparam(20, 20),
+            )
+        },
+        0
+    );
+    assert_ne!(
+        unsafe {
+            PostMessageW(
+                hwnd.get() as _,
+                WM_KEYDOWN,
+                VK_SPACE,
+                key_lparam(0x39, false),
+            )
+        },
+        0
+    );
+    assert_ne!(
+        unsafe { PostMessageW(hwnd.get() as _, WM_KILLFOCUS, 0, 0) },
+        0
+    );
+
+    let events = collect_events(&mut host);
+    assert!(events.iter().any(|event| matches!(
+        event,
+        PlatformHostEvent::Input {
+            event: PlatformInputEvent::Pointer { event }
+        } if event.phase == PlatformPointerPhase::Cancelled
+    )));
+    assert!(events.iter().any(|event| matches!(
+        event,
+        PlatformHostEvent::Input {
+            event: PlatformInputEvent::Key { event }
+        } if event.physical_key == "Space" && event.state == PlatformKeyState::Released
+    )));
+    assert!(events.iter().any(|event| matches!(
+        event,
+        PlatformHostEvent::Window {
+            event: PlatformWindowEvent::FocusChanged { focused: false, .. }
+        }
+    )));
+
     host.shutdown().unwrap();
 }
 

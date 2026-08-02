@@ -1,9 +1,10 @@
 //! Raw Win32 top-level host for the first H2 self-drawn window slice.
 //!
 //! This module owns only HWND lifecycle, DPI-aware client geometry, the
-//! message pump, raw surface identity, and presentation scheduling. Graphics
-//! owns all application-content drawing and GPU presentation; TSF, UI
-//! Automation, input translation, and system services remain later H2 work.
+//! message pump, raw surface identity, presentation scheduling, and normalized
+//! legacy mouse, keyboard, and wheel translation. Graphics owns all
+//! application-content drawing and GPU presentation; WM_POINTER touch/pen,
+//! TSF, UI Automation, and system services remain later H2 work.
 
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
@@ -22,6 +23,8 @@ use super::{
 
 mod commit;
 mod events;
+mod input;
+mod keyboard;
 mod native;
 mod plan;
 mod surface;
