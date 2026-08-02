@@ -42,7 +42,7 @@ export function encodeA3sJsonFrameV1(
 
 /** Incrementally decodes consecutive TSX protocol frames from arbitrary chunks. */
 export class A3sJsonFrameDecoderV1 {
-  readonly #maximumPayloadBytes: number;
+  #maximumPayloadBytes: number;
   readonly #header = new Uint8Array(4);
   #headerBytes = 0;
   #payload: Uint8Array | null = null;
@@ -59,6 +59,31 @@ export class A3sJsonFrameDecoderV1 {
 
   get poisoned(): boolean {
     return this.#poisoned;
+  }
+
+  /** Narrows the limit after welcome without discarding a partial next frame. */
+  narrowMaximumPayloadBytes(maximumPayloadBytes: number): void {
+    if (this.#poisoned) {
+      throw frameError(
+        "invalidState",
+        "TSX protocol frame decoder is poisoned after an earlier failure",
+      );
+    }
+    const limit = validateFrameLimitV1(maximumPayloadBytes);
+    if (limit > this.#maximumPayloadBytes) {
+      throw frameError(
+        "invalidLimit",
+        `TSX protocol frame limit cannot expand from ${this.#maximumPayloadBytes} to ${limit}`,
+      );
+    }
+    if (this.#payload !== null && this.#payload.byteLength > limit) {
+      this.#poisoned = true;
+      throw frameError(
+        "frameTooLarge",
+        `TSX protocol frame declares ${this.#payload.byteLength} payload bytes, exceeding the negotiated ${limit}-byte limit`,
+      );
+    }
+    this.#maximumPayloadBytes = limit;
   }
 
   push(chunk: Uint8Array): readonly unknown[] {

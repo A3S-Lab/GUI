@@ -12,7 +12,7 @@
     "skipLibCheck": false,
     "strict": true,
     "target": "ES2022",
-    "types": []
+    "types": ["node"]
   },
   "include": ["src/**/*.ts", "tests/typecheck/**/*.tsx"]
 }

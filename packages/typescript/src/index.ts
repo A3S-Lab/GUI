@@ -59,6 +59,15 @@ export { compileFrameV1 } from "./frame.ts";
 export type { CompileFrameOptions, CompiledA3sFrameV1 } from "./frame.ts";
 export { A3sFrameError, A3sJsonFrameDecoderV1, encodeA3sJsonFrameV1 } from "./framing.ts";
 export type { A3sFrameErrorCodeV1 } from "./framing.ts";
+export {
+  A3sNodeProcessTransportV1,
+  spawnA3sNodeProcessTransportV1,
+} from "./node-process-transport.ts";
+export type {
+  A3sNodeProcessStateV1,
+  A3sNodeProcessStatusV1,
+  SpawnA3sNodeProcessOptionsV1,
+} from "./node-process-transport.ts";
 export { A3sApplicationV1, createApp } from "./application.ts";
 export type {
   A3sApplicationHostV1,
@@ -76,6 +85,17 @@ export {
   useRef,
   useState,
 } from "./hooks.ts";
+export {
+  A3sFramedClientConnectionV1,
+  A3sTransportError,
+  connectA3sFramedClientV1,
+} from "./transport.ts";
+export type {
+  A3sByteTransportV1,
+  A3sFramedClientConnectionStateV1,
+  A3sFramedClientConnectionStatusV1,
+  A3sTransportErrorCodeV1,
+} from "./transport.ts";
 export type {
   A3sDispatch,
   A3sEffect,

@@ -93,13 +93,16 @@ The repository already provides:
   effect hooks, batched rerenders, post-commit cleanup, and strict post-handshake
   session/message identity;
 - a dependency-free TypeScript client handshake and incremental little-endian
-  JSON frame codec aligned with the Rust protocol boundary.
+  JSON frame codec aligned with the Rust protocol boundary;
+- an ordered framed connection and explicit no-shell Node child-process byte
+  transport with bounded stderr, shutdown timeout, and real process fixtures.
 
 Still required before a production native application:
 
 - real zero-widget macOS, Windows, and Wayland/X11 hosts;
 - production text shaping, text editing, IME, and assistive-technology bridges;
-- supervised TypeScript/Node-to-Rust process I/O, crash recovery, and replay;
+- the Rust TSX host executable, `createApp` message pump, restart recovery, and
+  committed-frame replay;
 - packaging, signing, installer work, and tri-platform visual evidence;
 - full self-drawn conformance evidence for every React Aria family.
 
@@ -157,8 +160,9 @@ lifecycle driven by a typed host object. It owns keyed function-component
 instances, typed nested context, render error boundaries, state/reducer/memo/
 ref/effect hooks, one-microtask rerender batching, revision-scoped callbacks,
 effect promotion only after `committed`, full render envelopes, independent
-client/host message ordering, client `hello`/`welcome` negotiation, and bounded
-incremental framing. Process stream integration and supervision, native host
+client/host message ordering, client `hello`/`welcome` negotiation, bounded
+incremental framing, and an explicit Node child-process transport. The Rust
+process host, application message pump, restart/replay supervision, native host
 startup, and npm publication remain T2-T5 work.
 
 Read [TSX native runtime](docs/tsx-native-runtime.md) for protocol and delivery
@@ -282,8 +286,8 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. finish T2 by supplying `createApp` with a supervised Node/Rust process
-   transport, crash recovery, and committed-frame replay;
+1. finish T2 by connecting the landed process transport to a Rust self-drawn
+   host and `createApp`, then add restart recovery and committed-frame replay;
 2. land production text shaping/editing primitives on the generic layout/scene
    path;
 3. implement the first raw Windows host, then macOS and Wayland/X11 hosts,

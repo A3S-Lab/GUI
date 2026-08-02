@@ -31,7 +31,7 @@ or fallback renderer.
 | H2-H4 real hosts | Planned | Windows, macOS, Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
-| T2-T5 TSX product runtime | In progress | Stateful `createApp`, client handshake/framing, and strict session identity; process I/O and native startup missing |
+| T2-T5 TSX product runtime | In progress | Stateful `createApp`, strict session/framing, and no-shell Node process transport; Rust host/pump missing |
 | M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
 No family is yet self-drawn conformant across real macOS, Windows, and Linux
@@ -294,13 +294,17 @@ Delivered:
   before callback-registry preflight;
 - dependency-free client `hello` construction plus an accessor-safe,
   incremental little-endian JSON frame codec matching the Rust boundary;
+- single-reader framed connection plus explicit no-shell Node child-process
+  transport with serialized writes, bounded stderr, shutdown timeout, and real
+  success/crash process fixtures;
 - serialized event/commit consumption when an active-revision callback overlaps
   an in-flight render acknowledgement;
 - source-located hook-order failures and Node interaction tests.
 
 Remaining:
 
-- supervised Rust host process I/O, crash recovery, and replay;
+- headless Rust TSX host executable and ordered `createApp` message pump;
+- process restart policy, crash recovery, and committed-frame replay;
 - final public component/action identity contract;
 - keyboard/stale-event/replay coverage through that process boundary.
 
@@ -405,8 +409,8 @@ A release candidate requires:
 
 ## Immediate implementation sequence
 
-1. Complete T2 supervised process transport around the landed stateful and
-   post-handshake session runtimes, including crash recovery and frame replay.
+1. Complete T2 by attaching the landed Node process transport to a headless
+   Rust TSX host and `createApp`, including crash recovery and frame replay.
 2. Land production text measurement/shaping interfaces in layout/scene.
 3. Build the first H2 Windows window/surface/presentation skeleton.
 4. Connect H1 input and frame commits to that host.

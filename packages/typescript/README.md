@@ -34,6 +34,14 @@ and becomes unusable after a boundary or JSON violation. Encoding snapshots
 plain JSON data without invoking accessors. These APIs add no runtime package
 dependency.
 
+`A3sFramedClientConnectionV1` connects that negotiation to a single-reader byte
+transport, serializes client writes, narrows partially received frames to the
+negotiated limit, and snapshots host messages before exposing them.
+`A3sNodeProcessTransportV1` supplies a real Node `child_process` adapter with an
+explicit command, no shell, bounded stderr retention, abnormal-exit reporting,
+and timeout-backed shutdown. Runtime code uses only Node built-ins;
+`@types/node` is pinned as a development-only type-checking dependency.
+
 `createApp` owns the transport-neutral root lifecycle. `useState`,
 `useReducer`, `useMemo`, `useRef`, `useContext`, and post-commit `useEffect` use
 deterministic component paths and hook slots. Nested providers are transparent
@@ -65,14 +73,14 @@ await callbacks.dispatch(eventMessage);
 callbacks.clear();                  // release all retained callback scopes
 ```
 
-The Node process stream integration, host supervision/replay, the
-native host executable, and the stable full semantic component API remain later
-delivery slices. This package is therefore not a published SDK or a runnable
-native TSX application yet. The current `createApp` requires an explicit typed
-`A3sApplicationHostV1` with an already negotiated `welcome`; it sends that host
-full protocol render envelopes rather than bare frames. The future
-zero-configuration `run()` API will create the handshake and supervised process
-host.
+The Rust TSX host executable, ordered `createApp` message pump, restart/replay
+supervision, native host executable, and stable full semantic component API
+remain later delivery slices. This package is therefore not a published SDK or
+a runnable native TSX application yet. The current `createApp` requires an
+explicit typed `A3sApplicationHostV1` with an already negotiated `welcome`; it
+sends that host full protocol render envelopes rather than bare frames. The
+future zero-configuration `run()` API will create the handshake and supervised
+process host.
 
 Install the pinned development compiler without running dependency scripts:
 

@@ -32,6 +32,7 @@
     "test": "npm run typecheck && npm run test:runtime"
   },
   "devDependencies": {
+    "@types/node": "24.13.3",
     "typescript": "5.9.3"
   }
 }

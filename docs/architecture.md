@@ -257,7 +257,8 @@ critical work is:
 1. production text shaping, editing, IME, and accessibility semantics on the
    generic layout/scene path;
 2. concrete Windows, macOS, and Wayland/X11 hosts;
-3. supervised TypeScript/Rust process I/O, crash recovery, and replay;
+3. the Rust TSX host executable, application message pump, crash recovery, and
+   replay over the landed Node process transport;
 4. component-by-component React Aria conformance;
 5. packaging, signing, installers, and real tri-platform evidence.
 
