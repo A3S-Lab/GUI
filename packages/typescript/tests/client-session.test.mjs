@@ -45,6 +45,8 @@ test("client session emits exact render envelopes and advances independent direc
     committedRenderRevision: 1,
     committedHostRevision: 7,
     pendingRenderRevision: null,
+    pendingPingNonce: null,
+    pendingCloseReason: null,
     maximumFrameBytes: 4096,
   });
 
@@ -56,6 +58,61 @@ test("client session emits exact render envelopes and advances independent direc
   assert.equal(result.eventSequence, 1);
   assert.equal(session.state.lastHostMessageId, 3);
   assert.equal(session.state.lastClientMessageId, 2);
+});
+
+test("client session sequences liveness and graceful close atomically", () => {
+  const session = new A3sClientSessionV1(welcome());
+
+  const ping = session.createPing(42);
+  assert.deepEqual(ping, {
+    type: "ping",
+    protocol: "a3s.gui.tsx",
+    protocolVersion: 1,
+    sessionId: "session-test",
+    messageId: 2,
+    renderRevision: 0,
+    payload: { nonce: 42 },
+  });
+  assert.equal(Object.isFrozen(ping), true);
+  assert.equal(session.state.pendingPingNonce, 42);
+  assert.equal(session.state.lastClientMessageId, 2);
+  assert.equal(session.state.lastHostMessageId, 1);
+
+  session.acceptPong(control("pong", 2, { nonce: 42 }));
+  assert.equal(session.state.pendingPingNonce, null);
+  assert.equal(session.state.lastHostMessageId, 2);
+
+  const close = session.createClose("requested", "test complete");
+  assert.deepEqual(close, {
+    type: "close",
+    protocol: "a3s.gui.tsx",
+    protocolVersion: 1,
+    sessionId: "session-test",
+    messageId: 3,
+    renderRevision: 0,
+    payload: { reason: "requested", message: "test complete" },
+  });
+  assert.equal(session.state.status, "closing");
+  assert.equal(session.state.pendingCloseReason, "requested");
+
+  session.acceptClose(control("close", 3, close.payload));
+  assert.equal(session.state.status, "closed");
+  assert.equal(session.state.pendingCloseReason, null);
+  assert.equal(session.state.lastClientMessageId, 3);
+  assert.equal(session.state.lastHostMessageId, 3);
+});
+
+test("wrong liveness nonce fails without consuming the host sequence", () => {
+  const session = new A3sClientSessionV1(welcome());
+  session.createPing(7);
+
+  assert.throws(
+    () => session.acceptPong(control("pong", 2, { nonce: 8 })),
+    (error) => error instanceof A3sClientSessionError && error.code === "invalidMessage",
+  );
+  assert.equal(session.state.status, "failed");
+  assert.equal(session.state.lastHostMessageId, 1);
+  assert.equal(session.state.pendingPingNonce, 7);
 });
 
 test("render rejection retries the same revision with the next client message id", () => {
@@ -205,6 +262,18 @@ function committed(render, messageId, hostRevision) {
       layoutFingerprint: "0000000000000000",
       sceneFingerprint: "0000000000000000",
     },
+  };
+}
+
+function control(type, messageId, payload) {
+  return {
+    type,
+    protocol: "a3s.gui.tsx",
+    protocolVersion: 1,
+    sessionId: "session-test",
+    messageId,
+    renderRevision: 0,
+    payload,
   };
 }
 

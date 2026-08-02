@@ -34,13 +34,17 @@ host.setEventHandler(async (message) => {
 
 await app.start();
 await app.rerender();
+await host.ping(73);
 
 assert.equal(app.state.committedRenders, 2);
-assert.equal(app.state.session.lastClientMessageId, 3);
-assert.equal(app.state.session.lastHostMessageId, 3);
+assert.equal(app.state.session.lastClientMessageId, 4);
+assert.equal(app.state.session.lastHostMessageId, 4);
 assert.equal(app.state.session.committedRenderRevision, 2);
 assert.equal(app.state.session.committedHostRevision, 1);
 assert.equal(host.state.status, "open");
 
 await app.shutdown();
 assert.equal(host.state.status, "closed");
+assert.equal(app.state.session.status, "closed");
+assert.equal(app.state.session.lastClientMessageId, 5);
+assert.equal(app.state.session.lastHostMessageId, 5);

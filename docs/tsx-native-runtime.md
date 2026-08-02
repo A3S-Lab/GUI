@@ -8,9 +8,10 @@ memo/ref/context/effect hooks, transactional render error boundaries, batched
 rerenders, revision-scoped callback scopes, ordered event dispatch, and strict
 client handshake/framing plus post-handshake client/host message sequencing.
 The no-shell Node byte transport, strict software self-drawn Rust process host,
-and ordered `createApp` application pump are implemented. Zero-configuration
-startup, host-initiated liveness, supervision/replay, and an executable native
-OS host are not implemented yet.
+and ordered `createApp` application pump are implemented, including
+client-originated ping/pong and protocol close/ack. Zero-configuration startup,
+host-initiated liveness, supervision/replay, and an executable native OS host
+are not implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -443,8 +444,8 @@ application scheduler, a strict client handshake/session, an incremental
 little-endian JSON frame codec, a no-shell Node child-process transport, a
 strict software self-drawn Rust process host, an ordered application pump, and
 a pinned TypeScript 5.9 `react-jsx` fixture. Command messages,
-zero-configuration startup, host liveness, and supervision/replay remain
-pending.
+zero-configuration startup, host-initiated liveness, and supervision/replay
+remain pending.
 
 `A3sClientHandshakeV1` constructs the exact first `hello`, bounds its encoded
 size, and accepts only a matching negotiated `welcome`. `A3sJsonFrameDecoderV1`
@@ -463,11 +464,13 @@ exercise both a complete render round trip and an injected crash.
 `A3sFramedApplicationHostV1` adapts the negotiated connection directly to
 `A3sApplicationHostV1`. It shares the connection's `A3sClientSessionV1` with
 `createApp`, keeps one render in flight, owns the only host reader, bounds
-outstanding event tasks, and propagates fatal, close, stream, and handler
-failures. `connectA3sNodeApplicationHostV1` composes that pump with the no-shell
-process transport. The checked-in Node fixture uses it to drive two complete
-`createApp` renders through `a3s-gui-tsx-host` and the software self-drawn
-runtime.
+outstanding event tasks, correlates one client ping at a time, bounds control
+waits, and completes shutdown only after a sequenced close acknowledgement.
+Fatal, stream, handler, nonce, and timeout failures close the transport without
+pretending the protocol completed. `connectA3sNodeApplicationHostV1` composes
+that pump with the no-shell process transport. The checked-in Node fixture uses
+it to drive two complete `createApp` renders, a ping/pong exchange, and graceful
+close through `a3s-gui-tsx-host` and the software self-drawn runtime.
 
 Application-level host messages are consumed serially. If an event from the
 active revision overlaps an in-flight render acknowledgement, its ordered
@@ -700,7 +703,8 @@ Delivered:
 - strict `a3s-gui-tsx-host` process with software-reference self-drawn commits,
   independent client/host sequencing, liveness replies, and graceful close
 - ordered `A3sFramedApplicationHostV1` sharing the negotiated session with
-  `createApp`, including bounded event tasks and real Node-to-Rust coverage
+  `createApp`, including bounded event tasks, timeout-backed client liveness,
+  protocol close/ack, and real Node-to-Rust coverage
 - serialized event/commit consumption across overlapping host messages
 
 Remaining:

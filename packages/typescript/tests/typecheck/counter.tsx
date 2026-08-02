@@ -135,7 +135,7 @@ const app = createApp(StatefulCounter, {
   host: typeOnlyHost,
 });
 app.state.status satisfies "created" | "running" | "closing" | "closed";
-app.state.session.status satisfies "negotiated" | "failed" | "closed";
+app.state.session.status satisfies "negotiated" | "closing" | "failed" | "closed";
 
 createApp(Counter, {
   host: typeOnlyHost,

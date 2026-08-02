@@ -23,8 +23,10 @@ tracks independent client and host message-id sequences, enforces the
 negotiated frame-byte limit, and rejects the wrong session before revision or
 callback preflight. Protocol failures poison the session; an application
 callback failure consumes the event and host message exactly once without
-poisoning it. `createApp` serializes overlapping host events and commit
-acknowledgements so callback execution cannot race callback-scope promotion.
+poisoning it. It also owns client ping/pong correlation and close/ack state, so
+the byte transport cannot bypass protocol ordering during shutdown. `createApp`
+serializes overlapping host events and commit acknowledgements so callback
+execution cannot race callback-scope promotion.
 
 `A3sClientHandshakeV1` owns the preceding `hello`/`welcome` negotiation, while
 `encodeA3sJsonFrameV1` and `A3sJsonFrameDecoderV1` implement the Rust-compatible
@@ -77,11 +79,12 @@ The Rust `a3s-gui-tsx-host` process accepts strict framed
 hello/render/ping/close traffic and commits full frames through the software
 self-drawn runtime. `A3sFramedApplicationHostV1` now joins the negotiated
 connection to `createApp` with one shared client session, one reader, bounded
-event tasks, and ordered commit/event delivery; a real Node fixture drives two
-renders through the Rust process. Restart/replay supervision, host-initiated
-liveness, native OS hosts, and the stable full semantic component API remain
-later delivery slices. This package is therefore not a published SDK or a
-zero-configuration native TSX application yet. The future `run()` API will
+event tasks, ordered commit/event delivery, timeout-bounded client ping/pong,
+and protocol close/ack; a real Node fixture drives two renders, liveness, and
+graceful shutdown through the Rust process. Restart/replay supervision,
+host-initiated liveness, native OS hosts, and the stable full semantic component
+API remain later delivery slices. This package is therefore not a published SDK
+or a zero-configuration native TSX application yet. The future `run()` API will
 choose the host artifact, bind event dispatch, and supervise recovery.
 
 The explicit development path is runnable when the Rust host artifact is
@@ -100,6 +103,8 @@ const host = await connectA3sNodeApplicationHostV1({
 const app = createApp(App, { host });
 host.setEventHandler(async (message) => { await app.dispatch(message); });
 await app.start();
+await host.ping(1);
+await app.shutdown();
 ```
 
 Install the pinned development compiler without running dependency scripts:

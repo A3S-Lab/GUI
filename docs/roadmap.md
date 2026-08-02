@@ -300,8 +300,9 @@ Delivered:
 - strict `a3s-gui-tsx-host` framed process with hello/render/ping/close
   sequencing and real `SelfDrawnWindowRuntime` software-reference commits;
 - `A3sFramedApplicationHostV1` with one shared client session, single-reader
-  commit/event pumping, bounded event tasks, fatal propagation, and real
-  Node-to-Rust `createApp` process coverage;
+  commit/event pumping, bounded event tasks, timeout-backed client ping/pong,
+  sequenced close acknowledgement, fatal propagation, and real Node-to-Rust
+  `createApp` render/liveness/shutdown coverage;
 - serialized event/commit consumption when an active-revision callback overlaps
   an in-flight render acknowledgement;
 - source-located hook-order failures and Node interaction tests.

@@ -8,19 +8,34 @@ import {
 import {
   TSX_PROTOCOL_NAME,
   TSX_PROTOCOL_VERSION_V1,
-  TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES,
   TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES,
-  TSX_PROTOCOL_V1_MAX_DIAGNOSTICS,
   TSX_PROTOCOL_V1_MAX_ELEMENT_ID_BYTES,
-  TSX_PROTOCOL_V1_MAX_EVENT_ITEMS,
-  TSX_PROTOCOL_V1_MAX_SAFE_INTEGER,
-  TSX_PROTOCOL_V1_MAX_SESSION_ID_BYTES,
-  TSX_PROTOCOL_V1_MAX_VERSION_BYTES,
   type ProtocolUiFrameV1,
   type TsxClientMessageV1,
+  type TsxClosePayloadV1,
+  type TsxCloseReasonV1,
   type TsxHostMessageV1,
 } from "./generated/protocol.ts";
-import { snapshotA3sProtocolJsonV1 } from "./protocol-json.ts";
+import { clientSessionError as sessionError } from "./client-session-error.ts";
+import {
+  assertEncodedSize,
+  assertExactKeys,
+  nextSafeInteger,
+  requireBoundedText,
+  requireEnum,
+  requireFingerprint,
+  requireRecord,
+  requireSafeInteger,
+  snapshotProtocolValue,
+  validateBoundedArray,
+  validateDiagnostics,
+  validateOptionalCloseMessage,
+  validateOptionalElementId,
+  validateWelcome,
+} from "./client-session-validation.ts";
+
+export { A3sClientSessionError } from "./client-session-error.ts";
+export type { A3sClientSessionErrorCodeV1 } from "./client-session-error.ts";
 
 export type TsxWelcomeMessageV1 = Extract<
   TsxHostMessageV1,
@@ -32,27 +47,27 @@ export type TsxRenderMessageV1 = Extract<
   { readonly type: "render" }
 >;
 
-export type A3sClientSessionStatusV1 = "negotiated" | "failed" | "closed";
+export type TsxClientPingMessageV1 = Extract<
+  TsxClientMessageV1,
+  { readonly type: "ping" }
+>;
 
-export type A3sClientSessionErrorCodeV1 =
-  | "frameTooLarge"
-  | "invalidMessage"
-  | "invalidMessageId"
-  | "invalidRevision"
-  | "invalidSession"
-  | "invalidState"
-  | "invalidWelcome"
-  | "messageIdExhausted";
+export type TsxHostPongMessageV1 = Extract<
+  TsxHostMessageV1,
+  { readonly type: "pong" }
+>;
 
-export class A3sClientSessionError extends Error {
-  readonly code: A3sClientSessionErrorCodeV1;
+export type TsxClientCloseMessageV1 = Extract<
+  TsxClientMessageV1,
+  { readonly type: "close" }
+>;
 
-  constructor(code: A3sClientSessionErrorCodeV1, message: string, cause?: unknown) {
-    super(message, cause === undefined ? undefined : { cause });
-    this.name = "A3sClientSessionError";
-    this.code = code;
-  }
-}
+export type TsxHostCloseMessageV1 = Extract<
+  TsxHostMessageV1,
+  { readonly type: "close" }
+>;
+
+export type A3sClientSessionStatusV1 = "negotiated" | "closing" | "failed" | "closed";
 
 export interface A3sClientSessionStateV1 {
   readonly status: A3sClientSessionStatusV1;
@@ -62,6 +77,8 @@ export interface A3sClientSessionStateV1 {
   readonly committedRenderRevision: number;
   readonly committedHostRevision: number | null;
   readonly pendingRenderRevision: number | null;
+  readonly pendingPingNonce: number | null;
+  readonly pendingCloseReason: TsxCloseReasonV1 | null;
   readonly maximumFrameBytes: number;
 }
 
@@ -69,8 +86,6 @@ interface PendingRenderV1 {
   readonly renderRevision: number;
   readonly frameId: string;
 }
-
-const textEncoder = new TextEncoder();
 
 /** Owns the post-handshake protocol identity for one TypeScript application. */
 export class A3sClientSessionV1 {
@@ -83,6 +98,8 @@ export class A3sClientSessionV1 {
   #committedRenderRevision = 0;
   #committedHostRevision: number | null = null;
   #pending: PendingRenderV1 | null = null;
+  #pendingPingNonce: number | null = null;
+  #pendingClose: Readonly<TsxClosePayloadV1> | null = null;
 
   constructor(welcome: TsxWelcomeMessageV1) {
     const snapshot = snapshotProtocolValue(
@@ -110,6 +127,8 @@ export class A3sClientSessionV1 {
       committedRenderRevision: this.#committedRenderRevision,
       committedHostRevision: this.#committedHostRevision,
       pendingRenderRevision: this.#pending?.renderRevision ?? null,
+      pendingPingNonce: this.#pendingPingNonce,
+      pendingCloseReason: this.#pendingClose?.reason ?? null,
       maximumFrameBytes: this.#maximumFrameBytes,
     });
   }
@@ -169,6 +188,148 @@ export class A3sClientSessionV1 {
     this.#lastClientMessageId = messageId;
     this.#pending = Object.freeze({ renderRevision: revision, frameId });
     return message;
+  }
+
+  createPing(nonce: number): Readonly<TsxClientPingMessageV1> {
+    this.#assertNegotiated("create a ping message");
+    if (this.#pendingPingNonce !== null) {
+      throw sessionError(
+        "invalidState",
+        `cannot create ping ${nonce}; nonce ${this.#pendingPingNonce} is already pending`,
+      );
+    }
+    const validatedNonce = requireSafeInteger(
+      nonce,
+      "liveness nonce",
+      0,
+      "invalidMessage",
+    );
+    const messageId = nextSafeInteger(this.#lastClientMessageId, "client message id");
+    const message = Object.freeze({
+      type: "ping" as const,
+      protocol: TSX_PROTOCOL_NAME,
+      protocolVersion: TSX_PROTOCOL_VERSION_V1,
+      sessionId: this.#sessionId,
+      messageId,
+      renderRevision: this.#committedRenderRevision,
+      payload: Object.freeze({ nonce: validatedNonce }),
+    });
+    assertEncodedSize(message, this.#maximumFrameBytes, "frameTooLarge");
+
+    this.#lastClientMessageId = messageId;
+    this.#pendingPingNonce = validatedNonce;
+    return message;
+  }
+
+  acceptPong(message: TsxHostPongMessageV1): void {
+    this.#assertNegotiated("accept a pong message");
+    try {
+      const snapshot = this.#validateControlMessage(message, "pong");
+      const payload = requireRecord(snapshot.payload, "pong payload", "invalidMessage");
+      assertExactKeys(payload, ["nonce"], [], "pong payload", "invalidMessage");
+      const nonce = requireSafeInteger(
+        payload.nonce,
+        "pong nonce",
+        0,
+        "invalidMessage",
+      );
+      if (this.#pendingPingNonce === null) {
+        throw sessionError("invalidState", "the client session has no pending ping");
+      }
+      if (nonce !== this.#pendingPingNonce) {
+        throw sessionError(
+          "invalidMessage",
+          `pong nonce ${nonce} does not match pending nonce ${this.#pendingPingNonce}`,
+        );
+      }
+
+      this.#lastHostMessageId = snapshot.messageId;
+      this.#pendingPingNonce = null;
+    } catch (cause) {
+      this.#status = "failed";
+      throw cause;
+    }
+  }
+
+  createClose(
+    reason: TsxCloseReasonV1 = "normal",
+    message?: string,
+  ): Readonly<TsxClientCloseMessageV1> {
+    this.#assertNegotiated("create a close message");
+    if (this.#pending !== null) {
+      throw sessionError(
+        "invalidState",
+        `cannot close while render revision ${this.#pending.renderRevision} is pending`,
+      );
+    }
+    if (this.#pendingPingNonce !== null) {
+      throw sessionError(
+        "invalidState",
+        `cannot close while liveness nonce ${this.#pendingPingNonce} is pending`,
+      );
+    }
+    const validatedReason = requireEnum(
+      reason,
+      ["normal", "requested", "protocolError", "hostShutdown"],
+      "close reason",
+      "invalidMessage",
+    ) as TsxCloseReasonV1;
+    const payload = message === undefined
+      ? Object.freeze({ reason: validatedReason })
+      : Object.freeze({
+        reason: validatedReason,
+        message: requireBoundedText(
+          message,
+          "close message",
+          TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES,
+          "invalidMessage",
+        ),
+      });
+    const messageId = nextSafeInteger(this.#lastClientMessageId, "client message id");
+    const close = Object.freeze({
+      type: "close" as const,
+      protocol: TSX_PROTOCOL_NAME,
+      protocolVersion: TSX_PROTOCOL_VERSION_V1,
+      sessionId: this.#sessionId,
+      messageId,
+      renderRevision: this.#committedRenderRevision,
+      payload,
+    });
+    assertEncodedSize(close, this.#maximumFrameBytes, "frameTooLarge");
+
+    this.#lastClientMessageId = messageId;
+    this.#pendingClose = payload;
+    this.#status = "closing";
+    return close;
+  }
+
+  acceptClose(message: TsxHostCloseMessageV1): void {
+    if (this.#status !== "closing" || this.#pendingClose === null) {
+      throw sessionError("invalidState", "the client session has no pending close request");
+    }
+    try {
+      const snapshot = this.#validateControlMessage(message, "close");
+      const payload = requireRecord(snapshot.payload, "close payload", "invalidMessage");
+      assertExactKeys(payload, ["reason"], ["message"], "close payload", "invalidMessage");
+      const reason = requireEnum(
+        payload.reason,
+        ["normal", "requested", "protocolError", "hostShutdown"],
+        "close reason",
+        "invalidMessage",
+      ) as TsxCloseReasonV1;
+      const closeMessage = validateOptionalCloseMessage(payload.message);
+      const pendingMessage = this.#pendingClose.message ?? null;
+      if (reason !== this.#pendingClose.reason || closeMessage !== pendingMessage) {
+        throw sessionError("invalidMessage", "host close acknowledgement does not match the request");
+      }
+
+      this.#lastHostMessageId = snapshot.messageId;
+      this.#pendingClose = null;
+      this.#status = "closed";
+    } catch (cause) {
+      this.#status = "failed";
+      throw cause;
+    }
   }
 
   rejectRender(renderRevision: number): void {
@@ -242,6 +403,8 @@ export class A3sClientSessionV1 {
 
   close(): void {
     this.#pending = null;
+    this.#pendingPingNonce = null;
+    this.#pendingClose = null;
     this.#status = "closed";
   }
 
@@ -342,7 +505,7 @@ export class A3sClientSessionV1 {
 
   #snapshotHostMessage(
     message: unknown,
-    expectedType: "committed" | "event",
+    expectedType: "committed" | "event" | "pong" | "close",
   ): TsxHostMessageV1 {
     const snapshot = snapshotProtocolValue(
       message,
@@ -396,14 +559,33 @@ export class A3sClientSessionV1 {
         `host message id ${messageId} is invalid; expected ${expectedMessageId}`,
       );
     }
-    requireSafeInteger(
+    const renderRevision = requireSafeInteger(
       record.renderRevision,
       `${expectedType} render revision`,
-      1,
+      expectedType === "committed" || expectedType === "event" ? 1 : 0,
       "invalidRevision",
     );
+    if (
+      (expectedType === "pong" || expectedType === "close") &&
+      renderRevision !== this.#committedRenderRevision
+    ) {
+      throw sessionError(
+        "invalidRevision",
+        `${expectedType} render revision ${renderRevision} does not match committed revision ${this.#committedRenderRevision}`,
+      );
+    }
     assertEncodedSize(snapshot, this.#maximumFrameBytes, "frameTooLarge");
     return snapshot;
+  }
+
+  #validateControlMessage(
+    message: unknown,
+    expectedType: "pong" | "close",
+  ): Extract<TsxHostMessageV1, { readonly type: typeof expectedType }> {
+    return this.#snapshotHostMessage(message, expectedType) as Extract<
+      TsxHostMessageV1,
+      { readonly type: typeof expectedType }
+    >;
   }
 
   #assertNegotiated(operation: string): void {
@@ -414,328 +596,4 @@ export class A3sClientSessionV1 {
       );
     }
   }
-}
-
-function validateWelcome(message: TsxWelcomeMessageV1): void {
-  const record = requireRecord(message, "welcome message", "invalidWelcome");
-  assertExactKeys(
-    record,
-    [
-      "type",
-      "protocol",
-      "protocolVersion",
-      "sessionId",
-      "messageId",
-      "renderRevision",
-      "payload",
-    ],
-    [],
-    "welcome message",
-    "invalidWelcome",
-  );
-  if (
-    record.type !== "welcome" ||
-    record.protocol !== TSX_PROTOCOL_NAME ||
-    record.protocolVersion !== TSX_PROTOCOL_VERSION_V1 ||
-    record.messageId !== 1 ||
-    record.renderRevision !== 0
-  ) {
-    throw sessionError(
-      "invalidWelcome",
-      `expected the first ${TSX_PROTOCOL_NAME} v${TSX_PROTOCOL_VERSION_V1} host message to be welcome`,
-    );
-  }
-  requireBoundedText(
-    record.sessionId,
-    "welcome session id",
-    TSX_PROTOCOL_V1_MAX_SESSION_ID_BYTES,
-    "invalidWelcome",
-  );
-
-  const payload = requireRecord(record.payload, "welcome payload", "invalidWelcome");
-  assertExactKeys(
-    payload,
-    [
-      "selectedProtocolVersion",
-      "hostVersion",
-      "hostBuildId",
-      "platform",
-      "renderer",
-      "limits",
-    ],
-    ["capabilities", "debugCapabilities"],
-    "welcome payload",
-    "invalidWelcome",
-  );
-  if (payload.selectedProtocolVersion !== TSX_PROTOCOL_VERSION_V1) {
-    throw sessionError("invalidWelcome", "welcome selected an unsupported protocol version");
-  }
-  requireBoundedText(
-    payload.hostVersion,
-    "host version",
-    TSX_PROTOCOL_V1_MAX_VERSION_BYTES,
-    "invalidWelcome",
-  );
-  requireBoundedText(
-    payload.hostBuildId,
-    "host build id",
-    TSX_PROTOCOL_V1_MAX_VERSION_BYTES,
-    "invalidWelcome",
-  );
-  requireEnum(payload.platform, ["headless", "macos", "windows", "linux"], "host platform");
-  requireEnum(payload.renderer, ["software", "gpu"], "host renderer");
-
-  const limits = requireRecord(payload.limits, "welcome limits", "invalidWelcome");
-  assertExactKeys(
-    limits,
-    ["maximumFrameBytes", "maximumInFlightRenders"],
-    [],
-    "welcome limits",
-    "invalidWelcome",
-  );
-  requireSafeInteger(
-    limits.maximumFrameBytes,
-    "maximum frame bytes",
-    1,
-    "invalidWelcome",
-    TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES,
-  );
-  if (limits.maximumInFlightRenders !== 1) {
-    throw sessionError("invalidWelcome", "protocol v1 requires one in-flight render");
-  }
-  validateUniqueEnumArray(
-    payload.capabilities,
-    [
-      "headlessRendering",
-      "selfDrawnRendering",
-      "dropPolicyQueries",
-      "structuredDiagnostics",
-    ],
-    "host capabilities",
-  );
-  validateUniqueEnumArray(
-    payload.debugCapabilities,
-    ["protocolTrace", "structuredDiagnostics", "inspector"],
-    "debug capabilities",
-  );
-}
-
-function validateDiagnostics(value: unknown): void {
-  if (value === undefined) {
-    return;
-  }
-  if (!Array.isArray(value) || value.length > TSX_PROTOCOL_V1_MAX_DIAGNOSTICS) {
-    throw sessionError(
-      "invalidMessage",
-      `committed diagnostics must contain at most ${TSX_PROTOCOL_V1_MAX_DIAGNOSTICS} items`,
-    );
-  }
-  for (let index = 0; index < value.length; index += 1) {
-    const diagnostic = requireRecord(
-      value[index],
-      `committed diagnostic ${index}`,
-      "invalidMessage",
-    );
-    assertExactKeys(
-      diagnostic,
-      ["severity", "code", "message"],
-      ["elementId"],
-      `committed diagnostic ${index}`,
-      "invalidMessage",
-    );
-    requireEnum(
-      diagnostic.severity,
-      ["information", "warning", "error"],
-      `committed diagnostic ${index} severity`,
-      "invalidMessage",
-    );
-    if (diagnostic.severity === "error") {
-      throw sessionError("invalidMessage", "committed messages cannot contain error diagnostics");
-    }
-    requireBoundedText(
-      diagnostic.code,
-      `committed diagnostic ${index} code`,
-      TSX_PROTOCOL_V1_MAX_VERSION_BYTES,
-      "invalidMessage",
-    );
-    requireBoundedText(
-      diagnostic.message,
-      `committed diagnostic ${index} message`,
-      TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES,
-      "invalidMessage",
-    );
-    validateOptionalElementId(
-      diagnostic.elementId,
-      `committed diagnostic ${index} element id`,
-    );
-  }
-}
-
-function validateBoundedArray(value: unknown, name: string): void {
-  if (value === undefined) {
-    return;
-  }
-  if (!Array.isArray(value) || value.length > TSX_PROTOCOL_V1_MAX_EVENT_ITEMS) {
-    throw sessionError(
-      "invalidMessage",
-      `${name} must contain at most ${TSX_PROTOCOL_V1_MAX_EVENT_ITEMS} items`,
-    );
-  }
-}
-
-function validateOptionalElementId(value: unknown, name: string): void {
-  if (value !== undefined && value !== null) {
-    requireBoundedText(
-      value,
-      name,
-      TSX_PROTOCOL_V1_MAX_ELEMENT_ID_BYTES,
-      "invalidMessage",
-    );
-  }
-}
-
-function validateUniqueEnumArray(
-  value: unknown,
-  allowed: readonly string[],
-  name: string,
-): void {
-  if (value === undefined) {
-    return;
-  }
-  if (!Array.isArray(value)) {
-    throw sessionError("invalidWelcome", `${name} must be an array`);
-  }
-  const seen = new Set<string>();
-  for (const item of value) {
-    const entry = requireEnum(item, allowed, name);
-    if (seen.has(entry)) {
-      throw sessionError("invalidWelcome", `${name} must not contain duplicates`);
-    }
-    seen.add(entry);
-  }
-}
-
-function requireEnum(
-  value: unknown,
-  allowed: readonly string[],
-  name: string,
-  code: A3sClientSessionErrorCodeV1 = "invalidWelcome",
-): string {
-  if (typeof value !== "string" || !allowed.includes(value)) {
-    throw sessionError(code, `${name} is invalid`);
-  }
-  return value;
-}
-
-function requireFingerprint(value: unknown, name: string): void {
-  if (typeof value !== "string" || !/^[0-9a-f]{16}$/u.test(value)) {
-    throw sessionError("invalidMessage", `${name} must be sixteen lowercase hexadecimal digits`);
-  }
-}
-
-function requireBoundedText(
-  value: unknown,
-  name: string,
-  maximumBytes: number,
-  code: A3sClientSessionErrorCodeV1,
-): string {
-  if (
-    typeof value !== "string" ||
-    value.trim().length === 0 ||
-    textEncoder.encode(value).byteLength > maximumBytes ||
-    /[\u0000-\u001f\u007f-\u009f]/u.test(value)
-  ) {
-    throw sessionError(code, `${name} must be non-empty bounded text`);
-  }
-  return value;
-}
-
-function requireSafeInteger(
-  value: unknown,
-  name: string,
-  minimum: number,
-  code: A3sClientSessionErrorCodeV1,
-  maximum: number = TSX_PROTOCOL_V1_MAX_SAFE_INTEGER,
-): number {
-  if (
-    typeof value !== "number" ||
-    !Number.isSafeInteger(value) ||
-    value < minimum ||
-    value > maximum
-  ) {
-    throw sessionError(code, `${name} must be an integer from ${minimum} through ${maximum}`);
-  }
-  return value;
-}
-
-function nextSafeInteger(value: number, name: string): number {
-  if (value >= TSX_PROTOCOL_V1_MAX_SAFE_INTEGER) {
-    throw sessionError("messageIdExhausted", `${name} exhausted the protocol-safe range`);
-  }
-  return value + 1;
-}
-
-function assertEncodedSize(
-  message: unknown,
-  maximumBytes: number,
-  code: "frameTooLarge" | "invalidWelcome",
-): void {
-  const bytes = textEncoder.encode(JSON.stringify(message)).byteLength;
-  if (bytes === 0 || bytes > maximumBytes) {
-    throw sessionError(
-      code,
-      `protocol message contains ${bytes} bytes, exceeding the negotiated ${maximumBytes}-byte limit`,
-    );
-  }
-}
-
-function assertExactKeys(
-  record: Readonly<Record<string, unknown>>,
-  required: readonly string[],
-  optional: readonly string[],
-  name: string,
-  code: A3sClientSessionErrorCodeV1,
-): void {
-  const allowed = new Set([...required, ...optional]);
-  for (const key of required) {
-    if (!Object.hasOwn(record, key)) {
-      throw sessionError(code, `${name} is missing field ${JSON.stringify(key)}`);
-    }
-  }
-  for (const key of Object.keys(record)) {
-    if (!allowed.has(key)) {
-      throw sessionError(code, `${name} contains unknown field ${JSON.stringify(key)}`);
-    }
-  }
-}
-
-function requireRecord(
-  value: unknown,
-  name: string,
-  code: A3sClientSessionErrorCodeV1,
-): Readonly<Record<string, unknown>> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw sessionError(code, `${name} must be an object`);
-  }
-  return value as Readonly<Record<string, unknown>>;
-}
-
-function snapshotProtocolValue(
-  value: unknown,
-  path: string,
-  code: A3sClientSessionErrorCodeV1,
-): unknown {
-  return snapshotA3sProtocolJsonV1(
-    value,
-    path,
-    (message) => sessionError(code, message),
-  );
-}
-
-function sessionError(
-  code: A3sClientSessionErrorCodeV1,
-  message: string,
-  cause?: unknown,
-): A3sClientSessionError {
-  return new A3sClientSessionError(code, message, cause);
 }

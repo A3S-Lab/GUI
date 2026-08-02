@@ -102,8 +102,9 @@ The repository already provides:
   liveness, and close replies without a content-widget backend.
 - `A3sFramedApplicationHostV1`, an ordered single-reader application pump that
   shares the negotiated client session with `createApp`, bounds outstanding
-  event work, propagates fatal/close failures, and is exercised from real Node
-  through the Rust software host.
+  event work, performs timeout-bounded client ping/pong and close/ack control,
+  propagates fatal/stream failures, and is exercised from real Node through the
+  Rust software host.
 
 Still required before a production native application:
 
@@ -171,7 +172,8 @@ effect promotion only after `committed`, full render envelopes, independent
 client/host message ordering, client `hello`/`welcome` negotiation, bounded
 incremental framing, an explicit Node child-process transport, the strict
 `a3s-gui-tsx-host` software/self-drawn process, and an ordered framed
-application host shared with `createApp`. Zero-configuration startup,
+application host shared with `createApp`, including client-originated
+ping/pong and protocol-level graceful close. Zero-configuration startup,
 host-initiated liveness, restart/replay supervision, native host startup, and
 npm publication remain T2-T5 work.
 

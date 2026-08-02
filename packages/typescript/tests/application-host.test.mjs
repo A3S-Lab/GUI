@@ -42,6 +42,56 @@ test("framed application host drives createApp through one shared client session
   await app.shutdown();
   assert.equal(host.state.status, "closed");
   assert.equal(transport.closed, true);
+  assert.deepEqual(
+    transport.writes.slice(-1).map((message) => [message.type, message.messageId]),
+    [["close", 4]],
+  );
+  assert.equal(app.state.session.lastHostMessageId, 4);
+});
+
+test("framed application host performs client liveness before graceful close", async () => {
+  const transport = new TestByteTransport();
+  const connection = await transport.connect();
+  const host = new A3sFramedApplicationHostV1(connection);
+
+  await host.ping(73);
+  assert.deepEqual(transport.writes[1], {
+    type: "ping",
+    protocol: "a3s.gui.tsx",
+    protocolVersion: 1,
+    sessionId: "application-host-test",
+    messageId: 2,
+    renderRevision: 0,
+    payload: { nonce: 73 },
+  });
+  assert.equal(host.state.pendingPingNonce, null);
+  assert.equal(host.session.state.lastClientMessageId, 2);
+  assert.equal(host.session.state.lastHostMessageId, 2);
+
+  await host.close();
+  assert.deepEqual(
+    transport.writes.slice(1).map((message) => [message.type, message.messageId]),
+    [["ping", 2], ["close", 3]],
+  );
+  assert.equal(host.session.state.status, "closed");
+  assert.equal(host.session.state.lastClientMessageId, 3);
+  assert.equal(host.session.state.lastHostMessageId, 3);
+});
+
+test("framed application host bounds unanswered liveness", async () => {
+  const transport = new TestByteTransport({ autoControl: false });
+  const connection = await transport.connect();
+  const host = new A3sFramedApplicationHostV1(connection, { controlTimeoutMs: 20 });
+
+  await assert.rejects(
+    host.ping(11),
+    (error) => error instanceof A3sFramedHostError && error.code === "controlTimedOut",
+  );
+  assert.equal(host.state.status, "failed");
+  assert.equal(host.state.pendingPingNonce, null);
+  await waitFor(() => transport.closed);
+  await host.close();
+  assert.equal(host.state.status, "closed");
 });
 
 test("framed application host rejects a second in-flight render and host fatal", async () => {
@@ -133,12 +183,14 @@ class TestByteTransport {
   writes = [];
   closed = false;
   #autoCommit;
+  #autoControl;
   #hostMessageId = 1;
   #chunks = [];
   #waiters = [];
 
   constructor(options = {}) {
     this.#autoCommit = options.autoCommit ?? true;
+    this.#autoControl = options.autoControl ?? true;
   }
 
   incoming = {
@@ -155,6 +207,10 @@ class TestByteTransport {
     this.writes.push(message);
     if (this.#autoCommit && message.type === "render") {
       this.pushHostMessage(committed(message, ++this.#hostMessageId));
+    } else if (this.#autoControl && message.type === "ping") {
+      this.pushHostMessage(control("pong", ++this.#hostMessageId, message));
+    } else if (this.#autoControl && message.type === "close") {
+      this.pushHostMessage(control("close", ++this.#hostMessageId, message));
     }
   }
 
@@ -243,6 +299,18 @@ function committed(render, messageId) {
       layoutFingerprint: "0000000000000001",
       sceneFingerprint: "0000000000000001",
     },
+  };
+}
+
+function control(type, messageId, clientMessage) {
+  return {
+    type,
+    protocol: "a3s.gui.tsx",
+    protocolVersion: 1,
+    sessionId: clientMessage.sessionId,
+    messageId,
+    renderRevision: clientMessage.renderRevision,
+    payload: clientMessage.payload,
   };
 }
 

@@ -19,6 +19,8 @@ import {
 import type { TsxHostMessageV1 } from "./generated/protocol.ts";
 
 const MAXIMUM_PENDING_EVENT_TASKS = 1_024;
+const DEFAULT_CONTROL_TIMEOUT_MS = 5_000;
+const MAXIMUM_CONTROL_TIMEOUT_MS = 60_000;
 
 export type A3sFramedHostStatusV1 = "open" | "closing" | "closed" | "failed";
 
@@ -28,6 +30,7 @@ export type A3sFramedHostErrorCodeV1 =
   | "eventHandlerMissing"
   | "hostClosed"
   | "hostFatal"
+  | "controlTimedOut"
   | "invalidConnection"
   | "invalidHostMessage"
   | "invalidOptions"
@@ -48,6 +51,7 @@ export class A3sFramedHostError extends Error {
 export interface A3sFramedApplicationHostStateV1 {
   readonly status: A3sFramedHostStatusV1;
   readonly pendingRenderRevision: number | null;
+  readonly pendingPingNonce: number | null;
   readonly pendingEventTasks: number;
   readonly failure: A3sFramedHostError | null;
 }
@@ -58,6 +62,7 @@ export type A3sHostEventHandlerV1 = (
 
 export interface A3sFramedApplicationHostOptionsV1 {
   readonly onEvent?: A3sHostEventHandlerV1;
+  readonly controlTimeoutMs?: number;
 }
 
 export interface ConnectA3sNodeApplicationHostOptionsV1
@@ -72,14 +77,27 @@ interface PendingRenderV1 {
   readonly reject: (error: A3sFramedHostError) => void;
 }
 
+interface PendingControlV1 {
+  readonly resolve: () => void;
+  readonly reject: (error: A3sFramedHostError) => void;
+  readonly timer: ReturnType<typeof setTimeout>;
+}
+
+interface PendingPingV1 extends PendingControlV1 {
+  readonly nonce: number;
+}
+
 /** Ordered application-message pump over one negotiated framed connection. */
 export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
   readonly #connection: A3sFramedClientConnectionV1;
   readonly #readerTask: Promise<void>;
+  readonly #controlTimeoutMs: number;
   readonly #eventTasks = new Set<Promise<void>>();
   #status: A3sFramedHostStatusV1 = "open";
   #failure: A3sFramedHostError | null = null;
   #pending: PendingRenderV1 | null = null;
+  #pendingPing: PendingPingV1 | null = null;
+  #pendingClose: PendingControlV1 | null = null;
   #eventHandler: A3sHostEventHandlerV1 | null;
   #closePromise: Promise<void> | null = null;
 
@@ -88,9 +106,10 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
     options: A3sFramedApplicationHostOptionsV1 = {},
   ) {
     validateConnection(connection);
-    const onEvent = validateHostOptions(options);
+    const validated = validateHostOptions(options);
     this.#connection = connection;
-    this.#eventHandler = onEvent;
+    this.#controlTimeoutMs = validated.controlTimeoutMs;
+    this.#eventHandler = validated.onEvent;
     this.#readerTask = this.#readMessages();
   }
 
@@ -106,6 +125,7 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
     return Object.freeze({
       status: this.#status,
       pendingRenderRevision: this.#pending?.renderRevision ?? null,
+      pendingPingNonce: this.#pendingPing?.nonce ?? null,
       pendingEventTasks: this.#eventTasks.size,
       failure: this.#failure,
     });
@@ -156,35 +176,98 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
     return response;
   }
 
+  async ping(nonce: number): Promise<void> {
+    this.#assertOpen("ping the TSX host");
+    this.#assertControlIdle("ping the TSX host");
+    const message = this.#connection.session.createPing(nonce);
+    let resolve!: () => void;
+    let reject!: (error: A3sFramedHostError) => void;
+    const response = new Promise<void>((resolvePromise, rejectPromise) => {
+      resolve = resolvePromise;
+      reject = rejectPromise;
+    });
+    const timer = setTimeout(() => {
+      if (this.#pendingPing?.nonce === message.payload.nonce) {
+        this.#fail(
+          hostError(
+            "controlTimedOut",
+            `TSX host did not answer liveness nonce ${message.payload.nonce} within ${this.#controlTimeoutMs}ms`,
+          ),
+        );
+      }
+    }, this.#controlTimeoutMs);
+    this.#pendingPing = { nonce: message.payload.nonce, resolve, reject, timer };
+    try {
+      await this.#connection.writeClientMessage(message);
+    } catch (cause) {
+      this.#fail(hostError("streamFailed", "could not write a ping to the TSX host", cause));
+    }
+    await response;
+  }
+
   close(): Promise<void> {
     if (this.#closePromise !== null) {
       return this.#closePromise;
     }
-    this.#closePromise = this.#close();
-    return this.#closePromise;
+    const close = this.#close();
+    this.#closePromise = close;
+    void close.catch(() => {
+      if (this.#status === "open" && this.#closePromise === close) {
+        this.#closePromise = null;
+      }
+    });
+    return close;
   }
 
   async #close(): Promise<void> {
     if (this.#status === "closed") {
       return;
     }
-    if (this.#status === "open") {
-      this.#status = "closing";
+    if (this.#status === "failed") {
+      await this.#connection.close();
+      await this.#readerTask;
+      await Promise.all(this.#eventTasks);
+      this.#connection.session.close();
+      this.#status = "closed";
+      return;
     }
-    if (this.#pending !== null) {
-      const error = hostError("invalidState", "framed host closed with a render in flight");
-      const pending = this.#pending;
-      this.#pending = null;
-      pending.reject(error);
-    }
+    this.#assertControlIdle("close the TSX host");
+    const message = this.#connection.session.createClose();
+    this.#status = "closing";
+    let resolve!: () => void;
+    let reject!: (error: A3sFramedHostError) => void;
+    const acknowledgement = new Promise<void>((resolvePromise, rejectPromise) => {
+      resolve = resolvePromise;
+      reject = rejectPromise;
+    });
+    const timer = setTimeout(() => {
+      if (this.#pendingClose !== null) {
+        this.#fail(
+          hostError(
+            "controlTimedOut",
+            `TSX host did not acknowledge close within ${this.#controlTimeoutMs}ms`,
+          ),
+        );
+      }
+    }, this.#controlTimeoutMs);
+    this.#pendingClose = { resolve, reject, timer };
     try {
+      await this.#connection.writeClientMessage(message);
+      await acknowledgement;
       await this.#connection.close();
       await this.#readerTask;
       await Promise.all(this.#eventTasks);
       this.#status = "closed";
     } catch (cause) {
-      const error = hostError("streamFailed", "could not close the framed TSX host", cause);
+      const error = cause instanceof A3sFramedHostError
+        ? cause
+        : hostError("streamFailed", "could not close the framed TSX host", cause);
       this.#fail(error);
+      try {
+        await this.#connection.close();
+      } catch {
+        // Preserve the control or stream failure as the primary error.
+      }
       throw error;
     }
   }
@@ -194,15 +277,17 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
       while (true) {
         const message = await this.#connection.readHostMessage();
         if (message === null) {
-          if (this.#status === "closing" || this.#status === "closed") {
+          if (this.#status === "closed") {
             return;
           }
           throw hostError("endOfStream", "TSX host stream ended without a close request");
         }
-        this.#acceptHostMessage(message);
+        if (this.#acceptHostMessage(message)) {
+          return;
+        }
       }
     } catch (cause) {
-      if (this.#status === "closing" || this.#status === "closed") {
+      if (this.#status === "failed" || this.#status === "closed") {
         return;
       }
       this.#fail(
@@ -213,7 +298,7 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
     }
   }
 
-  #acceptHostMessage(message: Readonly<TsxHostMessageV1>): void {
+  #acceptHostMessage(message: Readonly<TsxHostMessageV1>): boolean {
     switch (message.type) {
       case "committed": {
         const pending = this.#pending;
@@ -228,27 +313,54 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
         }
         this.#pending = null;
         pending.resolve(message);
-        return;
+        return false;
       }
       case "event":
         this.#dispatchEvent(message);
-        return;
+        return false;
       case "fatal":
         throw hostError(
           "hostFatal",
           `TSX host reported ${JSON.stringify(message.payload.code)}: ${message.payload.message}`,
         );
-      case "close":
-        throw hostError(
-          "hostClosed",
-          `TSX host requested close with reason ${JSON.stringify(message.payload.reason)}`,
-        );
+      case "close": {
+        const pending = this.#pendingClose;
+        if (this.#status !== "closing" || pending === null) {
+          throw hostError(
+            "hostClosed",
+            `TSX host requested close with reason ${JSON.stringify(message.payload.reason)}`,
+          );
+        }
+        try {
+          this.#connection.session.acceptClose(message);
+        } catch (cause) {
+          throw hostError("invalidHostMessage", "TSX host emitted an invalid close reply", cause);
+        }
+        clearTimeout(pending.timer);
+        this.#pendingClose = null;
+        pending.resolve();
+        return true;
+      }
       case "ping":
-      case "pong":
         throw hostError(
           "invalidHostMessage",
-          `TSX application pump does not yet support host ${message.type}`,
+          "TSX application pump does not yet support host-initiated ping",
         );
+      case "pong": {
+        const pending = this.#pendingPing;
+        if (pending === null) {
+          throw hostError("invalidHostMessage", "TSX host emitted pong without a pending ping");
+        }
+        try {
+          this.#connection.session.acceptPong(message);
+        } catch (cause) {
+          throw hostError("invalidHostMessage", "TSX host emitted an invalid pong", cause);
+        }
+        clearTimeout(pending.timer);
+        this.#pendingPing = null;
+        pending.resolve();
+        return false;
+      }
       case "welcome":
         throw hostError("invalidHostMessage", "TSX host emitted a second welcome");
     }
@@ -294,6 +406,18 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
     const pending = this.#pending;
     this.#pending = null;
     pending?.reject(error);
+    const ping = this.#pendingPing;
+    this.#pendingPing = null;
+    if (ping !== null) {
+      clearTimeout(ping.timer);
+      ping.reject(error);
+    }
+    const close = this.#pendingClose;
+    this.#pendingClose = null;
+    if (close !== null) {
+      clearTimeout(close.timer);
+      close.reject(error);
+    }
     void this.#connection.close().catch(() => {
       // Preserve the protocol/application failure as the primary error.
     });
@@ -307,6 +431,24 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
       );
     }
   }
+
+  #assertControlIdle(operation: string): void {
+    if (this.#pending !== null) {
+      throw hostError(
+        "invalidState",
+        `cannot ${operation} while render revision ${this.#pending.renderRevision} is in flight`,
+      );
+    }
+    if (this.#eventTasks.size !== 0) {
+      throw hostError(
+        "invalidState",
+        `cannot ${operation} while ${this.#eventTasks.size} event task(s) are pending`,
+      );
+    }
+    if (this.#pendingPing !== null || this.#pendingClose !== null) {
+      throw hostError("invalidState", `cannot ${operation} while a control message is pending`);
+    }
+  }
 }
 
 export async function connectA3sNodeApplicationHostV1(
@@ -316,7 +458,9 @@ export async function connectA3sNodeApplicationHostV1(
   const transport = spawnA3sNodeProcessTransportV1(validated.process);
   try {
     const connection = await connectA3sFramedClientV1(transport, validated.handshake);
-    const hostOptions = validated.onEvent === null ? {} : { onEvent: validated.onEvent };
+    const hostOptions: A3sFramedApplicationHostOptionsV1 = validated.onEvent === null
+      ? { controlTimeoutMs: validated.controlTimeoutMs }
+      : { onEvent: validated.onEvent, controlTimeoutMs: validated.controlTimeoutMs };
     return new A3sFramedApplicationHostV1(connection, hostOptions);
   } catch (cause) {
     try {
@@ -334,16 +478,24 @@ function validateConnection(connection: A3sFramedClientConnectionV1): void {
   }
 }
 
-function validateHostOptions(options: A3sFramedApplicationHostOptionsV1): A3sHostEventHandlerV1 | null {
-  const values = plainOptionValues(options, "framed application host options", ["onEvent"], []);
+function validateHostOptions(options: A3sFramedApplicationHostOptionsV1): {
+  onEvent: A3sHostEventHandlerV1 | null;
+  controlTimeoutMs: number;
+} {
+  const values = plainOptionValues(
+    options,
+    "framed application host options",
+    ["onEvent", "controlTimeoutMs"],
+    [],
+  );
   const onEvent = values.onEvent;
-  if (onEvent === undefined) {
-    return null;
-  }
-  if (typeof onEvent !== "function") {
+  if (onEvent !== undefined && typeof onEvent !== "function") {
     throw hostError("invalidOptions", "framed host onEvent must be a function");
   }
-  return onEvent as A3sHostEventHandlerV1;
+  return {
+    onEvent: (onEvent ?? null) as A3sHostEventHandlerV1 | null,
+    controlTimeoutMs: validateControlTimeout(values.controlTimeoutMs),
+  };
 }
 
 function validateConnectOptions(
@@ -352,11 +504,12 @@ function validateConnectOptions(
   process: SpawnA3sNodeProcessOptionsV1;
   handshake: A3sClientHandshakeOptionsV1;
   onEvent: A3sHostEventHandlerV1 | null;
+  controlTimeoutMs: number;
 } {
   const values = plainOptionValues(
     options,
     "Node application host options",
-    ["process", "handshake", "onEvent"],
+    ["process", "handshake", "onEvent", "controlTimeoutMs"],
     ["process", "handshake"],
   );
   const onEvent = values.onEvent;
@@ -367,7 +520,26 @@ function validateConnectOptions(
     process: values.process as SpawnA3sNodeProcessOptionsV1,
     handshake: values.handshake as A3sClientHandshakeOptionsV1,
     onEvent: (onEvent ?? null) as A3sHostEventHandlerV1 | null,
+    controlTimeoutMs: validateControlTimeout(values.controlTimeoutMs),
   };
+}
+
+function validateControlTimeout(value: unknown): number {
+  if (value === undefined) {
+    return DEFAULT_CONTROL_TIMEOUT_MS;
+  }
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 1 ||
+    value > MAXIMUM_CONTROL_TIMEOUT_MS
+  ) {
+    throw hostError(
+      "invalidOptions",
+      `controlTimeoutMs must be an integer from 1 through ${MAXIMUM_CONTROL_TIMEOUT_MS}`,
+    );
+  }
+  return value;
 }
 
 function plainOptionValues(
