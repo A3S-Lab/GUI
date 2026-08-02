@@ -11,8 +11,8 @@ The no-shell Node byte transport, strict software self-drawn Rust process host,
 and ordered `createApp` application pump are implemented, including
 bidirectional ping/pong, fixed host liveness deadlines, and protocol close/ack.
 Validated zero-argument startup and automatic event binding are also
-implemented. Supervision/replay and an executable native OS host are not
-implemented yet.
+implemented. Opt-in bounded supervision and committed-frame replay across a
+fresh session are implemented; an executable native OS host is not.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -444,8 +444,8 @@ instances, strict normalization, deterministic frame lowering, a stateful
 application scheduler, a strict client handshake/session, an incremental
 little-endian JSON frame codec, a no-shell Node child-process transport, a
 strict software self-drawn Rust process host, an ordered application pump, and
-a pinned TypeScript 5.9 `react-jsx` fixture. Command messages,
-supervision/replay, and native artifact publication remain pending.
+a pinned TypeScript 5.9 `react-jsx` fixture. Command messages and native
+artifact publication remain pending.
 
 `A3sClientHandshakeV1` constructs the exact first `hello`, bounds its encoded
 size, and accepts only a matching negotiated `welcome`. `A3sJsonFrameDecoderV1`
@@ -500,6 +500,16 @@ connection or first-render failure closes the partially started Host before the
 original error is returned. Typed runtime injection remains available for
 transport and failure tests; it is not a second rendering backend.
 
+Passing `recovery: { maximumRestarts, restartDelayMs }` opts into a global
+bounded restart budget. `maximumRestarts` is 1 through 16 and `restartDelayMs`
+is 0 through 60,000. The framed Host exposes one immutable termination promise;
+on unexpected termination the runner suspends rendering, closes the old event
+gate, reconnects, requires a different negotiated session identity, and
+replays the retained committed frame as revision 1. Events from the replacement
+Host remain gated until replay commits. A failed connection or replay consumes
+one attempt; exhaustion reports `A3sApplicationRecoveryError` and closes the
+application. Omitting the option leaves production policy application-owned.
+
 ### Messages
 
 | Direction | Message | Purpose |
@@ -545,9 +555,15 @@ The host performs each render as prepare, validate, commit, and present:
 5. report `committed`; Node promotes the matching callback scope, and
    presentation telemetry may follow separately
 
-The Node runtime retains the last committed full frame and action scope. An
-opt-in development supervisor may restart a failed host, negotiate a new
-session, and replay that frame. Production restart policy is application-owned.
+The Node runtime retains the last committed full frame and action scope. The
+implemented opt-in supervisor restarts a failed Host within a strict global
+budget, negotiates a different session identity, resets wire render-revision
+and event-sequence spaces, and transactionally replays that frame before
+exposing events.
+Hook/component state remains in Node; the replay does not count as a new logical
+render. State changes raised during replay produce a following render in the
+fresh session. Production restart policy is application-owned when supervision
+is omitted.
 The host never silently falls back from GPU to a visually different renderer.
 
 ## Repository and Package Shape
@@ -563,6 +579,7 @@ packages/typescript/
 |- src/element.ts
 |- src/application.ts
 |- src/application-runner.ts
+|- src/application-replay.ts
 |- src/host-artifact.ts
 |- src/application-host.ts
 |- src/component-runtime.ts
@@ -667,8 +684,8 @@ minimum M4 text/input slice.
 Status: architecture accepted; the Rust-side strict handshake/framing,
 render/commit/event session, counter parity fixtures, self-drawn adapters,
 drop-policy DTO/resolver adapter, the software self-drawn Rust process host,
-and the ordered application runner are implemented. Calculator, commands, and
-recovery/replay are pending. Rust-generated
+and the ordered application runner plus bounded recovery/replay are implemented.
+Calculator and commands are pending. Rust-generated
 declarations,
 the headless automatic JSX core, stateful JSX execution, client
 handshake/framing, the Node child-process byte transport, post-handshake session
@@ -701,7 +718,6 @@ event dispatch, and Node 24 plus TypeScript 5.9 golden/type tests have also
 landed.
 
 - extend the landed application messages with command messages
-- add bounded restart policy, crash recovery, and committed-frame replay
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
 - extend the landed static counter parity fixture to the calculator scenario
@@ -746,13 +762,16 @@ Delivered:
 - hostless `createApp(App).run()` with validated platform artifact
   resolution, automatic UUID handshake identity, event binding, failed-start
   cleanup, and a real zero-argument Node-to-Rust process fixture
+- observable Host termination, strict opt-in restart limits/delay, fresh
+  session identity, transactional revision-1 replay of the retained frame and
+  callbacks, gated replacement events, exhaustion cleanup, and a real
+  post-commit child-process crash/restart fixture
 - serialized event/commit consumption across overlapping host messages
 
 Remaining:
 
-- bounded restart policy, crash recovery, and committed-frame replay
 - final public component/action identity contract
-- complete keyboard, stale-event, host-crash, and replay gates
+- complete keyboard and stale-event gates across the restarted process
 
 Gates:
 
@@ -825,7 +844,8 @@ green.
     deadline. Landed.
 11. Add validated zero-argument `createApp` startup and event binding.
     Landed.
-12. Add Nub watch reload and platform binary packaging only after the native
+12. Add bounded Host restart and committed-frame replay. Landed.
+13. Add Nub watch reload and platform binary packaging only after the native
    presentation gates pass.
 
 Each commit must leave Rust-only builds and the existing Rust authoring path

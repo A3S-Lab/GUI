@@ -141,6 +141,27 @@ test("framed application host bounds unanswered liveness", async () => {
   assert.equal(host.state.status, "closed");
 });
 
+test("framed application host exposes unexpected and graceful termination", async () => {
+  const failedTransport = new TestByteTransport();
+  const failedConnection = await failedTransport.connect();
+  const failedHost = new A3sFramedApplicationHostV1(failedConnection);
+
+  await failedTransport.close();
+  const failed = await failedHost.termination;
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.failure.code, "endOfStream");
+
+  const gracefulTransport = new TestByteTransport();
+  const gracefulConnection = await gracefulTransport.connect();
+  const gracefulHost = new A3sFramedApplicationHostV1(gracefulConnection);
+
+  await gracefulHost.close();
+  assert.deepEqual(await gracefulHost.termination, {
+    status: "closed",
+    failure: null,
+  });
+});
+
 test("framed application host rejects a second in-flight render and host fatal", async () => {
   const transport = new TestByteTransport({ autoCommit: false });
   const connection = await transport.connect();

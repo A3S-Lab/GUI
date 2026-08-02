@@ -31,7 +31,7 @@ or fallback renderer.
 | H2-H4 real hosts | Planned | Windows, macOS, Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
-| T2-T5 TSX product runtime | In progress | Stateful `createApp`, validated zero-argument runner, strict session/framing, ordered application pump, and software self-drawn Rust host; recovery/replay missing |
+| T2-T5 TSX product runtime | In progress | Stateful `createApp`, validated zero-argument runner, strict session/framing, ordered application pump, software self-drawn Rust host, and bounded recovery/replay; public identity and input gates remain |
 | M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
 No family is yet self-drawn conformant across real macOS, Windows, and Linux
@@ -311,15 +311,18 @@ Delivered:
   executable checksum validation, automatic UUID session identity, event
   binding before the first render, startup rollback, and real Node-to-Rust
   process coverage;
+- observable Host termination plus opt-in globally bounded restart attempts,
+  fresh session identity enforcement, transactional committed-frame/callback
+  replay, event gating until replay commit, deterministic exhaustion cleanup,
+  and a real post-commit child-process crash/restart fixture;
 - serialized event/commit consumption when an active-revision callback overlaps
   an in-flight render acknowledgement;
 - source-located hook-order failures and Node interaction tests.
 
 Remaining:
 
-- process restart policy, crash recovery, and committed-frame replay;
 - final public component/action identity contract;
-- keyboard/stale-event/replay coverage through that process boundary.
+- keyboard and stale-event coverage through the restarted process boundary.
 
 ### T3 — executable self-drawn window
 
@@ -422,8 +425,8 @@ A release candidate requires:
 
 ## Immediate implementation sequence
 
-1. Complete T2 with crash recovery, committed-frame replay, and the final public
-   component/action identity contract over the landed application runner.
+1. Complete T2 with the final public component/action identity contract plus
+   keyboard and stale-event gates over the landed restart/replay runner.
 2. Land production text measurement/shaping interfaces in layout/scene.
 3. Build the first H2 Windows window/surface/presentation skeleton.
 4. Connect H1 input and frame commits to that host.

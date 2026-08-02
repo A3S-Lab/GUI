@@ -84,11 +84,15 @@ probe deadline. `A3sFramedApplicationHostV1` joins the negotiated connection to
 ordered commit/event delivery, bidirectional liveness, and protocol close/ack;
 a real Node fixture drives two renders, both ping directions, and graceful
 shutdown through the Rust process. Hostless `createApp` definitions now expose
-`run()`: it authenticates the exact platform artifact, generates the handshake
+`run()`: it validates the exact platform artifact, generates the handshake
 session id, binds event dispatch before the initial render, and returns the
-running application after its first commit. Restart/replay supervision, native
-OS hosts, published platform artifacts, and the stable full semantic component
-API remain later delivery slices. This package is therefore not yet a published
+running application after its first commit. An explicit bounded recovery policy
+observes Host termination, reconnects with a fresh session identity, replays
+the retained committed frame at revision 1 without resetting component state,
+and gates events until the replay commits. Exhausting the global restart budget
+reports `A3sApplicationRecoveryError` and closes deterministically. Native OS
+hosts, published platform artifacts, and the stable full semantic component API
+remain later delivery slices. This package is therefore not yet a published
 native SDK.
 
 The zero-argument application path is:
@@ -97,6 +101,23 @@ The zero-argument application path is:
 const app = await createApp(App).run();
 await app.shutdown();
 ```
+
+Development supervision is opt-in and strictly bounded:
+
+```ts
+const app = await createApp(App).run({
+  recovery: {
+    maximumRestarts: 2, // 1..16 across the application lifetime
+    restartDelayMs: 250, // 0..60_000
+  },
+});
+```
+
+Without `recovery`, restart policy remains application-owned. A custom policy
+may call `app.beginRecovery()` and then `app.recover(freshHost)`; the Host must
+use a different negotiated session identity. A successful replay increments
+`app.state.hostGeneration` and `app.state.replayedRenders` but not logical
+`committedRenders`.
 
 Installed releases resolve an exact optional platform package and verify its
 strict manifest plus executable SHA-256 before spawning. Repository development

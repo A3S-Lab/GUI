@@ -59,7 +59,7 @@ interface HostManifestV1 {
   readonly sha256: string;
 }
 
-/** Resolves and authenticates the exact native host artifact for this Node target. */
+/** Resolves and validates the exact native host artifact for this Node target. */
 export async function resolveA3sHostArtifactV1(
   options: ResolveA3sHostArtifactOptionsV1 = {},
 ): Promise<Readonly<A3sResolvedHostArtifactV1>> {

@@ -6,7 +6,7 @@
   <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
   <img alt="Self-drawn only" src="https://img.shields.io/badge/renderer-self--drawn%20only-0067C0?style=flat-square">
-  <img alt="TSX T2" src="https://img.shields.io/badge/TSX-T2%20application%20runner-1687D9?style=flat-square">
+  <img alt="TSX T2" src="https://img.shields.io/badge/TSX-T2%20recovery%20%2B%20replay-1687D9?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2F3945?style=flat-square"></a>
 </p>
 
@@ -110,12 +110,17 @@ The repository already provides:
 - the hostless `createApp(App).run()` path, which selects a validated
   platform host artifact, creates a unique protocol session, binds native events
   before the first render, and closes a partially started host on failure.
+- opt-in bounded Host supervision, which observes abnormal termination,
+  negotiates a fresh session, transactionally replays the last committed full
+  frame and callback scope, gates events until replay commits, and closes the
+  application after the configured restart budget is exhausted.
 
 Still required before a production native application:
 
 - real zero-widget macOS, Windows, and Wayland/X11 hosts;
 - production text shaping, text editing, IME, and assistive-technology bridges;
-- restart recovery and committed-frame replay for the `createApp` runner;
+- final public TSX component/action identity plus keyboard and stale-event
+  coverage across a restarted process;
 - packaging, signing, installer work, and tri-platform visual evidence;
 - full self-drawn conformance evidence for every React Aria family.
 
@@ -182,9 +187,10 @@ client/host message ordering, client `hello`/`welcome` negotiation, bounded
 incremental framing, an explicit Node child-process transport, the strict
 `a3s-gui-tsx-host` software/self-drawn process, and an ordered framed
 application host shared with `createApp`, including bidirectional ping/pong,
-fixed host liveness deadlines, and protocol-level graceful close.
-Restart/replay supervision, native host presentation, platform artifact
-publication, and npm publication remain T2-T5 work.
+fixed host liveness deadlines, protocol-level graceful close, and opt-in
+bounded restart/replay supervision over fresh protocol sessions. Native host
+presentation, platform artifact publication, and npm publication remain T2-T5
+work.
 
 Read [TSX native runtime](docs/tsx-native-runtime.md) for protocol and delivery
 gates.
@@ -309,8 +315,8 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. finish T2 with restart recovery, committed-frame replay, and the final public
-   component/action identity contract over the landed application runner;
+1. finish T2 with the final public component/action identity contract plus
+   keyboard and stale-event gates across the restarted process boundary;
 2. land production text shaping/editing primitives on the generic layout/scene
    path;
 3. implement the first raw Windows host, then macOS and Wayland/X11 hosts,

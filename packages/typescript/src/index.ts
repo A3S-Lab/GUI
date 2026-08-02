@@ -78,17 +78,22 @@ export type {
 export { A3sApplicationV1, createApp } from "./application.ts";
 export type {
   A3sApplicationHostV1,
+  A3sApplicationHostTerminationV1,
   A3sApplicationStateV1,
   A3sApplicationStatus,
+  A3sObservableApplicationHostV1,
   A3sRenderCandidateV1,
   CreateAppOptions,
   CreateRunnableAppOptionsV1,
 } from "./application.ts";
 export {
+  A3sApplicationRecoveryError,
   A3sApplicationRunnerV1,
   A3sNodeApplicationRuntimeV1,
 } from "./application-runner.ts";
 export type {
+  A3sApplicationRecoveryErrorCodeV1,
+  A3sApplicationRecoveryOptionsV1,
   A3sApplicationRunOptionsV1,
   A3sApplicationRuntimeV1,
 } from "./application-runner.ts";

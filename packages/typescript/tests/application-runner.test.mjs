@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  A3sApplicationRecoveryError,
   Button,
   Text,
   View,
@@ -70,6 +71,59 @@ test("createApp run options reject accessors before connecting", async () => {
   await assert.rejects(runner.run(options), /runtime cannot be an accessor/u);
   assert.equal(getterCalls, 0);
   assert.equal(runtime.connectCount, 0);
+});
+
+test("createApp recovery policy rejects accessors before connecting", async () => {
+  const runtime = new RecordingRuntime();
+  let getterCalls = 0;
+  const recovery = {};
+  Object.defineProperty(recovery, "maximumRestarts", {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      return 1;
+    },
+  });
+  const runner = createApp(() => jsx(Text, { children: "strict recovery" }));
+
+  await assert.rejects(
+    runner.run({ runtime, recovery }),
+    /maximumRestarts cannot be an accessor/u,
+  );
+  assert.equal(getterCalls, 0);
+  assert.equal(runtime.connectCount, 0);
+});
+
+test("createApp recovery policy enforces bounded restart values", async () => {
+  const policies = [
+    {},
+    { maximumRestarts: 0 },
+    { maximumRestarts: 17 },
+    { maximumRestarts: 1, restartDelayMs: -1 },
+    { maximumRestarts: 1, restartDelayMs: 60_001 },
+    { maximumRestarts: 1, unknown: true },
+  ];
+  for (const recovery of policies) {
+    const runtime = new RecordingRuntime();
+    const runner = createApp(() => jsx(Text, { children: "bounded recovery" }));
+    await assert.rejects(runner.run({ runtime, recovery }), TypeError);
+    assert.equal(runtime.connectCount, 0);
+  }
+});
+
+test("opt-in recovery requires an observable host lifecycle", async () => {
+  const runtime = new RecordingRuntime();
+  const runner = createApp(() => jsx(Text, { children: "observable host" }));
+
+  await assert.rejects(
+    runner.run({ runtime, recovery: { maximumRestarts: 1 } }),
+    (error) =>
+      error instanceof A3sApplicationRecoveryError &&
+      error.code === "hostNotObservable" &&
+      error.restartAttempts === 0,
+  );
+  assert.equal(runtime.connectCount, 1);
+  assert.equal(runtime.host.closeCount, 1);
 });
 
 test("createApp definition options reject accessors without evaluating them", () => {

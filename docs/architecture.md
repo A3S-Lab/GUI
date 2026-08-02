@@ -260,7 +260,8 @@ critical work is:
 1. production text shaping, editing, IME, and accessibility semantics on the
    generic layout/scene path;
 2. concrete Windows, macOS, and Wayland/X11 hosts;
-3. TSX crash recovery and replay over the landed Node/Rust application runner;
+3. the final TSX component/action identity contract plus keyboard and
+   stale-event gates across the landed restart/replay boundary;
 4. component-by-component React Aria conformance;
 5. packaging, signing, installers, and real tri-platform evidence.
 

@@ -18,10 +18,12 @@ import {
 } from "./element.ts";
 import {
   compileFrameWithRuntimeV1,
+  type CompiledA3sFrameV1,
   type CompileFrameOptions,
 } from "./frame.ts";
 import { ComponentHookTree } from "./hook-tree.ts";
 import { A3sApplicationRunnerV1 } from "./application-runner.ts";
+import { prepareApplicationReplayV1 } from "./application-replay.ts";
 
 export type A3sRenderCandidateV1 = TsxRenderMessageV1;
 
@@ -35,13 +37,29 @@ export interface A3sApplicationHostV1 {
   close?(): void | Promise<void>;
 }
 
-export type A3sApplicationStatus = "created" | "running" | "closing" | "closed";
+export interface A3sApplicationHostTerminationV1 {
+  readonly status: "closed" | "failed";
+  readonly failure: unknown | null;
+}
+
+export interface A3sObservableApplicationHostV1 extends A3sApplicationHostV1 {
+  readonly termination: Promise<Readonly<A3sApplicationHostTerminationV1>>;
+}
+
+export type A3sApplicationStatus =
+  | "created"
+  | "running"
+  | "recovering"
+  | "closing"
+  | "closed";
 
 export interface A3sApplicationStateV1 {
   readonly status: A3sApplicationStatus;
   readonly dirty: boolean;
   readonly renderInFlight: boolean;
   readonly committedRenders: number;
+  readonly hostGeneration: number;
+  readonly replayedRenders: number;
   readonly activeComponents: number;
   readonly lastError: unknown | null;
   readonly session: Readonly<A3sClientSessionStateV1>;
@@ -77,12 +95,12 @@ interface ValidatedApplicationOptionsV1<Props extends A3sJsxProps> {
 
 export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
   readonly #root: A3sFunctionComponent<Props>;
-  readonly #host: A3sApplicationHostV1;
+  #host: A3sApplicationHostV1;
   readonly #frameId: string;
   readonly #compileOptions: CompileFrameOptions;
   readonly #onError: ((error: unknown) => void) | null;
-  readonly #actions = new RevisionActionRegistryV1();
-  readonly #session: A3sClientSessionV1;
+  #actions = new RevisionActionRegistryV1();
+  #session: A3sClientSessionV1;
   readonly #hooks: ComponentHookTree;
   #props: Readonly<Props>;
   #status: A3sApplicationStatus = "created";
@@ -90,9 +108,13 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
   #scheduled = false;
   #batchDepth = 0;
   #committedRenders = 0;
+  #hostGeneration = 1;
+  #replayedRenders = 0;
+  #lastCommittedFrame: CompiledA3sFrameV1 | null = null;
   #lastError: unknown | null = null;
   #renderStarting = false;
   #inFlight: Promise<boolean> | null = null;
+  #recoveryInFlight: Promise<void> | null = null;
   #hostMessageTail: Promise<void> = Promise.resolve();
 
   constructor(
@@ -129,6 +151,8 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
       dirty: this.#dirty,
       renderInFlight: this.#renderStarting || this.#inFlight !== null,
       committedRenders: this.#committedRenders,
+      hostGeneration: this.#hostGeneration,
+      replayedRenders: this.#replayedRenders,
       activeComponents: this.#hooks.activeComponentCount,
       lastError: this.#lastError,
       session: this.#session.state,
@@ -148,7 +172,7 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
   updateProps(props: Readonly<Props>): void {
     this.#assertMutable("update root props");
     this.#props = snapshotProps(props);
-    if (this.#status === "running") {
+    if (this.#status === "running" || this.#status === "recovering") {
       this.#requestRender();
     }
   }
@@ -157,6 +181,68 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
     this.#assertRunning("rerender");
     this.#dirty = true;
     await this.flush();
+  }
+
+  /**
+   * Replaces a failed host and transactionally replays the last committed frame.
+   *
+   * Component instances and state remain owned by this application. The fresh
+   * protocol session starts at render revision 1 with a fresh callback scope.
+   */
+  recover(host: A3sApplicationHostV1): Promise<void> {
+    if (this.#status !== "running" && this.#status !== "recovering") {
+      return Promise.reject(
+        new Error(`cannot recover an A3S application in ${this.#status} state`),
+      );
+    }
+    if (this.#recoveryInFlight !== null) {
+      return Promise.reject(new Error("an A3S application recovery is already in flight"));
+    }
+    if (
+      typeof host !== "object" ||
+      host === null ||
+      typeof host.submitRender !== "function"
+    ) {
+      return Promise.reject(
+        new TypeError("application recovery requires a typed host with submitRender"),
+      );
+    }
+    const recovery = this.#recover(host);
+    this.#recoveryInFlight = recovery;
+    void recovery.finally(() => {
+      if (this.#recoveryInFlight === recovery) {
+        this.#recoveryInFlight = null;
+      }
+    }).catch(() => {
+      // The caller observes the original recovery promise.
+    });
+    return recovery;
+  }
+
+  /** Suspends rendering while an application-owned policy connects a new host. */
+  beginRecovery(): void {
+    if (this.#status === "recovering") {
+      return;
+    }
+    if (this.#status !== "running") {
+      throw new Error(`cannot begin recovery in ${this.#status} state`);
+    }
+    this.#status = "recovering";
+  }
+
+  /** Records a terminal host-policy failure and deterministically closes. */
+  async abort(error: unknown): Promise<void> {
+    if (this.#status === "closed") {
+      this.#lastError = error;
+      return;
+    }
+    this.#notifyError(error);
+    await this.#hostMessageTail;
+    try {
+      await this.shutdown();
+    } finally {
+      this.#lastError = error;
+    }
   }
 
   async flush(): Promise<boolean> {
@@ -255,6 +341,15 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
       throw new Error("cannot shut down an A3S application during event dispatch");
     }
 
+    const recovery = this.#recoveryInFlight;
+    if (recovery !== null) {
+      try {
+        await recovery;
+      } catch {
+        // Recovery already preserved the prior committed state.
+      }
+    }
+
     this.#status = "closing";
     this.#dirty = false;
     this.#scheduled = false;
@@ -324,6 +419,7 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
           this.#batchDepth -= 1;
         }
       });
+      this.#lastCommittedFrame = compiled;
       this.#committedRenders += 1;
       for (const error of effectErrors) {
         this.#notifyError(error);
@@ -350,6 +446,59 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
     }
   }
 
+  async #recover(host: A3sApplicationHostV1): Promise<void> {
+    this.beginRecovery();
+    const pending = this.#inFlight;
+    if (pending !== null) {
+      try {
+        await pending;
+      } catch {
+        // The render path rolls its candidate back before recovery continues.
+      }
+    }
+    await this.#hostMessageTail;
+    const retained = this.#lastCommittedFrame;
+    if (retained === null) {
+      throw new Error("cannot recover before the application has committed its first frame");
+    }
+
+    let prepared;
+    try {
+      prepared = await prepareApplicationReplayV1(
+        host,
+        retained,
+        this.#session.state.sessionId,
+      );
+    } catch (cause) {
+      try {
+        await host.close?.();
+      } catch {
+        // Preserve the replay failure.
+      }
+      this.#lastError = cause;
+      throw cause;
+    }
+
+    const previousHost = this.#host;
+    const previousSession = this.#session;
+    this.#host = host;
+    this.#session = prepared.session;
+    this.#actions = prepared.actions;
+    this.#hostGeneration += 1;
+    this.#replayedRenders += 1;
+    try {
+      await previousHost.close?.();
+    } catch (error) {
+      this.#notifyError(error);
+    } finally {
+      previousSession.close();
+    }
+    this.#status = "running";
+    if (this.#dirty) {
+      this.#scheduleRender();
+    }
+  }
+
   #enqueueHostMessage<Result>(
     operation: () => Result | PromiseLike<Result>,
   ): Promise<Result> {
@@ -362,7 +511,7 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
   }
 
   #requestRender(): void {
-    if (this.#status !== "running") {
+    if (this.#status !== "running" && this.#status !== "recovering") {
       return;
     }
     this.#dirty = true;

@@ -136,12 +136,18 @@ const app = createApp(StatefulCounter, {
   frameId: "stateful-counter-typecheck",
   host: typeOnlyHost,
 });
-app.state.status satisfies "created" | "running" | "closing" | "closed";
+app.state.status satisfies "created" | "running" | "recovering" | "closing" | "closed";
 app.state.session.status satisfies "negotiated" | "closing" | "failed" | "closed";
 
 declare const typeOnlyRuntime: A3sApplicationRuntimeV1;
 const runnable = createApp(StatefulCounter, { frameId: "automatic-runner-typecheck" });
 runnable.run({ runtime: typeOnlyRuntime }) satisfies Promise<A3sApplicationV1>;
+runnable.run({
+  runtime: typeOnlyRuntime,
+  recovery: { maximumRestarts: 2, restartDelayMs: 25 },
+}) satisfies Promise<A3sApplicationV1>;
+app.state.hostGeneration satisfies number;
+app.state.replayedRenders satisfies number;
 const runnableCounterProps: CounterProps = { count: 0, onIncrement: () => undefined };
 createApp(Counter, {
   props: runnableCounterProps,

@@ -4,6 +4,7 @@ import type {
 } from "./action-registry.ts";
 import type {
   A3sApplicationHostV1,
+  A3sApplicationHostTerminationV1,
   A3sRenderCandidateV1,
 } from "./application.ts";
 import type { A3sClientHandshakeOptionsV1 } from "./client-handshake.ts";
@@ -93,6 +94,10 @@ interface PendingPingV1 extends PendingControlV1 {
 export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
   readonly #connection: A3sFramedClientConnectionV1;
   readonly #readerTask: Promise<void>;
+  readonly #termination: Promise<Readonly<A3sApplicationHostTerminationV1>>;
+  readonly #resolveTermination: (
+    termination: Readonly<A3sApplicationHostTerminationV1>,
+  ) => void;
   readonly #controlTimeoutMs: number;
   readonly #eventTasks = new Set<Promise<void>>();
   #status: A3sFramedHostStatusV1 = "open";
@@ -104,6 +109,7 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
   #lastHostPingNonce: number | null = null;
   #eventHandler: A3sHostEventHandlerV1 | null;
   #closePromise: Promise<void> | null = null;
+  #terminationSettled = false;
 
   constructor(
     connection: A3sFramedClientConnectionV1,
@@ -114,6 +120,13 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
     this.#connection = connection;
     this.#controlTimeoutMs = validated.controlTimeoutMs;
     this.#eventHandler = validated.onEvent;
+    let resolveTermination!: (
+      termination: Readonly<A3sApplicationHostTerminationV1>,
+    ) => void;
+    this.#termination = new Promise((resolve) => {
+      resolveTermination = resolve;
+    });
+    this.#resolveTermination = resolveTermination;
     this.#readerTask = this.#readMessages();
   }
 
@@ -123,6 +136,11 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
 
   get session(): A3sClientSessionV1 {
     return this.#connection.session;
+  }
+
+  /** Resolves exactly once when this host closes or fails unexpectedly. */
+  get termination(): Promise<Readonly<A3sApplicationHostTerminationV1>> {
+    return this.#termination;
   }
 
   get state(): Readonly<A3sFramedApplicationHostStateV1> {
@@ -264,6 +282,7 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
       await this.#readerTask;
       await Promise.all(this.#eventTasks);
       this.#status = "closed";
+      this.#settleTermination("closed", null);
     } catch (cause) {
       const error = cause instanceof A3sFramedHostError
         ? cause
@@ -435,6 +454,7 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
     }
     this.#status = "failed";
     this.#failure = error;
+    this.#settleTermination("failed", error);
     const pending = this.#pending;
     this.#pending = null;
     pending?.reject(error);
@@ -462,6 +482,17 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
         `cannot ${operation} while the framed host is ${this.#status}`,
       );
     }
+  }
+
+  #settleTermination(
+    status: "closed" | "failed",
+    failure: A3sFramedHostError | null,
+  ): void {
+    if (this.#terminationSettled) {
+      return;
+    }
+    this.#terminationSettled = true;
+    this.#resolveTermination(Object.freeze({ status, failure }));
   }
 
   #assertControlIdle(operation: string): void {
