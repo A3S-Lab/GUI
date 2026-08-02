@@ -98,20 +98,22 @@ The repository already provides:
   transport with bounded stderr, shutdown timeout, and real process fixtures.
 - `a3s-gui-tsx-host`, a strict framed stdin/stdout process that negotiates one
   TSX session, lowers full frames into `NativeElement`, produces real software
-  reference pixels through `SelfDrawnWindowRuntime`, and sequences commit,
-  liveness, and close replies without a content-widget backend.
+  reference pixels through `SelfDrawnWindowRuntime`, emits idle host liveness
+  probes with fixed response deadlines, and sequences commit, pong, and close
+  replies without a content-widget backend.
 - `A3sFramedApplicationHostV1`, an ordered single-reader application pump that
   shares the negotiated client session with `createApp`, bounds outstanding
-  event work, performs timeout-bounded client ping/pong and close/ack control,
-  propagates fatal/stream failures, and is exercised from real Node through the
-  Rust software host.
+  event work and host-message reordering, answers host pings across pending
+  commit/event application, performs timeout-bounded client ping/pong and
+  close/ack control, propagates fatal/stream failures, and is exercised from
+  real Node through the Rust software host.
 
 Still required before a production native application:
 
 - real zero-widget macOS, Windows, and Wayland/X11 hosts;
 - production text shaping, text editing, IME, and assistive-technology bridges;
-- the zero-configuration `createApp` runner, host-initiated liveness, restart
-  recovery, and committed-frame replay;
+- the zero-configuration `createApp` runner, restart recovery, and
+  committed-frame replay;
 - packaging, signing, installer work, and tri-platform visual evidence;
 - full self-drawn conformance evidence for every React Aria family.
 
@@ -172,10 +174,10 @@ effect promotion only after `committed`, full render envelopes, independent
 client/host message ordering, client `hello`/`welcome` negotiation, bounded
 incremental framing, an explicit Node child-process transport, the strict
 `a3s-gui-tsx-host` software/self-drawn process, and an ordered framed
-application host shared with `createApp`, including client-originated
-ping/pong and protocol-level graceful close. Zero-configuration startup,
-host-initiated liveness, restart/replay supervision, native host startup, and
-npm publication remain T2-T5 work.
+application host shared with `createApp`, including bidirectional ping/pong,
+fixed host liveness deadlines, and protocol-level graceful close.
+Zero-configuration startup, restart/replay supervision, native host startup,
+and npm publication remain T2-T5 work.
 
 Read [TSX native runtime](docs/tsx-native-runtime.md) for protocol and delivery
 gates.
@@ -300,8 +302,8 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. finish T2 with zero-configuration startup, host-initiated liveness, restart
-   recovery, and committed-frame replay over the landed application pump;
+1. finish T2 with zero-configuration startup, restart recovery, and
+   committed-frame replay over the landed application pump;
 2. land production text shaping/editing primitives on the generic layout/scene
    path;
 3. implement the first raw Windows host, then macOS and Wayland/X11 hosts,

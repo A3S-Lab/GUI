@@ -13,6 +13,12 @@ assert.equal(typeof hostBinary, "string");
 const host = await connectA3sNodeApplicationHostV1({
   process: {
     command: hostBinary,
+    args: [
+      "--liveness-interval-ms",
+      "20",
+      "--liveness-timeout-ms",
+      "1000",
+    ],
     maximumStderrBytes: 16_384,
     shutdownTimeoutMs: 5_000,
   },
@@ -34,17 +40,41 @@ host.setEventHandler(async (message) => {
 
 await app.start();
 await app.rerender();
+await waitFor(() => host.state.receivedHostPings >= 1);
 await host.ping(73);
 
 assert.equal(app.state.committedRenders, 2);
-assert.equal(app.state.session.lastClientMessageId, 4);
-assert.equal(app.state.session.lastHostMessageId, 4);
+assert.equal(host.state.receivedHostPings >= 1, true);
+assert.notEqual(host.state.lastHostPingNonce, null);
+assert.equal(app.state.session.lastClientMessageId >= 5, true);
+assert.equal(
+  app.state.session.lastClientMessageId,
+  app.state.session.lastHostMessageId,
+);
+assert.equal(
+  app.state.session.lastReceivedHostMessageId,
+  app.state.session.lastHostMessageId,
+);
 assert.equal(app.state.session.committedRenderRevision, 2);
 assert.equal(app.state.session.committedHostRevision, 1);
 assert.equal(host.state.status, "open");
 
+const messageIdBeforeClose = app.state.session.lastClientMessageId;
 await app.shutdown();
 assert.equal(host.state.status, "closed");
 assert.equal(app.state.session.status, "closed");
-assert.equal(app.state.session.lastClientMessageId, 5);
-assert.equal(app.state.session.lastHostMessageId, 5);
+assert.equal(app.state.session.lastClientMessageId >= messageIdBeforeClose + 1, true);
+assert.equal(
+  app.state.session.lastClientMessageId,
+  app.state.session.lastHostMessageId,
+);
+
+async function waitFor(predicate) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error("timed out waiting for host-initiated liveness");
+}

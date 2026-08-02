@@ -78,6 +78,53 @@ test("framed application host performs client liveness before graceful close", a
   assert.equal(host.session.state.lastHostMessageId, 3);
 });
 
+test("framed application host answers host ping across commit and event work", async () => {
+  const transport = new TestByteTransport({ pingAfterCommit: 41 });
+  const connection = await transport.connect();
+  const host = new A3sFramedApplicationHostV1(connection);
+
+  function Counter() {
+    const [count, setCount] = useState(0);
+    return jsxs(View, {
+      children: [
+        jsx(Text, { children: `count:${count}` }, "value"),
+        jsx(Button, {
+          onPress: () => setCount((value) => value + 1),
+          children: "Increment",
+        }, "increment"),
+      ],
+    });
+  }
+
+  const app = createApp(Counter, { frameId: "host-liveness", host });
+  host.setEventHandler(async (message) => {
+    await app.dispatch(message);
+  });
+  await app.start();
+  assert.equal(host.state.receivedHostPings, 1);
+  assert.equal(host.state.lastHostPingNonce, 41);
+  assert.equal(transport.writes.some((message) =>
+    message.type === "pong" && message.payload.nonce === 41
+  ), true);
+
+  const action = transport.writes.find((message) => message.type === "render")
+    .payload.actions[0].id;
+  transport.pushEvent(action);
+  transport.pushHostPing(42);
+  await waitFor(() => app.state.committedRenders === 2);
+  await waitFor(() => host.state.receivedHostPings === 2);
+
+  assert.equal(textContent(
+    transport.writes.filter((message) => message.type === "render").at(-1).payload.root,
+  ), "count:1Increment");
+  assert.equal(transport.writes.some((message) =>
+    message.type === "pong" && message.payload.nonce === 42
+  ), true);
+  assert.equal(app.state.session.lastHostMessageId, 6);
+  assert.equal(app.state.session.lastReceivedHostMessageId, 6);
+  await app.shutdown();
+});
+
 test("framed application host bounds unanswered liveness", async () => {
   const transport = new TestByteTransport({ autoControl: false });
   const connection = await transport.connect();
@@ -184,6 +231,7 @@ class TestByteTransport {
   closed = false;
   #autoCommit;
   #autoControl;
+  #pingAfterCommit;
   #hostMessageId = 1;
   #chunks = [];
   #waiters = [];
@@ -191,6 +239,7 @@ class TestByteTransport {
   constructor(options = {}) {
     this.#autoCommit = options.autoCommit ?? true;
     this.#autoControl = options.autoControl ?? true;
+    this.#pingAfterCommit = options.pingAfterCommit ?? null;
   }
 
   incoming = {
@@ -207,6 +256,10 @@ class TestByteTransport {
     this.writes.push(message);
     if (this.#autoCommit && message.type === "render") {
       this.pushHostMessage(committed(message, ++this.#hostMessageId));
+      if (this.#pingAfterCommit !== null) {
+        this.pushHostPing(this.#pingAfterCommit);
+        this.#pingAfterCommit = null;
+      }
     } else if (this.#autoControl && message.type === "ping") {
       this.pushHostMessage(control("pong", ++this.#hostMessageId, message));
     } else if (this.#autoControl && message.type === "close") {
@@ -244,6 +297,18 @@ class TestByteTransport {
 
   pushEvent(action) {
     this.pushHostMessage(event(++this.#hostMessageId, action));
+  }
+
+  pushHostPing(nonce) {
+    this.pushHostMessage({
+      type: "ping",
+      protocol: "a3s.gui.tsx",
+      protocolVersion: 1,
+      sessionId: "application-host-test",
+      messageId: ++this.#hostMessageId,
+      renderRevision: 1,
+      payload: { nonce },
+    });
   }
 }
 

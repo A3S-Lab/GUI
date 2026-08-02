@@ -3,6 +3,8 @@
 use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use a3s_gui::tsx_protocol::{
     read_tsx_json_frame_v1, write_tsx_json_frame_v1, TsxClientMessageV1, TsxClosePayloadV1,
@@ -197,6 +199,104 @@ fn headless_host_process_rejects_render_before_hello() {
         .read_to_string(&mut stderr)
         .unwrap();
     assert!(stderr.contains("first TSX protocol client message must be hello"));
+}
+
+#[test]
+fn headless_host_process_times_out_an_unanswered_host_ping() {
+    let mut child = ChildGuard(
+        Command::new(env!("CARGO_BIN_EXE_a3s-gui-tsx-host"))
+            .args([
+                "--liveness-interval-ms",
+                "10",
+                "--liveness-timeout-ms",
+                "50",
+            ])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("spawn the liveness TSX host process"),
+    );
+    let mut input = child.0.stdin.take().expect("take child stdin");
+    let mut output = child.0.stdout.take().expect("take child stdout");
+    let hard_limits = TsxFrameLimitsV1::default();
+
+    let hello: TsxClientMessageV1 = serde_json::from_str(HELLO_FIXTURE).unwrap();
+    write_tsx_json_frame_v1(&mut input, &hello, hard_limits).unwrap();
+    let welcome: TsxHostMessageV1 = read_required(&mut output, hard_limits);
+    let TsxHostMessageV1::Welcome { payload, .. } = welcome else {
+        panic!("expected welcome message")
+    };
+    let session_limits = TsxFrameLimitsV1::new(payload.limits.maximum_frame_bytes).unwrap();
+    let ping: TsxHostMessageV1 = read_required(&mut output, session_limits);
+    assert!(matches!(
+        ping,
+        TsxHostMessageV1::Ping {
+            message_id: 2,
+            render_revision: 0,
+            payload: TsxLivenessPayloadV1 { nonce: 1 },
+            ..
+        }
+    ));
+
+    let traffic = thread::spawn(move || {
+        let mut message_id = 2;
+        loop {
+            let ping = TsxClientMessageV1::Ping {
+                protocol: TSX_PROTOCOL_NAME.to_string(),
+                protocol_version: 1,
+                session_id: "tsx-fixture".to_string(),
+                message_id,
+                render_revision: 0,
+                payload: TsxLivenessPayloadV1 { nonce: message_id },
+            };
+            if write_tsx_json_frame_v1(&mut input, &ping, session_limits).is_err() {
+                return;
+            }
+            message_id += 1;
+        }
+    });
+    let output_drain = thread::spawn(move || {
+        let mut bytes = Vec::new();
+        output.read_to_end(&mut bytes).unwrap();
+    });
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let status = loop {
+        if let Some(status) = child.0.try_wait().expect("poll liveness TSX host") {
+            break status;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "TSX host did not enforce its liveness deadline"
+        );
+        thread::sleep(Duration::from_millis(10));
+    };
+    assert!(!status.success());
+    traffic.join().unwrap();
+    output_drain.join().unwrap();
+    let mut stderr = String::new();
+    child
+        .0
+        .stderr
+        .take()
+        .unwrap()
+        .read_to_string(&mut stderr)
+        .unwrap();
+    assert!(stderr.contains("did not answer host liveness nonce 1 within 50ms"));
+}
+
+#[test]
+fn headless_host_process_rejects_invalid_liveness_options_before_io() {
+    let output = Command::new(env!("CARGO_BIN_EXE_a3s-gui-tsx-host"))
+        .args(["--liveness-interval-ms", "0"])
+        .output()
+        .expect("run the TSX host with invalid options");
+
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&output.stderr)
+        .contains("--liveness-interval-ms\" must be from 1 through 600000"));
 }
 
 #[test]

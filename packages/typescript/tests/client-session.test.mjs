@@ -42,6 +42,7 @@ test("client session emits exact render envelopes and advances independent direc
     sessionId: "session-test",
     lastClientMessageId: 2,
     lastHostMessageId: 2,
+    lastReceivedHostMessageId: 2,
     committedRenderRevision: 1,
     committedHostRevision: 7,
     pendingRenderRevision: null,
@@ -58,6 +59,71 @@ test("client session emits exact render envelopes and advances independent direc
   assert.equal(result.eventSequence, 1);
   assert.equal(session.state.lastHostMessageId, 3);
   assert.equal(session.state.lastClientMessageId, 2);
+});
+
+test("host ping can overtake reserved commit and event application", async () => {
+  const calls = [];
+  const actions = new RevisionActionRegistryV1();
+  const session = new A3sClientSessionV1(welcome());
+  const compiled = compileActionFrame("interleaved", "press", () => calls.push("press"));
+  actions.stage(1, compiled);
+  const render = session.createRender(1, compiled.frame);
+
+  const reservedCommit = session.receiveHostMessage(committed(render, 2, 1));
+  const reservedCommitPing = session.receiveHostMessage(control("ping", 3, { nonce: 31 }, 1));
+  const firstPong = session.acceptPing(reservedCommitPing);
+  assert.deepEqual(firstPong, {
+    type: "pong",
+    protocol: "a3s.gui.tsx",
+    protocolVersion: 1,
+    sessionId: "session-test",
+    messageId: 3,
+    renderRevision: 1,
+    payload: { nonce: 31 },
+  });
+  assert.equal(session.state.lastHostMessageId, 1);
+  assert.equal(session.state.lastReceivedHostMessageId, 3);
+
+  session.commitRender(reservedCommit, actions);
+  assert.equal(session.state.lastHostMessageId, 3);
+  assert.equal(session.state.committedRenderRevision, 1);
+
+  const reservedEvent = session.receiveHostMessage(event(render, 4, 1, 1, "press"));
+  const reservedEventPing = session.receiveHostMessage(control("ping", 5, { nonce: 32 }, 1));
+  const secondPong = session.acceptPing(reservedEventPing);
+  assert.equal(secondPong.messageId, 4);
+  assert.equal(secondPong.renderRevision, 1);
+  assert.equal(session.state.lastHostMessageId, 3);
+  assert.equal(session.state.lastReceivedHostMessageId, 5);
+
+  await session.dispatchEvent(reservedEvent, actions);
+  assert.deepEqual(calls, ["press"]);
+  assert.equal(session.state.lastHostMessageId, 5);
+  assert.equal(session.state.lastReceivedHostMessageId, 5);
+});
+
+test("client session bounds host messages ahead of semantic application", () => {
+  const actions = new RevisionActionRegistryV1();
+  const session = new A3sClientSessionV1(welcome());
+  const compiled = compileActionFrame("bounded", "press", () => undefined);
+  actions.stage(1, compiled);
+  const render = session.createRender(1, compiled.frame);
+
+  session.receiveHostMessage(committed(render, 2, 1));
+  for (let messageId = 3; messageId <= 1_025; messageId += 1) {
+    const ping = session.receiveHostMessage(
+      control("ping", messageId, { nonce: messageId }, 1),
+    );
+    session.acceptPing(ping);
+  }
+
+  assert.throws(
+    () => session.receiveHostMessage(control("ping", 1_026, { nonce: 1_026 }, 1)),
+    (error) => error instanceof A3sClientSessionError && error.code === "invalidState",
+  );
+  assert.equal(session.state.status, "failed");
+  assert.equal(session.state.lastHostMessageId, 1);
+  assert.equal(session.state.lastReceivedHostMessageId, 1_025);
 });
 
 test("client session sequences liveness and graceful close atomically", () => {
@@ -112,6 +178,7 @@ test("wrong liveness nonce fails without consuming the host sequence", () => {
   );
   assert.equal(session.state.status, "failed");
   assert.equal(session.state.lastHostMessageId, 1);
+  assert.equal(session.state.lastReceivedHostMessageId, 2);
   assert.equal(session.state.pendingPingNonce, 7);
 });
 
@@ -265,14 +332,14 @@ function committed(render, messageId, hostRevision) {
   };
 }
 
-function control(type, messageId, payload) {
+function control(type, messageId, payload, renderRevision = 0) {
   return {
     type,
     protocol: "a3s.gui.tsx",
     protocolVersion: 1,
     sessionId: "session-test",
     messageId,
-    renderRevision: 0,
+    renderRevision,
     payload,
   };
 }

@@ -281,7 +281,19 @@ fn control_replies_advance_independent_message_sequences_atomically() {
     assert_eq!(session.last_client_message_id(), 2);
     assert_eq!(session.last_host_message_id(), 2);
 
-    let pong = TsxClientMessageV1::Pong {
+    let host_ping = session.begin_host_ping(23).unwrap();
+    assert!(matches!(
+        host_ping,
+        TsxHostMessageV1::Ping {
+            message_id: 3,
+            render_revision: 0,
+            payload: TsxLivenessPayloadV1 { nonce: 23 },
+            ..
+        }
+    ));
+    assert_eq!(session.pending_host_ping_nonce(), Some(23));
+
+    let wrong_pong = TsxClientMessageV1::Pong {
         protocol: TSX_PROTOCOL_NAME.to_string(),
         protocol_version: 1,
         session_id: "tsx-fixture".to_string(),
@@ -289,9 +301,20 @@ fn control_replies_advance_independent_message_sequences_atomically() {
         render_revision: 0,
         payload: TsxLivenessPayloadV1 { nonce: 17 },
     };
+    assert!(session.accept_control(&wrong_pong).is_err());
+    assert_eq!(session.last_client_message_id(), 2);
+    assert_eq!(session.last_host_message_id(), 3);
+    assert_eq!(session.pending_host_ping_nonce(), Some(23));
+
+    let mut pong = wrong_pong.clone();
+    let TsxClientMessageV1::Pong { payload, .. } = &mut pong else {
+        unreachable!()
+    };
+    payload.nonce = 23;
     assert!(session.accept_control(&pong).unwrap().is_none());
     assert_eq!(session.last_client_message_id(), 3);
-    assert_eq!(session.last_host_message_id(), 2);
+    assert_eq!(session.last_host_message_id(), 3);
+    assert_eq!(session.pending_host_ping_nonce(), None);
 
     let close = TsxClientMessageV1::Close {
         protocol: TSX_PROTOCOL_NAME.to_string(),
@@ -308,7 +331,7 @@ fn control_replies_advance_independent_message_sequences_atomically() {
     assert!(matches!(
         closed,
         TsxHostMessageV1::Close {
-            message_id: 3,
+            message_id: 4,
             render_revision: 0,
             payload: TsxClosePayloadV1 {
                 reason: TsxCloseReasonV1::Requested,
@@ -318,6 +341,44 @@ fn control_replies_advance_independent_message_sequences_atomically() {
         }
     ));
     assert_eq!(session.last_client_message_id(), 4);
+    assert_eq!(session.last_host_message_id(), 4);
+}
+
+#[test]
+fn close_cancels_a_crossing_host_liveness_probe() {
+    let mut session = TsxHostApplicationSessionV1::new(&negotiated(4096)).unwrap();
+    let ping = session.begin_host_ping(29).unwrap();
+    assert!(matches!(
+        ping,
+        TsxHostMessageV1::Ping {
+            message_id: 2,
+            payload: TsxLivenessPayloadV1 { nonce: 29 },
+            ..
+        }
+    ));
+
+    let close = TsxClientMessageV1::Close {
+        protocol: TSX_PROTOCOL_NAME.to_string(),
+        protocol_version: 1,
+        session_id: "tsx-fixture".to_string(),
+        message_id: 2,
+        render_revision: 0,
+        payload: TsxClosePayloadV1 {
+            reason: TsxCloseReasonV1::Requested,
+            message: Some("done".to_string()),
+        },
+    };
+    let closed = session.accept_control(&close).unwrap().unwrap();
+    assert!(matches!(
+        closed,
+        TsxHostMessageV1::Close {
+            message_id: 3,
+            render_revision: 0,
+            ..
+        }
+    ));
+    assert_eq!(session.pending_host_ping_nonce(), None);
+    assert_eq!(session.last_client_message_id(), 2);
     assert_eq!(session.last_host_message_id(), 3);
 }
 

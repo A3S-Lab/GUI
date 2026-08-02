@@ -297,12 +297,16 @@ Delivered:
 - single-reader framed connection plus explicit no-shell Node child-process
   transport with serialized writes, bounded stderr, shutdown timeout, and real
   success/crash process fixtures;
-- strict `a3s-gui-tsx-host` framed process with hello/render/ping/close
-  sequencing and real `SelfDrawnWindowRuntime` software-reference commits;
+- strict `a3s-gui-tsx-host` framed process with hello/render/ping/pong/close
+  sequencing, idle host probes with fixed response deadlines, and real
+  `SelfDrawnWindowRuntime` software-reference commits;
 - `A3sFramedApplicationHostV1` with one shared client session, single-reader
   commit/event pumping, bounded event tasks, timeout-backed client ping/pong,
-  sequenced close acknowledgement, fatal propagation, and real Node-to-Rust
-  `createApp` render/liveness/shutdown coverage;
+  host-ping replies across pending commit/event application, sequenced close
+  acknowledgement, fatal propagation, and real Node-to-Rust `createApp`
+  render/bidirectional-liveness/shutdown coverage;
+- bounded ordered wire receipt separated from the contiguous semantic-apply
+  high-water mark, so control traffic cannot corrupt asynchronous UI ordering;
 - serialized event/commit consumption when an active-revision callback overlaps
   an in-flight render acknowledgement;
 - source-located hook-order failures and Node interaction tests.
@@ -310,7 +314,6 @@ Delivered:
 Remaining:
 
 - zero-configuration process startup and event-handler binding for `createApp`;
-- host-initiated liveness control messages;
 - process restart policy, crash recovery, and committed-frame replay;
 - final public component/action identity contract;
 - keyboard/stale-event/replay coverage through that process boundary.
@@ -416,8 +419,8 @@ A release candidate requires:
 
 ## Immediate implementation sequence
 
-1. Complete T2 with zero-configuration startup, host-initiated liveness, crash
-   recovery, and frame replay over the landed application pump.
+1. Complete T2 with zero-configuration startup, crash recovery, and frame replay
+   over the landed application pump.
 2. Land production text measurement/shaping interfaces in layout/scene.
 3. Build the first H2 Windows window/surface/presentation skeleton.
 4. Connect H1 input and frame commits to that host.

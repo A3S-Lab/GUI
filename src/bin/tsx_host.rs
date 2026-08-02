@@ -1,9 +1,13 @@
 use std::io::{self, Read, Write};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use a3s_gui::tsx_protocol::{
     read_tsx_json_frame_v1, write_tsx_json_frame_v1, TsxClientMessageV1, TsxFrameLimitsV1,
     TsxHostApplicationSessionV1, TsxHostCapabilityV1, TsxHostHandshakeConfigV1, TsxHostHandshakeV1,
     TsxHostMessageV1, TsxHostPlatformV1, TsxRendererV1, TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES,
+    TSX_PROTOCOL_V1_MAX_SAFE_INTEGER,
 };
 use a3s_gui::{
     GuiError, GuiResult, PlatformWindowId, PlatformWindowSpec, RecordingPlatformHost,
@@ -14,22 +18,41 @@ use a3s_gui::{
 const DEFAULT_WINDOW_WIDTH: f64 = 800.0;
 const DEFAULT_WINDOW_HEIGHT: f64 = 600.0;
 const DEFAULT_WINDOW_TITLE: &str = "A3S GUI";
+const DEFAULT_LIVENESS_INTERVAL_MS: u64 = 30_000;
+const DEFAULT_LIVENESS_TIMEOUT_MS: u64 = 5_000;
+const MAXIMUM_LIVENESS_DURATION_MS: u64 = 600_000;
 const WINDOW_ID: PlatformWindowId = PlatformWindowId::new(1);
 
 type HeadlessRuntime = SelfDrawnWindowRuntime<RecordingPlatformHost, ReferenceScenePresenter>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ProcessOptions {
+    liveness_interval: Duration,
+    liveness_timeout: Duration,
+}
+
+enum SessionInput {
+    Message(TsxClientMessageV1),
+    End,
+    Failed(String),
+}
+
 fn main() {
-    let stdin = io::stdin();
-    let stdout = io::stdout();
-    if let Err(error) = serve(stdin.lock(), stdout.lock()) {
+    if let Err(error) = run() {
         eprintln!("{error}");
         std::process::exit(1);
     }
 }
 
-fn serve<R, W>(mut input: R, mut output: W) -> GuiResult<()>
+fn run() -> GuiResult<()> {
+    let options = process_options(std::env::args().skip(1))?;
+    let stdout = io::stdout();
+    serve(io::stdin(), stdout.lock(), options)
+}
+
+fn serve<R, W>(mut input: R, mut output: W, options: ProcessOptions) -> GuiResult<()>
 where
-    R: Read,
+    R: Read + Send + 'static,
     W: Write,
 {
     let hard_limits = TsxFrameLimitsV1::default();
@@ -44,12 +67,14 @@ where
     let session_limits = TsxFrameLimitsV1::new(negotiated.limits().maximum_frame_bytes)?;
     write_tsx_json_frame_v1(&mut output, &welcome, session_limits)?;
 
+    let input = spawn_session_reader(input, session_limits)?;
     let mut session = TsxHostApplicationSessionV1::new(&negotiated)?;
     let mut runtime = None;
     let result = serve_session(
-        &mut input,
+        &input,
         &mut output,
         session_limits,
+        options,
         &mut session,
         &mut runtime,
     );
@@ -64,48 +89,185 @@ where
     }
 }
 
-fn serve_session<R, W>(
-    input: &mut R,
+fn serve_session<W>(
+    input: &Receiver<SessionInput>,
     output: &mut W,
     limits: TsxFrameLimitsV1,
+    options: ProcessOptions,
     session: &mut TsxHostApplicationSessionV1,
     runtime: &mut Option<HeadlessRuntime>,
 ) -> GuiResult<()>
 where
-    R: Read,
     W: Write,
 {
-    while let Some(message) = read_tsx_json_frame_v1::<_, TsxClientMessageV1>(input, limits)? {
-        match &message {
-            TsxClientMessageV1::Render { .. } => {
-                let committed = render_message(session, &message, runtime)?;
-                write_tsx_json_frame_v1(output, &committed, limits)?;
-            }
-            TsxClientMessageV1::Close { .. } => {
-                let closed = session
-                    .accept_control(&message)?
-                    .ok_or_else(|| GuiError::host("TSX close message did not produce a reply"))?;
-                write_tsx_json_frame_v1(output, &closed, limits)?;
-                return Ok(());
-            }
-            TsxClientMessageV1::Ping { .. } | TsxClientMessageV1::Pong { .. } => {
-                if let Some(response) = session.accept_control(&message)? {
-                    write_tsx_json_frame_v1(output, &response, limits)?;
+    let mut next_ping_at = Instant::now() + options.liveness_interval;
+    let mut ping_deadline = None;
+    let mut next_nonce = 1;
+    loop {
+        if ping_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+            return unanswered_liveness_error(session, options);
+        }
+        let deadline = ping_deadline.unwrap_or(next_ping_at);
+        match input.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+            Ok(SessionInput::Message(message)) => {
+                if handle_session_message(output, limits, session, runtime, &message)? {
+                    return Ok(());
+                }
+                if session.pending_host_ping_nonce().is_none() {
+                    if ping_deadline.is_some() {
+                        next_nonce = next_liveness_nonce(next_nonce);
+                    }
+                    ping_deadline = None;
+                    next_ping_at = Instant::now() + options.liveness_interval;
                 }
             }
-            TsxClientMessageV1::Hello { .. } => {
+            Ok(SessionInput::End) => {
                 return Err(GuiError::host(
-                    "TSX protocol hello is only valid as the first client message",
+                    "TSX host input ended before a protocol close message",
                 ));
             }
-            _ => {
-                return Err(GuiError::host(
-                    "TSX host received an unsupported protocol-v1 client message",
-                ));
+            Ok(SessionInput::Failed(message)) => return Err(GuiError::host(message)),
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(GuiError::host("TSX host input reader stopped unexpectedly"));
+            }
+            Err(RecvTimeoutError::Timeout) => {
+                if ping_deadline.is_some() {
+                    return unanswered_liveness_error(session, options);
+                }
+                let ping = session.begin_host_ping(next_nonce)?;
+                write_tsx_json_frame_v1(output, &ping, limits)?;
+                ping_deadline = Some(Instant::now() + options.liveness_timeout);
             }
         }
     }
-    Ok(())
+}
+
+fn unanswered_liveness_error(
+    session: &TsxHostApplicationSessionV1,
+    options: ProcessOptions,
+) -> GuiResult<()> {
+    let nonce = session.pending_host_ping_nonce().ok_or_else(|| {
+        GuiError::host("TSX liveness deadline elapsed without a pending host nonce")
+    })?;
+    Err(GuiError::host(format!(
+        "TSX client did not answer host liveness nonce {nonce} within {}ms",
+        options.liveness_timeout.as_millis()
+    )))
+}
+
+fn handle_session_message<W>(
+    output: &mut W,
+    limits: TsxFrameLimitsV1,
+    session: &mut TsxHostApplicationSessionV1,
+    runtime: &mut Option<HeadlessRuntime>,
+    message: &TsxClientMessageV1,
+) -> GuiResult<bool>
+where
+    W: Write,
+{
+    match message {
+        TsxClientMessageV1::Render { .. } => {
+            let committed = render_message(session, message, runtime)?;
+            write_tsx_json_frame_v1(output, &committed, limits)?;
+            Ok(false)
+        }
+        TsxClientMessageV1::Close { .. } => {
+            let closed = session
+                .accept_control(message)?
+                .ok_or_else(|| GuiError::host("TSX close message did not produce a reply"))?;
+            write_tsx_json_frame_v1(output, &closed, limits)?;
+            Ok(true)
+        }
+        TsxClientMessageV1::Ping { .. } | TsxClientMessageV1::Pong { .. } => {
+            if let Some(response) = session.accept_control(message)? {
+                write_tsx_json_frame_v1(output, &response, limits)?;
+            }
+            Ok(false)
+        }
+        TsxClientMessageV1::Hello { .. } => Err(GuiError::host(
+            "TSX protocol hello is only valid as the first client message",
+        )),
+        _ => Err(GuiError::host(
+            "TSX host received an unsupported protocol-v1 client message",
+        )),
+    }
+}
+
+fn spawn_session_reader<R>(
+    mut input: R,
+    limits: TsxFrameLimitsV1,
+) -> GuiResult<Receiver<SessionInput>>
+where
+    R: Read + Send + 'static,
+{
+    let (sender, receiver) = mpsc::channel();
+    thread::Builder::new()
+        .name("a3s-gui-tsx-input".to_string())
+        .spawn(move || loop {
+            let input = match read_tsx_json_frame_v1::<_, TsxClientMessageV1>(&mut input, limits) {
+                Ok(Some(message)) => SessionInput::Message(message),
+                Ok(None) => SessionInput::End,
+                Err(error) => SessionInput::Failed(error.to_string()),
+            };
+            let terminal = matches!(input, SessionInput::End | SessionInput::Failed(_));
+            if sender.send(input).is_err() || terminal {
+                return;
+            }
+        })
+        .map_err(|error| GuiError::host(format!("could not start TSX input reader: {error}")))?;
+    Ok(receiver)
+}
+
+fn next_liveness_nonce(nonce: u64) -> u64 {
+    if nonce == TSX_PROTOCOL_V1_MAX_SAFE_INTEGER {
+        0
+    } else {
+        nonce + 1
+    }
+}
+
+fn process_options(arguments: impl IntoIterator<Item = String>) -> GuiResult<ProcessOptions> {
+    let mut arguments = arguments.into_iter();
+    let mut interval = None;
+    let mut timeout = None;
+    while let Some(argument) = arguments.next() {
+        let slot = match argument.as_str() {
+            "--liveness-interval-ms" => &mut interval,
+            "--liveness-timeout-ms" => &mut timeout,
+            _ => {
+                return Err(GuiError::host(format!(
+                    "unknown TSX host option {argument:?}"
+                )));
+            }
+        };
+        if slot.is_some() {
+            return Err(GuiError::host(format!(
+                "TSX host option {argument:?} was provided more than once"
+            )));
+        }
+        let value = arguments.next().ok_or_else(|| {
+            GuiError::host(format!("TSX host option {argument:?} requires a value"))
+        })?;
+        *slot = Some(parse_liveness_duration(&argument, &value)?);
+    }
+    Ok(ProcessOptions {
+        liveness_interval: interval
+            .unwrap_or_else(|| Duration::from_millis(DEFAULT_LIVENESS_INTERVAL_MS)),
+        liveness_timeout: timeout
+            .unwrap_or_else(|| Duration::from_millis(DEFAULT_LIVENESS_TIMEOUT_MS)),
+    })
+}
+
+fn parse_liveness_duration(option: &str, value: &str) -> GuiResult<Duration> {
+    let milliseconds = value
+        .parse::<u64>()
+        .map_err(|_| GuiError::host(format!("TSX host option {option:?} must be an integer")))?;
+    if !(1..=MAXIMUM_LIVENESS_DURATION_MS).contains(&milliseconds) {
+        return Err(GuiError::host(format!(
+            "TSX host option {option:?} must be from 1 through {MAXIMUM_LIVENESS_DURATION_MS}"
+        )));
+    }
+    Ok(Duration::from_millis(milliseconds))
 }
 
 fn render_message(

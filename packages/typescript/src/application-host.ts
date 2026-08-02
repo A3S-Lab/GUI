@@ -8,6 +8,7 @@ import type {
 } from "./application.ts";
 import type { A3sClientHandshakeOptionsV1 } from "./client-handshake.ts";
 import type { A3sClientSessionV1 } from "./client-session.ts";
+import type { TsxPostWelcomeHostMessageV1 } from "./client-host-sequence.ts";
 import {
   spawnA3sNodeProcessTransportV1,
   type SpawnA3sNodeProcessOptionsV1,
@@ -16,7 +17,6 @@ import {
   A3sFramedClientConnectionV1,
   connectA3sFramedClientV1,
 } from "./transport.ts";
-import type { TsxHostMessageV1 } from "./generated/protocol.ts";
 
 const MAXIMUM_PENDING_EVENT_TASKS = 1_024;
 const DEFAULT_CONTROL_TIMEOUT_MS = 5_000;
@@ -52,6 +52,8 @@ export interface A3sFramedApplicationHostStateV1 {
   readonly status: A3sFramedHostStatusV1;
   readonly pendingRenderRevision: number | null;
   readonly pendingPingNonce: number | null;
+  readonly receivedHostPings: number;
+  readonly lastHostPingNonce: number | null;
   readonly pendingEventTasks: number;
   readonly failure: A3sFramedHostError | null;
 }
@@ -98,6 +100,8 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
   #pending: PendingRenderV1 | null = null;
   #pendingPing: PendingPingV1 | null = null;
   #pendingClose: PendingControlV1 | null = null;
+  #receivedHostPings = 0;
+  #lastHostPingNonce: number | null = null;
   #eventHandler: A3sHostEventHandlerV1 | null;
   #closePromise: Promise<void> | null = null;
 
@@ -126,6 +130,8 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
       status: this.#status,
       pendingRenderRevision: this.#pending?.renderRevision ?? null,
       pendingPingNonce: this.#pendingPing?.nonce ?? null,
+      receivedHostPings: this.#receivedHostPings,
+      lastHostPingNonce: this.#lastHostPingNonce,
       pendingEventTasks: this.#eventTasks.size,
       failure: this.#failure,
     });
@@ -282,7 +288,20 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
           }
           throw hostError("endOfStream", "TSX host stream ended without a close request");
         }
-        if (this.#acceptHostMessage(message)) {
+        if (message.type === "welcome") {
+          throw hostError("invalidHostMessage", "TSX host emitted a second welcome");
+        }
+        let received: Readonly<TsxPostWelcomeHostMessageV1>;
+        try {
+          received = this.#connection.session.receiveHostMessage(message);
+        } catch (cause) {
+          throw hostError(
+            "invalidHostMessage",
+            `TSX host emitted an invalid ${message.type} message`,
+            cause,
+          );
+        }
+        if (await this.#acceptHostMessage(received)) {
           return;
         }
       }
@@ -298,7 +317,9 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
     }
   }
 
-  #acceptHostMessage(message: Readonly<TsxHostMessageV1>): boolean {
+  async #acceptHostMessage(
+    message: Readonly<TsxPostWelcomeHostMessageV1>,
+  ): Promise<boolean> {
     switch (message.type) {
       case "committed": {
         const pending = this.#pending;
@@ -341,11 +362,24 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
         pending.resolve();
         return true;
       }
-      case "ping":
-        throw hostError(
-          "invalidHostMessage",
-          "TSX application pump does not yet support host-initiated ping",
-        );
+      case "ping": {
+        let pong;
+        try {
+          pong = this.#connection.session.acceptPing(message);
+        } catch (cause) {
+          throw hostError("invalidHostMessage", "TSX host emitted an invalid ping", cause);
+        }
+        this.#receivedHostPings += 1;
+        this.#lastHostPingNonce = message.payload.nonce;
+        if (pong !== null) {
+          try {
+            await this.#connection.writeClientMessage(pong);
+          } catch (cause) {
+            throw hostError("streamFailed", "could not write a pong to the TSX host", cause);
+          }
+        }
+        return false;
+      }
       case "pong": {
         const pending = this.#pendingPing;
         if (pending === null) {
@@ -361,8 +395,6 @@ export class A3sFramedApplicationHostV1 implements A3sApplicationHostV1 {
         pending.resolve();
         return false;
       }
-      case "welcome":
-        throw hostError("invalidHostMessage", "TSX host emitted a second welcome");
     }
   }
 

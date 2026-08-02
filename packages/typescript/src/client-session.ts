@@ -16,6 +16,10 @@ import {
   type TsxCloseReasonV1,
   type TsxHostMessageV1,
 } from "./generated/protocol.ts";
+import {
+  A3sClientHostSequenceV1,
+  type TsxPostWelcomeHostMessageV1,
+} from "./client-host-sequence.ts";
 import { clientSessionError as sessionError } from "./client-session-error.ts";
 import {
   assertEncodedSize,
@@ -57,6 +61,16 @@ export type TsxHostPongMessageV1 = Extract<
   { readonly type: "pong" }
 >;
 
+export type TsxHostPingMessageV1 = Extract<
+  TsxHostMessageV1,
+  { readonly type: "ping" }
+>;
+
+export type TsxClientPongMessageV1 = Extract<
+  TsxClientMessageV1,
+  { readonly type: "pong" }
+>;
+
 export type TsxClientCloseMessageV1 = Extract<
   TsxClientMessageV1,
   { readonly type: "close" }
@@ -74,6 +88,7 @@ export interface A3sClientSessionStateV1 {
   readonly sessionId: string;
   readonly lastClientMessageId: number;
   readonly lastHostMessageId: number;
+  readonly lastReceivedHostMessageId: number;
   readonly committedRenderRevision: number;
   readonly committedHostRevision: number | null;
   readonly pendingRenderRevision: number | null;
@@ -92,9 +107,9 @@ export class A3sClientSessionV1 {
   readonly #welcome: Readonly<TsxWelcomeMessageV1>;
   readonly #sessionId: string;
   readonly #maximumFrameBytes: number;
+  readonly #hostMessages: A3sClientHostSequenceV1;
   #status: A3sClientSessionStatusV1 = "negotiated";
   #lastClientMessageId = 1;
-  #lastHostMessageId = 1;
   #committedRenderRevision = 0;
   #committedHostRevision: number | null = null;
   #pending: PendingRenderV1 | null = null;
@@ -111,6 +126,10 @@ export class A3sClientSessionV1 {
     this.#welcome = snapshot;
     this.#sessionId = snapshot.sessionId;
     this.#maximumFrameBytes = snapshot.payload.limits.maximumFrameBytes;
+    this.#hostMessages = new A3sClientHostSequenceV1(
+      this.#sessionId,
+      this.#maximumFrameBytes,
+    );
     assertEncodedSize(snapshot, this.#maximumFrameBytes, "invalidWelcome");
   }
 
@@ -123,7 +142,8 @@ export class A3sClientSessionV1 {
       status: this.#status,
       sessionId: this.#sessionId,
       lastClientMessageId: this.#lastClientMessageId,
-      lastHostMessageId: this.#lastHostMessageId,
+      lastHostMessageId: this.#hostMessages.lastAppliedMessageId,
+      lastReceivedHostMessageId: this.#hostMessages.lastReceivedMessageId,
       committedRenderRevision: this.#committedRenderRevision,
       committedHostRevision: this.#committedHostRevision,
       pendingRenderRevision: this.#pending?.renderRevision ?? null,
@@ -131,6 +151,23 @@ export class A3sClientSessionV1 {
       pendingCloseReason: this.#pendingClose?.reason ?? null,
       maximumFrameBytes: this.#maximumFrameBytes,
     });
+  }
+
+  receiveHostMessage(
+    message: TsxPostWelcomeHostMessageV1,
+  ): Readonly<TsxPostWelcomeHostMessageV1> {
+    if (this.#status !== "negotiated" && this.#status !== "closing") {
+      throw sessionError(
+        "invalidState",
+        `cannot receive a host message while the client session is ${this.#status}`,
+      );
+    }
+    try {
+      return this.#hostMessages.receive(message);
+    } catch (cause) {
+      this.#status = "failed";
+      throw cause;
+    }
   }
 
   createRender(
@@ -221,6 +258,51 @@ export class A3sClientSessionV1 {
     return message;
   }
 
+  acceptPing(
+    message: TsxHostPingMessageV1,
+  ): Readonly<TsxClientPongMessageV1> | null {
+    if (this.#status !== "negotiated" && this.#status !== "closing") {
+      throw sessionError(
+        "invalidState",
+        `cannot accept a ping message while the client session is ${this.#status}`,
+      );
+    }
+    try {
+      const snapshot = this.#validateControlMessage(message, "ping");
+      const payload = requireRecord(snapshot.payload, "ping payload", "invalidMessage");
+      assertExactKeys(payload, ["nonce"], [], "ping payload", "invalidMessage");
+      const nonce = requireSafeInteger(
+        payload.nonce,
+        "ping nonce",
+        0,
+        "invalidMessage",
+      );
+      if (this.#status === "closing") {
+        this.#hostMessages.apply(snapshot.messageId);
+        return null;
+      }
+
+      const messageId = nextSafeInteger(this.#lastClientMessageId, "client message id");
+      const pong = Object.freeze({
+        type: "pong" as const,
+        protocol: TSX_PROTOCOL_NAME,
+        protocolVersion: TSX_PROTOCOL_VERSION_V1,
+        sessionId: this.#sessionId,
+        messageId,
+        renderRevision: snapshot.renderRevision,
+        payload: Object.freeze({ nonce }),
+      });
+      assertEncodedSize(pong, this.#maximumFrameBytes, "frameTooLarge");
+
+      this.#lastClientMessageId = messageId;
+      this.#hostMessages.apply(snapshot.messageId);
+      return pong;
+    } catch (cause) {
+      this.#status = "failed";
+      throw cause;
+    }
+  }
+
   acceptPong(message: TsxHostPongMessageV1): void {
     this.#assertNegotiated("accept a pong message");
     try {
@@ -243,7 +325,7 @@ export class A3sClientSessionV1 {
         );
       }
 
-      this.#lastHostMessageId = snapshot.messageId;
+      this.#hostMessages.apply(snapshot.messageId);
       this.#pendingPingNonce = null;
     } catch (cause) {
       this.#status = "failed";
@@ -323,7 +405,7 @@ export class A3sClientSessionV1 {
         throw sessionError("invalidMessage", "host close acknowledgement does not match the request");
       }
 
-      this.#lastHostMessageId = snapshot.messageId;
+      this.#hostMessages.apply(snapshot.messageId);
       this.#pendingClose = null;
       this.#status = "closed";
     } catch (cause) {
@@ -368,7 +450,7 @@ export class A3sClientSessionV1 {
       throw cause;
     }
 
-    this.#lastHostMessageId = snapshot.messageId;
+    this.#hostMessages.apply(snapshot.messageId);
     this.#committedRenderRevision = snapshot.renderRevision;
     this.#committedHostRevision = snapshot.payload.hostRevision;
     this.#pending = null;
@@ -389,11 +471,11 @@ export class A3sClientSessionV1 {
 
     try {
       const result = await actions.dispatch(snapshot);
-      this.#lastHostMessageId = snapshot.messageId;
+      this.#hostMessages.apply(snapshot.messageId);
       return result;
     } catch (cause) {
       if (cause instanceof A3sActionRegistryError && cause.code === "callbackFailed") {
-        this.#lastHostMessageId = snapshot.messageId;
+        this.#hostMessages.apply(snapshot.messageId);
       } else {
         this.#status = "failed";
       }
@@ -409,7 +491,7 @@ export class A3sClientSessionV1 {
   }
 
   #validateCommitted(message: TsxCommittedMessageV1): TsxCommittedMessageV1 {
-    const snapshot = this.#snapshotHostMessage(message, "committed") as TsxCommittedMessageV1;
+    const snapshot = this.#hostMessages.take(message, "committed");
     const pending = this.#pending;
     if (pending === null) {
       throw sessionError("invalidState", "the client session has no pending render to commit");
@@ -469,7 +551,7 @@ export class A3sClientSessionV1 {
   }
 
   #validateEvent(message: TsxEventMessageV1): TsxEventMessageV1 {
-    const snapshot = this.#snapshotHostMessage(message, "event") as TsxEventMessageV1;
+    const snapshot = this.#hostMessages.take(message, "event");
     if (snapshot.renderRevision !== this.#committedRenderRevision) {
       throw sessionError(
         "invalidRevision",
@@ -503,91 +585,12 @@ export class A3sClientSessionV1 {
     return snapshot;
   }
 
-  #snapshotHostMessage(
-    message: unknown,
-    expectedType: "committed" | "event" | "pong" | "close",
-  ): TsxHostMessageV1 {
-    const snapshot = snapshotProtocolValue(
-      message,
-      `${expectedType} message`,
-      "invalidMessage",
-    ) as TsxHostMessageV1;
-    const record = requireRecord(snapshot, `${expectedType} message`, "invalidMessage");
-    assertExactKeys(
-      record,
-      [
-        "type",
-        "protocol",
-        "protocolVersion",
-        "sessionId",
-        "messageId",
-        "renderRevision",
-        "payload",
-      ],
-      [],
-      `${expectedType} message`,
-      "invalidMessage",
-    );
-    if (record.type !== expectedType) {
-      throw sessionError("invalidMessage", `expected a ${expectedType} host message`);
-    }
-    if (
-      record.protocol !== TSX_PROTOCOL_NAME ||
-      record.protocolVersion !== TSX_PROTOCOL_VERSION_V1
-    ) {
-      throw sessionError(
-        "invalidMessage",
-        `expected ${TSX_PROTOCOL_NAME} v${TSX_PROTOCOL_VERSION_V1}`,
-      );
-    }
-    if (record.sessionId !== this.#sessionId) {
-      throw sessionError(
-        "invalidSession",
-        `host message session ${JSON.stringify(record.sessionId)} does not match negotiated session ${JSON.stringify(this.#sessionId)}`,
-      );
-    }
-    const messageId = requireSafeInteger(
-      record.messageId,
-      "host message id",
-      1,
-      "invalidMessageId",
-    );
-    const expectedMessageId = nextSafeInteger(this.#lastHostMessageId, "host message id");
-    if (messageId !== expectedMessageId) {
-      throw sessionError(
-        "invalidMessageId",
-        `host message id ${messageId} is invalid; expected ${expectedMessageId}`,
-      );
-    }
-    const renderRevision = requireSafeInteger(
-      record.renderRevision,
-      `${expectedType} render revision`,
-      expectedType === "committed" || expectedType === "event" ? 1 : 0,
-      "invalidRevision",
-    );
-    if (
-      (expectedType === "pong" || expectedType === "close") &&
-      renderRevision !== this.#committedRenderRevision
-    ) {
-      throw sessionError(
-        "invalidRevision",
-        `${expectedType} render revision ${renderRevision} does not match committed revision ${this.#committedRenderRevision}`,
-      );
-    }
-    assertEncodedSize(snapshot, this.#maximumFrameBytes, "frameTooLarge");
-    return snapshot;
+  #validateControlMessage<Type extends "ping" | "pong" | "close">(
+    message: Extract<TsxPostWelcomeHostMessageV1, { readonly type: Type }>,
+    expectedType: Type,
+  ): Readonly<Extract<TsxPostWelcomeHostMessageV1, { readonly type: Type }>> {
+    return this.#hostMessages.take(message, expectedType);
   }
-
-  #validateControlMessage(
-    message: unknown,
-    expectedType: "pong" | "close",
-  ): Extract<TsxHostMessageV1, { readonly type: typeof expectedType }> {
-    return this.#snapshotHostMessage(message, expectedType) as Extract<
-      TsxHostMessageV1,
-      { readonly type: typeof expectedType }
-    >;
-  }
-
   #assertNegotiated(operation: string): void {
     if (this.#status !== "negotiated") {
       throw sessionError(

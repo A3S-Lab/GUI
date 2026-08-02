@@ -532,6 +532,22 @@ impl TsxHostMessageV1 {
         }
     }
 
+    pub fn ping(
+        session_id: impl Into<String>,
+        message_id: u64,
+        render_revision: u64,
+        payload: TsxLivenessPayloadV1,
+    ) -> Self {
+        Self::Ping {
+            protocol: TSX_PROTOCOL_NAME.to_string(),
+            protocol_version: NATIVE_PROTOCOL_VERSION_V1,
+            session_id: session_id.into(),
+            message_id,
+            render_revision,
+            payload,
+        }
+    }
+
     pub fn pong(
         session_id: impl Into<String>,
         message_id: u64,

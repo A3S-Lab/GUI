@@ -4,7 +4,8 @@ use crate::protocol::UiFrame;
 
 use super::{
     encode_tsx_json_frame_v1, TsxClientMessageV1, TsxCommittedPayloadV1, TsxEventPayloadV1,
-    TsxFrameLimitsV1, TsxHostMessageV1, TsxMessageSequenceV1, TsxNegotiatedSessionV1,
+    TsxFrameLimitsV1, TsxHostMessageV1, TsxLivenessPayloadV1, TsxMessageSequenceV1,
+    TsxNegotiatedSessionV1,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,6 +65,7 @@ pub struct TsxHostApplicationSessionV1 {
     committed_host_revision: Option<u64>,
     last_event_sequence: u64,
     pending_render: Option<TsxPendingRenderV1>,
+    pending_host_ping_nonce: Option<u64>,
 }
 
 impl TsxHostApplicationSessionV1 {
@@ -79,6 +81,7 @@ impl TsxHostApplicationSessionV1 {
             committed_host_revision: None,
             last_event_sequence: 0,
             pending_render: None,
+            pending_host_ping_nonce: None,
         })
     }
 
@@ -108,6 +111,34 @@ impl TsxHostApplicationSessionV1 {
 
     pub const fn last_host_message_id(&self) -> u64 {
         self.host_messages.last_message_id()
+    }
+
+    pub const fn pending_host_ping_nonce(&self) -> Option<u64> {
+        self.pending_host_ping_nonce
+    }
+
+    /// Starts one host-originated liveness probe without changing UI state.
+    pub fn begin_host_ping(&mut self, nonce: u64) -> GuiResult<TsxHostMessageV1> {
+        if let Some(pending) = self.pending_host_ping_nonce {
+            return Err(GuiError::host(format!(
+                "TSX host liveness nonce {pending} is already pending"
+            )));
+        }
+        let payload = TsxLivenessPayloadV1 { nonce };
+        payload.validate()?;
+        let message_id = self.host_messages.expected_message_id()?;
+        let ping = TsxHostMessageV1::ping(
+            self.session_id.clone(),
+            message_id,
+            self.committed_render_revision,
+            payload,
+        );
+        ping.validate()?;
+        encode_tsx_json_frame_v1(&ping, self.limits)?;
+
+        self.host_messages.accept(message_id)?;
+        self.pending_host_ping_nonce = Some(nonce);
+        Ok(ping)
     }
 
     /// Accepts the exact next full-frame render without changing the active
@@ -180,7 +211,18 @@ impl TsxHostApplicationSessionV1 {
                 self.committed_render_revision,
                 *payload,
             )),
-            TsxClientMessageV1::Pong { .. } => None,
+            TsxClientMessageV1::Pong { payload, .. } => {
+                let pending = self.pending_host_ping_nonce.ok_or_else(|| {
+                    GuiError::host("TSX client pong has no pending host liveness probe")
+                })?;
+                if payload.nonce != pending {
+                    return Err(GuiError::host(format!(
+                        "TSX client pong nonce {} does not match pending host nonce {pending}",
+                        payload.nonce
+                    )));
+                }
+                None
+            }
             TsxClientMessageV1::Close { payload, .. } => Some(TsxHostMessageV1::close(
                 self.session_id.clone(),
                 self.host_messages.expected_message_id()?,
@@ -197,6 +239,12 @@ impl TsxHostApplicationSessionV1 {
         }
 
         self.client_messages.accept(metadata.message_id)?;
+        if matches!(
+            message,
+            TsxClientMessageV1::Pong { .. } | TsxClientMessageV1::Close { .. }
+        ) {
+            self.pending_host_ping_nonce = None;
+        }
         if let Some(response) = &response {
             self.host_messages.accept(response.metadata().message_id)?;
         }

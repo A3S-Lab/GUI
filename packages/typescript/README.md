@@ -19,14 +19,15 @@ replayed.
 
 `A3sClientSessionV1` owns the post-handshake envelope around that registry. It
 validates and snapshots the host `welcome`, emits complete `render` messages,
-tracks independent client and host message-id sequences, enforces the
-negotiated frame-byte limit, and rejects the wrong session before revision or
-callback preflight. Protocol failures poison the session; an application
+tracks an independent client sequence plus distinct ordered host receipt and
+semantic-application high-water marks, enforces a bounded reorder window and
+the negotiated frame-byte limit, and rejects the wrong session before revision
+or callback preflight. Protocol failures poison the session; an application
 callback failure consumes the event and host message exactly once without
-poisoning it. It also owns client ping/pong correlation and close/ack state, so
-the byte transport cannot bypass protocol ordering during shutdown. `createApp`
-serializes overlapping host events and commit acknowledgements so callback
-execution cannot race callback-scope promotion.
+poisoning it. It also owns bidirectional ping/pong and close/ack state, so the
+byte transport cannot bypass protocol ordering during liveness or shutdown.
+`createApp` serializes overlapping host events and commit acknowledgements so
+callback execution cannot race callback-scope promotion.
 
 `A3sClientHandshakeV1` owns the preceding `hello`/`welcome` negotiation, while
 `encodeA3sJsonFrameV1` and `A3sJsonFrameDecoderV1` implement the Rust-compatible
@@ -76,16 +77,17 @@ callbacks.clear();                  // release all retained callback scopes
 ```
 
 The Rust `a3s-gui-tsx-host` process accepts strict framed
-hello/render/ping/close traffic and commits full frames through the software
-self-drawn runtime. `A3sFramedApplicationHostV1` now joins the negotiated
-connection to `createApp` with one shared client session, one reader, bounded
-event tasks, ordered commit/event delivery, timeout-bounded client ping/pong,
-and protocol close/ack; a real Node fixture drives two renders, liveness, and
-graceful shutdown through the Rust process. Restart/replay supervision,
-host-initiated liveness, native OS hosts, and the stable full semantic component
-API remain later delivery slices. This package is therefore not a published SDK
-or a zero-configuration native TSX application yet. The future `run()` API will
-choose the host artifact, bind event dispatch, and supervise recovery.
+hello/render/ping/pong/close traffic, commits full frames through the software
+self-drawn runtime, emits idle host pings, and terminates on a fixed unanswered
+probe deadline. `A3sFramedApplicationHostV1` joins the negotiated connection to
+`createApp` with one shared client session, one reader, bounded event tasks,
+ordered commit/event delivery, bidirectional liveness, and protocol close/ack;
+a real Node fixture drives two renders, both ping directions, and graceful
+shutdown through the Rust process. Restart/replay supervision, native OS hosts,
+and the stable full semantic component API remain later delivery slices. This
+package is therefore not a published SDK or a zero-configuration native TSX
+application yet. The future `run()` API will choose the host artifact, bind
+event dispatch, and supervise recovery.
 
 The explicit development path is runnable when the Rust host artifact is
 already built:

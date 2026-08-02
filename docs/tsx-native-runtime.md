@@ -9,9 +9,9 @@ rerenders, revision-scoped callback scopes, ordered event dispatch, and strict
 client handshake/framing plus post-handshake client/host message sequencing.
 The no-shell Node byte transport, strict software self-drawn Rust process host,
 and ordered `createApp` application pump are implemented, including
-client-originated ping/pong and protocol close/ack. Zero-configuration startup,
-host-initiated liveness, supervision/replay, and an executable native OS host
-are not implemented yet.
+bidirectional ping/pong, fixed host liveness deadlines, and protocol close/ack.
+Zero-configuration startup, supervision/replay, and an executable native OS
+host are not implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -444,8 +444,7 @@ application scheduler, a strict client handshake/session, an incremental
 little-endian JSON frame codec, a no-shell Node child-process transport, a
 strict software self-drawn Rust process host, an ordered application pump, and
 a pinned TypeScript 5.9 `react-jsx` fixture. Command messages,
-zero-configuration startup, host-initiated liveness, and supervision/replay
-remain pending.
+zero-configuration startup, and supervision/replay remain pending.
 
 `A3sClientHandshakeV1` constructs the exact first `hello`, bounds its encoded
 size, and accepts only a matching negotiated `welcome`. `A3sJsonFrameDecoderV1`
@@ -469,14 +468,28 @@ waits, and completes shutdown only after a sequenced close acknowledgement.
 Fatal, stream, handler, nonce, and timeout failures close the transport without
 pretending the protocol completed. `connectA3sNodeApplicationHostV1` composes
 that pump with the no-shell process transport. The checked-in Node fixture uses
-it to drive two complete `createApp` renders, a ping/pong exchange, and graceful
+it to drive two complete `createApp` renders, both ping directions, and graceful
 close through `a3s-gui-tsx-host` and the software self-drawn runtime.
+
+After 30 seconds without client traffic, `a3s-gui-tsx-host` emits a host ping
+and requires the matching pong within a fixed five-second deadline. Other
+render or control traffic does not extend an outstanding deadline, while a
+crossing protocol close cancels it. Strict `--liveness-interval-ms` and
+`--liveness-timeout-ms` overrides accept 1 through 600,000 milliseconds for
+deterministic process tests and explicit deployments.
 
 Application-level host messages are consumed serially. If an event from the
 active revision overlaps an in-flight render acknowledgement, its ordered
 callbacks finish before the new callback scope is promoted. The queue releases
 before event-triggered rendering is flushed, avoiding a scheduler/commit
 deadlock.
+
+The client session reserves every post-welcome host message in exact wire order
+before dispatch. Commit and event work may complete asynchronously while ping
+control is answered immediately; separate received and contiguous applied
+high-water marks preserve both truths. The unresolved window is capped at 1,024
+messages so a stalled semantic operation cannot accumulate unbounded control
+state.
 
 ### Messages
 
@@ -696,21 +709,22 @@ Delivered:
 - render error boundaries with source-located fallback values/functions,
   partial-candidate rollback, and rejected-fallback last-frame preservation
 - strict post-handshake client session with full render envelopes, independent
-  message-id sequences, byte limits, and identity checks before action preflight
+  sender sequences, bounded host receipt/application ordering, byte limits, and
+  identity checks before action preflight
 - strict client `hello`/`welcome` negotiation and incremental framed JSON codec
 - ordered framed connection and no-shell Node child-process byte transport with
   bounded stderr, timeout-backed shutdown, and success/crash process fixtures
 - strict `a3s-gui-tsx-host` process with software-reference self-drawn commits,
-  independent client/host sequencing, liveness replies, and graceful close
+  independent client/host sequencing, idle host probes, fixed response
+  deadlines, liveness replies, and graceful close
 - ordered `A3sFramedApplicationHostV1` sharing the negotiated session with
-  `createApp`, including bounded event tasks, timeout-backed client liveness,
-  protocol close/ack, and real Node-to-Rust coverage
+  `createApp`, including bounded event tasks, bidirectional liveness across
+  pending UI work, protocol close/ack, and real Node-to-Rust coverage
 - serialized event/commit consumption across overlapping host messages
 
 Remaining:
 
 - zero-configuration process startup and `createApp` event binding
-- host-initiated ping/pong handling
 - bounded restart policy, crash recovery, and committed-frame replay
 - final public component/action identity contract
 - complete keyboard, stale-event, host-crash, and replay gates
@@ -779,9 +793,12 @@ green.
 6. Add client handshake/framing and strict post-handshake session identity.
    Landed.
 7. Add the no-shell Node child-process byte transport and crash fixture. Landed.
-8. Add the headless Rust TSX host binary and interactive counter fixture.
+8. Add the headless Rust TSX host binary and interactive counter fixture. Landed.
 9. Connect the host to `createApp` and the generic self-drawn window path.
-10. Add Nub watch reload and platform binary packaging only after the native
+   Landed.
+10. Add host-initiated liveness, strict pong correlation, and a fixed process
+    deadline. Landed.
+11. Add Nub watch reload and platform binary packaging only after the native
    presentation gates pass.
 
 Each commit must leave Rust-only builds and the existing Rust authoring path
