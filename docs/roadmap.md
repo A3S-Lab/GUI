@@ -1,6 +1,6 @@
 # A3S GUI Roadmap
 
-_Last updated: 2026-08-02_
+_Last updated: 2026-08-03_
 
 ## Product direction
 
@@ -22,13 +22,14 @@ or fallback renderer.
 | --- | --- | --- |
 | M0 Graphics boundary | Complete | Feature-gated Graphics edge, deterministic reference presenter, stable draw IDs |
 | M1 architecture cleanup | Complete | Layer boundaries and graph gates; content-toolkit code/dependencies deleted |
-| M2 GPU foundation | In progress | Reviewed calculator GPU slice; tri-platform surface/presentation evidence missing |
+| M2 GPU foundation | In progress | Reviewed calculator GPU slice and raw Win32 surface identity; actual host presentation and tri-platform evidence missing |
 | M3 generic layout/scene | In progress | Generic calculator layout/scene/software fixture and all-style ownership matrix |
 | M4 text/input/a11y visuals | In progress | Bounded shaper/layout/scene contracts landed; concrete font, glyph, editing, IME, and AT backends missing |
 | M5 cutover/deletion | Partial | Legacy deletion complete; real OS-host cutover cannot occur until H2-H4 |
 | H0 host contract | Complete | Zero-widget transaction/event/API contract and dependency firewall |
 | H1 shared runtime | Complete | Atomic self-drawn frames, input/hit/a11y routing, recovery, presenters |
-| H2-H4 real hosts | Planned | Windows, macOS, Wayland/X11 implementations absent |
+| H2 Windows host | In progress | Real HWND lifecycle/message pump, PMv2 DPI/size/focus/close, raw surface identity, atomic transactions, Windows CI |
+| H3-H4 real hosts | Planned | macOS and Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
 | T2 TSX stateful runtime | Complete | Stateful `createApp`, public identity contract, bounded recovery/replay, and restarted-process keyboard/stale-event gates |
@@ -184,7 +185,7 @@ Already complete:
 
 Still required:
 
-- H2-H4 real hosts;
+- H2 Windows completion plus H3-H4 real hosts;
 - default visible example uses `SelfDrawnWindowRuntime`;
 - all required system-service bridges;
 - packaging/signing for self-drawn artifacts;
@@ -224,11 +225,31 @@ Delivered:
 
 ### H2 — Windows host
 
-Status: planned.
+Status: in progress.
 
-Deliver Win32 lifecycle/message loop, DXGI/DX12 presentation, DPI/resize,
-pointer/keyboard/wheel/focus/close, TSF, UI Automation, clipboard, and explicit
-system dialogs. No WinUI/XAML dependency is allowed.
+Delivered:
+
+- target-gated, thread-affine `WindowsPlatformHost` backed directly by Win32;
+- top-level `HWND` class/lifecycle with hidden or visible committed state;
+- per-monitor-v2 DPI context, logical client sizing, constraints, resize,
+  scale, occlusion, focus, redraw, and explicit close handling;
+- bounded `PeekMessageW` pump and lifetime-bound `raw-window-handle` surface
+  identity for a future Graphics presenter;
+- pure transaction planning, stale-revision rejection, atomic native
+  reconciliation, rollback, and queued presentation acknowledgements;
+- real Windows lifecycle tests plus H1 first-frame integration in target CI;
+- source/dependency firewalls confining unsafe Win32 ABI calls and rejecting
+  content toolkits.
+
+Remaining:
+
+- Graphics-owned DXGI/DX12 surface creation and actual pixel presentation;
+- surface-loss/device-loss recovery and presentation completion events;
+- pointer, keyboard, wheel, and complete focus translation;
+- TSF, UI Automation, clipboard, and explicit system services;
+- visible RSX/TSX story plus deterministic/GPU capture evidence.
+
+No WinUI/XAML dependency or application-content control is allowed.
 
 ### H3 — macOS host
 
@@ -405,8 +426,9 @@ The portable CI gate must always cover:
 - React Aria matrix validation;
 - software and GPU boundaries.
 
-Target-native jobs are added only with real zero-widget hosts. Packaging jobs
-are added only with real self-drawn artifacts.
+The first target-native job now runs real Win32 lifecycle, H1 integration, and
+firewall evidence. Equivalent macOS/Linux jobs are added with their raw hosts;
+packaging jobs are added only with real self-drawn artifacts.
 
 ## Reliability budgets
 
@@ -445,10 +467,17 @@ A release candidate requires:
 Completed on 2026-08-02: production text measurement/shaping interfaces in
 layout/scene.
 
-1. Build the first H2 Windows window/surface/presentation skeleton.
-2. Connect H1 input and completed T2 frame commits to that host.
-3. Implement the production font/shaping and glyph encoder backends, then add
-   text/IME and UI Automation bridges.
-4. Port the same host contract to H3 and H4.
+Completed on 2026-08-03: the first H2 Win32 lifecycle/message-pump/raw-surface
+skeleton and its target-native CI lane. Presentation acknowledgements are only
+queued; this milestone does not claim DXGI/DX12 pixels.
+
+1. Attach a Graphics-owned DXGI/DX12 presenter to `WindowsSurfaceHandle`, with
+   resize, surface loss, and real completion acknowledgements.
+2. Translate Windows pointer/keyboard/wheel events and connect completed T2
+   frame commits to a visible host executable.
+3. Implement production font/shaping and glyph encoder backends, then TSF and
+   UI Automation bridges.
+4. Add Windows clipboard/system-service smokes and port the same contract to
+   H3 and H4.
 5. Expand M6 deterministic stories and promote evidence through the matrix.
 6. Restore packaging only after H2-H4 artifacts exist.

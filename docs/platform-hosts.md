@@ -18,13 +18,15 @@ feature links those toolkits.
 | --- | --- | --- |
 | H0 contract | Implemented | Versioned transactions/events, validation limits, recording host, dependency firewall |
 | H1 shared runtime | Implemented | Atomic self-drawn frames, scene presenters, input/hit/accessibility routing, recovery tests |
-| H2 Windows host | Planned | No concrete Win32/DXGI host in the repository |
+| H2 Windows host | In progress | Real Win32 lifecycle/message pump, DPI/size/focus/close, raw surface identity, atomic commit/rollback, target CI |
 | H3 macOS host | Planned | No concrete macOS window/Metal host in the repository |
 | H4 Linux host | Planned | No concrete Wayland/X11/Vulkan host in the repository |
 | H5 product cutover | Planned | Requires all three hosts, packaging, and conformance evidence |
 
-Host feature names are capability markers only. Compiling `host-windows`,
-`host-macos`, or `host-linux` does not currently create a visible window.
+`host-windows` now exposes a real target-gated `WindowsPlatformHost` and can
+create hidden or visible raw top-level HWNDs. It queues redraw/presentation
+requests but does not yet attach DXGI/DX12, so no on-screen pixel result is
+claimed. `host-macos` and `host-linux` remain capability markers.
 
 ## Target pipeline
 
@@ -148,12 +150,21 @@ current dependency graph contains none of those bindings.
 
 ### H2 — Windows
 
-Deliver:
+Delivered:
 
 - hidden and visible window lifecycle;
-- DXGI/DX12-backed Graphics presentation;
-- resize, DPI, occlusion, and surface-loss recovery;
-- pointer, keyboard, wheel, focus, and close events;
+- per-monitor-v2 DPI-aware client sizing, constraints, resize, scale,
+  occlusion, focus, redraw, and close messages;
+- bounded raw Win32 message pump;
+- lifetime-bound HWND/HINSTANCE surface identity for Graphics;
+- atomic host transaction planning, native reconciliation, rollback, and
+  queued presentation scheduling;
+- real Windows lifecycle/H1 integration tests and unsafe/dependency firewalls.
+
+Remaining:
+
+- DXGI/DX12-backed Graphics presentation and surface-loss recovery;
+- pointer, keyboard, and wheel events;
 - TSF text input and UI Automation snapshot/action bridge;
 - clipboard and explicit file-picker smoke;
 - deterministic reference story plus GPU screenshot evidence.
@@ -216,5 +227,7 @@ Every host must eventually provide:
 | Visual | deterministic software baseline and reviewed GPU capture |
 | Reliability | bounded queues/history, stale revision rejection, recovery |
 
-Until those lanes exist, the portable H0/H1 tests are the authoritative host
-contract evidence.
+Portable H0/H1 tests remain the cross-platform contract authority. The
+Windows-native lane additionally proves the landed raw lifecycle slice; it is
+not presentation, input, text, accessibility-provider, or system-service
+conformance evidence yet.

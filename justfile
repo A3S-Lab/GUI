@@ -80,7 +80,7 @@ check-core-graph:
         exit 1
     fi
 
-# Prove the H0 contract graph contains no renderer or OS content toolkit
+# Prove the H0 contract and raw Windows host graphs contain no renderer or OS content toolkit
 check-platform-host-graph:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -88,6 +88,12 @@ check-platform-host-graph:
     host_graph="$(cargo tree --locked --no-default-features --features platform-host --prefix none)"
     if grep -Eq '^(a3s-graphics|wgpu|gtk4|gdk4|gsk4|winio-winui3|windows-collections|objc2-app-kit) ' <<<"$host_graph"; then
         echo "renderer or content-toolkit dependencies entered the H0 platform-host graph" >&2
+        exit 1
+    fi
+
+    windows_host_graph="$(cargo tree --locked --no-default-features --features host-windows --target x86_64-pc-windows-msvc --prefix none)"
+    if grep -Eq '^(a3s-graphics|wgpu|gtk4|gdk4|gsk4|winio-winui3|windows-collections|objc2-app-kit) ' <<<"$windows_host_graph"; then
+        echo "renderer or content-toolkit dependencies entered the H2 Windows-host graph" >&2
         exit 1
     fi
 
@@ -112,6 +118,12 @@ test-platform-runtime:
     cargo test --locked --no-default-features --features platform-runtime --lib platform_runtime::
     cargo test --locked --no-default-features --features platform-runtime --test platform_runtime_firewall
     cargo test --locked --no-default-features --features authoring,platform-runtime,software-reference --example self_drawn_calculator
+
+# Exercise real Win32 lifecycle plus the H1-to-H2 first-frame integration on Windows
+test-windows-host:
+    cargo test --locked --no-default-features --features host-windows --test windows_platform_host -- --test-threads=1
+    cargo test --locked --no-default-features --features host-windows,platform-runtime --test windows_platform_host shared_self_drawn_runtime_commits_into_the_real_hidden_win32_host -- --exact --test-threads=1
+    cargo test --locked --no-default-features --features host-windows --test platform_host_firewall -- --test-threads=1
 
 # Lint every maintained target and deny high-confidence warnings
 clippy:

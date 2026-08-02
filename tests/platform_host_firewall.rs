@@ -54,6 +54,36 @@ fn target_host_features_do_not_enable_legacy_renderers() {
             "target feature {feature:?} must include the shared platform-host contract"
         );
     }
+
+    let windows = feature_definition(features, "host-windows");
+    assert!(windows.contains("dep:raw-window-handle"));
+    assert!(windows.contains("dep:windows-sys"));
+}
+
+#[test]
+fn raw_platform_unsafe_is_confined_to_reviewed_windows_abi_files() {
+    let source_root = manifest_path("src/platform_host");
+    let mut files = Vec::new();
+    collect_rust_files(&source_root, &mut files);
+    let allowed = [
+        source_root.join("windows/native.rs"),
+        source_root.join("windows/surface.rs"),
+    ];
+
+    for path in files {
+        let source = fs::read_to_string(&path).unwrap();
+        if source.contains("allow(unsafe_code)") || source.contains("unsafe {") {
+            assert!(
+                allowed.contains(&path),
+                "unsafe platform-host code escaped the reviewed Win32 ABI boundary: {}",
+                path.display()
+            );
+        }
+    }
+    for path in allowed {
+        let source = fs::read_to_string(&path).unwrap();
+        assert!(source.starts_with("#![allow(unsafe_code)]"));
+    }
 }
 
 #[test]

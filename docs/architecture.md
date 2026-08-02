@@ -142,9 +142,12 @@ The `platform-host` feature exposes only zero-widget contracts:
 Host commands are validated before mutation. Transactions and events have
 explicit byte/count limits. Sensitive values are redacted from diagnostics.
 
-The `host-macos`, `host-windows`, `host-linux-wayland`, and
-`host-linux-x11` features are dependency-free capability markers today.
-They do not create real windows yet.
+On Windows, `host-windows` adds only `windows-sys` and `raw-window-handle` and
+provides the first real, thread-affine `WindowsPlatformHost`. It creates raw
+top-level HWNDs, owns their bounded message pump and DPI-aware lifecycle, and
+lends Graphics a lifetime-bound surface identity. It does not create child
+controls or draw application content. `host-macos`, `host-linux-wayland`, and
+`host-linux-x11` remain capability markers until their raw hosts land.
 
 ## Shared self-drawn runtime (H1)
 
@@ -232,7 +235,8 @@ Host session.
 - TypeScript state remains in the supervised Node process.
 - Graphics devices, surfaces, and prepared frames remain in Rust.
 - OS window/input/IME/accessibility objects remain inside the matching host.
-- Thread-affine resources must not cross the host boundary as raw handles.
+- Native surface identity may be borrowed by Graphics only through a
+  lifetime-bound target type; it is never serialized or moved into TSX.
 - Callbacks cross process boundaries as versioned action identifiers and
   validated payloads.
 
@@ -266,23 +270,24 @@ The portable `just verify` gate covers:
 - React Aria catalog schema and coverage;
 - software and GPU boundary tests.
 
-Real host lanes will be added only when the corresponding zero-widget host
-exists. Deleted toolkit and bundle lanes are not retained as migration
-evidence.
+Target-native CI additionally runs Win32 lifecycle and H1 first-frame
+integration tests. The Windows lane exists because its raw zero-widget host now
+exists. Equivalent macOS/Linux lanes arrive with their hosts. Deleted toolkit
+and bundle lanes are not retained as migration evidence.
 
 ## Current gaps
 
 The architecture is implemented through the generic scene slice, H0 host
-contract, H1 shared runtime, and the complete T2 stateful TSX runtime, including
-the strict software self-drawn process host, ordered Node/Rust application
-pump, finalized component/action identity contract, bounded restart/replay,
-and restarted-process keyboard/stale-event gates. The remaining critical work
-is:
+contract, H1 shared runtime, the first raw H2 Win32 lifecycle/surface slice,
+and the complete T2 stateful TSX runtime, including the strict software
+self-drawn process host, ordered Node/Rust application pump, finalized
+component/action identity contract, bounded restart/replay, and
+restarted-process keyboard/stale-event gates. The remaining critical work is:
 
 1. production font discovery/shaping and glyph encoding behind the landed
    generic layout/scene contracts, followed by editing, IME, and accessibility
    semantics;
-2. concrete Windows, macOS, and Wayland/X11 hosts;
+2. Windows DXGI/input/TSF/UIA completion plus raw macOS and Wayland/X11 hosts;
 3. component-by-component React Aria conformance;
 4. packaging, signing, installers, and real tri-platform evidence.
 

@@ -18,6 +18,9 @@ mod text_input;
 mod validation;
 mod window;
 
+#[cfg(all(feature = "host-windows", target_os = "windows"))]
+mod windows;
+
 pub use accessibility::{
     PlatformAccessibilityAction, PlatformAccessibilityActionKind, PlatformAccessibilityNode,
     PlatformAccessibilitySnapshot, PlatformElementId, MAX_PLATFORM_ACCESSIBILITY_BYTES,
@@ -57,6 +60,9 @@ pub use window::{
     PlatformWindowCommand, PlatformWindowEvent, PlatformWindowId, PlatformWindowSpec,
     MAX_PLATFORM_WINDOW_TITLE_BYTES,
 };
+
+#[cfg(all(feature = "host-windows", target_os = "windows"))]
+pub use windows::{WindowsPlatformHost, WindowsSurfaceHandle};
 
 #[cfg(test)]
 mod tests;

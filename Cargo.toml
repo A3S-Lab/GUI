@@ -42,7 +42,7 @@ gpu = ["graphics", "a3s-graphics/gpu"]
 platform-host = []
 platform-runtime = ["platform-host", "graphics"]
 host-macos = ["platform-host"]
-host-windows = ["platform-host"]
+host-windows = ["platform-host", "dep:raw-window-handle", "dep:windows-sys"]
 host-linux-wayland = ["platform-host"]
 host-linux-x11 = ["platform-host"]
 host-linux = ["host-linux-wayland", "host-linux-x11"]
@@ -73,6 +73,16 @@ swc_ecma_ast = { version = "25.0.0", optional = true }
 swc_ecma_parser = { version = "41.1.2", optional = true }
 ts-rs = { version = "12.0.1", optional = true, default-features = false, features = ["serde-compat", "no-serde-warnings"] }
 writeable = "0.6.3"
+
+[target.'cfg(windows)'.dependencies]
+raw-window-handle = { version = "0.6.2", optional = true }
+windows-sys = { version = "0.61.2", optional = true, features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_HiDpi",
+    "Win32_UI_WindowsAndMessaging",
+] }
 
 [dev-dependencies]
 pollster = "1.0.1"

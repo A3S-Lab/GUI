@@ -26,6 +26,7 @@ dependencies = [
  "icu_properties",
  "icu_provider",
  "pollster",
+ "raw-window-handle",
  "serde",
  "serde_json",
  "swc_atoms",
@@ -33,6 +34,7 @@ dependencies = [
  "swc_ecma_ast",
  "swc_ecma_parser",
  "ts-rs",
+ "windows-sys",
  "writeable",
 ]
 

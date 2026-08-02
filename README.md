@@ -18,10 +18,10 @@ uses a DOM, CSSOM, WebView, or platform content-widget toolkit.
 > [!IMPORTANT]
 > A3S owns every application-content pixel. The former AppKit, GTK4, and WinUI
 > content backends, features, dependencies, examples, packaging scripts, and CI
-> lanes have been deleted. The repository currently contains no executable OS
-> window host; `platform-host` defines the zero-widget boundary and
-> `platform-runtime` implements the shared atomic self-drawn frame runtime.
-> Raw macOS, Windows, and Linux hosts remain roadmap work.
+> lanes have been deleted. `platform-host` defines the zero-widget boundary,
+> `platform-runtime` implements the shared atomic self-drawn frame runtime, and
+> `host-windows` now provides the first raw Win32 window/surface lifecycle.
+> DXGI/DX12 pixel presentation and the raw macOS/Linux hosts remain roadmap work.
 
 ## One semantic tree, one owned-pixel pipeline
 
@@ -86,6 +86,11 @@ The repository already provides:
   record without receiving source text or escaping its ink bounds;
 - a bounded `PlatformHost` transaction/event contract with dependency
   firewalls;
+- a target-gated `WindowsPlatformHost` with real Win32 `HWND` lifecycle,
+  per-monitor-v2 DPI client sizing, message pumping, focus/close/occlusion
+  events, lifetime-bound raw surface identity, atomic prepare/commit/rollback,
+  and Windows-native CI evidence; presentation is queued for the future
+  DXGI/DX12 presenter and is not yet claimed as visible pixels;
 - `SelfDrawnWindowRuntime` with atomic prepare/commit/reject, recovery,
   presentation acknowledgements, normalized input, hit testing, drag/drop,
   accessibility actions, and reference/recording presenters;
@@ -130,7 +135,9 @@ The repository already provides:
 
 Still required before a production native application:
 
-- real zero-widget macOS, Windows, and Wayland/X11 hosts;
+- DXGI/DX12 presentation, full input, TSF, UI Automation, and system services
+  for the landed Windows host;
+- real zero-widget macOS and Wayland/X11 hosts;
 - a production font database/shaper and glyph raster/atlas encoder, followed by
   text editing, IME, and assistive-technology bridges;
 - packaging, signing, installer work, and tri-platform visual evidence;
@@ -189,8 +196,9 @@ the real Rust software/self-drawn process. It resolves the exact platform
 artifact package and validates its manifest, size, target, protocol range, and
 SHA-256 checksum before spawn; the repository test path uses an explicit
 absolute development artifact override plus an unverified-Host opt-in.
-Published native platform packages and visible OS hosts do not exist yet, so
-this is still not an end-user native package. The underlying scheduler also
+Published native platform packages and an end-to-end GPU-presented visible host
+do not exist yet, so this is still not an end-user native package. The
+underlying scheduler also
 remains usable with a typed host object. It owns keyed function-component
 instances, typed nested context, render error boundaries, state/reducer/memo/
 ref/effect hooks, one-microtask rerender batching, revision-scoped callbacks,
@@ -271,11 +279,12 @@ cargo run --locked --no-default-features \
 | `gpu` | wgpu-backed Graphics path |
 | `platform-host` | Zero-widget OS boundary contracts and recording host |
 | `platform-runtime` | Shared self-drawn frame/input/accessibility runtime |
-| `host-macos`, `host-windows`, `host-linux-*` | Dependency-free host capability markers; concrete hosts are not implemented yet |
+| `host-windows` | Raw Win32 top-level host and lifetime-bound `HWND` surface identity; no WinUI/XAML and no DXGI presenter yet |
+| `host-macos`, `host-linux-*` | Zero-widget host capability markers; concrete hosts are not implemented yet |
 | `typescript-schema` | Rust-to-TypeScript protocol declaration generation |
 
-There are deliberately no AppKit, GTK4, WinUI, or corresponding native
-feature flags.
+There are deliberately no AppKit, GTK4, WinUI, or corresponding
+content-toolkit feature flags.
 
 ## Development
 
@@ -293,6 +302,7 @@ just check-platform-host
 just check-platform-runtime
 just test-platform-host
 just test-platform-runtime
+just test-windows-host # Windows only
 just test-graphics
 just check-tsx-protocol
 just test-typescript
@@ -301,8 +311,8 @@ just test-tsx-host
 
 `just verify` also checks dependency firewalls, formatting, Clippy, rustdoc,
 all Rust tests and examples, the React Aria catalog, TypeScript fixtures, and
-whitespace. CI has one portable verification job; toolkit-specific and legacy
-bundle lanes no longer exist.
+whitespace. CI adds a Windows-native lifecycle/H1 integration job for the raw
+Win32 host. Toolkit-specific content-host and legacy bundle lanes do not exist.
 
 ## Repository map
 
@@ -312,7 +322,7 @@ src/
 |- runtime/               reconciliation, focus, interaction, selection
 |- layout/                deterministic layout snapshots and hit regions
 |- drawing/               semantic/layout to A3S Graphics scenes
-|- platform_host/         zero-widget OS contracts and recording host
+|- platform_host/         zero-widget contracts, recording host, raw Win32 host
 |- platform_runtime/      shared atomic self-drawn window runtime
 |- tsx_protocol/          strict Node/Rust wire protocol
 |- bin/tsx_host.rs        software self-drawn TSX process host
@@ -327,11 +337,12 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. implement the first raw Windows host, then macOS and Wayland/X11 hosts,
-   without adding content-widget dependencies;
+1. attach a Graphics-owned DXGI/DX12 presenter to the landed raw Win32 host,
+   then complete Windows input, TSF, UI Automation, and system services;
 2. implement the font discovery/shaping and glyph raster/atlas backends on the
    landed generic text contracts, then add editing and IME;
-3. connect the completed T2 TSX runtime to those visible self-drawn hosts;
+3. connect the completed T2 TSX runtime to the visible Windows path, then port
+   the same zero-widget contract to macOS and Wayland/X11;
 4. close React Aria families milestone by milestone with tri-platform evidence;
 5. restore packaging only after the self-drawn host artifacts exist.
 
