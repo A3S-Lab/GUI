@@ -4,10 +4,11 @@
 
 A3S GUI uses one self-drawn content engine on every operating system.
 
-A platform host may own a top-level window, graphics surface, event loop, raw
-input translation, text/IME bridge, accessibility provider, clipboard, and
-explicit system services. It must not create application-content controls,
-delegate content layout, or interpret A3S styles.
+A platform host may own a top-level window, surface-lifetime target, event
+loop, raw input translation, text/IME bridge, accessibility provider,
+clipboard, and explicit system services. Graphics owns the GPU surface and
+presentation. Neither layer may create application-content controls, delegate
+content layout, or interpret A3S styles in the host.
 
 The old AppKit, GTK4, and WinUI content hosts are deleted. No current Cargo
 feature links those toolkits.
@@ -17,16 +18,18 @@ feature links those toolkits.
 | Track | Status | Evidence |
 | --- | --- | --- |
 | H0 contract | Implemented | Versioned transactions/events, validation limits, recording host, dependency firewall |
-| H1 shared runtime | Implemented | Atomic self-drawn frames, scene presenters, input/hit/accessibility routing, recovery tests |
-| H2 Windows host | In progress | Real Win32 lifecycle/message pump, DPI/size/focus/close, raw surface identity, atomic commit/rollback, target CI |
+| H1 shared runtime | Implemented | Host-first target staging, typed presenter completion, rollback ordering, input/hit/accessibility routing |
+| H2 Windows host | In progress | Real Win32 lifecycle, owned surface leases, Graphics/DX12 presentation, DPI/size/focus/close, target CI |
 | H3 macOS host | Planned | No concrete macOS window/Metal host in the repository |
 | H4 Linux host | Planned | No concrete Wayland/X11/Vulkan host in the repository |
 | H5 product cutover | Planned | Requires all three hosts, packaging, and conformance evidence |
 
-`host-windows` now exposes a real target-gated `WindowsPlatformHost` and can
-create hidden or visible raw top-level HWNDs. It queues redraw/presentation
-requests but does not yet attach DXGI/DX12, so no on-screen pixel result is
-claimed. `host-macos` and `host-linux` remain capability markers.
+`host-windows` exposes a real target-gated `WindowsPlatformHost`. It stages a
+new raw HWND while hidden, leases its lifetime to the Graphics-owned surface,
+commits visibility, and then publishes the prepared frame through DX12. The
+target-native test proves the real submission/present path but is not yet a
+reviewed screenshot or full Windows conformance claim. `host-macos` and
+`host-linux` remain capability markers.
 
 ## Target pipeline
 
@@ -41,14 +44,15 @@ NativeElement + portable style + interaction state
                 |       |        |
                 |       |        v
                 |       |   prepared GPU frame
+                |       |        ^
                 |       |        |
-                +-------+--------+
-                        v
-                 PlatformHost
-          window / surface / presentation
-                        |
-                        v
-       normalized input, IME, a11y and system events
+                +-------+--- staged target --- PlatformHost
+                        |              |          window lifecycle
+                        |              v
+                        +------ host commit ------+
+                                       |
+                                       v
+                              Graphics presentation
 ```
 
 Every platform consumes the same layout and scene. A host-specific difference
@@ -62,12 +66,13 @@ The host owns:
 
 - top-level window creation, visibility, title, size, minimum/maximum size;
 - logical/physical scale reporting and resize events;
-- graphics-surface creation and loss/recovery;
-- presentation scheduling and acknowledgements;
+- owned native target lifetime and destruction ordering;
+- presentation transaction scheduling and host acknowledgements;
 - close requests and lifecycle events.
 
-The shared runtime owns the frame revision, damage list, prepared scene, and
-commit decision.
+Graphics owns GPU-surface creation, swapchain acquisition, rendering,
+presentation, and recoverable surface status. The shared runtime owns the frame
+revision, damage list, prepared scene, commit decision, and retry policy.
 
 ### Input and focus
 
@@ -126,11 +131,11 @@ bounded and redact sensitive values.
 `SelfDrawnWindowRuntime<H, P>` coordinates a `PlatformHost` and
 `PlatformScenePresenter`.
 
-A successful frame advances semantic, interaction, accessibility, scene,
-presentation, and host revisions together. If preparation, presentation, or
-host commit fails, the candidate frame is rejected and the active snapshot
-remains unchanged. Recovery can rebuild a fresh presenter or host from the
-active snapshot.
+A successful frame stages the host, prepares Graphics work against the leased
+target, commits the host, presents, and advances the matching logical snapshot.
+Any pre-commit failure discards Graphics work and releases its lease before
+host rollback. A post-commit drop or surface loss is typed, retains logical
+state matching the host commit, and schedules replay.
 
 The recording and reference implementations are executable specifications for
 future OS hosts.
@@ -156,14 +161,16 @@ Delivered:
 - per-monitor-v2 DPI-aware client sizing, constraints, resize, scale,
   occlusion, focus, redraw, and close messages;
 - bounded raw Win32 message pump;
-- lifetime-bound HWND/HINSTANCE surface identity for Graphics;
-- atomic host transaction planning, native reconciliation, rollback, and
-  queued presentation scheduling;
-- real Windows lifecycle/H1 integration tests and unsafe/dependency firewalls.
+- owned HWND/HINSTANCE surface leases that block premature destruction;
+- hidden first-frame staging plus atomic host reconciliation and rollback;
+- Graphics-owned swapchain preparation, DX12 presentation, and typed
+  completion status;
+- real Windows lifecycle/H1/DX12 tests and unsafe/dependency firewalls.
 
 Remaining:
 
-- DXGI/DX12-backed Graphics presentation and surface-loss recovery;
+- device-loss fault injection, minimize/restore recovery, and reviewed GPU
+  capture evidence;
 - pointer, keyboard, and wheel events;
 - TSF text input and UI Automation snapshot/action bridge;
 - clipboard and explicit file-picker smoke;
@@ -228,6 +235,6 @@ Every host must eventually provide:
 | Reliability | bounded queues/history, stale revision rejection, recovery |
 
 Portable H0/H1 tests remain the cross-platform contract authority. The
-Windows-native lane additionally proves the landed raw lifecycle slice; it is
-not presentation, input, text, accessibility-provider, or system-service
-conformance evidence yet.
+Windows-native lane additionally proves raw lifecycle, lease rollback, and
+Graphics/DX12 presentation. It is not input, text, accessibility-provider,
+system-service, or reviewed visual-conformance evidence yet.

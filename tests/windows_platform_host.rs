@@ -89,7 +89,16 @@ fn real_win32_host_commits_hidden_window_surface_and_presentation() {
     let mut host = WindowsPlatformHost::new().unwrap();
 
     host.prepare(open_transaction(1)).unwrap();
-    assert_eq!(host.window_count(), 0, "prepare must not create an HWND");
+    assert_eq!(host.window_count(), 0);
+    assert_eq!(host.staged_window_count(), 1);
+    let staged = host.presentation_target(window_id()).unwrap();
+    let staged_hwnd = match staged.window_handle().unwrap().as_raw() {
+        RawWindowHandle::Win32(handle) => handle.hwnd,
+        other => panic!("expected staged Win32 surface handle, got {other:?}"),
+    };
+    assert_ne!(unsafe { IsWindow(staged_hwnd.get() as _) }, 0);
+    assert_eq!(unsafe { IsWindowVisible(staged_hwnd.get() as _) }, 0);
+    drop(staged);
     let ack = host.commit().unwrap();
 
     assert_eq!(ack.revision, revision(1));
@@ -100,6 +109,7 @@ fn real_win32_host_commits_hidden_window_surface_and_presentation() {
         PlatformPresentationStatus::Queued
     );
     assert_eq!(host.window_count(), 1);
+    assert_eq!(host.staged_window_count(), 0);
     assert_eq!(host.last_committed_revision(), Some(revision(1)));
     assert_eq!(
         host.accessibility_snapshot(window_id()).unwrap().window,
@@ -113,9 +123,32 @@ fn real_win32_host_commits_hidden_window_surface_and_presentation() {
     assert!(surface.scale_factor() > 0.0);
     assert!(surface.physical_size().0 > 0);
     assert!(surface.physical_size().1 > 0);
+    drop(surface);
 
     host.shutdown().unwrap();
     assert_eq!(unsafe { IsWindow(hwnd.get() as _) }, 0);
+}
+
+#[test]
+fn staged_surface_lease_blocks_rollback_until_the_presenter_releases_it() {
+    let mut host = WindowsPlatformHost::new().unwrap();
+    host.prepare(open_transaction(1)).unwrap();
+    let surface = host.presentation_target(window_id()).unwrap();
+    let hwnd = match surface.window_handle().unwrap().as_raw() {
+        RawWindowHandle::Win32(handle) => handle.hwnd,
+        other => panic!("expected Win32 surface handle, got {other:?}"),
+    };
+
+    let error = host.rollback().unwrap_err();
+    assert!(error.to_string().contains("active Graphics surface lease"));
+    assert_ne!(unsafe { IsWindow(hwnd.get() as _) }, 0);
+    assert_eq!(host.staged_window_count(), 1);
+
+    drop(surface);
+    host.rollback().unwrap();
+    assert_eq!(unsafe { IsWindow(hwnd.get() as _) }, 0);
+    assert_eq!(host.staged_window_count(), 0);
+    host.shutdown().unwrap();
 }
 
 #[test]
@@ -189,6 +222,7 @@ fn updates_rollback_without_native_mutation_and_close_is_explicit() {
     let logical_height = f64::from(surface.physical_size().1) / surface.scale_factor();
     assert!((logical_width - 480.0).abs() <= 1.0);
     assert!((logical_height - 320.0).abs() <= 1.0);
+    drop(surface);
 
     drain_events(&mut host);
     assert_ne!(unsafe { PostMessageW(hwnd.get() as _, WM_CLOSE, 0, 0) }, 0);
@@ -279,6 +313,53 @@ fn shared_self_drawn_runtime_commits_into_the_real_hidden_win32_host() {
     assert_eq!(runtime.host().window_count(), 1);
     let hwnd = native_hwnd(runtime.host());
     assert_ne!(unsafe { IsWindow(hwnd.get() as _) }, 0);
+    runtime.shutdown().unwrap();
+    assert_eq!(unsafe { IsWindow(hwnd.get() as _) }, 0);
+}
+
+#[cfg(all(feature = "platform-runtime", feature = "gpu"))]
+#[test]
+fn graphics_presenter_draws_and_presents_the_first_real_win32_frame() {
+    use a3s_gui::drawing::{GpuBackend, GpuPowerPreference, GpuRendererOptions};
+    use a3s_gui::native::{NativeElement, NativeProps, NativeRole};
+    use a3s_gui::platform_runtime::{
+        GpuScenePresenter, SelfDrawnFrameCommitStatus, SelfDrawnWindowRuntime,
+    };
+    use a3s_gui::web::WebProps;
+
+    let host = WindowsPlatformHost::new().unwrap();
+    let scale_factor = host.initial_scale_factor().unwrap();
+    let presenter = GpuScenePresenter::with_options(GpuRendererOptions {
+        power_preference: GpuPowerPreference::None,
+        allow_software_adapter: true,
+        ..GpuRendererOptions::default()
+    });
+    let mut spec = window_spec("A3S Graphics DX12 presentation", Size::new(320.0, 240.0));
+    spec.visible = true;
+    let mut runtime = SelfDrawnWindowRuntime::new(host, presenter, spec, scale_factor).unwrap();
+    let root = NativeElement::new("root", NativeRole::View).with_props(
+        NativeProps::new().web(WebProps::new().class_name("h-[240px] w-[320px] bg-black")),
+    );
+
+    let commit = runtime.render(root).unwrap();
+
+    assert_eq!(commit.status, SelfDrawnFrameCommitStatus::Committed);
+    assert_eq!(
+        commit.presentation_status,
+        Some(PlatformPresentationStatus::Presented)
+    );
+    let capabilities = runtime.presenter().capabilities().unwrap();
+    assert_eq!(capabilities.backend, GpuBackend::Direct3d12);
+    let presented = runtime.presenter().committed().unwrap();
+    assert!(presented.gpu().presented);
+    assert_eq!(
+        presented.gpu().fingerprint,
+        presented.frame().scene_fingerprint
+    );
+    let hwnd = native_hwnd(runtime.host());
+    assert_ne!(unsafe { IsWindow(hwnd.get() as _) }, 0);
+    assert_ne!(unsafe { IsWindowVisible(hwnd.get() as _) }, 0);
+
     runtime.shutdown().unwrap();
     assert_eq!(unsafe { IsWindow(hwnd.get() as _) }, 0);
 }

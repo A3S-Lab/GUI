@@ -2,8 +2,8 @@
 //!
 //! This module owns only HWND lifecycle, DPI-aware client geometry, the
 //! message pump, raw surface identity, and presentation scheduling. Graphics
-//! owns all application-content drawing; TSF, UI Automation, input translation,
-//! DXGI/DX12 presentation, and system services remain later H2 work.
+//! owns all application-content drawing and GPU presentation; TSF, UI
+//! Automation, input translation, and system services remain later H2 work.
 
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
@@ -20,13 +20,14 @@ use super::{
     DEFAULT_PLATFORM_HOST_EVENT_QUEUE_LIMIT,
 };
 
+mod commit;
 mod events;
 mod native;
 mod plan;
 mod surface;
 
 use events::WindowsEventQueue;
-use native::{pump_messages, register_window_class, NativeWindow};
+use native::{pump_messages, register_window_class, system_scale_factor, NativeWindow};
 use plan::{plan_transaction, PreparedWindowsTransaction, WindowsWindowState};
 pub use surface::WindowsSurfaceHandle;
 
@@ -37,13 +38,14 @@ struct WindowRecord {
 
 /// Thread-affine, zero-widget Win32 host.
 ///
-/// `prepare` is pure and creates no HWND. `commit` reconciles the complete
-/// planned state while suppressing re-entrant Win32 events, restores existing
-/// windows and destroys newly-created hidden windows on failure, and publishes
-/// visibility only after all fallible updates have succeeded.
+/// `prepare` validates the complete transaction and stages newly opened HWNDs
+/// while they are hidden, so Graphics can prepare pixels against a real target.
+/// `commit` reconciles existing native state while suppressing re-entrant
+/// events and publishes visibility only after all fallible updates succeed.
 pub struct WindowsPlatformHost {
     hinstance: HINSTANCE,
     windows: BTreeMap<PlatformWindowId, WindowRecord>,
+    staged: BTreeMap<PlatformWindowId, NativeWindow>,
     pending: Option<PreparedWindowsTransaction>,
     events: WindowsEventQueue,
     last_committed_revision: Option<PlatformHostRevision>,
@@ -56,6 +58,7 @@ impl std::fmt::Debug for WindowsPlatformHost {
         formatter
             .debug_struct("WindowsPlatformHost")
             .field("window_count", &self.windows.len())
+            .field("staged_window_count", &self.staged.len())
             .field(
                 "pending_revision",
                 &self
@@ -86,6 +89,7 @@ impl WindowsPlatformHost {
         Ok(Self {
             hinstance: register_window_class()?,
             windows: BTreeMap::new(),
+            staged: BTreeMap::new(),
             pending: None,
             events: WindowsEventQueue::new(event_queue_limit),
             last_committed_revision: None,
@@ -97,6 +101,17 @@ impl WindowsPlatformHost {
     /// Returns the number of committed native top-level windows.
     pub fn window_count(&self) -> usize {
         self.windows.len()
+    }
+
+    /// Returns the number of hidden HWNDs retained by a pending transaction.
+    pub fn staged_window_count(&self) -> usize {
+        self.staged.len()
+    }
+
+    /// Returns the DPI scale used to plan a default-located first window.
+    pub fn initial_scale_factor(&self) -> GuiResult<f64> {
+        self.ensure_running()?;
+        system_scale_factor()
     }
 
     /// Returns the committed logical specification for `window`.
@@ -133,9 +148,9 @@ impl WindowsPlatformHost {
         self.shutdown
     }
 
-    /// Borrows the committed HWND/HINSTANCE pair for Graphics surface
-    /// attachment. The handle becomes unavailable after a committed close.
-    pub fn surface(&self, window: PlatformWindowId) -> GuiResult<WindowsSurfaceHandle<'_>> {
+    /// Leases the committed HWND/HINSTANCE pair for Graphics surface
+    /// attachment. A committed close is rejected while the lease remains live.
+    pub fn surface(&self, window: PlatformWindowId) -> GuiResult<WindowsSurfaceHandle> {
         self.ensure_running()?;
         let record = self.windows.get(&window).ok_or_else(|| {
             GuiError::host(format!(
@@ -143,12 +158,18 @@ impl WindowsPlatformHost {
                 window.get()
             ))
         })?;
+        Self::surface_handle(window, &record.native)
+    }
+
+    fn surface_handle(
+        window: PlatformWindowId,
+        native: &NativeWindow,
+    ) -> GuiResult<WindowsSurfaceHandle> {
         Ok(WindowsSurfaceHandle::new(
             window,
-            record.native.hwnd()?,
-            record.native.hinstance()?,
-            record.native.physical_size()?,
-            record.native.scale_factor()?,
+            native.surface_state(),
+            native.physical_size()?,
+            native.scale_factor()?,
         ))
     }
 
@@ -168,22 +189,11 @@ impl WindowsPlatformHost {
     }
 
     fn apply_prepared(&mut self, prepared: &PreparedWindowsTransaction) -> GuiResult<()> {
-        let mut created = BTreeMap::<PlatformWindowId, NativeWindow>::new();
         let mut originals = BTreeMap::<PlatformWindowId, PlatformWindowSpec>::new();
 
         for window in &prepared.opened {
-            let Some(state) = prepared.desired.get(window) else {
-                return Err(GuiError::host(
-                    "Windows host prepared an open window without desired state",
-                ));
-            };
-            match NativeWindow::create(self.hinstance, &state.spec, self.events.clone()) {
-                Ok(native) => {
-                    created.insert(*window, native);
-                }
-                Err(error) => {
-                    return Err(self.restore_after_failure(error, &mut created, &originals));
-                }
+            if !self.staged.contains_key(window) {
+                return Err(GuiError::host("Windows host lost a staged native window"));
             }
         }
 
@@ -194,7 +204,6 @@ impl WindowsPlatformHost {
             let Some(record) = self.windows.get_mut(window) else {
                 return Err(self.restore_after_failure(
                     GuiError::host("Windows host lost a prepared native window"),
-                    &mut created,
                     &originals,
                 ));
             };
@@ -204,13 +213,13 @@ impl WindowsPlatformHost {
             originals.insert(*window, record.state.spec.clone());
             if native_properties_differ(&record.state.spec, &desired.spec) {
                 if let Err(error) = record.native.apply_spec_properties(&desired.spec) {
-                    return Err(self.restore_after_failure(error, &mut created, &originals));
+                    return Err(self.restore_after_failure(error, &originals));
                 }
             }
         }
 
         for window in &prepared.redraw {
-            let result = if let Some(native) = created.get(window) {
+            let result = if let Some(native) = self.staged.get(window) {
                 native.invalidate()
             } else if let Some(record) = self.windows.get(window) {
                 record.native.invalidate()
@@ -220,17 +229,7 @@ impl WindowsPlatformHost {
                 ))
             };
             if let Err(error) = result {
-                return Err(self.restore_after_failure(error, &mut created, &originals));
-            }
-        }
-
-        for (window, desired) in &prepared.desired {
-            if let Some(native) = created.get_mut(window) {
-                native.set_visible(desired.spec.visible);
-            } else if let Some(record) = self.windows.get_mut(window) {
-                if record.state.spec.visible != desired.spec.visible {
-                    record.native.set_visible(desired.spec.visible);
-                }
+                return Err(self.restore_after_failure(error, &originals));
             }
         }
 
@@ -241,7 +240,17 @@ impl WindowsPlatformHost {
                 .ok_or_else(|| GuiError::host("Windows host lost a prepared close window"))
                 .and_then(|record| record.native.destroy());
             if let Err(error) = destroy_result {
-                return Err(self.restore_after_failure(error, &mut created, &originals));
+                return Err(self.restore_after_failure(error, &originals));
+            }
+        }
+
+        for (window, desired) in &prepared.desired {
+            if let Some(native) = self.staged.get_mut(window) {
+                native.set_visible(desired.spec.visible);
+            } else if let Some(record) = self.windows.get_mut(window) {
+                if record.state.spec.visible != desired.spec.visible {
+                    record.native.set_visible(desired.spec.visible);
+                }
             }
         }
 
@@ -250,7 +259,7 @@ impl WindowsPlatformHost {
         }
         for (window, desired) in &prepared.desired {
             if prepared.opened.contains(window) {
-                if let Some(native) = created.remove(window) {
+                if let Some(native) = self.staged.remove(window) {
                     self.windows.insert(
                         *window,
                         WindowRecord {
@@ -269,7 +278,6 @@ impl WindowsPlatformHost {
     fn restore_after_failure(
         &mut self,
         primary: GuiError,
-        created: &mut BTreeMap<PlatformWindowId, NativeWindow>,
         originals: &BTreeMap<PlatformWindowId, PlatformWindowSpec>,
     ) -> GuiError {
         let mut failures = Vec::new();
@@ -280,13 +288,9 @@ impl WindowsPlatformHost {
                 }
             }
         }
-        for (window, native) in created.iter_mut() {
+        for native in self.staged.values_mut() {
             native.set_visible(false);
-            if let Err(error) = native.destroy() {
-                failures.push(format!("new window {}: {error}", window.get()));
-            }
         }
-        created.clear();
         if failures.is_empty() {
             primary
         } else {
@@ -322,6 +326,8 @@ impl WindowsPlatformHost {
 }
 
 impl PlatformHost for WindowsPlatformHost {
+    type PresentationTarget = WindowsSurfaceHandle;
+
     fn prepare(&mut self, transaction: PlatformHostTransaction) -> GuiResult<()> {
         self.ensure_running()?;
         if self.pending.is_some() {
@@ -342,8 +348,44 @@ impl PlatformHost for WindowsPlatformHost {
                     .unwrap_or_default()
             )));
         }
-        self.pending = Some(plan_transaction(transaction, self.current_state())?);
+        if !self.staged.is_empty() {
+            return Err(GuiError::host(
+                "Windows host retained staged windows without a pending transaction",
+            ));
+        }
+        let prepared = plan_transaction(transaction, self.current_state())?;
+        self.stage_opened(&prepared)?;
+        self.pending = Some(prepared);
         Ok(())
+    }
+
+    fn presentation_target(&self, window: PlatformWindowId) -> GuiResult<Self::PresentationTarget> {
+        self.ensure_running()?;
+        let pending = self.pending.as_ref().ok_or_else(|| {
+            GuiError::host("Windows host has no pending presentation transaction")
+        })?;
+        let requested = pending.transaction.commands.iter().any(|command| {
+            matches!(
+                command,
+                PlatformHostCommand::Present { request } if request.window == window
+            )
+        });
+        if !requested {
+            return Err(GuiError::host(format!(
+                "Windows host transaction has no presentation for window {}",
+                window.get()
+            )));
+        }
+        if let Some(native) = self.staged.get(&window) {
+            return Self::surface_handle(window, native);
+        }
+        let record = self.windows.get(&window).ok_or_else(|| {
+            GuiError::host(format!(
+                "Windows host window {} has no presentation surface",
+                window.get()
+            ))
+        })?;
+        Self::surface_handle(window, &record.native)
     }
 
     fn commit(&mut self) -> GuiResult<PlatformHostCommitAck> {
@@ -369,6 +411,7 @@ impl PlatformHost for WindowsPlatformHost {
 
     fn rollback(&mut self) -> GuiResult<()> {
         self.ensure_running()?;
+        self.destroy_staged()?;
         self.pending = None;
         Ok(())
     }
@@ -422,6 +465,10 @@ impl PlatformHost for WindowsPlatformHost {
 impl Drop for WindowsPlatformHost {
     fn drop(&mut self) {
         self.events.set_suppressed(true);
+        for native in self.staged.values_mut() {
+            let _ = native.destroy();
+        }
+        self.staged.clear();
         for record in self.windows.values_mut() {
             let _ = record.native.destroy();
         }

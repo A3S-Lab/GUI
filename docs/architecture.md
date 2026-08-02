@@ -52,8 +52,10 @@ The allowed direction is one way:
 2. the semantic runtime reconciles stable keyed identity and behavior;
 3. layout produces deterministic geometry and hit regions;
 4. scene extraction produces Graphics primitives;
-5. Graphics prepares and renders pixels;
-6. the host presents pixels and returns normalized events.
+5. the host stages a zero-widget native window and lends an owned lifetime
+   target to Graphics;
+6. Graphics prepares, renders, and presents pixels around the host commit;
+7. the host returns normalized events and system results.
 
 Graphics does not depend on RSX, TSX, components, accessibility, or windows.
 The host does not interpret styles or create application-content controls.
@@ -143,10 +145,11 @@ Host commands are validated before mutation. Transactions and events have
 explicit byte/count limits. Sensitive values are redacted from diagnostics.
 
 On Windows, `host-windows` adds only `windows-sys` and `raw-window-handle` and
-provides the first real, thread-affine `WindowsPlatformHost`. It creates raw
-top-level HWNDs, owns their bounded message pump and DPI-aware lifecycle, and
-lends Graphics a lifetime-bound surface identity. It does not create child
-controls or draw application content. `host-macos`, `host-linux-wayland`, and
+provides the first real, thread-affine `WindowsPlatformHost`. It stages raw
+top-level HWNDs while hidden, owns their bounded message pump and DPI-aware
+lifecycle, and lends Graphics an owned surface token. An active token prevents
+HWND destruction. It does not create child controls or draw application
+content. `host-macos`, `host-linux-wayland`, and
 `host-linux-x11` remain capability markers until their raw hosts land.
 
 ## Shared self-drawn runtime (H1)
@@ -158,15 +161,16 @@ where `H` implements `PlatformHost` and `P` implements
 One frame is atomic across:
 
 1. semantic/layout snapshot validation;
-2. scene preparation;
-3. host transaction preparation;
-4. presentation;
-5. host commit;
-6. runtime snapshot promotion.
+2. host transaction planning and hidden-window staging;
+3. surface-target lease and Graphics frame preparation;
+4. host commit;
+5. Graphics publication/presentation;
+6. runtime snapshot promotion and typed presentation status.
 
-Prepare, commit, reject, presentation failure, and recovery paths are
-explicit. A failed frame cannot partially advance the active semantic,
-interaction, accessibility, scene, or host revision.
+Pre-commit preparation and host failures reject the candidate without
+advancing the active snapshot. A post-commit `Dropped` or `SurfaceLost` result
+advances the logical snapshot to match the committed host state and schedules
+a replay; it is never reported as successfully presented.
 
 The shared runtime also owns hit testing, pointer capture, keyboard routing,
 press/long-press/move lifecycles, focus, collection navigation, drag/drop
@@ -235,8 +239,9 @@ Host session.
 - TypeScript state remains in the supervised Node process.
 - Graphics devices, surfaces, and prepared frames remain in Rust.
 - OS window/input/IME/accessibility objects remain inside the matching host.
-- Native surface identity may be borrowed by Graphics only through a
-  lifetime-bound target type; it is never serialized or moved into TSX.
+- Native surface identity enters Graphics only through an owned lifetime token;
+  the host refuses native destruction until the token is released. It is never
+  serialized or moved into TSX.
 - Callbacks cross process boundaries as versioned action identifiers and
   validated payloads.
 
@@ -270,15 +275,15 @@ The portable `just verify` gate covers:
 - React Aria catalog schema and coverage;
 - software and GPU boundary tests.
 
-Target-native CI additionally runs Win32 lifecycle and H1 first-frame
-integration tests. The Windows lane exists because its raw zero-widget host now
-exists. Equivalent macOS/Linux lanes arrive with their hosts. Deleted toolkit
-and bundle lanes are not retained as migration evidence.
+Target-native CI additionally runs Win32 lifecycle, H1 first-frame transaction,
+surface-lease rollback, and real Graphics/DX12 presentation tests. Equivalent
+macOS/Linux lanes arrive with their hosts. Deleted toolkit and bundle lanes are
+not retained as migration evidence.
 
 ## Current gaps
 
 The architecture is implemented through the generic scene slice, H0 host
-contract, H1 shared runtime, the first raw H2 Win32 lifecycle/surface slice,
+contract, H1 shared runtime, the first raw H2 Win32 lifecycle/DX12 surface slice,
 and the complete T2 stateful TSX runtime, including the strict software
 self-drawn process host, ordered Node/Rust application pump, finalized
 component/action identity contract, bounded restart/replay, and
@@ -287,7 +292,8 @@ restarted-process keyboard/stale-event gates. The remaining critical work is:
 1. production font discovery/shaping and glyph encoding behind the landed
    generic layout/scene contracts, followed by editing, IME, and accessibility
    semantics;
-2. Windows DXGI/input/TSF/UIA completion plus raw macOS and Wayland/X11 hosts;
+2. Windows input/TSF/UIA, device-loss evidence, and visible TSX completion plus
+   raw macOS and Wayland/X11 hosts;
 3. component-by-component React Aria conformance;
 4. packaging, signing, installers, and real tri-platform evidence.
 

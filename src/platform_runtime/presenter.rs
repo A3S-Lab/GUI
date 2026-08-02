@@ -1,22 +1,71 @@
 use crate::error::{GuiError, GuiResult};
-use crate::platform_host::PlatformWindowId;
+use crate::platform_host::{PlatformPresentationStatus, PlatformWindowId};
 
 use super::PlatformRenderFrame;
 
 pub const DEFAULT_RECORDING_SCENE_HISTORY_LIMIT: usize = 256;
 
+/// Recoverable reason why a candidate could not acquire a surface frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlatformSceneDeferral {
+    Dropped,
+    SurfaceLost,
+}
+
+impl From<PlatformSceneDeferral> for PlatformPresentationStatus {
+    fn from(status: PlatformSceneDeferral) -> Self {
+        match status {
+            PlatformSceneDeferral::Dropped => Self::Dropped,
+            PlatformSceneDeferral::SurfaceLost => Self::SurfaceLost,
+        }
+    }
+}
+
+/// Outcome of preparing one candidate against a platform-owned surface.
+#[derive(Debug)]
+pub enum PlatformScenePreparation<F> {
+    Ready(F),
+    Deferred(PlatformSceneDeferral),
+}
+
+/// Synchronous result of publishing a prepared frame.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlatformScenePublishStatus {
+    Presented,
+    Dropped,
+    SurfaceLost,
+}
+
+impl From<PlatformScenePublishStatus> for PlatformPresentationStatus {
+    fn from(status: PlatformScenePublishStatus) -> Self {
+        match status {
+            PlatformScenePublishStatus::Presented => Self::Presented,
+            PlatformScenePublishStatus::Dropped => Self::Dropped,
+            PlatformScenePublishStatus::SurfaceLost => Self::SurfaceLost,
+        }
+    }
+}
+
 /// Thread-affine Graphics edge attached to a platform-owned raw surface.
 ///
 /// `prepare` may validate, plan, upload, or render, but it must not expose the
-/// candidate frame. The runtime commits the zero-widget host transaction first
-/// and then calls infallible `publish`. Dropping or explicitly discarding the
-/// prepared value keeps the previously published surface contents intact.
-pub trait PlatformScenePresenter {
+/// candidate frame. The runtime stages the host transaction first, passes its
+/// owned target into `prepare`, commits the host, and then calls infallible
+/// `publish`. Dropping or explicitly discarding the prepared value keeps the
+/// previously published surface contents intact. A deferred preparation may
+/// report only `Dropped` or `SurfaceLost`. Returning `SurfaceLost` from
+/// `publish`, or completing `surface_lost` or `shutdown`, must release every
+/// retained target lease before returning.
+pub trait PlatformScenePresenter<T> {
     type PreparedFrame;
 
-    fn prepare(&mut self, frame: PlatformRenderFrame) -> GuiResult<Self::PreparedFrame>;
+    fn prepare(
+        &mut self,
+        target: T,
+        frame: PlatformRenderFrame,
+    ) -> GuiResult<PlatformScenePreparation<Self::PreparedFrame>>;
 
-    fn publish(&mut self, prepared: Self::PreparedFrame);
+    fn publish(&mut self, prepared: Self::PreparedFrame) -> PlatformScenePublishStatus;
 
     fn discard(&mut self, prepared: Self::PreparedFrame);
 
@@ -38,9 +87,8 @@ impl RecordingPreparedFrame {
 
 /// Deterministic presenter used to prove H1 transaction and recovery behavior.
 ///
-/// It contains no window or widget operation. A future H2-H4 presenter owns
-/// the raw surface attachment while implementing this same prepare/publish
-/// protocol.
+/// It contains no window or widget operation. The GPU presenter implements the
+/// same prepare/publish protocol against a Graphics-owned native surface.
 pub struct RecordingScenePresenter {
     committed: Option<PlatformRenderFrame>,
     history: Vec<PlatformRenderFrame>,
@@ -50,6 +98,7 @@ pub struct RecordingScenePresenter {
     discard_count: u64,
     surface_loss_count: u64,
     fail_next_prepare: Option<String>,
+    defer_next_prepare: Option<PlatformSceneDeferral>,
     shutdown: bool,
 }
 
@@ -93,6 +142,7 @@ impl RecordingScenePresenter {
             discard_count: 0,
             surface_loss_count: 0,
             fail_next_prepare: None,
+            defer_next_prepare: None,
             shutdown: false,
         }
     }
@@ -125,6 +175,10 @@ impl RecordingScenePresenter {
         self.fail_next_prepare = Some(message.into());
     }
 
+    pub fn defer_next_prepare(&mut self, status: PlatformSceneDeferral) {
+        self.defer_next_prepare = Some(status);
+    }
+
     pub fn is_shutdown(&self) -> bool {
         self.shutdown
     }
@@ -140,10 +194,14 @@ impl RecordingScenePresenter {
     }
 }
 
-impl PlatformScenePresenter for RecordingScenePresenter {
+impl<T> PlatformScenePresenter<T> for RecordingScenePresenter {
     type PreparedFrame = RecordingPreparedFrame;
 
-    fn prepare(&mut self, frame: PlatformRenderFrame) -> GuiResult<Self::PreparedFrame> {
+    fn prepare(
+        &mut self,
+        _target: T,
+        frame: PlatformRenderFrame,
+    ) -> GuiResult<PlatformScenePreparation<Self::PreparedFrame>> {
         if self.shutdown {
             return Err(GuiError::host("scene presenter is shut down"));
         }
@@ -152,6 +210,9 @@ impl PlatformScenePresenter for RecordingScenePresenter {
             return Err(GuiError::graphics(format!(
                 "scene presenter prepare failed: {message}"
             )));
+        }
+        if let Some(status) = self.defer_next_prepare.take() {
+            return Ok(PlatformScenePreparation::Deferred(status));
         }
         if self
             .committed
@@ -163,13 +224,16 @@ impl PlatformScenePresenter for RecordingScenePresenter {
             ));
         }
         self.prepare_count = self.prepare_count.saturating_add(1);
-        Ok(RecordingPreparedFrame { frame })
+        Ok(PlatformScenePreparation::Ready(RecordingPreparedFrame {
+            frame,
+        }))
     }
 
-    fn publish(&mut self, prepared: Self::PreparedFrame) {
+    fn publish(&mut self, prepared: Self::PreparedFrame) -> PlatformScenePublishStatus {
         self.publish_count = self.publish_count.saturating_add(1);
         self.committed = Some(prepared.frame.clone());
         self.push_history(prepared.frame);
+        PlatformScenePublishStatus::Presented
     }
 
     fn discard(&mut self, _prepared: Self::PreparedFrame) {

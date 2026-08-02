@@ -5,6 +5,7 @@ use std::mem::ManuallyDrop;
 use std::num::NonZeroIsize;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::{null, null_mut};
+use std::sync::Arc;
 
 use windows_sys::Win32::Foundation::{
     GetLastError, SetLastError, ERROR_CLASS_ALREADY_EXISTS, HINSTANCE, HWND, LPARAM, LRESULT, RECT,
@@ -32,6 +33,7 @@ use crate::geometry::Size;
 
 use super::super::{PlatformHostEvent, PlatformWindowEvent, PlatformWindowId, PlatformWindowSpec};
 use super::events::WindowsEventQueue;
+use super::surface::WindowsSurfaceState;
 
 const WINDOW_CLASS_NAME: &str = "A3S.Gui.SelfDrawn.Window.v1";
 const BASE_DPI: f64 = 96.0;
@@ -98,9 +100,18 @@ pub(super) fn pump_messages(events: &WindowsEventQueue) {
     }
 }
 
+pub(super) fn system_scale_factor() -> GuiResult<f64> {
+    let mut dpi_guard = ThreadDpiGuard::enter()?;
+    // SAFETY: GetDpiForSystem has no pointer arguments and is called while the
+    // thread uses the same per-monitor-v2 context as window creation.
+    let dpi = unsafe { GetDpiForSystem() };
+    dpi_guard.restore()?;
+    Ok(f64::from(dpi.max(BASE_DPI as u32)) / BASE_DPI)
+}
+
 pub(super) struct NativeWindow {
     hwnd: HWND,
-    hinstance: HINSTANCE,
+    surface: Arc<WindowsSurfaceState>,
     context: ManuallyDrop<Box<WindowContext>>,
     spec: PlatformWindowSpec,
 }
@@ -181,9 +192,15 @@ impl NativeWindow {
         }
         let mut native_spec = spec.clone();
         native_spec.visible = false;
+        let surface = Arc::new(WindowsSurfaceState::new(
+            NonZeroIsize::new(hwnd as isize)
+                .ok_or_else(|| GuiError::host("Windows host created a null surface handle"))?,
+            NonZeroIsize::new(hinstance as isize)
+                .ok_or_else(|| GuiError::host("Windows host module handle is unavailable"))?,
+        ));
         Ok(Self {
             hwnd,
-            hinstance,
+            surface,
             context: ManuallyDrop::new(context),
             spec: native_spec,
         })
@@ -277,22 +294,23 @@ impl NativeWindow {
         if self.hwnd.is_null() {
             return Ok(());
         }
+        if WindowsSurfaceState::has_external_lease(&self.surface) {
+            return Err(GuiError::host(format!(
+                "Windows host window {} still has an active Graphics surface lease",
+                self.context.id.get()
+            )));
+        }
         // SAFETY: hwnd is live and belongs to the current thread.
         if unsafe { DestroyWindow(self.hwnd) } == 0 {
             return Err(last_error("DestroyWindow"));
         }
+        self.surface.mark_destroyed();
         self.hwnd = null_mut();
         Ok(())
     }
 
-    pub(super) fn hwnd(&self) -> GuiResult<NonZeroIsize> {
-        NonZeroIsize::new(self.hwnd as isize)
-            .ok_or_else(|| GuiError::host("Windows host surface is no longer available"))
-    }
-
-    pub(super) fn hinstance(&self) -> GuiResult<NonZeroIsize> {
-        NonZeroIsize::new(self.hinstance as isize)
-            .ok_or_else(|| GuiError::host("Windows host module handle is unavailable"))
+    pub(super) fn surface_state(&self) -> Arc<WindowsSurfaceState> {
+        Arc::clone(&self.surface)
     }
 
     pub(super) fn physical_size(&self) -> GuiResult<(u32, u32)> {
@@ -313,10 +331,16 @@ impl Drop for NativeWindow {
     fn drop(&mut self) {
         let can_drop_context = if self.hwnd.is_null() {
             true
+        } else if WindowsSurfaceState::has_external_lease(&self.surface) {
+            // An out-of-order owner drop cannot invalidate a live Graphics
+            // lease. Detach callbacks and intentionally leave the HWND for
+            // process teardown instead of creating a dangling raw handle.
+            detach_window_context(self.hwnd)
         } else {
             // SAFETY: NativeWindow is thread-affine through its Rc event queue
             // and still owns this HWND.
             if unsafe { DestroyWindow(self.hwnd) } != 0 {
+                self.surface.mark_destroyed();
                 true
             } else {
                 // If destruction fails, detach before freeing the context. If

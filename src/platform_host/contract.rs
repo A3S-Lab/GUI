@@ -294,7 +294,15 @@ fn validate_encoded_size<T: Serialize>(name: &str, value: &T, max_bytes: usize) 
 /// Events are un-targeted OS facts; hit testing and action routing remain in the
 /// portable runtime.
 pub trait PlatformHost {
+    /// Owned lifetime token accepted by the Graphics presenter for one window.
+    type PresentationTarget: Send + Sync + 'static;
+
     fn prepare(&mut self, transaction: PlatformHostTransaction) -> GuiResult<()>;
+
+    /// Leases the target named by the pending presentation command.
+    ///
+    /// Newly opened windows may be staged but must remain hidden until commit.
+    fn presentation_target(&self, window: PlatformWindowId) -> GuiResult<Self::PresentationTarget>;
 
     fn commit(&mut self) -> GuiResult<PlatformHostCommitAck>;
 

@@ -8,10 +8,10 @@ A3S GUI is a fully self-drawn cross-platform GUI runtime.
 
 Rust RSX and TypeScript TSX produce one semantic frame model. A3S GUI owns
 behavior, layout, hit testing, accessibility, and application-content pixels.
-A3S Graphics owns retained scenes, software reference output, and GPU
-rendering. Thin OS hosts own only windows/surfaces, presentation, normalized
-input, text/IME, accessibility providers, clipboard, and explicit system
-services.
+A3S Graphics owns retained scenes, software reference output, GPU surfaces,
+rendering, and presentation. Thin OS hosts own only native windows, owned
+surface-lifetime targets, commit coordination, normalized input, text/IME,
+accessibility providers, clipboard, and explicit system services.
 
 Platform content controls and toolkit layout engines are not an intermediate
 or fallback renderer.
@@ -22,13 +22,13 @@ or fallback renderer.
 | --- | --- | --- |
 | M0 Graphics boundary | Complete | Feature-gated Graphics edge, deterministic reference presenter, stable draw IDs |
 | M1 architecture cleanup | Complete | Layer boundaries and graph gates; content-toolkit code/dependencies deleted |
-| M2 GPU foundation | In progress | Reviewed calculator GPU slice and raw Win32 surface identity; actual host presentation and tri-platform evidence missing |
+| M2 GPU foundation | In progress | Reviewed calculator GPU slice plus real Graphics-owned DX12 window presentation; Metal/Vulkan and visual parity evidence missing |
 | M3 generic layout/scene | In progress | Generic calculator layout/scene/software fixture and all-style ownership matrix |
 | M4 text/input/a11y visuals | In progress | Bounded shaper/layout/scene contracts landed; concrete font, glyph, editing, IME, and AT backends missing |
 | M5 cutover/deletion | Partial | Legacy deletion complete; real OS-host cutover cannot occur until H2-H4 |
 | H0 host contract | Complete | Zero-widget transaction/event/API contract and dependency firewall |
-| H1 shared runtime | Complete | Atomic self-drawn frames, input/hit/a11y routing, recovery, presenters |
-| H2 Windows host | In progress | Real HWND lifecycle/message pump, PMv2 DPI/size/focus/close, raw surface identity, atomic transactions, Windows CI |
+| H1 shared runtime | Complete | Host-first staging, owned presentation targets, typed completion, rollback ordering, input/hit/a11y routing |
+| H2 Windows host | In progress | Real HWND lifecycle, owned surface leases, Graphics/DX12 presentation, PMv2 DPI, atomic transactions, Windows CI |
 | H3-H4 real hosts | Planned | macOS and Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
@@ -49,8 +49,9 @@ hosts.
    windows.
 5. Semantic-only builds never acquire Graphics, wgpu, SWC, Node, or a platform
    content toolkit.
-6. Frames commit atomically across semantic, interaction, accessibility, scene,
-   presentation, and host revisions.
+6. Pre-commit failures preserve the previous complete frame; post-commit
+   presentation loss is typed and schedules replay against the matching host
+   and logical revision.
 7. TypeScript callbacks execute only for a validated committed revision.
 8. Cross-platform consistency is proven with a deterministic reference
    environment and a shared story corpus.
@@ -113,13 +114,15 @@ Delivered:
 - retained Graphics scene preparation;
 - wgpu path;
 - deterministic non-text calculator scene;
-- local reviewed DX12 readback evidence.
+- local reviewed DX12 readback evidence;
+- safe Graphics-owned native surfaces with prepared-frame commit tokens;
+- real Win32/DX12 submission and presentation completion evidence.
 
 Remaining:
 
-- real host surfaces and presentation on all targets;
+- real Metal and Vulkan host surfaces and presentation;
 - Metal/DX12/Vulkan parity stories;
-- surface loss, resize, scale, occlusion, and recovery evidence;
+- device-loss fault injection plus minimize/restore and capture evidence;
 - production text and clipping coverage.
 
 ### M3 — generic layout and scene vertical slice
@@ -215,9 +218,11 @@ Status: complete at the portable contract level.
 Delivered:
 
 - `SelfDrawnWindowRuntime`;
-- scene presenter abstraction plus recording/reference presenters;
-- atomic frame prepare/commit/reject and recovery;
-- presentation acknowledgements;
+- generic scene presenter abstraction plus recording/reference/GPU presenters;
+- host-first target staging and prepare/commit/publish ordering;
+- owned-target rollback ordering that discards GPU work before native cleanup;
+- queued host acknowledgements plus `Presented`, `Dropped`, and `SurfaceLost`
+  completion outcomes;
 - hit testing, pointer capture, keyboard routing, press/long-press/move;
 - focus, collection navigation, drag/drop policy;
 - accessibility snapshot/action routing;
@@ -233,18 +238,21 @@ Delivered:
 - top-level `HWND` class/lifecycle with hidden or visible committed state;
 - per-monitor-v2 DPI context, logical client sizing, constraints, resize,
   scale, occlusion, focus, redraw, and explicit close handling;
-- bounded `PeekMessageW` pump and lifetime-bound `raw-window-handle` surface
-  identity for a future Graphics presenter;
-- pure transaction planning, stale-revision rejection, atomic native
-  reconciliation, rollback, and queued presentation acknowledgements;
-- real Windows lifecycle tests plus H1 first-frame integration in target CI;
+- bounded `PeekMessageW` pump and owned `raw-window-handle` surface leases that
+  reject HWND destruction while Graphics retains a target;
+- pure planning plus hidden-HWND staging, stale-revision rejection, atomic
+  native reconciliation, rollback, and queued host acknowledgements;
+- Graphics-owned surface-compatible adapter selection, swapchain resize,
+  prepared-frame discard, presentation, and surface recreation;
+- real Windows lifecycle, lease rollback, H1 first-frame, and DX12 presentation
+  tests in target CI;
 - source/dependency firewalls confining unsafe Win32 ABI calls and rejecting
   content toolkits.
 
 Remaining:
 
-- Graphics-owned DXGI/DX12 surface creation and actual pixel presentation;
-- surface-loss/device-loss recovery and presentation completion events;
+- device-loss fault injection, minimize/restore recovery, and reviewed GPU
+  capture evidence;
 - pointer, keyboard, wheel, and complete focus translation;
 - TSF, UI Automation, clipboard, and explicit system services;
 - visible RSX/TSX story plus deterministic/GPU capture evidence.
@@ -468,13 +476,17 @@ Completed on 2026-08-02: production text measurement/shaping interfaces in
 layout/scene.
 
 Completed on 2026-08-03: the first H2 Win32 lifecycle/message-pump/raw-surface
-skeleton and its target-native CI lane. Presentation acknowledgements are only
-queued; this milestone does not claim DXGI/DX12 pixels.
+skeleton and its target-native CI lane.
 
-1. Attach a Graphics-owned DXGI/DX12 presenter to `WindowsSurfaceHandle`, with
-   resize, surface loss, and real completion acknowledgements.
-2. Translate Windows pointer/keyboard/wheel events and connect completed T2
+Completed on 2026-08-03: owned HWND surface leases, host-first hidden staging,
+Graphics swapchain preparation, real DX12 presentation, typed completion, and
+destruction-order tests. This is presentation evidence, not complete Windows
+input/text/accessibility or reviewed visual-parity evidence.
+
+1. Translate Windows pointer/keyboard/wheel events and connect completed T2
    frame commits to a visible host executable.
+2. Add minimize/restore and device-loss fault injection, then capture the same
+   deterministic story through DX12.
 3. Implement production font/shaping and glyph encoder backends, then TSF and
    UI Automation bridges.
 4. Add Windows clipboard/system-service smokes and port the same contract to

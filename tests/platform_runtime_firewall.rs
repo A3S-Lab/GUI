@@ -39,9 +39,25 @@ fn raw_surface_ownership_stays_behind_the_pinned_graphics_edge() {
         .find(|line| line.starts_with("a3s-graphics ="))
         .expect("a3s-graphics dependency must stay explicit");
     assert!(dependency.contains("https://github.com/A3S-Lab/Graphics"));
-    assert!(dependency.contains("8748fab595f8dd7f7ca28767f1c58bd7f3f34ee0"));
+    assert!(dependency.contains("0afa90bc40ef05f158b1a6ffa4dc7583af3a32a9"));
     assert!(dependency.contains("default-features = false"));
-    assert!(manifest.contains("gpu = [\"graphics\", \"a3s-graphics/gpu\"]"));
+    let features = manifest
+        .split_once("[features]")
+        .map(|(_, rest)| rest)
+        .and_then(|rest| rest.split_once("\n[").map(|(section, _)| section))
+        .unwrap();
+    let gpu = feature_definition(features, "gpu");
+    for edge in [
+        "graphics",
+        "a3s-graphics/gpu",
+        "dep:pollster",
+        "dep:raw-window-handle",
+    ] {
+        assert!(
+            gpu.contains(edge),
+            "GPU presenter is missing {edge:?}: {gpu}"
+        );
+    }
     assert!(
         !manifest.lines().any(|line| line.starts_with("wgpu =")),
         "GUI must not duplicate Graphics-owned device or raw-surface state"

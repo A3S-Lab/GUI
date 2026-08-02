@@ -2,7 +2,10 @@ use crate::drawing::ReferenceRenderer;
 use crate::error::{GuiError, GuiResult};
 use crate::platform_host::PlatformWindowId;
 
-use super::{PlatformRenderFrame, PlatformScenePresenter};
+use super::{
+    PlatformRenderFrame, PlatformScenePreparation, PlatformScenePresenter,
+    PlatformScenePublishStatus,
+};
 
 /// Transactional software-rendered candidate kept private until host commit.
 #[derive(Debug, Clone)]
@@ -97,10 +100,14 @@ impl ReferenceScenePresenter {
     }
 }
 
-impl PlatformScenePresenter for ReferenceScenePresenter {
+impl<T> PlatformScenePresenter<T> for ReferenceScenePresenter {
     type PreparedFrame = ReferencePreparedFrame;
 
-    fn prepare(&mut self, frame: PlatformRenderFrame) -> GuiResult<Self::PreparedFrame> {
+    fn prepare(
+        &mut self,
+        _target: T,
+        frame: PlatformRenderFrame,
+    ) -> GuiResult<PlatformScenePreparation<Self::PreparedFrame>> {
         if self.shutdown {
             return Err(GuiError::host("reference scene presenter is shut down"));
         }
@@ -119,13 +126,14 @@ impl PlatformScenePresenter for ReferenceScenePresenter {
             rgba8: rendered.rgba8().to_vec(),
         };
         self.prepare_count = self.prepare_count.saturating_add(1);
-        Ok(prepared)
+        Ok(PlatformScenePreparation::Ready(prepared))
     }
 
-    fn publish(&mut self, prepared: Self::PreparedFrame) {
+    fn publish(&mut self, prepared: Self::PreparedFrame) -> PlatformScenePublishStatus {
         self.publish_count = self.publish_count.saturating_add(1);
         self.committed = Some(ReferencePresentedFrame { prepared });
         self.surface_valid = true;
+        PlatformScenePublishStatus::Presented
     }
 
     fn discard(&mut self, _prepared: Self::PreparedFrame) {

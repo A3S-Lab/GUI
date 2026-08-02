@@ -151,5 +151,6 @@ pixels and a maximum channel delta of 96 while requiring the listed solid
 pixels to match exactly.
 
 An unavailable adapter skips the local GPU test and is not cross-platform
-evidence. Metal and Vulkan runs, real window presentation, production font and
-glyph backends, input, IME, and accessibility remain separate roadmap gates.
+evidence. The Win32 lane now proves DX12 window presentation, but Metal/Vulkan
+runs, reviewed real-window capture parity, production font and glyph backends,
+input, IME, and accessibility remain separate roadmap gates.

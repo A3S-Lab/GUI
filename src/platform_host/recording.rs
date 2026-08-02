@@ -142,6 +142,8 @@ impl RecordingPlatformHost {
 }
 
 impl PlatformHost for RecordingPlatformHost {
+    type PresentationTarget = ();
+
     fn prepare(&mut self, transaction: PlatformHostTransaction) -> GuiResult<()> {
         self.ensure_running()?;
         if self.pending.is_some() {
@@ -163,6 +165,30 @@ impl PlatformHost for RecordingPlatformHost {
             )));
         }
         self.pending = Some(transaction);
+        Ok(())
+    }
+
+    fn presentation_target(
+        &self,
+        window: super::PlatformWindowId,
+    ) -> GuiResult<Self::PresentationTarget> {
+        self.ensure_running()?;
+        window.validate()?;
+        let pending = self.pending.as_ref().ok_or_else(|| {
+            GuiError::host("platform host has no pending presentation transaction")
+        })?;
+        let requested = pending.commands.iter().any(|command| {
+            matches!(
+                command,
+                PlatformHostCommand::Present { request } if request.window == window
+            )
+        });
+        if !requested {
+            return Err(GuiError::host(format!(
+                "platform host transaction has no presentation for window {}",
+                window.get()
+            )));
+        }
         Ok(())
     }
 

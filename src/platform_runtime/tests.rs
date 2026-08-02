@@ -209,6 +209,10 @@ fn first_frame_commits_layout_scene_accessibility_and_presentation_together() {
     );
     assert_eq!(runtime.host().committed().len(), 1);
     assert_eq!(runtime.presenter().publish_count(), 1);
+    assert_eq!(
+        commit.presentation_status,
+        Some(PlatformPresentationStatus::Presented)
+    );
 }
 
 #[test]

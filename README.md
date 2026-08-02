@@ -20,8 +20,9 @@ uses a DOM, CSSOM, WebView, or platform content-widget toolkit.
 > content backends, features, dependencies, examples, packaging scripts, and CI
 > lanes have been deleted. `platform-host` defines the zero-widget boundary,
 > `platform-runtime` implements the shared atomic self-drawn frame runtime, and
-> `host-windows` now provides the first raw Win32 window/surface lifecycle.
-> DXGI/DX12 pixel presentation and the raw macOS/Linux hosts remain roadmap work.
+> `host-windows` provides the first raw Win32 window lifecycle and owned surface
+> lease. The Graphics-owned presenter now submits and presents the first real
+> DX12 window frame. Raw macOS/Linux hosts remain roadmap work.
 
 ## One semantic tree, one owned-pixel pipeline
 
@@ -62,8 +63,8 @@ and Graphics never infers behavior from pixels.
 | Authoring | Rust components/RSX; automatic TSX elements and callbacks | OS handles, GPU resources, layout truth |
 | Semantic runtime | Roles, props, actions, focus, selection, overlays, i18n, drag/drop, accessibility | Platform widgets, toolkit layout, product I/O |
 | Layout and scene | Portable style, quantized boxes, stable paths, hit regions, scene extraction | Product state or OS geometry |
-| [A3S Graphics](https://github.com/A3S-Lab/Graphics) | Retained scenes, damage, software reference output, GPU preparation and rendering | Components, windows, IME, accessibility |
-| Platform boundary | Windows/surfaces, presentation, normalized input, text/IME, accessibility bridge, clipboard and system services | Application-content controls, styling, layout, or drawing |
+| [A3S Graphics](https://github.com/A3S-Lab/Graphics) | Retained scenes, damage, software reference output, GPU surfaces, preparation, rendering, and presentation | Components, windows, IME, accessibility |
+| Platform boundary | Native windows, owned surface-lifetime targets, commit coordination, normalized input, text/IME, accessibility bridge, clipboard and system services | Application-content controls, styling, layout, or drawing |
 
 Read [Architecture](docs/architecture.md) and
 [Self-drawn platform hosts](docs/platform-hosts.md) for the contracts.
@@ -88,12 +89,16 @@ The repository already provides:
   firewalls;
 - a target-gated `WindowsPlatformHost` with real Win32 `HWND` lifecycle,
   per-monitor-v2 DPI client sizing, message pumping, focus/close/occlusion
-  events, lifetime-bound raw surface identity, atomic prepare/commit/rollback,
-  and Windows-native CI evidence; presentation is queued for the future
-  DXGI/DX12 presenter and is not yet claimed as visible pixels;
+  events, hidden first-frame staging, owned raw-surface leases that prevent
+  premature HWND destruction, atomic prepare/commit/rollback, and
+  Windows-native CI evidence;
 - `SelfDrawnWindowRuntime` with atomic prepare/commit/reject, recovery,
-  presentation acknowledgements, normalized input, hit testing, drag/drop,
-  accessibility actions, and reference/recording presenters;
+  typed presentation outcomes, normalized input, hit testing, drag/drop,
+  accessibility actions, and reference/recording/GPU presenters;
+- a real Windows presentation gate that prepares a Graphics swapchain frame
+  against the staged HWND, commits and shows the raw window, presents through
+  DX12, verifies the submitted scene fingerprint, and releases the GPU surface
+  before destroying the HWND;
 - Rust-generated TypeScript protocol declarations, canonical cross-language
   fixtures, automatic JSX lowering, strict frame normalization, and
   revision-scoped ordered callbacks;
@@ -135,8 +140,8 @@ The repository already provides:
 
 Still required before a production native application:
 
-- DXGI/DX12 presentation, full input, TSF, UI Automation, and system services
-  for the landed Windows host;
+- full Windows input, TSF, UI Automation, system services, device-loss fault
+  injection, and reviewed GPU capture evidence;
 - real zero-widget macOS and Wayland/X11 hosts;
 - a production font database/shaper and glyph raster/atlas encoder, followed by
   text editing, IME, and assistive-technology bridges;
@@ -276,10 +281,10 @@ cargo run --locked --no-default-features \
 | `design-system` | Built-in semantic component registrations |
 | `graphics` | GUI-to-A3S-Graphics scene boundary |
 | `software-reference` | Deterministic software presenter |
-| `gpu` | wgpu-backed Graphics path |
+| `gpu` | Graphics-owned offscreen and native-surface GPU paths |
 | `platform-host` | Zero-widget OS boundary contracts and recording host |
 | `platform-runtime` | Shared self-drawn frame/input/accessibility runtime |
-| `host-windows` | Raw Win32 top-level host and lifetime-bound `HWND` surface identity; no WinUI/XAML and no DXGI presenter yet |
+| `host-windows` | Raw Win32 top-level host and owned `HWND` surface-lifetime target; no WinUI/XAML |
 | `host-macos`, `host-linux-*` | Zero-widget host capability markers; concrete hosts are not implemented yet |
 | `typescript-schema` | Rust-to-TypeScript protocol declaration generation |
 
@@ -311,8 +316,9 @@ just test-tsx-host
 
 `just verify` also checks dependency firewalls, formatting, Clippy, rustdoc,
 all Rust tests and examples, the React Aria catalog, TypeScript fixtures, and
-whitespace. CI adds a Windows-native lifecycle/H1 integration job for the raw
-Win32 host. Toolkit-specific content-host and legacy bundle lanes do not exist.
+whitespace. CI adds Windows-native lifecycle, H1 transaction, and real DX12
+presentation evidence. Toolkit-specific content-host and legacy bundle lanes
+do not exist.
 
 ## Repository map
 
@@ -337,11 +343,11 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. attach a Graphics-owned DXGI/DX12 presenter to the landed raw Win32 host,
-   then complete Windows input, TSF, UI Automation, and system services;
+1. complete Windows pointer/keyboard/wheel input, TSF, UI Automation, system
+   services, minimize/restore recovery, and device-loss fault injection;
 2. implement the font discovery/shaping and glyph raster/atlas backends on the
    landed generic text contracts, then add editing and IME;
-3. connect the completed T2 TSX runtime to the visible Windows path, then port
+3. connect the completed T2 TSX runtime to the visible Windows GPU path, then port
    the same zero-widget contract to macOS and Wayland/X11;
 4. close React Aria families milestone by milestone with tri-platform evidence;
 5. restore packaging only after the self-drawn host artifacts exist.

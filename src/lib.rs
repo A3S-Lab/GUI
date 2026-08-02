@@ -154,9 +154,12 @@ pub use platform_host::{
     DEFAULT_PLATFORM_HOST_HISTORY_LIMIT, MAX_PLATFORM_HOST_COMMANDS, MAX_PLATFORM_HOST_EVENT_BYTES,
     MAX_PLATFORM_HOST_TRANSACTION_BYTES,
 };
+#[cfg(all(feature = "platform-runtime", feature = "gpu"))]
+pub use platform_runtime::{GpuPreparedSceneFrame, GpuPresentedSceneFrame, GpuScenePresenter};
 #[cfg(feature = "platform-runtime")]
 pub use platform_runtime::{
-    PlatformRenderFrame, PlatformScenePresenter, RecordingPreparedFrame, RecordingScenePresenter,
+    PlatformRenderFrame, PlatformSceneDeferral, PlatformScenePreparation, PlatformScenePresenter,
+    PlatformScenePublishStatus, RecordingPreparedFrame, RecordingScenePresenter,
     SelfDrawnActionInvocation, SelfDrawnActionPropagation, SelfDrawnCollectionDropTarget,
     SelfDrawnDragContext, SelfDrawnDropItem, SelfDrawnDropOperation, SelfDrawnDropPolicyDecision,
     SelfDrawnDropPolicyQuery, SelfDrawnDropPolicyRequest, SelfDrawnDropPolicyResolution,

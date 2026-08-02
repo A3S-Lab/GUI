@@ -9,17 +9,20 @@ use crate::platform_host::{
 
 use super::drop_policy::SelfDrawnDropPolicyResolver;
 use super::runtime::{
-    canonical_scale_factor, next_revision, presentation_request, rollback_after_commit_error,
-    validate_ack, SelfDrawnFrameCommit, SelfDrawnFrameCommitStatus, SelfDrawnHostEventOutcome,
-    SelfDrawnWindowRuntime,
+    canonical_scale_factor, SelfDrawnFrameCommit, SelfDrawnFrameCommitStatus,
+    SelfDrawnHostEventOutcome, SelfDrawnWindowRuntime,
 };
-use super::PlatformScenePresenter;
+use super::transaction::{
+    next_revision, presentation_request, rollback_after_commit_error, rollback_staged_surface,
+    validate_ack,
+};
+use super::{PlatformScenePreparation, PlatformScenePresenter};
 use super::{SelfDrawnActionInvocation, SelfDrawnActionPropagation};
 
 impl<H, P> SelfDrawnWindowRuntime<H, P>
 where
     H: PlatformHost,
-    P: PlatformScenePresenter,
+    P: PlatformScenePresenter<H::PresentationTarget>,
 {
     pub fn redraw(&mut self) -> GuiResult<SelfDrawnFrameCommit> {
         self.ensure_running()?;
@@ -36,12 +39,12 @@ where
                 layout_rebuilt: false,
                 scene_rebuilt: false,
                 presentation_requested: false,
+                presentation_status: None,
                 host_commands: 0,
             });
         }
         let revision = next_revision(Some(previous))?;
         let replay = previous.replay(revision);
-        let prepared = self.presenter.prepare(replay.render_frame())?;
         let transaction = PlatformHostTransaction {
             revision,
             commands: vec![PlatformHostCommand::Present {
@@ -49,24 +52,63 @@ where
             }],
         };
         if let Err(error) = self.host.prepare(transaction) {
-            self.presenter.discard(prepared);
             self.stats.rejected_frames = self.stats.rejected_frames.saturating_add(1);
             return Err(error);
         }
-        let ack = match self.host.commit() {
-            Ok(ack) => ack,
+        let target = match self.host.presentation_target(replay.window()) {
+            Ok(target) => target,
             Err(error) => {
                 let rollback = self.host.rollback();
-                self.presenter.discard(prepared);
                 self.stats.rejected_frames = self.stats.rejected_frames.saturating_add(1);
                 return rollback_after_commit_error(error, rollback);
             }
         };
-        validate_ack(&ack, revision, 1)?;
-        self.presenter.publish(prepared);
+        let prepared = match self.presenter.prepare(target, replay.render_frame()) {
+            Ok(PlatformScenePreparation::Ready(prepared)) => prepared,
+            Ok(PlatformScenePreparation::Deferred(deferral)) => {
+                let status = PlatformPresentationStatus::from(deferral);
+                let surface_cleanup = (status == PlatformPresentationStatus::SurfaceLost)
+                    .then(|| self.presenter.surface_lost(replay.window()));
+                let rollback = self.host.rollback();
+                rollback_staged_surface(surface_cleanup, rollback)?;
+                self.pending_redraw = true;
+                return Ok(SelfDrawnFrameCommit {
+                    status: SelfDrawnFrameCommitStatus::Deferred,
+                    revision: previous.revision(),
+                    layout_rebuilt: false,
+                    scene_rebuilt: false,
+                    presentation_requested: true,
+                    presentation_status: Some(status),
+                    host_commands: 0,
+                });
+            }
+            Err(error) => {
+                let rollback = self.host.rollback();
+                self.stats.rejected_frames = self.stats.rejected_frames.saturating_add(1);
+                return rollback_after_commit_error(error, rollback);
+            }
+        };
+        let ack = match self.host.commit() {
+            Ok(ack) => ack,
+            Err(error) => {
+                self.presenter.discard(prepared);
+                let rollback = self.host.rollback();
+                self.stats.rejected_frames = self.stats.rejected_frames.saturating_add(1);
+                return rollback_after_commit_error(error, rollback);
+            }
+        };
+        validate_ack(&ack, revision, 1, Some(replay.window()))?;
+        let presentation_status =
+            PlatformPresentationStatus::from(self.presenter.publish(prepared));
         self.committed = Some(replay);
         self.last_presentation_revision = Some(revision);
-        self.pending_redraw = false;
+        self.pending_redraw = matches!(
+            presentation_status,
+            PlatformPresentationStatus::Dropped | PlatformPresentationStatus::SurfaceLost
+        );
+        if presentation_status == PlatformPresentationStatus::SurfaceLost {
+            self.stats.surface_recoveries = self.stats.surface_recoveries.saturating_add(1);
+        }
         self.stats.host_commits = self.stats.host_commits.saturating_add(1);
         self.stats.redraws = self.stats.redraws.saturating_add(1);
         Ok(SelfDrawnFrameCommit {
@@ -75,6 +117,7 @@ where
             layout_rebuilt: false,
             scene_rebuilt: false,
             presentation_requested: true,
+            presentation_status: Some(presentation_status),
             host_commands: 1,
         })
     }
