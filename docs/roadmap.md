@@ -31,7 +31,7 @@ or fallback renderer.
 | H2-H4 real hosts | Planned | Windows, macOS, Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
-| T2-T5 TSX product runtime | In progress | Stateful `createApp`, strict session/framing, Node transport, ordered application pump, and software self-drawn Rust host; zero-config/replay missing |
+| T2-T5 TSX product runtime | In progress | Stateful `createApp`, validated zero-argument runner, strict session/framing, ordered application pump, and software self-drawn Rust host; recovery/replay missing |
 | M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
 No family is yet self-drawn conformant across real macOS, Windows, and Linux
@@ -307,13 +307,16 @@ Delivered:
   render/bidirectional-liveness/shutdown coverage;
 - bounded ordered wire receipt separated from the contiguous semantic-apply
   high-water mark, so control traffic cannot corrupt asynchronous UI ordering;
+- hostless `createApp(App).run()` with strict platform-package manifest and
+  executable checksum validation, automatic UUID session identity, event
+  binding before the first render, startup rollback, and real Node-to-Rust
+  process coverage;
 - serialized event/commit consumption when an active-revision callback overlaps
   an in-flight render acknowledgement;
 - source-located hook-order failures and Node interaction tests.
 
 Remaining:
 
-- zero-configuration process startup and event-handler binding for `createApp`;
 - process restart policy, crash recovery, and committed-frame replay;
 - final public component/action identity contract;
 - keyboard/stale-event/replay coverage through that process boundary.
@@ -419,8 +422,8 @@ A release candidate requires:
 
 ## Immediate implementation sequence
 
-1. Complete T2 with zero-configuration startup, crash recovery, and frame replay
-   over the landed application pump.
+1. Complete T2 with crash recovery, committed-frame replay, and the final public
+   component/action identity contract over the landed application runner.
 2. Land production text measurement/shaping interfaces in layout/scene.
 3. Build the first H2 Windows window/surface/presentation skeleton.
 4. Connect H1 input and frame commits to that host.

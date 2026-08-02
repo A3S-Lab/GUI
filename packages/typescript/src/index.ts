@@ -82,7 +82,18 @@ export type {
   A3sApplicationStatus,
   A3sRenderCandidateV1,
   CreateAppOptions,
+  CreateRunnableAppOptionsV1,
 } from "./application.ts";
+export {
+  A3sApplicationRunnerV1,
+  A3sNodeApplicationRuntimeV1,
+} from "./application-runner.ts";
+export type {
+  A3sApplicationRunOptionsV1,
+  A3sApplicationRuntimeV1,
+} from "./application-runner.ts";
+export { A3sHostArtifactError } from "./host-artifact.ts";
+export type { A3sHostArtifactErrorCodeV1 } from "./host-artifact.ts";
 export {
   A3sFramedApplicationHostV1,
   A3sFramedHostError,

@@ -83,14 +83,28 @@ probe deadline. `A3sFramedApplicationHostV1` joins the negotiated connection to
 `createApp` with one shared client session, one reader, bounded event tasks,
 ordered commit/event delivery, bidirectional liveness, and protocol close/ack;
 a real Node fixture drives two renders, both ping directions, and graceful
-shutdown through the Rust process. Restart/replay supervision, native OS hosts,
-and the stable full semantic component API remain later delivery slices. This
-package is therefore not a published SDK or a zero-configuration native TSX
-application yet. The future `run()` API will choose the host artifact, bind
-event dispatch, and supervise recovery.
+shutdown through the Rust process. Hostless `createApp` definitions now expose
+`run()`: it authenticates the exact platform artifact, generates the handshake
+session id, binds event dispatch before the initial render, and returns the
+running application after its first commit. Restart/replay supervision, native
+OS hosts, published platform artifacts, and the stable full semantic component
+API remain later delivery slices. This package is therefore not yet a published
+native SDK.
 
-The explicit development path is runnable when the Rust host artifact is
-already built:
+The zero-argument application path is:
+
+```ts
+const app = await createApp(App).run();
+await app.shutdown();
+```
+
+Installed releases resolve an exact optional platform package and verify its
+strict manifest plus executable SHA-256 before spawning. Repository development
+and tests may set `A3S_GUI_TSX_HOST` to an absolute prebuilt Host path together
+with `A3S_GUI_ALLOW_UNVERIFIED_HOST=1`. The override is explicit and does not act
+as a production PATH fallback.
+
+Typed Host injection remains available for transport and failure testing:
 
 ```ts
 const host = await connectA3sNodeApplicationHostV1({

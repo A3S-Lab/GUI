@@ -6,7 +6,7 @@
   <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
   <img alt="Self-drawn only" src="https://img.shields.io/badge/renderer-self--drawn%20only-0067C0?style=flat-square">
-  <img alt="TSX T2" src="https://img.shields.io/badge/TSX-T2%20application%20pump-1687D9?style=flat-square">
+  <img alt="TSX T2" src="https://img.shields.io/badge/TSX-T2%20application%20runner-1687D9?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2F3945?style=flat-square"></a>
 </p>
 
@@ -107,13 +107,15 @@ The repository already provides:
   commit/event application, performs timeout-bounded client ping/pong and
   close/ack control, propagates fatal/stream failures, and is exercised from
   real Node through the Rust software host.
+- the hostless `createApp(App).run()` path, which selects a validated
+  platform host artifact, creates a unique protocol session, binds native events
+  before the first render, and closes a partially started host on failure.
 
 Still required before a production native application:
 
 - real zero-widget macOS, Windows, and Wayland/X11 hosts;
 - production text shaping, text editing, IME, and assistive-technology bridges;
-- the zero-configuration `createApp` runner, restart recovery, and
-  committed-frame replay;
+- restart recovery and committed-frame replay for the `createApp` runner;
 - packaging, signing, installer work, and tri-platform visual evidence;
 - full self-drawn conformance evidence for every React Aria family.
 
@@ -165,9 +167,14 @@ function Counter() {
 await createApp(Counter).run();
 ```
 
-This is the target zero-configuration application API, not yet a runnable
-native package. Today, the private SDK also has a transport-neutral `createApp`
-lifecycle driven by a typed host object. It owns keyed function-component
+This zero-argument startup API is implemented and exercised from Node against
+the real Rust software/self-drawn process. It resolves the exact platform
+artifact package and validates its manifest, size, target, protocol range, and
+SHA-256 checksum before spawn; the repository test path uses an explicit
+absolute development artifact override plus an unverified-Host opt-in.
+Published native platform packages and visible OS hosts do not exist yet, so
+this is still not an end-user native package. The underlying scheduler also
+remains usable with a typed host object. It owns keyed function-component
 instances, typed nested context, render error boundaries, state/reducer/memo/
 ref/effect hooks, one-microtask rerender batching, revision-scoped callbacks,
 effect promotion only after `committed`, full render envelopes, independent
@@ -176,8 +183,8 @@ incremental framing, an explicit Node child-process transport, the strict
 `a3s-gui-tsx-host` software/self-drawn process, and an ordered framed
 application host shared with `createApp`, including bidirectional ping/pong,
 fixed host liveness deadlines, and protocol-level graceful close.
-Zero-configuration startup, restart/replay supervision, native host startup,
-and npm publication remain T2-T5 work.
+Restart/replay supervision, native host presentation, platform artifact
+publication, and npm publication remain T2-T5 work.
 
 Read [TSX native runtime](docs/tsx-native-runtime.md) for protocol and delivery
 gates.
@@ -302,8 +309,8 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. finish T2 with zero-configuration startup, restart recovery, and
-   committed-frame replay over the landed application pump;
+1. finish T2 with restart recovery, committed-frame replay, and the final public
+   component/action identity contract over the landed application runner;
 2. land production text shaping/editing primitives on the generic layout/scene
    path;
 3. implement the first raw Windows host, then macOS and Wayland/X11 hosts,

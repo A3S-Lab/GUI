@@ -21,6 +21,7 @@ import {
   type CompileFrameOptions,
 } from "./frame.ts";
 import { ComponentHookTree } from "./hook-tree.ts";
+import { A3sApplicationRunnerV1 } from "./application-runner.ts";
 
 export type A3sRenderCandidateV1 = TsxRenderMessageV1;
 
@@ -48,16 +49,31 @@ export interface A3sApplicationStateV1 {
 }
 
 interface CreateAppBaseOptions {
-  readonly host: A3sApplicationHostV1;
   readonly frameId?: string;
   readonly compile?: CompileFrameOptions;
   readonly onError?: (error: unknown) => void;
 }
 
-export type CreateAppOptions<Props extends A3sJsxProps> = CreateAppBaseOptions &
+type CreateAppPropsOptions<Props extends A3sJsxProps> =
   ({} extends Props
     ? { readonly props?: Readonly<Props> }
     : { readonly props: Readonly<Props> });
+
+export type CreateAppOptions<Props extends A3sJsxProps> = CreateAppBaseOptions &
+  CreateAppPropsOptions<Props> & {
+    readonly host: A3sApplicationHostV1;
+  };
+
+export type CreateRunnableAppOptionsV1<Props extends A3sJsxProps> =
+  CreateAppBaseOptions & CreateAppPropsOptions<Props>;
+
+interface ValidatedApplicationOptionsV1<Props extends A3sJsxProps> {
+  readonly host: A3sApplicationHostV1 | null;
+  readonly frameId: string;
+  readonly compile: Readonly<CompileFrameOptions>;
+  readonly onError: ((error: unknown) => void) | null;
+  readonly props: Readonly<Props>;
+}
 
 export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
   readonly #root: A3sFunctionComponent<Props>;
@@ -83,40 +99,28 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
     root: A3sFunctionComponent<Props>,
     options: CreateAppOptions<Props>,
   ) {
-    if (typeof root !== "function") {
-      throw new TypeError("createApp requires a synchronous function component");
-    }
-    if (!isPlainRecord(options)) {
-      throw new TypeError("createApp options must be a plain object");
-    }
-    if (
-      typeof options.host !== "object" ||
-      options.host === null ||
-      typeof options.host.submitRender !== "function"
-    ) {
+    const validated = validateApplicationOptions(root, options, true);
+    const host = validated.host;
+    if (host === null) {
       throw new TypeError("createApp requires a typed host with submitRender");
-    }
-    if (options.onError !== undefined && typeof options.onError !== "function") {
-      throw new TypeError("createApp onError must be a function");
     }
 
     this.#root = root;
-    this.#host = options.host;
-    const frameId = options.frameId ?? "app";
-    if (typeof frameId !== "string" || frameId.length === 0) {
-      throw new TypeError("createApp frameId must be a non-empty string");
-    }
-    this.#frameId = frameId;
-    const initialProps = options.props === undefined ? {} as Props : options.props;
-    this.#props = snapshotProps<Props>(initialProps);
-    this.#compileOptions = Object.freeze({ ...(options.compile ?? {}) });
-    this.#onError = options.onError ?? null;
+    this.#host = host;
+    this.#frameId = validated.frameId;
+    this.#props = validated.props;
+    this.#compileOptions = validated.compile;
+    this.#onError = validated.onError;
     this.#hooks = new ComponentHookTree(() => this.#requestRender());
-    const sharedSession = options.host.session;
-    this.#session = sharedSession ?? new A3sClientSessionV1(options.host.welcome);
-    if (sharedSession !== undefined && sharedSession.welcome !== options.host.welcome) {
+    const sharedSession = host.session;
+    this.#session = sharedSession ?? new A3sClientSessionV1(host.welcome);
+    if (sharedSession !== undefined && sharedSession.welcome !== host.welcome) {
       throw new TypeError("createApp host session does not match its welcome message");
     }
+  }
+
+  get host(): A3sApplicationHostV1 {
+    return this.#host;
   }
 
   get state(): Readonly<A3sApplicationStateV1> {
@@ -413,8 +417,122 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
 export function createApp<Props extends A3sJsxProps>(
   root: A3sFunctionComponent<Props>,
   options: CreateAppOptions<Props>,
-): A3sApplicationV1<Props> {
-  return new A3sApplicationV1(root, options);
+): A3sApplicationV1<Props>;
+export function createApp<Props extends A3sJsxProps>(
+  root: A3sFunctionComponent<Props>,
+  ...options: {} extends Props
+    ? [options?: CreateRunnableAppOptionsV1<Props>]
+    : [options: CreateRunnableAppOptionsV1<Props>]
+): A3sApplicationRunnerV1<Props>;
+export function createApp<Props extends A3sJsxProps>(
+  root: A3sFunctionComponent<Props>,
+  options?: CreateAppOptions<Props> | CreateRunnableAppOptionsV1<Props>,
+): A3sApplicationV1<Props> | A3sApplicationRunnerV1<Props> {
+  if (isPlainRecord(options) && Object.hasOwn(options, "host")) {
+    return new A3sApplicationV1(root, options as CreateAppOptions<Props>);
+  }
+  const validated = validateApplicationOptions(root, options ?? {}, false);
+  const definition = {
+    frameId: validated.frameId,
+    compile: validated.compile,
+    props: validated.props,
+    ...(validated.onError === null ? {} : { onError: validated.onError }),
+  };
+  return new A3sApplicationRunnerV1((host) =>
+    new A3sApplicationV1(root, {
+      ...definition,
+      host,
+    } as CreateAppOptions<Props>)
+  );
+}
+
+function validateApplicationOptions<Props extends A3sJsxProps>(
+  root: A3sFunctionComponent<Props>,
+  options: unknown,
+  requireHost: boolean,
+): ValidatedApplicationOptionsV1<Props> {
+  if (typeof root !== "function") {
+    throw new TypeError("createApp requires a synchronous function component");
+  }
+  const values = plainApplicationOptionValues(options, requireHost);
+  const host = values.host ?? null;
+  if (
+    requireHost &&
+    (
+      typeof host !== "object" ||
+      host === null ||
+      typeof (host as A3sApplicationHostV1).submitRender !== "function"
+    )
+  ) {
+    throw new TypeError("createApp requires a typed host with submitRender");
+  }
+  const frameId = values.frameId ?? "app";
+  if (typeof frameId !== "string" || frameId.length === 0) {
+    throw new TypeError("createApp frameId must be a non-empty string");
+  }
+  const onError = values.onError === undefined ? null : values.onError;
+  if (onError !== null && typeof onError !== "function") {
+    throw new TypeError("createApp onError must be a function");
+  }
+  const initialProps = values.props === undefined ? {} as Props : values.props as Props;
+  return {
+    host: host as A3sApplicationHostV1 | null,
+    frameId,
+    compile: snapshotCompileOptions(values.compile),
+    onError: onError as ((error: unknown) => void) | null,
+    props: snapshotProps<Props>(initialProps),
+  };
+}
+
+function plainApplicationOptionValues(
+  options: unknown,
+  requireHost: boolean,
+): Record<string, unknown> {
+  if (!isPlainRecord(options)) {
+    throw new TypeError("createApp options must be a plain object");
+  }
+  const allowed = new Set(["frameId", "compile", "onError", "props"]);
+  if (requireHost) {
+    allowed.add("host");
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(options);
+  const values: Record<string, unknown> = {};
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (typeof key !== "string" || !allowed.has(key)) {
+      throw new TypeError(`createApp options contain unknown field ${String(key)}`);
+    }
+    const descriptor = descriptors[key];
+    if (descriptor === undefined || !("value" in descriptor)) {
+      throw new TypeError(`createApp option ${key} cannot be an accessor`);
+    }
+    values[key] = descriptor.value;
+  }
+  if (requireHost && !Object.hasOwn(values, "host")) {
+    throw new TypeError("createApp requires a typed host with submitRender");
+  }
+  return values;
+}
+
+function snapshotCompileOptions(value: unknown): Readonly<CompileFrameOptions> {
+  if (value === undefined) {
+    return Object.freeze({});
+  }
+  if (!isPlainRecord(value)) {
+    throw new TypeError("createApp compile options must be a plain object");
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  const snapshot: Record<string, unknown> = {};
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (key !== "maximumDepth" && key !== "maximumNodes") {
+      throw new TypeError(`createApp compile options contain unknown field ${String(key)}`);
+    }
+    const descriptor = descriptors[key];
+    if (descriptor === undefined || !("value" in descriptor)) {
+      throw new TypeError(`createApp compile option ${String(key)} cannot be an accessor`);
+    }
+    snapshot[key] = descriptor.value;
+  }
+  return Object.freeze(snapshot) as Readonly<CompileFrameOptions>;
 }
 
 function snapshotProps<Props extends A3sJsxProps>(props: Readonly<Props>): Readonly<Props> {

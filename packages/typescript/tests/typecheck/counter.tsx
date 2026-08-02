@@ -16,6 +16,8 @@ import {
   useReducer,
   useRef,
   useState,
+  type A3sApplicationRuntimeV1,
+  type A3sApplicationV1,
   type A3sJsxProps,
   type A3sRenderCandidateV1,
   type TsxWelcomeMessageV1,
@@ -136,6 +138,16 @@ const app = createApp(StatefulCounter, {
 });
 app.state.status satisfies "created" | "running" | "closing" | "closed";
 app.state.session.status satisfies "negotiated" | "closing" | "failed" | "closed";
+
+declare const typeOnlyRuntime: A3sApplicationRuntimeV1;
+const runnable = createApp(StatefulCounter, { frameId: "automatic-runner-typecheck" });
+runnable.run({ runtime: typeOnlyRuntime }) satisfies Promise<A3sApplicationV1>;
+const runnableCounterProps: CounterProps = { count: 0, onIncrement: () => undefined };
+createApp(Counter, {
+  props: runnableCounterProps,
+}).run({ runtime: typeOnlyRuntime }) satisfies Promise<A3sApplicationV1<CounterProps>>;
+// @ts-expect-error required root props cannot be omitted from a runnable app
+createApp(Counter);
 
 createApp(Counter, {
   host: typeOnlyHost,

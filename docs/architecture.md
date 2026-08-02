@@ -253,14 +253,14 @@ evidence.
 The architecture is implemented through the generic scene slice, H0 host
 contract, H1 shared runtime, TSX callback/session boundaries, a strict software
 self-drawn TSX process host, and the ordered Node/Rust application pump with
-bidirectional liveness, fixed host response deadlines, and graceful protocol
-shutdown. The remaining critical work is:
+bidirectional liveness, fixed host response deadlines, graceful protocol
+shutdown, and validated zero-argument `createApp` startup. The remaining
+critical work is:
 
 1. production text shaping, editing, IME, and accessibility semantics on the
    generic layout/scene path;
 2. concrete Windows, macOS, and Wayland/X11 hosts;
-3. zero-configuration TSX startup, crash recovery, and replay over the landed
-   Node/Rust application pump;
+3. TSX crash recovery and replay over the landed Node/Rust application runner;
 4. component-by-component React Aria conformance;
 5. packaging, signing, installers, and real tri-platform evidence.
 

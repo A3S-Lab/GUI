@@ -10,8 +10,9 @@ client handshake/framing plus post-handshake client/host message sequencing.
 The no-shell Node byte transport, strict software self-drawn Rust process host,
 and ordered `createApp` application pump are implemented, including
 bidirectional ping/pong, fixed host liveness deadlines, and protocol close/ack.
-Zero-configuration startup, supervision/replay, and an executable native OS
-host are not implemented yet.
+Validated zero-argument startup and automatic event binding are also
+implemented. Supervision/replay and an executable native OS host are not
+implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -444,7 +445,7 @@ application scheduler, a strict client handshake/session, an incremental
 little-endian JSON frame codec, a no-shell Node child-process transport, a
 strict software self-drawn Rust process host, an ordered application pump, and
 a pinned TypeScript 5.9 `react-jsx` fixture. Command messages,
-zero-configuration startup, and supervision/replay remain pending.
+supervision/replay, and native artifact publication remain pending.
 
 `A3sClientHandshakeV1` constructs the exact first `hello`, bounds its encoded
 size, and accepts only a matching negotiated `welcome`. `A3sJsonFrameDecoderV1`
@@ -490,6 +491,14 @@ control is answered immediately; separate received and contiguous applied
 high-water marks preserve both truths. The unresolved window is capped at 1,024
 messages so a stalled semantic operation cannot accumulate unbounded control
 state.
+
+Calling `createApp(App)` without a Host produces a one-shot application runner.
+Its zero-argument `run()` resolves the native artifact, creates a UUID session,
+installs the event handler during connection, constructs the scheduler over the
+negotiated shared session, and returns only after the initial frame commits. A
+connection or first-render failure closes the partially started Host before the
+original error is returned. Typed runtime injection remains available for
+transport and failure tests; it is not a second rendering backend.
 
 ### Messages
 
@@ -552,9 +561,16 @@ packages/typescript/
 |- src/jsx-runtime.ts
 |- src/jsx-dev-runtime.ts
 |- src/element.ts
-|- src/component-runtime/
-|- src/action-registry/
-|- src/session/
+|- src/application.ts
+|- src/application-runner.ts
+|- src/host-artifact.ts
+|- src/application-host.ts
+|- src/component-runtime.ts
+|- src/action-registry.ts
+|- src/client-handshake.ts
+|- src/client-session.ts
+|- src/transport.ts
+|- src/node-process-transport.ts
 |- src/generated/protocol.ts
 `- tests/
 
@@ -567,7 +583,7 @@ src/tsx_protocol/
 `- tests.rs
 
 src/platform_host/       shared zero-widget host contract and OS shells
-src/bin/a3s_gui_host.rs
+src/bin/tsx_host.rs
 tests/fixtures/tsx-protocol/
 packaging/npm/
 |- host-darwin-arm64/
@@ -602,6 +618,15 @@ The launcher resolves the exact package for `process.platform`,
 `process.arch`, and libc where relevant. It validates the embedded host
 manifest and checksum before spawn. It never downloads or executes a package
 manager during application startup.
+
+Manifest schema 1 is an exact record containing the package and Host versions,
+platform, architecture, ABI, supported protocol range, one-file executable
+name, byte length, and lowercase SHA-256. Unknown or missing fields, target
+mismatches, traversal paths, size drift, and checksum drift fail before spawn.
+`A3S_GUI_TSX_HOST` is a development/test-only override and must name an existing
+absolute file. It is ignored unless the caller also sets
+`A3S_GUI_ALLOW_UNVERIFIED_HOST=1`; production startup never searches `PATH` or
+bypasses an installed package implicitly.
 
 The release contract records:
 
@@ -642,8 +667,8 @@ minimum M4 text/input slice.
 Status: architecture accepted; the Rust-side strict handshake/framing,
 render/commit/event session, counter parity fixtures, self-drawn adapters,
 drop-policy DTO/resolver adapter, the software self-drawn Rust process host,
-and the ordered application pump are implemented. Calculator, commands,
-zero-configuration startup, and recovery/replay are pending. Rust-generated
+and the ordered application runner are implemented. Calculator, commands, and
+recovery/replay are pending. Rust-generated
 declarations,
 the headless automatic JSX core, stateful JSX execution, client
 handshake/framing, the Node child-process byte transport, post-handshake session
@@ -676,8 +701,6 @@ event dispatch, and Node 24 plus TypeScript 5.9 golden/type tests have also
 landed.
 
 - extend the landed application messages with command messages
-- add zero-configuration startup and event binding over the landed
-  `A3sApplicationHostV1` event/commit pump
 - add bounded restart policy, crash recovery, and committed-frame replay
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
@@ -720,11 +743,13 @@ Delivered:
 - ordered `A3sFramedApplicationHostV1` sharing the negotiated session with
   `createApp`, including bounded event tasks, bidirectional liveness across
   pending UI work, protocol close/ack, and real Node-to-Rust coverage
+- hostless `createApp(App).run()` with validated platform artifact
+  resolution, automatic UUID handshake identity, event binding, failed-start
+  cleanup, and a real zero-argument Node-to-Rust process fixture
 - serialized event/commit consumption across overlapping host messages
 
 Remaining:
 
-- zero-configuration process startup and `createApp` event binding
 - bounded restart policy, crash recovery, and committed-frame replay
 - final public component/action identity contract
 - complete keyboard, stale-event, host-crash, and replay gates
@@ -798,7 +823,9 @@ green.
    Landed.
 10. Add host-initiated liveness, strict pong correlation, and a fixed process
     deadline. Landed.
-11. Add Nub watch reload and platform binary packaging only after the native
+11. Add validated zero-argument `createApp` startup and event binding.
+    Landed.
+12. Add Nub watch reload and platform binary packaging only after the native
    presentation gates pass.
 
 Each commit must leave Rust-only builds and the existing Rust authoring path

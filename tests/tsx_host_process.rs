@@ -323,6 +323,31 @@ fn node_create_app_drives_the_real_self_drawn_host_process() {
     assert!(output.stderr.is_empty());
 }
 
+#[test]
+fn node_create_app_run_discovers_the_real_self_drawn_host_process() {
+    let node = std::env::var_os("A3S_GUI_NODE_BINARY").unwrap_or_else(|| "node".into());
+    let script = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("packages/typescript/tests/fixtures/rust-application-runner.mjs");
+    let output = Command::new(node)
+        .arg(script)
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .env("A3S_GUI_TSX_HOST", env!("CARGO_BIN_EXE_a3s-gui-tsx-host"))
+        .env("A3S_GUI_ALLOW_UNVERIFIED_HOST", "1")
+        .env("NO_COLOR", "1")
+        .output()
+        .expect("run zero-configuration Node-to-Rust TSX application fixture");
+    if !output.status.success() {
+        panic!(
+            "zero-configuration Node-to-Rust TSX fixture exited with {}\nstdout:\n{}\nstderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
+    }
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
+}
+
 fn read_required<R: Read>(reader: &mut R, limits: TsxFrameLimitsV1) -> TsxHostMessageV1 {
     read_tsx_json_frame_v1(reader, limits)
         .unwrap()
