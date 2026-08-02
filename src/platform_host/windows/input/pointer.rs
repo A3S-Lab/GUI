@@ -11,8 +11,8 @@ use windows_sys::Win32::UI::Input::Pointer::{
     POINTER_FLAG_THIRDBUTTON,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    IsWindowVisible, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN, WM_POINTERENTER, WM_POINTERLEAVE,
-    WM_POINTERUP, WM_POINTERUPDATE,
+    IsWindowVisible, PEN_FLAG_BARREL, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN, WM_POINTERENTER,
+    WM_POINTERLEAVE, WM_POINTERUP, WM_POINTERUPDATE,
 };
 
 use crate::input::{NativeInputModality, NativeKeyModifiers};
@@ -410,6 +410,14 @@ fn pointer_buttons(flags: u32) -> u32 {
         }
     }
     buttons
+}
+
+fn pen_buttons(flags: u32) -> u32 {
+    if flags & PEN_FLAG_BARREL != 0 {
+        SECONDARY_BUTTON_MASK
+    } else {
+        0
+    }
 }
 
 fn changed_button(change: i32) -> Option<PlatformPointerButton> {

@@ -14,7 +14,7 @@ use crate::input::NativeInputModality;
 
 use super::super::mouse::pointer_modifiers;
 use super::{
-    changed_button, logical_client_position, normalize_pressure, pointer_buttons,
+    changed_button, logical_client_position, normalize_pressure, pen_buttons, pointer_buttons,
     WindowsPointerSample, PRIMARY_BUTTON_MASK,
 };
 
@@ -44,6 +44,7 @@ pub(super) fn read_pointer_sample(
                 NativeInputModality::Touch,
                 touch.pointerInfo,
                 pressure,
+                0,
             )
             .map(Some)
         }
@@ -61,6 +62,7 @@ pub(super) fn read_pointer_sample(
                 NativeInputModality::Pen,
                 pen.pointerInfo,
                 pressure,
+                pen_buttons(pen.penFlags),
             )
             .map(Some)
         }
@@ -74,13 +76,14 @@ fn pointer_sample(
     modality: NativeInputModality,
     info: windows_sys::Win32::UI::Input::Pointer::POINTER_INFO,
     pressure: Option<f64>,
+    supplemental_buttons: u32,
 ) -> Result<WindowsPointerSample, String> {
     let mut point = info.ptPixelLocation;
     // SAFETY: hwnd owns the current pointer message and point is writable.
     if unsafe { ScreenToClient(hwnd, &mut point) } == 0 {
         return Err(windows_error("ScreenToClient"));
     }
-    let mut pressed_buttons = pointer_buttons(info.pointerFlags);
+    let mut pressed_buttons = pointer_buttons(info.pointerFlags) | supplemental_buttons;
     if modality == NativeInputModality::Touch
         && info.pointerFlags & POINTER_FLAG_INCONTACT != 0
         && pressed_buttons == 0

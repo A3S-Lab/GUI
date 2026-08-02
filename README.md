@@ -92,10 +92,11 @@ The repository already provides:
   per-monitor-v2 DPI client sizing, message pumping, focus/close/occlusion
   events, DPI-correct legacy mouse/keyboard/wheel translation, capture and
   focus-loss cancellation, bounded concurrent `WM_POINTER` touch/pen
-  translation with pressure and namespaced identities, real-HWND touch
-  injection evidence with compatibility-mouse suppression, hidden first-frame
-  staging, owned raw-surface leases that prevent premature HWND destruction,
-  atomic prepare/commit/rollback, and Windows-native CI evidence;
+  translation with pressure and namespaced identities, real-HWND touch and
+  User32 synthetic-pen injection evidence, compatibility-mouse suppression,
+  barrel-button normalization, hidden first-frame staging, owned raw-surface
+  leases that prevent premature HWND destruction, atomic
+  prepare/commit/rollback, and Windows-native CI evidence;
 - `SelfDrawnWindowRuntime` with atomic prepare/commit/reject, recovery,
   typed presentation outcomes, normalized input, hit testing, drag/drop,
   accessibility actions, and reference/recording/GPU presenters;
@@ -146,8 +147,9 @@ The repository already provides:
 
 Still required before a production native application:
 
-- Windows physical-pen conformance, TSF, UI Automation, system
-  services, device-loss fault injection, and reviewed GPU capture evidence;
+- Windows hardware-device pen capture plus tilt/rotation/eraser conformance,
+  TSF, UI Automation, system services, device-loss fault injection, and
+  reviewed GPU capture evidence;
 - real zero-widget macOS and Wayland/X11 hosts;
 - a production font database/shaper and glyph raster/atlas encoder, followed by
   text editing, IME, and assistive-technology bridges;
@@ -323,9 +325,9 @@ just test-tsx-host
 
 `just verify` also checks dependency firewalls, formatting, Clippy, rustdoc,
 all Rust tests and examples, the React Aria catalog, TypeScript fixtures, and
-whitespace. CI adds Windows-native lifecycle, input/cancellation, H1
-transaction, and real DX12 presentation evidence. Toolkit-specific content-host
-and legacy bundle lanes do not exist.
+whitespace. CI adds Windows-native lifecycle, touch/pen system injection,
+input/cancellation, H1 transaction, and real DX12 presentation evidence.
+Toolkit-specific content-host and legacy bundle lanes do not exist.
 
 ## Repository map
 
@@ -351,8 +353,9 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. add physical-pen evidence, TSF, UI Automation, system services,
-   minimize/restore recovery, and device-loss fault injection on Windows;
+1. add hardware-device pen capture and tilt/rotation/eraser semantics, TSF,
+   UI Automation, system services, minimize/restore recovery, and device-loss
+   fault injection on Windows;
 2. implement the font discovery/shaping and glyph raster/atlas backends on the
    landed generic text contracts, then add editing and IME;
 3. pin Rust RSX/TSX calculator parity and reviewed Windows GPU output, then port

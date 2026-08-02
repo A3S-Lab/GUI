@@ -4,7 +4,7 @@ use windows_sys::Win32::UI::Input::Pointer::{
     POINTER_CHANGE_SECONDBUTTON_DOWN, POINTER_FLAG_INCONTACT, POINTER_FLAG_SECONDBUTTON,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    PEN_MASK_PRESSURE, TOUCH_MASK_PRESSURE, WM_POINTERCAPTURECHANGED,
+    PEN_FLAG_BARREL, PEN_MASK_PRESSURE, TOUCH_MASK_PRESSURE, WM_POINTERCAPTURECHANGED,
 };
 
 use crate::input::{NativeInputModality, NativeKeyModifiers};
@@ -16,7 +16,7 @@ use crate::platform_host::{
 };
 
 use super::{
-    logical_client_position, normalize_pressure, pointer_buttons, NativePointerPhase,
+    logical_client_position, normalize_pressure, pen_buttons, pointer_buttons, NativePointerPhase,
     WindowsPointerSample, MAX_ACTIVE_POINTERS, POINTER_ID_NAMESPACE,
 };
 
@@ -105,6 +105,8 @@ fn pen_barrel_button_and_pressure_map_to_portable_semantics() {
         pointer_buttons(POINTER_FLAG_INCONTACT | POINTER_FLAG_SECONDBUTTON),
         2
     );
+    assert_eq!(pen_buttons(PEN_FLAG_BARREL), 2);
+    assert_eq!(pen_buttons(0), 0);
     assert_eq!(
         super::changed_button(POINTER_CHANGE_SECONDBUTTON_DOWN),
         Some(PlatformPointerButton::Secondary)

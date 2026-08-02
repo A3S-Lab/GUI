@@ -15,6 +15,10 @@ const TARGET_FEATURES: &[&str] = &[
 #[test]
 fn target_host_features_do_not_enable_legacy_renderers() {
     let manifest = fs::read_to_string(manifest_path("Cargo.toml")).unwrap();
+    assert!(
+        !manifest.contains("\"Win32_UI_Controls\""),
+        "the raw Windows host must not enable Win32 content-control bindings"
+    );
     let features = manifest
         .split_once("[features]")
         .map(|(_, rest)| rest)

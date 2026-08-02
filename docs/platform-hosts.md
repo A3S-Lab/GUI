@@ -30,11 +30,13 @@ commits visibility, and then publishes the prepared frame through DX12. The
 same bounded pump translates DPI-correct legacy mouse, keyboard, wheel, and
 concurrent `WM_POINTER` touch/pen input, including pressure, modifier, capture,
 and focus-loss state. Target-native tests prove the normalized state machine,
-compile the raw ABI path, and inject a complete touch sequence through a real
-visible HWND while rejecting compatibility-mouse promotion. The native TSX
-process lane also verifies a process-owned visible HWND, GPU commit, normalized
-mouse action, semantic window-close action, and framed shutdown. Physical pen,
-reviewed screenshots, and full Windows conformance remain incomplete.
+compile the raw ABI path, and inject complete touch and synthetic-pen sequences
+through a real visible HWND. The pen gate verifies pressure, motion, stable
+identity, and barrel-button state without enabling Win32 content-control
+bindings. The native TSX process lane also verifies a process-owned visible
+HWND, GPU commit, normalized mouse action, semantic window-close action, and
+framed shutdown. Hardware-device pen capture, reviewed screenshots, and full
+Windows conformance remain incomplete.
 `host-macos` and `host-linux` remain capability markers.
 
 ## Target pipeline
@@ -177,13 +179,15 @@ Delivered:
 - bounded `WM_POINTER` touch/pen translation with pressure, stable namespaced
   pointer identities, concurrent contacts, full-sequence consumption, and
   capture/focus-loss cancellation;
+- real-HWND User32 touch and synthetic-pen injection, including pen pressure,
+  movement, stable identity, and barrel-button normalization;
 - real Windows lifecycle/H1/DX12 tests and unsafe/dependency firewalls.
 
 Remaining:
 
 - device-loss fault injection, minimize/restore recovery, and reviewed GPU
   capture evidence;
-- hardware-injected touch/pen message-path and extended input conformance;
+- hardware-device pen capture plus tilt, rotation, and eraser conformance;
 - TSF text input and UI Automation snapshot/action bridge;
 - clipboard and explicit file-picker smoke;
 - deterministic reference story plus GPU screenshot evidence.
@@ -250,6 +254,7 @@ Portable H0/H1 tests remain the cross-platform contract authority. The
 Windows-native lane additionally proves raw lifecycle, lease rollback, legacy
 mouse/keyboard/wheel translation and cancellation, target-compiled
 `WM_POINTER` touch/pen normalization, real-HWND touch injection without
-compatibility-mouse events, and Graphics/DX12 presentation. It is not physical
-pen, text, accessibility-provider, system-service, or reviewed
-visual-conformance evidence yet.
+compatibility-mouse events, User32 synthetic-pen pressure/motion/barrel state,
+and Graphics/DX12 presentation. It is not hardware-device pen, text,
+accessibility-provider, system-service, or reviewed visual-conformance evidence
+yet.

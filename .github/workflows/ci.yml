@@ -73,6 +73,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --no-default-features --features host-windows --test windows_pointer_input -- --test-threads=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --no-default-features --features host-windows --test windows_pen_input -- --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --no-default-features --features host-windows --test windows_platform_host -- --test-threads=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --no-default-features --features host-windows,platform-runtime --test windows_platform_host shared_self_drawn_runtime_commits_into_the_real_hidden_win32_host -- --exact --test-threads=1

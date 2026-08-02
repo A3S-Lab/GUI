@@ -28,7 +28,7 @@ or fallback renderer.
 | M5 cutover/deletion | Partial | Legacy deletion complete; real OS-host cutover cannot occur until H2-H4 |
 | H0 host contract | Complete | Zero-widget transaction/event/API contract and dependency firewall |
 | H1 shared runtime | Complete | Host-first staging, owned presentation targets, typed completion, rollback ordering, input/hit/a11y routing |
-| H2 Windows host | In progress | Real HWND lifecycle, owned surface leases, Graphics/DX12 presentation, PMv2 DPI, mouse/keyboard/wheel and WM_POINTER touch/pen input, atomic transactions, Windows CI |
+| H2 Windows host | In progress | Real HWND lifecycle, owned surface leases, Graphics/DX12 presentation, PMv2 DPI, mouse/keyboard/wheel and system-injected WM_POINTER touch/pen input, atomic transactions, Windows CI |
 | H3-H4 real hosts | Planned | macOS and Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
@@ -253,6 +253,8 @@ Delivered:
 - bounded `WM_POINTER` touch/pen translation with DPI-correct coordinates,
   normalized pressure/buttons, stable namespaced identities, concurrent
   contacts, compatibility-mouse suppression, and capture/focus cancellation;
+- real-HWND User32 synthetic-pen injection covering pressure, motion, stable
+  identity, and barrel-button state;
 - source/dependency firewalls confining unsafe Win32 ABI calls and rejecting
   content toolkits.
 
@@ -260,7 +262,7 @@ Remaining:
 
 - device-loss fault injection, minimize/restore recovery, and reviewed GPU
   capture evidence;
-- hardware-injected touch/pen message-path and extended input conformance;
+- hardware-device pen capture plus tilt, rotation, and eraser conformance;
 - TSF, UI Automation, clipboard, and explicit system services;
 - visible RSX/TSX story plus deterministic/GPU capture evidence.
 
@@ -514,15 +516,21 @@ Completed on 2026-08-03: bounded `WM_POINTER` touch/pen translation with
 pressure, stable device and pointer identities, concurrent contacts,
 full-sequence consumption, and capture/focus-loss cancellation. A real visible
 HWND now has target-CI evidence for an injected touch press/move/release sequence
-without compatibility-mouse events. Physical pen, text/IME, accessibility,
-system-service, and reviewed visual-parity evidence remain incomplete.
+without compatibility-mouse events.
 
-1. Add physical pen message-path evidence.
-2. Add minimize/restore and device-loss fault injection, then capture the same
+Completed on 2026-08-03: a User32 synthetic pen now crosses the real visible
+HWND message path with pressure, movement, stable identities, and barrel-button
+state. The production normalizer consumes `PEN_FLAG_BARREL`; the test-only ABI
+does not enable Win32 content-control bindings. Hardware-device capture and
+tilt/rotation/eraser semantics remain incomplete.
+
+1. Add minimize/restore and device-loss fault injection, then capture the same
    deterministic story through DX12.
-3. Implement production font/shaping and glyph encoder backends, then TSF and
+2. Implement production font/shaping and glyph encoder backends, then TSF and
    UI Automation bridges.
-4. Add Windows clipboard/system-service smokes and port the same contract to
+3. Add Windows clipboard/system-service smokes and port the same contract to
    H3 and H4.
+4. Add hardware-device pen capture and extend the portable pen contract with
+   tilt, rotation, and eraser semantics.
 5. Expand M6 deterministic stories and promote evidence through the matrix.
 6. Restore packaging only after H2-H4 artifacts exist.
