@@ -5,7 +5,7 @@ use crate::compiler::{CompiledOrientation, CompiledRsxNode, RsxCompilerBridge};
 use crate::event::{ActionInvocation, NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
 use crate::native::NativeRole;
-use crate::platform::{AppKitAdapter, PlatformAdapter};
+use crate::platform::{HeadlessAdapter, PlatformAdapter};
 use crate::protocol::{HostEvent, NativeProtocolApp};
 use crate::rsx_app::{ComponentCx, RsxComponent, RsxTemplate, RSX};
 use crate::style::{DisplayMode, PortableStyle, StyleColor};
@@ -373,7 +373,7 @@ fn rsx_ui_router_components_render_active_route_and_navigation_actions() {
 }
 
 #[test]
-fn rsx_ui_navigate_button_routes_press_through_appkit_blueprint() {
+fn rsx_ui_navigate_button_routes_press_through_headless_blueprint() {
     #[allow(non_snake_case)]
     fn router_demo(cx: &mut ComponentCx<RouterUiState>) -> RSX {
         let settingsActive = cx.use_state("settingsActive", |state: &RouterUiState| {
@@ -401,7 +401,7 @@ fn rsx_ui_navigate_button_routes_press_through_appkit_blueprint() {
     let render_component = component.clone();
     let reduce_component = component.clone();
     let mut app = NativeProtocolApp::new(
-        AppKitAdapter,
+        HeadlessAdapter,
         RouterUiState::default(),
         move |state| render_component.render(state),
         move |state, invocation| reduce_component.reduce(state, invocation),
@@ -2343,7 +2343,7 @@ fn rsx_ui_number_field_formats_percent_values_in_model_space() {
         .find(|child| child.role == NativeRole::TextField)
         .unwrap();
     assert_eq!(input_native.props.current, Some(0.45));
-    let blueprint = AppKitAdapter.blueprint(input_native);
+    let blueprint = HeadlessAdapter.blueprint(input_native);
     assert_eq!(blueprint.value.as_deref(), Some("+45.0%"));
     assert_eq!(
         blueprint

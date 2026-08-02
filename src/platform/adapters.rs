@@ -21,29 +21,15 @@ pub trait BlueprintHost {
     fn blueprint(&self, id: HostNodeId) -> Option<&NativeWidgetBlueprint>;
 }
 
+/// Nonvisual planner used by protocol and transaction tests.
+///
+/// Visible applications use the self-drawn platform runtime instead of a
+/// widget adapter.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct AppKitAdapter;
+pub struct HeadlessAdapter;
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct WinUiAdapter;
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Gtk4Adapter;
-
-impl PlatformAdapter for AppKitAdapter {
+impl PlatformAdapter for HeadlessAdapter {
     fn kind(&self) -> NativeBackendKind {
-        NativeBackendKind::AppKit
-    }
-}
-
-impl PlatformAdapter for WinUiAdapter {
-    fn kind(&self) -> NativeBackendKind {
-        NativeBackendKind::WinUI
-    }
-}
-
-impl PlatformAdapter for Gtk4Adapter {
-    fn kind(&self) -> NativeBackendKind {
-        NativeBackendKind::Gtk4
+        NativeBackendKind::Headless
     }
 }

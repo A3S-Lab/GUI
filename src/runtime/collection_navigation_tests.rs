@@ -3,10 +3,7 @@ use crate::event::NativeEventKind;
 use crate::geometry::{Rect, Size};
 use crate::input::NativeKeyModifiers;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{
-    AppKitAdapter, Gtk4Adapter, PlatformAdapter, PlatformCommand, PlatformPlanningHost,
-    WinUiAdapter,
-};
+use crate::platform::{HeadlessAdapter, PlatformAdapter, PlatformCommand, PlatformPlanningHost};
 use crate::selection::{CollectionKey, CollectionLayoutSnapshot, Selection};
 use crate::web::WebProps;
 
@@ -33,8 +30,11 @@ fn collection(
 
 fn runtime_for(
     element: &NativeElement,
-) -> (GuiRuntime<PlatformPlanningHost<Gtk4Adapter>>, HostNodeId) {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+) -> (
+    GuiRuntime<PlatformPlanningHost<HeadlessAdapter>>,
+    HostNodeId,
+) {
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("selectItem");
     let root = runtime.render_native(element).unwrap();
     (runtime, root)
@@ -157,15 +157,15 @@ fn assert_select_all_and_clear<A: PlatformAdapter>(adapter: A, modifiers: Native
 
 #[test]
 fn collection_navigation_has_the_same_focus_and_selection_contract_on_all_adapters() {
-    assert_replace_navigation(AppKitAdapter);
-    assert_replace_navigation(Gtk4Adapter);
-    assert_replace_navigation(WinUiAdapter);
-    assert_typeahead_navigation(AppKitAdapter);
-    assert_typeahead_navigation(Gtk4Adapter);
-    assert_typeahead_navigation(WinUiAdapter);
-    assert_select_all_and_clear(AppKitAdapter, NativeKeyModifiers::new().meta(true));
-    assert_select_all_and_clear(Gtk4Adapter, NativeKeyModifiers::new().control(true));
-    assert_select_all_and_clear(WinUiAdapter, NativeKeyModifiers::new().control(true));
+    assert_replace_navigation(HeadlessAdapter);
+    assert_replace_navigation(HeadlessAdapter);
+    assert_replace_navigation(HeadlessAdapter);
+    assert_typeahead_navigation(HeadlessAdapter);
+    assert_typeahead_navigation(HeadlessAdapter);
+    assert_typeahead_navigation(HeadlessAdapter);
+    assert_select_all_and_clear(HeadlessAdapter, NativeKeyModifiers::new().meta(true));
+    assert_select_all_and_clear(HeadlessAdapter, NativeKeyModifiers::new().control(true));
+    assert_select_all_and_clear(HeadlessAdapter, NativeKeyModifiers::new().control(true));
 }
 
 #[test]
@@ -177,7 +177,7 @@ fn move_hook_owns_arrow_keys_before_collection_navigation() {
         .web
         .clone()
         .event("onMove", "moveItem");
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("selectItem");
     runtime.actions_mut().register("moveItem");
     let root = runtime.render_native(&list).unwrap();
@@ -221,7 +221,7 @@ fn list_box_typeahead_uses_locale_sensitive_item_text() {
             NativeElement::new("zulu", NativeRole::ListBoxItem)
                 .with_props(NativeProps::new().label("Zulu")),
         );
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("selectItem");
     runtime.i18n_mut().set_default_locale(Some("fr-FR"));
     let root = runtime.render_native(&list).unwrap();
@@ -543,7 +543,7 @@ fn tree_expansion_projects_visibility_and_routes_the_expanded_key_set() {
                     .web(WebProps::new().attribute("data-tree-level", "1")),
             ),
         );
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("selectItem");
     runtime.actions_mut().register("setExpanded");
     let root = runtime.render_native(&tree).unwrap();
@@ -634,7 +634,7 @@ fn tree_expansion_rolls_back_when_the_expanded_change_action_fails() {
                     .web(WebProps::new().attribute("data-tree-parent-key", "documents")),
             ),
         );
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     let root = runtime.render_native(&tree).unwrap();
     let items = runtime.renderer.child_ids(root);
 
@@ -692,7 +692,7 @@ fn controlled_tree_expanded_keys_override_optimistic_state_on_rerender() {
                 ),
             )
     };
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("setExpanded");
     let root = runtime.render_native(&tree(r#"["documents"]"#)).unwrap();
     let items = runtime.renderer.child_ids(root);
@@ -949,7 +949,7 @@ fn keyboard_selection_command_rolls_back_state_and_host_projection_on_action_fai
         .props
         .web
         .attribute("defaultSelectedKeys", r#"["first"]"#);
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     let root = runtime.render_native(&list).unwrap();
     let items = runtime.renderer.child_ids(root);
 

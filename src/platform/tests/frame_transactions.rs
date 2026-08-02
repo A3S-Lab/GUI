@@ -1,10 +1,10 @@
 use crate::host::NativeHost;
 use crate::native::{NativeElement, NativeRole};
-use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformPlanningHost};
 
 #[test]
 fn planning_frame_rollback_restores_exact_state_after_mid_frame_failure() {
-    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut host = PlatformPlanningHost::new(HeadlessAdapter);
     let stable = host
         .create(&NativeElement::new("stable", NativeRole::View))
         .unwrap();
@@ -38,7 +38,7 @@ fn planning_frame_rollback_restores_exact_state_after_mid_frame_failure() {
 
 #[test]
 fn planning_frame_commit_keeps_commands_for_protocol_drain() {
-    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut host = PlatformPlanningHost::new(HeadlessAdapter);
     host.begin_frame().unwrap();
     let root = host
         .create(&NativeElement::new("root", NativeRole::View))

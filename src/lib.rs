@@ -10,10 +10,6 @@
 
 pub mod accessibility;
 pub mod app;
-#[cfg(all(feature = "appkit", target_os = "macos"))]
-pub mod appkit;
-#[cfg(all(feature = "appkit-native", target_os = "macos"))]
-pub mod appkit_native;
 pub mod backend;
 pub mod capability;
 pub mod compiler;
@@ -27,24 +23,13 @@ pub mod error;
 pub mod event;
 pub mod focus;
 pub mod geometry;
-#[cfg(feature = "gtk4")]
-pub mod gtk4;
-#[cfg(all(feature = "gtk4-native", target_os = "linux"))]
-pub mod gtk4_native;
 pub mod host;
 pub mod html;
 pub mod i18n;
 pub mod input;
-pub mod input_conformance;
 pub mod interaction;
 pub mod layout;
 pub mod native;
-#[cfg(any(
-    all(feature = "appkit-native", target_os = "macos"),
-    all(feature = "gtk4-native", target_os = "linux"),
-    all(feature = "winui-native", target_os = "windows")
-))]
-mod native_backends;
 pub mod overlay;
 pub mod overlay_position;
 pub mod platform;
@@ -69,10 +54,6 @@ pub mod style;
 pub mod svg;
 pub mod tsx_protocol;
 pub mod web;
-#[cfg(feature = "winui")]
-pub mod winui;
-#[cfg(all(feature = "winui-native", target_os = "windows"))]
-pub mod winui_native;
 
 pub use accessibility::{
     AccessibilityAnnouncement, AccessibilityAnnouncementPriority, AccessibilityConformanceIssue,
@@ -83,18 +64,6 @@ pub use accessibility::{
 pub use app::{
     ActionPropagation, BackgroundUpdate, NativeRuntimeApp, NativeRuntimeEventBatch,
     NativeRuntimeEventResponse,
-};
-#[cfg(all(feature = "appkit", target_os = "macos"))]
-pub use appkit::{
-    AppKitCommandExecutor, AppKitHandleAdapter, AppKitHandleCommandExecutor, AppKitHandleDriver,
-    AppKitNativeHandle, AppKitNativeHandleState, AppKitNativeObject, AppKitWidgetDriver,
-    AppKitWidgetKind,
-};
-#[cfg(all(feature = "appkit-native", target_os = "macos"))]
-pub use appkit_native::{
-    AppKitComboBoxItem, AppKitEventWait, AppKitNativeSurface, AppKitNativeSurfaceAdapter,
-    AppKitNativeSurfaceCommandExecutor, AppKitNativeSurfaceDriver, AppKitOsHandle, AppKitOsWidget,
-    AppKitRuntimeApp, AppKitRuntimeHost,
 };
 pub use backend::{
     CommandExecutingHost, DegradedNativeState, DriverCommandExecutor, HandleWidgetDriver,
@@ -127,17 +96,6 @@ pub use event::{
 };
 pub use focus::{FocusManager, FocusNavigationMode, NativeFocusScope};
 pub use geometry::{Orientation, Rect, Size};
-#[cfg(feature = "gtk4")]
-pub use gtk4::{
-    Gtk4CommandExecutor, Gtk4HandleAdapter, Gtk4HandleCommandExecutor, Gtk4HandleDriver,
-    Gtk4NativeHandle, Gtk4NativeHandleState, Gtk4NativeObject, Gtk4WidgetDriver, Gtk4WidgetKind,
-};
-#[cfg(all(feature = "gtk4-native", target_os = "linux"))]
-pub use gtk4_native::{
-    Gtk4DropDownItem, Gtk4EventWait, Gtk4Menu, Gtk4MenuItem, Gtk4NativeSurface,
-    Gtk4NativeSurfaceAdapter, Gtk4NativeSurfaceCommandExecutor, Gtk4NativeSurfaceDriver,
-    Gtk4NotebookTab, Gtk4OsHandle, Gtk4OsWidget, Gtk4RuntimeApp, Gtk4RuntimeHost,
-};
 pub use host::{
     AccessibilityAnnouncementHost, HeadlessHost, HostFrameAck, HostNodeId, HostOperation,
     NativeHost, OverlayPositionHost, ProgrammaticFocusHost,
@@ -157,15 +115,6 @@ pub use i18n::{
     DEFAULT_FORMATTING_LOCALE, NUMBER_FIELD_MESSAGE_LOCALES,
 };
 pub use input::{NativeEventContext, NativeEventPosition, NativeInputModality, NativeKeyModifiers};
-pub use input_conformance::{
-    NativeInputConformanceCaseV1, NativeInputConformanceEnvironmentV1,
-    NativeInputConformanceEventV1, NativeInputConformanceIssueCodeV1,
-    NativeInputConformanceIssueV1, NativeInputConformanceManifestV1,
-    NativeInputConformanceModalityV1, NativeInputConformanceObservationV1,
-    NativeInputConformanceReportV1, NativeInputConformanceRequirementV1,
-    NativeInputConformanceRunV1, NativeInputConformanceScenarioV1, NativeInputEvidenceSourceV1,
-    NativeOperatingSystemV1, NATIVE_INPUT_CONFORMANCE_VERSION_V1,
-};
 pub use interaction::{
     InteractionChange, InteractionNodeState, InteractionState,
     DEFAULT_INTERACTION_CHANGE_HISTORY_LIMIT,
@@ -179,12 +128,12 @@ pub use overlay_position::{
     ResolvedOverlayPlacement,
 };
 pub use platform::{
-    native_widget_kind, native_widget_name, widget_blueprint, AppKitAdapter, BlueprintHost,
-    Gtk4Adapter, NativeBackendKind, NativeConfigValueChange, NativeContainerKind,
-    NativeControlState, NativeTextInputKind, NativeWidgetBlueprint, NativeWidgetConfig,
-    NativeWidgetConfigPatch, NativeWidgetKind, NativeWidgetReplacement, NativeWidgetSetter,
-    NativeWidgetSetterBatch, PlatformAdapter, PlatformCommand, PlatformPlannedNode,
-    PlatformPlanningHost, WinUiAdapter, DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
+    native_widget_kind, native_widget_name, widget_blueprint, BlueprintHost, HeadlessAdapter,
+    NativeBackendKind, NativeConfigValueChange, NativeContainerKind, NativeControlState,
+    NativeTextInputKind, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetConfigPatch,
+    NativeWidgetKind, NativeWidgetReplacement, NativeWidgetSetter, NativeWidgetSetterBatch,
+    PlatformAdapter, PlatformCommand, PlatformPlannedNode, PlatformPlanningHost,
+    DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
 };
 #[cfg(feature = "platform-host")]
 pub use platform_host::{
@@ -480,16 +429,3 @@ pub use style::{
 pub use svg::{SVG_ELEMENTS, SVG_TAG_METADATA_KEY};
 pub use tsx_protocol::*;
 pub use web::WebProps;
-#[cfg(feature = "winui")]
-pub use winui::{
-    WinUiCommandExecutor, WinUiHandleAdapter, WinUiHandleCommandExecutor, WinUiHandleDriver,
-    WinUiNativeHandle, WinUiNativeHandleState, WinUiNativeObject, WinUiWidgetDriver,
-    WinUiWidgetKind,
-};
-#[cfg(all(feature = "winui-native", target_os = "windows"))]
-pub use winui_native::{
-    run_winui_application, run_winui_application_staged, run_winui_application_staged_async,
-    wait_winui_dispatcher, WinUiComboBoxItem, WinUiEventWait, WinUiNativeSurface,
-    WinUiNativeSurfaceAdapter, WinUiNativeSurfaceCommandExecutor, WinUiNativeSurfaceDriver,
-    WinUiOsHandle, WinUiOsWidget, WinUiRuntimeApp, WinUiRuntimeHost, WinUiTabItem,
-};

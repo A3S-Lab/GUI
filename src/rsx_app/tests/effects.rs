@@ -10,7 +10,7 @@ struct EffectState {
 
 #[test]
 fn rsx_component_use_effect_runs_after_committed_renders() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"<Text key="summary" label={derived.summary} />"#,
@@ -54,7 +54,7 @@ fn rsx_component_use_effect_runs_after_protocol_commits() {
         state.effects += 1;
         Ok(())
     })
-    .into_protocol_app(Gtk4Adapter, EffectState::default());
+    .into_protocol_app(HeadlessAdapter, EffectState::default());
 
     let rendered = app.render().unwrap();
 
@@ -70,7 +70,7 @@ fn rsx_component_use_effect_runs_after_protocol_commits() {
 
 #[test]
 fn rsx_component_use_effect_once_runs_only_after_first_commit() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new("effects", r#"<Text key="summary" label="Ready" />"#)
         .unwrap()
         .use_effect_once(|state: &mut EffectState| {
@@ -87,7 +87,7 @@ fn rsx_component_use_effect_once_runs_only_after_first_commit() {
 
 #[test]
 fn rsx_component_use_effect_with_deps_skips_unchanged_dependencies() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"
@@ -129,7 +129,7 @@ fn rsx_component_use_effect_with_deps_skips_unchanged_dependencies() {
 
 #[test]
 fn rsx_component_use_effect_cleanup_runs_before_next_matching_effect_and_manual_cleanup() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"<Button key="increment" onPress={increment} label="Increment" />"#,
@@ -165,7 +165,7 @@ fn rsx_component_use_effect_cleanup_runs_before_next_matching_effect_and_manual_
 
 #[test]
 fn rsx_component_render_effect_phases_run_and_cleanup_in_react_order() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new("effects", r#"<Text key="summary" label="Ready" />"#)
         .unwrap()
         .use_effect_with_cleanup(|state: &mut EffectState| {
@@ -209,7 +209,7 @@ fn rsx_component_render_effect_phases_run_and_cleanup_in_react_order() {
 
 #[test]
 fn rsx_component_use_deferred_value_lags_one_committed_render() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "deferred",
         r#"<Button key="increment" onPress={increment} label={derived.count} />"#,
@@ -260,7 +260,7 @@ fn component_cx_use_effect_event_reads_latest_state_from_effects() {
         crate::rsx!(<Text key="summary" label="Ready" />)
     }
 
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = ComponentCx::compile("effect-event", view)
         .unwrap()
         .into_runtime_app(host, EffectState::default());
@@ -274,7 +274,7 @@ fn component_cx_use_effect_event_reads_latest_state_from_effects() {
 
 #[test]
 fn rsx_component_action_effect_hooks_run_after_reducers_before_rerender() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"<Button key="counter" onPress={increment} label={derived.summary} />"#,
@@ -312,7 +312,7 @@ fn rsx_component_action_effect_hooks_run_after_reducers_before_rerender() {
 
 #[test]
 fn rsx_component_action_effect_hooks_filter_by_action_id() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"
@@ -359,7 +359,7 @@ fn rsx_component_action_effect_hooks_filter_by_action_id() {
 
 #[test]
 fn rsx_component_action_transition_effect_hooks_receive_before_state_after_plain_reducers() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"<Button key="counter" onPress={increment} label={state.summary} />"#,
@@ -408,7 +408,7 @@ fn rsx_component_action_transition_effect_hooks_receive_before_state_after_plain
 
 #[test]
 fn rsx_component_action_transition_effect_hooks_filter_by_action_id() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"
@@ -480,7 +480,7 @@ fn rsx_component_rejects_action_transition_effects_without_reducer_hooks() {
 
 #[test]
 fn rsx_component_value_transition_effect_hooks_decode_action_values() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"
@@ -523,7 +523,7 @@ fn rsx_component_value_transition_effect_hooks_decode_action_values() {
 
 #[test]
 fn rsx_component_payload_transition_effect_hooks_decode_action_payloads() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"
@@ -573,7 +573,7 @@ fn rsx_component_payload_transition_effect_hooks_decode_action_payloads() {
 
 #[test]
 fn rsx_component_transition_reducer_receives_before_state_and_after_state() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "transition",
         r#"<Button key="counter" onPress={increment} label={state.summary} />"#,
@@ -624,7 +624,7 @@ fn rsx_component_transition_reducer_receives_before_state_and_after_state() {
 
 #[test]
 fn rsx_component_value_transition_reducer_decodes_values_for_reducer_and_effect() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "value-transition",
         r#"
@@ -668,7 +668,7 @@ fn rsx_component_value_transition_reducer_decodes_values_for_reducer_and_effect(
 
 #[test]
 fn rsx_component_payload_transition_reducer_decodes_payloads_for_reducer_and_effect() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "payload-transition",
         r#"
@@ -807,7 +807,7 @@ fn rsx_component_rejects_orphan_action_effects_before_direct_reduce() {
 
 #[test]
 fn rsx_component_value_effect_hooks_decode_action_values_before_rerender() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"
@@ -856,7 +856,7 @@ fn rsx_component_value_effect_hooks_decode_action_values_before_rerender() {
 
 #[test]
 fn rsx_component_payload_effect_hooks_decode_action_payloads() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"
@@ -903,7 +903,7 @@ fn rsx_component_payload_effect_hooks_decode_action_payloads() {
 
 #[test]
 fn rsx_component_payload_effect_hooks_reject_missing_payloads() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "effects",
         r#"<Button key="select" onPress={selectItem}>Select</Button>"#,

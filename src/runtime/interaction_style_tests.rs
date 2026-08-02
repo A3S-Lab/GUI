@@ -3,18 +3,15 @@ use crate::backend::{CommandExecutingHost, RecordingBackend};
 use crate::event::NativeEventKind;
 use crate::input::{NativeEventContext, NativeInputModality};
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{
-    AppKitAdapter, Gtk4Adapter, PlatformAdapter, PlatformCommand, PlatformPlanningHost,
-    WinUiAdapter,
-};
+use crate::platform::{HeadlessAdapter, PlatformAdapter, PlatformCommand, PlatformPlanningHost};
 use crate::web::WebProps;
 
-fn runtime() -> GuiRuntime<PlatformPlanningHost<Gtk4Adapter>> {
-    GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter))
+fn runtime() -> GuiRuntime<PlatformPlanningHost<HeadlessAdapter>> {
+    GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter))
 }
 
 fn projected_opacity(
-    runtime: &GuiRuntime<PlatformPlanningHost<Gtk4Adapter>>,
+    runtime: &GuiRuntime<PlatformPlanningHost<HeadlessAdapter>>,
     node: HostNodeId,
 ) -> Option<f64> {
     runtime
@@ -54,14 +51,14 @@ fn assert_adapter_projects_hover_style<A: PlatformAdapter>(adapter: A) {
 
 #[test]
 fn every_platform_planning_adapter_receives_interaction_style_updates() {
-    assert_adapter_projects_hover_style(AppKitAdapter);
-    assert_adapter_projects_hover_style(Gtk4Adapter);
-    assert_adapter_projects_hover_style(WinUiAdapter);
+    assert_adapter_projects_hover_style(HeadlessAdapter);
+    assert_adapter_projects_hover_style(HeadlessAdapter);
+    assert_adapter_projects_hover_style(HeadlessAdapter);
 }
 
 #[test]
 fn command_executor_receives_the_resolved_portable_style_update() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut runtime = GuiRuntime::new(host);
     let button = runtime
         .render_native(

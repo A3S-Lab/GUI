@@ -1,6 +1,6 @@
 use super::super::GuiRuntime;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformPlanningHost};
 
 #[test]
 fn runtime_announces_live_region_text_updates_after_initial_render() {
@@ -15,7 +15,7 @@ fn runtime_announces_live_region_text_updates_after_initial_render() {
             ),
         )
     };
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     runtime.render_native(&status("Ready")).unwrap();
@@ -61,7 +61,7 @@ fn runtime_announces_new_nested_live_regions_once_at_the_inner_priority() {
         }
         NativeElement::new("root", NativeRole::View).child(region)
     };
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     runtime.render_native(&root(None)).unwrap();
@@ -94,7 +94,7 @@ fn runtime_announces_initial_alerts_but_not_initial_status_content() {
                     .label("Connection lost"),
             ),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     runtime.render_native(&root).unwrap();
@@ -131,7 +131,7 @@ fn runtime_live_regions_respect_relevant_atomic_and_busy() {
         }
         NativeElement::new("root", NativeRole::View).child(status)
     };
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     runtime
@@ -189,7 +189,7 @@ fn runtime_live_regions_announce_atomic_context_and_relevant_removals() {
         );
         NativeElement::new("root", NativeRole::View).child(status)
     };
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     runtime
@@ -232,7 +232,7 @@ fn runtime_live_regions_defer_ancestor_busy_updates_and_redact_sensitive_values(
                     ),
             )
     };
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     runtime
@@ -271,7 +271,7 @@ fn runtime_live_regions_only_flush_busy_regions_with_deferred_changes() {
                 ),
         )
     };
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     runtime.render_native(&root(false, "Ready")).unwrap();
@@ -288,7 +288,7 @@ fn runtime_live_regions_only_flush_busy_regions_with_deferred_changes() {
 }
 
 fn take_accessibility_announcements(
-    runtime: &mut GuiRuntime<PlatformPlanningHost<Gtk4Adapter>>,
+    runtime: &mut GuiRuntime<PlatformPlanningHost<HeadlessAdapter>>,
 ) -> Vec<crate::accessibility::AccessibilityAnnouncement> {
     runtime
         .host_mut()

@@ -3,7 +3,7 @@ use crate::accessibility::AccessibilityRole;
 use crate::backend::{CommandExecutingHost, RecordingBackend};
 use crate::event::NativeEventKind;
 use crate::host::HeadlessHost;
-use crate::platform::{Gtk4Adapter, NativeWidgetSetter};
+use crate::platform::{HeadlessAdapter, NativeWidgetSetter};
 
 #[derive(Default)]
 struct FailingUpdateHost {

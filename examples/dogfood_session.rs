@@ -1,12 +1,12 @@
 #[path = "support/dogfood_app.rs"]
 mod dogfood_app;
 
-use a3s_gui::{CommandExecutingHost, Gtk4Adapter, NativeRuntimeApp, RecordingBackend};
+use a3s_gui::{CommandExecutingHost, HeadlessAdapter, NativeRuntimeApp, RecordingBackend};
 
 use crate::dogfood_app::{dogfood_frame, dogfood_reduce, dogfood_should_continue, DogfoodState};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = NativeRuntimeApp::new(
         host,
         DogfoodState::default(),
@@ -37,19 +37,19 @@ mod tests {
     use serde_json::json;
 
     type DogfoodTestApp = NativeRuntimeApp<
-        CommandExecutingHost<Gtk4Adapter, RecordingBackend>,
+        CommandExecutingHost<HeadlessAdapter, RecordingBackend>,
         DogfoodState,
         fn(&DogfoodState) -> a3s_gui::GuiResult<a3s_gui::UiFrame>,
         fn(&mut DogfoodState, &a3s_gui::ActionInvocation) -> a3s_gui::GuiResult<()>,
     >;
     type DogfoodProtocolApp = NativeProtocolApp<
-        Gtk4Adapter,
+        HeadlessAdapter,
         DogfoodState,
         fn(&DogfoodState) -> a3s_gui::GuiResult<a3s_gui::UiFrame>,
         fn(&mut DogfoodState, &a3s_gui::ActionInvocation) -> a3s_gui::GuiResult<()>,
     >;
     type ConditionalFocusApp = NativeRuntimeApp<
-        CommandExecutingHost<Gtk4Adapter, RecordingBackend>,
+        CommandExecutingHost<HeadlessAdapter, RecordingBackend>,
         ConditionalFocusState,
         fn(&ConditionalFocusState) -> a3s_gui::GuiResult<a3s_gui::UiFrame>,
         fn(&mut ConditionalFocusState, &a3s_gui::ActionInvocation) -> a3s_gui::GuiResult<()>,
@@ -216,7 +216,7 @@ mod tests {
         assert_eq!(window.role, NativeRole::Window);
 
         let root = find_event_blueprint(&app, "onKeyDown", "handleShortcut").1;
-        assert_eq!(root.widget_class, "gtk::ScrolledWindow+Box");
+        assert_eq!(root.widget_class, "a3s_gui::HeadlessNode");
         let size = root.portable_style.native_size_constraints();
         assert_eq!(size.width, Some(700.0));
         assert_eq!(size.height, Some(620.0));
@@ -694,7 +694,7 @@ mod tests {
 
     #[test]
     fn dogfood_conditional_form_preserves_native_focus_ownership_after_removal() {
-        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
         let mut app: ConditionalFocusApp = NativeRuntimeApp::new(
             host,
             ConditionalFocusState::default(),
@@ -825,7 +825,7 @@ mod tests {
     }
 
     fn new_app() -> DogfoodTestApp {
-        let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+        let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
         NativeRuntimeApp::new(
             host,
             DogfoodState::default(),
@@ -836,7 +836,7 @@ mod tests {
 
     fn new_protocol_app() -> DogfoodProtocolApp {
         NativeProtocolApp::new(
-            Gtk4Adapter,
+            HeadlessAdapter,
             DogfoodState::default(),
             dogfood_session_frame,
             dogfood_reduce,

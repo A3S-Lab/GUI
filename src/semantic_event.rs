@@ -7,21 +7,9 @@ use crate::native::NativeRole;
 
 use crate::event::{non_empty_action, NativeEventKind};
 
-#[cfg(any(
-    test,
-    feature = "platform-runtime",
-    all(feature = "appkit-native", target_os = "macos"),
-    all(feature = "gtk4-native", target_os = "linux"),
-    all(feature = "winui-native", target_os = "windows")
-))]
+#[cfg(feature = "platform-runtime")]
 pub(crate) const DEFAULT_LONG_PRESS_THRESHOLD_MICROS: u64 = 500_000;
-#[cfg(any(
-    test,
-    feature = "platform-runtime",
-    all(feature = "appkit-native", target_os = "macos"),
-    all(feature = "gtk4-native", target_os = "linux"),
-    all(feature = "winui-native", target_os = "windows")
-))]
+#[cfg(feature = "platform-runtime")]
 pub(crate) const MAX_LONG_PRESS_THRESHOLD_MICROS: u64 = 60_000_000;
 
 #[derive(Debug, Clone, Copy)]
@@ -306,13 +294,7 @@ pub(crate) fn native_key_value(raw: &str) -> String {
     }
 }
 
-#[cfg(any(
-    test,
-    feature = "platform-runtime",
-    all(feature = "appkit-native", target_os = "macos"),
-    all(feature = "gtk4-native", target_os = "linux"),
-    all(feature = "winui-native", target_os = "windows")
-))]
+#[cfg(feature = "platform-runtime")]
 pub(crate) fn long_press_threshold_micros(metadata: &BTreeMap<String, String>) -> u64 {
     ["threshold", "data-long-press-threshold"]
         .into_iter()

@@ -1,6 +1,6 @@
 use super::super::*;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformPlanningHost};
 use crate::web::WebProps;
 
 #[test]
@@ -23,7 +23,7 @@ fn runtime_updates_interaction_state_before_dispatching_action() {
             "#,
     )
     .unwrap();
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setEmail");
 
@@ -66,7 +66,7 @@ fn runtime_accessibility_tree_reflects_interaction_state() {
                     .web(WebProps::new().on_change("setNotifications")),
             ),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setEmail");
     runtime.actions_mut().register("setNotifications");
@@ -107,7 +107,7 @@ fn runtime_routes_expanded_toggle_with_current_boolean_payload() {
             .expanded(false)
             .web(WebProps::new().on_expanded_change("setOpen")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setOpen");
 
@@ -154,7 +154,7 @@ fn runtime_routes_checked_toggle_with_current_boolean_payload() {
             .checked(false)
             .web(WebProps::new().on_change("setNotifications")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setNotifications");
 
@@ -200,7 +200,7 @@ fn runtime_routes_checked_change_with_current_boolean_payload() {
             .checked(false)
             .web(WebProps::new().on_change("setNotifications")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setNotifications");
 
@@ -250,7 +250,7 @@ fn runtime_routes_switch_space_key_to_toggle_action() {
             .checked(false)
             .web(WebProps::new().on_change("setNotifications")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setNotifications");
 
@@ -294,7 +294,7 @@ fn runtime_explicit_key_down_prevents_keyboard_toggle_normalization() {
                     .on_key_down("handleKeyDown"),
             ),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setNotifications");
     runtime.actions_mut().register("handleKeyDown");
@@ -339,7 +339,7 @@ fn runtime_empty_key_down_handler_does_not_block_keyboard_toggle_normalization()
                     .on_key_down(""),
             ),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setNotifications");
 
@@ -375,7 +375,7 @@ fn runtime_ancestor_key_down_prevents_keyboard_toggle_normalization() {
                     .web(WebProps::new().on_change("setNotifications")),
             ),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("handleRowKey");
     runtime.actions_mut().register("setNotifications");
@@ -412,7 +412,7 @@ fn runtime_routes_radio_space_key_to_selection_action() {
             .value("dark")
             .web(WebProps::new().on_change("setTheme")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setTheme");
 
@@ -460,7 +460,7 @@ fn runtime_infers_container_selection_value_from_selected_child() {
                     .selected(true),
             ),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setTheme");
 
@@ -498,7 +498,7 @@ fn runtime_infers_selectable_node_value_from_empty_selection_payload() {
             .value("compact")
             .web(WebProps::new().on_selection_change("setTheme")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setTheme");
 

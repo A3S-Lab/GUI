@@ -1,7 +1,7 @@
 use super::*;
 use crate::input::NativeInputModality;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformPlanningHost};
 use crate::web::WebProps;
 
 fn bubbling_tree() -> NativeElement {
@@ -20,7 +20,7 @@ fn bubbling_tree() -> NativeElement {
 
 #[test]
 fn native_event_dispatches_target_callbacks_then_bubbles_nearest_first() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     for action in ["targetHoverStart", "targetHoverChange", "parentHoverChange"] {
         runtime.actions_mut().register(action);
     }
@@ -62,7 +62,7 @@ fn close_events_are_scoped_to_the_native_target() {
                 NativeProps::new().web(WebProps::new().event("onClose", "closeDialog")),
             ),
         );
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     for action in ["closeDialog", "closeWindow"] {
         runtime.actions_mut().register(action);
     }
@@ -96,7 +96,7 @@ fn press_change_callbacks_receive_normalized_lifecycle_values() {
                 .on_press_change("change"),
         ),
     );
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     for action in ["start", "end", "change"] {
         runtime.actions_mut().register(action);
     }

@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn native_protocol_app_reduces_actions_and_renders_next_frame() {
     let mut app = NativeProtocolApp::new(
-        Gtk4Adapter,
+        HeadlessAdapter,
         CounterState::default(),
         counter_frame,
         counter_reduce,
@@ -33,7 +33,7 @@ fn native_protocol_app_reduces_actions_and_renders_next_frame() {
 #[cfg(feature = "authoring")]
 fn native_protocol_app_resolves_rsx_state_bindings_after_reducer() {
     let mut app = NativeProtocolApp::new(
-        Gtk4Adapter,
+        HeadlessAdapter,
         CounterState::default(),
         rsx_counter_frame,
         counter_reduce,
@@ -74,7 +74,7 @@ fn native_protocol_app_resolves_rsx_state_bindings_after_reducer() {
 #[test]
 fn native_protocol_app_handles_state_only_events_without_rerendering() {
     let mut app = NativeProtocolApp::new(
-        Gtk4Adapter,
+        HeadlessAdapter,
         CounterState::default(),
         counter_frame,
         counter_reduce,
@@ -114,7 +114,7 @@ fn protocol_renders_frame_and_dispatches_native_event_to_action() {
             "#,
     )
     .unwrap();
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut runtime = GuiRuntime::new(host);
 
     let rendered = frame.render_into(&mut runtime).unwrap();
@@ -154,12 +154,12 @@ fn rsx_source_frame_renders_tailwind_to_native_widgets_without_node_or_bun() {
     assert_eq!(frame.actions.len(), 1);
     assert_eq!(frame.actions[0].id, "saveDocument");
 
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut runtime = GuiRuntime::new(host);
     let rendered = frame.render_into(&mut runtime).unwrap();
     let root = runtime.host().planning().node(rendered.root).unwrap();
 
-    assert_eq!(root.blueprint.widget_class, "gtk::Box(toolbar)");
+    assert_eq!(root.blueprint.widget_class, "a3s_gui::HeadlessNode");
     assert_eq!(
         root.blueprint.class_name.as_deref(),
         Some("min-w-[920px] gap-2 bg-[#efefef] p-3")
@@ -271,7 +271,7 @@ fn native_protocol_session_returns_incremental_native_commands() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let first_response = session.render_frame(&first).unwrap();
     let second_response = session.render_frame(&second).unwrap();
@@ -284,7 +284,7 @@ fn native_protocol_session_returns_incremental_native_commands() {
         crate::platform::PlatformCommand::Create {
             blueprint,
             ..
-        } if blueprint.widget_class == "gtk::Button"
+        } if blueprint.widget_class == "a3s_gui::HeadlessNode"
             && blueprint.label.as_deref() == Some("Save")
     )));
     assert!(first_response
@@ -359,7 +359,7 @@ fn native_protocol_session_ignores_stale_host_events_after_rerender_removes_node
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let first_response = session.render_frame(&first).unwrap();
     let save = session
@@ -564,7 +564,7 @@ fn native_protocol_session_rejects_invalid_frame_contracts() {
         resizable: true,
     });
 
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&valid).unwrap();
 
     let error = session.render_frame(&empty_frame_id).unwrap_err();

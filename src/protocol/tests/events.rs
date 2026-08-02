@@ -43,7 +43,7 @@ fn ui_frame_infers_actions_from_compiled_event_props_when_actions_are_omitted() 
             "#,
         )
         .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let rendered = session.render_frame(&frame).unwrap();
     let toolbar = session.runtime().host().node(rendered.root).unwrap();
@@ -130,7 +130,7 @@ fn native_protocol_session_dispatches_keyboard_events() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -164,7 +164,7 @@ fn native_protocol_session_routes_activation_keys_to_press_actions() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -201,7 +201,7 @@ fn native_protocol_session_routes_space_key_to_toggle_actions() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -241,7 +241,7 @@ fn native_protocol_session_canonicalizes_boolean_event_payloads() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let focus = session
@@ -288,7 +288,7 @@ fn native_protocol_session_canonicalizes_boolean_change_payloads() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let first = session
@@ -340,7 +340,7 @@ fn native_protocol_session_preserves_ancestor_key_down_handlers() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
     let switch = session
         .runtime()
@@ -395,7 +395,7 @@ fn native_protocol_session_replaces_registered_actions_on_render() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let first_response = session.render_frame(&first).unwrap();
     assert!(session.runtime().actions().contains("saveProfile"));
@@ -431,7 +431,7 @@ fn native_protocol_session_rejects_disabled_registered_actions() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     assert!(session.runtime().actions().is_disabled("saveProfile"));
@@ -462,7 +462,7 @@ fn native_protocol_session_handles_state_event_without_action() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -503,7 +503,7 @@ fn native_protocol_session_suppresses_disabled_user_events() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -551,7 +551,7 @@ fn native_protocol_session_suppresses_disabled_subtree_user_events() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
     let save = session
         .runtime()
@@ -610,7 +610,7 @@ fn native_protocol_session_suppresses_inert_subtree_events() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
     let save = session
         .runtime()
@@ -657,7 +657,7 @@ fn native_protocol_session_suppresses_css_inert_subtree_events() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
     let save = session
         .runtime()
@@ -700,7 +700,7 @@ fn native_protocol_session_suppresses_read_only_value_events() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -761,7 +761,7 @@ fn native_protocol_session_suppresses_read_only_selection_events() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let inferred = session
@@ -839,7 +839,7 @@ fn native_protocol_session_suppresses_read_only_ancestor_selection_value_events(
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
     let dark = session
         .runtime()

@@ -1,5 +1,5 @@
 use a3s_gui::{
-    Gtk4Adapter, HostEvent, NativeEvent, NativeEventKind, NativeProtocolSession, UiFrame,
+    HeadlessAdapter, HostEvent, NativeEvent, NativeEventKind, NativeProtocolSession, UiFrame,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "#,
     )?;
 
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame)?;
 
     println!(

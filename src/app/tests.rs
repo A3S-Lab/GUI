@@ -6,7 +6,7 @@ use serde_json::json;
 use super::*;
 use crate::backend::{CommandExecutingHost, NativeEventSource, RecordingBackend};
 use crate::event::NativeEventKind;
-use crate::platform::Gtk4Adapter;
+use crate::platform::HeadlessAdapter;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 struct CounterState {
@@ -179,7 +179,7 @@ fn removing_reduce(state: &mut RemovingState, invocation: &ActionInvocation) -> 
 
 #[test]
 fn native_runtime_app_drains_native_events_reduces_actions_and_renders() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app =
         NativeRuntimeApp::new(host, CounterState::default(), counter_frame, counter_reduce);
     let rendered = app.render().unwrap();
@@ -216,7 +216,7 @@ fn native_runtime_app_drains_native_events_reduces_actions_and_renders() {
 
 #[test]
 fn native_runtime_app_handles_state_only_events_without_rerendering() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app =
         NativeRuntimeApp::new(host, CounterState::default(), counter_frame, counter_reduce);
     let rendered = app.render().unwrap();
@@ -238,7 +238,7 @@ fn native_runtime_app_handles_state_only_events_without_rerendering() {
 
 #[test]
 fn native_runtime_app_stops_draining_pending_events_when_predicate_fails() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app =
         NativeRuntimeApp::new(host, ClosingState::default(), closing_frame, closing_reduce);
     let rendered = app.render().unwrap();
@@ -281,7 +281,7 @@ fn native_runtime_app_stops_draining_pending_events_when_predicate_fails() {
 
 #[test]
 fn native_runtime_app_buffers_events_after_predicate_stops() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app =
         NativeRuntimeApp::new(host, CounterState::default(), counter_frame, counter_reduce);
     let rendered = app.render().unwrap();
@@ -316,7 +316,7 @@ fn native_runtime_app_buffers_events_after_predicate_stops() {
 
 #[test]
 fn native_runtime_event_batch_reports_buffered_events_when_predicate_stops() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app =
         NativeRuntimeApp::new(host, CounterState::default(), counter_frame, counter_reduce);
     let rendered = app.render().unwrap();
@@ -400,7 +400,7 @@ fn native_runtime_event_batch_merges_sequential_drains() {
 
 #[test]
 fn background_update_batch_renders_once_and_tracks_pending_work() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let poll_count = Rc::new(Cell::new(0_u32));
     let poll_count_for_callback = Rc::clone(&poll_count);
     let mut app =
@@ -430,7 +430,7 @@ fn background_update_batch_renders_once_and_tracks_pending_work() {
 
 #[test]
 fn native_runtime_app_handles_buffered_events_before_new_host_events() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = NativeRuntimeApp::new(host, QueueState::default(), queue_frame, queue_reduce);
     app.render().unwrap();
 
@@ -466,7 +466,7 @@ fn native_runtime_app_handles_buffered_events_before_new_host_events() {
 
 #[test]
 fn native_runtime_app_ignores_stale_pending_events_after_rerender_removes_node() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = NativeRuntimeApp::new(
         host,
         RemovingState::default(),
@@ -500,7 +500,7 @@ fn native_runtime_app_ignores_stale_pending_events_after_rerender_removes_node()
 
 #[test]
 fn native_runtime_app_keeps_pending_events_when_predicate_starts_false() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app =
         NativeRuntimeApp::new(host, CounterState::default(), counter_frame, counter_reduce);
     let rendered = app.render().unwrap();
@@ -527,7 +527,7 @@ fn native_runtime_app_keeps_pending_events_when_predicate_starts_false() {
 
 #[test]
 fn native_runtime_event_batch_reports_preserved_host_queue_when_predicate_starts_false() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app =
         NativeRuntimeApp::new(host, CounterState::default(), counter_frame, counter_reduce);
     let rendered = app.render().unwrap();
@@ -562,7 +562,7 @@ fn native_runtime_event_batch_reports_preserved_host_queue_when_predicate_starts
 }
 
 fn action_node<S, F, R>(
-    app: &NativeRuntimeApp<CommandExecutingHost<Gtk4Adapter, RecordingBackend>, S, F, R>,
+    app: &NativeRuntimeApp<CommandExecutingHost<HeadlessAdapter, RecordingBackend>, S, F, R>,
     action: &str,
 ) -> HostNodeId
 where
@@ -616,7 +616,7 @@ fn native_runtime_event_response_redacts_password_but_reducer_keeps_value() {
         state.reduced_value = invocation.value.clone();
         Ok(())
     };
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = NativeRuntimeApp::new(host, PasswordState::default(), frame_builder, reducer);
     let rendered = app.render().unwrap();
 

@@ -1,7 +1,7 @@
 use super::*;
 use crate::input::{NativeInputModality, NativeKeyModifiers};
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{AppKitAdapter, PlatformAdapter};
+use crate::platform::{HeadlessAdapter, PlatformAdapter};
 use crate::web::WebProps;
 
 #[test]
@@ -50,7 +50,7 @@ fn routes_press_up_and_hover_lifecycle_actions() {
                 .on_hover_end("leaveTarget"),
         ),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let router = EventRouter::new();
 
     assert_eq!(
@@ -103,7 +103,7 @@ fn routes_specific_and_change_callbacks_in_semantic_order() {
                 .on_focus_change("changeFocus"),
         ),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let router = EventRouter::new();
 
     let hover = router.route_all(
@@ -141,7 +141,7 @@ fn routes_press_lifecycle_before_press_change() {
                 .on_press_change("changePress"),
         ),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let router = EventRouter::new();
 
     let start = router.route_all(
@@ -184,7 +184,7 @@ fn collection_action_has_a_distinct_callback_channel() {
                 .on_selection_change("selectPerson"),
         ),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let invocation = EventRouter::new()
         .route(
             &blueprint,
@@ -214,7 +214,7 @@ fn action_registry_rejects_a_batch_without_recording_a_prefix() {
 fn action_invocation_preserves_typed_event_context() {
     let element = NativeElement::new("target", NativeRole::Button)
         .with_props(NativeProps::new().web(WebProps::new().on_press("activate")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let event = NativeEvent::new(HostNodeId::new(9), NativeEventKind::Press)
         .modality(NativeInputModality::Virtual)
         .modifiers(NativeKeyModifiers::new().control(true))

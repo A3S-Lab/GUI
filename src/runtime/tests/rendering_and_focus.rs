@@ -3,7 +3,7 @@ use crate::accessibility::AccessibilityRole;
 use crate::host::HeadlessHost;
 use crate::html::HtmlDialogProps;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformPlanningHost};
 use crate::web::WebProps;
 
 #[test]
@@ -20,13 +20,13 @@ fn runtime_renders_compiled_rsx_to_platform_host() {
             "#,
     )
     .unwrap();
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_compiled(&compiled).unwrap();
 
     let root = runtime.host().node(root_id).unwrap();
-    assert_eq!(root.blueprint.widget_class, "gtk::Button");
+    assert_eq!(root.blueprint.widget_class, "a3s_gui::HeadlessNode");
     assert_eq!(root.blueprint.action.as_deref(), Some("saveDocument"));
 }
 
@@ -116,7 +116,7 @@ fn runtime_exports_platform_accessibility_tree_from_compiled_rsx() {
             "#,
     )
     .unwrap();
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_compiled(&compiled).unwrap();
@@ -171,7 +171,7 @@ fn runtime_dispatches_native_event_to_registered_rsx_action() {
             "#,
     )
     .unwrap();
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("saveDocument");
 
@@ -195,7 +195,7 @@ fn runtime_keeps_diagnostics_bounded_across_many_events() {
             .checked(false)
             .web(WebProps::new().on_change("setEnabled")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setEnabled");
     let root_id = runtime.render_native(&element).unwrap();
@@ -241,7 +241,7 @@ fn runtime_keeps_diagnostics_bounded_across_many_events() {
 fn runtime_routes_button_activation_key_to_primary_action() {
     let element = NativeElement::new("save", NativeRole::Button)
         .with_props(NativeProps::new().web(WebProps::new().on_press("saveDocument")));
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("saveDocument");
 
@@ -264,7 +264,7 @@ fn runtime_routes_button_activation_key_to_primary_action() {
 fn runtime_handles_state_event_without_registered_action() {
     let element =
         NativeElement::new("save", NativeRole::Button).with_props(NativeProps::new().label("Save"));
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -299,7 +299,7 @@ fn runtime_initializes_first_renderable_auto_focus_node() {
             NativeElement::new("cancel", NativeRole::Button)
                 .with_props(NativeProps::new().label("Cancel").auto_focus(true)),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -354,7 +354,7 @@ fn runtime_auto_focus_skips_hidden_and_inert_ancestor_subtrees() {
             NativeElement::new("save", NativeRole::Button)
                 .with_props(NativeProps::new().label("Save").auto_focus(true)),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -391,7 +391,7 @@ fn runtime_auto_focus_skips_disabled_ancestor_subtrees() {
             NativeElement::new("title", NativeRole::TextField)
                 .with_props(NativeProps::new().label("Task title").auto_focus(true)),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -425,7 +425,7 @@ fn runtime_auto_focus_yields_to_native_focus_history() {
             NativeElement::new("cancel", NativeRole::Button)
                 .with_props(NativeProps::new().label("Cancel")),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -465,7 +465,7 @@ fn runtime_auto_focus_yields_after_focused_node_is_removed() {
         NativeElement::new("next", NativeRole::TextField)
             .with_props(NativeProps::new().label("Next field").auto_focus(true)),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&first).unwrap();
@@ -493,7 +493,7 @@ fn runtime_auto_focus_yields_after_focused_node_is_removed() {
 fn runtime_routes_focus_change_with_boolean_payloads() {
     let element = NativeElement::new("email", NativeRole::TextField)
         .with_props(NativeProps::new().web(WebProps::new().on_focus_change("setFocus")));
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setFocus");
 
@@ -539,7 +539,7 @@ fn runtime_accessibility_tree_exposes_single_focused_node() {
             NativeElement::new("cancel", NativeRole::Button)
                 .with_props(NativeProps::new().label("Cancel")),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();

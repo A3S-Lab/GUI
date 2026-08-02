@@ -15,18 +15,9 @@ name = "a3s_gui"
 path = "src/lib.rs"
 
 [[bin]]
-name = "a3s-gui-native-input-conformance"
-path = "src/bin/native_input_conformance.rs"
-
-[[bin]]
 name = "a3s-gui-generate-tsx-protocol"
 path = "src/bin/generate_tsx_protocol.rs"
 required-features = ["typescript-schema"]
-
-[[bin]]
-name = "a3s-gui-winui-input-smoke"
-path = "src/bin/winui_input_smoke.rs"
-required-features = ["winui-native"]
 
 [[example]]
 name = "component_playground"
@@ -36,65 +27,6 @@ required-features = ["authoring"]
 name = "self_drawn_calculator"
 required-features = ["authoring", "platform-runtime", "software-reference"]
 
-[[example]]
-name = "appkit_counter"
-required-features = ["appkit-native"]
-
-[[example]]
-name = "appkit_controls"
-required-features = ["appkit-native"]
-
-[[example]]
-name = "appkit_calculator"
-required-features = ["appkit-native", "authoring"]
-
-[[example]]
-name = "appkit_component_playground"
-required-features = ["appkit-native", "authoring"]
-
-[[example]]
-name = "appkit_dogfood"
-required-features = ["appkit-native"]
-
-[[example]]
-name = "gtk4_counter"
-required-features = ["gtk4-native"]
-
-[[example]]
-name = "gtk4_controls"
-required-features = ["gtk4-native"]
-
-[[example]]
-name = "gtk4_calculator"
-required-features = ["gtk4-native", "authoring"]
-
-[[example]]
-name = "gtk4_component_playground"
-required-features = ["gtk4-native", "authoring"]
-
-[[example]]
-name = "gtk4_dogfood"
-required-features = ["gtk4-native"]
-
-[[example]]
-name = "winui_counter"
-required-features = ["winui-native"]
-
-[[example]]
-name = "winui_controls"
-required-features = ["winui-native"]
-
-[[example]]
-name = "winui_calculator"
-required-features = ["winui-native", "authoring"]
-
-[[example]]
-name = "winui_component_playground"
-required-features = ["winui-native", "authoring"]
-
-[[example]]
-name = "winui_dogfood"
-required-features = ["winui-native"]
 
 [features]
 default = ["headless", "authoring", "design-system", "software-reference"]
@@ -117,24 +49,6 @@ authoring = [
 ]
 design-system = ["authoring"]
 typescript-schema = ["dep:ts-rs"]
-appkit = []
-appkit-native = [
-    "appkit",
-    "dep:objc2",
-    "dep:objc2-app-kit",
-    "dep:objc2-foundation",
-    "dep:objc2-quartz-core",
-]
-winui = []
-winui-native = [
-    "winui",
-    "dep:windows",
-    "dep:windows-collections",
-    "dep:windows-core",
-    "dep:winui3",
-]
-gtk4 = []
-gtk4-native = ["gtk4", "dep:gtk4_crate"]
 
 [dependencies]
 a3s-graphics = { git = "https://github.com/A3S-Lab/Graphics", rev = "8748fab595f8dd7f7ca28767f1c58bd7f3f34ee0", optional = true, default-features = false }
@@ -157,91 +71,3 @@ writeable = "0.6.3"
 
 [dev-dependencies]
 pollster = "1.0.1"
-
-[target.'cfg(target_os = "macos")'.dependencies]
-objc2 = { version = "0.6.4", optional = true }
-objc2-app-kit = { version = "0.3.2", default-features = false, features = [
-    "std",
-    "objc2-core-foundation",
-    "objc2-core-graphics",
-    "objc2-quartz-core",
-    "NSAccessibilityConstants",
-    "NSAccessibilityProtocols",
-    "NSApplication",
-    "NSBox",
-    "NSButton",
-    "NSClipView",
-    "NSColor",
-    "NSCell",
-    "NSComboBox",
-    "NSControl",
-    "NSEvent",
-    "NSFont",
-    "NSGraphics",
-    "NSLayoutConstraint",
-    "NSMenu",
-    "NSMenuItem",
-    "NSPanel",
-    "NSPopover",
-    "NSProgressIndicator",
-    "NSResponder",
-    "NSScrollView",
-    "NSSecureTextField",
-    "NSSearchField",
-    "NSSlider",
-    "NSStackView",
-    "NSSwitch",
-    "NSRunningApplication",
-    "NSTabView",
-    "NSTabViewItem",
-    "NSTextField",
-    "NSTrackingArea",
-    "NSUserInterfaceLayout",
-    "NSView",
-    "NSViewController",
-    "NSWindow",
-], optional = true }
-objc2-foundation = { version = "0.3.2", default-features = false, features = [
-    "std",
-    "NSDate",
-    "NSGeometry",
-    "NSValue",
-    "NSObject",
-    "NSRunLoop",
-    "NSString",
-    "NSTimer",
-], optional = true }
-objc2-quartz-core = { version = "0.3.2", default-features = false, features = [
-    "CALayer",
-    "objc2-core-foundation",
-    "objc2-core-graphics",
-], optional = true }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-gtk4_crate = { package = "gtk4", version = "0.11.4", features = ["v4_14"], optional = true }
-
-[target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.62.0", optional = true, features = [
-    "Foundation",
-    "Win32_System_Com",
-    "Win32_System_SystemInformation",
-    "Win32_UI_Controls",
-    "Win32_UI_Accessibility",
-    "Win32_Foundation",
-    "Win32_UI_Input_KeyboardAndMouse",
-    "Win32_UI_Input_Pointer",
-    "Win32_UI_Shell",
-    "Win32_UI_WindowsAndMessaging",
-] }
-windows-collections = { version = "0.3.2", optional = true }
-windows-core = { version = "0.62.0", optional = true }
-winui3 = { package = "winio-winui3", version = "0.4.2", optional = true, features = [
-    "UI_Composition",
-    "UI_Dispatching",
-    "UI_Xaml",
-    "UI_Xaml_Controls",
-    "UI_Xaml_Controls_Primitives",
-    "UI_Xaml_Input",
-    "UI_Xaml_Markup",
-    "native",
-] }

@@ -56,10 +56,10 @@ calculator:
 - solid color backgrounds, per-edge solid borders, circular corner radii, and
   opaque rounded background/border composition
 
-The portable Tailwind contract historically treats a positive border width as
+The portable Tailwind contract treats a positive border width as
 solid when no explicit border style is present. Explicit `none` and `hidden`
-still suppress the border. The layout path preserves that behavior so it
-matches the existing native backends without depending on browser Preflight.
+still suppress the border. The layout path preserves that semantic behavior
+without depending on browser Preflight or a platform toolkit.
 
 Full flex growth and shrinkage, wrapping, grid/table layout, vertical writing,
 baseline alignment, elliptical radii, CSS expression evaluation, inherited or

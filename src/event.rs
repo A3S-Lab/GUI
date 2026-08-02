@@ -16,37 +16,6 @@ pub(crate) use crate::semantic_event::{
     native_key_value, SemanticActionSource, SemanticEventData,
 };
 
-#[cfg(any(
-    test,
-    all(feature = "appkit-native", target_os = "macos"),
-    all(feature = "gtk4-native", target_os = "linux"),
-    all(feature = "winui-native", target_os = "windows")
-))]
-mod move_interaction;
-#[cfg(any(
-    test,
-    all(feature = "appkit-native", target_os = "macos"),
-    all(feature = "gtk4-native", target_os = "linux"),
-    all(feature = "winui-native", target_os = "windows")
-))]
-mod press;
-
-#[cfg(any(
-    all(feature = "appkit-native", target_os = "macos"),
-    all(feature = "gtk4-native", target_os = "linux"),
-    all(feature = "winui-native", target_os = "windows")
-))]
-pub(crate) use move_interaction::{keyboard_move_events, PointerMoveState};
-#[cfg(any(
-    all(feature = "appkit-native", target_os = "macos"),
-    all(feature = "gtk4-native", target_os = "linux"),
-    all(feature = "winui-native", target_os = "windows")
-))]
-pub(crate) use press::{
-    virtual_press_events, KeyboardPressState, NativeInteractionProfile, NativeLongPressTimer,
-    NumberFieldStepperPressState, NumberFieldStepperTimer, PointerPressState,
-};
-
 /// Maximum number of successful action invocations retained for diagnostics by default.
 pub const DEFAULT_ACTION_INVOCATION_HISTORY_LIMIT: usize = 256;
 

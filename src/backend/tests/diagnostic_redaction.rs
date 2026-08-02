@@ -4,7 +4,7 @@ use crate::backend::{
 };
 use crate::host::HostNodeId;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{Gtk4Adapter, NativeBackendKind, PlatformAdapter, PlatformCommand};
+use crate::platform::{HeadlessAdapter, NativeBackendKind, PlatformAdapter, PlatformCommand};
 
 use super::{FailingCommandExecutor, TestWidgetDriver};
 
@@ -16,11 +16,11 @@ struct MetadataOnlyPasswordAdapter;
 
 impl PlatformAdapter for MetadataOnlyPasswordAdapter {
     fn kind(&self) -> NativeBackendKind {
-        NativeBackendKind::Gtk4
+        NativeBackendKind::Headless
     }
 
     fn blueprint(&self, element: &NativeElement) -> crate::NativeWidgetBlueprint {
-        let mut blueprint = Gtk4Adapter.blueprint(element);
+        let mut blueprint = HeadlessAdapter.blueprint(element);
         blueprint.value_sensitivity = crate::ValueSensitivity::Public;
         blueprint.widget_kind =
             crate::NativeWidgetKind::TextInput(crate::NativeTextInputKind::SingleLine);
@@ -32,7 +32,7 @@ impl PlatformAdapter for MetadataOnlyPasswordAdapter {
 fn password_command() -> PlatformCommand {
     PlatformCommand::Create {
         id: HostNodeId::new(1),
-        blueprint: Gtk4Adapter.blueprint(
+        blueprint: HeadlessAdapter.blueprint(
             &NativeElement::new("password", NativeRole::TextField).with_props(
                 NativeProps::new()
                     .metadata("type", "password")
@@ -60,7 +60,7 @@ fn metadata_password_type_drives_kind_sensitivity_wire_and_accessibility_redacti
                 crate::accessibility::AccessibilityDescriptionProps::default().value_text(PASSWORD),
             ),
     );
-    let blueprint = Gtk4Adapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
     assert_eq!(
         blueprint.widget_kind,
@@ -152,7 +152,7 @@ fn recording_backend_state_and_history_redact_password_values() {
 #[test]
 fn degraded_batch_diagnostics_redact_password_values() {
     let host = CommandExecutingHost::new(
-        Gtk4Adapter,
+        HeadlessAdapter,
         FailingCommandExecutor {
             fail_creates: true,
             ..FailingCommandExecutor::default()

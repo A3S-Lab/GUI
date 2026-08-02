@@ -296,18 +296,18 @@ should keep expanding toward the subset used by real component contracts:
 - data variants used by Radix-style components
 - structural variants used by SVG and slot patterns
 
-### Native Runtime
+### Self-Drawn Runtime
 
-The runtime remains native-first. It registers actions, routes native events,
-maintains interaction state, exposes accessibility trees, and sends platform
-commands to AppKit, GTK, WinUI, or test backends.
+The runtime registers actions, routes normalized events, maintains interaction
+state, exposes accessibility trees, and commits layout/Graphics frames through
+the zero-widget platform-host contract.
 
 `NativeRuntimeApp::with_background_updates` integrates completed effects with
 the UI loop. One poll may merge many completions into state, but it produces at
 most one render for that batch. `BackgroundUpdate` reports state change and
-pending work separately. The three native loops poll instead of blocking while
-work remains, briefly yield between polls, and return to a platform blocking
-wait when idle.
+pending work separately. A concrete platform loop polls while work remains,
+briefly yields between polls, and returns to the operating-system wait
+primitive when idle.
 
 Diagnostic retention is deliberately bounded. Action invocations, interaction
 changes, and executed driver commands keep at most 256 entries by default and

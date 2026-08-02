@@ -1,908 +1,396 @@
 # A3S GUI Roadmap
 
-Updated: 2026-08-02
+_Last updated: 2026-08-02_
 
-## Product Direction
+## Product direction
 
-A3S GUI is a Rust-native, cross-platform implementation of the interaction,
-accessibility, layout, and component model represented by
-[React Aria](https://react-aria.adobe.com/getting-started). It does not embed a
-browser and does not expose a DOM or CSSOM at runtime.
+A3S GUI is a fully self-drawn cross-platform GUI runtime.
 
-Application content is moving from three operating-system widget renderers to
-one A3S-owned drawing pipeline. The shared
-[`a3s-graphics`](https://github.com/A3S-Lab/Graphics) crate owns the versioned
-graphics scene, retained frame damage, render preparation, deterministic
-software reference renderer, and GPU rendering. Its production GPU backend is
-built directly on `wgpu` for Metal, Direct3D 12, and Vulkan. No UI framework
-owns the scene, layout, or content renderer.
+Rust RSX and TypeScript TSX produce one semantic frame model. A3S GUI owns
+behavior, layout, hit testing, accessibility, and application-content pixels.
+A3S Graphics owns retained scenes, software reference output, and GPU
+rendering. Thin OS hosts own only windows/surfaces, presentation, normalized
+input, text/IME, accessibility providers, clipboard, and explicit system
+services.
 
-A3S GUI continues to own the UI-specific layers: semantic components, portable
-style, layout, text editing, hit testing, interaction, focus, selection, IME
-coordination, and accessibility. Rust RSX remains the in-process authoring path.
-An optional TypeScript TSX frontend is planned as an external Node application
-runtime that emits the same resolved, versioned UI records; it does not add a
-browser or a second renderer. Platform code becomes a thin host for windows,
-input, IME, accessibility bridges, menus, dialogs, clipboard, and presentation.
-It does not choose component geometry or draw content.
+Platform content controls and toolkit layout engines are not an intermediate
+or fallback renderer.
 
-## Planning Rules
+## Current status
 
-- Milestones are dependency ordered. A later prototype cannot compensate for a
-  failed earlier contract or parity gate.
-- Status is based on executable evidence, not the presence of a type or stub.
-- Changes land as small, reviewable commits and are pushed as soon as their
-  tests pass. There is no milestone-sized integration branch.
-- New work follows the self-drawn path. Legacy control backends are frozen
-  except for fixes needed to preserve the migration baseline.
-- Dead code is removed with its last consumer. A compatibility module is not
-  deleted before an equivalent tested path exists, and it does not remain after
-  the cutover gate passes.
-- Every visual fixture must lower the shared `NativeElement` tree. A bespoke
-  calculator or component-only scene does not count as renderer progress.
-- The complete official React Aria component catalog is version-pinned in
-  `docs/react-aria-component-matrix.json`. Every upstream release requires an
-  audited matrix delta; a registered component name alone is not parity.
-- Unsupported style, text, graphics, input, or accessibility fields are
-  explicit diagnostics. No layer silently discards a built-in requirement.
-- Files over 1,000 lines are split when their area is changed; new files target
-  one concern and remain well below that threshold.
-
-| Priority | Scope |
-| --- | --- |
-| P0 | Architecture cleanup, Graphics GPU foundation, generic layout/scene path, calculator slice, input/IME/accessibility, and legacy backend removal |
-| P0-H | Zero-widget platform-host contract, shared presentation runtime, macOS/Windows/Linux shells, and dependency-audited cutover |
-| P0-T | Optional TSX-to-native authoring track: automatic JSX runtime, versioned local session, Node-owned component state, and self-drawn host integration |
-| P1 | All 51 React Aria 1.19.0 component families and public semantic parts, including full self-drawn behavior, accessibility, overlays, collections, date/color controls, tables, virtualization, themes, assets, and localization |
-| P2 | Developer tooling, animation, advanced content surfaces, performance work, and shared Graphics capabilities needed by future game runtimes |
-
-## Non-Negotiable Architecture
-
-```text
-Rust ComponentCx + optional RSX       TSX components in Node / Nub
-                    |                         |
-                    |                         v
-                    |               @a3s/gui JSX runtime
-                    |                         |
-                    +------------+------------+
-                                 |
-                                 v
-                 resolved, versioned UI frame
-                         |
-                         v
-              semantic NativeElement tree
-                 /         |          \
-                /          |           \
-               v           v            v
-       UI layout tree   semantic tree   interaction tree
-               |       + accessibility  + hit regions
-               v
-       a3s-graphics Scene
-               |
-               v
-          FramePlanner
-               |
-               v
-       render preparation
-          /           \
-         v             v
-software reference   wgpu renderer
-                         |
-            +------------+------------+
-            v            v            v
-          Metal         DX12        Vulkan
-            |            |            |
-            +------------+------------+
-                         |
-                         v
-             thin platform window host
-                         |
-                         v
-        normalized input / IME / accessibility
-                         |
-                         v
-              InteractionState -> actions
-```
-
-The UI layout tree, paint scene, semantic tree, and interaction tree share
-stable element identity but remain separate data products. Paint commands do
-not become the accessibility tree, and the graphics engine never infers an
-action from a colored rectangle.
-
-### Ownership Boundaries
-
-| Layer | Owns | Must not own |
+| Track | Status | Current evidence |
 | --- | --- | --- |
-| Authoring and design system | Rust components and RSX; optional Node-owned TSX components and hooks; typed props, contracts, variants, tokens, and Stories | GPU resources, native handles, layout truth, product workflows inside the GUI core |
-| GUI semantic runtime | `NativeElement`, reducer flow, actions, interaction, focus, selection, overlays, i18n, capabilities, and accessibility | Graphics device, window toolkit state, product I/O |
-| GUI layout and scene adapter | portable style resolution, intrinsic measurement requests, layout boxes, paint extraction, hit regions, scene diagnostics | product state, backend-specific GPU calls, OS widget geometry |
-| A3S Graphics | scene schema, geometry, draw identity, damage, preparation, resources, shaders, software reference, and GPU rendering | RSX, CSS, widgets, accessibility, IME, game world/ECS, windows |
-| Platform host | windows, event loop, raw input, IME, accessibility bridge, clipboard, menus, dialogs, surface attachment, and frame presentation | component layout, style interpretation, application-content drawing |
-| Product application | model/messages, effects, data sources, storage, capability broker, ACL loading, theme and asset provisioning | renderer handles, scene mutation after submission, platform branching in components |
+| M0 Graphics boundary | Complete | Feature-gated Graphics edge, deterministic reference presenter, stable draw IDs |
+| M1 architecture cleanup | Complete | Layer boundaries and graph gates; content-toolkit code/dependencies deleted |
+| M2 GPU foundation | In progress | Reviewed calculator GPU slice; tri-platform surface/presentation evidence missing |
+| M3 generic layout/scene | In progress | Generic calculator layout/scene/software fixture and all-style ownership matrix |
+| M4 text/input/a11y visuals | Planned | Semantic behavior exists; production self-drawn text/editing/IME/AT bridges missing |
+| M5 cutover/deletion | Partial | Legacy deletion complete; real OS-host cutover cannot occur until H2-H4 |
+| H0 host contract | Complete | Zero-widget transaction/event/API contract and dependency firewall |
+| H1 shared runtime | Complete | Atomic self-drawn frames, input/hit/a11y routing, recovery, presenters |
+| H2-H4 real hosts | Planned | Windows, macOS, Wayland/X11 implementations absent |
+| T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
+| T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
+| T2-T5 TSX product runtime | Planned | State/hooks, process I/O, native startup, watch, packaging, publication |
+| M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
-Graphics types may flow into the GUI scene adapter and platform presentation
-edge. `wgpu` types remain inside `a3s-graphics` and its surface integration.
-Thread-affine platform and GPU handles never enter protocol, semantic, or
-authoring APIs.
+No family is yet self-drawn conformant across real macOS, Windows, and Linux
+hosts.
 
-The TSX process/session boundary and its dependency-ordered delivery gates are
-defined in the [TSX native runtime architecture](tsx-native-runtime.md). The
-TSX SDK reuses the resolved frame input vocabulary but does not expose legacy
-planned-widget commands as its public host protocol.
+## Non-negotiable architecture
 
-The operating-system boundary and its H0-H5 delivery gates are defined in the
-[self-drawn platform host architecture](platform-hosts.md). The target macOS
-binary uses AppKit only as the system application/window shell around one
-custom Metal-backed view. Linux uses Wayland/X11 without GTK4, and Windows uses
-Win32 without WinUI/XAML. None of these shells owns application-content
-layout, controls, or pixels.
+1. A3S draws every application-content pixel.
+2. Semantic, accessibility, layout, hit, and paint identities share stable
+   keys but remain separate products.
+3. OS hosts never interpret component styles or create content controls.
+4. Graphics never depends on RSX, TSX, semantic roles, accessibility, or
+   windows.
+5. Semantic-only builds never acquire Graphics, wgpu, SWC, Node, or a platform
+   content toolkit.
+6. Frames commit atomically across semantic, interaction, accessibility, scene,
+   presentation, and host revisions.
+7. TypeScript callbacks execute only for a validated committed revision.
+8. Cross-platform consistency is proven with a deterministic reference
+   environment and a shared story corpus.
+9. React Aria status is promoted only through versioned executable evidence.
+10. Packaging cannot return before real self-drawn hosts exist.
 
-## Cross-Platform Consistency Contract
+## Completed legacy removal
 
-One scene and one renderer eliminate toolkit layout divergence, but GPU drivers
-and host text services can still differ. Consistency is therefore proven at
-several layers rather than inferred from one screenshot hash.
+The cleanup gate has been executed without a compatibility migration layer:
 
-### Deterministic Reference Environment
+- deleted AppKit, GTK4, and WinUI planning/content-host modules;
+- deleted all associated Cargo features and target dependencies;
+- deleted toolkit-specific input conformance and smoke executables;
+- deleted platform content-control examples and support code;
+- deleted old bundle manifests, scripts, validators, and unsigned artifacts;
+- deleted platform toolkit and bundle CI matrices;
+- collapsed generic planner tests to one nonvisual `HeadlessAdapter`;
+- collapsed backend capability reporting to portable self-drawn semantics;
+- regenerated Cargo and TypeScript protocol graphs;
+- retained negative dependency-firewall assertions.
 
-Reference fixtures fix:
+A future OS host is a new implementation of `PlatformHost`; it may not reuse
+or restore deleted content backends.
 
-- logical viewport, scale, sRGB target, and transparent-background policy
-- light/dark theme, density, locale, direction, time zone, and reduced motion
-- animation time, focus visibility, input modality, clock, and random seed
-- embedded font bytes, fallback order, icons, and raster assets
-- Graphics scene schema, shader revision, and snapshot schema
+## P0 renderer program
 
-System fonts are forbidden in reference fixtures. Every checked-in asset must
-carry its source, license, and checksum.
-
-### Required Evidence
-
-| Layer | Gate |
-| --- | --- |
-| Semantic | Canonical Native IR and accessibility fingerprints match for the same input |
-| Layout | Quantized boxes, baselines, clipping, scroll extents, and z-order match |
-| Scene | Ordered primitives, transforms, clips, resources, opacity, and hit identities have the same fingerprint |
-| Software image | Repeated clean and incremental renders are byte-identical |
-| GPU image | Metal, DX12, and Vulkan output stays within reviewed non-text and text thresholds against the software reference |
-| Interaction | The same scenario produces the same actions, focus path, model state, and final scene fingerprint |
-| Accessibility | The same supported semantic nodes and actions reach each OS bridge; platform smoke evidence verifies exposure |
-
-Layout drift, different line breaks, missing glyphs, missing assets, or changed
-component geometry always fail even when an aggregate image metric passes.
-
-The first required visual fixture remains the calculator at 410 by 620 logical
-pixels. Component Stories add fixed viewports after that slice is stable.
-
-## Current Baseline
-
-The repository already provides:
-
-- Rust `ComponentCx` functions, `.rsx` templates, reducers, hooks, routing,
-  contracts, and a broad semantic component registry
-- compiled RSX, shared Native IR, stable element keys, protocol frames, ordered
-  transactions, rollback, ACK validation, and recovery replay
-- portable style parsing with Tailwind-compatible utilities and interaction
-  variants
-- press, hover, focus, selection, collection navigation, overlays, i18n,
-  NumberField behavior, and live-region semantics
-- accessibility names, descriptions, relationships, states, structure,
-  conformance checks, and capability reports
-- a shared calculator state model, reducer, RSX component tree, and three
-  platform entrypoints
-- AppKit, GTK4, and WinUI control backends used as migration baselines
-- an H0 zero-widget platform-host contract with stable accessibility identity,
-  bounded revision transactions, a recording host, target feature markers, and
-  executable dependency/source firewalls
-
-The independent Graphics repository has a versioned scene, stable draw IDs,
-canonical fingerprints, retained damage, affine transforms, clipping, opacity,
-solid and rounded rectangles, borders, a deterministic software renderer, and
-an owned `wgpu` rectangle backend as of commit `8748fab`. The GPU backend has
-local Direct3D 12 evidence; Metal and Vulkan CI evidence remains an M2 gate.
-
-## Cleanup Inventory
-
-The existing control renderer remains compatibility code during the cutover.
-Its removal gates are explicit so “temporary” code cannot become permanent.
-
-| Current area | Migration use | Removal gate |
-| --- | --- | --- |
-| `renderer.rs`, `host.rs` | Stable-tree and rollback baseline | New layout/scene renderer preserves keyed state, transaction behavior, and runtime queries |
-| `platform/`, `backend/` | Portable command and recovery baseline | Scene frames, resource commits, presentation ACKs, and recovery have equivalent tests |
-| `appkit.rs`, `gtk4.rs`, `winui.rs` | Headless widget-planning evidence | Generic scene and capability audits replace class/setter assertions |
-| `appkit_native/`, `gtk4_native/`, `winui_native/` | Current real input, IME, accessibility, menu, dialog, and window evidence | H2-H4 hosts cover those services and all three self-drawn calculator lanes pass |
-| platform-specific examples | Migration comparison and OS smoke | One shared self-drawn example plus platform-host smoke runners covers the same scenarios |
-| legacy Cargo features and dependencies | Build compatibility | Their final source and CI consumer is deleted in the same commit |
-| native-input conformance artifacts | Behavioral evidence | Generalized host manifests preserve or strengthen every claimed scenario |
-
-Immediate cleanup includes obsolete renderer plans, unused dependencies,
-unreferenced exports, duplicate wrappers, completed TODOs, and docs for paths
-that no longer exist. Large active modules are split by concern as their
-milestones touch them; tests move beside the extracted concern rather than into
-another catch-all file.
-
-## P0 Renderer Program
-
-### M0 - Graphics boundary and deterministic core
-
-Status: complete at Graphics commit `2cad948` and the pinned GUI boundary.
-
-Deliverables:
-
-- standalone `a3s-graphics` repository with no GUI or window dependency
-- accepted Graphics architecture and roadmap
-- versioned scene, validation, stable IDs, fingerprints, retained damage, and
-  deterministic reference rasterization
-- GUI decision record selecting Graphics and rejecting framework-owned drawing
-
-Acceptance gates:
-
-- Graphics default and no-default-feature checks pass on Rust 1.95
-- software incremental output equals a clean full repaint
-- scene validation rejects duplicate identity, non-finite geometry, invalid
-  transforms, invalid scale, and invalid opacity before mutation
-- GUI contains no obsolete framework-renderer dependency, module, feature, or
-  active architecture plan
-
-### M1 - GUI architecture cleanup and dependency integration
+### M0 — Graphics boundary and deterministic core
 
 Status: complete.
 
-Landed evidence:
+Delivered:
 
-- architecture and public docs now select A3S Graphics with no framework-owned
-  renderer residue
-- the engine dependency is pinned to full commit
-  `8748fab595f8dd7f7ca28767f1c58bd7f3f34ee0`
-- `graphics`, `software-reference`, and `gpu` separate scene consumers from
-  reference and accelerated rendering while no-default remains semantic-only
-- `ReferenceRenderer` preserves frame fingerprints and retained damage behind a
-  GUI-owned error boundary
-- `GpuSceneRenderer` preserves the same scene/planner boundary and maps GPU and
-  readback failures into the GUI error contract
-- the first compatibility cleanup removed class-name widget mapping shims and
-  replaced broad dead-code allowances with target-accurate compilation
-- the versioned renderer inventory accounts for all 504 `PortableStyle`
-  fields, every `NativeRole`, all normalized input events, and the focus,
-  overlay, text, and accessibility records required by cutover
-- the first generic `NativeElement -> LayoutSnapshot -> Graphics Scene`
-  adapter landed with stable keyed identity and explicit projection diagnostics
+- optional `a3s-graphics` integration;
+- independent `graphics`, `software-reference`, and `gpu` features;
+- stable semantic/layout-to-scene boundary;
+- deterministic reference rendering and retained damage;
+- validation and redaction at the GUI/Graphics edge;
+- graph tests keeping semantic-only builds renderer-free.
 
-Deliverables:
-
-- replace obsolete architecture, README, and roadmap claims with this boundary
-- pin GUI to one reviewed Graphics commit; no floating branch dependency
-- define feature boundaries for semantic-only, software-reference, GPU, and
-  platform-host builds
-- add a compile-time dependency-direction gate
-- inventory every `PortableStyle`, `NativeRole`, input, focus, overlay, text,
-  and accessibility field needed by the cutover
-- remove only code proven to have no current consumer or superseded contract
-- split touched 1,000-line modules before adding new responsibilities
-
-Acceptance gates:
-
-- source and dependency searches find no obsolete framework-renderer residue
-- `cargo check --no-default-features --lib` remains green
-- default tests remain green before and after cleanup
-- dependency tooling reports no unused direct dependencies
-- deletion commits name the replacement evidence for every removed path
-
-### M2 - Graphics GPU backend
-
-Status: implementation landed at Graphics commit `8748fab`; cross-platform CI
-evidence pending.
-
-Deliverables:
-
-- owned `wgpu` device selection and capability report
-- surface-independent sRGB render target and asynchronous readback
-- WGSL pipelines for fills, rounded rectangles, borders, affine transforms,
-  clipping, opacity, and ordered source-over blending
-- bounded grow-only instance buffers and frame diagnostics
-- typed adapter absence, device loss, validation, internal, out-of-memory,
-  capacity, and readback errors
-
-Acceptance gates:
-
-- shader and pipeline validation passes for Metal, DX12, and Vulkan CI targets
-- GPU output matches the software fixtures within reviewed edge-AA thresholds
-- transparent overlap preserves command order
-- GPU-disabled Graphics builds contain no `wgpu` dependency
-
-### M3 - Generic layout and scene vertical slice
-
-Status: current.
-
-Landed evidence:
-
-- layout schema version 1 records 1/64-point quantized boxes, stable
-  length-prefixed element paths, paint, clips, z/order, and separate hit regions
-- the generic engine covers the calculator's row/column flow, box model,
-  explicit/min/max size, alignment, absolute positioning, overflow clipping,
-  opacity, and solid rectangle paint without a calculator renderer model
-- unsupported M3 fields are error diagnostics rejected by scene extraction;
-  later role/style work remains visible as warnings
-- stable layout diffs feed the Graphics scene/damage diff, and stable layout
-  paths derive retained `DrawId` values
-- the existing shared 410 by 620 calculator Native IR pins layout fingerprint
-  `16529597026056060935` and scene fingerprint `2100550662756266801`
-- repeated software output is byte-identical with no retained damage; the local
-  Direct3D 12 readback passed the reviewed 0.5%/96 non-text threshold with
-  exact solid-color checkpoints
-
-Remaining work includes full flex growth/shrink/wrap, complete stacking
-contexts, redraw scheduling, Metal/Vulkan evidence, and real thin-host window
-presentation.
-
-Deliverables:
-
-- versioned GUI layout records with stable element identity
-- deterministic block, row/column flex, padding, margin, gap, explicit/min/max
-  size, alignment, absolute positioning, overflow clipping, and z-order for the
-  calculator subset
-- `NativeElement -> layout -> Graphics Scene` lowering with diagnostics
-- separate hit regions and semantic references keyed to the same elements
-- retained layout/scene diff and redraw scheduling
-- software and GPU scene snapshots for the existing shared calculator tree
-
-Acceptance gates:
-
-- no calculator-specific visual tree or platform-specific component layout
-- the same Native IR produces the same layout and scene fingerprints on all
-  three desktop systems
-- unsupported required style fails the fixture instead of being omitted
-- incremental layout and scene output equals a clean rebuild
-- the rectangle-only path presents through the H1 contract inside real H2-H4
-  macOS, Linux, and Windows windows
-
-### M4 - Text, input, IME, accessibility, and overlays
-
-Status: in progress alongside M3; shared zero-widget pointer, keyboard,
-long-press, move, and drag/drop foundations landed, while text, editing/IME,
-accessibility bridges, overlays, and real thin-host input remain.
-
-Deliverables:
-
-- embedded reference fonts, shaping, fallback, line layout, glyph atlas, and
-  text selection geometry through Graphics
-- platform input normalization and GUI-owned pointer capture, hover, focus,
-  keyboard navigation, scrolling, drag, and gesture policy
-- text editing with composition ranges, candidate positioning, clipboard,
-  caret, selection, password handling, and platform IME bridges
-- parallel accessibility tree bridges for macOS, Linux, and Windows
-- overlay layout, clipping, stacking, focus containment, dismissal, and system
-  menu/dialog exceptions
-
-Acceptance gates:
-
-- the 410x620 calculator passes reference/GPU image, keyboard, pointer, focus,
-  and action scenarios on all desktop hosts
-- composition tests cover CJK, dead keys, emoji, RTL, selection replacement,
-  and cancellation
-- screen-reader/UI Automation smoke verifies names, roles, values, states,
-  actions, focus, and live regions
-- password values never enter scene snapshots, diagnostics, or automation logs
-
-### M5 - Default cutover and legacy deletion
-
-Status: planned after M4.
-
-Deliverables:
-
-- self-drawn renderer becomes the sole application-content path
-- one shared calculator, controls, playground, and dogfood entrypoint
-- AppKit/GTK4/WinUI widget creation, styling, layout, and update code removed
-- thin platform hosts retain only windows, input, IME, accessibility, menus,
-  dialogs, clipboard, surface presentation, and automation hooks
-- obsolete features, dependencies, examples, packaging entries, CI lanes,
-  command schemas, exports, tests, and documentation removed with their last
-  consumers
-
-Acceptance gates:
-
-- source search finds no platform widget creation for application content
-- default macOS, Linux, and Windows builds open the self-drawn calculator
-- the full semantic, interaction, accessibility, reference-image, GPU-image,
-  recovery, packaging, and platform smoke matrix passes
-- target Linux and Windows dependency trees and artifacts contain no
-  GTK4/GDK/GSK or WinUI/XAML runtime; macOS retains only an audited AppKit
-  system-shell feature allowlist with no content-control path
-- fresh builds prove removed legacy dependencies and features are absent from
-  `Cargo.lock`, `cargo tree -e features`, and distribution imports
-- repository file-size and dead-code audits pass
-
-## P0-H Self-Drawn Platform Host Track
-
-Status: H0 complete; H1 atomic frame/lifecycle work is in progress.
-
-This track turns the existing offscreen layout/scene/GPU boundary into real
-windows without moving component rendering back into an OS toolkit. All
-application content remains A3S-owned. A top-level `NSWindow`, `wl_surface`,
-X11 window, or `HWND` is an operating-system presentation target, not a native
-component tree.
-
-The complete ownership model, target platform API matrix, contract surface,
-migration rules, and verification matrix are recorded in
-[`platform-hosts.md`](platform-hosts.md).
-
-### H0 - Host contract and dependency firewall
+### M1 — architecture cleanup
 
 Status: complete.
 
-- add typed window, presentation, input, text-input, accessibility, and system
-  service records under a new `platform_host/` boundary
-- add fake-host conformance and complete frame/service transaction tests
-- plan `host-macos`, `host-windows`, `host-linux-wayland`, and
-  `host-linux-x11` features without enabling legacy backends
-- add dependency and source audits that forbid application-content widgets
-
-Gates:
-
-- the contract exposes no widget create/update/remove operation
-- host records contain no component style, Node.js value, toolkit object, or
-  `wgpu` handle
-- semantic-only builds stay free of Graphics and platform dependencies
-- target features do not import or enable legacy renderer modules
-
-Evidence:
-
-- `platform_host/` owns bounded records for windows, presentation, raw input,
-  text input, stable-id accessibility, system services, and ordered events
-- `PlatformHostTransaction` validates one monotonic revision before mutation;
-  `RecordingPlatformHost` proves prepare/commit/rollback, failed-commit
-  recovery, bounded queues/history, redaction, and explicit shutdown
-- `platform-host`, `host-macos`, `host-windows`, `host-linux-wayland`,
-  `host-linux-x11`, and `host-linux` compile without enabling a legacy backend
-- 13 focused contract tests and three recursive source/feature firewall tests
-  cover the H0 gates; `just verify` includes their build, graph, and test lanes
-
-### H1 - Shared self-drawn window runtime
-
-Status: in progress; atomic frame orchestration, presentation lifecycle, and
-portable input/reducer routing landed, while a real raw-surface presenter
-remains.
-
-- transact scene, hit-region, accessibility, and window state as one committed
-  host frame
-- attach Graphics to a raw platform surface and handle resize, scale, damage,
-  occlusion, redraw, surface loss, and presentation acknowledgements
-- route host events through portable interaction, focus, and reducer state
-- add one shared self-drawn calculator and fake-host smoke entrypoint
-
-Landed evidence:
-
-- `platform-runtime` connects one candidate Native IR, layout, hit-region,
-  Graphics Scene, and accessibility snapshot to a monotonic host transaction
-- scene candidates use prepare/publish/discard semantics so rejected host
-  commits retain the complete previous frame and pixels
-- unchanged frames perform no layout, scene, host, or present work;
-  semantic-only changes avoid redundant presentation
-- resize, fractional scale, damage, occlusion, redraw, delayed acknowledgement,
-  dropped-frame, and surface-loss tests preserve stable semantic ids
-- raw pointer, keyboard, Tab-focus, hover, press, cancellation, and wheel events
-  resolve through committed layout hit regions and `PlatformElementId` paths;
-  action selection shares the semantic callback rules used during migration
-  without importing a widget blueprint or legacy runtime
-- ordered action batches carry the hit-tested frame revision and monotonic
-  event sequence, preserve bubbling current targets and static payloads, and
-  restore staged interaction state if an application reducer fails
-- long press exposes a monotonic event-loop deadline, tracks style-only and
-  callback-driven targets, resets across pointer leave/re-entry, recognizes at
-  the deadline or on release as a scheduling fallback, and atomically emits
-  `LongPressEnd`, `PressCancel`, then terminal `LongPress`
-- move starts only after the first non-zero pointer delta, stays captured
-  outside the original hit region, preserves initiating pointer identity and
-  incremental deltas across keyed frames, reference-counts concurrent moves,
-  and shares reducer rollback; arrow keys emit a handled one-unit lifecycle
-- drag starts on the first non-zero primary-pointer delta or keyboard Enter,
-  cancels the competing press/long-press path, remains captured by stable id,
-  and exposes typed source data plus allowed and negotiated
-  copy/move/link/cancel operations; pointer hit testing reports target-local
-  coordinates, while keyboard Tab visits only compatible targets and Enter or
-  Escape commits or cancels the session
-- drop targets match multiple source types, MIME wildcards such as `image/*`,
-  custom exact types, and `all`; `DropEnter`/`DropMove`/`DropExit` ordering,
-  `data-[dragging]`/`data-[drop-target]` state, keyed-frame reconciliation, and
-  reducer failure rollback share the same transactional interaction session
-- valid ordinary targets and collection item targets schedule React Aria's
-  800ms `DropActivate` lifecycle through the same monotonic host deadline;
-  movement inside an equivalent target updates context without postponing the
-  timer, while target changes, exit, drop, cancellation, and invalid
-  reconciliation reset or clear it. Keyboard and pointer paths are identical,
-  and collection root targets intentionally do not activate
-- drag sources retain multiple text items and every per-item MIME/custom
-  representation; target callbacks receive only matching items without losing
-  the other representations on those items, while legacy `dragType` plus
-  `dragValue` normalizes to one compatible text item
-- collection drag sources aggregate the stable keys, payloads, and visual
-  dragging state of selected draggable items. The layout-backed delegate emits
-  React Aria-shaped root and keyed before/on/after targets, routes
-  external `onRootDrop`/`onInsert`, item `onItemDrop`, internal `onMove`, and
-  same-parent `onReorder` with ordered multi-callback dispatch and low-level
-  `onDrop` precedence. It filters selected descendants, rejects internal
-  self/descendant targets, treats adjacent insertion descriptors as one target,
-  and exposes each collection as one Tab stop with arrow/Home/End navigation.
-  ListBox, GridList, Tree, Table, and explicit DropIndicator authoring all lower
-  to this shared self-drawn path
-- generic targets and collection targets expose a synchronous
-  `getDropOperation` policy, and collection item-on targets expose
-  `shouldAcceptItemDrop`. Queries carry the committed frame revision, event
-  sequence, query sequence, stable policy id, typed target, drag types, and
-  allowed operations. High-level collection drops filter each item again at
-  drop time, low-level `onDrop` bypasses that high-level filter, and missing,
-  stale, timed-out, malformed, or disallowed responses resolve to `cancel`.
-  Protocol v1 includes strict query/response DTOs and an exchange adapter whose
-  transport must own the bounded wait; the future Node runtime still owns
-  callback execution
-- the shared 410x620 calculator preserves its reviewed layout and scene
-  fingerprints, routes eight fake-host events through four reducer actions,
-  commits the resulting frames, and reaches display value `10`
-- 67 focused runtime/software tests plus four recursive H1 firewall tests are
-  included in `just verify`
-
-Remaining H1 work:
-
-- a Graphics raw-surface presenter implementation for the H2-H4 OS shells;
-  pinned Graphics commit `8748fab` owns only a surface-independent texture and
-  readback today, so its safe host-owned surface attachment/recovery contract
-  must land before GUI can implement this edge without duplicating `wgpu`
-- native file/directory and cross-application transfer, drag previews, text
-  editing, IME, overlay gestures, the Node-side policy callback transport, and
-  component-specific pixel/accessibility/real-host conformance remain explicit
-  M4 and M6-M8 work
-
-Gates:
-
-- unchanged frames produce no layout, scene, or present work
-- rejected frames retain the last committed visual, interaction, and
-  accessibility revisions
-- resize and scale changes preserve stable semantic identity
-- the fake host proves zero application-content widgets by construction
-
-### H2 - Windows Win32 host
-
-Status: planned after H1; its rectangle slice can land during M3 and its full
-input/IME/accessibility gate depends on M4.
-
-- own `HWND` lifecycle, message pumping, and DX12-backed Graphics presentation
-- translate pointer, keyboard, wheel, focus, DPI, clipboard, and window events
-- bridge Text Services Framework and UI Automation directly to portable state
-- package and automate without initializing XAML
-
-Gate: the shared calculator passes rendering, input, composition, UI
-Automation, resize/DPI, recovery, and close scenarios with no WinUI/XAML
-content object or dependency.
-
-### H3 - macOS system-shell host
-
-Status: planned after H1; its full gate depends on M4.
-
-- own `NSApplication`, `NSWindow`, and one custom root `NSView`
-- attach a `CAMetalLayer`, translate `NSEvent`, and handle scale/occlusion
-- implement `NSTextInputClient` over GUI-owned text state
-- project the portable accessibility tree through method-based APIs
-
-Gate: the shared calculator passes rendering, input, composition,
-VoiceOver-facing semantics, resize/scale, recovery, and close scenarios without
-creating `NSButton`, `NSTextField`, `NSStackView`, or any application-content
-AppKit control.
-
-### H4 - Linux Wayland/X11 host
-
-Status: planned after H1; its full gate depends on M4.
-
-- use Wayland plus `xdg-shell` as the primary window path, with X11 behind a
-  separate fallback feature
-- attach Vulkan-backed Graphics surfaces and translate compositor/input state
-- integrate compositor text input, AT-SPI2, clipboard protocols, and portals
-- report unsupported compositor/IME capabilities instead of dropping them
-
-Gate: the shared calculator passes the declared Wayland/X11 compositor, input,
-IME, AT-SPI, scale/configure, portal, recovery, and disconnect matrix with no
-GTK4, GDK, or GSK dependency.
-
-### H5 - Host cutover and legacy deletion
-
-Status: planned after H2-H4 and M4; completes M5.
-
-- switch desktop defaults, shared examples, packaging, and CI to the new hosts
-- pass one cross-platform calculator/control conformance matrix
-- delete legacy renderer features, controls, adapters, examples, dependencies,
-  packaging, tests, and documentation in platform-scoped commits
-- retain only the audited macOS system-shell AppKit binding surface
-
-Gates:
-
-- source and runtime audits report zero application-content platform widgets
-- target dependency trees and packaged imports pass the platform allowlists
-- all semantic, layout, scene, software/GPU, input, IME, accessibility,
-  recovery, packaging, and teardown evidence is green
-- every superseded legacy consumer is removed in the same platform cutover
-
-## P0-T TSX Native Authoring Track
-
-Status: architecture accepted; the Rust-side strict handshake/framing,
-transactional render/commit/event session, self-drawn snapshot/event adapters,
-counter golden/parity fixtures, and revision-scoped drop-policy
-protocol/resolver adapter have landed. Rust-generated TypeScript declarations,
-a fixed schema fingerprint, a private `@a3s/gui` package skeleton, and shared
-Rust/Node fixture gates have also landed. The automatic JSX entry points,
-synchronous function-component expansion, strict frame normalization,
-callback-to-action lowering, committed/rollback callback registry, ordered
-event-vector dispatcher, and real TSX type gate are now included. Process I/O,
-registry/session integration, state/hooks, the native host, and a visible TSX
-application remain.
-
-This track is dependency-coupled to the renderer and H0-H5 host programs
-without blocking Rust RSX work. Headless protocol and JSX-runtime work can
-begin during M3. A supported visible TSX application cannot ship until H1, at
-least one H2-H4 platform slice, and the minimum M4 text, input, focus, and
-accessibility slice are complete.
-
-The target command is `nub app.tsx`. Nub or another standard TSX tool emits
-automatic JSX-runtime calls into `@a3s/gui`; the TypeScript runtime resolves
-components and callbacks into versioned frame records; an independent Rust
-host owns native windows and the existing Native IR/layout/Graphics pipeline.
-No DOM, WebView, React renderer, embedded JavaScript engine, or default N-API
-GUI host enters the core.
-
-The full process, protocol, identity, package, failure, security, and testing
-decisions are recorded in
-[`tsx-native-runtime.md`](tsx-native-runtime.md).
-
-### T0 - Architecture and cross-language contract
-
-- accept the process boundary, ownership model, full-frame transport, action
-  identity, and no-install-script packaging decisions
-- reuse the resolved `ProtocolUiFrameV1` input vocabulary behind a new TSX
-  session envelope
-- extend the landed Rust RSX/static-TSX counter parity fixture to the
-  calculator; generated TypeScript and Node fixture CI now cover the counter
-
-Gate: TSX is a peer authoring frontend and cannot bypass Native IR, layout,
-Graphics, interaction, accessibility, or capability checks.
-
-### T1 - Headless JSX and protocol slice
-
-Status: Rust transport foundation in progress. Strict `hello`/`welcome` plus
-`render`/`committed`/`event` DTOs, atomic negotiation and commit ordering, the
-fixed protocol/session/message/revision envelope, independent TSX and
-self-drawn host revisions, 16 MiB-capped little-endian framing, incremental
-decoding, four canonical JSON fixtures, and static counter Native
-IR/accessibility parity have landed. The core remains free of Node and Graphics
-dependencies; self-drawn conversions compile only with `platform-runtime`.
-All numeric `u64` fields are bounded to JavaScript's safe integer range, full
-64-bit scene/layout fingerprints use fixed hexadecimal strings, and optional
-`typescript-schema` generation now produces the checked-in declarations and
-fingerprint. Standard automatic JSX entry points, immutable elements,
-synchronous function-component expansion, strict child/key/prop/style/window
-normalization, deterministic callback-to-action ids, and read-only per-frame
-callback snapshots now lower into those declarations. The Node registry stages
-one candidate revision, atomically promotes matching commits, retains one
-rollback scope, rejects stale render/host/event sequences before callbacks,
-and awaits preflighted multi-invocation vectors in wire order. Node 24 runs
-those lifecycle/error/cleanup cases and canonicalizes the same four fixtures,
-while pinned TypeScript 5.9 type-checks a real
-`react-jsx`/`jsxImportSource` counter; the package has no production dependency
-or install script.
-
-- add command messages, local process I/O, and generated structured diagnostic
-  declarations to the landed application session
-- connect the landed callback registry to that process session and the strict
-  drop-policy query/response transport
-- extend the landed static counter semantic parity to the calculator fixture
-
-Gates:
-
-- cross-language golden frames canonicalize identically
-- malformed and stale input fails before committed-state mutation
-- Rust RSX and static TSX counter Native IR/accessibility fingerprints match
-- Rust-only and semantic-only builds contain no Node, Nub, N-API, or npm
-  dependency
-
-### T2 - Stateful TypeScript runtime
-
-- function components, state/reducer/memo/ref/context hooks, and post-commit
-  effects
-- batch state updates around the landed ordered multi-invocation dispatcher
-- rerender coalescing, effect cleanup, graceful shutdown, and development host
-  replay around the landed bounded callback scopes
-
-Gates:
-
-- counter interaction, keyed rerender, stale event, effect, cleanup, host loss,
-  and replay tests pass
-- one event batch schedules at most one next frame
-- a rejected frame preserves the last committed UI and callback scope
-
-### T3 - Self-drawn native window
-
-Dependencies: H1, one supported H2-H4 host, and minimum M4 text/input work.
-
-- launch the real platform host from `nub app.tsx`
-- present the TSX counter and shared calculator through A3S Graphics
-- expose typed focus, clipboard, window, inspector, and shutdown commands
-
-Gates:
-
-- TSX creates no legacy application-content widget
-- Rust RSX and TSX calculator scenarios produce the same model, Native IR,
-  layout, scene, interaction, and accessibility evidence
-- software, GPU, input, focus, and OS accessibility gates pass
-
-### T4 - Watch mode and tri-platform packaging
-
-- transactional last-good-frame reload under `nub watch`
-- TSX source mapping for native diagnostics
-- prebuilt optional platform packages with no install-time downloader
-- macOS, Linux, and Windows launch, signing, packaging, and recovery lanes
-
-Gate: editing keeps the last good frame on errors, clean installs resolve the
-correct signed host without runtime downloads, and all three platform packages
-pass the counter and calculator smoke matrix.
-
-### T5 - Production SDK
-
-- stable public TypeScript API and semantic component declarations
-- cross-version SDK/host compatibility policy and release automation
-- inspector, replay, accessibility audit, and performance telemetry
-- production examples and browser React/TSX migration guidance
-
-Gate: TSX is documented as supported only after macOS, Linux, and Windows pass
-the renderer, interaction, accessibility, recovery, packaging, and protocol
-compatibility matrix.
-
-## P1 Component Projection
-
-Catalog accounting starts before the default cutover so no semantic family is
-lost during the renderer migration. Component completion starts after the
-shared self-drawn runtime gate. The executable matrix pins all 51 official
-React Aria Components 1.19.0 families and currently records eight public-part
-gaps: the Field/Button splits for Checkbox, Radio, and Switch, plus ToastList
-and ToastContent.
-
-Every family advances independently from `planned` to `scene-smoke` and then
-to `conformant`. A family lands through its semantic behavior, layout, scene,
-hit testing, accessibility, visual Story, software oracle, and real
-macOS/Windows/Linux host evidence together. Existing AppKit, GTK4, or WinUI
-content-control execution is migration comparison evidence, never final
-self-drawn conformance.
-
-### M6 - Foundations and forms
-
-- Breadcrumbs, Button, Checkbox, CheckboxGroup, FileTrigger, Form, Group, Link,
-  Meter, NumberField, ProgressBar, RadioGroup, SearchField, Separator, Slider,
-  Switch, TextField, ToggleButton, ToggleButtonGroup, and Toolbar
-- tokens, themes, density, disabled/read-only/invalid states, focus rings, and
-  reduced motion
-- intrinsic sizing and baseline alignment
-- implement CheckboxField/CheckboxButton, RadioField/RadioButton, and
-  SwitchField/SwitchButton composition without duplicating shared state
-
-### M7 - Overlays, selection, and collections
-
-- Autocomplete, ComboBox, Disclosure, DisclosureGroup, DropZone, GridList,
-  ListBox, Menu, Modal, Popover, Select, Tabs, TagGroup, Toast, Tooltip, Tree,
-  and Virtualizer
-- portals/layers, anchored placement, scroll containers, virtualization,
-  typeahead, range selection, and collection mutation
-- implement ToastList and ToastContent and preserve drag/drop, focus-scope,
-  selection-indicator, collection-section, and load-more semantic parts
-- close the executable 1.19.0 behavior deltas: embedded-control keyboard
-  navigation for GridList/Tree, Menu action key plus value, arbitrary Popover
-  target rectangles, and multi-MIME/wildcard drag type negotiation
-- build on the landed shared collection root/item/insertion delegate,
-  reorder/move policies, and dynamic item/operation acceptance with OS
-  transfer, drag previews, the Node policy transport, and
-  software/accessibility/three-host conformance stories
-
-### M8 - Date, color, tables, and advanced data
-
-- Calendar, ColorArea, ColorField, ColorPicker, ColorSlider, ColorSwatch,
-  ColorSwatchPicker, ColorWheel, DateField, DatePicker, DateRangePicker,
-  RangeCalendar, Table, and TimeField
-- date/time/range state, color models, data grids, column resizing, sorting,
-  large data sets, and localized formatting
-- virtualization budgets and stable accessibility semantics for recycled views
-
-## P2 Runtime, Tooling, and Shared Graphics
-
-- typed application message/effect profile and deterministic session replay
-- hot reload with transactional scene/resource replacement
-- component Stories, inspector, layout/paint diagnostics, and accessibility audit
-- animation timelines resolved before scene submission
-- image, path, gradient, filter, shadow, and custom canvas primitives
-- offscreen targets and custom GPU surfaces for visualization and future games
-- Graphics cameras, sprites, meshes, materials, frame graph, particles, and
-  compute work remain in the Graphics roadmap and never pull game-world state
-  into GUI
-
-## Continuous Integration Matrix
-
-| Lane | Required evidence |
-| --- | --- |
-| Semantic-only | no-default-feature check, protocol/IR snapshots, reducers, interaction, focus, selection, i18n, and accessibility conformance |
-| Graphics software | scene validation, fingerprints, full/incremental parity, reference images, serialization, and fuzz/property checks |
-| Graphics GPU | shader validation, headless rendering, readback comparison, cache/resource recovery, and adapter report |
-| Linux host | Vulkan window, Wayland/X11 input and IME, accessibility bridge, packaging, and controlled screenshot artifacts |
-| macOS host | Metal window, input/IME/accessibility smoke, reference Stories, bundle validation, and lifecycle recovery |
-| Windows host | DX12 window, real input injection, IME/UI Automation bridge, reference Stories, packaging, and lifecycle recovery |
-| Dependency | pinned Graphics revision, licenses, advisories, unused dependency audit, and semantic-only boundary proof |
-
-## Performance and Reliability Budgets
-
-Budgets are recorded only after representative fixtures have stable
-measurements. Required fixtures include the calculator, component playground,
-large form, overlay stack, 1,000-row collection, 100,000-row virtualized list,
-mixed-script text document, and image-heavy grid.
-
-Metrics include:
-
-- event, reducer, semantic projection, layout, scene extraction, preparation,
-  GPU submission, presentation, and accessibility timings
-- visited, relaid-out, repainted, and redrawn node counts
-- draw commands, batches, vertices, glyphs, uploads, evictions, and dirty area
-- CPU allocations, retained memory, GPU memory, queue depth, and high-water marks
-- dropped frames, missed frame deadlines, device/surface recovery, and replay
-- cold build, incremental build, binary size, and package size
-
-## Risk Controls
-
-| Risk | Control |
-| --- | --- |
-| Graphics API churn | Exact commit pin in GUI, dedicated upgrade commits, schema compatibility tests |
-| GPU driver variance | Software oracle, backend image thresholds, adapter metadata, tri-platform fixtures |
-| Framework creep | Window hosts cannot own scene, layout, or application state |
-| Game requirements distort GUI | Graphics owns general rendering only; GUI and future game runtime keep separate extraction/state layers |
-| Legacy code survives indefinitely | Named removal gate and last-consumer deletion for every compatibility area |
-| Premature deletion breaks dogfood | Preserve legacy path until equivalent real-host evidence passes |
-| Silent style loss | Required/deferred/unsupported inventory plus fixture-failing diagnostics |
-| Text divergence | Embedded fonts, deterministic shaping records, fixed fallback, baseline and line-break gates |
-| Accessibility regression | Parallel semantic truth, conformance tests, and real OS bridge smoke |
-| Large-module growth | Split-on-touch rule, one concern per module, file-size CI audit |
-
-## Definition of Done
-
-A component or subsystem is complete only when:
-
-- it uses the shared Native IR, layout, scene, Graphics, and platform-host path
-- behavior and state transitions are deterministic and tested
-- supported style and accessibility fields are projected explicitly
-- software reference and required GPU/OS evidence pass
-- failure, cancellation, resize, recovery, and teardown are covered
-- diagnostics redact sensitive values and explain unsupported capabilities
-- documentation and examples match the implemented path
-- superseded code, exports, dependencies, tests, fixtures, and docs are deleted
-- formatting, clippy, default tests, semantic-only checks, and relevant native
-  lanes pass
-
-## Explicit Non-Goals
-
-- No browser, DOM, CSSOM, or WebView application-content renderer.
-- No framework-owned content renderer or second renderer state model.
-- No platform widget tree for application content after cutover.
-- No calculator-specific scene that bypasses shared Native IR.
-- No second public reactive store in the renderer.
-- No silent fallback from GPU or required styles to a different visual result.
-- No game world, ECS, physics, audio, or scripting inside `a3s-graphics`.
-- No deletion justified only by a name such as “legacy”; removal requires
-  replacement evidence or proof that no consumer remains.
-
-## Immediate Commit Sequence
-
-1. Finish the H1 Graphics raw-surface presenter edge now that portable
-   event/reducer routing is executable.
-2. Present the generic rectangle slice through the H2 Windows Win32 host.
-3. Present the same slice through the H3 macOS system-shell host.
-4. Present it through H4 Wayland, then the separately gated X11 fallback.
-5. Add text shaping/rasterization, hit testing, input, IME, and accessibility
-   against the shared host contract.
-6. Pass the shared calculator cutover matrix on all three platforms.
-7. Delete WinUI/XAML, GTK4, and AppKit content-control code and all final
-   consumers in reviewable, platform-scoped commits while preserving the thin
-   OS shells.
-8. Execute M6, M7, and M8 against the versioned React Aria matrix until all 51
-   families and their public semantic parts have self-drawn software and real
-   macOS/Windows/Linux conformance evidence.
+Delivered:
+
+- authoring, semantic runtime, layout/scene, Graphics, host, and TSX process
+  ownership boundaries;
+- semantic behavior independent of platform controls;
+- zero-widget host/runtime firewalls;
+- removal of content-toolkit code, features, dependencies, examples, packaging,
+  and CI;
+- portable headless planner retained only for transaction/protocol tests.
+
+### M2 — GPU foundation
+
+Status: in progress.
+
+Delivered:
+
+- retained Graphics scene preparation;
+- wgpu path;
+- deterministic non-text calculator scene;
+- local reviewed DX12 readback evidence.
+
+Remaining:
+
+- real host surfaces and presentation on all targets;
+- Metal/DX12/Vulkan parity stories;
+- surface loss, resize, scale, occlusion, and recovery evidence;
+- production text and clipping coverage.
+
+### M3 — generic layout and scene vertical slice
+
+Status: in progress.
+
+Delivered:
+
+- schema-versioned deterministic layout records;
+- 1/64-point quantization and stable paths;
+- separate hit regions;
+- all `NativeRole`, style-field, and event-kind ownership assignments;
+- generic calculator frame through semantic compilation, layout, scene,
+  software output, and GPU boundary;
+- retained-damage checks.
+
+Remaining:
+
+- general text measurement and paragraph layout;
+- complete scroll/clipping/transform behavior;
+- reusable visual primitives for M6 components;
+- larger story corpus and performance budgets.
+
+### M4 — text, editing, IME, accessibility, overlays
+
+Status: planned.
+
+Deliver:
+
+- production font discovery, shaping, fallback, bidi, line breaking, selection,
+  caret, and text decoration;
+- editable text model, clipboard editing, undo/redo, password handling;
+- platform text/IME sessions over H0;
+- accessibility geometry/action bridges over H0;
+- overlay compositing, clipping, shadows, placement, and focus restoration;
+- deterministic text and accessibility story evidence.
+
+M4 must be generic. Per-platform text widgets are forbidden.
+
+### M5 — default self-drawn product cutover
+
+Status: partial.
+
+Already complete:
+
+- legacy content backend deletion;
+- dependency and CI cleanup;
+- documentation and feature graph cutover to self-drawn-only architecture.
+
+Still required:
+
+- H2-H4 real hosts;
+- default visible example uses `SelfDrawnWindowRuntime`;
+- all required system-service bridges;
+- packaging/signing for self-drawn artifacts;
+- removal or renaming of any remaining test-only historic “widget” vocabulary
+  that causes architectural ambiguity;
+- release evidence on all targets.
+
+## P0-H platform host track
+
+### H0 — host contract and firewall
+
+Status: complete.
+
+Delivered:
+
+- versioned window, presentation, input, text/IME, accessibility, and system
+  service contracts;
+- bounded atomic transactions and acknowledgements;
+- event limits, diagnostics, redaction, and recording host;
+- dependency-free target capability markers;
+- graph and source firewalls.
+
+### H1 — shared self-drawn runtime
+
+Status: complete at the portable contract level.
+
+Delivered:
+
+- `SelfDrawnWindowRuntime`;
+- scene presenter abstraction plus recording/reference presenters;
+- atomic frame prepare/commit/reject and recovery;
+- presentation acknowledgements;
+- hit testing, pointer capture, keyboard routing, press/long-press/move;
+- focus, collection navigation, drag/drop policy;
+- accessibility snapshot/action routing;
+- bounded stats and failure-path tests.
+
+### H2 — Windows host
+
+Status: planned.
+
+Deliver Win32 lifecycle/message loop, DXGI/DX12 presentation, DPI/resize,
+pointer/keyboard/wheel/focus/close, TSF, UI Automation, clipboard, and explicit
+system dialogs. No WinUI/XAML dependency is allowed.
+
+### H3 — macOS host
+
+Status: planned.
+
+Deliver system application/window lifecycle, one custom drawable surface,
+Metal presentation, scale/resize/input/focus/close, text input/IME,
+accessibility provider, pasteboard, and explicit system panels. No platform
+content control or toolkit layout is allowed.
+
+### H4 — Linux host
+
+Status: planned.
+
+Deliver Wayland + xdg-shell, gated X11 fallback, Vulkan presentation, XKB and
+pointer/wheel input, compositor text input, AT-SPI, clipboard protocols, and
+portals. No GTK4/GDK/GSK dependency is allowed.
+
+### H5 — tri-platform host gate
+
+Status: planned.
+
+Complete when the same versioned stories pass lifecycle, input, text,
+accessibility, system-service, deterministic layout/pixel, GPU capture,
+recovery, and dependency gates on all three targets.
+
+## P0-T TypeScript track
+
+### T0 — architecture and cross-language contract
+
+Status: complete.
+
+Delivered:
+
+- supervised-process ownership model;
+- strict hello/welcome/render/commit/event DTOs;
+- length-prefixed codecs and payload limits;
+- JavaScript-safe integer and fingerprint rules;
+- Rust-generated TypeScript declarations;
+- canonical Rust/Node fixtures.
+
+### T1 — automatic JSX and callback scope
+
+Status: complete.
+
+Delivered:
+
+- standard automatic `jsx`, `jsxs`, and fragment entry points;
+- synchronous function-component expansion;
+- strict element/key/children/prop/style/window normalization;
+- callback extraction into revision-scoped action IDs;
+- candidate/active/rollback callback scopes;
+- atomic commit/reject behavior;
+- stale revision rejection;
+- ordered awaited multi-callback dispatch;
+- real TSX counter parity with Rust RSX through Native IR and accessibility.
+
+### T2 — stateful TypeScript runtime
+
+Status: next.
+
+Deliver:
+
+- `createApp` and root lifecycle;
+- `useState`, `useReducer`, memo/effect/ref foundations;
+- deterministic hook order and rerender batching;
+- callback identity updates tied to render revision;
+- error boundaries and controlled shutdown;
+- protocol integration tests with a supervised Rust host.
+
+### T3 — executable self-drawn window
+
+Status: blocked on H2-H4/M4.
+
+Deliver the first real TSX application using the same H1 runtime, with no
+alternate renderer path.
+
+### T4 — development loop and packaging
+
+Status: planned.
+
+Deliver watch/reload, diagnostic source mapping, host restart/recovery, target
+bundles, signing metadata, and tri-platform smoke after concrete hosts exist.
+
+### T5 — production SDK
+
+Status: planned.
+
+Deliver publishable packages, API stability policy, compatibility matrix,
+examples, security/resource limits, release automation, and migration guidance
+from browser React/TSX applications.
+
+## P1 React Aria component projection
+
+The authoritative scope is
+[`react-aria-component-matrix.json`](react-aria-component-matrix.json).
+
+### M6 — foundations and forms
+
+Deliver production scene/text/input/accessibility evidence for foundational
+content, buttons/toggles, fields/forms, number/search/text input, sliders,
+progress/meter, toolbar, links/groups/separators, and file trigger.
+
+Close the explicit Checkbox, Radio, and Switch Field/Button authoring gaps.
+
+### M7 — overlays and collections
+
+Deliver disclosure, modal/dialog, popover/tooltip/toast, menus, select,
+combobox/autocomplete, list/grid/tree/table, tabs/tags, virtualization, and
+drag/drop with complete overlay/scroll/collection/accessibility evidence.
+
+Close the explicit ToastList/ToastContent gaps and upstream 1.19 contract
+deltas.
+
+### M8 — date, time, color, and advanced data
+
+Deliver calendar/date/time segment editing and pickers, color controls, complex
+geometry, locale coverage, and advanced data interaction evidence.
+
+## Continuous verification
+
+The portable CI gate must always cover:
+
+- format and whitespace;
+- locked dependency graph;
+- semantic-only feature builds;
+- H0/H1 feature builds and firewall tests;
+- Rust/TypeScript protocol drift;
+- Clippy and rustdoc warnings;
+- all maintained Rust tests/examples;
+- TypeScript type checking and Node fixtures;
+- React Aria matrix validation;
+- software and GPU boundaries.
+
+Target-native jobs are added only with real zero-widget hosts. Packaging jobs
+are added only with real self-drawn artifacts.
+
+## Reliability budgets
+
+Before production cutover, define and enforce budgets for:
+
+- startup and first frame;
+- input-to-present latency;
+- layout and scene rebuild cost;
+- retained damage and GPU memory;
+- text shaping caches;
+- accessibility snapshot/update size;
+- host/event/action queue depth;
+- TSX IPC payload, backpressure, and callback latency;
+- surface-loss and process-restart recovery;
+- long-running diagnostic history.
+
+All queues and histories must remain bounded.
+
+## Definition of done
+
+A release candidate requires:
+
+- same semantic story corpus on Rust RSX and TypeScript TSX;
+- real self-drawn macOS, Windows, and Linux hosts;
+- production text/editing/IME/accessibility;
+- deterministic software baselines and reviewed GPU captures;
+- no content-widget toolkit dependency;
+- no alternate platform renderer;
+- all claimed React Aria statuses backed by matrix evidence;
+- packaging/signing/installer gates;
+- security, redaction, resource-bound, stale-event, and recovery tests;
+- documentation that describes actual code rather than future claims.
+
+## Immediate implementation sequence
+
+1. Finish this self-drawn-only deletion and documentation commit.
+2. Implement T2 state/hooks and supervised in-process protocol tests.
+3. Land production text measurement/shaping interfaces in layout/scene.
+4. Build the first H2 Windows window/surface/presentation skeleton.
+5. Connect H1 input and frame commits to that host.
+6. Add text/IME and UI Automation bridges.
+7. Port the same host contract to H3 and H4.
+8. Expand M6 deterministic stories and promote evidence through the matrix.
+9. Restore packaging only after H2-H4 artifacts exist.

@@ -1,179 +1,112 @@
-# Native App Shell
+# Self-Drawn Application Shell
 
-A3S GUI apps are reducer-driven native shells. The platform owns windows,
-menus, focus, and input events; application code owns state and frame
-construction. A shell is production-ready when those two halves can be started,
-driven, tested, and stopped through the same lifecycle on each native backend.
+## Status
 
-## Shell Contract
+The repository does not currently ship an executable macOS, Windows, or Linux
+window shell. The former platform content-control shells and their examples
+were deleted with their dependencies.
 
-Use `NativeRuntimeApp` when Rust owns the app state:
+What exists is the shared shell contract:
 
-1. Build a `UiFrame` from state.
-2. Render the frame into a native host.
-3. Drain queued native events.
-4. Reduce action invocations into state.
-5. Rerender after state changes.
-6. Stop the loop when the state predicate returns false.
+- `PlatformHost` for zero-widget OS transactions and events;
+- `SelfDrawnWindowRuntime` for atomic semantic/layout/scene/presentation
+  frames;
+- recording and reference implementations for deterministic tests;
+- `NativeRuntimeApp` and protocol application loops for headless semantic
+  reducer tests.
 
-`AppKitRuntimeApp`, `WinUiRuntimeApp`, and `Gtk4RuntimeApp` are type aliases for
-that same contract with platform-native hosts. Their `run_*_while` methods render
-the first frame if needed, pump platform events, drain queued A3S events, and
-stop when either the root window closes or the state predicate returns false.
-For embedded hosts and automation, `handle_pending_native_event_batch_while`
-returns the same per-event responses plus batch diagnostics for how many native
-events were drained, handled, and left buffered when the predicate stopped. The
-platform event-pump helpers expose the same diagnostics through
-`pump_appkit_event_batch_while`, `pump_gtk4_event_batch_while`, and
-`pump_winui_event_batch_while`.
+A concrete OS shell must be built on `PlatformHost`; it must not revive a
+content-widget backend.
 
-Window close should be modeled as state:
+## Shared lifecycle
 
-```rust
-use a3s_gui::{rsx, ComponentCx, RSX, WindowOptions};
+A production shell follows this lifecycle:
 
-fn editor(cx: &mut ComponentCx<EditorState>) -> RSX {
-    let close_editor = cx.use_reducer("closeEditor", |state: &mut EditorState, _action| {
-        state.close_requested = true;
-        Ok(())
-    });
-    rsx!(<Button key="close" onPress={close_editor}>Close</Button>)
-}
+1. create the OS application/event-loop context;
+2. create a top-level window and Graphics surface;
+3. construct the semantic application and `SelfDrawnWindowRuntime`;
+4. render a candidate semantic/layout/scene frame;
+5. prepare and commit one host transaction;
+6. present the matching prepared frame;
+7. drain normalized host events;
+8. route actions to Rust reducers or TypeScript callbacks;
+9. rerender when state changes;
+10. recover surface/host state or close cleanly.
 
-let editor = ComponentCx::compile("editor", editor)?.with_window(WindowOptions {
-    title: "Editor".to_string(),
-    on_close: Some("closeEditor".to_string()),
-    width: None,
-    height: None,
-    min_width: None,
-    min_height: None,
-    max_width: None,
-    max_height: None,
-    resizable: true,
-});
+Semantic state advances only after the host and presentation acknowledgements
+match the candidate revision.
+
+## Event batches
+
+Host events are drained in bounded batches. Each event is validated before
+routing. An event may:
+
+- update interaction/focus/selection state without invoking an application
+  callback;
+- invoke one or more ordered callbacks;
+- request a rerender;
+- request a system service;
+- close the application.
+
+A reducer failure does not commit a partial rerender. Stale host, frame, and
+element identities are rejected.
+
+## Window contract
+
+`PlatformWindowSpec` and `PlatformWindowCommand` carry title, logical size,
+constraints, visibility, and lifecycle requests. `PlatformWindowEvent`
+reports resize, scale, focus, close, and surface state.
+
+Window geometry is not component layout. The host supplies the viewport and
+scale; A3S layout computes every content box.
+
+## Input, text, and accessibility
+
+The shell converts OS input to `PlatformInputEvent`. Hit testing and semantic
+routing stay in the shared runtime.
+
+Text input uses explicit `PlatformTextInputCommand` and
+`PlatformTextInputEvent` sessions. No hidden platform content control may own
+the editor state.
+
+Accessibility uses `PlatformAccessibilitySnapshot` and
+`PlatformAccessibilityAction`. The host publishes the snapshot through the
+operating system and returns actions to the semantic runtime.
+
+## Development workflow
+
+Portable shell work is verified with:
+
+```sh
+just check-platform-host
+just test-platform-host
+just check-platform-runtime
+just test-platform-runtime
 ```
 
-The reducer should set an exit flag. The platform loop should observe that flag:
+The maintained self-drawn reference example is:
 
-```rust
-app.run_appkit_while(|state| !state.close_requested)?;
+```sh
+cargo run --locked --no-default-features \
+  --features authoring,platform-runtime,software-reference \
+  --example self_drawn_calculator
 ```
 
-This keeps menu close, root-window close, and explicit quit actions on the same
-path.
+This exercises semantic compilation, layout, scene extraction, reference
+presentation, and H1 frame semantics without pretending to be a real OS
+window.
 
-## Local Workflow
+## Concrete-host acceptance
 
-Run commands from the `crates/gui` directory.
+A platform shell is not complete until it demonstrates:
 
-```bash
-just verify
-```
+- create/show/resize/focus/close lifecycle;
+- scale and surface-loss recovery;
+- real Graphics presentation;
+- pointer, keyboard, wheel, text/IME, and accessibility actions;
+- clipboard and declared system services;
+- bounded queues and stale-revision rejection;
+- deterministic story parity with the software reference path;
+- no application-content widget or toolkit-layout dependency.
 
-`just verify` runs formatting, Rust tests, example tests, platform planning
-tests, clippy correctness/suspicious checks, rustdoc with warnings denied, and
-whitespace checks. The crate pins Rust 1.95.0 through `rust-toolchain.toml`, and
-Cargo-based verification uses `Cargo.lock` via `--locked`.
-
-The repository CI runs `just verify` on Linux, then runs host-native AppKit,
-GTK4, and WinUI library tests plus all-target checks with the corresponding
-native feature on the matching operating systems. Headless example tests cover
-the shared dogfood regression once instead of repeating it in every native job.
-Pushes to `main` and manual workflow runs also build, stage, validate, and upload
-compressed unsigned native dogfood bundles for manual platform QA.
-
-Run the same native compile-and-test gate on the current host with:
-
-```bash
-just native-ci
-```
-
-Use the headless dogfood session when changing protocol, reducer, or rendering
-logic:
-
-```bash
-just dogfood
-```
-
-Run the dogfood regression tests when changing app-shell event flow, menus,
-dialogs, keyboard routing, or close behavior:
-
-```bash
-just dogfood-regression
-```
-
-Use the native dogfood app when changing platform behavior:
-
-```bash
-just dogfood-native
-```
-
-The native recipe selects the matching backend for the current operating system:
-
-| Host | Example |
-|------|---------|
-| macOS | `appkit_dogfood` with `appkit-native` |
-| Linux | `gtk4_dogfood` with `gtk4-native` |
-| Windows | `winui_dogfood` with `winui-native` |
-
-For cross-target Windows checks from a configured non-Windows host:
-
-```bash
-just check-winui
-```
-
-Before handing a native dogfood build to another developer, build and stage a
-host-native release artifact:
-
-```bash
-just release-native
-just bundle-native
-```
-
-The staged artifacts and platform prerequisites are documented in
-[`packaging.md`](packaging.md).
-
-## Dogfood Coverage
-
-The shared dogfood app exercises the shell features that need to keep working
-before A3S GUI is considered generally usable:
-
-- root window metadata, size hints, resize bounds, and `window.onClose`
-- menus and menu item actions
-- text input and textarea length/sizing hints, initial/rerendered and
-  change-event max-length clamping, focus/blur routing, select, slider range
-  bounds and step hints, tabs, switches, and checkboxes
-- native focus ownership across conditional field removal and later `autoFocus`
-  candidates
-- overflow-aware root containers that become native scroll viewports
-- reducer-driven rerendering after native events
-- stale queued native events after reducer-driven node removal
-- dialog open state plus native dialog close event routing
-- keyboard down, key release, and review shortcut routing
-- review gates that disable completion until state is valid and suppress
-  disabled completion actions
-- state-driven app loop exit after close actions
-
-Headless dogfood tests cover both embedded `NativeRuntimeApp` handling and the
-host/process boundary exposed by `NativeProtocolApp`. Native checks ensure the
-matching backend compiles and can host the dogfood surface.
-
-## Current Hardening Gaps
-
-The app shell is usable for dogfood and smoke applications. Before treating it as
-a stable production surface, keep hardening these areas. Scheduled delivery and
-acceptance gates are tracked in [`roadmap.md`](roadmap.md):
-
-- signed installers and automated app package generation for each product
-- broader resize, focus, and text input edge cases under longer real-world forms
-- native-platform automation for dogfood menu, dialog, and keyboard interaction
-  flows beyond compile-time checks
-- direct OS-native wake messages for externally started work while an otherwise
-  idle loop is inside the platform's blocking wait; pending work already uses a
-  joinable effect waker plus a bounded 16 ms park fallback
-- interruptible SDK calls for fast shutdown; the default effect scope now joins
-  non-cooperative work, which prevents lifetime escape but may wait for an
-  already-running SDK call to return
-- native failure-injection proving that executor teardown closes every partial
-  AppKit, GTK4, and WinUI surface before full replay
-- Windows smoke automation for the isolated WinUI programmatic-focus ABI bridge
+Packaging resumes only after a concrete self-drawn shell satisfies this gate.

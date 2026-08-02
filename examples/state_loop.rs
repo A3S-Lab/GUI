@@ -1,5 +1,5 @@
 use a3s_gui::{
-    ActionInvocation, Gtk4Adapter, HostEvent, HostNodeId, NativeEvent, NativeEventKind,
+    ActionInvocation, HeadlessAdapter, HostEvent, HostNodeId, NativeEvent, NativeEventKind,
     NativeProtocolApp, NativeProtocolSession, UiFrame,
 };
 use serde_json::json;
@@ -25,7 +25,7 @@ impl Default for ProfileState {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut app = NativeProtocolApp::new(
-        Gtk4Adapter,
+        HeadlessAdapter,
         ProfileState::default(),
         profile_frame,
         apply_action,
@@ -192,7 +192,7 @@ struct ControlNodes {
 }
 
 fn control_nodes(
-    session: &NativeProtocolSession<Gtk4Adapter>,
+    session: &NativeProtocolSession<HeadlessAdapter>,
     root: HostNodeId,
 ) -> a3s_gui::GuiResult<ControlNodes> {
     let children = &session

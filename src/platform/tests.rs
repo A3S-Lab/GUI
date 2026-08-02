@@ -22,7 +22,7 @@ mod frame_transactions;
 mod setter_history;
 
 #[test]
-fn appkit_blueprint_targets_native_button_not_webview() {
+fn headless_blueprint_preserves_semantics_without_a_content_widget() {
     let element = NativeElement::new("save", NativeRole::Button).with_props(
         NativeProps::new().label("Save").web(
             WebProps::new()
@@ -32,9 +32,9 @@ fn appkit_blueprint_targets_native_button_not_webview() {
         ),
     );
 
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
-    assert_eq!(blueprint.widget_class, "NSButton");
+    assert_eq!(blueprint.widget_class, "a3s_gui::HeadlessNode");
     assert_eq!(blueprint.accessibility_role, AccessibilityRole::Button);
     assert_eq!(blueprint.action.as_deref(), Some("saveDocument"));
     assert_eq!(blueprint.class_name.as_deref(), Some("primary"));
@@ -46,92 +46,16 @@ fn appkit_blueprint_targets_native_button_not_webview() {
 }
 
 #[test]
-fn closed_semantic_popover_is_not_visible_to_native_backends() {
-    for backend in [
-        NativeBackendKind::AppKit,
-        NativeBackendKind::Gtk4,
-        NativeBackendKind::WinUI,
-    ] {
-        let element = NativeElement::new("closed", NativeRole::Popover)
-            .with_props(NativeProps::new().web(WebProps::new().attribute("data-open", "false")));
-        let blueprint = widget_blueprint(backend, &element);
-
-        assert_eq!(
-            blueprint.metadata.get("data-open").map(String::as_str),
-            Some("false")
-        );
-        assert!(!blueprint.config().visible);
-    }
-}
-
-#[test]
-fn appkit_blueprint_targets_native_listbox_not_webview() {
-    let list_box = NativeElement::new("projects", NativeRole::ListBox)
-        .child(NativeElement::new("a3s", NativeRole::ListBoxItem));
-    let item = &list_box.children[0];
+fn closed_semantic_popover_is_not_visible_in_planning_output() {
+    let element = NativeElement::new("closed", NativeRole::Popover)
+        .with_props(NativeProps::new().web(WebProps::new().attribute("data-open", "false")));
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
     assert_eq!(
-        AppKitAdapter.blueprint(&list_box).widget_class,
-        "NSScrollView+NSStackView"
+        blueprint.metadata.get("data-open").map(String::as_str),
+        Some("false")
     );
-    assert_eq!(
-        AppKitAdapter.blueprint(item).widget_class,
-        "NSButton(list-row)"
-    );
-}
-
-#[test]
-fn toolbar_blueprint_targets_native_container_controls_not_webview() {
-    let element = NativeElement::new("tools", NativeRole::Toolbar)
-        .with_props(NativeProps::new().orientation(Orientation::Horizontal));
-
-    assert_eq!(
-        AppKitAdapter.blueprint(&element).widget_class,
-        "NSStackView(toolbar)"
-    );
-    assert_eq!(
-        WinUiAdapter.blueprint(&element).widget_class,
-        "Microsoft.UI.Xaml.Controls.StackPanel(toolbar)"
-    );
-    assert_eq!(
-        Gtk4Adapter.blueprint(&element).widget_class,
-        "gtk::Box(toolbar)"
-    );
-}
-
-#[test]
-fn scrollable_container_blueprint_targets_native_scroll_containers() {
-    let element = NativeElement::new("task-form", NativeRole::Toolbar).with_props(
-        NativeProps::new()
-            .orientation(Orientation::Vertical)
-            .web(WebProps::new().style("overflowY", "auto")),
-    );
-
-    assert_eq!(
-        AppKitAdapter.blueprint(&element).widget_class,
-        "NSScrollView+NSStackView(scroll)"
-    );
-    assert_eq!(
-        WinUiAdapter.blueprint(&element).widget_class,
-        "Microsoft.UI.Xaml.Controls.ScrollViewer+StackPanel"
-    );
-    assert_eq!(
-        Gtk4Adapter.blueprint(&element).widget_class,
-        "gtk::ScrolledWindow+Box"
-    );
-}
-
-#[test]
-fn dialog_blueprint_targets_native_dialog_controls_not_webview() {
-    let element =
-        NativeElement::new("preferences", NativeRole::Dialog).with_props(NativeProps::new());
-
-    assert_eq!(AppKitAdapter.blueprint(&element).widget_class, "NSPanel");
-    assert_eq!(
-        WinUiAdapter.blueprint(&element).widget_class,
-        "Microsoft.UI.Xaml.Controls.ContentDialog"
-    );
-    assert_eq!(Gtk4Adapter.blueprint(&element).widget_class, "gtk::Dialog");
+    assert!(!blueprint.config().visible);
 }
 
 #[test]
@@ -143,9 +67,9 @@ fn widget_config_preserves_html_dialog_hints_and_visibility() {
     let closed_html_dialog = NativeElement::new("help", NativeRole::Dialog)
         .with_props(NativeProps::new().html_dialog(HtmlDialogProps::default().open(false)));
 
-    let native_config = Gtk4Adapter.blueprint(&native_dialog).config();
-    let open_config = Gtk4Adapter.blueprint(&open_html_dialog).config();
-    let closed_config = Gtk4Adapter.blueprint(&closed_html_dialog).config();
+    let native_config = HeadlessAdapter.blueprint(&native_dialog).config();
+    let open_config = HeadlessAdapter.blueprint(&open_html_dialog).config();
+    let closed_config = HeadlessAdapter.blueprint(&closed_html_dialog).config();
     let closed_setters = closed_config.create_setters();
 
     assert!(native_config.visible);
@@ -172,9 +96,9 @@ fn dialog_open_diff_drives_derived_native_visibility() {
             .html_dialog(HtmlDialogProps::default().open(true)),
     );
 
-    let closed_config = Gtk4Adapter.blueprint(&closed_dialog).config();
-    let open_config = Gtk4Adapter.blueprint(&open_dialog).config();
-    let hidden_open_config = Gtk4Adapter.blueprint(&hidden_open_dialog).config();
+    let closed_config = HeadlessAdapter.blueprint(&closed_dialog).config();
+    let open_config = HeadlessAdapter.blueprint(&open_dialog).config();
+    let hidden_open_config = HeadlessAdapter.blueprint(&hidden_open_dialog).config();
 
     let open_setters = closed_config.diff(&open_config).setters();
     assert!(open_setters.contains(&NativeWidgetSetter::SetVisible(true)));
@@ -201,134 +125,31 @@ fn dialog_open_diff_drives_derived_native_visibility() {
 }
 
 #[test]
-fn popover_blueprint_targets_native_overlay_controls_not_webview() {
-    let element =
-        NativeElement::new("actions-popover", NativeRole::Popover).with_props(NativeProps::new());
+fn every_semantic_role_uses_the_nonvisual_planning_class() {
+    let elements = vec![
+        NativeElement::new("button", NativeRole::Button),
+        NativeElement::new("list", NativeRole::ListBox),
+        NativeElement::new("toolbar", NativeRole::Toolbar),
+        NativeElement::new("dialog", NativeRole::Dialog),
+        NativeElement::new("popover", NativeRole::Popover),
+        NativeElement::new("menu", NativeRole::Menu),
+        NativeElement::new("item", NativeRole::MenuItem),
+        NativeElement::new("textarea", NativeRole::TextField)
+            .with_props(NativeProps::new().metadata(HTML_TAG_METADATA_KEY, "textarea")),
+        NativeElement::new("password", NativeRole::TextField)
+            .with_props(NativeProps::new().input_type("password")),
+        NativeElement::new("search", NativeRole::TextField)
+            .with_props(NativeProps::new().input_type("search")),
+        NativeElement::new("number", NativeRole::TextField)
+            .with_props(NativeProps::new().input_type("number")),
+    ];
 
-    assert_eq!(AppKitAdapter.blueprint(&element).widget_class, "NSPopover");
-    assert_eq!(
-        WinUiAdapter.blueprint(&element).widget_class,
-        "Microsoft.UI.Xaml.Controls.ToolTip"
-    );
-    assert_eq!(Gtk4Adapter.blueprint(&element).widget_class, "gtk::Popover");
-}
-
-#[test]
-fn menu_blueprint_targets_native_menu_controls_not_webview() {
-    let menu = NativeElement::new("file-menu", NativeRole::Menu)
-        .child(NativeElement::new("open", NativeRole::MenuItem));
-    let item = &menu.children[0];
-
-    assert_eq!(AppKitAdapter.blueprint(&menu).widget_class, "NSMenu");
-    assert_eq!(AppKitAdapter.blueprint(item).widget_class, "NSMenuItem");
-    assert_eq!(
-        WinUiAdapter.blueprint(&menu).widget_class,
-        "Microsoft.UI.Xaml.Controls.StackPanel(menu)"
-    );
-    assert_eq!(
-        WinUiAdapter.blueprint(item).widget_class,
-        "Microsoft.UI.Xaml.Controls.Button(menu-item)"
-    );
-    assert_eq!(Gtk4Adapter.blueprint(&menu).widget_class, "gio::Menu");
-    assert_eq!(Gtk4Adapter.blueprint(item).widget_class, "gio::MenuItem");
-}
-
-#[test]
-fn same_ir_targets_winui_and_gtk_native_controls() {
-    let element = NativeElement::new("email", NativeRole::TextField)
-        .with_props(NativeProps::new().label("Email"));
-
-    assert_eq!(
-        WinUiAdapter.blueprint(&element).widget_class,
-        "Microsoft.UI.Xaml.Controls.TextBox"
-    );
-    assert_eq!(Gtk4Adapter.blueprint(&element).widget_class, "gtk::Entry");
-}
-
-#[test]
-fn textarea_text_fields_target_multiline_native_controls() {
-    let element = NativeElement::new("message", NativeRole::TextField).with_props(
-        NativeProps::new()
-            .label("Message")
-            .metadata(HTML_TAG_METADATA_KEY, "textarea")
-            .rows(Some(4))
-            .cols(Some(48)),
-    );
-
-    assert_eq!(
-        AppKitAdapter.blueprint(&element).widget_class,
-        "NSTextField(textarea)"
-    );
-    assert_eq!(
-        WinUiAdapter.blueprint(&element).widget_class,
-        "Microsoft.UI.Xaml.Controls.TextBox(textarea)"
-    );
-    assert_eq!(
-        Gtk4Adapter.blueprint(&element).widget_class,
-        "gtk::TextView"
-    );
-}
-
-#[test]
-fn password_text_fields_target_secure_native_controls() {
-    let element = NativeElement::new("password", NativeRole::TextField)
-        .with_props(NativeProps::new().input_type("password"));
-
-    assert_eq!(
-        AppKitAdapter.blueprint(&element).widget_class,
-        "NSSecureTextField"
-    );
-    assert_eq!(
-        WinUiAdapter.blueprint(&element).widget_class,
-        "Microsoft.UI.Xaml.Controls.PasswordBox"
-    );
-    assert_eq!(
-        Gtk4Adapter.blueprint(&element).widget_class,
-        "gtk::PasswordEntry"
-    );
-}
-
-#[test]
-fn search_text_fields_target_native_search_controls() {
-    let element = NativeElement::new("query", NativeRole::TextField)
-        .with_props(NativeProps::new().input_type("search"));
-
-    assert_eq!(
-        AppKitAdapter.blueprint(&element).widget_class,
-        "NSSearchField"
-    );
-    assert_eq!(
-        WinUiAdapter.blueprint(&element).widget_class,
-        "Microsoft.UI.Xaml.Controls.TextBox(search)"
-    );
-    assert_eq!(
-        Gtk4Adapter.blueprint(&element).widget_class,
-        "gtk::SearchEntry"
-    );
-}
-
-#[test]
-fn number_text_fields_target_gtk_spin_button() {
-    let element = NativeElement::new("quantity", NativeRole::TextField).with_props(
-        NativeProps::new()
-            .input_type("number")
-            .value("7")
-            .range(Some(1.0), Some(10.0), Some(7.0))
-            .step(Some(0.5)),
-    );
-
-    assert_eq!(
-        AppKitAdapter.blueprint(&element).widget_class,
-        "NSTextField(input)"
-    );
-    assert_eq!(
-        WinUiAdapter.blueprint(&element).widget_class,
-        "Microsoft.UI.Xaml.Controls.TextBox"
-    );
-    assert_eq!(
-        Gtk4Adapter.blueprint(&element).widget_class,
-        "gtk::SpinButton"
-    );
+    for element in elements {
+        assert_eq!(
+            HeadlessAdapter.blueprint(&element).widget_class,
+            "a3s_gui::HeadlessNode"
+        );
+    }
 }
 
 #[test]
@@ -348,7 +169,7 @@ fn blueprint_preserves_semantic_ui_control_state_for_native_adapters() {
             .step(Some(5.0)),
     );
 
-    let blueprint = Gtk4Adapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
     assert_eq!(
         blueprint.control_state.placeholder.as_deref(),
@@ -393,9 +214,9 @@ fn platform_adapter_blueprint_normalizes_ranged_values_without_renderer() {
             .range(Some(0.0), Some(100.0), None),
     );
 
-    let slider_blueprint = Gtk4Adapter.blueprint(&slider);
-    let number_blueprint = Gtk4Adapter.blueprint(&number_input);
-    let invalid_blueprint = Gtk4Adapter.blueprint(&invalid_slider);
+    let slider_blueprint = HeadlessAdapter.blueprint(&slider);
+    let number_blueprint = HeadlessAdapter.blueprint(&number_input);
+    let invalid_blueprint = HeadlessAdapter.blueprint(&invalid_slider);
 
     assert_eq!(slider_blueprint.control_state.current, Some(45.0));
     assert_eq!(slider_blueprint.value.as_deref(), Some("45"));
@@ -417,9 +238,9 @@ fn native_adapter_blueprints_normalize_localized_number_input_values() {
     );
 
     for backend in [
-        NativeBackendKind::AppKit,
-        NativeBackendKind::Gtk4,
-        NativeBackendKind::WinUI,
+        NativeBackendKind::Headless,
+        NativeBackendKind::Headless,
+        NativeBackendKind::Headless,
     ] {
         let blueprint = widget_blueprint(backend, &number_input);
         assert_eq!(blueprint.control_state.lang.as_deref(), Some("fr-FR"));
@@ -449,9 +270,9 @@ fn native_adapter_blueprints_format_percent_number_fields_on_all_backends() {
     );
 
     for backend in [
-        NativeBackendKind::AppKit,
-        NativeBackendKind::Gtk4,
-        NativeBackendKind::WinUI,
+        NativeBackendKind::Headless,
+        NativeBackendKind::Headless,
+        NativeBackendKind::Headless,
     ] {
         let blueprint = widget_blueprint(backend, &number_input);
         assert_eq!(blueprint.control_state.current, Some(0.45));
@@ -490,10 +311,10 @@ fn widget_config_normalizes_blueprint_for_native_setters() {
             ),
     );
 
-    let blueprint = WinUiAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let config = blueprint.config();
 
-    assert_eq!(blueprint.widget_class, "Microsoft.UI.Xaml.Controls.Slider");
+    assert_eq!(blueprint.widget_class, "a3s_gui::HeadlessNode");
     assert_eq!(config.accessibility_role, AccessibilityRole::Slider);
     assert_eq!(config.label.as_deref(), Some("Volume"));
     assert_eq!(config.accessibility_label.as_deref(), Some("Volume"));
@@ -563,7 +384,7 @@ fn widget_config_marks_non_rendered_styles_invisible() {
                     .label("Skip")
                     .web(WebProps::new().style(property, value)),
             );
-        let config = Gtk4Adapter.blueprint(&element).config();
+        let config = HeadlessAdapter.blueprint(&element).config();
 
         assert!(!config.visible, "{property}: {value} should be invisible");
         assert!(
@@ -582,7 +403,7 @@ fn widget_config_marks_non_rendered_styles_invisible() {
         ),
     );
 
-    assert!(Gtk4Adapter.blueprint(&visible).config().visible);
+    assert!(HeadlessAdapter.blueprint(&visible).config().visible);
 }
 
 #[test]
@@ -604,9 +425,11 @@ fn widget_config_marks_interactivity_inert_as_native_inert() {
             .web(WebProps::new().style("interactivity", "auto")),
     );
 
-    let css_inert_config = Gtk4Adapter.blueprint(&css_inert).config();
-    let css_auto_config = Gtk4Adapter.blueprint(&css_auto).config();
-    let html_inert_config = Gtk4Adapter.blueprint(&html_inert_with_css_auto).config();
+    let css_inert_config = HeadlessAdapter.blueprint(&css_inert).config();
+    let css_auto_config = HeadlessAdapter.blueprint(&css_auto).config();
+    let html_inert_config = HeadlessAdapter
+        .blueprint(&html_inert_with_css_auto)
+        .config();
 
     assert!(css_inert_config.visible);
     assert!(css_inert_config.inert);
@@ -630,8 +453,8 @@ fn widget_config_projects_window_resizable_into_native_setters_and_patches() {
             .label("Profile")
             .metadata("data-a3s-window-resizable", "false"),
     );
-    let before = Gtk4Adapter.blueprint(&resizable_window).config();
-    let after = Gtk4Adapter.blueprint(&fixed_window).config();
+    let before = HeadlessAdapter.blueprint(&resizable_window).config();
+    let after = HeadlessAdapter.blueprint(&fixed_window).config();
 
     assert_eq!(before.window_resizable, Some(true));
     assert_eq!(after.window_resizable, Some(false));
@@ -686,7 +509,7 @@ fn widget_config_preserves_html_form_control_hints() {
             .form_no_validate(true),
     );
 
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     assert!(blueprint.control_state.auto_focus);
     let config = blueprint.config();
     let setters = config.create_setters();
@@ -782,7 +605,7 @@ fn widget_config_preserves_html_form_control_hints() {
 #[test]
 fn widget_config_derives_text_input_purpose_from_web_hints() {
     let purpose_for = |props: NativeProps| {
-        Gtk4Adapter
+        HeadlessAdapter
             .blueprint(&NativeElement::new("field", NativeRole::TextField).with_props(props))
             .config()
             .text_input_purpose()
@@ -832,7 +655,7 @@ fn widget_config_derives_text_input_purpose_from_web_hints() {
 
 #[test]
 fn widget_config_derives_text_input_hints_from_web_hints() {
-    let config = Gtk4Adapter
+    let config = HeadlessAdapter
         .blueprint(
             &NativeElement::new("field", NativeRole::TextField).with_props(
                 NativeProps::new()
@@ -852,7 +675,7 @@ fn widget_config_derives_text_input_hints_from_web_hints() {
     assert!(hints.inhibit_osk);
     assert!(hints.private);
 
-    let config = Gtk4Adapter
+    let config = HeadlessAdapter
         .blueprint(
             &NativeElement::new("field", NativeRole::TextField).with_props(
                 NativeProps::new()
@@ -908,7 +731,7 @@ fn widget_config_preserves_html_global_hints() {
             ),
     );
 
-    let config = AppKitAdapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
     let setters = config.create_setters();
 
     assert_eq!(config.title.as_deref(), Some("Profile summary"));
@@ -1004,7 +827,7 @@ fn hidden_input_widget_config_is_not_visible() {
             .value("csrf-token"),
     );
 
-    let config = Gtk4Adapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
 
     assert!(config.hidden);
     assert!(!config.visible);
@@ -1022,7 +845,7 @@ fn widget_config_preserves_accessibility_relationship_hints() {
     let element = NativeElement::new("profile", NativeRole::Section)
         .with_props(NativeProps::new().accessibility_relationships(relationships.clone()));
 
-    let config = Gtk4Adapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
     let setters = config.create_setters();
 
     assert_eq!(config.accessibility_relationships, relationships);
@@ -1043,7 +866,7 @@ fn widget_config_preserves_accessibility_description_hints() {
     let element = NativeElement::new("volume", NativeRole::Slider)
         .with_props(NativeProps::new().accessibility_description(description.clone()));
 
-    let config = WinUiAdapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
     let setters = config.create_setters();
 
     assert_eq!(config.accessibility_description, description);
@@ -1085,7 +908,7 @@ fn widget_config_preserves_accessibility_structure_hints() {
             .accessibility_sort("ascending"),
     );
 
-    let config = Gtk4Adapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
     let setters = config.create_setters();
 
     assert_eq!(config.accessibility_structure, structure);
@@ -1121,7 +944,7 @@ fn widget_config_preserves_accessibility_state_hints() {
             .modal(Some(true)),
     );
 
-    let config = AppKitAdapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
     let setters = config.create_setters();
 
     assert!(config.visible);
@@ -1161,7 +984,7 @@ fn widget_config_preserves_html_media_and_resource_hints() {
             .default_track(true),
     );
 
-    let config = Gtk4Adapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
     let setters = config.create_setters();
 
     assert_eq!(config.alt.as_deref(), Some("Hero"));
@@ -1226,8 +1049,8 @@ fn widget_config_preserves_html_collection_hints() {
             .list_item_value(Some(7)),
     );
 
-    let table_config = Gtk4Adapter.blueprint(&table_cell).config();
-    let list_config = Gtk4Adapter.blueprint(&list).config();
+    let table_config = HeadlessAdapter.blueprint(&table_cell).config();
+    let list_config = HeadlessAdapter.blueprint(&list).config();
     let table_setters = table_config.create_setters();
     let list_setters = list_config.create_setters();
 
@@ -1267,7 +1090,7 @@ fn widget_config_preserves_html_activation_hints() {
     let element = NativeElement::new("settings", NativeRole::Button)
         .with_props(NativeProps::new().html_activation(activation.clone()));
 
-    let config = Gtk4Adapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
     let setters = config.create_setters();
 
     assert_eq!(config.html_activation, activation);
@@ -1282,7 +1105,7 @@ fn widget_config_preserves_html_text_annotation_hints() {
     let element = NativeElement::new("change", NativeRole::InsertedText)
         .with_props(NativeProps::new().html_text_annotation(text_annotation.clone()));
 
-    let config = Gtk4Adapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
     let setters = config.create_setters();
 
     assert_eq!(config.html_text_annotation, text_annotation);
@@ -1300,7 +1123,7 @@ fn widget_config_preserves_html_form_association_hints() {
     let element = NativeElement::new("quota", NativeRole::Meter)
         .with_props(NativeProps::new().html_form_association(form_association.clone()));
 
-    let config = Gtk4Adapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
     let setters = config.create_setters();
 
     assert_eq!(config.html_form_association, form_association);
@@ -1337,7 +1160,7 @@ fn widget_config_preserves_html_resource_policy_hints() {
     let element = NativeElement::new("preload", NativeRole::ResourceLink)
         .with_props(NativeProps::new().html_resource_policy(resource_policy.clone()));
 
-    let config = Gtk4Adapter.blueprint(&element).config();
+    let config = HeadlessAdapter.blueprint(&element).config();
     let setters = config.create_setters();
 
     assert_eq!(config.html_resource_policy, resource_policy);
@@ -1381,8 +1204,8 @@ fn widget_config_diff_reports_changed_native_setters() {
             ),
     );
 
-    let before = Gtk4Adapter.blueprint(&first).config();
-    let after = Gtk4Adapter.blueprint(&second).config();
+    let before = HeadlessAdapter.blueprint(&first).config();
+    let after = HeadlessAdapter.blueprint(&second).config();
     let unchanged = before.diff(&before);
     let patch = before.diff(&after);
 
@@ -1422,8 +1245,8 @@ fn widget_config_diffs_accessibility_label_independently() {
             .label("Save")
             .accessibility_label("Save profile"),
     );
-    let before = WinUiAdapter.blueprint(&first).config();
-    let after = WinUiAdapter.blueprint(&second).config();
+    let before = HeadlessAdapter.blueprint(&first).config();
+    let after = HeadlessAdapter.blueprint(&second).config();
     let patch = before.diff(&after);
 
     assert_eq!(
@@ -1514,7 +1337,7 @@ fn native_widget_setters_remain_an_internal_typed_batch() {
 
 #[test]
 fn widget_setters_replay_into_native_config() {
-    let before = Gtk4Adapter
+    let before = HeadlessAdapter
         .blueprint(
             &NativeElement::new("volume", NativeRole::Slider).with_props(
                 NativeProps::new()
@@ -1524,7 +1347,7 @@ fn widget_setters_replay_into_native_config() {
             ),
         )
         .config();
-    let after = Gtk4Adapter
+    let after = HeadlessAdapter
         .blueprint(
             &NativeElement::new("volume", NativeRole::Slider).with_props(
                 NativeProps::new()
@@ -1745,7 +1568,7 @@ fn renderer_can_drive_platform_planning_host_directly() {
                 .with_props(NativeProps::new().label("Email")),
         );
     let mut renderer = Renderer::new();
-    let mut host = PlatformPlanningHost::new(WinUiAdapter);
+    let mut host = PlatformPlanningHost::new(HeadlessAdapter);
 
     let root_id = renderer.render(&tree, &mut host).unwrap();
     let root = host.node(root_id).unwrap();
@@ -1755,23 +1578,17 @@ fn renderer_can_drive_platform_planning_host_directly() {
         .map(|id| host.node(*id).unwrap().blueprint.widget_class.as_str())
         .collect();
 
-    assert_eq!(
-        root.blueprint.widget_class,
-        "Microsoft.UI.Xaml.Controls.StackPanel"
-    );
+    assert_eq!(root.blueprint.widget_class, "a3s_gui::HeadlessNode");
     assert_eq!(
         child_widgets,
-        vec![
-            "Microsoft.UI.Xaml.Controls.Button",
-            "Microsoft.UI.Xaml.Controls.TextBox"
-        ]
+        vec!["a3s_gui::HeadlessNode", "a3s_gui::HeadlessNode"]
     );
     assert!(host.commands().iter().any(|command| matches!(
         command,
         PlatformCommand::Create {
             blueprint,
             ..
-        } if blueprint.widget_class == "Microsoft.UI.Xaml.Controls.Button"
+        } if blueprint.widget_class == "a3s_gui::HeadlessNode"
     )));
 }
 
@@ -1790,7 +1607,7 @@ fn platform_planning_host_updates_blueprint_on_rerender() {
         ),
     );
     let mut renderer = Renderer::new();
-    let mut host = PlatformPlanningHost::new(AppKitAdapter);
+    let mut host = PlatformPlanningHost::new(HeadlessAdapter);
 
     let first_id = renderer.render(&first, &mut host).unwrap();
     let second_id = renderer.render(&second, &mut host).unwrap();
@@ -1818,7 +1635,7 @@ fn platform_planning_host_updates_blueprint_on_rerender() {
 
 #[test]
 fn platform_planning_host_reparents_children_and_rejects_cycles() {
-    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut host = PlatformPlanningHost::new(HeadlessAdapter);
     let first = host
         .create(&NativeElement::new("first", NativeRole::View))
         .unwrap();
@@ -1851,7 +1668,7 @@ fn platform_planning_host_reparents_children_and_rejects_cycles() {
 
 #[test]
 fn platform_planning_host_remove_deletes_entire_subtree() {
-    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut host = PlatformPlanningHost::new(HeadlessAdapter);
     let root = host
         .create(&NativeElement::new("root", NativeRole::View))
         .unwrap();
@@ -1886,7 +1703,7 @@ fn command_stream_records_native_remove_and_reorder() {
         .child(NativeElement::new("b", NativeRole::Button))
         .child(NativeElement::new("c", NativeRole::Button));
     let mut renderer = Renderer::new();
-    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut host = PlatformPlanningHost::new(HeadlessAdapter);
 
     let root_id = renderer.render(&first, &mut host).unwrap();
     host.clear_commands();
@@ -1909,13 +1726,13 @@ fn command_stream_records_native_remove_and_reorder() {
         PlatformCommand::Create {
             blueprint,
             ..
-        } if blueprint.widget_class == "gtk::Button"
+        } if blueprint.widget_class == "a3s_gui::HeadlessNode"
     )));
 }
 
 #[test]
 fn platform_planning_host_exposes_commands_as_a_drainable_queue() {
-    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut host = PlatformPlanningHost::new(HeadlessAdapter);
     let root = host
         .create(&NativeElement::new("root", NativeRole::View))
         .unwrap();
@@ -1938,7 +1755,7 @@ fn platform_planning_host_exposes_commands_as_a_drainable_queue() {
 
 #[test]
 fn platform_planning_host_replays_and_clears_overlay_positions() {
-    let mut host = PlatformPlanningHost::new(Gtk4Adapter);
+    let mut host = PlatformPlanningHost::new(HeadlessAdapter);
     let anchor = host
         .create(&NativeElement::new("trigger", NativeRole::Button))
         .unwrap();
@@ -1987,7 +1804,7 @@ fn platform_commands_round_trip_as_native_backend_json() {
     );
     let command = PlatformCommand::Create {
         id: HostNodeId::new(42),
-        blueprint: Gtk4Adapter.blueprint(&element),
+        blueprint: HeadlessAdapter.blueprint(&element),
     };
 
     let json = serde_json::to_string(&command).unwrap();
@@ -1995,8 +1812,8 @@ fn platform_commands_round_trip_as_native_backend_json() {
 
     assert_eq!(decoded, command);
     assert!(json.contains(r#""type":"create""#));
-    assert!(json.contains(r#""backend":"gtk4""#));
-    assert!(json.contains(r#""widgetClass":"gtk::Entry""#));
+    assert!(json.contains(r#""backend":"headless""#));
+    assert!(json.contains(r#""widgetClass":"a3s_gui::HeadlessNode""#));
     assert!(json.contains(r#""role":"textField""#));
     assert!(json.contains(r#""accessibilityRole":"textField""#));
     assert!(json.contains(r#""accessibilityLabel":"Email""#));
@@ -2026,7 +1843,7 @@ fn native_blueprint_without_accessibility_label_keeps_legacy_wire_compatibility(
         NativeElement::new("save", NativeRole::Button).with_props(NativeProps::new().label("Save"));
     let command = PlatformCommand::Create {
         id: HostNodeId::new(42),
-        blueprint: WinUiAdapter.blueprint(&element),
+        blueprint: HeadlessAdapter.blueprint(&element),
     };
     let mut json = serde_json::to_value(command).unwrap();
     json["blueprint"]

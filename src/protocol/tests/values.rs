@@ -38,7 +38,7 @@ fn native_protocol_session_infers_container_selection_value_from_selected_child(
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -91,7 +91,7 @@ fn native_protocol_session_clamps_text_change_values_to_max_length() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -142,7 +142,7 @@ fn native_protocol_session_clamps_initial_text_value_to_max_length_before_render
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let response = session.render_frame(&frame).unwrap();
     let blueprint = &session
@@ -185,7 +185,7 @@ fn native_protocol_session_clamps_slider_change_values_to_range_bounds() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -268,7 +268,7 @@ fn native_protocol_session_clamps_number_input_change_values_to_range_bounds() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -350,7 +350,7 @@ fn native_protocol_session_suppresses_invalid_numeric_change_values() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -395,7 +395,7 @@ fn native_protocol_session_snaps_ranged_change_values_to_step() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session
@@ -476,7 +476,7 @@ fn native_protocol_session_normalizes_initial_ranged_values_before_rendering() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let response = session.render_frame(&frame).unwrap();
     let blueprint = &session
@@ -518,7 +518,7 @@ fn native_protocol_session_normalizes_initial_number_input_values_before_renderi
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let response = session.render_frame(&frame).unwrap();
     let blueprint = &session
@@ -559,7 +559,7 @@ fn native_protocol_session_omits_invalid_initial_numeric_values() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let response = session.render_frame(&range_frame).unwrap();
     let blueprint = &session
@@ -640,7 +640,7 @@ fn native_protocol_session_projects_textarea_default_value_attributes() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let response = session.render_frame(&frame).unwrap();
     let blueprint = &session

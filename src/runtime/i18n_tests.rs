@@ -1,6 +1,6 @@
 use super::*;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{BlueprintHost, Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{BlueprintHost, HeadlessAdapter, PlatformPlanningHost};
 use crate::style::TextDirection;
 
 #[test]
@@ -13,7 +13,7 @@ fn runtime_projects_inherited_locale_and_direction_to_native_widgets() {
                 .with_props(NativeProps::new().lang("en-GB"))
                 .child(NativeElement::new("description", NativeRole::Text)),
         );
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     let root = runtime.render_native(&tree).unwrap();
     let children = runtime.renderer.child_ids(root);
     let save = children[0];
@@ -33,7 +33,7 @@ fn runtime_projects_inherited_locale_and_direction_to_native_widgets() {
 
 #[test]
 fn runtime_default_locale_seeds_unscoped_trees() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.i18n_mut().set_default_locale(Some("fa-IR"));
     let root = runtime
         .render_native(&NativeElement::new("root", NativeRole::Button))

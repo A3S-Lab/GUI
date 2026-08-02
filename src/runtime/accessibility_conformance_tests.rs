@@ -1,9 +1,7 @@
 use super::*;
 use crate::accessibility::{AccessibilityNode, AccessibilityRole};
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{
-    AppKitAdapter, Gtk4Adapter, PlatformAdapter, PlatformPlanningHost, WinUiAdapter,
-};
+use crate::platform::{HeadlessAdapter, PlatformAdapter, PlatformPlanningHost};
 
 fn semantic_tree() -> NativeElement {
     NativeElement::new("root", NativeRole::View)
@@ -44,16 +42,15 @@ fn semantic_snapshot(
 }
 
 #[test]
-fn all_platform_adapters_expose_the_same_accessibility_semantics() {
-    let appkit = render(AppKitAdapter);
-    let gtk = render(Gtk4Adapter);
-    let winui = render(WinUiAdapter);
-    let snapshot = |tree: &AccessibilityNode| {
-        let mut output = Vec::new();
-        semantic_snapshot(tree, &mut output);
-        output
-    };
+fn headless_planner_exposes_the_portable_accessibility_semantics() {
+    let tree = render(HeadlessAdapter);
+    let mut snapshot = Vec::new();
+    semantic_snapshot(&tree, &mut snapshot);
 
-    assert_eq!(snapshot(&appkit), snapshot(&gtk));
-    assert_eq!(snapshot(&gtk), snapshot(&winui));
+    assert!(snapshot.iter().any(|(role, label, _, _)| {
+        *role == AccessibilityRole::Button && label.as_deref() == Some("Save")
+    }));
+    assert!(snapshot.iter().any(|(role, label, selected, _)| {
+        *role == AccessibilityRole::ListBoxOption && label.as_deref() == Some("Ada") && *selected
+    }));
 }

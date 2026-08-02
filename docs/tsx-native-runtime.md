@@ -42,10 +42,10 @@ transpiler.
   events.
 
 Those operating-system responsibilities follow the
-[self-drawn platform host architecture](platform-hosts.md): macOS keeps only an
-AppKit system shell around one custom Metal-backed view, Linux uses
-Wayland/X11 without GTK4, and Windows uses Win32 without WinUI/XAML. No TSX
-element can request a platform content control.
+[self-drawn platform host architecture](platform-hosts.md): macOS uses a
+single custom Metal-backed surface, Linux uses Wayland/X11, and Windows uses
+Win32 with Graphics presentation. No TSX element can request a platform
+content control.
 
 "Direct" does not mean that JavaScript receives a native widget pointer or a
 `wgpu` handle. Those handles remain thread-affine and process-local.
@@ -99,10 +99,9 @@ The A3S package only needs to provide `@a3s/gui/jsx-runtime` and
 - A3S does not depend on Nub's internal preload modules, cache format, or N-API
   addon.
 - A3S does not load the GUI runtime as a Node N-API `cdylib` by default.
-  The macOS application/window shell requires main-thread ownership, native
-  event loops are thread-affine, and a same-process native failure would
-  terminate application state with the window host. This does not make AppKit
-  controls part of the content renderer.
+  Platform application/window shells may require main-thread ownership,
+  operating-system event loops are thread-affine, and a same-process host
+  failure would terminate application state with the window host.
 - A3S does not implement a DOM facade, synthetic browser layout, or a React
   custom renderer.
 - A3S does not serialize closures, promises, class instances, native handles,
@@ -243,7 +242,7 @@ long as the inherited handles remain available.
 
 The process boundary is part of correctness:
 
-- AppKit can own the child process main thread.
+- the operating-system host can own the child process main thread.
 - a Rust panic, GPU device loss, or malformed frame has a defined failure
   boundary.
 - the Node event loop remains free for application I/O.
@@ -522,13 +521,10 @@ boundaries are:
 - the TypeScript package contains no native rendering implementation
 - the platform host binary depends on the self-drawn Graphics path and one
   thin platform integration
-- target hosts do not enable the legacy content-widget features; macOS uses
-  only the audited AppKit system-shell subset, Linux has no GTK4 dependency,
-  and Windows has no WinUI/XAML dependency
+- target hosts contain no platform content-widget feature or dependency
 - generated platform packages contain prebuilt binaries and checksums, not
   install-time download code
-- legacy `appkit-native`, `gtk4-native`, and `winui-native` content-widget
-  renderers are not extended for TSX
+- deleted content-widget renderers are not restored for TSX
 
 ## Packaging and Versioning
 

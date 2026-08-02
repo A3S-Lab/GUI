@@ -133,579 +133,84 @@ impl Default for NativeCapabilities {
     }
 }
 
-fn set_role_capability(
-    role_overrides: &mut Vec<NativeRoleCapabilities>,
-    role: NativeRole,
-    feature: NativeCapabilityFeature,
-    support: CapabilitySupport,
-    note: Option<&'static str>,
-) {
-    let role_capabilities = if let Some(index) = role_overrides
-        .iter()
-        .position(|capabilities| capabilities.role == role)
-    {
-        &mut role_overrides[index]
-    } else {
-        let index = role_overrides.len();
-        role_overrides.push(NativeRoleCapabilities {
-            role,
-            features: Vec::new(),
-        });
-        &mut role_overrides[index]
-    };
-    let capability = NativeFeatureCapability::new(feature, support, note);
-    if let Some(existing) = role_capabilities
-        .features
-        .iter_mut()
-        .find(|existing| existing.feature == feature)
-    {
-        *existing = capability;
-    } else {
-        role_capabilities.features.push(capability);
-    }
-}
-
-fn roles_without_generic_event_source(backend: NativeBackendKind) -> Vec<NativeRole> {
-    match backend {
-        NativeBackendKind::AppKit => vec![
-            NativeRole::Window,
-            NativeRole::Dialog,
-            NativeRole::Popover,
-            NativeRole::Menu,
-            NativeRole::MenuItem,
-            NativeRole::Tab,
-        ],
-        NativeBackendKind::Gtk4 => vec![NativeRole::MenuItem],
-        NativeBackendKind::WinUI => vec![NativeRole::Window],
-        NativeBackendKind::Headless => Vec::new(),
-    }
-}
+const PORTABLE_FEATURES: &[NativeCapabilityFeature] = &[
+    NativeCapabilityFeature::Press,
+    NativeCapabilityFeature::PressLifecycle,
+    NativeCapabilityFeature::LongPress,
+    NativeCapabilityFeature::Move,
+    NativeCapabilityFeature::InputModality,
+    NativeCapabilityFeature::Hover,
+    NativeCapabilityFeature::FocusEvents,
+    NativeCapabilityFeature::FocusWithin,
+    NativeCapabilityFeature::AutoFocus,
+    NativeCapabilityFeature::ProgrammaticFocus,
+    NativeCapabilityFeature::Selection,
+    NativeCapabilityFeature::MultipleSelectionSnapshot,
+    NativeCapabilityFeature::Locale,
+    NativeCapabilityFeature::Direction,
+    NativeCapabilityFeature::AnchoredOverlayPosition,
+    NativeCapabilityFeature::AccessibilityRole,
+    NativeCapabilityFeature::AccessibilityName,
+    NativeCapabilityFeature::AccessibilityDescription,
+    NativeCapabilityFeature::AccessibilityRoleDescription,
+    NativeCapabilityFeature::AccessibilityKeyShortcuts,
+    NativeCapabilityFeature::AccessibilityValueText,
+    NativeCapabilityFeature::AccessibilityLabelledBy,
+    NativeCapabilityFeature::AccessibilityDescribedBy,
+    NativeCapabilityFeature::AccessibilityDetails,
+    NativeCapabilityFeature::AccessibilityControls,
+    NativeCapabilityFeature::AccessibilityOwns,
+    NativeCapabilityFeature::AccessibilityFlowTo,
+    NativeCapabilityFeature::AccessibilityErrorMessage,
+    NativeCapabilityFeature::AccessibilityActiveDescendant,
+    NativeCapabilityFeature::AccessibilityLevel,
+    NativeCapabilityFeature::AccessibilityPositionInSet,
+    NativeCapabilityFeature::AccessibilitySetSize,
+    NativeCapabilityFeature::AccessibilityRowCount,
+    NativeCapabilityFeature::AccessibilityRowIndex,
+    NativeCapabilityFeature::AccessibilityRowSpan,
+    NativeCapabilityFeature::AccessibilityColumnCount,
+    NativeCapabilityFeature::AccessibilityColumnIndex,
+    NativeCapabilityFeature::AccessibilityColumnSpan,
+    NativeCapabilityFeature::AccessibilityRowIndexText,
+    NativeCapabilityFeature::AccessibilityColumnIndexText,
+    NativeCapabilityFeature::AccessibilitySort,
+    NativeCapabilityFeature::AccessibilityHidden,
+    NativeCapabilityFeature::AccessibilityAutocomplete,
+    NativeCapabilityFeature::AccessibilityMultiline,
+    NativeCapabilityFeature::AccessibilityCurrent,
+    NativeCapabilityFeature::AccessibilityHasPopup,
+    NativeCapabilityFeature::AccessibilityPressed,
+    NativeCapabilityFeature::AccessibilityLiveRegion,
+    NativeCapabilityFeature::AccessibilityBusy,
+    NativeCapabilityFeature::AccessibilityModal,
+    NativeCapabilityFeature::AccessibilityRelationships,
+    NativeCapabilityFeature::AccessibilityStructure,
+    NativeCapabilityFeature::AccessibilityState,
+    NativeCapabilityFeature::AccessibilityAnnouncements,
+];
 
 impl NativeCapabilities {
     pub fn for_backend(backend: NativeBackendKind) -> Self {
-        use CapabilitySupport::{Native, Portable, Unsupported};
-        use NativeCapabilityFeature as Feature;
-
-        let headless = backend == NativeBackendKind::Headless;
-        let mut features = vec![
-            NativeFeatureCapability::new(
-                Feature::Press,
-                if headless { Portable } else { Unsupported },
-                Some(if headless {
-                    "headless dispatch models press without an OS event source"
-                } else {
-                    "full pointer and keyboard activation is role-specific"
-                }),
-            ),
-            NativeFeatureCapability::new(
-                Feature::PressLifecycle,
-                Unsupported,
-                Some("full pointer and keyboard press lifecycle is role-specific"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::LongPress,
-                if headless { Portable } else { Native },
-                headless.then_some("headless dispatch models long press without an OS timer"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::Move,
-                if headless { Portable } else { Native },
-                headless.then_some("headless dispatch models movement without an OS input source"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::InputModality,
-                if headless { Unsupported } else { Native },
-                headless.then_some("headless events have no OS input source"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::Hover,
-                if headless { Unsupported } else { Native },
-                headless.then_some("headless dispatch has no pointing-device hover source"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::FocusEvents,
-                if headless { Portable } else { Unsupported },
-                (!headless).then_some("native focusability is role-specific"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::FocusWithin,
-                Portable,
-                Some("the runtime derives subtree boundaries from linked native focus transitions"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::AutoFocus,
-                if headless { Portable } else { Unsupported },
-                (!headless).then_some("native focusability is role-specific"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::ProgrammaticFocus,
-                if headless { Portable } else { Unsupported },
-                (!headless).then_some("programmatic OS focus is role-specific"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::Selection,
-                if headless { Portable } else { Unsupported },
-                (!headless).then_some("native selection notifications are role-specific"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::MultipleSelectionSnapshot,
-                Portable,
-                Some("the runtime accumulates stable keys when adapters emit scalar selection"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::Locale,
-                Portable,
-                Some("locale inherits in the runtime but native locale setters are incomplete"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::Direction,
-                Portable,
-                Some("direction inherits in the runtime but native direction setters are incomplete"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::AnchoredOverlayPosition,
-                Portable,
-                Some(match backend {
-                    NativeBackendKind::AppKit => {
-                        "AppKit projects placement and offsets to NSPopover; collision flipping remains runtime-dependent"
-                    }
-                    NativeBackendKind::Gtk4 => {
-                        "GTK4 projects placement and offsets to gtk::Popover; collision flipping remains runtime-dependent"
-                    }
-                    NativeBackendKind::WinUI => {
-                        "WinUI ToolTip projects the placement target and signed offsets; exact side placement and collision flipping depend on WinUI"
-                    }
-                    NativeBackendKind::Headless => {
-                        "headless mode records the typed anchor relationship without native geometry"
-                    }
-                }),
-            ),
-            NativeFeatureCapability::new(
-                Feature::AccessibilityRole,
-                Portable,
-                Some("semantic roles are projected, but native role overrides are incomplete"),
-            ),
-            NativeFeatureCapability::new(
-                Feature::AccessibilityName,
-                if headless { Portable } else { Native },
-                Some(if headless {
-                    "headless mode retains the computed name without an OS accessibility object"
-                } else {
-                    "computed names use the backend's native accessibility-name property"
-                }),
-            ),
-            NativeFeatureCapability::new(
-                Feature::AccessibilityDescription,
-                if headless { Portable } else { Native },
-                Some(match backend {
-                    NativeBackendKind::AppKit => {
-                        "descriptions use the native NSAccessibility help property"
-                    }
-                    NativeBackendKind::Gtk4 => {
-                        "descriptions use the native GtkAccessible description property"
-                    }
-                    NativeBackendKind::WinUI => {
-                        "descriptions use the native UI Automation help-text property"
-                    }
-                    NativeBackendKind::Headless => {
-                        "headless mode retains descriptions without an OS accessibility object"
-                    }
-                }),
-            ),
-            NativeFeatureCapability::new(
-                Feature::AccessibilityRoleDescription,
-                match backend {
-                    NativeBackendKind::AppKit | NativeBackendKind::Gtk4 => Native,
-                    NativeBackendKind::WinUI | NativeBackendKind::Headless => Portable,
-                },
-                Some(match backend {
-                    NativeBackendKind::AppKit => {
-                        "role descriptions use the native NSAccessibility role-description property"
-                    }
-                    NativeBackendKind::Gtk4 => {
-                        "role descriptions use the native GtkAccessible role-description property"
-                    }
-                    NativeBackendKind::WinUI => {
-                        "role descriptions remain in portable accessibility output because the current WinUI binding has no exact attached-property setter"
-                    }
-                    NativeBackendKind::Headless => {
-                        "headless mode retains role descriptions without an OS accessibility object"
-                    }
-                }),
-            ),
-            NativeFeatureCapability::new(
-                Feature::AccessibilityKeyShortcuts,
-                match backend {
-                    NativeBackendKind::Gtk4 | NativeBackendKind::WinUI => Native,
-                    NativeBackendKind::AppKit | NativeBackendKind::Headless => Portable,
-                },
-                Some(match backend {
-                    NativeBackendKind::AppKit => {
-                        "key shortcuts remain in portable accessibility output because NSAccessibility has no equivalent setter"
-                    }
-                    NativeBackendKind::Gtk4 => {
-                        "key shortcuts use the native GtkAccessible key-shortcuts property"
-                    }
-                    NativeBackendKind::WinUI => {
-                        "key shortcuts use the native UI Automation accelerator-key property"
-                    }
-                    NativeBackendKind::Headless => {
-                        "headless mode retains key shortcuts without an OS accessibility object"
-                    }
-                }),
-            ),
-            NativeFeatureCapability::new(
-                Feature::AccessibilityValueText,
-                match backend {
-                    NativeBackendKind::AppKit | NativeBackendKind::Gtk4 => Native,
-                    NativeBackendKind::WinUI | NativeBackendKind::Headless => Portable,
-                },
-                Some(match backend {
-                    NativeBackendKind::AppKit => {
-                        "value text uses the native NSAccessibility value-description property"
-                    }
-                    NativeBackendKind::Gtk4 => {
-                        "value text uses the native GtkAccessible value-text property"
-                    }
-                    NativeBackendKind::WinUI => {
-                        "value text remains in portable accessibility output because WinUI has no generic attached-property override for a control pattern value"
-                    }
-                    NativeBackendKind::Headless => {
-                        "headless mode retains value text without an OS accessibility object"
-                    }
-                }),
-            ),
-        ];
-        features.extend(accessibility_features::capabilities(backend));
-        features.extend(accessibility_structure::capabilities(backend));
-        let mut role_overrides = Vec::new();
-        if !headless {
-            let mut activation_roles = vec![
-                NativeRole::Button,
-                NativeRole::DisclosureSummary,
-                NativeRole::Link,
-                NativeRole::ImageMapArea,
-                NativeRole::ListBoxItem,
-                NativeRole::TreeItem,
-            ];
-            if backend == NativeBackendKind::WinUI {
-                activation_roles.push(NativeRole::MenuItem);
-            }
-            for role in activation_roles {
-                set_role_capability(&mut role_overrides, role, Feature::Press, Native, None);
-                set_role_capability(
-                    &mut role_overrides,
-                    role,
-                    Feature::PressLifecycle,
-                    Native,
-                    None,
-                );
-            }
-
-            for role in [
-                NativeRole::Button,
-                NativeRole::DisclosureSummary,
-                NativeRole::Link,
-                NativeRole::ImageMapArea,
-                NativeRole::TextField,
-                NativeRole::Checkbox,
-                NativeRole::Switch,
-                NativeRole::Radio,
-                NativeRole::Select,
-                NativeRole::ComboBox,
-                NativeRole::ListBox,
-                NativeRole::Tree,
-                NativeRole::Slider,
-            ] {
-                set_role_capability(
-                    &mut role_overrides,
-                    role,
-                    Feature::FocusEvents,
-                    Native,
-                    None,
-                );
-                set_role_capability(&mut role_overrides, role, Feature::AutoFocus, Native, None);
-                set_role_capability(
-                    &mut role_overrides,
-                    role,
-                    Feature::ProgrammaticFocus,
-                    Native,
-                    None,
-                );
-            }
-            let item_focus_roles = match backend {
-                NativeBackendKind::AppKit | NativeBackendKind::Gtk4 => {
-                    vec![NativeRole::ListBoxItem, NativeRole::TreeItem]
-                }
-                NativeBackendKind::WinUI => vec![
-                    NativeRole::MenuItem,
-                    NativeRole::ListBoxItem,
-                    NativeRole::TreeItem,
-                    NativeRole::Tab,
-                ],
-                NativeBackendKind::Headless => Vec::new(),
-            };
-            for role in item_focus_roles {
-                set_role_capability(
-                    &mut role_overrides,
-                    role,
-                    Feature::FocusEvents,
-                    Native,
-                    None,
-                );
-                set_role_capability(&mut role_overrides, role, Feature::AutoFocus, Native, None);
-                set_role_capability(
-                    &mut role_overrides,
-                    role,
-                    Feature::ProgrammaticFocus,
-                    Native,
-                    None,
-                );
-            }
-
-            for role in [
-                NativeRole::Select,
-                NativeRole::ComboBox,
-                NativeRole::ListBox,
-                NativeRole::Tree,
-                NativeRole::Tabs,
-                NativeRole::TabList,
-            ] {
-                set_role_capability(&mut role_overrides, role, Feature::Selection, Native, None);
-            }
-
-            if backend != NativeBackendKind::WinUI {
-                set_role_capability(
-                    &mut role_overrides,
-                    NativeRole::MenuItem,
-                    Feature::Press,
-                    Native,
-                    Some("native menu activation emits the terminal press only"),
-                );
-            }
-
-            match backend {
-                NativeBackendKind::AppKit => {
-                    for role in [
-                        NativeRole::ListBoxItem,
-                        NativeRole::TreeItem,
-                        NativeRole::Tab,
-                    ] {
-                        set_role_capability(
-                            &mut role_overrides,
-                            role,
-                            Feature::AccessibilityName,
-                            Portable,
-                            Some(
-                                "AppKit logical combo-box/list and tab items retain the computed name in portable accessibility output but do not expose an independent native accessibility-label setter",
-                            ),
-                        );
-                        for feature in [
-                            Feature::AccessibilityDescription,
-                            Feature::AccessibilityRoleDescription,
-                            Feature::AccessibilityKeyShortcuts,
-                            Feature::AccessibilityValueText,
-                        ] {
-                            set_role_capability(
-                                &mut role_overrides,
-                                role,
-                                feature,
-                                Portable,
-                                Some(
-                                    "AppKit logical combo-box/list and tab items retain descriptive accessibility metadata in portable output but do not expose an independent native accessibility-property setter",
-                                ),
-                            );
-                        }
-                        for feature in [
-                            Feature::AccessibilityHidden,
-                            Feature::AccessibilityAutocomplete,
-                            Feature::AccessibilityMultiline,
-                            Feature::AccessibilityCurrent,
-                            Feature::AccessibilityHasPopup,
-                            Feature::AccessibilityPressed,
-                            Feature::AccessibilityLiveRegion,
-                            Feature::AccessibilityBusy,
-                            Feature::AccessibilityModal,
-                        ] {
-                            set_role_capability(
-                                &mut role_overrides,
-                                role,
-                                feature,
-                                Portable,
-                                Some(
-                                    "AppKit logical combo-box/list and tab items retain accessibility state in portable output but do not expose an independent native state setter",
-                                ),
-                            );
-                        }
-                    }
-                }
-                NativeBackendKind::Gtk4 => {
-                    set_role_capability(
-                        &mut role_overrides,
-                        NativeRole::MenuItem,
-                        Feature::AccessibilityName,
-                        Portable,
-                        Some(
-                            "GTK4 gio::MenuItem retains the computed name in portable accessibility output but has no independent GtkAccessible label property",
-                        ),
-                    );
-                    for feature in [
-                        Feature::AccessibilityDescription,
-                        Feature::AccessibilityRoleDescription,
-                        Feature::AccessibilityKeyShortcuts,
-                        Feature::AccessibilityValueText,
-                    ] {
-                        set_role_capability(
-                            &mut role_overrides,
-                            NativeRole::MenuItem,
-                            feature,
-                            Portable,
-                            Some(
-                                "GTK4 gio::MenuItem retains descriptive accessibility metadata in portable output but has no independent GtkAccessible property",
-                            ),
-                        );
-                    }
-                    for feature in [
-                        Feature::AccessibilityHidden,
-                        Feature::AccessibilityAutocomplete,
-                        Feature::AccessibilityMultiline,
-                        Feature::AccessibilityCurrent,
-                        Feature::AccessibilityHasPopup,
-                        Feature::AccessibilityPressed,
-                        Feature::AccessibilityLiveRegion,
-                        Feature::AccessibilityBusy,
-                        Feature::AccessibilityModal,
-                    ] {
-                        set_role_capability(
-                            &mut role_overrides,
-                            NativeRole::MenuItem,
-                            feature,
-                            Portable,
-                            Some(
-                                "GTK4 gio::MenuItem retains accessibility state in portable output but has no independent GtkAccessible state property",
-                            ),
-                        );
-                    }
-                    set_role_capability(
-                        &mut role_overrides,
-                        NativeRole::MenuItem,
-                        Feature::AccessibilityAnnouncements,
-                        Portable,
-                        Some(
-                            "GTK4 gio::MenuItem has no mounted GtkAccessible target for announcements",
-                        ),
-                    );
-                }
-                NativeBackendKind::WinUI => {
-                    set_role_capability(
-                        &mut role_overrides,
-                        NativeRole::Window,
-                        Feature::AccessibilityName,
-                        Portable,
-                        Some(
-                            "the WinUI Window wrapper retains the computed name in portable accessibility output but is not a UIElement AutomationProperties target",
-                        ),
-                    );
-                    for feature in [
-                        Feature::AccessibilityDescription,
-                        Feature::AccessibilityRoleDescription,
-                        Feature::AccessibilityKeyShortcuts,
-                        Feature::AccessibilityValueText,
-                    ] {
-                        set_role_capability(
-                            &mut role_overrides,
-                            NativeRole::Window,
-                            feature,
-                            Portable,
-                            Some(
-                                "the WinUI Window wrapper retains descriptive accessibility metadata in portable output but is not a UIElement AutomationProperties target",
-                            ),
-                        );
-                    }
-                    set_role_capability(
-                        &mut role_overrides,
-                        NativeRole::Dialog,
-                        Feature::AccessibilityModal,
-                        Native,
-                        Some(
-                            "WinUI ContentDialog exposes modality through its native automation peer",
-                        ),
-                    );
-                }
-                NativeBackendKind::Headless => {}
-            }
-
-            if backend == NativeBackendKind::AppKit {
-                for role in [
-                    NativeRole::Window,
-                    NativeRole::Dialog,
-                    NativeRole::Popover,
-                    NativeRole::Menu,
-                    NativeRole::MenuItem,
-                    NativeRole::ListBoxItem,
-                    NativeRole::TreeItem,
-                    NativeRole::Tab,
-                ] {
-                    set_role_capability(
-                        &mut role_overrides,
-                        role,
-                        Feature::AccessibilityLiveRegion,
-                        Portable,
-                        Some(
-                            "this AppKit wrapper has no mounted NSView target for accessibility announcements",
-                        ),
-                    );
-                    set_role_capability(
-                        &mut role_overrides,
-                        role,
-                        Feature::AccessibilityAnnouncements,
-                        Portable,
-                        Some(
-                            "this AppKit wrapper has no mounted NSView target for accessibility announcements",
-                        ),
-                    );
-                }
-            }
-
-            for role in roles_without_generic_event_source(backend) {
-                set_role_capability(
-                    &mut role_overrides,
-                    role,
-                    Feature::InputModality,
-                    Unsupported,
-                    Some("this role has no mounted generic native event source"),
-                );
-                set_role_capability(
-                    &mut role_overrides,
-                    role,
-                    Feature::Hover,
-                    Unsupported,
-                    Some("this role has no mounted generic native event source"),
-                );
-                set_role_capability(
-                    &mut role_overrides,
-                    role,
-                    Feature::LongPress,
-                    Unsupported,
-                    Some("this role has no mounted generic native event source"),
-                );
-                set_role_capability(
-                    &mut role_overrides,
-                    role,
-                    Feature::Move,
-                    Unsupported,
-                    Some("this role has no mounted generic native event source"),
-                );
-            }
-        }
-        accessibility_features::add_wrapper_overrides(backend, &mut role_overrides);
-        accessibility_structure::add_wrapper_overrides(backend, &mut role_overrides);
+        let features = PORTABLE_FEATURES
+            .iter()
+            .copied()
+            .map(|feature| {
+                NativeFeatureCapability::new(
+                    feature,
+                    CapabilitySupport::Portable,
+                    Some(
+                        "the self-drawn runtime owns this feature; no OS accessibility or input bridge is claimed",
+                    ),
+                )
+            })
+            .collect();
 
         Self {
             ir_version: NATIVE_IR_VERSION,
             backend,
             features,
-            role_overrides,
+            role_overrides: Vec::new(),
         }
     }
 

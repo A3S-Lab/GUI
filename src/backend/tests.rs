@@ -7,8 +7,8 @@ use crate::geometry::{Rect, Size};
 use crate::host::HostNodeId;
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::platform::{
-    Gtk4Adapter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfigPatch,
-    NativeWidgetSetter, PlatformAdapter, PlatformCommand, WinUiAdapter,
+    HeadlessAdapter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfigPatch,
+    NativeWidgetSetter, PlatformAdapter, PlatformCommand,
 };
 use crate::runtime::GuiRuntime;
 use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
@@ -17,7 +17,6 @@ use std::rc::Rc;
 
 mod diagnostic_redaction;
 mod frame_batch;
-mod setter_history_adapters;
 mod typed_kind;
 
 #[derive(Debug, Default)]
@@ -81,7 +80,7 @@ impl NativeWidgetSurface for TestNativeSurface {
     type Handle = SurfaceHandle;
 
     fn backend(&self) -> NativeBackendKind {
-        NativeBackendKind::Gtk4
+        NativeBackendKind::Headless
     }
 
     fn create_native_widget(
@@ -224,7 +223,7 @@ impl NativeHandleAdapter for ThreadBoundHandleAdapter {
     type Handle = ThreadBoundHandle;
 
     fn backend(&self) -> NativeBackendKind {
-        NativeBackendKind::Gtk4
+        NativeBackendKind::Headless
     }
 
     fn create_handle(
@@ -372,7 +371,7 @@ impl NativeHandleAdapter for ThreadBoundHandleAdapter {
 
 impl NativeWidgetDriver for TestWidgetDriver {
     fn backend(&self) -> NativeBackendKind {
-        NativeBackendKind::Gtk4
+        NativeBackendKind::Headless
     }
 
     fn create_widget(
@@ -444,7 +443,7 @@ impl NativeEventSource for TestWidgetDriver {
 #[test]
 fn driver_command_executor_delegates_native_commands_to_driver() {
     let element = NativeElement::new("save", NativeRole::Button);
-    let blueprint = Gtk4Adapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let mut executor = DriverCommandExecutor::new(TestWidgetDriver::default());
 
     executor
@@ -472,7 +471,7 @@ fn driver_command_executor_delegates_native_commands_to_driver() {
     assert_eq!(
         executor.driver().calls,
         vec![
-            "create:1:gtk::Button",
+            "create:1:a3s_gui::HeadlessNode",
             "root:1",
             "focus:1",
             "announce:1:Assertive:Saved"
@@ -511,33 +510,13 @@ fn driver_command_executor_bounds_and_takes_diagnostic_commands() {
 }
 
 #[test]
-fn driver_command_executor_rejects_wrong_backend_blueprint() {
-    let element = NativeElement::new("save", NativeRole::Button);
-    let blueprint = WinUiAdapter.blueprint(&element);
-    let mut executor = DriverCommandExecutor::new(TestWidgetDriver::default());
-
-    let error = executor
-        .execute(&PlatformCommand::Create {
-            id: HostNodeId::new(1),
-            blueprint,
-        })
-        .unwrap_err();
-
-    assert!(error
-        .to_string()
-        .contains("driver received WinUI blueprint"));
-    assert!(executor.commands().is_empty());
-    assert!(executor.driver().calls.is_empty());
-}
-
-#[test]
 fn handle_widget_driver_accepts_thread_bound_native_handles() {
     let adapter = ThreadBoundHandleAdapter::default();
     let calls = adapter.calls.clone();
     let driver = HandleWidgetDriver::new(adapter);
     let mut executor = DriverCommandExecutor::new(driver);
-    let root = Gtk4Adapter.blueprint(&NativeElement::new("root", NativeRole::View));
-    let button = Gtk4Adapter.blueprint(&NativeElement::new("save", NativeRole::Button));
+    let root = HeadlessAdapter.blueprint(&NativeElement::new("root", NativeRole::View));
+    let button = HeadlessAdapter.blueprint(&NativeElement::new("save", NativeRole::Button));
 
     executor
         .execute(&PlatformCommand::Create {
@@ -572,11 +551,11 @@ fn handle_widget_driver_accepts_thread_bound_native_handles() {
     assert_eq!(
         calls.borrow().as_slice(),
         [
-            "create:1:gtk::Box",
-            "create:2:gtk::Button",
-            "insert:1:gtk::Box:2:gtk::Button:0",
-            "root:1:gtk::Box",
-            "focus:2:gtk::Button",
+            "create:1:a3s_gui::HeadlessNode",
+            "create:2:a3s_gui::HeadlessNode",
+            "insert:1:a3s_gui::HeadlessNode:2:a3s_gui::HeadlessNode:0",
+            "root:1:a3s_gui::HeadlessNode",
+            "focus:2:a3s_gui::HeadlessNode",
         ]
     );
     assert_eq!(executor.driver().root(), Some(HostNodeId::new(1)));
@@ -592,11 +571,11 @@ fn handle_widget_driver_rejects_duplicate_creates_without_replacing_handle() {
     let driver = HandleWidgetDriver::new(adapter);
     let mut executor = DriverCommandExecutor::new(driver);
     let id = HostNodeId::new(1);
-    let first = Gtk4Adapter.blueprint(
+    let first = HeadlessAdapter.blueprint(
         &NativeElement::new("save", NativeRole::Button)
             .with_props(NativeProps::new().label("Save")),
     );
-    let second = Gtk4Adapter.blueprint(
+    let second = HeadlessAdapter.blueprint(
         &NativeElement::new("email", NativeRole::TextField)
             .with_props(NativeProps::new().label("Email")),
     );
@@ -621,7 +600,10 @@ fn handle_widget_driver_rejects_duplicate_creates_without_replacing_handle() {
         executor.driver().config(id).unwrap().label.as_deref(),
         Some("Save")
     );
-    assert_eq!(calls.borrow().as_slice(), ["create:1:gtk::Button"]);
+    assert_eq!(
+        calls.borrow().as_slice(),
+        ["create:1:a3s_gui::HeadlessNode"]
+    );
 }
 
 #[test]
@@ -633,8 +615,8 @@ fn handle_widget_driver_reparents_children_and_rejects_cycles() {
     let first = HostNodeId::new(1);
     let second = HostNodeId::new(2);
     let child = HostNodeId::new(3);
-    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
-    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+    let container = HeadlessAdapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = HeadlessAdapter.blueprint(&NativeElement::new("child", NativeRole::Button));
 
     executor
         .execute(&PlatformCommand::Create {
@@ -674,12 +656,12 @@ fn handle_widget_driver_reparents_children_and_rejects_cycles() {
     assert_eq!(
         calls.borrow().as_slice(),
         [
-            "create:1:gtk::Box",
-            "create:2:gtk::Box",
-            "create:3:gtk::Button",
-            "insert:1:gtk::Box:3:gtk::Button:0",
-            "detach:1:gtk::Box:3:gtk::Button",
-            "insert:2:gtk::Box:3:gtk::Button:0",
+            "create:1:a3s_gui::HeadlessNode",
+            "create:2:a3s_gui::HeadlessNode",
+            "create:3:a3s_gui::HeadlessNode",
+            "insert:1:a3s_gui::HeadlessNode:3:a3s_gui::HeadlessNode:0",
+            "detach:1:a3s_gui::HeadlessNode:3:a3s_gui::HeadlessNode",
+            "insert:2:a3s_gui::HeadlessNode:3:a3s_gui::HeadlessNode:0",
         ]
     );
     let command_count = executor.commands().len();
@@ -708,8 +690,8 @@ fn handle_widget_driver_does_not_insert_new_parent_when_detach_fails() {
     let first = HostNodeId::new(1);
     let second = HostNodeId::new(2);
     let child = HostNodeId::new(3);
-    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
-    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+    let container = HeadlessAdapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = HeadlessAdapter.blueprint(&NativeElement::new("child", NativeRole::Button));
 
     executor
         .execute(&PlatformCommand::Create {
@@ -753,11 +735,11 @@ fn handle_widget_driver_does_not_insert_new_parent_when_detach_fails() {
     assert_eq!(
         calls.borrow().as_slice(),
         [
-            "create:1:gtk::Box",
-            "create:2:gtk::Box",
-            "create:3:gtk::Button",
-            "insert:1:gtk::Box:3:gtk::Button:0",
-            "detach:1:gtk::Box:3:gtk::Button:failed",
+            "create:1:a3s_gui::HeadlessNode",
+            "create:2:a3s_gui::HeadlessNode",
+            "create:3:a3s_gui::HeadlessNode",
+            "insert:1:a3s_gui::HeadlessNode:3:a3s_gui::HeadlessNode:0",
+            "detach:1:a3s_gui::HeadlessNode:3:a3s_gui::HeadlessNode:failed",
         ]
     );
 }
@@ -774,8 +756,8 @@ fn handle_widget_driver_forgets_old_parent_when_reparent_insert_fails_after_deta
     let first = HostNodeId::new(1);
     let second = HostNodeId::new(2);
     let child = HostNodeId::new(3);
-    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
-    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+    let container = HeadlessAdapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = HeadlessAdapter.blueprint(&NativeElement::new("child", NativeRole::Button));
 
     executor
         .execute(&PlatformCommand::Create {
@@ -822,12 +804,12 @@ fn handle_widget_driver_forgets_old_parent_when_reparent_insert_fails_after_deta
     assert_eq!(
         calls.borrow().as_slice(),
         [
-            "create:1:gtk::Box",
-            "create:2:gtk::Box",
-            "create:3:gtk::Button",
-            "insert:1:gtk::Box:3:gtk::Button:0",
-            "detach:1:gtk::Box:3:gtk::Button",
-            "insert:2:gtk::Box:3:gtk::Button:0:failed",
+            "create:1:a3s_gui::HeadlessNode",
+            "create:2:a3s_gui::HeadlessNode",
+            "create:3:a3s_gui::HeadlessNode",
+            "insert:1:a3s_gui::HeadlessNode:3:a3s_gui::HeadlessNode:0",
+            "detach:1:a3s_gui::HeadlessNode:3:a3s_gui::HeadlessNode",
+            "insert:2:a3s_gui::HeadlessNode:3:a3s_gui::HeadlessNode:0:failed",
         ]
     );
 }
@@ -838,11 +820,11 @@ fn handle_widget_driver_passes_config_patch_to_native_adapter() {
     let calls = adapter.calls.clone();
     let driver = HandleWidgetDriver::new(adapter);
     let mut executor = DriverCommandExecutor::new(driver);
-    let first = Gtk4Adapter.blueprint(
+    let first = HeadlessAdapter.blueprint(
         &NativeElement::new("save", NativeRole::Button)
             .with_props(NativeProps::new().label("Save")),
     );
-    let second = Gtk4Adapter.blueprint(
+    let second = HeadlessAdapter.blueprint(
         &NativeElement::new("save", NativeRole::Button)
             .with_props(NativeProps::new().label("Saved").disabled(true)),
     );
@@ -862,7 +844,10 @@ fn handle_widget_driver_passes_config_patch_to_native_adapter() {
 
     assert_eq!(
         calls.borrow().as_slice(),
-        ["create:1:gtk::Button", "patch:1:label=Saved:enabled=false",]
+        [
+            "create:1:a3s_gui::HeadlessNode",
+            "patch:1:label=Saved:enabled=false",
+        ]
     );
     let config = executor.driver().config(HostNodeId::new(1)).unwrap();
     assert_eq!(config.label.as_deref(), Some("Saved"));
@@ -879,7 +864,7 @@ fn handle_widget_driver_preserves_state_when_remove_handle_fails() {
     let driver = HandleWidgetDriver::new(adapter);
     let mut executor = DriverCommandExecutor::new(driver);
     let id = HostNodeId::new(1);
-    let root = Gtk4Adapter.blueprint(&NativeElement::new("root", NativeRole::View));
+    let root = HeadlessAdapter.blueprint(&NativeElement::new("root", NativeRole::View));
 
     executor
         .execute(&PlatformCommand::Create {
@@ -902,9 +887,9 @@ fn handle_widget_driver_preserves_state_when_remove_handle_fails() {
     assert_eq!(
         calls.borrow().as_slice(),
         [
-            "create:1:gtk::Box",
-            "root:1:gtk::Box",
-            "remove:1:gtk::Box:failed",
+            "create:1:a3s_gui::HeadlessNode",
+            "root:1:a3s_gui::HeadlessNode",
+            "remove:1:a3s_gui::HeadlessNode:failed",
         ]
     );
 }
@@ -918,8 +903,8 @@ fn handle_widget_driver_remove_deletes_entire_subtree() {
     let root = HostNodeId::new(1);
     let child = HostNodeId::new(2);
     let grandchild = HostNodeId::new(3);
-    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
-    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+    let container = HeadlessAdapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = HeadlessAdapter.blueprint(&NativeElement::new("child", NativeRole::Button));
 
     executor
         .execute(&PlatformCommand::Create {
@@ -966,15 +951,15 @@ fn handle_widget_driver_remove_deletes_entire_subtree() {
     assert_eq!(
         calls.borrow().as_slice(),
         [
-            "create:1:gtk::Box",
-            "create:2:gtk::Box",
-            "create:3:gtk::Button",
-            "insert:1:gtk::Box:2:gtk::Box:0",
-            "insert:2:gtk::Box:3:gtk::Button:0",
-            "root:1:gtk::Box",
-            "remove:3:gtk::Button",
-            "remove:2:gtk::Box",
-            "remove:1:gtk::Box",
+            "create:1:a3s_gui::HeadlessNode",
+            "create:2:a3s_gui::HeadlessNode",
+            "create:3:a3s_gui::HeadlessNode",
+            "insert:1:a3s_gui::HeadlessNode:2:a3s_gui::HeadlessNode:0",
+            "insert:2:a3s_gui::HeadlessNode:3:a3s_gui::HeadlessNode:0",
+            "root:1:a3s_gui::HeadlessNode",
+            "remove:3:a3s_gui::HeadlessNode",
+            "remove:2:a3s_gui::HeadlessNode",
+            "remove:1:a3s_gui::HeadlessNode",
         ]
     );
 }
@@ -990,7 +975,7 @@ fn handle_widget_driver_preserves_state_when_descendant_remove_fails() {
     let driver = HandleWidgetDriver::new(adapter);
     let mut executor = DriverCommandExecutor::new(driver);
     let root = HostNodeId::new(1);
-    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let container = HeadlessAdapter.blueprint(&NativeElement::new("container", NativeRole::View));
 
     executor
         .execute(&PlatformCommand::Create {
@@ -1029,11 +1014,11 @@ fn handle_widget_driver_preserves_state_when_descendant_remove_fails() {
     assert_eq!(
         calls.borrow().as_slice(),
         [
-            "create:1:gtk::Box",
-            "create:2:gtk::Box",
-            "insert:1:gtk::Box:2:gtk::Box:0",
-            "root:1:gtk::Box",
-            "remove:2:gtk::Box:failed",
+            "create:1:a3s_gui::HeadlessNode",
+            "create:2:a3s_gui::HeadlessNode",
+            "insert:1:a3s_gui::HeadlessNode:2:a3s_gui::HeadlessNode:0",
+            "root:1:a3s_gui::HeadlessNode",
+            "remove:2:a3s_gui::HeadlessNode:failed",
         ]
     );
 }
@@ -1050,8 +1035,8 @@ fn handle_widget_driver_forgets_successful_descendant_removes_before_later_failu
     let driver = HandleWidgetDriver::new(adapter);
     let mut executor = DriverCommandExecutor::new(driver);
     let root = HostNodeId::new(1);
-    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
-    let button = Gtk4Adapter.blueprint(&NativeElement::new("button", NativeRole::Button));
+    let container = HeadlessAdapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = HeadlessAdapter.blueprint(&NativeElement::new("button", NativeRole::Button));
 
     executor
         .execute(&PlatformCommand::Create {
@@ -1105,14 +1090,14 @@ fn handle_widget_driver_forgets_successful_descendant_removes_before_later_failu
     assert_eq!(
         calls.borrow().as_slice(),
         [
-            "create:1:gtk::Box",
-            "create:2:gtk::Box",
-            "create:3:gtk::Button",
-            "insert:1:gtk::Box:2:gtk::Box:0",
-            "insert:2:gtk::Box:3:gtk::Button:0",
-            "root:1:gtk::Box",
-            "remove:3:gtk::Button",
-            "remove:2:gtk::Box:failed",
+            "create:1:a3s_gui::HeadlessNode",
+            "create:2:a3s_gui::HeadlessNode",
+            "create:3:a3s_gui::HeadlessNode",
+            "insert:1:a3s_gui::HeadlessNode:2:a3s_gui::HeadlessNode:0",
+            "insert:2:a3s_gui::HeadlessNode:3:a3s_gui::HeadlessNode:0",
+            "root:1:a3s_gui::HeadlessNode",
+            "remove:3:a3s_gui::HeadlessNode",
+            "remove:2:a3s_gui::HeadlessNode:failed",
         ]
     );
 }
@@ -1124,11 +1109,11 @@ fn surface_handle_adapter_applies_native_setters_to_surface() {
     let adapter = SurfaceHandleAdapter::new(surface);
     let driver = HandleWidgetDriver::new(adapter);
     let mut executor = DriverCommandExecutor::new(driver);
-    let first = Gtk4Adapter.blueprint(
+    let first = HeadlessAdapter.blueprint(
         &NativeElement::new("save", NativeRole::Button)
             .with_props(NativeProps::new().label("Save")),
     );
-    let second = Gtk4Adapter.blueprint(
+    let second = HeadlessAdapter.blueprint(
         &NativeElement::new("save", NativeRole::Button)
             .with_props(NativeProps::new().label("Saved").disabled(true)),
     );
@@ -1157,13 +1142,13 @@ fn surface_handle_adapter_applies_native_setters_to_surface() {
         .unwrap();
 
     let calls = calls.borrow();
-    assert!(calls.contains(&"create:1:gtk::Button".to_string()));
-    assert!(calls.contains(&"setter:1:gtk::Button:label=Save".to_string()));
-    assert!(calls.contains(&"setter:1:gtk::Button:enabled=true".to_string()));
-    assert!(calls.contains(&"setter:1:gtk::Button:label=Saved".to_string()));
-    assert!(calls.contains(&"setter:1:gtk::Button:enabled=false".to_string()));
-    assert!(calls.contains(&"root:1:gtk::Button".to_string()));
-    assert!(calls.contains(&"announce:1:gtk::Button:Assertive:Saved".to_string()));
+    assert!(calls.contains(&"create:1:a3s_gui::HeadlessNode".to_string()));
+    assert!(calls.contains(&"setter:1:a3s_gui::HeadlessNode:label=Save".to_string()));
+    assert!(calls.contains(&"setter:1:a3s_gui::HeadlessNode:enabled=true".to_string()));
+    assert!(calls.contains(&"setter:1:a3s_gui::HeadlessNode:label=Saved".to_string()));
+    assert!(calls.contains(&"setter:1:a3s_gui::HeadlessNode:enabled=false".to_string()));
+    assert!(calls.contains(&"root:1:a3s_gui::HeadlessNode".to_string()));
+    assert!(calls.contains(&"announce:1:a3s_gui::HeadlessNode:Assertive:Saved".to_string()));
     let config = executor.driver().config(HostNodeId::new(1)).unwrap();
     assert_eq!(config.label.as_deref(), Some("Saved"));
     assert!(!config.enabled);
@@ -1198,7 +1183,7 @@ fn page_navigation_measures_layout_through_the_native_backend_stack() {
     let calls = surface.calls.clone();
     let executor =
         DriverCommandExecutor::new(HandleWidgetDriver::new(SurfaceHandleAdapter::new(surface)));
-    let host = CommandExecutingHost::new(Gtk4Adapter, executor);
+    let host = CommandExecutingHost::new(HeadlessAdapter, executor);
     let mut runtime = GuiRuntime::new(host);
     let list = NativeElement::new("list", NativeRole::ListBox)
         .with_props(
@@ -1228,7 +1213,7 @@ fn page_navigation_measures_layout_through_the_native_backend_stack() {
     assert!(calls
         .borrow()
         .iter()
-        .any(|call| call == &format!("layout:{}:gtk::ListBox:4", root.get())));
+        .any(|call| call == &format!("layout:{}:a3s_gui::HeadlessNode:4", root.get())));
 }
 
 #[test]
@@ -1237,8 +1222,8 @@ fn recording_backend_reparents_children_and_rejects_cycles() {
     let first = HostNodeId::new(1);
     let second = HostNodeId::new(2);
     let child = HostNodeId::new(3);
-    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
-    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+    let container = HeadlessAdapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = HeadlessAdapter.blueprint(&NativeElement::new("child", NativeRole::Button));
 
     backend
         .execute(&PlatformCommand::Create {
@@ -1306,11 +1291,11 @@ fn recording_backend_reparents_children_and_rejects_cycles() {
 fn recording_backend_rejects_duplicate_creates_without_overwriting_object() {
     let mut backend = RecordingBackend::default();
     let id = HostNodeId::new(1);
-    let first = Gtk4Adapter.blueprint(
+    let first = HeadlessAdapter.blueprint(
         &NativeElement::new("save", NativeRole::Button)
             .with_props(NativeProps::new().label("Save")),
     );
-    let second = Gtk4Adapter.blueprint(
+    let second = HeadlessAdapter.blueprint(
         &NativeElement::new("email", NativeRole::TextField)
             .with_props(NativeProps::new().label("Email")),
     );
@@ -1334,7 +1319,10 @@ fn recording_backend_rejects_duplicate_creates_without_overwriting_object() {
     assert_eq!(backend.commands().len(), 1);
     assert_eq!(backend.objects().len(), 1);
     assert_eq!(backend.object(id).unwrap().label.as_deref(), Some("Save"));
-    assert_eq!(backend.object(id).unwrap().widget_class, "gtk::Button");
+    assert_eq!(
+        backend.object(id).unwrap().widget_class,
+        "a3s_gui::HeadlessNode"
+    );
 }
 
 #[test]
@@ -1343,8 +1331,8 @@ fn recording_backend_remove_deletes_entire_subtree() {
     let root = HostNodeId::new(1);
     let child = HostNodeId::new(2);
     let grandchild = HostNodeId::new(3);
-    let container = Gtk4Adapter.blueprint(&NativeElement::new("container", NativeRole::View));
-    let button = Gtk4Adapter.blueprint(&NativeElement::new("child", NativeRole::Button));
+    let container = HeadlessAdapter.blueprint(&NativeElement::new("container", NativeRole::View));
+    let button = HeadlessAdapter.blueprint(&NativeElement::new("child", NativeRole::Button));
 
     backend
         .execute(&PlatformCommand::Create {
@@ -1411,7 +1399,7 @@ fn command_executing_host_dispatches_driver_native_events_to_actions() {
     )
     .unwrap();
     let executor = DriverCommandExecutor::new(TestWidgetDriver::default());
-    let host = CommandExecutingHost::new(Gtk4Adapter, executor);
+    let host = CommandExecutingHost::new(HeadlessAdapter, executor);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("saveProfile");
 
@@ -1438,7 +1426,7 @@ fn command_executing_host_dispatches_driver_native_events_to_actions() {
 #[test]
 fn command_executing_host_rolls_back_planning_after_backend_create_failure() {
     let host = CommandExecutingHost::new(
-        Gtk4Adapter,
+        HeadlessAdapter,
         FailingCommandExecutor {
             fail_creates: true,
             ..FailingCommandExecutor::default()
@@ -1458,7 +1446,7 @@ fn command_executing_host_rolls_back_planning_after_backend_create_failure() {
 
 #[test]
 fn command_executing_host_rolls_back_planning_after_backend_update_failure() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, FailingCommandExecutor::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, FailingCommandExecutor::default());
     let mut runtime = GuiRuntime::new(host);
     let first =
         NativeElement::new("save", NativeRole::Button).with_props(NativeProps::new().label("Save"));
@@ -1483,7 +1471,7 @@ fn command_executing_host_rolls_back_planning_after_backend_update_failure() {
 
 #[test]
 fn command_executing_host_rolls_back_programmatic_focus_after_backend_failure() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, FailingCommandExecutor::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, FailingCommandExecutor::default());
     let mut runtime = GuiRuntime::new(host);
     let button = runtime
         .render_native(&NativeElement::new("save", NativeRole::Button))
@@ -1505,7 +1493,7 @@ fn command_executing_host_rolls_back_programmatic_focus_after_backend_failure() 
 #[test]
 fn command_executing_host_rolls_back_auto_focus_after_backend_failure() {
     let host = CommandExecutingHost::new(
-        Gtk4Adapter,
+        HeadlessAdapter,
         FailingCommandExecutor {
             fail_focus: true,
             ..FailingCommandExecutor::default()
@@ -1550,7 +1538,7 @@ fn command_executing_host_dispatches_pending_state_events_without_invocation() {
     )
     .unwrap();
     let executor = DriverCommandExecutor::new(TestWidgetDriver::default());
-    let host = CommandExecutingHost::new(Gtk4Adapter, executor);
+    let host = CommandExecutingHost::new(HeadlessAdapter, executor);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("saveProfile");
 
@@ -1595,7 +1583,7 @@ fn command_executing_host_handles_unbound_native_events_without_invocation() {
     )
     .unwrap();
     let executor = DriverCommandExecutor::new(TestWidgetDriver::default());
-    let host = CommandExecutingHost::new(Gtk4Adapter, executor);
+    let host = CommandExecutingHost::new(HeadlessAdapter, executor);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("saveProfile");
 
@@ -1635,7 +1623,7 @@ fn command_executing_host_reports_pending_native_event_results() {
     )
     .unwrap();
     let executor = DriverCommandExecutor::new(TestWidgetDriver::default());
-    let host = CommandExecutingHost::new(Gtk4Adapter, executor);
+    let host = CommandExecutingHost::new(HeadlessAdapter, executor);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("saveProfile");
 
@@ -1696,7 +1684,7 @@ fn command_executing_host_creates_backend_object_tree_from_compiled_rsx() {
             "#,
     )
     .unwrap();
-    let host = CommandExecutingHost::new(WinUiAdapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_compiled(&compiled).unwrap();
@@ -1704,11 +1692,8 @@ fn command_executing_host_creates_backend_object_tree_from_compiled_rsx() {
     let root = backend.object(root_id).unwrap();
     let child = backend.object(root.children[0]).unwrap();
 
-    assert_eq!(
-        root.widget_class,
-        "Microsoft.UI.Xaml.Controls.StackPanel(form)"
-    );
-    assert_eq!(child.widget_class, "Microsoft.UI.Xaml.Controls.Button");
+    assert_eq!(root.widget_class, "a3s_gui::HeadlessNode");
+    assert_eq!(child.widget_class, "a3s_gui::HeadlessNode");
     assert_eq!(child.label.as_deref(), Some("Save"));
     assert_eq!(child.action.as_deref(), Some("saveProfile"));
 }
@@ -1733,7 +1718,7 @@ fn command_executing_host_exposes_rendered_accessibility_tree() {
             "#,
     )
     .unwrap();
-    let host = CommandExecutingHost::new(WinUiAdapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut runtime = GuiRuntime::new(host);
 
     runtime.render_compiled(&compiled).unwrap();
@@ -1777,7 +1762,7 @@ fn command_executing_host_applies_updates_and_removes_to_backend_objects() {
             "#,
     )
     .unwrap();
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_compiled(&first).unwrap();

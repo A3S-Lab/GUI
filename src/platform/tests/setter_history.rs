@@ -2,7 +2,7 @@ use crate::accessibility::AccessibilityDescriptionProps;
 use crate::html::HtmlResourcePolicyProps;
 use crate::native::{NativeElement, NativeProps, NativeRole, ValueSensitivity};
 use crate::platform::{
-    push_widget_setter_history, Gtk4Adapter, NativeWidgetSetter, NativeWidgetSetterBatch,
+    push_widget_setter_history, HeadlessAdapter, NativeWidgetSetter, NativeWidgetSetterBatch,
     PlatformAdapter, DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
 };
 use std::collections::BTreeMap;
@@ -71,10 +71,10 @@ fn setter_diagnostic_history_redacts_sensitive_value_channels() {
 #[test]
 fn live_config_setter_and_batch_debug_omit_sensitive_value_channels() {
     const PASSWORD: &str = "live setter password";
-    let before = Gtk4Adapter
+    let before = HeadlessAdapter
         .blueprint(&NativeElement::new("password", NativeRole::TextField))
         .config();
-    let mut blueprint = Gtk4Adapter.blueprint(
+    let mut blueprint = HeadlessAdapter.blueprint(
         &NativeElement::new("password", NativeRole::TextField).with_props(
             NativeProps::new()
                 .value(PASSWORD)
@@ -116,7 +116,7 @@ fn live_config_setter_and_batch_debug_omit_sensitive_value_channels() {
 #[test]
 fn diagnostic_projections_remove_csp_nonce_from_duplicate_channels() {
     const NONCE: &str = "csp-nonce-credential";
-    let before = Gtk4Adapter
+    let before = HeadlessAdapter
         .blueprint(&NativeElement::new("script", NativeRole::View))
         .config();
     let element = NativeElement::new("script", NativeRole::View).with_props(
@@ -129,7 +129,7 @@ fn diagnostic_projections_remove_csp_nonce_from_duplicate_channels() {
                     .frame_srcdoc(NONCE),
             ),
     );
-    let blueprint = Gtk4Adapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let after = blueprint.config();
     let batch = NativeWidgetSetterBatch::between(&before, &after);
     let mut history = Vec::new();

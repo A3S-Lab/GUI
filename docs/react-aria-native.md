@@ -1,664 +1,236 @@
-# React Aria Native Direction
+# React Aria Self-Drawn Direction
 
-The long-term goal of `a3s-gui` is to provide the native, cross-platform
-equivalent of [React Aria](https://react-aria.adobe.com/getting-started): a
-headless behavior and accessibility layer that applications can compose into a
-design system without depending on a browser.
+## Scope
 
-This is a behavioral compatibility target, not a DOM compatibility target.
-React Aria's public concepts should have recognizable native equivalents, but
-the implementation uses A3S-owned layout and Graphics rendering together with
-the operating system's window, focus, accessibility, IME, and input APIs.
+A3S GUI targets semantic parity with every top-level family in the official
+React Aria Components catalog.
 
-The project does not claim React Aria parity yet.
+The versioned source of truth is
+[`react-aria-component-matrix.json`](react-aria-component-matrix.json). It
+currently pins `react-aria-components` 1.19.0, records all 51 families,
+assigns each family to an A3S milestone, maps it to concrete A3S authoring
+components, and records self-drawn evidence.
 
-## Versioned Component Scope
+The matrix is executable policy, not a marketing checklist. CI rejects schema
+errors, missing families, duplicate mappings, unknown statuses, invalid
+evidence, and untracked upstream contract deltas.
 
-The component target is the complete official React Aria Components catalog,
-not a calculator-sized subset. The current checked baseline is
-[`react-aria-components` 1.19.0](https://react-aria.adobe.com/releases/v1-19-0),
-released on 2026-06-18. Its documentation navigation contains 51 top-level
-component families. Every family is represented in the executable
-[`react-aria-component-matrix.json`](react-aria-component-matrix.json), along
-with its A3S authoring components, milestone, known public-part gaps,
-self-drawn status, and evidence.
+## Renderer decision
 
-The matrix currently establishes these facts without overstating parity:
-
-- all 51 official top-level families map to registered A3S RSX components;
-- `Button` has a deterministic self-drawn scene/software-pixel smoke through
-  the shared calculator, but is not interaction or OS conformant yet;
-- the other 50 families remain planned on the new self-drawn host path;
-- `CheckboxField`, `CheckboxButton`, `RadioField`, `RadioButton`,
-  `SwitchField`, `SwitchButton`, `ToastList`, and `ToastContent` are explicit
-  public-part gaps rather than silent omissions;
-- no family may be marked `conformant` without software, macOS, Windows, and
-  Linux evidence in addition to its semantic and accessibility tests.
-
-The version gate also records behavior changes that do not add a top-level
-family. For 1.19.0 these are embedded-control keyboard navigation in GridList
-and Tree, Menu actions carrying both key and value, Popover positioning against
-an arbitrary target rectangle, and multi-type/wildcard drag negotiation. They
-are executable matrix obligations, not optional release notes.
-
-`tests/react_aria_component_matrix.rs` schema-checks the file, pins the exact
-official family list, verifies every available A3S mapping against the built-in
-component registry, and rejects unsupported completion claims. Each upstream
-React Aria Components release requires a reviewed matrix-delta commit before
-the project can continue to describe the catalog as current.
-
-An authoring name is only the first dimension. A component is complete only
-when its authoring contract, behavior state machines, Native IR, layout and hit
-regions, Graphics scene, deterministic software pixels, accessibility tree,
-and real self-drawn macOS/Windows/Linux host evidence pass together. Existing
-platform-widget execution does not satisfy this gate.
-
-## Target Architecture
+All components render through the same self-drawn pipeline:
 
 ```text
-Rust component and semantic hook API
-                |
-                v
-Headless behavior contracts
-  press / hover / focus / selection / overlays / i18n
-                |
-                v
-Portable semantic tree and typed Native UI IR
-                |
-                v
-GUI layout, behavior state machines, and stable identity
-                |
-       +--------+--------+
-       |                 |
-       v                 v
-A3S Graphics scene   semantic/accessibility tree
-       |                 |
-       v                 v
-software / wgpu     platform accessibility bridge
-       |                 |
-       +--------+--------+
-                |
-                v
-thin macOS / Linux / Windows host
-
-Native input and accessibility events travel upward through the same layers.
+component props + state
+          |
+          v
+  semantic NativeElement tree
+     /       |        \
+    v        v         v
+behavior  accessibility  portable style
+    \        |         /
+     +--------+--------+
+              v
+       layout + hit regions
+              |
+              v
+        Graphics scene
+              |
+              v
+        self-drawn pixels
 ```
 
-The behavior layer owns platform-independent semantics. The target platform
-hosts own thread affinity, window and raw-surface lifetime, raw event capture,
-IME, accessibility projection, and translation between operating-system event
-data and portable event context. They do not create application-content
-widgets. The existing AppKit, GTK4, and WinUI control adapters are frozen
-migration evidence and are removed after equivalent self-drawn host gates pass.
+No platform content widget may count as component evidence. The deleted
+AppKit, GTK4, and WinUI backends are not comparison baselines and are not part
+of the conformance plan.
 
-## Required Invariants
+## Status vocabulary
 
-- Input modality is normalized once as keyboard, mouse, touch, pen, virtual,
-  or unknown. Components must not infer it independently.
-- Press is a lifecycle, not a click alias. Start, release, end, cancellation,
-  keyboard activation, touch movement, and virtual activation must have
-  deterministic semantics.
-- Focus visibility depends on modality. Programmatic and keyboard focus can
-  display a focus ring without making pointer focus do so automatically.
-- Hover is unavailable to touch input and must not be synthesized from a touch
-  press.
-- Transient interaction state survives keyed rerenders and disappears when its
-  node disappears.
-- Collection identity is based on stable keys. Selection is a key set or an
-  explicit `all` value, not one optional string.
-- Focus containment, restoration, and autofocus are runtime behavior, not
-  marker attributes.
-- Locale and writing direction are inherited context values and can be scoped.
-- Unsupported platform behavior is reported through capabilities or an error;
-  native setters must not silently ignore a semantic contract.
-- Visible content and the accessible name are independent. `aria-label` may
-  override what assistive technology announces without replacing native button,
-  item, field, or container text.
-- Tests assert semantic roles, accessible names, state, and interaction
-  results. Platform class names alone are not conformance evidence.
-
-## Implemented Foundation
-
-The first shared interaction milestone is available in the portable runtime:
-
-- `SelfDrawnWindowRuntime` builds its hit/focus/action index from the atomically
-  committed Native IR and layout snapshot. Raw pointer, keyboard, Tab-focus,
-  hover, press, cancellation, wheel, scheduled long press, incremental move,
-  typed drag/drop negotiation, bubbling, and reducer dispatch retain stable
-  `PlatformElementId` identity without importing a widget blueprint or
-  platform content-control runtime.
-- `SelfDrawnActionInvocation` carries the committed frame revision, monotonic
-  event sequence, target/current-target pair, modality and input context, plus
-  static action payloads. Reducer failure restores the staged interaction
-  session and sequence; keyed successful frames reconcile focus and transient
-  state by stable id.
-- `next_interaction_deadline_micros` lets a thin OS host schedule its native
-  event-loop timer without exporting a toolkit timer into portable state.
-  Deadline recognition and release-time fallback share the same ordering and
-  reducer rollback, while pointer leave/re-entry cancels and restarts the hold.
-- The same portable deadline channel now implements React Aria's 800ms
-  `onDropActivate` hold. Moving inside one logical target refreshes event
-  context without postponing activation; changing targets restarts the timer,
-  while exit, drop, cancellation, and invalid keyed reconciliation clear it.
-  Pointer and keyboard drags share the lifecycle, and collection activation is
-  intentionally limited to item targets rather than `{type: root}`.
-- Self-drawn move routing starts on the first non-zero delta, keeps the
-  initiating pointer captured outside its original hit region, preserves
-  incremental position across keyed frames, and reference-counts concurrent
-  pointer state. Release, cancellation, and terminal long press end the move;
-  arrow keys emit a handled one-unit lifecycle before `KeyDown`.
-- Self-drawn drag routing starts on the first non-zero primary-pointer delta or
-  keyboard Enter. It negotiates multiple MIME/custom source types, `image/*`
-  and `all` patterns, allowed copy/move/link/cancel operations, and target-local
-  pointer coordinates. Multiple text items retain all per-item formats, and
-  accepted types filter whole target items without removing their fallback
-  representations. Keyboard Tab cycles compatible targets only; Enter drops
-  and Escape cancels. Source/target state, keyed reconciliation, and reducer
-  rollback remain one transaction.
-- Selected draggable collection items now aggregate their stable keys, typed
-  payloads, and `data-[dragging]` state into one session. A layout-backed
-  delegate resolves `{type: root}` and keyed `before`/`on`/`after` targets,
-  filters every target item by accepted type, and exposes `draggingKeys`,
-  `target`, and `isInternal` in the shared context. During keyboard drag, each
-  collection is one Tab stop and Arrow/Home/End keys navigate its internal
-  targets. Opposite `after A`/`before B` descriptors for adjacent items remain
-  one logical target without spurious exit/enter transitions.
-- `use_drag`, `use_drop`, `UiDraggable`, `UiDroppable`, and `UiDropZone` lower
-  their source/target metadata and focusable keyboard affordances into that
-  shared runtime. ListBox, GridList, Tree, and Table roots additionally lower
-  `onRootDrop`, `onItemDrop`, `onInsert`, `onReorder`, `onMove`, and low-level
-  `onDrop` precedence plus `onDropActivate`; their items/rows and explicit
-  DropIndicator parts use the same self-drawn target model. Insert and root
-  callbacks accept external sessions, move accepts internal item/on-or-between
-  targets, and reorder is limited to internal same-parent boundaries. Valid
-  combined callbacks retain React Aria order, while low-level `onDrop`
-  overrides high-level dispatch.
-  Selected descendants are removed when their selected ancestor is dragged,
-  and internal self/descendant targets are rejected.
-- Dynamic `shouldAcceptItemDrop` and `getDropOperation` identifiers are not
-  ordinary action ids. The self-drawn runtime issues a synchronous typed query
-  with committed frame, event, and query sequences before exposing a target as
-  valid. Collection item-on targets run aggregate acceptance during feedback
-  and per-item acceptance before high-level dispatch; low-level `onDrop`
-  preserves its override and receives the complete drag-session item list once
-  target-level type negotiation succeeds.
-  A returned operation must be allowed by the source. Missing resolvers,
-  timeout/disconnect/failure, mismatched response metadata, wrong decision
-  types, and disallowed operations all fail closed to `cancel`. Strict protocol
-  v1 DTOs and `ProtocolDropPolicyResolverV1` bridge this contract without Rust
-  evaluating JavaScript. The separate TSX boundary now also has strict atomic
-  handshake negotiation, bounded length-prefixed JSON framing, transactional
-  render/commit/event messages, and a direct self-drawn dispatch adapter. Its
-  Node callback registry/transport, external files/directories and
-  cross-application transfer, drag previews, and full conformance evidence
-  remain separate work, so no affected family is marked conformant.
-
-- `NativeInputModality` represents keyboard, mouse, touch, pen, virtual, and
-  unknown input.
-- `NativeEventContext` carries modality, key modifiers, local position,
-  move/wheel delta, and repeat state. Its fields are optional, so older
-  serialized native events remain valid.
-- `ActionInvocation` preserves that typed context through action routing, so
-  reducers can distinguish keyboard, pointer, touch, pen, and virtual input.
-- One native event produces an ordered invocation batch. Lifecycle-specific
-  callbacks run before their change callbacks, then the event bubbles from the
-  target through its nearest ancestors. `node` and `currentTarget` preserve
-  both sides of that relationship. Native `Close` remains target-scoped so a
-  nested dialog does not invoke the containing window's close request.
-- Propagation-aware reducers return `ActionPropagation::Continue` or `Stop`.
-  Stopping completes every callback on the current target, then removes the
-  ancestor suffix from the response and action history. Unit-returning reducers
-  retain the original continue-all behavior. The protocol app and all three
-  native event pumps expose the same opt-in contract.
-- Native events include press start, press up, press end, press cancellation,
-  long-press start, terminal long press, long-press end, hover start, and hover
-  end, plus a signed cross-platform wheel event.
-- `use_move` and `UiMovable` emit a real cross-platform move lifecycle. Primary
-  pointer motion is incremental, starts only on the first non-zero delta,
-  retains the initiating pointer identity, and ends on release or cancellation.
-  Arrow keys emit a complete one-unit keyboard lifecycle and suppress native
-  default or collection navigation. Move callbacks receive normalized
-  modality, modifiers, position, repeat state, and `context.delta`.
-- `InteractionState` tracks pressed, long-pressed, hovered, focused,
-  focus-within, and focus-visible state. It keeps transient state across keyed
-  blueprint synchronization.
-- `GuiRuntime` resolves `hover`, `active`, `focus`, `focus-visible`, and
-  `focus-within` style variants, plus the corresponding React Aria
-  `data-[...]:*` states, against that interaction state. Declaration-level
-  source order is retained, and resolved `PortableStyle` updates are committed
-  transactionally through the native host rather than waiting for an action
-  callback or rerender.
-- Keyboard and virtual focus display focus-visible state; pointer presses clear
-  it. Touch does not create hover state.
-- `use_press`, press-capable semantic hooks, built-in RSX components, and the
-  RSX compiler expose `onPressUp` alongside the existing press lifecycle.
-- Event routing supports explicit hover lifecycle handlers and falls back to
-  `onHoverChange` with canonical boolean values.
-- Marked NumberField wheel sources use `context.delta` on AppKit, GTK4, and
-  WinUI. Platform sources normalize their wheel signs to the portable
-  DOM-style contract before the runtime derives a model-space change.
-- Direct `onFocus`, `onBlur`, and `onFocusChange` handlers run only for the
-  focused target. `use_focus_within`, `UiFocusWithin`, and the
-  `onFocusWithin`/`onBlurWithin`/`onFocusWithinChange` handlers independently
-  observe subtree entry and exit. Adjacent native blur/focus events are linked
-  through `relatedTarget`, so moving between descendants does not churn an
-  ancestor's focus-within state.
-- `use_focus` is the React Aria-compatible direct-focus API name;
-  `use_focusable` remains as a compatibility alias. `use_focus_ring` and
-  `UiFocusRing` include descendant focus only when `within=true`, matching the
-  direct-focus default.
-- `FocusManager` derives focusable and tabbable order from the mounted keyed
-  tree, models nested focus scopes, provides first/last/next/previous
-  navigation, resolves containment, and directs scope autofocus to a
-  descendant instead of the scope wrapper. Restore-enabled scopes retain the
-  focus owner that preceded their mount and unwind nested restoration targets
-  when they unmount.
-- `MountedOverlayRegistry` discovers open managed overlays from the reconciled
-  native tree and retains activation order independently of document order.
-  Only the topmost overlay handles Escape or outside-press dismissal. Escape
-  remains available to the focused control when keyboard dismissal is
-  disabled, and outside dismissal requires both press start and release to
-  occur outside the same topmost overlay.
-- Modal overlays project `inert` onto background branches, which also removes
-  them from the portable accessibility tree. Structural ancestors stay
-  available for event routing, and overlays opened later through a separate
-  portal branch remain interactive foreground layers.
-- Overlay autofocus, contained focus, and restoration reuse `FocusManager`.
-  Dismissal emits a target-scoped native `Close` event, so it invokes only the
-  topmost overlay's `onClose`. `UiDialog` and `UiModal` expose
-  `isDismissable` and `isKeyboardDismissDisabled`; `UiPopover` additionally
-  exposes `isNonModal`, closes on focus leaving its subtree, and defaults to a
-  modal dismissable popover.
-- `use_overlay_position` accepts React Aria's 22 placement strings together
-  with `offset`, `crossOffset`, `shouldFlip`, `shouldUpdatePosition`,
-  `containerPadding`, arrow geometry, and `maxHeight`. Open mounted popovers
-  resolve an explicit `anchor`/trigger reference or their trigger context and
-  emit a typed `positionOverlay` command. Logical start/end placement resolves
-  against inherited LTR/RTL direction.
-- `GuiRuntime` exposes `request_focus`, `focus_first`, `focus_last`,
-  `focus_next`, and `focus_previous`. These methods validate mounted
-  focusability, apply active-scope containment, and send a typed platform
-  command; native focus callbacks remain the source of truth for interaction
-  state and focus actions. An incoming native focus event that escapes a
-  contained scope is suppressed and redirected through the same host
-  capability.
-- `KeyedCollection` rejects duplicate identities without mutating the active
-  collection. `Selection` represents an explicit key set or `all`, and
-  `SelectionManager` implements single/multiple, toggle/replace, range,
-  disabled-key, disallow-empty, and async collection-update behavior.
-- `use_selection` now exposes `selectedKeys` while retaining the scalar
-  `value`/`selectedValue` compatibility path. Selection action payloads decode
-  legacy scalar keys, key arrays, and `all` through one typed API.
-- Controlled `selectedKeys` and uncontrolled `defaultSelectedKeys` are distinct
-  all the way through hook serialization, RSX expansion, reconciliation, and
-  mounted state. Omitting both no longer serializes an accidental controlled
-  empty selection. Collection components also carry `disabledKeys`,
-  `selectionBehavior`, `disabledBehavior`, `disallowEmptySelection`, and
-  `shouldFocusWrap`. ListBox and Tree also carry React Aria's
-  `escapeKeyBehavior`, defaulting to `clearSelection`; `none` leaves Escape
-  unclaimed by the selection contract.
-- List box, grid list, tag, tabs, tree, menu, selection input, calendar picker,
-  and color swatch picker components reuse the same selection contract.
-  `RadioGroup` retains React Aria's scalar `value`/`defaultValue` contract.
-- `MountedSelectionRegistry` discovers collection ownership from the mounted
-  tree, uses declarative element keys as item identity, rejects duplicate keys
-  before host mutation, preserves uncontrolled selection through keyed
-  reorders, and projects controlled or `all` selection into native item state.
-  Native display values remain compatibility aliases rather than identity.
-- Mounted selection events implement toggle/replace and modifier range
-  behavior, update every affected sibling, bubble an aggregate stable-key
-  payload, and track the collection's focused key. Programmatic projection is
-  applied before keyed reconciliation so it does not transiently clear native
-  selection during rerenders.
-- ListBox, GridList, Tag, and Tree collection roots expose `onAction(key)` as a
-  distinct event from `onSelectionChange`. Enter invokes the item action while
-  Space selects. Mouse replace behavior uses one click for selection and two
-  clicks for action; touch, pen, and virtual taps prefer action. Toggle
-  collections with an empty selection also prefer action. Native selection
-  callbacks produced by those primary action gestures are suppressed and
-  reverted before user callbacks run. Items disabled only for selection can
-  still act, while fully disabled items cannot.
-- Touch and pen long press select the held item and enter a persistent
-  collection selection mode. Later taps select instead of invoking action
-  until the selection is cleared. The generic `use_long_press` and
-  `UiLongPressable` contracts expose start, terminal, and end callbacks, a
-  bounded millisecond threshold (500 ms by default), and an accessibility
-  description. AppKit `NSTimer`, GTK main-loop timeout, and WinUI
-  `DispatcherQueueTimer`
-  deliver the terminal event while the pointer remains held. At recognition,
-  the native kernel ends long-press-start and cancels active press and move
-  lifecycles before dispatching the terminal callback. Release-time evaluation
-  remains as a fallback if platform timer registration fails.
-- Native ListBox input is normalized to that same complete snapshot contract.
-  GTK4 and WinUI enable their native single/multiple selection modes and report
-  all selected row values; the runtime resolves those display aliases to stable
-  keys and replaces the previous key set atomically. AppKit row activation
-  retains Shift and Command modifiers, then the portable manager produces the
-  complete stable-key snapshot. Host projection and mounted state roll back
-  together if the selection action fails.
-- Mounted ListBox, Menu, Tree, Tabs/TabList, and RadioGroup collections share
-  one keyboard-navigation contract. Arrow, Home, End, PageUp, and PageDown
-  navigation skips fully disabled items, follows orientation and RTL direction,
-  respects optional focus wrapping, and sends typed `RequestFocus` commands on
-  AppKit, GTK4, and WinUI. Replace and toggle selection behavior, Shift range
-  extension, Control/Command focus-only movement, and automatic versus manual
-  tab activation are resolved before selection actions are routed. Multiple
-  ListBox and Tree collections use Control/Command+A for `all`; Escape clears
-  selection unless `escapeKeyBehavior="none"` is configured, and
-  `disallowEmptySelection` still prevents the clear. Both shortcuts emit the
-  same complete stable-key payload as pointer selection. An explicit
-  `onKeyDown` on the target route retains ownership of the key. PageUp and
-  PageDown use a `CollectionLayoutSnapshot` containing the visible rectangle,
-  content size, and stable-key item rectangles. Command hosts measure that
-  snapshot from AppKit, GTK4, or WinUI immediately before navigation; custom
-  and headless hosts can inject it through `GuiRuntime::set_collection_layout`.
-  Variable-size rows move by one visible extent and fully disabled rows remain
-  excluded. A host that cannot measure layout retains deterministic
-  collection-boundary behavior.
-- Tree owns controlled `expandedKeys` or uncontrolled `defaultExpandedKeys`
-  independently from selection. Nested semantic `TreeItem` nodes lower to
-  stable, same-level native rows with parent-key, level, position, and set-size
-  metadata. Up, Down, Home, End, page movement, and typeahead operate on visible
-  preorder rows only. In LTR, Right expands or enters the first child and Left
-  collapses or returns to the parent; RTL mirrors those keys. Expansion routes
-  the complete stable-key set through the Tree root's `onExpandedChange`, and a
-  failed action rolls both mounted and host state back. Controlled collapse also
-  restores focus from a hidden descendant to its nearest visible ancestor.
-- ListBox, Menu, Tree, Select, and ComboBox collection items support buffered
-  type-to-select using their explicit `textValue`, accessible label, or value.
-  The 500 ms buffer survives keyed rerenders, starts at the current item and
-  wraps, ignores Control/Command shortcuts, and skips only items disabled for
-  all interaction. ICU4X search collation provides locale-sensitive,
-  case-insensitive, and accent-insensitive prefix matching. ListBox and Tree
-  follow replace-selection rules, while Menu and open Select/ComboBox lists move
-  focus without committing a value. AppKit uses the produced character, GTK4
-  uses the key's Unicode value, and WinUI translates virtual keys with the
-  active keyboard layout without mutating dead-key state.
-- Logical AppKit ListBox and Tree items resolve to their concrete row buttons
-  for responder lookup and programmatic focus. Selection activation still
-  targets the owning collection. Rebuilding a row preserves the focused item,
-  and programmatic AppKit focus enqueues the matching blur/focus transition.
-  Hidden AppKit tree descendants are removed when the row list is rebuilt.
-  GTK4 and WinUI mount Tree through their native list primitives as well; the
-  portable hierarchy layer supplies visible flattened rows consistently on all
-  three backends.
-- `I18nManager` projects inherited locale and writing direction through the
-  keyed native tree. Scoped overrides and default locale changes are preserved
-  across rerenders, and BCP 47 language/script subtags provide deterministic
-  RTL inference. It creates reusable, thread-safe `LocaleCollator`,
-  `LocaleNumberParser`, `LocaleNumberFormatter`, `LocaleDateFormatter`, and
-  `LocaleMessageFormatter` values from the effective node locale. The message
-  formatter includes React Aria-compatible NumberField labels, role
-  descriptions, and empty-value text for 34 locales with deterministic
-  language/script/region fallback. Collation covers search/sort
-  sensitivity, case-first, numeric ordering, and locale-equivalent prefix,
-  suffix, and substring filtering. Stable ICU4X decimal parsing covers
-  localized signs and separators, partial-input validation, and automatic
-  Latin, Arabic, Han decimal, Devanagari, Bengali, and full-width numbering
-  system detection. Decimal and percent styles share typed formatting options
-  for grouping, signs, and fraction digits. Percent formatting uses localized
-  CLDR affix patterns, scales model values for display, and defaults NumberField
-  stepping to `0.01`; parsing converts localized percent input back to model
-  space. Number-shaped text fields reuse the parser and formatter for inherited
-  locale display before canonical range/step normalization. Date/time formatting
-  covers localized short through full styles, seconds, calendar,
-  numbering-system, and hour-cycle locale extensions. Collection typeahead
-  reuses the public collator filter.
-- `use_number_field` exposes separate group, input, increment-button, and
-  decrement-button prop contracts. `UiNumberField` projects that anatomy as a
-  native group instead of collapsing it into one text field. Buttons are
-  excluded from sequential focus, carry the next model-space value, use
-  field-aware accessible labels (or explicit `incrementAriaLabel` and
-  `decrementAriaLabel` overrides), and disable at step boundaries or for
-  disabled/read-only fields. ArrowUp, ArrowDown, PageUp, and PageDown use the
-  same minimum-anchored step algorithm, including decimal-noise cleanup;
-  Home/End move to the explicit bounds. Modified key combinations are left to
-  the application or platform. Focused vertical wheel input uses the same
-  model-space stepping, rejects horizontal-dominant trackpad gestures and
-  control-wheel zoom, and can be disabled independently with
-  `isWheelDisabled`. Mouse presses on either stepper restore focus to the input.
-  Mouse and pen steppers fire immediately, repeat after a 400-millisecond
-  delay, and continue every 60 milliseconds. Touch steppers defer repeating
-  for 600 milliseconds and preserve short-tap activation on release. Leaving,
-  cancellation, disabled/read-only updates, and step boundaries stop the
-  current cycle; re-entry starts a new one.
-  AppKit, GTK4, and WinUI claim handled keys and wheels before the toolkit
-  default runs and consume terminal stepper activation, preventing native
-  controls from applying a duplicate change.
-  Default stepper labels and the numeric-input role description are localized
-  from the inherited locale; explicit stepper-label overrides remain
-  authoritative. When the focused input's normalized accessible value changes,
-  the runtime emits an assertive typed announcement. AppKit posts
-  `NSAccessibilityAnnouncementRequestedNotification`, GTK4 calls
-  `gtk_accessible_announce`, and WinUI raises a UI Automation notification.
-  Empty values use the same locale catalog, and negative announcements use the
-  screen-reader-friendly Unicode minus sign.
-- General WAI-ARIA live regions run through the same typed native announcement
-  channel. The runtime evaluates `aria-live`, implicit `alert`/`status`/`log`
-  and HTML `output` defaults, `aria-atomic`, `aria-relevant`, and inherited
-  `aria-busy` across keyed rerenders. Nested live boundaries do not duplicate
-  speech, hidden/inert content is ignored, and sensitive input values are
-  redacted before a message reaches a host.
-- Visible `label` and computed `accessibilityLabel` values remain separate
-  through native props, planning, strict protocol v1, setter diffs, recording,
-  and accessibility-tree projection. An explicit `aria-label` supplies the
-  accessible name; otherwise the visible label is the fallback. AppKit applies
-  `setAccessibilityLabel`, GTK4 updates the `GtkAccessible` label property, and
-  WinUI calls `AutomationProperties.SetName`.
-- `aria-description`, `aria-roledescription`, `aria-keyshortcuts`, and
-  `aria-valuetext` remain distinct through the same IR and setter path. GTK4
-  projects all four through `GtkAccessible`. AppKit projects description, role
-  description, and value text through `NSAccessibility`; its missing generic
-  shortcut property remains portable. WinUI projects description and shortcuts
-  through UI Automation `HelpText` and `AcceleratorKey`; role description and
-  generic value-text overrides remain portable. Logical AppKit collection/tab
-  items, GTK4 menu-model items, and the WinUI window wrapper report portable
-  coverage instead of silently dropping unsupported native properties.
-- Accessibility relationship ID references resolve to mounted host nodes through
-  one shared registry. Forward references bind when their target mounts; target
-  id changes and removal rebind or clear dependents; duplicate ids stay
-  unresolved instead of selecting an arbitrary node. GTK4 projects
-  `aria-labelledby`, `aria-describedby`, `aria-details`, `aria-controls`,
-  `aria-owns`, `aria-flowto`, `aria-errormessage`, and
-  `aria-activedescendant`. WinUI projects complete description, control, and
-  flow-to lists plus a single label target. AppKit projects a single resolved
-  static-text label through its title UI element. Every relationship field has
-  an independent capability entry, including explicit portable exceptions for
-  logical GTK4 menu items and the WinUI window wrapper.
-- Accessibility structure fields remain independent through native props,
-  setter diffs, recording, accessibility-tree projection, and capability
-  audits. One shared incremental registry normalizes values and clears only
-  fields that are removed or become invalid. GTK4 projects level, set
-  position/size, row and column counts/indices/spans/index text, and sort
-  through exact `GtkAccessible` properties and relations. WinUI projects
-  level, position-in-set, and size-of-set through exact
-  `AutomationProperties` setters. AppKit applies conservative disclosure-level,
-  row/column count, index-range, and sort-direction hints while retaining
-  portable capability status for the complete ARIA fields. Conformance rejects
-  non-positive levels, positions, indices, and spans; values beyond known set
-  or grid bounds; invalid count sentinels; native-integer overflow; and unknown
-  sort tokens. GTK4 menu-model items and the WinUI window wrapper report
-  portable structure coverage explicitly.
-- Accessibility state fields remain independent through native props, setter
-  diffs, recording, accessibility-tree projection, and capability audits.
-  AppKit projects `aria-hidden` and `aria-modal` through `NSAccessibility`.
-  GTK4 projects hidden, autocomplete, multiline, popup presence, pressed,
-  busy, and modal through `GtkAccessible`; the `aria-haspopup` subtype remains
-  portable. WinUI retains generic direct-state fields portably, while a
-  `ContentDialog` exposes modal semantics through its automation peer.
-  Conformance rejects invalid autocomplete, current, popup, and pressed tokens
-  before native adapters can reinterpret them. Logical AppKit collection/tab
-  items and GTK4 menu-model items report portable state coverage explicitly.
-- Native IR capabilities are versioned. Every host exposes a feature manifest
-  with unsupported, portable, or native support levels, role-specific
-  overrides, and auditable capability issues. Protocol render responses carry
-  both the manifest and concrete gaps.
-- Accessibility conformance validates names, focus uniqueness, selection and
-  checked states, exclusive-container selection, relationships, and duplicate
-  node identity. Invalid `aria-autocomplete`, `aria-current`, `aria-haspopup`,
-  `aria-pressed`, `aria-live`, `aria-relevant`, structural integers, and
-  `aria-sort` values, plus a multi-reference `aria-activedescendant`, are
-  reported as errors rather than silently changing state or announcement
-  behavior. The same semantic tree assertions run against AppKit, GTK4, and
-  WinUI planning adapters. Mounted selection is the source of truth for
-  accessible selected/checked state.
-- AppKit, GTK4, and WinUI use the same press and keyboard state machines. Their
-  view-backed widgets emit pointer press/re-entry/cancellation, hover, focus,
-  key, modality, modifier, repeat, and local-position data through one portable
-  event contract. A key-up completes the press on the original key-down node
-  even if focus moved in between.
-- Native control activation is normalized with pre-dispatch context so a
-  platform click does not duplicate the portable keyboard lifecycle.
-  Programmatic and assistive activation emit the complete virtual lifecycle.
-- Mounted native interaction profiles follow `SetAction`, `SetEvents`, and
-  `SetPortableStyle` updates without remounting. Callback changes and
-  style-driven hover, press, long-press, move, and focus-modality requirements
-  therefore update native event capture immediately.
-- Native surfaces are split by responsibility: widget creation, updates,
-  hierarchy mutation, interaction translation, platform delegates, types, and
-  styling/layout no longer share monolithic backend files.
-
-This foundation is covered by serialization, routing, state-machine, rerender,
-and built-in RSX component tests.
-
-## Legacy Native Capability Boundary
-
-This section records the behavior and accessibility evidence that must be
-preserved while the old content-control backends are replaced. It is a
-migration oracle, not evidence that a component is complete on the self-drawn
-runtime. Final evidence comes from the `host-macos`, `host-windows`,
-`host-linux-wayland`, and `host-linux-x11` paths with application content
-rendered only by A3S Graphics.
-
-The generic interaction source is now present on all three native backends, but
-support is deliberately reported by role rather than inferred from the mere
-existence of a platform object:
-
-| Contract | Native coverage |
+| Status | Meaning |
 | --- | --- |
-| Complete press lifecycle | Button, disclosure summary, link, image-map area, ListBoxItem, and TreeItem on AppKit, GTK4, and WinUI; WinUI menu items also use the complete lifecycle. |
-| Long press | Shared AppKit, GTK4, and WinUI press sources emit start/end and recognize terminal long press after the configured threshold. `NSTimer`, GTK main-loop timeout, and `DispatcherQueueTimer` provide threshold-time delivery, and release-time evaluation is the fallback. |
-| Move | AppKit mouse/pen drag events, GTK4 `GestureDrag`, and WinUI mouse/touch/pen pointer capture use one incremental move state machine. All three normalize Arrow keys to a complete keyboard lifecycle and prevent the underlying native default. |
-| NumberField stepping | The shared runtime maps ArrowUp/ArrowDown/PageUp/PageDown, Home/End, focused vertical wheels, and stepper presses to model-space `Change` events. Wheel input rejects horizontal-dominant gestures and control-wheel zoom and honors `isWheelDisabled`. Built-in decrement and increment buttons expose the same next values and boundary/read-only state through native Button controls, and mouse presses preserve input focus. AppKit, GTK4, and WinUI share cancellable pointer-hold stepping with immediate mouse/pen activation, delayed touch activation, and 60-millisecond repeats; handled toolkit defaults and terminal native clicks are suppressed. Default stepper labels, the role description, and empty-value text follow a 34-locale catalog. Focused value changes emit assertive native accessibility announcements on all three backends. |
-| Live regions | Stable keyed updates implement WAI-ARIA `polite`/`assertive`, `atomic`, `relevant`, and ancestor `busy` semantics in the shared runtime. Implicit alert/status/log/output policies and nested boundaries are honored. AppKit, GTK4, and WinUI deliver the resulting typed message through their native assistive-technology APIs; headless and protocol hosts retain the same ordered command. |
-| Accessible names | `aria-label` is independent from visible native text and is projected through AppKit accessibility labels, GTK4 accessible label properties, and WinUI UI Automation names. Headless and protocol output retain the same computed name. The capability manifest conservatively reports portable-only coverage for AppKit logical list/tree and tab items, GTK4 `gio::MenuItem`, and the WinUI window wrapper. |
-| Accessible descriptions | Description, role-description, shortcut, and value-text metadata have independent executable capabilities. GTK4 projects all four. AppKit projects description, role description, and value text; WinUI projects description and shortcuts. Unsupported field/backend combinations and non-accessible logical wrappers remain available to headless/protocol consumers and produce explicit portable capability issues. |
-| Accessible relationships | A shared registry resolves ID-reference lists across forward mounting, id changes, removal, and duplicate-id ambiguity. GTK4 projects all eight relationship fields. WinUI projects description, controls, and flow-to lists plus single-target labels; AppKit projects single static-text labels. Remaining backend/field combinations and non-accessible wrappers retain portable semantics and produce field-level capability issues. |
-| Accessible structure | Level, position/set size, row/column counts, indices, spans, index text, and sort have independent executable capabilities and shared ARIA value validation. GTK4 projects all twelve fields. WinUI projects level, position-in-set, and size-of-set. AppKit applies conservative disclosure, grid count/range, and sort hints while retaining portable status for the complete fields. Unsupported WinUI fields, logical GTK4 menu items, the WinUI window wrapper, and headless output remain portable and auditable. |
-| Accessible states | Hidden, autocomplete, multiline, current, popup, pressed, live-region, busy, and modal semantics have independent executable capabilities. AppKit projects hidden and modal; GTK4 projects hidden, autocomplete, multiline, popup presence, pressed, busy, and modal. Live-region policy is evaluated by the shared runtime and delivered through each backend's native announcement channel. WinUI direct-state gaps, `aria-current`, the GTK4 popup subtype, and logical wrapper exceptions remain portable and auditable instead of being silently dropped. |
-| Native menu activation | AppKit and GTK4 menu items emit terminal press only because their menu models do not expose a mounted generic view event source. |
-| Hover and typed modality | View-backed widgets; explicit exceptions are reported for AppKit non-view wrappers/items, GTK4 menu items, and the WinUI window wrapper. |
-| Focus within | Portable runtime routing on AppKit, GTK4, WinUI, and headless hosts. Native blur/focus batches are linked with `relatedTarget`; direct focus callbacks remain target-only while focus-within callbacks run only when a subtree boundary is crossed. |
-| Interaction style projection | Runtime-resolved hover, press, long-press, move, focus, focus-visible, focus-within, selected, checked, expanded, disabled, validation, read-only, direction, and matching `data-*`/`aria-*` variants use the same transactional `SetPortableStyle` path on all three planning adapters. |
-| Focus events, scopes, and `autoFocus` | Native focusable control roles listed in the capability manifest. Runtime navigation, restoration, and post-mount `autoFocus` all emit typed `requestFocus` commands; contained scopes redirect escaping native focus. AppKit uses `makeFirstResponder`, GTK4 uses `grab_focus`, and WinUI calls the fixed `IUIElement::Focus(Programmatic)` ABI through an isolated adapter because the generated binding leaves that method unwrapped. |
-| Overlay stack | Activation ordering, topmost Escape and outside-press dismissal, modal background inertness/accessibility suppression, close-on-blur, portaled child overlays, containment, autofocus, and restoration run in the shared mounted runtime. AppKit, GTK4, and WinUI planning adapters receive the same projected props and event subscriptions. |
-| Anchored overlay position | `Popover` and `Tooltip` expose one typed positioning contract and versioned command. AppKit maps it to `NSPopover` positioning rectangles and edges, GTK4 maps it to `gtk::Popover` parent/pointing rectangle/position/offset, and WinUI maps it to ToolTip placement target/rectangle/signed offsets. Headless and protocol hosts retain the same anchor relationship. Native collision behavior and exact arrow geometry remain backend-specific and are reported as portable capability coverage. |
-| Selection and item action | Select/combo box, list box/tree, and tabs/tab list. GTK4 and WinUI ListBox callbacks provide complete native selection snapshots; AppKit modifier-aware row activation and all stable-key aggregation remain in the portable keyed-runtime layer. ListBox/Tree item `onAction(key)` separation and collection keyboard navigation are shared across adapters. |
+| `planned` | The family has an explicit A3S mapping and milestone but lacks a self-drawn scene gate |
+| `scene-smoke` | At least one representative story reaches deterministic layout/scene/software output |
+| `conformant` | Every required acceptance dimension passes for the supported contract |
 
-`NativeCapabilities` is the executable source of truth. Global entries are
-conservative and role overrides opt into verified behavior. This prevents a
-native wrapper, menu model, or logical collection item from being advertised as
-interactive merely because another role on that backend is interactive.
+Only `Button` currently has `scene-smoke` evidence through the shared
+self-drawn calculator. No family is `conformant`.
 
-## Legacy Native Input Evidence Gate
+## Required invariants
 
-`NativeInputConformanceManifestV1::from_capabilities` expands each role whose
-press support is marked `Native` into a machine-readable automation matrix. A
-complete press-lifecycle role requires separate mouse and pen activation,
-cancellation, and disabled cases, plus keyboard, virtual assistive activation,
-and keyed-rerender cancellation. GTK4 and WinUI also require touch activation,
-cancellation, and disabled-touch cases. AppKit and GTK4 menu items retain an
-explicit terminal-activation exception because their menu models do not expose
-the generic view event source. The expected successful activation order follows
-React Aria's [`usePress`](https://react-aria.adobe.com/usePress) contract:
-press start, press up, press end, then terminal press.
+Every family must preserve:
 
-The evidence boundary is intentionally strict:
+- stable keyed identity across rerenders;
+- typed semantic roles, states, values, actions, and relationships;
+- controlled and uncontrolled state semantics;
+- keyboard, pointer, touch, and assistive activation where applicable;
+- focus-visible, focus-within, focus scopes, restoration, and `autoFocus`;
+- locale, direction, formatting, and typeahead behavior;
+- deterministic layout and hit testing;
+- self-drawn interaction states and visual variants;
+- a semantic accessibility tree with matching geometry;
+- bounded histories, queues, payloads, and diagnostics;
+- stale-frame and stale-event rejection;
+- identical semantic behavior across macOS, Windows, and Linux hosts.
 
-- `NativeInputConformanceObservationV1::capture` retains only redacted semantic
-  press events; raw key values and native event payload values are excluded.
-- A verifier derives expectations from the current capability manifest rather
-  than accepting expectations supplied by an evidence file.
-- Exactly one observation is required per case. Event order, target identity,
-  modality, keyboard activation deduplication, and click count are checked.
-- Only `OperatingSystemAutomation` evidence with matching OS, OS version,
-  toolkit version, and automation-driver identity is eligible. Adapter-kernel
-  and portable-runtime traces remain useful tests but cannot prove native
-  support.
-- The native CI matrix publishes the generated AppKit, GTK4, and WinUI
-  requirement artifacts so missing platform evidence is explicit and
-  reviewable.
+A component cannot hide an unsupported behavior behind a platform-specific
+control.
 
-Generate or verify artifacts with:
+## Implemented semantic foundation
 
-```bash
-just native-input-manifest appkit
-just native-input-manifest gtk4
-just native-input-manifest winui
-just native-input-conformance path/to/evidence.json
-just winui-input-smoke path/to/winui-smoke.json
-```
+The current runtime already provides reusable behavior for component families:
 
-The WinUI smoke harness covers XAML Button-backed `Button`,
-`DisclosureSummary`, `Link`, `ImageMapArea`, and `MenuItem` roles plus
-`ListBoxItem` and `TreeItem` inside real list containers. Mouse and keyboard use
-Windows `SendInput`, pen and touch use synthetic pointer injection, and
-assistive activation uses UI Automation `InvokePattern` or
-`SelectionItemPattern` according to the native control contract. It exercises
-successful activation, mouse/pen/touch cancellation, keyed-rerender
-cancellation, and disabled input inside the production XAML application
-lifecycle. Handled routed pointer events and preview key events feed the same
-portable press state machine while the asynchronous dispatcher loop leaves
-WinUI layout and input dispatch unblocked. The strict verifier accepts the
-complete 98-case WinUI manifest with no semantic defect. Each target's visible
-text intentionally differs from the role-specific name used to locate it
-through UI Automation, so the fixture also exercises
-`AutomationProperties.SetName`. Native automation
-drivers still need to submit complete passing run artifacts on real macOS and
-Linux runners.
+### Actions and interaction
 
-## Known Gaps
+- ordered press lifecycle, long press, move, hover, focus, keyboard, clipboard,
+  wheel, selection, toggle, and close routing;
+- input modality and related-target context;
+- disabled, read-only, hidden, inert, required, invalid, selected, checked,
+  expanded, and pressed state normalization;
+- interaction style variants resolved from mounted state.
 
-The following behavior systems are still incomplete or only represented as
-props:
+### Focus and overlays
 
-| Priority | Area | Required outcome |
-| --- | --- | --- |
-| P0 | Self-drawn component accounting | Keep all 51 React Aria 1.19.0 families in the executable matrix, implement the eight recorded public-part gaps, and require every upstream catalog delta to update code, matrix, tests, and milestones together. |
-| P0 | Shared self-drawn interaction | Extend the landed stable-id pointer, keyboard, Tab-focus, hover, press, scheduled generic long press, incremental captured move, typed source/target drag negotiation, collection item/between/root delegates plus reorder/move and dynamic item/operation policy, cancellation, wheel, bubbling, and reducer path with external file/directory transfer, drag previews, collection long-press selection mode, focus-scope restoration, overlay gestures, text editing/IME, and accessibility activation. |
-| P0 | Native input conformance | WinUI's complete 98-case V1 manifest passes real OS automation. Populate the AppKit and GTK4 manifests with platform-run mouse, pen, touch where applicable, keyboard, assistive activation, disabled, cancellation, and keyed-rerender fixtures for every role currently marked native; then close or retain evidence-backed menu/item exceptions. |
-| P1 | Event propagation | Add platform-run conformance fixtures for conditional `Stop`/`Continue` across nested native controls. |
-| P1 | Focus management | Add platform-run conformance fixtures for post-mount `autoFocus`, nested containment, and restoration. |
-| P1 | Collections and selection | Complete IME/dead-key typeahead conformance and add real-platform fixtures for layout-aware page navigation. |
-| P1 | NumberField interaction | Add real-platform assistive-technology fixtures for localized labels and focused announcements. Group/input/button anatomy, localized stepper labels and role descriptions, focused native value announcements, minimum-anchored button and continuous press-and-hold stepping, Arrow/Page/Home/End keyboard semantics, focused vertical-wheel stepping with horizontal/zoom rejection and `isWheelDisabled`, mouse input-focus preservation, decimal-noise cleanup, boundary disabling, cancellation/re-entry, and native-default suppression are implemented. |
-| P1 | Internationalization | Expand message formatting beyond NumberField, and add currency/unit parsing and formatting plus date ranges/time zones. Reusable decimal/percent parsing and formatting, partial-input validation, locale-aware filtering, localized NumberField model/display conversion, and a 34-locale NumberField message catalog now build on inherited locale/direction. |
-| P1 | Accessibility conformance | Complete multi-label projection on AppKit and WinUI; add AppKit description/details/control/ownership/flow/error/active-descendant mappings and WinUI details/ownership/error/active-descendant mappings where platform APIs permit; complete exact AppKit/WinUI structure projection where their role-specific APIs permit it; add exact native mappings for remaining state gaps such as `aria-current` and direct AppKit/WinUI autocomplete, multiline, popup, pressed, and busy semantics; close the documented logical-item/window name, description, relationship, structure, state, and announcement exceptions; fill the remaining AppKit shortcut and WinUI role-description/value-text gaps; and add real assistive-technology fixtures. Shared lifecycle-aware relationship resolution, all GTK4 relationship mappings, supported AppKit/WinUI relationship mappings, independent `aria-label`, descriptive metadata, field-level structure/state capabilities, exact GTK4 and supported WinUI structure projection, conservative AppKit structure hints, exact AppKit/GTK4 state projection where supported, validated ARIA tokens and structural values, the typed announcement channel, WAI-ARIA live-region diff policy, and focused NumberField value announcements are implemented. |
-| P2 | Overlays | Complete measured boundary-driven collision and arrow projection, native scroll locking, configurable outside-interaction filters, multi-window layer coordination, and real-platform positioning conformance fixtures. |
-| P2 | Capability enforcement | Turn reported capability gaps into adapter policy and conformance gates where portable fallback is not sufficient. |
-| P2 | Environment style variants | Add native environment and ancestry evaluators for responsive/container, theme, group, peer, and structural selector variants. These remain preserved in the style IR but inactive at runtime today. |
+- programmatic focus, tab order, focus-visible, focus-within, contained scopes,
+  restoration, and post-mount autofocus;
+- overlay stack ordering, topmost Escape/outside-press dismissal, modal
+  background suppression, close-on-blur, portaled descendants, and restoration;
+- typed anchored-overlay placement requests.
 
-Adding more component names before these systems exist does not improve
-conformance. New components should be built by composing the shared behavior
-contracts rather than reimplementing press, focus, hover, selection, or locale
-logic.
+### Selection and collections
 
-## Conformance Gate
+- stable collection keys, single/multiple selection, `all`, disabled behavior,
+  disallow-empty policy, range selection, replacement/toggle modes;
+- ListBox, Tree, Tabs, GridList, and Table navigation foundations;
+- variable-size page navigation and locale-aware typeahead;
+- controlled/uncontrolled selection synchronization.
 
-A behavior is complete only when all of the following are true:
+### Forms and values
 
-1. Its portable contract and state machine are specified and tested.
-2. The self-drawn macOS, Windows, Wayland, and X11 hosts translate raw input
-   into the same observable behavior, with documented operating-system
-   capability differences where exact parity is not possible. Legacy
-   AppKit/GTK4/WinUI content-control evidence is comparison data only.
-3. Keyboard, pointer, touch, virtual accessibility activation, disabled state,
-   cancellation, and rerender cases are covered where applicable.
-4. Accessibility role, name, state, relationships, and focus behavior are
-   asserted semantically.
-5. The public documentation describes the supported contract without implying
-   broader parity.
-6. Real operating-system automation drives the self-drawn window and satisfies
-   the generated versioned manifest; portable, adapter-only, or legacy-widget
-   tests do not count as final native evidence.
-7. The component and every public semantic part are present in the versioned
-   React Aria matrix with software, macOS, Windows, and Linux evidence links.
+- text length enforcement and sensitive-value redaction;
+- number parsing/formatting, range clamping, step grids, keyboard/page/bound
+  stepping, wheel policy, and localized announcements;
+- normalized checkbox/radio/switch/toggle values;
+- field labels, descriptions, errors, relationships, and structure metadata.
+
+### Drag and drop
+
+- pointer and keyboard drag sessions;
+- multi-item and multi-format payloads;
+- MIME wildcard negotiation;
+- collection root and keyed before/on/after targets;
+- insert, move, reorder, and ordinary drop routing;
+- drop activation timing;
+- revision-scoped dynamic acceptance/operation policy that fails closed.
+
+OS and cross-application transfer, drag previews, accessibility exposure, and
+real host input evidence remain unfinished.
+
+### Accessibility and i18n
+
+- independent name, description, role-description, shortcut, value-text,
+  relationship, structure, and state fields;
+- live-region diffing with polite/assertive, atomic, relevant, and busy policy;
+- semantic focus and selection projection;
+- locale/direction inheritance, collation, number/date formatting, and localized
+  NumberField messages.
+
+These are portable semantics. Native assistive-technology conformance is not
+claimed until concrete zero-widget hosts expose and test them.
+
+## Upstream 1.19 contract deltas
+
+The matrix tracks these explicit deltas:
+
+- GridList and Tree embedded-control keyboard navigation;
+- Menu `onAction` delivering both stable item key and action value;
+- Popover positioning against an arbitrary target/character rectangle;
+- drag/drop matching multiple MIME types and wildcard patterns.
+
+A future upstream version bump must update the matrix and add or revise
+executable gates in the same change.
+
+## Known authoring gaps
+
+Eight upstream parts have explicit planned A3S targets:
+
+- `CheckboxField` and `CheckboxButton`;
+- `RadioField` and `RadioButton`;
+- `SwitchField` and `SwitchButton`;
+- `ToastList` and `ToastContent`.
+
+They are tracked in the matrix and cannot disappear into prose-only backlog.
+
+## Milestone groups
+
+### M6 — foundations and forms
+
+Includes foundational content, buttons/toggles, fields, forms, sliders,
+meters/progress, toolbars, links, groups, separators, search, file trigger, and
+related form semantics.
+
+M6 must establish production text, editing, focus visuals, validation/error
+presentation, and common control scene primitives before individual families
+can become conformant.
+
+### M7 — overlays and collections
+
+Includes disclosure, modal/dialog/popover/tooltip/toast, menus, select,
+combobox/autocomplete, list/grid/tree/table collections, tags, tabs,
+virtualization, and drag/drop.
+
+M7 depends on robust overlay geometry, scrolling/clipping, collection layout,
+virtualization, drag previews/transfer, and accessibility ownership/action
+bridges.
+
+### M8 — date, time, color, and advanced data
+
+Includes calendars, date/time fields and pickers, color controls, and advanced
+data interactions. M8 depends on locale-complete segment editing, complex
+geometry, high-precision pointer/keyboard control, and mature host text/input
+services.
+
+## Conformance dimensions
+
+A family becomes `conformant` only when all dimensions below have versioned
+evidence.
+
+| Dimension | Required evidence |
+| --- | --- |
+| Authoring | Typed Rust component/RSX and target TSX API; defaults and prop validation |
+| Behavior | Controlled/uncontrolled state, complete input/focus/action traces, rerender identity |
+| Layout/hit | Deterministic geometry, clipping/scrolling, hit regions, direction/scale coverage |
+| Scene | Stable draw identity, interaction states, style/theme variants |
+| Software pixels | Deterministic golden stories within reviewed tolerances |
+| Accessibility | Semantic tree, name/state/value/relationships, geometry, focus/actions, announcements |
+| Native host | Same story and traces on real macOS, Windows, and Linux zero-widget hosts |
+| Reliability | Bounds, redaction, stale-event rejection, failure/recovery behavior |
+
+Passing headless semantic tests alone is necessary but insufficient.
+
+## Story corpus
+
+Each family should have a shared story set covering:
+
+- default, disabled, read-only, required, invalid, loading, and empty states as
+  applicable;
+- mouse, touch, pen where available, keyboard, and assistive activation;
+- focus-visible and focus-within transitions;
+- controlled and uncontrolled rerenders;
+- LTR, RTL, locale, scale, constrained size, scroll, and overlay cases;
+- theme and interaction visual states;
+- accessibility snapshot and action traces;
+- deterministic software output and reviewed target GPU capture;
+- surface loss, host recovery, and stale-event cases where relevant.
+
+Stories are authored once and consumed by software reference tests and all real
+hosts.
+
+## Immediate priorities
+
+1. finish generic text shaping, paragraph layout, text editing, and IME;
+2. implement the first concrete zero-widget host and accessibility bridge;
+3. close the eight explicit authoring-part gaps;
+4. move M6 primitives from semantic-only coverage to scene/pixel evidence;
+5. extend the same corpus through M7 and M8;
+6. promote status only through matrix-backed evidence.
+
+The complete schedule is in [Roadmap](roadmap.md).

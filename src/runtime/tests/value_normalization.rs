@@ -1,6 +1,6 @@
 use super::super::*;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformPlanningHost};
 use crate::web::WebProps;
 
 #[test]
@@ -12,7 +12,7 @@ fn runtime_clamps_text_change_values_to_max_length() {
             .max_length(Some(3))
             .web(WebProps::new().on_change("setName")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setName");
 
@@ -50,7 +50,7 @@ fn runtime_clamps_initial_text_value_to_max_length_before_rendering() {
             .value("aé日b")
             .max_length(Some(3)),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -87,7 +87,7 @@ fn runtime_clamps_slider_change_values_to_range_bounds() {
             .range(Some(1.0), Some(12.0), Some(6.0))
             .web(WebProps::new().on_change("setEstimate")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setEstimate");
 
@@ -150,7 +150,7 @@ fn runtime_clamps_number_input_change_values_to_range_bounds() {
             .range(Some(1.0), Some(12.0), Some(6.0))
             .web(WebProps::new().on_change("setEstimate")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setEstimate");
 
@@ -218,7 +218,7 @@ fn runtime_normalizes_inherited_locale_number_input_values() {
                     .web(WebProps::new().on_change("setEstimate")),
             ),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setEstimate");
 
@@ -264,7 +264,7 @@ fn runtime_parses_percent_number_input_changes_in_model_space() {
             .metadata("data-number-style", "percent")
             .web(WebProps::new().on_change("setTax")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setTax");
 
@@ -316,7 +316,7 @@ fn runtime_announces_localized_number_field_value_changes_while_focused() {
                 .metadata(crate::native::NUMBER_FIELD_ANNOUNCE_METADATA_KEY, "true"),
         )
     };
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let field_id = runtime.render_native(&number_field(Some(-1.5))).unwrap();
@@ -385,7 +385,7 @@ fn runtime_steps_number_fields_with_arrow_keys_on_the_minimum_anchored_grid() {
             .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true")
             .web(WebProps::new().on_change("setQuantity")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setQuantity");
 
@@ -433,7 +433,7 @@ fn runtime_number_field_keyboard_supports_page_bounds_and_ignores_modified_keys(
             .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true")
             .web(WebProps::new().on_change("setQuantity")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setQuantity");
 
@@ -476,7 +476,7 @@ fn runtime_number_field_wheel_requires_focus_and_vertical_intent() {
             .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true")
             .web(WebProps::new().on_change("setQuantity")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setQuantity");
 
@@ -551,7 +551,7 @@ fn runtime_number_field_wheel_can_be_disabled_without_disabling_keyboard() {
             )
             .web(WebProps::new().on_change("setQuantity")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setQuantity");
 
@@ -601,7 +601,7 @@ fn runtime_mouse_step_press_moves_focus_to_the_number_field_input() {
         ),
     ]);
     let element = NativeElement::new("number-field", NativeRole::View).children(vec![controls]);
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setQuantity");
 
@@ -638,7 +638,7 @@ fn runtime_number_field_arrow_steps_avoid_float_noise_and_respect_bounds() {
             .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true")
             .web(WebProps::new().on_change("setRatio")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setRatio");
 
@@ -683,7 +683,7 @@ fn runtime_number_field_arrow_steps_are_suppressed_when_read_only() {
             .metadata(crate::native::NUMBER_FIELD_INPUT_METADATA_KEY, "true")
             .web(WebProps::new().on_change("setQuantity")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setQuantity");
 
@@ -709,7 +709,7 @@ fn runtime_snaps_ranged_change_values_to_step() {
             .step(Some(5.0))
             .web(WebProps::new().on_change("setVolume")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setVolume");
 
@@ -771,7 +771,7 @@ fn runtime_suppresses_invalid_numeric_change_values() {
             .range(Some(0.0), Some(100.0), Some(6.0))
             .web(WebProps::new().on_change("setVolume")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setVolume");
 
@@ -799,7 +799,7 @@ fn runtime_suppresses_invalid_numeric_change_values() {
             .range(Some(1.0), Some(12.0), Some(6.0))
             .web(WebProps::new().on_change("setEstimate")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setEstimate");
 
@@ -829,7 +829,7 @@ fn runtime_normalizes_initial_ranged_values_before_rendering() {
             .range(Some(0.0), Some(100.0), Some(43.0))
             .step(Some(5.0)),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -867,7 +867,7 @@ fn runtime_normalizes_initial_number_input_values_before_rendering() {
             .input_type("number")
             .range(Some(1.0), Some(12.0), Some(99.0)),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -889,7 +889,7 @@ fn runtime_omits_invalid_initial_numeric_values_before_rendering() {
             .value("not-a-number")
             .range(Some(0.0), Some(100.0), None),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&slider).unwrap();
@@ -943,7 +943,7 @@ fn runtime_suppresses_read_only_keyboard_toggle_normalization() {
             .checked(false)
             .web(WebProps::new().on_change("setNotifications")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setNotifications");
 

@@ -2,7 +2,7 @@ use super::*;
 use crate::event::NativeEventKind;
 use crate::input::{NativeEventContext, NativeInputModality};
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{BlueprintHost, Gtk4Adapter, PlatformCommand, PlatformPlanningHost};
+use crate::platform::{BlueprintHost, HeadlessAdapter, PlatformCommand, PlatformPlanningHost};
 use crate::selection::{CollectionKey, Selection};
 use crate::web::WebProps;
 
@@ -45,7 +45,7 @@ fn pointer_context(modality: NativeInputModality, click_count: u8) -> NativeEven
 
 #[test]
 fn mounted_item_selection_bubbles_a_stable_key_set_and_updates_siblings() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("selectPeople");
     let root = runtime
         .render_native(&multiple_list([
@@ -105,7 +105,7 @@ fn mounted_item_selection_bubbles_a_stable_key_set_and_updates_siblings() {
 
 #[test]
 fn uncontrolled_selection_survives_a_keyed_reorder() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("selectPeople");
     let root = runtime
         .render_native(&multiple_list([
@@ -136,7 +136,7 @@ fn uncontrolled_selection_survives_a_keyed_reorder() {
 
 #[test]
 fn controlled_selected_keys_project_into_mounted_interaction_state() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     let list = multiple_list([item("ada-key", "Ada"), item("linus-key", "Linus")]).with_props(
         NativeProps::new().web(
             WebProps::new()
@@ -174,7 +174,7 @@ fn controlled_selected_keys_project_into_mounted_interaction_state() {
 
 #[test]
 fn a_container_native_value_is_resolved_to_the_item_key() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("selectPeople");
     let root = runtime
         .render_native(&multiple_list([
@@ -195,7 +195,7 @@ fn a_container_native_value_is_resolved_to_the_item_key() {
 
 #[test]
 fn a_container_native_snapshot_replaces_the_previous_multi_selection() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("selectPeople");
     let root = runtime
         .render_native(&multiple_list([
@@ -254,7 +254,7 @@ fn controlled_all_projects_newly_loaded_items_before_native_creation() {
                 .on_selection_change("selectPeople"),
         )
     };
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     let first = NativeElement::new("people", NativeRole::ListBox)
         .with_props(props())
         .child(item("ada-key", "Ada"));
@@ -291,7 +291,7 @@ fn duplicate_explicit_collection_keys_fail_before_mutating_the_host() {
         )
     };
     let list = multiple_list([duplicate("first"), duplicate("second")]);
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
 
     let error = runtime.render_native(&list).unwrap_err();
 
@@ -301,7 +301,7 @@ fn duplicate_explicit_collection_keys_fail_before_mutating_the_host() {
 
 #[test]
 fn item_focus_updates_the_collection_focused_key() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     let root = runtime
         .render_native(&multiple_list([
             item("ada-key", "Ada"),
@@ -337,7 +337,7 @@ fn radio_group_default_value_initializes_uncontrolled_selection_by_item_value() 
             NativeElement::new("dark-key", NativeRole::Radio)
                 .with_props(NativeProps::new().value("dark")),
         );
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
 
     let root = runtime.render_native(&group).unwrap();
     let children = runtime.renderer.child_ids(root);
@@ -381,7 +381,7 @@ fn replace_selection_arrow_navigation_moves_native_focus_and_selection() {
             item("grace-key", "Grace").with_props(NativeProps::new().value("Grace").disabled(true)),
         )
         .child(item("linus-key", "Linus"));
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("selectPeople");
     let root = runtime.render_native(&list).unwrap();
     let children = runtime.renderer.child_ids(root);
@@ -415,7 +415,7 @@ fn replace_selection_arrow_navigation_moves_native_focus_and_selection() {
 
 #[test]
 fn toggle_selection_arrow_navigation_moves_only_native_focus() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("selectPeople");
     let root = runtime
         .render_native(&multiple_list([
@@ -475,7 +475,7 @@ fn explicit_key_handler_owns_collection_arrow_navigation() {
         )
         .child(first)
         .child(item("linus-key", "Linus"));
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("handleKey");
     runtime.actions_mut().register("selectPeople");
     let root = runtime.render_native(&list).unwrap();
@@ -520,7 +520,7 @@ fn automatic_tabs_mirror_rtl_navigation_and_manual_tabs_do_not_select() {
             )
     }
 
-    let mut automatic = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut automatic = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     automatic.actions_mut().register("selectTab");
     let root = automatic.render_native(&tabs_tree(false)).unwrap();
     let tab_list = automatic.renderer.child_ids(root)[0];
@@ -534,7 +534,7 @@ fn automatic_tabs_mirror_rtl_navigation_and_manual_tabs_do_not_select() {
     assert_eq!(handled.event.kind, NativeEventKind::SelectionChange);
     assert_eq!(automatic.host().focused(), Some(tabs[1]));
 
-    let mut manual = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut manual = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     manual.actions_mut().register("selectTab");
     let root = manual.render_native(&tabs_tree(true)).unwrap();
     let tab_list = manual.renderer.child_ids(root)[0];
@@ -555,7 +555,7 @@ fn automatic_tabs_mirror_rtl_navigation_and_manual_tabs_do_not_select() {
 
 #[test]
 fn list_box_enter_dispatches_action_while_space_remains_selection() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("openPerson");
     runtime.actions_mut().register("selectPeople");
     let root = runtime
@@ -612,7 +612,7 @@ fn list_box_enter_dispatches_action_while_space_remains_selection() {
 
 #[test]
 fn toggle_list_action_suppresses_the_native_selection_when_empty() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("openPerson");
     runtime.actions_mut().register("selectPeople");
     let root = runtime
@@ -657,7 +657,7 @@ fn toggle_list_action_suppresses_the_native_selection_when_empty() {
 
 #[test]
 fn replace_list_uses_single_click_for_selection_and_double_click_for_action() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("openPerson");
     runtime.actions_mut().register("selectPeople");
     let root = runtime
@@ -708,7 +708,7 @@ fn replace_list_uses_single_click_for_selection_and_double_click_for_action() {
 
 #[test]
 fn touch_tap_prefers_action_and_reverts_the_native_selection() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("openPerson");
     runtime.actions_mut().register("selectPeople");
     let root = runtime
@@ -743,7 +743,7 @@ fn touch_tap_prefers_action_and_reverts_the_native_selection() {
 
 #[test]
 fn touch_long_press_enters_selection_mode_until_the_selection_is_cleared() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("openPerson");
     runtime.actions_mut().register("selectPeople");
     let root = runtime
@@ -844,7 +844,7 @@ fn disabled_behavior_selection_preserves_action_but_disabled_items_do_not() {
         .child(
             item("linus-key", "Linus").with_props(NativeProps::new().value("Linus").disabled(true)),
         );
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("openPerson");
     let root = runtime.render_native(&list).unwrap();
     let items = runtime.renderer.child_ids(root);
@@ -892,7 +892,7 @@ fn tree_item_enter_bubbles_action_without_mutating_selection() {
             NativeElement::new("readme-key", NativeRole::TreeItem)
                 .with_props(NativeProps::new().value("README.md")),
         );
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("openFile");
     runtime.actions_mut().register("selectFile");
     let root = runtime.render_native(&tree).unwrap();

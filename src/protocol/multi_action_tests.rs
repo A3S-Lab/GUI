@@ -3,7 +3,7 @@ use serde_json::json;
 use super::*;
 use crate::event::NativeEventKind;
 use crate::input::NativeInputModality;
-use crate::platform::Gtk4Adapter;
+use crate::platform::HeadlessAdapter;
 
 #[derive(Debug, Default)]
 struct EventLog {
@@ -56,7 +56,7 @@ fn reduce_with_propagation(
 
 #[test]
 fn protocol_app_preserves_and_reduces_complete_event_batch() {
-    let mut app = NativeProtocolApp::new(Gtk4Adapter, EventLog::default(), frame, reduce);
+    let mut app = NativeProtocolApp::new(HeadlessAdapter, EventLog::default(), frame, reduce);
     let rendered = app.render().unwrap();
     let target = app
         .session()
@@ -86,7 +86,7 @@ fn protocol_app_preserves_and_reduces_complete_event_batch() {
 #[test]
 fn protocol_app_stops_ancestors_after_same_target_callbacks() {
     let mut app = NativeProtocolApp::new_with_propagation(
-        Gtk4Adapter,
+        HeadlessAdapter,
         EventLog::default(),
         frame,
         reduce_with_propagation,

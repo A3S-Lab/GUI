@@ -34,7 +34,7 @@ macro_rules! define_protocol_leaf_enum {
 
 define_protocol_leaf_enum! {
     ProtocolNativeBackendKindV1 => NativeBackendKind {
-        AppKit, WinUI, Gtk4, Headless,
+        Headless,
     }
 }
 

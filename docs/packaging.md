@@ -1,205 +1,86 @@
-# Native Packaging
+# Packaging Gate
 
-A3S GUI is a runtime crate, not a product packager. The crate still needs a
-repeatable path from "native dogfood app compiles" to "a developer can hand a
-native artifact to another person." This document defines that path for the
-current AppKit, GTK4, and WinUI dogfood applications.
+## Status
 
-The recipes below stage unsigned dogfood artifacts under `target/release/bundle`.
-They are release smoke artifacts, not final installers. Product repositories
-should copy the same pattern and then add product identifiers, icons, signing,
-notarization, installers, and update metadata.
+Native packaging is intentionally disabled.
 
-## Release Gate
+The old unsigned bundles were built around deleted platform content-control
+examples, so their manifests, scripts, desktop files, CI jobs, and archive
+validators were removed. Keeping them would imply that A3S currently ships a
+native application when it does not.
 
-Run these commands from `crates/gui` before creating a native artifact:
+Packaging returns only after a real zero-widget host produces a self-drawn
+artifact.
 
-```bash
-just verify
-just dogfood-regression
-just check-native
-just release-native
-just bundle-native
-just check-bundle-native
-```
+## Re-entry requirements
 
-`just release-native` builds the dogfood example for the current operating
-system:
+Before adding any platform bundle, the corresponding host must pass:
 
-| Host | Release artifact |
-|------|------------------|
-| macOS | `target/release/examples/appkit_dogfood` |
-| Linux | `target/release/examples/gtk4_dogfood` |
-| Windows | `target/x86_64-pc-windows-msvc/release/examples/winui_dogfood.exe` |
+- concrete window and Graphics-surface lifecycle;
+- real self-drawn presentation;
+- resize, scale, close, and surface-loss recovery;
+- pointer, keyboard, wheel, text/IME, and accessibility smoke;
+- deterministic reference-story parity;
+- dependency firewall with no content-widget toolkit;
+- release-mode build on the target operating system.
 
-Use `just bundle-native` to stage the matching host bundle. Use
-`just check-bundle-native` after staging, or `just bundle-gate-native` to build,
-stage, and validate in one step. The validation recipes check the staged file
-layout, executable payload, platform metadata that this crate owns, and the
-bundle manifest's per-file SHA-256 checksums.
-On `main` pushes and manual workflow runs, CI uploads compressed
-`a3s-gui-dogfood-*` bundle artifacts after those smoke checks pass. Each upload
-also includes a matching `.sha256` file and `.metadata.txt` handoff note. The
-metadata records the target platform, artifact name, archive filename, archive
-SHA-256, byte count, source commit, and generation time so platform QA can
-identify and verify a downloaded artifact before unpacking it. CI validates the
-archive, checksum file, and metadata with
-[`packaging/check-archive-metadata.sh`](../packaging/check-archive-metadata.sh)
-before uploading the artifact set.
+A packaging PR must not add a temporary toolkit renderer.
 
-## macOS AppKit
+## Required artifacts
 
-Prerequisites:
+### macOS
 
-- Xcode Command Line Tools.
-- A signing identity only when distributing outside local development.
+The eventual artifact is a signed application bundle containing:
 
-Build and stage the unsigned app bundle:
+- one self-drawn executable;
+- bundle metadata, icon, entitlements, and privacy declarations;
+- required dynamic libraries or embedded resources;
+- an explicit minimum OS version;
+- notarization evidence.
 
-```bash
-just bundle-appkit
-just check-bundle-appkit
-```
+Application content must be presented by the A3S Graphics surface.
 
-Output:
+### Windows
 
-```text
-target/release/bundle/A3SGuiDogfood.app
-```
+The eventual artifact is a signed self-drawn executable or installer
+containing:
 
-The staged bundle uses
-[`packaging/macos/A3SGuiDogfood-Info.plist`](../packaging/macos/A3SGuiDogfood-Info.plist)
-and copies the release example binary into `Contents/MacOS/A3SGuiDogfood`.
-It also includes the shared dogfood handoff note at
-`Contents/Resources/README.txt` and a checksum manifest at
-`Contents/Resources/MANIFEST.txt`. `just check-bundle-appkit` verifies the
-executable, `Info.plist`, `PkgInfo`, handoff note, checksum manifest, and
-required AppKit bundle metadata.
+- application identity, icon, version metadata, and DPI declarations;
+- required runtime libraries;
+- installer/uninstaller metadata if an installer is produced;
+- code-signing evidence.
 
-For distribution, the application owner must sign and notarize the bundle with
-their own identity and bundle identifier:
+It must not require WinUI/XAML or the Windows App SDK as a content renderer.
 
-```bash
-codesign --force --deep --options runtime --sign "Developer ID Application: Example" \
-  target/release/bundle/A3SGuiDogfood.app
-xcrun notarytool submit A3SGuiDogfood.zip --wait
-xcrun stapler staple target/release/bundle/A3SGuiDogfood.app
-```
+### Linux
 
-The crate does not currently generate a `.dmg` or `.pkg`.
+The eventual artifacts may include an archive and distribution packages with:
 
-## Linux GTK4
+- a Wayland-first executable and explicitly gated X11 fallback;
+- desktop entry, icons, MIME metadata, and declared runtime dependencies;
+- reproducible file manifest and checksums;
+- package-manager metadata appropriate to each target distribution.
 
-Prerequisites:
+They must not depend on GTK4, GDK, or GSK.
 
-- GTK 4.14 or newer development libraries. The native accessibility
-  announcement API is part of the required backend contract.
-- `pkg-config`.
-- A Linux package toolchain only when producing distro packages.
+## Bundle validation
 
-Typical development packages:
+Every produced artifact must be checked for:
 
-```bash
-# Debian / Ubuntu
-sudo apt-get install libgtk-4-dev pkg-config
+- exact expected files and no undeclared extras;
+- executable identity and version consistency;
+- deterministic manifest and checksums;
+- license/notice content;
+- forbidden dynamic dependencies;
+- launch/close smoke on a clean target image;
+- renderer story capture and event/accessibility smoke;
+- signing/notarization status appropriate to the channel.
 
-# Fedora
-sudo dnf install gtk4-devel pkgconf-pkg-config
-```
+## CI shape
 
-Build and stage a filesystem bundle:
+When concrete hosts exist, packaging jobs should run after the portable
+`just verify` gate and matching host tests. Artifacts are uploaded only from
+successful target-native jobs.
 
-```bash
-just bundle-gtk4
-just check-bundle-gtk4
-```
-
-Output:
-
-```text
-target/release/bundle/a3s-gui-dogfood-linux/
-|-- MANIFEST.txt
-|-- README.txt
-|-- usr/bin/a3s-gui-dogfood
-`-- usr/share/applications/a3s-gui-dogfood.desktop
-```
-
-The desktop entry comes from
-[`packaging/linux/a3s-gui-dogfood.desktop`](../packaging/linux/a3s-gui-dogfood.desktop).
-`README.txt` is copied from
-[`packaging/a3s-gui-dogfood-README.txt`](../packaging/a3s-gui-dogfood-README.txt)
-so downloaded smoke artifacts identify themselves and their run paths.
-`MANIFEST.txt` records the source commit plus SHA-256 and byte counts for every
-file in the staged tree.
-The staged tree is suitable input for a later `.deb`, `.rpm`, AppImage, or
-Flatpak pipeline. It is not itself an installer.
-`just check-bundle-gtk4` verifies the executable payload, desktop entry, and
-handoff note owned by this crate, then validates the checksum manifest.
-
-## Windows WinUI
-
-Prerequisites:
-
-- Windows with the MSVC Rust toolchain.
-- Visual Studio Build Tools or Visual Studio with the Desktop C++ workload.
-- Windows App SDK runtime compatible with the `winio-winui3` dependency.
-
-Install the target explicitly when the host has multiple Rust Windows
-toolchains:
-
-```bash
-rustup target add x86_64-pc-windows-msvc
-```
-
-Build and stage the WinUI dogfood binary:
-
-```bash
-just bundle-winui
-just check-bundle-winui
-```
-
-Output:
-
-```text
-target/release/bundle/a3s-gui-dogfood-windows/
-|-- A3SGuiDogfood.exe
-|-- A3SGuiDogfood.exe.manifest
-|-- MANIFEST.txt
-`-- README.txt
-```
-
-The manifest comes from
-[`packaging/windows/a3s-gui-dogfood.manifest`](../packaging/windows/a3s-gui-dogfood.manifest).
-It is staged as sidecar metadata for local release smoke testing. `README.txt`
-is copied from
-[`packaging/a3s-gui-dogfood-README.txt`](../packaging/a3s-gui-dogfood-README.txt).
-`MANIFEST.txt` records the source commit plus SHA-256 and byte counts for every
-file in the staged tree.
-A real Windows application should embed the manifest, add product resources, and
-publish through MSIX, MSI, winget, or another installer path owned by the
-product. `just check-bundle-winui` verifies the executable payload, sidecar
-manifest, handoff note, and checksum manifest owned by this crate.
-
-Non-Windows hosts can still run API checks for WinUI when the Rust target is
-installed:
-
-```bash
-just check-winui
-```
-
-That check does not replace a Windows release build.
-
-## Product Responsibilities
-
-Applications that embed A3S GUI still own:
-
-- product names, bundle identifiers, icons, and version metadata
-- code signing identities, entitlements, notarization, and installer signing
-- installer formats such as `.dmg`, `.pkg`, `.deb`, `.rpm`, AppImage, Flatpak,
-  MSIX, MSI, or winget manifests
-- update channels and rollback policy
-- native-platform QA on real target operating systems
-
-The crate-level recipes are intentionally small. They prove that each native
-backend can produce a release artifact and give product repositories a stable
-starting point for their own packaging automation.
+The current CI deliberately has one portable verification job and publishes no
+native bundle.

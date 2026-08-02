@@ -5,7 +5,7 @@ use crate::backend::{
 use crate::error::{GuiError, GuiResult};
 use crate::host::NativeHost;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{Gtk4Adapter, PlatformCommand};
+use crate::platform::{HeadlessAdapter, PlatformCommand};
 use crate::renderer::Renderer;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -102,7 +102,7 @@ impl PlatformCommandExecutor for DropProbeExecutor {
 #[test]
 fn failed_commit_preserves_queue_rolls_back_planning_and_requires_replay() {
     let mut host = CommandExecutingHost::new(
-        Gtk4Adapter,
+        HeadlessAdapter,
         BatchProbeExecutor {
             fail_at: Some(1),
             ..BatchProbeExecutor::default()
@@ -163,7 +163,7 @@ fn failed_commit_preserves_queue_rolls_back_planning_and_requires_replay() {
 #[test]
 fn rejected_prepare_keeps_exact_queue_without_degrading_native_state() {
     let mut host = CommandExecutingHost::new(
-        Gtk4Adapter,
+        HeadlessAdapter,
         BatchProbeExecutor {
             reject_prepare: true,
             ..BatchProbeExecutor::default()
@@ -190,7 +190,7 @@ fn rejected_prepare_keeps_exact_queue_without_degrading_native_state() {
 
 #[test]
 fn invalid_ack_preserves_failed_batch_and_degrades_execution() {
-    let mut host = CommandExecutingHost::new(Gtk4Adapter, InvalidAckExecutor::default());
+    let mut host = CommandExecutingHost::new(HeadlessAdapter, InvalidAckExecutor::default());
     host.begin_frame().unwrap();
     let id = host
         .create(&NativeElement::new("save", NativeRole::Button))
@@ -214,7 +214,7 @@ fn invalid_ack_preserves_failed_batch_and_degrades_execution() {
 #[test]
 fn fresh_executor_replays_nonempty_snapshot_before_resuming_incremental_frames() {
     let mut renderer = Renderer::new();
-    let mut host = CommandExecutingHost::new(Gtk4Adapter, BatchProbeExecutor::default());
+    let mut host = CommandExecutingHost::new(HeadlessAdapter, BatchProbeExecutor::default());
     let old = NativeElement::new("status", NativeRole::Button)
         .with_props(NativeProps::new().label("Old"));
     let new = NativeElement::new("status", NativeRole::Button)
@@ -280,7 +280,7 @@ fn recovery_drops_partial_executor_before_preparing_replacement() {
         require_old_dropped_on_prepare: false,
     };
     let mut renderer = Renderer::new();
-    let mut host = CommandExecutingHost::new(Gtk4Adapter, old);
+    let mut host = CommandExecutingHost::new(HeadlessAdapter, old);
     renderer
         .render(&NativeElement::new("root", NativeRole::View), &mut host)
         .unwrap_err();
@@ -302,7 +302,7 @@ fn recovery_drops_partial_executor_before_preparing_replacement() {
 #[test]
 fn long_running_frames_acknowledge_planning_and_bound_diagnostic_history() {
     let mut renderer = Renderer::new();
-    let mut host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let mut host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
 
     for revision in 0..2_000 {
         renderer

@@ -38,7 +38,7 @@ fn native_protocol_session_updates_window_style_options() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let first_response = session.render_frame(&first).unwrap();
     let second_response = session.render_frame(&second).unwrap();
@@ -99,7 +99,7 @@ fn native_protocol_session_returns_rendered_accessibility_tree() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let response = session.render_frame(&frame).unwrap();
     let accessibility = response.accessibility_tree.as_ref().unwrap();
@@ -147,7 +147,7 @@ fn native_protocol_session_projects_auto_focus_on_render() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let response = session.render_frame(&frame).unwrap();
     let accessibility = response.accessibility_tree.as_ref().unwrap();
@@ -205,7 +205,7 @@ fn native_protocol_session_skips_disabled_subtree_auto_focus() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let response = session.render_frame(&frame).unwrap();
     let accessibility = response.accessibility_tree.as_ref().unwrap();
@@ -309,7 +309,7 @@ fn native_protocol_session_omits_hidden_accessibility_subtrees() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let response = session.render_frame(&frame).unwrap();
     let accessibility = response.accessibility_tree.as_ref().unwrap();
@@ -336,7 +336,7 @@ fn native_protocol_session_dispatches_active_frame_events() {
             "#,
     )
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let rendered = session.render_frame(&frame).unwrap();
 
     let response = session

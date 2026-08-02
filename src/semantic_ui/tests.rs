@@ -228,7 +228,7 @@ fn maps_select_listbox_items_to_native_options() {
 }
 
 #[test]
-fn maps_checkbox_and_switch_to_native_toggle_controls() {
+fn maps_checkbox_and_switch_to_typed_toggle_roles() {
     let checkbox = SemanticElement::new("accept", SemanticComponent::Checkbox).with_props(
         SemanticProps::new()
             .text_value("Accept terms")
@@ -250,21 +250,21 @@ fn maps_checkbox_and_switch_to_native_toggle_controls() {
     assert_eq!(checkbox.props.checked, Some(true));
     assert_eq!(checkbox.props.action.as_deref(), Some("setAccepted"));
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, checkbox.role),
-        "NSButton(checkbox)"
+        native_widget_name(NativeBackendKind::Headless, checkbox.role),
+        "a3s_gui::HeadlessNode"
     );
 
     assert_eq!(switch.role, NativeRole::Switch);
     assert_eq!(switch.props.checked, Some(false));
     assert_eq!(switch.props.action.as_deref(), Some("setNotifications"));
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, switch.role),
-        "NSSwitch"
+        native_widget_name(NativeBackendKind::Headless, switch.role),
+        "a3s_gui::HeadlessNode"
     );
 }
 
 #[test]
-fn maps_radio_group_to_native_radio_controls() {
+fn maps_radio_group_to_typed_radio_roles() {
     let aria = SemanticElement::new("theme", SemanticComponent::RadioGroup)
         .with_props(
             SemanticProps::new()
@@ -298,17 +298,17 @@ fn maps_radio_group_to_native_radio_controls() {
     assert!(native.children[1].props.selected);
     assert_eq!(native.children[1].props.checked, Some(true));
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, native.role),
-        "NSStackView(radio-group)"
+        native_widget_name(NativeBackendKind::Headless, native.role),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, native.children[1].role),
-        "NSButton(radio)"
+        native_widget_name(NativeBackendKind::Headless, native.children[1].role),
+        "a3s_gui::HeadlessNode"
     );
 }
 
 #[test]
-fn folds_tabs_tablist_and_panels_into_native_tab_items() {
+fn folds_tabs_tablist_and_panels_into_semantic_tab_items() {
     let aria = SemanticElement::new("settings", SemanticComponent::Tabs)
         .with_props(SemanticProps::new().on_selection_change("setTab"))
         .child(
@@ -354,16 +354,16 @@ fn folds_tabs_tablist_and_panels_into_native_tab_items() {
         NativeRole::Text
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, native.role),
-        "Microsoft.UI.Xaml.Controls.TabView"
+        native_widget_name(NativeBackendKind::Headless, native.role),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, native.children[0].role),
-        "Microsoft.UI.Xaml.Controls.TabViewItem"
+        native_widget_name(NativeBackendKind::Headless, native.children[0].role),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, native.role),
-        "gtk::Notebook"
+        native_widget_name(NativeBackendKind::Headless, native.role),
+        "a3s_gui::HeadlessNode"
     );
 }
 
@@ -392,16 +392,16 @@ fn maps_menu_and_menu_items_to_native_menu_roles() {
     assert_eq!(native.children[0].props.value.as_deref(), Some("open"));
     assert_eq!(native.children[0].props.action.as_deref(), Some("openFile"));
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, native.role),
-        "NSMenu"
+        native_widget_name(NativeBackendKind::Headless, native.role),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, native.children[0].role),
-        "Microsoft.UI.Xaml.Controls.Button(menu-item)"
+        native_widget_name(NativeBackendKind::Headless, native.children[0].role),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, native.children[0].role),
-        "gio::MenuItem"
+        native_widget_name(NativeBackendKind::Headless, native.children[0].role),
+        "a3s_gui::HeadlessNode"
     );
 }
 
@@ -465,173 +465,179 @@ fn renderer_updates_native_node_without_remounting_same_key_and_role() {
 }
 
 #[test]
-fn platform_names_point_to_native_widget_families() {
+fn semantic_roles_share_one_nonvisual_planning_class() {
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::Button),
-        "NSButton"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Button),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::TextField),
-        "Microsoft.UI.Xaml.Controls.TextBox"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::TextField),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::Select),
-        "gtk::DropDown"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Select),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::Separator),
-        "NSBox(separator)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Separator),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::Separator),
-        "Microsoft.UI.Xaml.Controls.Border(separator)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Separator),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::Separator),
-        "gtk::Separator"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Separator),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::Heading),
-        "NSTextField(heading)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Heading),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::Navigation),
-        "Microsoft.UI.Xaml.Controls.StackPanel(navigation)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Navigation),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::Main),
-        "gtk::Box(main)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Main),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::Image),
-        "NSImageView"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Image),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::Media),
-        "Microsoft.UI.Xaml.Controls.MediaPlayerElement"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Media),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::Canvas),
-        "gtk::DrawingArea"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Canvas),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::Table),
-        "NSTableView"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Table),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::TableCell),
-        "Microsoft.UI.Xaml.Controls.Grid(cell)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::TableCell),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::TableCaption),
-        "gtk::Label(table-caption)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::TableCaption),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::DisclosureSummary),
-        "NSButton(disclosure-summary)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::DisclosureSummary),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::FigureCaption),
-        "Microsoft.UI.Xaml.Controls.TextBlock(figure-caption)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::FigureCaption),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::DescriptionDetails),
-        "gtk::Box(description-details)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::DescriptionDetails),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::FieldSet),
-        "NSView(fieldset)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::FieldSet),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::Meter),
-        "Microsoft.UI.Xaml.Controls.ProgressBar(meter)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Meter),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::OptionGroup),
-        "gtk::Box(option-group)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::OptionGroup),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::Link),
-        "NSButton(link)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Link),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::ImageMapArea),
-        "Microsoft.UI.Xaml.Controls.HyperlinkButton(image-map-area)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::ImageMapArea),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::ImageMap),
-        "gtk::DrawingArea(image-map)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::ImageMap),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::DocumentTitle),
-        "NSTextField(document-title)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::DocumentTitle),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::ResourceLink),
-        "Microsoft.UI.Xaml.Controls.StackPanel(resource-link)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::ResourceLink),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::Slot),
-        "gtk::Box(slot)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Slot),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::RubyBase),
-        "NSTextField(ruby-base)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::RubyBase),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::RubyTextContainer),
-        "Microsoft.UI.Xaml.Controls.StackPanel(ruby-text-container)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::RubyTextContainer),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::RubyText),
-        "gtk::Label(ruby-text)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::RubyText),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::Abbreviation),
-        "NSTextField(abbreviation)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Abbreviation),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::MarkedText),
-        "Microsoft.UI.Xaml.Controls.TextBlock(marked-text)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::MarkedText),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::Time),
-        "gtk::Label(time)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Time),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::Code),
-        "NSTextField(code)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Code),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::InlineQuote),
-        "Microsoft.UI.Xaml.Controls.TextBlock(inline-quote)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::InlineQuote),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::BidirectionalOverride),
-        "gtk::Label(bidi-override)"
+        native_widget_name(
+            NativeBackendKind::Headless,
+            NativeRole::BidirectionalOverride
+        ),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::Paragraph),
-        "NSView(paragraph)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Paragraph),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::PreformattedText),
-        "Microsoft.UI.Xaml.Controls.StackPanel(preformatted-text)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::PreformattedText),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::WordBreakOpportunity),
-        "gtk::Label(word-break-opportunity)"
+        native_widget_name(
+            NativeBackendKind::Headless,
+            NativeRole::WordBreakOpportunity
+        ),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::AppKit, NativeRole::FrameSet),
-        "NSView(frameset)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::FrameSet),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::WinUI, NativeRole::Math),
-        "Microsoft.UI.Xaml.Controls.StackPanel(math)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::Math),
+        "a3s_gui::HeadlessNode"
     );
     assert_eq!(
-        native_widget_name(NativeBackendKind::Gtk4, NativeRole::SelectedContent),
-        "gtk::Box(selected-content)"
+        native_widget_name(NativeBackendKind::Headless, NativeRole::SelectedContent),
+        "a3s_gui::HeadlessNode"
     );
 }

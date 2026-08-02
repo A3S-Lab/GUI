@@ -6,7 +6,7 @@ mod tests;
 mod types;
 mod widget_names;
 
-pub use adapters::{AppKitAdapter, BlueprintHost, Gtk4Adapter, PlatformAdapter, WinUiAdapter};
+pub use adapters::{BlueprintHost, HeadlessAdapter, PlatformAdapter};
 pub use config::{
     apply_widget_setter, apply_widget_setters, push_widget_setter_history, NativeConfigValueChange,
     NativeWidgetConfig, NativeWidgetConfigPatch, NativeWidgetReplacement, NativeWidgetSetter,

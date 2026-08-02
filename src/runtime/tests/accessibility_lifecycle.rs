@@ -1,6 +1,6 @@
 use super::super::*;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformPlanningHost};
 use crate::web::WebProps;
 
 #[test]
@@ -17,7 +17,7 @@ fn runtime_accessibility_tree_uses_rerendered_control_state_after_interaction() 
             .value("controlled@example.com")
             .web(WebProps::new().on_change("setEmail")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setEmail");
 
@@ -48,7 +48,7 @@ fn runtime_interactions_start_from_rerendered_control_state() {
         .with_props(NativeProps::new().label("Notifications").checked(false));
     let second = NativeElement::new("notifications", NativeRole::Switch)
         .with_props(NativeProps::new().label("Notifications").checked(false));
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&first).unwrap();
@@ -83,7 +83,7 @@ fn runtime_accessibility_tree_preserves_focus_across_rerender() {
         NativeElement::new("save", NativeRole::Button).with_props(NativeProps::new().label("Save"));
     let second = NativeElement::new("save", NativeRole::Button)
         .with_props(NativeProps::new().label("Saved"));
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&first).unwrap();
@@ -116,7 +116,7 @@ fn runtime_prunes_interaction_state_for_unmounted_nodes() {
         NativeElement::new("cancel", NativeRole::Button)
             .with_props(NativeProps::new().label("Cancel")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&first).unwrap();
@@ -154,7 +154,7 @@ fn runtime_ignores_native_events_for_unmounted_nodes() {
         NativeElement::new("cancel", NativeRole::Button)
             .with_props(NativeProps::new().label("Cancel")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("saveDocument");
 
@@ -202,7 +202,7 @@ fn runtime_prunes_interaction_state_for_non_interactive_rerendered_subtrees() {
             NativeElement::new("cancel", NativeRole::Button)
                 .with_props(NativeProps::new().label("Cancel").auto_focus(true)),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&first).unwrap();
@@ -245,7 +245,7 @@ fn runtime_accessibility_tree_projects_selection_value_to_children() {
             NativeElement::new("other", NativeRole::ListBoxItem)
                 .with_props(NativeProps::new().label("Other").value("other")),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setProject");
 
@@ -275,7 +275,7 @@ fn runtime_accessibility_tree_projects_single_listbox_child_selection_to_sibling
             NativeElement::new("other", NativeRole::ListBoxItem)
                 .with_props(NativeProps::new().label("Other").value("other")),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&list_box).unwrap();
@@ -306,7 +306,7 @@ fn runtime_accessibility_tree_preserves_multiple_listbox_child_selections() {
             NativeElement::new("other", NativeRole::ListBoxItem)
                 .with_props(NativeProps::new().label("Other").value("other")),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&list_box).unwrap();
@@ -344,7 +344,7 @@ fn runtime_accessibility_tree_projects_radio_group_value_to_checked_child() {
             NativeElement::new("dark", NativeRole::Radio)
                 .with_props(NativeProps::new().label("Dark").value("dark")),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setTheme");
 
@@ -393,7 +393,7 @@ fn runtime_accessibility_tree_reflects_direct_radio_selection_as_checked() {
             NativeElement::new("dark", NativeRole::Radio)
                 .with_props(NativeProps::new().label("Dark").value("dark")),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&tree).unwrap();
@@ -433,7 +433,7 @@ fn runtime_bubbles_child_selection_to_parent_action_with_value() {
             NativeElement::new("dark", NativeRole::Radio)
                 .with_props(NativeProps::new().label("Dark").value("dark")),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setTheme");
 
@@ -478,7 +478,7 @@ fn runtime_accessibility_tree_projects_direct_tab_selection_to_siblings() {
             NativeElement::new("billing", NativeRole::Tab)
                 .with_props(NativeProps::new().label("Billing")),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&tree).unwrap();

@@ -789,14 +789,14 @@ fn parse_bool(value: &str) -> Option<bool> {
 mod tests {
     use super::*;
     use crate::native::{NativeElement, NativeProps, NativeRole};
-    use crate::platform::{Gtk4Adapter, PlatformAdapter};
+    use crate::platform::{HeadlessAdapter, PlatformAdapter};
     use crate::web::WebProps;
 
     #[test]
     fn text_field_change_updates_value_state() {
         let element = NativeElement::new("email", NativeRole::TextField)
             .with_props(NativeProps::new().web(WebProps::new().on_change("setEmail")));
-        let blueprint = Gtk4Adapter.blueprint(&element);
+        let blueprint = HeadlessAdapter.blueprint(&element);
         let mut state = InteractionState::new();
 
         let change = state
@@ -816,7 +816,7 @@ mod tests {
     #[test]
     fn toggle_event_updates_checked_state() {
         let element = NativeElement::new("enabled", NativeRole::Switch);
-        let blueprint = Gtk4Adapter.blueprint(&element);
+        let blueprint = HeadlessAdapter.blueprint(&element);
         let mut state = InteractionState::new();
 
         state
@@ -839,7 +839,7 @@ mod tests {
     fn toggle_event_starts_from_blueprint_checked_state() {
         let element = NativeElement::new("enabled", NativeRole::Switch)
             .with_props(NativeProps::new().checked(true));
-        let blueprint = Gtk4Adapter.blueprint(&element);
+        let blueprint = HeadlessAdapter.blueprint(&element);
         let mut state = InteractionState::new();
 
         let change = state
@@ -857,7 +857,7 @@ mod tests {
     fn disclosure_toggle_updates_expanded_state() {
         let element = NativeElement::new("details", NativeRole::Disclosure)
             .with_props(NativeProps::new().expanded(false));
-        let blueprint = Gtk4Adapter.blueprint(&element);
+        let blueprint = HeadlessAdapter.blueprint(&element);
         let mut state = InteractionState::new();
 
         let change = state
@@ -875,7 +875,7 @@ mod tests {
     #[test]
     fn radio_selection_marks_checked_state() {
         let element = NativeElement::new("dark", NativeRole::Radio);
-        let blueprint = Gtk4Adapter.blueprint(&element);
+        let blueprint = HeadlessAdapter.blueprint(&element);
         let mut state = InteractionState::new();
 
         let change = state
@@ -899,11 +899,11 @@ mod tests {
 
         state
             .apply_event(
-                &Gtk4Adapter.blueprint(&first),
+                &HeadlessAdapter.blueprint(&first),
                 &NativeEvent::new(HostNodeId::new(4), NativeEventKind::Focus),
             )
             .unwrap();
-        state.sync_node_from_blueprint(HostNodeId::new(4), &Gtk4Adapter.blueprint(&second));
+        state.sync_node_from_blueprint(HostNodeId::new(4), &HeadlessAdapter.blueprint(&second));
 
         let node = state.node(HostNodeId::new(4)).unwrap();
         assert!(node.focused);
@@ -931,7 +931,7 @@ mod tests {
     fn set_initial_focus_preserves_existing_node_state() {
         let element = NativeElement::new("enabled", NativeRole::Switch)
             .with_props(NativeProps::new().checked(false));
-        let blueprint = Gtk4Adapter.blueprint(&element);
+        let blueprint = HeadlessAdapter.blueprint(&element);
         let mut state = InteractionState::new();
 
         state
@@ -950,7 +950,7 @@ mod tests {
     #[test]
     fn focus_and_blur_update_focus_state() {
         let element = NativeElement::new("save", NativeRole::Button);
-        let blueprint = Gtk4Adapter.blueprint(&element);
+        let blueprint = HeadlessAdapter.blueprint(&element);
         let mut state = InteractionState::new();
 
         assert!(!state.has_focus_history());
@@ -974,7 +974,7 @@ mod tests {
     #[test]
     fn focus_event_clears_previous_focused_node() {
         let element = NativeElement::new("save", NativeRole::Button);
-        let blueprint = Gtk4Adapter.blueprint(&element);
+        let blueprint = HeadlessAdapter.blueprint(&element);
         let mut state = InteractionState::new();
 
         state
@@ -1000,7 +1000,7 @@ mod tests {
     #[test]
     fn retain_nodes_prunes_state_and_change_history() {
         let element = NativeElement::new("save", NativeRole::Button);
-        let blueprint = Gtk4Adapter.blueprint(&element);
+        let blueprint = HeadlessAdapter.blueprint(&element);
         let mut state = InteractionState::new();
 
         state
@@ -1027,7 +1027,7 @@ mod tests {
 
     #[test]
     fn keyboard_focus_is_visible_and_pointer_press_hides_the_ring() {
-        let blueprint = Gtk4Adapter.blueprint(&NativeElement::new("save", NativeRole::Button));
+        let blueprint = HeadlessAdapter.blueprint(&NativeElement::new("save", NativeRole::Button));
         let node = HostNodeId::new(11);
         let mut state = InteractionState::new();
 
@@ -1061,7 +1061,7 @@ mod tests {
 
     #[test]
     fn press_end_and_cancel_clear_transient_press_state() {
-        let blueprint = Gtk4Adapter.blueprint(&NativeElement::new("save", NativeRole::Button));
+        let blueprint = HeadlessAdapter.blueprint(&NativeElement::new("save", NativeRole::Button));
         let node = HostNodeId::new(12);
         let mut state = InteractionState::new();
 
@@ -1100,7 +1100,7 @@ mod tests {
 
     #[test]
     fn hover_ignores_touch_and_tracks_mouse_or_pen() {
-        let blueprint = Gtk4Adapter.blueprint(&NativeElement::new("save", NativeRole::Button));
+        let blueprint = HeadlessAdapter.blueprint(&NativeElement::new("save", NativeRole::Button));
         let node = HostNodeId::new(13);
         let mut state = InteractionState::new();
 
@@ -1133,7 +1133,7 @@ mod tests {
 
     #[test]
     fn move_lifecycle_tracks_active_state_and_incremental_delta() {
-        let blueprint = Gtk4Adapter.blueprint(&NativeElement::new("thumb", NativeRole::View));
+        let blueprint = HeadlessAdapter.blueprint(&NativeElement::new("thumb", NativeRole::View));
         let node = HostNodeId::new(15);
         let mut state = InteractionState::new();
 
@@ -1172,7 +1172,7 @@ mod tests {
 
     #[test]
     fn drag_and_drop_lifecycles_track_transient_source_and_target_state() {
-        let blueprint = Gtk4Adapter.blueprint(&NativeElement::new("drag", NativeRole::View));
+        let blueprint = HeadlessAdapter.blueprint(&NativeElement::new("drag", NativeRole::View));
         let source = HostNodeId::new(16);
         let target = HostNodeId::new(17);
         let mut state = InteractionState::new();
@@ -1214,8 +1214,8 @@ mod tests {
 
     #[test]
     fn blueprint_sync_preserves_transient_interaction_state() {
-        let first = Gtk4Adapter.blueprint(&NativeElement::new("save", NativeRole::Button));
-        let second = Gtk4Adapter.blueprint(
+        let first = HeadlessAdapter.blueprint(&NativeElement::new("save", NativeRole::Button));
+        let second = HeadlessAdapter.blueprint(
             &NativeElement::new("save", NativeRole::Button)
                 .with_props(NativeProps::new().selected(true)),
         );

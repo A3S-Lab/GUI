@@ -4,7 +4,7 @@ use super::*;
 use crate::backend::{CommandExecutingHost, RecordingBackend};
 use crate::event::NativeEventKind;
 use crate::input::NativeInputModality;
-use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformPlanningHost};
 
 #[derive(Debug, Default)]
 struct EventLog {
@@ -77,7 +77,7 @@ fn reduce_with_error(
 
 #[test]
 fn runtime_app_reduces_complete_event_batch_before_one_render() {
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut app = NativeRuntimeApp::new(host, EventLog::default(), frame, reduce);
     let rendered = app.render().unwrap();
     let target = app.runtime().host().node(rendered.root).unwrap().children[0];
@@ -100,7 +100,7 @@ fn runtime_app_reduces_complete_event_batch_before_one_render() {
 
 #[test]
 fn runtime_app_stops_before_ancestors_after_finishing_same_target_callbacks() {
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut app = NativeRuntimeApp::new_with_propagation(
         host,
         EventLog::default(),
@@ -145,7 +145,7 @@ fn runtime_app_stops_before_ancestors_after_finishing_same_target_callbacks() {
 
 #[test]
 fn runtime_app_continues_through_all_ancestor_callbacks() {
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut app = NativeRuntimeApp::new_with_propagation(
         host,
         EventLog::default(),
@@ -173,7 +173,7 @@ fn runtime_app_continues_through_all_ancestor_callbacks() {
 
 #[test]
 fn runtime_app_discards_routed_history_when_propagation_reducer_fails() {
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut app =
         NativeRuntimeApp::new_with_propagation(host, EventLog::default(), frame, reduce_with_error);
     let rendered = app.render().unwrap();
@@ -199,7 +199,7 @@ fn runtime_app_discards_routed_history_when_propagation_reducer_fails() {
 
 #[test]
 fn runtime_app_pending_event_drain_honors_propagation() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = NativeRuntimeApp::new_with_propagation(
         host,
         EventLog::default(),

@@ -3,7 +3,7 @@ use crate::backend::{CommandExecutingHost, RecordingBackend};
 use crate::compiler::{CompiledOrientation, CompiledProps, CompiledRsxNode, CompiledStyleValue};
 use crate::event::{ActionInvocation, NativeEvent, NativeEventKind};
 use crate::host::HostNodeId;
-use crate::platform::Gtk4Adapter;
+use crate::platform::HeadlessAdapter;
 use crate::protocol::HostEvent;
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,7 @@ struct CounterState {
 #[test]
 fn rsx_component_hooks_render_state_props_and_reduce_actions() {
     let component = counter_component();
-    let mut app = component.into_protocol_app(Gtk4Adapter, CounterState::default());
+    let mut app = component.into_protocol_app(HeadlessAdapter, CounterState::default());
     let rendered = app.render().unwrap();
 
     assert_eq!(
@@ -233,7 +233,7 @@ fn component_cx_react_identity_and_debug_hooks_have_runtime_state() {
     let handle = exposed_handle.expect("imperative ref handle");
     assert_eq!(handle.current().unwrap(), None);
 
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = component.into_runtime_app(host, CounterState::default());
     let rendered = app.render().unwrap();
     assert_eq!(handle.current().unwrap(), Some("count:0".to_string()));
@@ -770,7 +770,7 @@ fn component_cx_use_effect_runs_after_runtime_commit() {
         crate::rsx!(<Text key="title" label={title} />)
     }
 
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = ComponentCx::compile("lifecycle", lifecycle)
         .unwrap()
         .into_runtime_app(
@@ -6946,7 +6946,7 @@ fn component_cx_button_hook_returns_button_props_for_view_consumption() {
 
 #[test]
 fn rsx_component_hooks_mount_into_embedded_runtime_app() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = counter_component().into_runtime_app(host, CounterState::default());
     let rendered = app.render().unwrap();
 
@@ -6974,7 +6974,7 @@ struct MountState {
 
 #[test]
 fn rsx_component_mount_hooks_initialize_state_before_first_render() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "mounted",
         r#"<Button key="click" onPress={click} label={state.title} />"#,
@@ -7018,7 +7018,7 @@ fn rsx_component_mount_hooks_initialize_state_before_first_render() {
 
 #[test]
 fn rsx_component_fallible_mount_hooks_return_errors_before_first_render() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let component = RsxComponent::new("mounted", r#"<Text key="title" label={state.title} />"#)
         .unwrap()
         .use_state("title", |state: &MountState| state.title.clone())
@@ -7054,7 +7054,7 @@ fn rsx_component_mount_returns_fallible_hook_errors() {
 
 #[test]
 fn rsx_component_infallible_constructor_surfaces_mount_errors_on_render() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new("mounted", r#"<Text key="title" label={state.title} />"#)
         .unwrap()
         .use_state("title", |state: &MountState| state.title.clone())
@@ -7576,7 +7576,7 @@ fn rsx_component_validate_rejects_window_actions_before_render() {
 
 #[test]
 fn rsx_component_try_into_runtime_app_validates_before_mounting() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let component = RsxComponent::<CounterState>::new(
         "counter",
         r#"<Button key="counter" onPress={increment}>Count</Button>"#,
@@ -7902,7 +7902,7 @@ fn rsx_component_rejects_for_each_that_is_not_an_array() {
 
 #[test]
 fn rsx_component_expands_registered_child_components_with_props_and_actions() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "items",
         r#"
@@ -8676,7 +8676,7 @@ fn child_attributes<'a>(root: &'a CompiledRsxNode, name: &str) -> Vec<&'a str> {
 }
 
 fn action_node<S, F, R>(
-    app: &NativeRuntimeApp<CommandExecutingHost<Gtk4Adapter, RecordingBackend>, S, F, R>,
+    app: &NativeRuntimeApp<CommandExecutingHost<HeadlessAdapter, RecordingBackend>, S, F, R>,
     action: &str,
     value: Option<&str>,
 ) -> HostNodeId
@@ -8688,7 +8688,7 @@ where
 }
 
 fn action_node_for_event<S, F, R>(
-    app: &NativeRuntimeApp<CommandExecutingHost<Gtk4Adapter, RecordingBackend>, S, F, R>,
+    app: &NativeRuntimeApp<CommandExecutingHost<HeadlessAdapter, RecordingBackend>, S, F, R>,
     event: &str,
     action: &str,
     value: Option<&str>,

@@ -1,13 +1,13 @@
 use super::*;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{AppKitAdapter, PlatformAdapter};
+use crate::platform::{HeadlessAdapter, PlatformAdapter};
 use crate::web::WebProps;
 
 #[test]
 fn routes_native_press_to_web_click_action() {
     let element = NativeElement::new("save", NativeRole::Button)
         .with_props(NativeProps::new().web(WebProps::new().on_click("saveDocument")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let event = NativeEvent::new(HostNodeId::new(7), NativeEventKind::Press);
 
     let invocation = EventRouter::new().route(&blueprint, &event).unwrap();
@@ -27,7 +27,7 @@ fn routes_each_long_press_phase_to_its_distinct_callback() {
                 .event("onLongPressEnd", "endMenuPress"),
         ),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let router = EventRouter::new();
     let node = HostNodeId::new(70);
 
@@ -54,7 +54,7 @@ fn routes_each_move_phase_and_preserves_incremental_delta() {
                 .event("onMoveEnd", "endMove"),
         ),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let router = EventRouter::new();
     let node = HostNodeId::new(71);
 
@@ -80,7 +80,7 @@ fn routes_each_move_phase_and_preserves_incremental_delta() {
 fn routes_wheel_events_with_portable_delta() {
     let element = NativeElement::new("scroller", NativeRole::View)
         .with_props(NativeProps::new().web(WebProps::new().event("onWheel", "scrollField")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let event = NativeEvent::new(HostNodeId::new(72), NativeEventKind::Wheel)
         .modality(crate::input::NativeInputModality::Mouse)
         .delta(0.0, 120.0);
@@ -105,8 +105,8 @@ fn ignores_empty_action_ids_and_uses_non_empty_fallbacks() {
         .with_props(NativeProps::new().web(WebProps::new().on_press("")));
     let fallback = NativeElement::new("fallback", NativeRole::Button)
         .with_props(NativeProps::new().web(WebProps::new().on_press("").on_click("saveDocument")));
-    let empty_blueprint = AppKitAdapter.blueprint(&empty);
-    let fallback_blueprint = AppKitAdapter.blueprint(&fallback);
+    let empty_blueprint = HeadlessAdapter.blueprint(&empty);
+    let fallback_blueprint = HeadlessAdapter.blueprint(&fallback);
     let event = NativeEvent::new(HostNodeId::new(8), NativeEventKind::Press);
 
     assert!(EventRouter::new().route(&empty_blueprint, &event).is_none());
@@ -121,7 +121,7 @@ fn ignores_empty_action_ids_and_uses_non_empty_fallbacks() {
 fn routes_native_change_with_value() {
     let element = NativeElement::new("email", NativeRole::TextField)
         .with_props(NativeProps::new().web(WebProps::new().on_change("setEmail")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let event = NativeEvent::new(HostNodeId::new(9), NativeEventKind::Change).value("a@b.c");
 
     let invocation = EventRouter::new().route(&blueprint, &event).unwrap();
@@ -137,7 +137,7 @@ fn routes_static_action_value_when_native_event_has_no_value() {
             .metadata("actionValue", "alpha")
             .web(WebProps::new().on_press("selectItem")),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let event = NativeEvent::new(HostNodeId::new(17), NativeEventKind::Press);
 
     let invocation = EventRouter::new().route(&blueprint, &event).unwrap();
@@ -153,7 +153,7 @@ fn native_event_value_wins_over_static_action_value() {
             .metadata("actionValue", "fallback")
             .web(WebProps::new().on_input("setEmail")),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let event =
         NativeEvent::new(HostNodeId::new(18), NativeEventKind::Change).value("current@example.com");
 
@@ -219,10 +219,10 @@ fn routes_native_change_to_input_event_alias() {
     let event = NativeEvent::new(HostNodeId::new(19), NativeEventKind::Change).value("Ada");
 
     let input_invocation = EventRouter::new()
-        .route(&AppKitAdapter.blueprint(&input_only), &event)
+        .route(&HeadlessAdapter.blueprint(&input_only), &event)
         .unwrap();
     let change_invocation = EventRouter::new()
-        .route(&AppKitAdapter.blueprint(&change_wins), &event)
+        .route(&HeadlessAdapter.blueprint(&change_wins), &event)
         .unwrap();
 
     assert_eq!(input_invocation.action, "setEmailInput");
@@ -234,7 +234,7 @@ fn routes_native_change_to_input_event_alias() {
 fn routes_native_toggle_with_checked_value_to_web_change_action() {
     let element = NativeElement::new("notifications", NativeRole::Switch)
         .with_props(NativeProps::new().web(WebProps::new().on_change("setNotifications")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let event = NativeEvent::new(HostNodeId::new(10), NativeEventKind::Toggle).value("true");
 
     let invocation = EventRouter::new().route(&blueprint, &event).unwrap();
@@ -258,10 +258,10 @@ fn routes_native_toggle_to_input_event_alias_for_value_toggles() {
     let event = NativeEvent::new(HostNodeId::new(20), NativeEventKind::Toggle).value("true");
 
     let input_invocation = EventRouter::new()
-        .route(&AppKitAdapter.blueprint(&input_only), &event)
+        .route(&HeadlessAdapter.blueprint(&input_only), &event)
         .unwrap();
     let change_invocation = EventRouter::new()
-        .route(&AppKitAdapter.blueprint(&change_wins), &event)
+        .route(&HeadlessAdapter.blueprint(&change_wins), &event)
         .unwrap();
 
     assert_eq!(input_invocation.action, "setNotificationsInput");
@@ -276,7 +276,7 @@ fn routes_native_toggle_to_expanded_change_for_disclosure_controls() {
             .expanded(false)
             .web(WebProps::new().event("onExpandedChange", "setOpen")),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let event = NativeEvent::new(HostNodeId::new(12), NativeEventKind::Toggle).value("true");
 
     let invocation = EventRouter::new().route(&blueprint, &event).unwrap();
@@ -290,7 +290,7 @@ fn routes_native_toggle_to_expanded_change_for_disclosure_controls() {
 fn routes_native_focus_and_blur_to_focus_change_alias() {
     let element = NativeElement::new("email", NativeRole::TextField)
         .with_props(NativeProps::new().web(WebProps::new().event("onFocusChange", "setFocus")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
     let focus = EventRouter::new()
         .route(
@@ -335,7 +335,7 @@ fn links_adjacent_native_focus_transitions_without_overwriting_context() {
 fn routes_native_selection_change_to_semantic_ui_selection_action() {
     let element = NativeElement::new("project", NativeRole::Select)
         .with_props(NativeProps::new().web(WebProps::new().on_selection_change("setProject")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let event =
         NativeEvent::new(HostNodeId::new(11), NativeEventKind::SelectionChange).value("A3S");
 
@@ -361,10 +361,10 @@ fn routes_native_selection_change_to_input_event_alias() {
         NativeEvent::new(HostNodeId::new(21), NativeEventKind::SelectionChange).value("A3S");
 
     let input_invocation = EventRouter::new()
-        .route(&AppKitAdapter.blueprint(&input_only), &event)
+        .route(&HeadlessAdapter.blueprint(&input_only), &event)
         .unwrap();
     let change_invocation = EventRouter::new()
-        .route(&AppKitAdapter.blueprint(&change_wins), &event)
+        .route(&HeadlessAdapter.blueprint(&change_wins), &event)
         .unwrap();
 
     assert_eq!(input_invocation.action, "setProjectInput");
@@ -381,7 +381,7 @@ fn routes_native_keyboard_events_to_key_actions() {
                 .on_key_up("handleKeyUp"),
         ),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
     let key_down = EventRouter::new()
         .route(
@@ -414,7 +414,7 @@ fn routes_native_clipboard_events_to_clipboard_actions() {
                 .on_paste("pasteSelection"),
         ),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
     let copy = EventRouter::new()
         .route(
@@ -448,7 +448,7 @@ fn routes_native_clipboard_events_to_clipboard_actions() {
 fn routes_native_close_to_window_close_action() {
     let element = NativeElement::new("window", NativeRole::Window)
         .with_props(NativeProps::new().web(WebProps::new().event("onClose", "closeApp")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
     let invocation = EventRouter::new()
         .route(
@@ -479,7 +479,7 @@ fn normalizes_common_native_key_values() {
 fn routes_button_activation_keys_to_primary_action() {
     let element = NativeElement::new("save", NativeRole::Button)
         .with_props(NativeProps::new().web(WebProps::new().on_press("saveDocument")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
     let enter = EventRouter::new()
         .route(
@@ -505,7 +505,7 @@ fn routes_button_activation_keys_to_primary_action() {
 fn link_keyboard_activation_uses_enter_but_not_space() {
     let element = NativeElement::new("docs", NativeRole::Link)
         .with_props(NativeProps::new().web(WebProps::new().on_press("openDocs")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let router = EventRouter::new();
 
     assert!(router
@@ -526,7 +526,7 @@ fn link_keyboard_activation_uses_enter_but_not_space() {
 fn routes_native_platform_activation_key_names_to_primary_action() {
     let element = NativeElement::new("save", NativeRole::Button)
         .with_props(NativeProps::new().web(WebProps::new().on_press("saveDocument")));
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
     let return_key = EventRouter::new()
         .route(
@@ -554,7 +554,7 @@ fn explicit_key_down_action_wins_over_activation_fallback() {
                 .on_key_down("handleShortcut"),
         ),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
 
     let invocation = EventRouter::new()
         .route(
@@ -576,7 +576,7 @@ fn handled_native_activation_keeps_key_handler_without_duplicate_press() {
                 .on_key_down("handleShortcut"),
         ),
     );
-    let blueprint = AppKitAdapter.blueprint(&element);
+    let blueprint = HeadlessAdapter.blueprint(&element);
     let event = NativeEvent::new(HostNodeId::new(26), NativeEventKind::KeyDown)
         .value("Enter")
         .context(
@@ -596,8 +596,8 @@ fn ignores_non_activation_keys_and_stateful_toggle_keydowns() {
         .with_props(NativeProps::new().web(WebProps::new().on_press("saveDocument")));
     let switch = NativeElement::new("enabled", NativeRole::Switch)
         .with_props(NativeProps::new().web(WebProps::new().on_change("setEnabled")));
-    let button_blueprint = AppKitAdapter.blueprint(&button);
-    let switch_blueprint = AppKitAdapter.blueprint(&switch);
+    let button_blueprint = HeadlessAdapter.blueprint(&button);
+    let switch_blueprint = HeadlessAdapter.blueprint(&switch);
 
     assert!(EventRouter::new()
         .route(

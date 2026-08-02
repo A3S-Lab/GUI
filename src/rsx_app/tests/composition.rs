@@ -3,7 +3,7 @@ use crate::accessibility::AccessibilityNode;
 
 #[test]
 fn rsx_component_hook_bundles_compose_page_logic() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "profile",
         r#"
@@ -43,7 +43,7 @@ fn rsx_component_hook_bundles_compose_page_logic() {
 
 #[test]
 fn rsx_component_try_hook_bundles_register_reusable_templates() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "items",
         r#"
@@ -149,7 +149,7 @@ struct RouteState {
 
 #[test]
 fn rsx_router_selects_pages_and_dispatches_active_page_actions() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let router = RsxRouter::new(|state: &RouteState| state.route.clone())
         .route("home", home_route_component())
         .unwrap()
@@ -325,7 +325,7 @@ fn rsx_router_layout_renders_active_route_in_outlet() {
 
 #[test]
 fn rsx_router_layout_actions_and_active_route_actions_share_runtime() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let layout = RsxComponent::new(
         "layout",
         r#"
@@ -399,7 +399,7 @@ fn rsx_router_rejects_layout_route_action_collisions() {
 
 #[test]
 fn rsx_router_mounts_layout_once_and_keeps_route_lifecycle_scoped() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let layout = RsxComponent::new(
         "layout",
         r#"
@@ -544,7 +544,7 @@ fn rsx_router_rejects_route_context_id_overrides() {
 
 #[test]
 fn rsx_router_route_bundles_compose_app_shell_logic() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let router = RsxRouter::new(|state: &RouteState| state.route.clone())
         .route("home", home_route_component())
         .unwrap()
@@ -584,7 +584,7 @@ fn rsx_router_try_route_bundles_return_registration_errors() {
 
 #[test]
 fn rsx_router_runs_unmount_before_mount_when_route_changes() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let home = RsxComponent::new(
         "home",
         r#"
@@ -640,7 +640,7 @@ fn rsx_router_runs_unmount_before_mount_when_route_changes() {
 
 #[test]
 fn rsx_router_runs_route_effects_after_route_lifecycle_hooks() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let home = RsxComponent::new(
         "home",
         r#"
@@ -718,7 +718,7 @@ fn rsx_router_runs_route_effects_after_route_lifecycle_hooks() {
 
 #[test]
 fn rsx_router_cleans_up_route_render_effects_when_active_route_changes() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let home = RsxComponent::new(
         "home",
         r#"<Button key="settings" label="Settings" onPress={openSettings} />"#,
@@ -767,7 +767,7 @@ fn rsx_router_cleans_up_route_render_effects_when_active_route_changes() {
 
 #[test]
 fn rsx_router_route_transition_effect_receives_transition_details() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let router = RsxRouter::new(|state: &RouteState| state.route.clone())
         .route("home", home_route_component())
         .unwrap()
@@ -845,7 +845,7 @@ fn rsx_router_rejects_unknown_routes_without_a_default() {
 
 #[test]
 fn rsx_router_validates_default_routes_before_mounting() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let router = RsxRouter::new(|state: &RouteState| state.route.clone())
         .route("home", home_route_component())
         .unwrap()
@@ -869,7 +869,7 @@ fn rsx_router_validates_default_routes_before_mounting() {
 
 #[test]
 fn rsx_router_try_mount_returns_route_selector_errors() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let router = RsxRouter::new_result(|_state: &RouteState| {
         Err(GuiError::invalid_tree("route selector failed"))
     })
@@ -892,7 +892,7 @@ fn rsx_router_try_mount_returns_route_selector_errors() {
 
 #[test]
 fn rsx_router_returns_mount_errors_when_route_changes() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let router = RsxRouter::new(|state: &RouteState| state.route.clone())
         .route("home", home_route_component())
         .unwrap()
@@ -930,7 +930,7 @@ fn rsx_router_returns_mount_errors_when_route_changes() {
 
 #[test]
 fn rsx_router_returns_unmount_errors_when_route_changes() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let home = RsxComponent::new(
         "home",
         r#"
@@ -982,7 +982,7 @@ fn rsx_router_returns_unmount_errors_when_route_changes() {
 
 #[test]
 fn rsx_router_returns_route_effect_errors_when_route_changes() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let router = RsxRouter::new(|state: &RouteState| state.route.clone())
         .route("home", home_route_component())
         .unwrap()

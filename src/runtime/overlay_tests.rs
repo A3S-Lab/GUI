@@ -6,13 +6,11 @@ use crate::overlay_position::{
     OverlayPlacement, OVERLAY_PLACEMENT_ATTRIBUTE, OVERLAY_POSITION_MARKER,
     OVERLAY_SHOULD_UPDATE_POSITION_ATTRIBUTE,
 };
-use crate::platform::{
-    AppKitAdapter, Gtk4Adapter, PlatformAdapter, PlatformPlanningHost, WinUiAdapter,
-};
+use crate::platform::{HeadlessAdapter, PlatformAdapter, PlatformPlanningHost};
 use crate::web::WebProps;
 
-fn runtime() -> GuiRuntime<PlatformPlanningHost<Gtk4Adapter>> {
-    GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter))
+fn runtime() -> GuiRuntime<PlatformPlanningHost<HeadlessAdapter>> {
+    GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter))
 }
 
 fn overlay_props(
@@ -143,9 +141,9 @@ fn assert_adapter_applies_overlay_policy<A: PlatformAdapter>(adapter: A) {
 
 #[test]
 fn every_platform_planning_adapter_applies_the_same_overlay_policy() {
-    assert_adapter_applies_overlay_policy(AppKitAdapter);
-    assert_adapter_applies_overlay_policy(Gtk4Adapter);
-    assert_adapter_applies_overlay_policy(WinUiAdapter);
+    assert_adapter_applies_overlay_policy(HeadlessAdapter);
+    assert_adapter_applies_overlay_policy(HeadlessAdapter);
+    assert_adapter_applies_overlay_policy(HeadlessAdapter);
 }
 
 #[test]

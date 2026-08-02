@@ -1,14 +1,14 @@
 use super::super::*;
 use crate::html::HtmlDialogProps;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformPlanningHost};
 use crate::web::WebProps;
 
 #[test]
 fn runtime_dispatch_stays_strict_for_unbound_events() {
     let element =
         NativeElement::new("save", NativeRole::Button).with_props(NativeProps::new().label("Save"));
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -31,7 +31,7 @@ fn runtime_rolls_back_interactions_after_unregistered_action() {
             .value("Ada")
             .web(WebProps::new().on_change("setName")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -68,7 +68,7 @@ fn runtime_treats_empty_action_ids_as_unbound_events() {
             .label("Save")
             .web(WebProps::new().on_press("")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     let root_id = runtime.render_native(&element).unwrap();
@@ -91,7 +91,7 @@ fn runtime_suppresses_disabled_press_actions() {
             .disabled(true)
             .web(WebProps::new().on_press("saveDocument")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("saveDocument");
 
@@ -124,7 +124,7 @@ fn runtime_suppresses_disabled_toggle_state_changes() {
             .checked(false)
             .web(WebProps::new().on_change("setNotifications")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setNotifications");
 
@@ -163,7 +163,7 @@ fn runtime_suppresses_disabled_ancestor_user_events() {
                     .web(WebProps::new().on_press("finishReview")),
             ),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("finishReview");
 
@@ -207,7 +207,7 @@ fn runtime_allows_disabled_focus_state_changes() {
             .disabled(true)
             .web(WebProps::new().on_focus("inspectSave")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("inspectSave");
 
@@ -234,7 +234,7 @@ fn runtime_suppresses_invisible_focus_and_actions() {
                 .on_press("saveDocument"),
         ),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("inspectSave");
     runtime.actions_mut().register("saveDocument");
@@ -279,7 +279,7 @@ fn runtime_suppresses_non_rendered_style_actions() {
                         .on_press("saveDocument"),
                 ),
             );
-        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let host = PlatformPlanningHost::new(HeadlessAdapter);
         let mut runtime = GuiRuntime::new(host);
         runtime.actions_mut().register("saveDocument");
 
@@ -321,7 +321,7 @@ fn runtime_suppresses_closed_dialog_subtree_actions() {
                     .web(WebProps::new().on_press("saveDocument")),
             ),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("saveDocument");
 
@@ -398,7 +398,7 @@ fn runtime_accessibility_tree_prunes_invisible_inert_and_aria_hidden_subtrees() 
                         .with_props(NativeProps::new().label("Close")),
                 ),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     runtime.render_native(&element).unwrap();
@@ -416,7 +416,7 @@ fn runtime_routes_aria_hidden_actions() {
             .accessibility_hidden(Some(true))
             .web(WebProps::new().on_press("saveDocument")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("saveDocument");
 
@@ -464,7 +464,7 @@ fn runtime_suppresses_inert_subtree_actions() {
                         .web(WebProps::new().on_press("saveDocument")),
                 ),
             );
-        let host = PlatformPlanningHost::new(Gtk4Adapter);
+        let host = PlatformPlanningHost::new(HeadlessAdapter);
         let mut runtime = GuiRuntime::new(host);
         runtime.actions_mut().register("saveDocument");
 
@@ -493,7 +493,7 @@ fn runtime_suppresses_read_only_change_actions() {
             .read_only(true)
             .web(WebProps::new().on_change("setName")),
     );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setName");
 
@@ -535,7 +535,7 @@ fn runtime_suppresses_read_only_selection_actions() {
                     .selected(true),
             ),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setTheme");
 
@@ -588,7 +588,7 @@ fn runtime_suppresses_read_only_ancestor_selection_value_events() {
             NativeElement::new("dark", NativeRole::Radio)
                 .with_props(NativeProps::new().label("Dark").value("dark")),
         );
-    let host = PlatformPlanningHost::new(Gtk4Adapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
     runtime.actions_mut().register("setTheme");
 

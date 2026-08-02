@@ -26,7 +26,7 @@ fn protocol_window_options_wrap_root_in_native_window() {
             "#,
     )
     .unwrap();
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut runtime = GuiRuntime::new(host);
 
     assert_eq!(
@@ -43,7 +43,7 @@ fn protocol_window_options_wrap_root_in_native_window() {
     let rendered = frame.render_into(&mut runtime).unwrap();
     let window = runtime.host().planning().node(rendered.root).unwrap();
 
-    assert_eq!(window.blueprint.widget_class, "gtk::ApplicationWindow");
+    assert_eq!(window.blueprint.widget_class, "a3s_gui::HeadlessNode");
     assert_eq!(window.blueprint.label.as_deref(), Some("A3S Profile"));
     assert_eq!(
         window.blueprint.events.get("onClose").map(String::as_str),
@@ -134,7 +134,7 @@ fn protocol_window_options_wrap_root_in_native_window() {
             "#,
     )
     .unwrap();
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut runtime = GuiRuntime::new(host);
 
     let rendered = fixed_frame.render_into(&mut runtime).unwrap();

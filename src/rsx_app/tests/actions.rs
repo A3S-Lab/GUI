@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn rsx_component_passes_static_action_values_to_reducers() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "items",
         r#"
@@ -46,7 +46,7 @@ fn rsx_component_passes_static_action_values_to_reducers() {
 
 #[test]
 fn rsx_component_passes_json_action_payloads_to_reducers() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "items",
         r#"
@@ -95,7 +95,7 @@ fn rsx_component_passes_json_action_payloads_to_reducers() {
 
 #[test]
 fn rsx_component_payload_reducer_decodes_json_action_payloads() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "items",
         r#"
@@ -138,7 +138,7 @@ fn rsx_component_payload_reducer_decodes_json_action_payloads() {
 
 #[test]
 fn rsx_component_payload_reducer_decodes_scalar_action_values() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "items",
         r#"
@@ -179,7 +179,7 @@ fn rsx_component_payload_reducer_decodes_scalar_action_values() {
 
 #[test]
 fn rsx_component_payload_reducer_rejects_missing_payloads() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "items",
         r#"<Button key="select" onPress={selectItem}>Select</Button>"#,
@@ -203,7 +203,7 @@ fn rsx_component_payload_reducer_rejects_missing_payloads() {
 
 #[test]
 fn rsx_component_field_hook_controls_text_values() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "form",
         r#"<TextField key="email" label="Email" value={state.email} onChange={setEmail} />"#,
@@ -250,7 +250,7 @@ fn rsx_component_field_hook_controls_text_values() {
 
 #[test]
 fn rsx_component_field_hook_controls_boolean_values() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "form",
         r#"
@@ -321,7 +321,7 @@ fn rsx_component_labeled_field_hook_registers_action_label() {
 
 #[test]
 fn rsx_component_field_hook_rejects_missing_values() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "form",
         r#"<Button key="save" onPress={setEmail}>Save</Button>"#,
@@ -350,7 +350,7 @@ fn rsx_component_field_hook_rejects_missing_values() {
 
 #[test]
 fn rsx_component_value_reducer_decodes_text_change_values_and_rerenders() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "form",
         r#"<TextField key="email" label="Email" value={state.email} onChange={setEmail} />"#,
@@ -383,7 +383,7 @@ fn rsx_component_value_reducer_decodes_text_change_values_and_rerenders() {
 
 #[test]
 fn rsx_component_value_reducer_decodes_numeric_change_values() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "form",
         r#"
@@ -415,7 +415,7 @@ fn rsx_component_value_reducer_decodes_numeric_change_values() {
 
 #[test]
 fn rsx_component_value_reducer_decodes_selection_values() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "form",
         r#"
@@ -456,7 +456,7 @@ fn rsx_component_value_reducer_decodes_selection_values() {
 
 #[test]
 fn rsx_component_value_reducer_decodes_toggle_values_and_rerenders() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "form",
         r#"
@@ -508,7 +508,7 @@ fn rsx_component_value_reducer_decodes_toggle_values_and_rerenders() {
 
 #[test]
 fn rsx_component_value_reducer_rejects_missing_values() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "form",
         r#"<Button key="save" onPress={setEmail}>Save</Button>"#,
@@ -556,7 +556,7 @@ fn rsx_component_renders_state_driven_disabled_actions() {
 
 #[test]
 fn rsx_component_rejects_disabled_actions_before_runtime_reduce() {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = RsxComponent::new(
         "form",
         r#"<Button key="save" onPress={saveDocument}>Save</Button>"#,

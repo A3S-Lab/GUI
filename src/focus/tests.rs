@@ -2,7 +2,7 @@ use super::*;
 use crate::event::{NativeEvent, NativeEventKind};
 use crate::input::NativeInputModality;
 use crate::native::NativeElement;
-use crate::platform::{Gtk4Adapter, PlatformCommand, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformCommand, PlatformPlanningHost};
 use crate::runtime::GuiRuntime;
 use crate::web::WebProps;
 
@@ -196,7 +196,7 @@ fn runtime_scope_auto_focus_targets_the_first_focusable_descendant() {
         .with_props(scope_props(true, true))
         .child(NativeElement::new("label", NativeRole::Text))
         .child(NativeElement::new("field", NativeRole::TextField));
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
 
     let scope = runtime.render_native(&tree).unwrap();
     let field = runtime.host().node(scope).unwrap().children[1];
@@ -215,7 +215,7 @@ fn runtime_auto_focus_uses_the_typed_focus_command_after_mount() {
         .with_props(scope_props(true, true))
         .child(NativeElement::new("label", NativeRole::Text))
         .child(NativeElement::new("field", NativeRole::TextField));
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
 
     let scope = runtime.render_native(&tree).unwrap();
     let field = runtime.host().node(scope).unwrap().children[1];
@@ -261,7 +261,7 @@ fn runtime_focus_navigation_emits_programmatic_focus_commands() {
             NativeElement::new("programmatic", NativeRole::Button)
                 .with_props(NativeProps::new().tab_index(Some(-1))),
         );
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
 
     let root = runtime.render_native(&tree).unwrap();
     let children = runtime.host().node(root).unwrap().children.clone();
@@ -294,7 +294,7 @@ fn runtime_focus_navigation_emits_programmatic_focus_commands() {
 #[test]
 fn runtime_programmatic_focus_marks_unknown_native_focus_as_virtual() {
     let tree = NativeElement::new("save", NativeRole::Button);
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     let button = runtime.render_native(&tree).unwrap();
 
     runtime.request_focus(button).unwrap();
@@ -321,7 +321,7 @@ fn runtime_programmatic_focus_respects_contained_scope() {
                 .child(NativeElement::new("inside", NativeRole::Button)),
         )
         .child(NativeElement::new("outside", NativeRole::Button));
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
 
     let root = runtime.render_native(&tree).unwrap();
     let scope = runtime.host().node(root).unwrap().children[0];
@@ -347,7 +347,7 @@ fn runtime_redirects_native_focus_that_escapes_a_contained_scope() {
                 .child(NativeElement::new("inside", NativeRole::Button)),
         )
         .child(NativeElement::new("outside", NativeRole::Button));
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     let root = runtime.render_native(&tree).unwrap();
     let scope = runtime.host().node(root).unwrap().children[0];
     let inside = runtime.host().node(scope).unwrap().children[0];
@@ -400,7 +400,7 @@ fn runtime_restores_native_focus_when_a_scope_unmounts() {
         }
     }
 
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     let root = runtime.render_native(&tree(false)).unwrap();
     let trigger = runtime.host().node(root).unwrap().children[0];
     runtime
@@ -428,7 +428,7 @@ fn runtime_restores_native_focus_when_a_scope_unmounts() {
 fn runtime_rejects_programmatic_focus_for_non_focusable_nodes() {
     let tree = NativeElement::new("root", NativeRole::View)
         .child(NativeElement::new("label", NativeRole::Text));
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
 
     let root = runtime.render_native(&tree).unwrap();
     let label = runtime.host().node(root).unwrap().children[0];

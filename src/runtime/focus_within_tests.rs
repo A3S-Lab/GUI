@@ -2,7 +2,7 @@ use super::*;
 use crate::event::NativeEventKind;
 use crate::input::NativeEventContext;
 use crate::native::{NativeElement, NativeProps, NativeRole};
-use crate::platform::{Gtk4Adapter, PlatformPlanningHost};
+use crate::platform::{HeadlessAdapter, PlatformPlanningHost};
 use crate::web::WebProps;
 
 fn focus_tree() -> NativeElement {
@@ -36,8 +36,8 @@ fn focus_tree() -> NativeElement {
         )
 }
 
-fn runtime() -> GuiRuntime<PlatformPlanningHost<Gtk4Adapter>> {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+fn runtime() -> GuiRuntime<PlatformPlanningHost<HeadlessAdapter>> {
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     for action in [
         "parentFocus",
         "focusWithin",
@@ -174,7 +174,7 @@ fn focus_within_fires_only_when_focus_crosses_the_subtree_boundary() {
 
 #[test]
 fn focus_within_action_failure_rolls_back_focus_state() {
-    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(Gtk4Adapter));
+    let mut runtime = GuiRuntime::new(PlatformPlanningHost::new(HeadlessAdapter));
     runtime.actions_mut().register("firstFocus");
     let root = runtime.render_native(&focus_tree()).unwrap();
     let first = runtime.host().node(root).unwrap().children[0];

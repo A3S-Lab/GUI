@@ -2,7 +2,7 @@ use super::*;
 use crate::overlay_position::OverlayPlacement;
 
 fn render_request(
-    session: &NativeProtocolSession<Gtk4Adapter>,
+    session: &NativeProtocolSession<HeadlessAdapter>,
     revision: u64,
     frame: &UiFrame,
 ) -> ProtocolRenderRequestV1 {
@@ -13,7 +13,7 @@ fn render_request(
 }
 
 fn render_ack(
-    session: &NativeProtocolSession<Gtk4Adapter>,
+    session: &NativeProtocolSession<HeadlessAdapter>,
     revision: u64,
     command_sequence: u64,
 ) -> ProtocolRenderAckV1 {
@@ -24,7 +24,7 @@ fn render_ack(
 }
 
 fn host_event(
-    session: &NativeProtocolSession<Gtk4Adapter>,
+    session: &NativeProtocolSession<HeadlessAdapter>,
     revision: u64,
     event_sequence: u64,
     frame_id: &str,
@@ -219,7 +219,7 @@ fn protocol_v1_keeps_accessible_names_independent_from_visible_labels() {
         }
     }))
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
     let request = render_request(&session, 1, &frame);
     let response = session.render_v1(&request).unwrap();
     let command = response
@@ -256,7 +256,7 @@ fn protocol_v1_keeps_accessible_names_independent_from_visible_labels() {
 #[test]
 fn protocol_v1_retains_and_resends_render_until_exact_ack() {
     let mut session =
-        NativeProtocolSession::new_with_session_id(Gtk4Adapter, "delivery-session").unwrap();
+        NativeProtocolSession::new_with_session_id(HeadlessAdapter, "delivery-session").unwrap();
     let frame = counter_frame(&CounterState::default()).unwrap();
     let request = render_request(&session, 1, &frame);
 
@@ -324,7 +324,7 @@ fn protocol_v1_retains_and_resends_render_until_exact_ack() {
 #[test]
 fn protocol_v1_rejects_wrong_identity_revision_and_event_order() {
     let mut session =
-        NativeProtocolSession::new_with_session_id(Gtk4Adapter, "ordered-session").unwrap();
+        NativeProtocolSession::new_with_session_id(HeadlessAdapter, "ordered-session").unwrap();
     let frame = counter_frame(&CounterState::default()).unwrap();
     let valid_render = render_request(&session, 1, &frame);
 
@@ -442,7 +442,7 @@ fn protocol_v1_and_legacy_modes_cannot_be_mixed() {
     let frame = counter_frame(&CounterState::default()).unwrap();
 
     let mut strict =
-        NativeProtocolSession::new_with_session_id(Gtk4Adapter, "strict-session").unwrap();
+        NativeProtocolSession::new_with_session_id(HeadlessAdapter, "strict-session").unwrap();
     let request = render_request(&strict, 1, &frame);
     let rendered = strict.render_v1(&request).unwrap();
     strict
@@ -462,7 +462,7 @@ fn protocol_v1_and_legacy_modes_cannot_be_mixed() {
     assert!(strict.pending_commands().is_empty());
     assert_eq!(strict.mode(), ProtocolSessionMode::StrictV1);
 
-    let mut legacy = NativeProtocolSession::new(Gtk4Adapter);
+    let mut legacy = NativeProtocolSession::new(HeadlessAdapter);
     legacy.render_frame(&frame).unwrap();
     assert_eq!(legacy.mode(), ProtocolSessionMode::Legacy);
     let v1_after_legacy = ProtocolEnvelopeV1::new(
@@ -476,7 +476,7 @@ fn protocol_v1_and_legacy_modes_cannot_be_mixed() {
 #[test]
 fn protocol_v1_invalid_frame_is_atomic_and_a_valid_retry_can_commit() {
     let mut session =
-        NativeProtocolSession::new_with_session_id(Gtk4Adapter, "atomic-session").unwrap();
+        NativeProtocolSession::new_with_session_id(HeadlessAdapter, "atomic-session").unwrap();
     let invalid = ProtocolEnvelopeV1::new(
         ProtocolMetadataV1::render(session.session_id(), 1),
         ProtocolUiFrameV1 {
@@ -523,7 +523,7 @@ fn protocol_v1_password_values_never_leave_response_boundaries() {
     }))
     .unwrap();
     let mut session =
-        NativeProtocolSession::new_with_session_id(Gtk4Adapter, "password-session").unwrap();
+        NativeProtocolSession::new_with_session_id(HeadlessAdapter, "password-session").unwrap();
     let request = render_request(&session, 1, &frame);
 
     // The request is the authorized input boundary; the in-process native plan
@@ -634,7 +634,7 @@ fn legacy_native_render_response_redacts_password_commands() {
         }
     }))
     .unwrap();
-    let mut session = NativeProtocolSession::new(Gtk4Adapter);
+    let mut session = NativeProtocolSession::new(HeadlessAdapter);
 
     let response = session.render_frame(&frame).unwrap();
     let planned_value = response.commands.iter().find_map(|command| match command {

@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::platform::{PlatformCommand, PlatformPlanningHost, WinUiAdapter};
+use crate::platform::{HeadlessAdapter, PlatformCommand, PlatformPlanningHost};
 
 #[test]
 fn runtime_renders_compiled_rsx_to_native_command_stream() {
@@ -37,7 +37,7 @@ fn runtime_renders_compiled_rsx_to_native_command_stream() {
             "#,
     )
     .unwrap();
-    let host = PlatformPlanningHost::new(WinUiAdapter);
+    let host = PlatformPlanningHost::new(HeadlessAdapter);
     let mut runtime = GuiRuntime::new(host);
 
     runtime.render_compiled(&compiled).unwrap();
@@ -48,7 +48,7 @@ fn runtime_renders_compiled_rsx_to_native_command_stream() {
         PlatformCommand::Create {
             blueprint,
             ..
-        } if blueprint.widget_class == "Microsoft.UI.Xaml.Controls.TextBox"
+        } if blueprint.widget_class == "a3s_gui::HeadlessNode"
             && blueprint.label.as_deref() == Some("Email")
     )));
     assert!(commands.iter().any(|command| matches!(
@@ -56,7 +56,7 @@ fn runtime_renders_compiled_rsx_to_native_command_stream() {
         PlatformCommand::Create {
             blueprint,
             ..
-        } if blueprint.widget_class == "Microsoft.UI.Xaml.Controls.Button"
+        } if blueprint.widget_class == "a3s_gui::HeadlessNode"
             && blueprint.action.as_deref() == Some("saveProfile")
     )));
 }

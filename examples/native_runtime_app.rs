@@ -1,5 +1,5 @@
 use a3s_gui::{
-    ActionInvocation, CommandExecutingHost, Gtk4Adapter, NativeEvent, NativeEventKind,
+    ActionInvocation, CommandExecutingHost, HeadlessAdapter, NativeEvent, NativeEventKind,
     NativeRuntimeApp, RecordingBackend, UiFrame,
 };
 use serde_json::json;
@@ -10,7 +10,7 @@ struct CounterState {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let host = CommandExecutingHost::new(Gtk4Adapter, RecordingBackend::default());
+    let host = CommandExecutingHost::new(HeadlessAdapter, RecordingBackend::default());
     let mut app = NativeRuntimeApp::new(
         host,
         CounterState { count: 0 },

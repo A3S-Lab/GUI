@@ -715,15 +715,15 @@ component to an application shell. `try_into_protocol_app` and
 
 ```rust
 counter.validate()?;
-let mut app = counter.try_into_protocol_app(Gtk4Adapter, CounterState::default())?;
+let mut app = counter.try_into_protocol_app(HeadlessAdapter, CounterState::default())?;
 ```
 
 The component can be mounted into the existing protocol loop:
 
 ```rust
-use a3s_gui::Gtk4Adapter;
+use a3s_gui::HeadlessAdapter;
 
-let mut app = counter.into_protocol_app(Gtk4Adapter, CounterState::default());
+let mut app = counter.into_protocol_app(HeadlessAdapter, CounterState::default());
 let rendered = app.render()?;
 ```
 
@@ -1560,8 +1560,9 @@ every 60 milliseconds. Touch steppers begin repeating after 600 milliseconds;
 a shorter touch activates once on release. Leaving, cancellation, a disabled
 or read-only update, and reaching a step boundary stop repetition. The numeric
 input also receives a localized role description. While it is focused,
-normalized value changes are announced assertively through AppKit, GTK4, or
-WinUI's native assistive-technology channel; empty values are localized as
+normalized value changes produce an assertive typed accessibility
+announcement; a concrete zero-widget host must deliver it through the
+operating system's assistive-technology API. Empty values are localized as
 well.
 
 - `UiButton`
@@ -1975,7 +1976,7 @@ Toast and other dynamic feedback props use the shared live-region runtime.
 Updates honor `aria-live`, `aria-atomic`, `aria-relevant`, and `aria-busy`,
 including busy ancestors and nested regions with different priorities. The
 initial status is quiet, newly mounted statuses and initial alerts are
-announced, and AppKit, GTK4, and WinUI receive the same ordered typed message.
+announced, and every host receives the same ordered typed message.
 Hidden/inert subtrees and sensitive input values are excluded.
 
 Date and time primitives use the same composition rules. Field values and
