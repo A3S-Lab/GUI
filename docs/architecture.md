@@ -982,10 +982,15 @@ integer limit, while arbitrary layout/scene fingerprints use lossless fixed
 hexadecimal strings. An optional build-only `typescript-schema` feature walks
 the Rust DTO graph, emits a deterministically ordered declaration module, and
 pins it with an FNV-1a fingerprint. A private TypeScript package imports that
-module in Node 24 and independently canonicalizes the Rust golden fixtures.
+module in Node 24, exposes standard automatic JSX entry points, normalizes
+immutable elements into canonical protocol frames, and independently
+canonicalizes the Rust golden fixtures. Pinned TypeScript 5.9 also type-checks
+a real `react-jsx`/`jsxImportSource` counter fixture. Function event props are
+replaced by deterministic action ids and retained only in a read-only
+per-frame callback snapshot.
 The feature-independent foundation has no Node, Nub, N-API, Graphics, legacy
-renderer, or OS-toolkit dependency; commands, process I/O, the JSX runtime,
-and the Node implementation remain T1 work.
+renderer, or OS-toolkit dependency; committed callback scopes, commands,
+process I/O, and the Node session implementation remain T1 work.
 
 Drop policies that participate in hit testing use a separate synchronous
 protocol-v1 exchange rather than an action invocation. A

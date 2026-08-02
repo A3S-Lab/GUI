@@ -59,8 +59,11 @@ fn counter_frame() -> UiFrame {
             "kind": "element",
             "key": "increment",
             "tag": "Button",
-            "props": {"events": {"onPress": "increment"}},
-            "children": [{"kind": "text", "key": "label", "value": "Count 0"}]
+            "props": {
+                "events": {"onPress": "increment"},
+                "explicitProps": ["onPress"]
+            },
+            "children": [{"kind": "text", "key": "text-0", "value": "Count 0"}]
         }
     }))
     .unwrap()
@@ -328,6 +331,8 @@ fn static_tsx_and_rust_rsx_counter_share_native_and_accessibility_evidence() {
         "#,
     )
     .unwrap();
+
+    assert_eq!(tsx_frame.root, rust_frame.root);
 
     let bridge = RsxCompilerBridge::new();
     let tsx_native = bridge.lower_to_native(&tsx_frame.root).unwrap();

@@ -309,7 +309,7 @@ check-tsx-protocol:
     cargo run --locked --quiet --no-default-features --features typescript-schema --bin a3s-gui-generate-tsx-protocol -- --check
     cargo test --locked --no-default-features --features typescript-schema --lib tsx_protocol::typescript::
 
-# Run dependency-free cross-language protocol fixture tests
+# Type-check automatic TSX and run dependency-free runtime/fixture tests
 test-typescript:
     npm --prefix packages/typescript test
 

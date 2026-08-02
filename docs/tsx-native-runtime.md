@@ -1,8 +1,11 @@
 # TSX to Native Runtime Architecture
 
-Status: proposed API; the T1 protocol SDK foundation is in progress. A private
-development package contains Rust-generated wire declarations and tests, but
-no JSX runtime or executable TSX host is implemented yet.
+Status: proposed API; the T1 headless JSX core is in progress. A private
+development package now contains Rust-generated wire declarations, standard
+automatic JSX entry points, synchronous function-component and child/key/prop
+normalization, deterministic frame lowering, and cross-language golden tests.
+The revision-scoped callback registry, state/hooks, process session, and
+executable native host are not implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -401,9 +404,11 @@ Its feature-gated adapters project `SelfDrawnFrameSnapshot` and
 The optional `typescript-schema` feature walks these Rust DTOs, writes one
 deterministically ordered TypeScript module, and fingerprints its declaration
 body. Canonical hello, counter render, committed, and event fixtures pin the
-wire spelling in Rust and in dependency-free Node 24 tests. Command messages,
-actual local process I/O, the JSX runtime, and the TypeScript peer remain
-pending.
+wire spelling in Rust and Node 24 tests. The private TypeScript peer now
+provides standard automatic JSX entry points, synchronous function-component
+expansion, strict normalization, deterministic frame lowering, and a pinned
+TypeScript 5.9 `react-jsx` fixture. Command messages, actual local process I/O,
+committed callback scopes, state/hooks, and host supervision remain pending.
 
 ### Messages
 
@@ -559,8 +564,9 @@ minimum M4 text/input slice.
 Status: architecture accepted; the Rust-side strict handshake/framing,
 render/commit/event session, counter parity fixtures, self-drawn adapters, and
 drop-policy DTO/resolver adapter are implemented. Calculator and
-commands, JSX execution, and Node-side transport are pending. Rust-generated
-declarations and shared Rust/Node counter fixtures are implemented.
+commands, stateful JSX execution, revision-scoped callbacks, and Node-side
+transport are pending. Rust-generated declarations, the headless automatic
+JSX core, and shared Rust/Node counter fixtures are implemented.
 
 - accept process, ownership, identity, protocol, and packaging decisions
 - retain the landed shared Rust/Node golden frame/event gate and extend it to
@@ -580,14 +586,17 @@ session ordering, self-drawn adapters, four canonical JSON fixtures, and the
 static counter Native IR/accessibility parity test have landed. Safe-integer
 validation, hexadecimal 64-bit fingerprints, deterministic Rust-generated
 TypeScript declarations, a fixed schema fingerprint, the private package
-skeleton, and Node 24 declaration/fixture tests have also landed.
+skeleton, automatic `jsx-runtime`/`jsx-dev-runtime`, immutable element records,
+synchronous function-component expansion, strict child/key/prop/style/window
+normalization, deterministic callback-to-action ids, read-only callback
+snapshots, and Node 24 plus TypeScript 5.9 golden/type tests have also landed.
 
 - extend the landed application messages with command messages and actual
   local process I/O
+- promote the landed per-frame callback snapshot into committed/rollback
+  revision scopes and dispatch ordered event vectors against it
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
-- publish local development exports for `jsx-runtime` and `jsx-dev-runtime`
-- implement element/child/prop normalization, keys, and action registration
 - extend the landed static counter parity fixture to the calculator scenario
 
 Gates:
@@ -665,7 +674,7 @@ green.
 
 1. Add session DTOs, framing limits, and protocol golden fixtures. Landed.
 2. Add generated TypeScript wire declarations and drift CI. Landed.
-3. Add the automatic JSX runtime with normalization and key tests.
+3. Add the automatic JSX runtime with normalization and key tests. Landed.
 4. Add action ids, callback scopes, and event-vector dispatch.
 5. Add the headless host binary and a static TSX counter fixture.
 6. Add state/reducer/effect scheduling and counter interaction tests.

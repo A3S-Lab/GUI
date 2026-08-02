@@ -6,24 +6,26 @@
   <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
   <img alt="Roadmap milestone M3 current" src="https://img.shields.io/badge/roadmap-M3%20current-0067C0?style=flat-square">
-  <img alt="TSX milestone T1 protocol SDK" src="https://img.shields.io/badge/TSX-T1%20protocol%20SDK-1687D9?style=flat-square">
+  <img alt="TSX milestone T1 JSX core" src="https://img.shields.io/badge/TSX-T1%20JSX%20core-1687D9?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2F3945?style=flat-square"></a>
 </p>
 
 **A3S GUI** is a Rust-native, cross-platform semantic UI and rendering runtime.
-Rust RSX is available today; a planned `@a3s/gui` automatic JSX runtime will
-let standard TSX executed by Node or Nub feed the same native pipeline. Neither
-path uses a DOM, CSSOM, WebView, or framework-owned content renderer.
+Rust RSX is available today; a private headless `@a3s/gui` automatic JSX core
+now lets standard TSX lower into the same versioned native frame vocabulary.
+Neither path uses a DOM, CSSOM, WebView, or framework-owned content renderer.
 
 > [!IMPORTANT]
 > The repository is in its P0 renderer migration. The semantic runtime and
 > AppKit/GTK4/WinUI control hosts are established dogfood baselines. The first
 > generic self-drawn layout-to-Scene slice has landed; self-drawn text shaping,
 > editing/IME, accessibility bridges, and real thin-host presentation remain
-> roadmap work. Rust-generated TypeScript wire declarations and a private
-> development package now exist, but the JSX runtime, executable process host,
-> callback/state runtime, and publishable npm packages do not; this is not yet
-> a runnable TSX application. React Aria component parity is not claimed yet.
+> roadmap work. Rust-generated TypeScript wire declarations, automatic JSX
+> entry points, strict element/frame normalization, and cross-language counter
+> gates now exist in a private development package. The committed callback
+> registry, state/hooks, executable process host, and publishable npm packages
+> do not; this is not yet a runnable native TSX application. React Aria
+> component parity is not claimed yet.
 
 The target is unambiguous: A3S draws all application content. The existing
 `appkit-native`, `gtk4-native`, and `winui-native` modules create controls only
@@ -98,7 +100,7 @@ contract.
 
 ## TSX to native, without a browser
 
-The planned TypeScript path follows
+The in-progress TypeScript path follows
 [Nub](https://github.com/nubjs/nub)'s strongest runtime idea: keep stock Node,
 transform `.tsx` through its normal loader pipeline, and let a narrow Rust
 boundary own native work. A3S adds a standard automatic JSX runtime and a
@@ -152,9 +154,14 @@ bounded to JavaScript's exact integer range; arbitrary layout/scene
 fingerprints are fixed 16-digit lowercase hexadecimal strings. Rust DTOs now
 generate the checked-in `@a3s/gui/protocol` declarations and declaration
 fingerprint. Canonical hello, counter render, commit, and event fixtures are
-parsed and byte-canonicalized in both Rust and Node 24, while a Rust RSX/TSX
-Native IR and accessibility parity test pins the semantic slice. Actual process
-I/O, the JSX runtime, callback registry/state, and publishable packages remain.
+parsed and byte-canonicalized in both Rust and Node 24. The private automatic
+JSX runtime now expands synchronous function components, normalizes elements,
+children, keys, props, styles, windows, and callbacks, and produces that exact
+counter render fixture; pinned TypeScript 5.9 compiles the corresponding real
+TSX source. Rust now proves the complete compiled counter trees are equal
+before Native IR and accessibility parity. Actual process I/O, committed and
+rollback callback scopes, state/hooks, the native host, and publishable
+packages remain.
 The design keeps component state and callbacks in Node, platform/GPU handles
 inside a separate Rust process, and Rust as the only native reconciler. Read the
 [TSX native runtime architecture](docs/tsx-native-runtime.md) for protocol,
@@ -366,7 +373,7 @@ independently.
 | M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, typed and collection drag/drop, timed drop activation, and fail-closed dynamic drop policy resolution landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
 | H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, long press, captured move, typed drag/drop negotiation and timed target activation, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
-| T0-T5 · TSX native authoring | T1 protocol SDK in progress | Strict handshake/framing, transactional render/commit/event messages, self-drawn adapters, safe JSON integer/fingerprint encoding, Rust-generated TypeScript declarations with drift CI, private package skeleton, counter golden/parity fixtures, and revision-scoped drop-policy bridge landed; process I/O, JSX runtime, Node callback registry/state, calculator parity, and stable SDK remain |
+| T0-T5 · TSX native authoring | T1 headless JSX core in progress | Strict handshake/framing, transactional render/commit/event messages, self-drawn adapters, safe JSON integer/fingerprint encoding, Rust-generated declarations, standard JSX entry points, strict element/frame normalization, TypeScript/Node golden gates, counter parity, and the drop-policy bridge landed; process I/O, committed callback scopes/state, calculator parity, native host, and stable SDK remain |
 | M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped; collection DnD authoring/behavior slice landed; eight public parts, full software, accessibility, and three-OS self-drawn evidence remain |
 
 The dependency-ordered plan and acceptance gates are in the

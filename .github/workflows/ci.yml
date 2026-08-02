@@ -41,6 +41,10 @@ jobs:
           node-version: "24"
           package-manager-cache: false
 
+      - name: Install TypeScript SDK development dependencies
+        shell: bash
+        run: npm --prefix packages/typescript ci --ignore-scripts
+
       - name: Run local verification gate
         shell: bash
         run: just verify

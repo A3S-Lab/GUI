@@ -628,8 +628,11 @@ transactional render/commit/event session, self-drawn snapshot/event adapters,
 counter golden/parity fixtures, and revision-scoped drop-policy
 protocol/resolver adapter have landed. Rust-generated TypeScript declarations,
 a fixed schema fingerprint, a private `@a3s/gui` package skeleton, and shared
-Rust/Node fixture gates have also landed. Process I/O, the JSX runtime, Node
-callback registry, and visible TSX application remain.
+Rust/Node fixture gates have also landed. The automatic JSX entry points,
+synchronous function-component expansion, strict frame normalization,
+callback-to-action lowering, and real TSX type gate are now included. Process
+I/O, committed callback scopes, state/hooks, the native host, and a visible TSX
+application remain.
 
 This track is dependency-coupled to the renderer and H0-H5 host programs
 without blocking Rust RSX work. Headless protocol and JSX-runtime work can
@@ -672,11 +675,15 @@ dependencies; self-drawn conversions compile only with `platform-runtime`.
 All numeric `u64` fields are bounded to JavaScript's safe integer range, full
 64-bit scene/layout fingerprints use fixed hexadecimal strings, and optional
 `typescript-schema` generation now produces the checked-in declarations and
-fingerprint. Node 24 independently imports that module and canonicalizes the
-same four fixtures without an npm dependency.
+fingerprint. Standard automatic JSX entry points, immutable elements,
+synchronous function-component expansion, strict child/key/prop/style/window
+normalization, deterministic callback-to-action ids, and read-only per-frame
+callback snapshots now lower into those declarations. Node 24 canonicalizes
+the same four fixtures, while pinned TypeScript 5.9 type-checks a real
+`react-jsx`/`jsxImportSource` counter; the package has no production dependency
+or install script.
 
-- automatic `jsx-runtime` and `jsx-dev-runtime` exports
-- deterministic child, prop, key, and event normalization
+- committed/rollback callback scopes and ordered event-vector dispatch
 - add command messages, local process I/O, and generated structured diagnostic
   declarations to the landed application session
 - extend the landed static counter semantic parity to the calculator fixture
