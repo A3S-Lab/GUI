@@ -149,9 +149,10 @@ provides the first real, thread-affine `WindowsPlatformHost`. It stages raw
 top-level HWNDs while hidden, owns their bounded message pump and DPI-aware
 lifecycle, and lends Graphics an owned surface token. An active token prevents
 HWND destruction. The same pump normalizes DPI-aware legacy mouse, keyboard,
-wheel, modifier, capture, and focus-loss state. It does not create child
-controls or draw application content. `host-macos`, `host-linux-wayland`, and
-`host-linux-x11` remain capability markers until their raw hosts land.
+wheel, concurrent `WM_POINTER` touch/pen, pressure, modifier, capture, and
+focus-loss state. It does not create child controls or draw application
+content. `host-macos`, `host-linux-wayland`, and `host-linux-x11` remain
+capability markers until their raw hosts land.
 
 ## Shared self-drawn runtime (H1)
 
@@ -294,8 +295,8 @@ restarted-process keyboard/stale-event gates. The remaining critical work is:
 1. production font discovery/shaping and glyph encoding behind the landed
    generic layout/scene contracts, followed by editing, IME, and accessibility
    semantics;
-2. Windows touch/pen, TSF/UIA, device-loss evidence, and visible TSX completion
-   plus raw macOS and Wayland/X11 hosts;
+2. Windows touch/pen hardware conformance, TSF/UIA, device-loss evidence, and
+   visible TSX completion plus raw macOS and Wayland/X11 hosts;
 3. component-by-component React Aria conformance;
 4. packaging, signing, installers, and real tri-platform evidence.
 

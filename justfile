@@ -121,6 +121,7 @@ test-platform-runtime:
 
 # Exercise real Win32 lifecycle/input plus H1-to-H2 and DX12 presentation on Windows
 test-windows-host:
+    cargo test --locked --no-default-features --features host-windows --lib platform_host::windows::input::pointer::tests -- --test-threads=1
     cargo test --locked --no-default-features --features host-windows --test windows_platform_host -- --test-threads=1
     cargo test --locked --no-default-features --features host-windows,platform-runtime --test windows_platform_host shared_self_drawn_runtime_commits_into_the_real_hidden_win32_host -- --exact --test-threads=1
     cargo test --locked --no-default-features --features host-windows,platform-runtime,gpu --test windows_platform_host graphics_presenter_draws_and_presents_the_first_real_win32_frame -- --exact --test-threads=1

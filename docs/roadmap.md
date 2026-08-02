@@ -28,7 +28,7 @@ or fallback renderer.
 | M5 cutover/deletion | Partial | Legacy deletion complete; real OS-host cutover cannot occur until H2-H4 |
 | H0 host contract | Complete | Zero-widget transaction/event/API contract and dependency firewall |
 | H1 shared runtime | Complete | Host-first staging, owned presentation targets, typed completion, rollback ordering, input/hit/a11y routing |
-| H2 Windows host | In progress | Real HWND lifecycle, owned surface leases, Graphics/DX12 presentation, PMv2 DPI, legacy mouse/keyboard/wheel input, atomic transactions, Windows CI |
+| H2 Windows host | In progress | Real HWND lifecycle, owned surface leases, Graphics/DX12 presentation, PMv2 DPI, mouse/keyboard/wheel and WM_POINTER touch/pen input, atomic transactions, Windows CI |
 | H3-H4 real hosts | Planned | macOS and Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
@@ -249,6 +249,9 @@ Delivered:
 - DPI-correct legacy mouse buttons/motion, vertical and horizontal wheel,
   physical/logical keyboard translation, repeat/modifier state, mouse capture,
   and focus-loss cancellation in the bounded message pump;
+- bounded `WM_POINTER` touch/pen translation with DPI-correct coordinates,
+  normalized pressure/buttons, stable namespaced identities, concurrent
+  contacts, compatibility-mouse suppression, and capture/focus cancellation;
 - source/dependency firewalls confining unsafe Win32 ABI calls and rejecting
   content toolkits.
 
@@ -256,7 +259,7 @@ Remaining:
 
 - device-loss fault injection, minimize/restore recovery, and reviewed GPU
   capture evidence;
-- WM_POINTER touch/pen translation and extended input conformance;
+- hardware-injected touch/pen message-path and extended input conformance;
 - TSF, UI Automation, clipboard, and explicit system services;
 - visible RSX/TSX story plus deterministic/GPU capture evidence.
 
@@ -488,11 +491,16 @@ destruction-order tests.
 
 Completed on 2026-08-03: DPI-correct Win32 legacy mouse, keyboard, and wheel
 translation with capture, modifier/repeat tracking, system-key default handling,
-and focus-loss cancellation. Touch/pen, text/IME, accessibility, system-service,
-and reviewed visual-parity evidence remain incomplete.
+and focus-loss cancellation.
+
+Completed on 2026-08-03: bounded `WM_POINTER` touch/pen translation with
+pressure, stable device and pointer identities, concurrent contacts,
+full-sequence consumption, and capture/focus-loss cancellation. Hardware
+injection, text/IME, accessibility, system-service, and reviewed visual-parity
+evidence remain incomplete.
 
 1. Connect completed T2 frame commits to a visible host executable and add
-   WM_POINTER touch/pen translation.
+   hardware-injected touch/pen message-path evidence.
 2. Add minimize/restore and device-loss fault injection, then capture the same
    deterministic story through DX12.
 3. Implement production font/shaping and glyph encoder backends, then TSF and

@@ -68,6 +68,8 @@ fn raw_platform_unsafe_is_confined_to_reviewed_windows_abi_files() {
     let allowed = [
         source_root.join("windows/input.rs"),
         source_root.join("windows/input/mouse.rs"),
+        source_root.join("windows/input/pointer.rs"),
+        source_root.join("windows/input/pointer/native.rs"),
         source_root.join("windows/keyboard.rs"),
         source_root.join("windows/native.rs"),
         source_root.join("windows/surface.rs"),

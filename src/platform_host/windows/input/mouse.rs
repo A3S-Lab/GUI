@@ -52,7 +52,7 @@ impl WindowsInputState {
         let timestamp_micros = self.timestamp_micros();
         let position = client_position(lparam, dpi);
         let buttons = mouse_buttons(low_word(wparam));
-        let modifiers = mouse_modifiers(low_word(wparam));
+        let modifiers = pointer_modifiers(low_word(wparam));
         self.mouse_position = position;
         self.mouse_buttons = buttons;
         self.set_modifiers(
@@ -126,7 +126,7 @@ impl WindowsInputState {
         let position = client_position(lparam, dpi);
         let previous_buttons = self.mouse_buttons;
         let buttons = mouse_buttons(low_word(wparam));
-        let modifiers = mouse_modifiers(low_word(wparam));
+        let modifiers = pointer_modifiers(low_word(wparam));
         self.mouse_position = position;
         self.mouse_buttons = buttons;
         self.set_modifiers(
@@ -191,7 +191,7 @@ impl WindowsInputState {
         events: &WindowsEventQueue,
     ) -> WindowsInputMessage {
         let timestamp_micros = self.timestamp_micros();
-        let modifiers = mouse_modifiers(low_word(wparam));
+        let modifiers = pointer_modifiers(low_word(wparam));
         self.set_modifiers(
             window,
             LEGACY_MOUSE_DEVICE,
@@ -336,7 +336,7 @@ fn point_is_in_client(hwnd: HWND, lparam: LPARAM) -> bool {
     x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom
 }
 
-fn mouse_modifiers(keys: u16) -> NativeKeyModifiers {
+pub(super) fn pointer_modifiers(keys: u16) -> NativeKeyModifiers {
     NativeKeyModifiers::new()
         .shift(keys & MK_SHIFT != 0)
         .control(keys & MK_CONTROL != 0)

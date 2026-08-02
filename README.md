@@ -21,7 +21,7 @@ uses a DOM, CSSOM, WebView, or platform content-widget toolkit.
 > lanes have been deleted. `platform-host` defines the zero-widget boundary,
 > `platform-runtime` implements the shared atomic self-drawn frame runtime, and
 > `host-windows` provides the first raw Win32 window lifecycle, owned surface
-> lease, and normalized legacy mouse/keyboard/wheel input. The Graphics-owned
+> lease, and normalized mouse/keyboard/wheel/touch/pen input. The Graphics-owned
 > presenter submits and presents the first real DX12 window frame. Raw
 > macOS/Linux hosts remain roadmap work.
 
@@ -91,9 +91,10 @@ The repository already provides:
 - a target-gated `WindowsPlatformHost` with real Win32 `HWND` lifecycle,
   per-monitor-v2 DPI client sizing, message pumping, focus/close/occlusion
   events, DPI-correct legacy mouse/keyboard/wheel translation, capture and
-  focus-loss cancellation, hidden first-frame staging, owned raw-surface leases
-  that prevent premature HWND destruction, atomic prepare/commit/rollback, and
-  Windows-native CI evidence;
+  focus-loss cancellation, bounded concurrent `WM_POINTER` touch/pen
+  translation with pressure and namespaced identities, hidden first-frame
+  staging, owned raw-surface leases that prevent premature HWND destruction,
+  atomic prepare/commit/rollback, and Windows-native CI evidence;
 - `SelfDrawnWindowRuntime` with atomic prepare/commit/reject, recovery,
   typed presentation outcomes, normalized input, hit testing, drag/drop,
   accessibility actions, and reference/recording/GPU presenters;
@@ -142,8 +143,8 @@ The repository already provides:
 
 Still required before a production native application:
 
-- Windows touch/pen input, TSF, UI Automation, system services, device-loss
-  fault injection, and reviewed GPU capture evidence;
+- Windows touch/pen hardware-injection conformance, TSF, UI Automation, system
+  services, device-loss fault injection, and reviewed GPU capture evidence;
 - real zero-widget macOS and Wayland/X11 hosts;
 - a production font database/shaper and glyph raster/atlas encoder, followed by
   text editing, IME, and assistive-technology bridges;
@@ -345,8 +346,8 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. complete Windows touch/pen input, TSF, UI Automation, system services,
-   minimize/restore recovery, and device-loss fault injection;
+1. add Windows touch/pen hardware-injection evidence, TSF, UI Automation,
+   system services, minimize/restore recovery, and device-loss fault injection;
 2. implement the font discovery/shaping and glyph raster/atlas backends on the
    landed generic text contracts, then add editing and IME;
 3. connect the completed T2 TSX runtime to the visible Windows GPU path, then port

@@ -19,7 +19,7 @@ feature links those toolkits.
 | --- | --- | --- |
 | H0 contract | Implemented | Versioned transactions/events, validation limits, recording host, dependency firewall |
 | H1 shared runtime | Implemented | Host-first target staging, typed presenter completion, rollback ordering, input/hit/accessibility routing |
-| H2 Windows host | In progress | Real Win32 lifecycle, owned surface leases, Graphics/DX12 presentation, DPI/size/focus/close, legacy mouse/keyboard/wheel input, target CI |
+| H2 Windows host | In progress | Real Win32 lifecycle, owned surface leases, Graphics/DX12 presentation, DPI/size/focus/close, mouse/keyboard/wheel plus WM_POINTER touch/pen input, target CI |
 | H3 macOS host | Planned | No concrete macOS window/Metal host in the repository |
 | H4 Linux host | Planned | No concrete Wayland/X11/Vulkan host in the repository |
 | H5 product cutover | Planned | Requires all three hosts, packaging, and conformance evidence |
@@ -27,9 +27,11 @@ feature links those toolkits.
 `host-windows` exposes a real target-gated `WindowsPlatformHost`. It stages a
 new raw HWND while hidden, leases its lifetime to the Graphics-owned surface,
 commits visibility, and then publishes the prepared frame through DX12. The
-same bounded pump translates DPI-correct legacy mouse, keyboard, wheel,
-modifier, capture, and focus-loss state. Target-native tests prove those paths
-but are not yet reviewed screenshots or a full Windows conformance claim.
+same bounded pump translates DPI-correct legacy mouse, keyboard, wheel, and
+concurrent `WM_POINTER` touch/pen input, including pressure, modifier, capture,
+and focus-loss state. Target-native tests prove the normalized state machine
+and compile the raw ABI path, but are not yet hardware-injection evidence,
+reviewed screenshots, or a full Windows conformance claim.
 `host-macos` and `host-linux` remain capability markers.
 
 ## Target pipeline
@@ -169,13 +171,16 @@ Delivered:
 - DPI-correct legacy mouse motion/buttons, vertical/horizontal wheel, physical
   and logical keyboard values, modifier/repeat state, capture, and focus-loss
   cancellation;
+- bounded `WM_POINTER` touch/pen translation with pressure, stable namespaced
+  pointer identities, concurrent contacts, full-sequence consumption, and
+  capture/focus-loss cancellation;
 - real Windows lifecycle/H1/DX12 tests and unsafe/dependency firewalls.
 
 Remaining:
 
 - device-loss fault injection, minimize/restore recovery, and reviewed GPU
   capture evidence;
-- WM_POINTER touch and pen events plus extended input conformance;
+- hardware-injected touch/pen message-path and extended input conformance;
 - TSF text input and UI Automation snapshot/action bridge;
 - clipboard and explicit file-picker smoke;
 - deterministic reference story plus GPU screenshot evidence.
@@ -240,6 +245,7 @@ Every host must eventually provide:
 
 Portable H0/H1 tests remain the cross-platform contract authority. The
 Windows-native lane additionally proves raw lifecycle, lease rollback, legacy
-mouse/keyboard/wheel translation and cancellation, and Graphics/DX12
-presentation. It is not touch/pen, text, accessibility-provider, system-service,
-or reviewed visual-conformance evidence yet.
+mouse/keyboard/wheel translation and cancellation, target-compiled
+`WM_POINTER` touch/pen normalization, and Graphics/DX12 presentation. It is not
+hardware-injected touch/pen, text, accessibility-provider, system-service, or
+reviewed visual-conformance evidence yet.

@@ -10,8 +10,9 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     WM_CANCELMODE, WM_CAPTURECHANGED, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN,
     WM_LBUTTONUP, WM_MBUTTONDBLCLK, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE,
-    WM_MOUSEWHEEL, WM_RBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
-    WM_XBUTTONDBLCLK, WM_XBUTTONDOWN, WM_XBUTTONUP,
+    WM_MOUSEWHEEL, WM_POINTERCAPTURECHANGED, WM_POINTERDOWN, WM_POINTERENTER, WM_POINTERLEAVE,
+    WM_POINTERUP, WM_POINTERUPDATE, WM_RBUTTONDBLCLK, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
+    WM_SYSKEYUP, WM_XBUTTONDBLCLK, WM_XBUTTONDOWN, WM_XBUTTONUP,
 };
 
 use crate::input::NativeKeyModifiers;
@@ -26,8 +27,10 @@ use super::keyboard::{
 };
 
 mod mouse;
+mod pointer;
 
 use mouse::WM_MOUSELEAVE;
+use pointer::WindowsPointerState;
 
 const KEYBOARD_DEVICE: PlatformInputDeviceId = PlatformInputDeviceId::new(2);
 const MAX_PRESSED_KEYS: usize = 512;
@@ -110,6 +113,9 @@ pub(super) struct WindowsInputState {
     mouse_position: PlatformPoint,
     modifiers: NativeKeyModifiers,
     pressed_keys: BTreeMap<u32, WindowsKeyTranslation>,
+    active_pointers: BTreeMap<u32, WindowsPointerState>,
+    pointer_devices: BTreeMap<(usize, u8), PlatformInputDeviceId>,
+    next_pointer_device: u64,
 }
 
 impl WindowsInputState {
@@ -121,6 +127,9 @@ impl WindowsInputState {
             mouse_position: PlatformPoint::default(),
             modifiers: NativeKeyModifiers::new(),
             pressed_keys: BTreeMap::new(),
+            active_pointers: BTreeMap::new(),
+            pointer_devices: BTreeMap::new(),
+            next_pointer_device: 3,
         }
     }
 
@@ -163,6 +172,14 @@ impl WindowsInputState {
             WM_MOUSEWHEEL | WM_MOUSEHWHEEL => {
                 Some(self.mouse_wheel(hwnd, window, dpi, message, wparam, lparam, events))
             }
+            WM_POINTERENTER
+            | WM_POINTERLEAVE
+            | WM_POINTERDOWN
+            | WM_POINTERUPDATE
+            | WM_POINTERUP
+            | WM_POINTERCAPTURECHANGED => {
+                Some(self.pointer_message(hwnd, window, dpi, message, wparam, events))
+            }
             WM_KEYDOWN | WM_SYSKEYDOWN | WM_KEYUP | WM_SYSKEYUP => {
                 Some(self.key(window, message, wparam, lparam, events))
             }
@@ -174,6 +191,7 @@ impl WindowsInputState {
             }
             WM_CANCELMODE => {
                 self.cancel_pointer(window, events);
+                self.cancel_contact_pointers(window, events);
                 Some(WindowsInputMessage::handled(0).capture(CaptureAction::Release))
             }
             _ => None,
@@ -186,6 +204,7 @@ impl WindowsInputState {
         events: &WindowsEventQueue,
     ) -> WindowsInputMessage {
         self.cancel_pointer(window, events);
+        self.cancel_contact_pointers(window, events);
         let timestamp_micros = self.timestamp_micros();
         let pressed_keys = std::mem::take(&mut self.pressed_keys);
         for (_, key) in pressed_keys {
