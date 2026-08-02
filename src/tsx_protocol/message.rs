@@ -532,6 +532,38 @@ impl TsxHostMessageV1 {
         }
     }
 
+    pub fn pong(
+        session_id: impl Into<String>,
+        message_id: u64,
+        render_revision: u64,
+        payload: TsxLivenessPayloadV1,
+    ) -> Self {
+        Self::Pong {
+            protocol: TSX_PROTOCOL_NAME.to_string(),
+            protocol_version: NATIVE_PROTOCOL_VERSION_V1,
+            session_id: session_id.into(),
+            message_id,
+            render_revision,
+            payload,
+        }
+    }
+
+    pub fn close(
+        session_id: impl Into<String>,
+        message_id: u64,
+        render_revision: u64,
+        payload: TsxClosePayloadV1,
+    ) -> Self {
+        Self::Close {
+            protocol: TSX_PROTOCOL_NAME.to_string(),
+            protocol_version: NATIVE_PROTOCOL_VERSION_V1,
+            session_id: session_id.into(),
+            message_id,
+            render_revision,
+            payload,
+        }
+    }
+
     pub fn metadata(&self) -> TsxMessageMetadataRefV1<'_> {
         match self {
             Self::Welcome {

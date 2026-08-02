@@ -7,9 +7,9 @@ child/key/prop normalization, deterministic frame lowering, state/reducer/
 memo/ref/context/effect hooks, transactional render error boundaries, batched
 rerenders, revision-scoped callback scopes, ordered event dispatch, and strict
 client handshake/framing plus post-handshake client/host message sequencing.
-The no-shell Node byte transport is implemented; the Rust TSX host executable,
-application message pump, supervision/replay, and executable native host are
-not implemented yet.
+The no-shell Node byte transport and strict software self-drawn Rust process
+host are implemented. The ordered `createApp` process pump,
+supervision/replay, and executable native OS host are not implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -200,7 +200,7 @@ frame compiler + action registry
 length-prefixed local session transport
    |
    v
-a3s-gui-host (Rust process)
+a3s-gui-tsx-host (Rust process)
    |  validates version, limits, keys, props, and action ids
    v
 CompiledRsxNode -> RsxCompilerBridge -> NativeElement
@@ -439,9 +439,10 @@ wire spelling in Rust and Node 24 tests. The private TypeScript peer now
 provides standard automatic JSX entry points, keyed function-component
 instances, strict normalization, deterministic frame lowering, a stateful
 application scheduler, a strict client handshake/session, an incremental
-little-endian JSON frame codec, a no-shell Node child-process transport, and a
-pinned TypeScript 5.9 `react-jsx` fixture. Command messages, the Rust process
-host/application pump, and supervision/replay remain pending.
+little-endian JSON frame codec, a no-shell Node child-process transport, a
+strict software self-drawn Rust process host, and a pinned TypeScript 5.9
+`react-jsx` fixture. Command messages, the ordered application pump, and
+supervision/replay remain pending.
 
 `A3sClientHandshakeV1` constructs the exact first `hello`, bounds its encoded
 size, and accepts only a matching negotiated `welcome`. `A3sJsonFrameDecoderV1`
@@ -620,9 +621,10 @@ minimum M4 text/input slice.
 ### T0 - Contract and Architecture
 
 Status: architecture accepted; the Rust-side strict handshake/framing,
-render/commit/event session, counter parity fixtures, self-drawn adapters, and
-drop-policy DTO/resolver adapter are implemented. Calculator, commands, and the
-Rust process host/application pump are pending. Rust-generated declarations,
+render/commit/event session, counter parity fixtures, self-drawn adapters,
+drop-policy DTO/resolver adapter, and the software self-drawn Rust process host
+are implemented. Calculator, commands, and the ordered application pump are
+pending. Rust-generated declarations,
 the headless automatic JSX core, stateful JSX execution, client
 handshake/framing, the Node child-process byte transport, post-handshake session
 integration, bounded revision callback scopes, ordered dispatch, and shared
@@ -654,8 +656,8 @@ event dispatch, and Node 24 plus TypeScript 5.9 golden/type tests have also
 landed.
 
 - extend the landed application messages with command messages
-- build the Rust TSX host executable and adapt the landed framed connection to
-  the ordered `A3sApplicationHostV1` event/commit pump
+- adapt the landed Rust TSX host and framed connection to the ordered
+  `A3sApplicationHostV1` event/commit pump
 - add bounded restart policy, crash recovery, and committed-frame replay
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
@@ -691,11 +693,13 @@ Delivered:
 - strict client `hello`/`welcome` negotiation and incremental framed JSON codec
 - ordered framed connection and no-shell Node child-process byte transport with
   bounded stderr, timeout-backed shutdown, and success/crash process fixtures
+- strict `a3s-gui-tsx-host` process with software-reference self-drawn commits,
+  independent client/host sequencing, liveness replies, and graceful close
 - serialized event/commit consumption across overlapping host messages
 
 Remaining:
 
-- headless Rust TSX host executable and ordered `createApp` message pump
+- ordered `createApp` message pump over the landed process transport and host
 - bounded restart policy, crash recovery, and committed-frame replay
 - final public component/action identity contract
 - complete keyboard, stale-event, host-crash, and replay gates

@@ -73,8 +73,10 @@ await callbacks.dispatch(eventMessage);
 callbacks.clear();                  // release all retained callback scopes
 ```
 
-The Rust TSX host executable, ordered `createApp` message pump, restart/replay
-supervision, native host executable, and stable full semantic component API
+The Rust `a3s-gui-tsx-host` process now accepts strict framed
+hello/render/ping/close traffic and commits full frames through the software
+self-drawn runtime. The ordered `createApp` process pump, restart/replay
+supervision, native OS host executable, and stable full semantic component API
 remain later delivery slices. This package is therefore not a published SDK or
 a runnable native TSX application yet. The current `createApp` requires an
 explicit typed `A3sApplicationHostV1` with an already negotiated `welcome`; it

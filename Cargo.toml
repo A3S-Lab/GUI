@@ -19,6 +19,11 @@ name = "a3s-gui-generate-tsx-protocol"
 path = "src/bin/generate_tsx_protocol.rs"
 required-features = ["typescript-schema"]
 
+[[bin]]
+name = "a3s-gui-tsx-host"
+path = "src/bin/tsx_host.rs"
+required-features = ["platform-runtime", "software-reference"]
+
 [[example]]
 name = "component_playground"
 required-features = ["authoring"]

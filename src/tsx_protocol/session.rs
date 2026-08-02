@@ -162,26 +162,45 @@ impl TsxHostApplicationSessionV1 {
         })
     }
 
-    /// Sequences liveness and close messages that arrive between renders.
-    pub fn accept_control(&mut self, message: &TsxClientMessageV1) -> GuiResult<()> {
-        message.validate()?;
-        if matches!(
-            message,
-            TsxClientMessageV1::Hello { .. } | TsxClientMessageV1::Render { .. }
-        ) {
-            return Err(GuiError::host(
-                "TSX application control path accepts only ping, pong, or close",
-            ));
-        }
+    /// Atomically accepts a control message and sequences its required reply.
+    ///
+    /// Ping receives pong, close receives close, and pong needs no reply. The
+    /// complete reply must fit the negotiated frame before either independent
+    /// message sequence advances.
+    pub fn accept_control(
+        &mut self,
+        message: &TsxClientMessageV1,
+    ) -> GuiResult<Option<TsxHostMessageV1>> {
+        self.validate_control(message)?;
         let metadata = message.metadata();
-        self.validate_client_identity(metadata.session_id, metadata.message_id)?;
-        if metadata.render_revision != self.committed_render_revision {
-            return Err(GuiError::host(format!(
-                "TSX control message render revision {} is stale; active revision is {}",
-                metadata.render_revision, self.committed_render_revision
-            )));
+        let response = match message {
+            TsxClientMessageV1::Ping { payload, .. } => Some(TsxHostMessageV1::pong(
+                self.session_id.clone(),
+                self.host_messages.expected_message_id()?,
+                self.committed_render_revision,
+                *payload,
+            )),
+            TsxClientMessageV1::Pong { .. } => None,
+            TsxClientMessageV1::Close { payload, .. } => Some(TsxHostMessageV1::close(
+                self.session_id.clone(),
+                self.host_messages.expected_message_id()?,
+                self.committed_render_revision,
+                payload.clone(),
+            )),
+            TsxClientMessageV1::Hello { .. } | TsxClientMessageV1::Render { .. } => {
+                unreachable!("validated TSX control message")
+            }
+        };
+        if let Some(response) = &response {
+            response.validate()?;
+            encode_tsx_json_frame_v1(response, self.limits)?;
         }
-        self.client_messages.accept(metadata.message_id)
+
+        self.client_messages.accept(metadata.message_id)?;
+        if let Some(response) = &response {
+            self.host_messages.accept(response.metadata().message_id)?;
+        }
+        Ok(response)
     }
 
     /// Abandons a prepared render while retaining the previous committed
@@ -304,6 +323,27 @@ impl TsxHostApplicationSessionV1 {
         if message_id != expected {
             return Err(GuiError::host(format!(
                 "TSX protocol message id {message_id} is invalid; expected {expected}"
+            )));
+        }
+        Ok(())
+    }
+
+    fn validate_control(&self, message: &TsxClientMessageV1) -> GuiResult<()> {
+        message.validate()?;
+        if matches!(
+            message,
+            TsxClientMessageV1::Hello { .. } | TsxClientMessageV1::Render { .. }
+        ) {
+            return Err(GuiError::host(
+                "TSX application control path accepts only ping, pong, or close",
+            ));
+        }
+        let metadata = message.metadata();
+        self.validate_client_identity(metadata.session_id, metadata.message_id)?;
+        if metadata.render_revision != self.committed_render_revision {
+            return Err(GuiError::host(format!(
+                "TSX control message render revision {} is stale; active revision is {}",
+                metadata.render_revision, self.committed_render_revision
             )));
         }
         Ok(())

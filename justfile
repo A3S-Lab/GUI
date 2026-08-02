@@ -44,6 +44,10 @@ check-tsx-protocol:
 test-typescript:
     npm --prefix packages/typescript test
 
+# Drive the real Rust self-drawn TSX process through framed stdin/stdout
+test-tsx-host:
+    cargo test --locked --no-default-features --features platform-runtime,software-reference --test tsx_host_process
+
 # Exercise both GUI-to-Graphics renderer boundaries
 test-graphics:
     cargo test --locked --no-default-features --features software-reference,gpu --lib drawing::
@@ -121,7 +125,7 @@ doc-check:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-default-features --features typescript-schema --no-deps --document-private-items
 
 # Run the full local verification suite
-verify: fmt-check check-core check-core-graph check-platform-host check-platform-host-graph check-platform-runtime check-platform-runtime-graph check-tsx-protocol clippy doc-check test test-examples test-react-aria-catalog test-typescript test-platform-host test-platform-runtime test-graphics diff-check
+verify: fmt-check check-core check-core-graph check-platform-host check-platform-host-graph check-platform-runtime check-platform-runtime-graph check-tsx-protocol clippy doc-check test test-examples test-react-aria-catalog test-typescript test-tsx-host test-platform-host test-platform-runtime test-graphics diff-check
 
 # Run dogfood reducer and protocol-boundary regression tests
 dogfood-regression:

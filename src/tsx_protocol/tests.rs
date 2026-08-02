@@ -252,9 +252,73 @@ fn stale_render_metadata_fails_before_session_mutation() {
         render_revision: 0,
         payload: TsxLivenessPayloadV1 { nonce: 9 },
     };
-    session.accept_control(&ping).unwrap();
+    assert!(session.accept_control(&ping).unwrap().is_some());
     session.accept_render(&counter_render(3, 1)).unwrap();
     assert_eq!(session.last_client_message_id(), 3);
+}
+
+#[test]
+fn control_replies_advance_independent_message_sequences_atomically() {
+    let mut session = TsxHostApplicationSessionV1::new(&negotiated(4096)).unwrap();
+    let ping = TsxClientMessageV1::Ping {
+        protocol: TSX_PROTOCOL_NAME.to_string(),
+        protocol_version: 1,
+        session_id: "tsx-fixture".to_string(),
+        message_id: 2,
+        render_revision: 0,
+        payload: TsxLivenessPayloadV1 { nonce: 17 },
+    };
+    let pong = session.accept_control(&ping).unwrap().unwrap();
+    assert!(matches!(
+        pong,
+        TsxHostMessageV1::Pong {
+            message_id: 2,
+            render_revision: 0,
+            payload: TsxLivenessPayloadV1 { nonce: 17 },
+            ..
+        }
+    ));
+    assert_eq!(session.last_client_message_id(), 2);
+    assert_eq!(session.last_host_message_id(), 2);
+
+    let pong = TsxClientMessageV1::Pong {
+        protocol: TSX_PROTOCOL_NAME.to_string(),
+        protocol_version: 1,
+        session_id: "tsx-fixture".to_string(),
+        message_id: 3,
+        render_revision: 0,
+        payload: TsxLivenessPayloadV1 { nonce: 17 },
+    };
+    assert!(session.accept_control(&pong).unwrap().is_none());
+    assert_eq!(session.last_client_message_id(), 3);
+    assert_eq!(session.last_host_message_id(), 2);
+
+    let close = TsxClientMessageV1::Close {
+        protocol: TSX_PROTOCOL_NAME.to_string(),
+        protocol_version: 1,
+        session_id: "tsx-fixture".to_string(),
+        message_id: 4,
+        render_revision: 0,
+        payload: TsxClosePayloadV1 {
+            reason: TsxCloseReasonV1::Requested,
+            message: Some("done".to_string()),
+        },
+    };
+    let closed = session.accept_control(&close).unwrap().unwrap();
+    assert!(matches!(
+        closed,
+        TsxHostMessageV1::Close {
+            message_id: 3,
+            render_revision: 0,
+            payload: TsxClosePayloadV1 {
+                reason: TsxCloseReasonV1::Requested,
+                ..
+            },
+            ..
+        }
+    ));
+    assert_eq!(session.last_client_message_id(), 4);
+    assert_eq!(session.last_host_message_id(), 3);
 }
 
 #[test]

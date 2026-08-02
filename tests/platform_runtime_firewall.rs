@@ -100,6 +100,16 @@ fn platform_runtime_source_has_no_legacy_widget_or_toolkit_path() {
             "self-drawn calculator crosses the H1 runtime firewall with {token:?}"
         );
     }
+
+    let tsx_host_path = manifest_path("src/bin/tsx_host.rs");
+    let tsx_host = fs::read_to_string(&tsx_host_path).unwrap();
+    for token in forbidden {
+        assert!(
+            !tsx_host.contains(token),
+            "{} crosses the H1 runtime firewall with {token:?}",
+            tsx_host_path.display()
+        );
+    }
 }
 
 #[test]
@@ -116,6 +126,17 @@ fn platform_runtime_and_smoke_example_are_feature_gated() {
         assert!(
             example.contains(feature),
             "self-drawn calculator must require {feature:?}: {example}"
+        );
+    }
+
+    let tsx_host = manifest
+        .split_once("name = \"a3s-gui-tsx-host\"")
+        .map(|(_, rest)| rest.lines().take(3).collect::<Vec<_>>().join("\n"))
+        .unwrap();
+    for feature in ["platform-runtime", "software-reference"] {
+        assert!(
+            tsx_host.contains(feature),
+            "headless TSX host must require {feature:?}: {tsx_host}"
         );
     }
 }
