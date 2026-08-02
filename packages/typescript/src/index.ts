@@ -17,6 +17,14 @@ export type {
   TsxEventMessageV1,
 } from "./action-registry.ts";
 export { Button, Text, View, Window } from "./components.ts";
+export { A3sClientSessionError, A3sClientSessionV1 } from "./client-session.ts";
+export type {
+  A3sClientSessionErrorCodeV1,
+  A3sClientSessionStateV1,
+  A3sClientSessionStatusV1,
+  TsxRenderMessageV1,
+  TsxWelcomeMessageV1,
+} from "./client-session.ts";
 export { createContext } from "./context.ts";
 export type {
   A3sContext,

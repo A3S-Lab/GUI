@@ -17,6 +17,8 @@ import {
   useRef,
   useState,
   type A3sJsxProps,
+  type A3sRenderCandidateV1,
+  type TsxWelcomeMessageV1,
 } from "@a3s/gui";
 
 const Theme = createContext<"light" | "dark">("light");
@@ -101,13 +103,29 @@ invalidContextValue satisfies import("@a3s/gui").A3sElement;
 const missingBoundaryFallback = <ErrorBoundary><StatefulCounter /></ErrorBoundary>;
 missingBoundaryFallback satisfies import("@a3s/gui").A3sElement;
 
+const typeOnlyWelcome = {
+  type: "welcome",
+  protocol: "a3s.gui.tsx",
+  protocolVersion: 1,
+  sessionId: "typecheck-session",
+  messageId: 1,
+  renderRevision: 0,
+  payload: {
+    selectedProtocolVersion: 1,
+    hostVersion: "0.1.0",
+    hostBuildId: "typecheck",
+    platform: "headless",
+    renderer: "software",
+    limits: { maximumFrameBytes: 4096, maximumInFlightRenders: 1 },
+  },
+} satisfies TsxWelcomeMessageV1;
+
 const typeOnlyHost = {
-  async submitRender(candidate: {
-    readonly renderRevision: number;
-    readonly frame: { readonly frameId: string };
-  }) {
+  welcome: typeOnlyWelcome,
+  async submitRender(candidate: Readonly<A3sRenderCandidateV1>) {
     candidate.renderRevision satisfies number;
-    candidate.frame.frameId satisfies string;
+    candidate.messageId satisfies number;
+    candidate.payload.frameId satisfies string;
     throw new Error("type-only host");
   },
 };
@@ -117,6 +135,7 @@ const app = createApp(StatefulCounter, {
   host: typeOnlyHost,
 });
 app.state.status satisfies "created" | "running" | "closing" | "closed";
+app.state.session.status satisfies "negotiated" | "failed" | "closed";
 
 createApp(Counter, {
   host: typeOnlyHost,

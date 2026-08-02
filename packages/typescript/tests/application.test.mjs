@@ -50,23 +50,32 @@ test("createApp batches state and reducer updates into one committed revision", 
   await app.start();
 
   assert.equal(host.candidates.length, 1);
-  assert.equal(textContent(host.last.frame.root), "total:0;renders:1Increment");
+  assert.equal(host.last.type, "render");
+  assert.equal(host.last.sessionId, "application-test");
+  assert.equal(host.last.messageId, 2);
+  assert.equal(textContent(host.last.payload.root), "total:0;renders:1Increment");
   assert.equal(memoCalls, 1);
+  assert.equal(app.state.session.lastClientMessageId, 2);
+  assert.equal(app.state.session.lastHostMessageId, 2);
 
-  await app.dispatch(eventFor(host.last, 1));
+  await app.dispatch(host.event(1));
 
   assert.equal(host.candidates.length, 2);
   assert.equal(host.last.renderRevision, 2);
-  assert.equal(textContent(host.last.frame.root), "total:5;renders:2Increment");
+  assert.equal(host.last.messageId, 3);
+  assert.equal(textContent(host.last.payload.root), "total:5;renders:2Increment");
   assert.equal(memoCalls, 2);
   assert.equal(app.state.actions.active.renderRevision, 2);
+  assert.equal(app.state.session.lastHostMessageId, 4);
 
   await app.rerender();
   assert.equal(host.candidates.length, 3);
-  assert.equal(textContent(host.last.frame.root), "total:5;renders:3Increment");
+  assert.equal(host.last.messageId, 4);
+  assert.equal(textContent(host.last.payload.root), "total:5;renders:3Increment");
   assert.equal(memoCalls, 2);
   await app.shutdown();
   assert.equal(host.closeCount, 1);
+  assert.equal(app.state.session.status, "closed");
 });
 
 test("keyed component instances retain state and clean effects after commit", async () => {
@@ -95,7 +104,7 @@ test("keyed component instances retain state and clean effects after commit", as
 
   const app = createApp(Rows, { frameId: "keyed-rows", host });
   await app.start();
-  assert.equal(textContent(host.last.frame.root), "a:0b:0");
+  assert.equal(textContent(host.last.payload.root), "a:0b:0");
   assert.deepEqual(lifecycle, ["mount:a", "mount:b"]);
 
   rowSetters.get("a")(7);
@@ -103,7 +112,7 @@ test("keyed component instances retain state and clean effects after commit", as
   setOrder(["b", "a"]);
   await app.flush();
 
-  assert.equal(textContent(host.last.frame.root), "b:0a:7");
+  assert.equal(textContent(host.last.payload.root), "b:0a:7");
   assert.deepEqual(lifecycle, ["mount:a", "mount:b"]);
 
   setOrder(["b"]);
@@ -151,17 +160,21 @@ test("host rejection preserves the committed frame, callbacks, and effects", asy
   assert.deepEqual(lifecycle, ["effect:0"]);
 
   host.rejectNext = true;
-  await assert.rejects(app.dispatch(eventFor(host.last, 1)), /injected host rejection/u);
+  await assert.rejects(app.dispatch(host.event(1)), /injected host rejection/u);
 
   assert.equal(app.state.actions.active.renderRevision, 1);
   assert.equal(app.state.actions.pending, null);
+  assert.equal(app.state.session.lastClientMessageId, 3);
+  assert.equal(app.state.session.lastHostMessageId, 3);
+  assert.equal(app.state.session.pendingRenderRevision, null);
   assert.match(app.state.lastError.message, /injected host rejection/u);
-  assert.equal(textContent(host.committed.at(-1).frame.root), "count:0Increment");
+  assert.equal(textContent(host.committed.at(-1).payload.root), "count:0Increment");
   assert.deepEqual(lifecycle, ["effect:0"]);
 
   await app.rerender();
   assert.equal(host.last.renderRevision, 2);
-  assert.equal(textContent(host.last.frame.root), "count:1Increment");
+  assert.equal(host.last.messageId, 4);
+  assert.equal(textContent(host.last.payload.root), "count:1Increment");
   assert.deepEqual(lifecycle, ["effect:0", "cleanup:0", "effect:1"]);
   await app.shutdown();
   assert.deepEqual(lifecycle, [
@@ -198,7 +211,7 @@ test("hook order failures are source-located and leave the active revision intac
 
   const app = createApp(Root, { frameId: "hook-order", host });
   await app.start();
-  assert.equal(textContent(host.last.frame.root), "collapsed");
+  assert.equal(textContent(host.last.payload.root), "collapsed");
 
   setExpanded(true);
   await assert.rejects(
@@ -211,7 +224,7 @@ test("hook order failures are source-located and leave the active revision intac
   setExpanded(false);
   await app.flush();
   assert.equal(host.last.renderRevision, 2);
-  assert.equal(textContent(host.last.frame.root), "collapsed");
+  assert.equal(textContent(host.last.payload.root), "collapsed");
   await app.shutdown();
 });
 
@@ -238,13 +251,15 @@ test("callback failures still commit earlier state side effects once", async () 
   await app.start();
 
   await assert.rejects(
-    app.dispatch(eventFor(host.last, 1)),
+    app.dispatch(host.event(1)),
     /callback failed at invocation 0/u,
   );
   assert.equal(host.candidates.length, 2);
   assert.equal(app.state.actions.active.renderRevision, 2);
   assert.equal(app.state.actions.lastEventSequence, 1);
-  assert.equal(textContent(host.last.frame.root), "count:1Fail");
+  assert.equal(app.state.session.lastClientMessageId, 3);
+  assert.equal(app.state.session.lastHostMessageId, 4);
+  assert.equal(textContent(host.last.payload.root), "count:1Fail");
   await app.shutdown();
 });
 
@@ -266,7 +281,7 @@ test("updates while a render is in flight coalesce into one following revision",
 
   setCount(1);
   await waitFor(() => host.candidates.length === 2);
-  assert.equal(textContent(host.last.frame.root), "count:1");
+  assert.equal(textContent(host.last.payload.root), "count:1");
 
   setCount(2);
   setCount(3);
@@ -276,7 +291,7 @@ test("updates while a render is in flight coalesce into one following revision",
   host.commitNext();
   await waitFor(() => host.candidates.length === 3);
   assert.equal(host.last.renderRevision, 3);
-  assert.equal(textContent(host.last.frame.root), "count:3");
+  assert.equal(textContent(host.last.payload.root), "count:3");
 
   host.commitNext();
   await app.flush();
@@ -285,10 +300,12 @@ test("updates while a render is in flight coalesce into one following revision",
 });
 
 class RecordingHost {
+  welcome = welcome("application-test");
   candidates = [];
   committed = [];
   closeCount = 0;
   hostRevision = 0;
+  hostMessageId = 1;
   rejectNext = false;
 
   get last() {
@@ -306,8 +323,14 @@ class RecordingHost {
       throw new Error("injected host rejection");
     }
     this.hostRevision += 1;
+    this.hostMessageId += 1;
     this.committed.push(recorded);
-    return committed(candidate, this.hostRevision);
+    return committed(candidate, this.hostMessageId, this.hostRevision);
+  }
+
+  event(eventSequence) {
+    this.hostMessageId += 1;
+    return eventFor(this.last, this.hostMessageId, eventSequence);
   }
 
   async close() {
@@ -316,9 +339,11 @@ class RecordingHost {
 }
 
 class DeferredHost {
+  welcome = welcome("application-test");
   candidates = [];
   pending = [];
   hostRevision = 0;
+  hostMessageId = 1;
 
   get last() {
     return this.candidates.at(-1);
@@ -333,20 +358,22 @@ class DeferredHost {
     const pending = this.pending.shift();
     assert.ok(pending);
     this.hostRevision += 1;
-    pending.resolve(committed(pending.candidate, this.hostRevision));
+    this.hostMessageId += 1;
+    pending.resolve(committed(pending.candidate, this.hostMessageId, this.hostRevision));
   }
+
 }
 
-function committed(candidate, hostRevision) {
+function committed(candidate, messageId, hostRevision) {
   return {
     type: "committed",
     protocol: "a3s.gui.tsx",
     protocolVersion: 1,
     sessionId: "application-test",
-    messageId: hostRevision + 1,
+    messageId,
     renderRevision: candidate.renderRevision,
     payload: {
-      frameId: candidate.frame.frameId,
+      frameId: candidate.payload.frameId,
       hostRevision,
       rootId: "root",
       layoutFingerprint: "0000000000000000",
@@ -355,15 +382,15 @@ function committed(candidate, hostRevision) {
   };
 }
 
-function eventFor(candidate, eventSequence) {
-  const action = candidate.frame.actions[0]?.id;
+function eventFor(candidate, messageId, eventSequence) {
+  const action = candidate.payload.actions[0]?.id;
   assert.ok(action);
   return {
     type: "event",
     protocol: "a3s.gui.tsx",
     protocolVersion: 1,
     sessionId: "application-test",
-    messageId: 100 + eventSequence,
+    messageId,
     renderRevision: candidate.renderRevision,
     payload: {
       hostRevision: candidate.hostRevision,
@@ -383,6 +410,28 @@ function eventFor(candidate, eventSequence) {
           timestampMicros: eventSequence,
         },
       }],
+    },
+  };
+}
+
+function welcome(sessionId) {
+  return {
+    type: "welcome",
+    protocol: "a3s.gui.tsx",
+    protocolVersion: 1,
+    sessionId,
+    messageId: 1,
+    renderRevision: 0,
+    payload: {
+      selectedProtocolVersion: 1,
+      hostVersion: "0.1.0",
+      hostBuildId: "application-test",
+      platform: "headless",
+      renderer: "software",
+      limits: {
+        maximumFrameBytes: 16 * 1024 * 1024,
+        maximumInFlightRenders: 1,
+      },
     },
   };
 }

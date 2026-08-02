@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 import {
   TSX_PROTOCOL_DECLARATION_FINGERPRINT_V1,
   TSX_PROTOCOL_NAME,
+  TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES,
+  TSX_PROTOCOL_V1_MAX_EVENT_ITEMS,
   TSX_PROTOCOL_V1_MAX_SAFE_INTEGER,
   TSX_PROTOCOL_VERSION_V1,
 } from "../src/generated/protocol.ts";
@@ -86,5 +88,7 @@ test("generated protocol runtime constants load directly in Node", () => {
   assert.equal(TSX_PROTOCOL_NAME, "a3s.gui.tsx");
   assert.equal(TSX_PROTOCOL_VERSION_V1, 1);
   assert.equal(TSX_PROTOCOL_V1_MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+  assert.equal(TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES, 16 * 1024 * 1024);
+  assert.equal(TSX_PROTOCOL_V1_MAX_EVENT_ITEMS, 65_536);
   assert.match(TSX_PROTOCOL_DECLARATION_FINGERPRINT_V1, /^fnv1a64:[0-9a-f]{16}$/u);
 });

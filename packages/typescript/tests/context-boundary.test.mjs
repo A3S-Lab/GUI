@@ -48,15 +48,15 @@ test("context defaults and nested providers remain outside the wire tree", async
   const app = createApp(ContextApp, { frameId: "context", host });
   await app.start();
   assert.equal(
-    textContent(host.last.frame.root),
+    textContent(host.last.payload.root),
     "default:defaultouter:outerinner:inner",
   );
-  assert.deepEqual(elementTags(host.last.frame.root), ["View", "Text", "Text", "Text"]);
+  assert.deepEqual(elementTags(host.last.payload.root), ["View", "Text", "Text", "Text"]);
 
   setTheme("updated");
   await app.flush();
   assert.equal(
-    textContent(host.last.frame.root),
+    textContent(host.last.payload.root),
     "default:defaultouter:updatedinner:inner",
   );
   assert.equal(app.state.activeComponents, 4);
@@ -121,12 +121,12 @@ test("error boundaries roll back partial candidates before committing fallback",
 
   const app = createApp(BoundaryApp, { frameId: "boundary", host });
   await app.start();
-  assert.equal(textContent(host.last.frame.root), "probehealthy");
+  assert.equal(textContent(host.last.payload.root), "probehealthy");
   assert.deepEqual(lifecycle, ["mount:probe", "mount:faulty"]);
 
   setFail(true);
   await app.flush();
-  assert.equal(textContent(host.last.frame.root), "fallback:faulty.tsx");
+  assert.equal(textContent(host.last.payload.root), "fallback:faulty.tsx");
   assert.ok(capturedError instanceof A3sJsxError);
   assert.equal(capturedError.source.fileName, "faulty.tsx");
   assert.deepEqual(lifecycle, [
@@ -139,7 +139,7 @@ test("error boundaries roll back partial candidates before committing fallback",
 
   setFail(false);
   await app.flush();
-  assert.equal(textContent(host.last.frame.root), "probehealthy");
+  assert.equal(textContent(host.last.payload.root), "probehealthy");
   assert.deepEqual(lifecycle, [
     "mount:probe",
     "mount:faulty",
@@ -213,14 +213,14 @@ test("a failing boundary fallback preserves the last committed subtree", async (
   );
   assert.equal(host.candidates.length, 1);
   assert.equal(app.state.actions.active.renderRevision, 1);
-  assert.equal(textContent(host.last.frame.root), "stable:0committed-child");
+  assert.equal(textContent(host.last.payload.root), "stable:0committed-child");
   assert.deepEqual(lifecycle, ["mount:stable", "mount:child"]);
 
   setFail(false);
   incrementStable();
   await app.flush();
   assert.equal(host.last.renderRevision, 2);
-  assert.equal(textContent(host.last.frame.root), "stable:1committed-child");
+  assert.equal(textContent(host.last.payload.root), "stable:1committed-child");
   assert.deepEqual(lifecycle, ["mount:stable", "mount:child"]);
   await app.shutdown();
   assert.deepEqual(lifecycle, [
@@ -232,8 +232,10 @@ test("a failing boundary fallback preserves the last committed subtree", async (
 });
 
 class ImmediateHost {
+  welcome = welcome("context-boundary-test");
   candidates = [];
   hostRevision = 0;
+  hostMessageId = 1;
 
   get last() {
     return this.candidates.at(-1);
@@ -241,6 +243,7 @@ class ImmediateHost {
 
   async submitRender(candidate) {
     this.hostRevision += 1;
+    this.hostMessageId += 1;
     const recorded = { ...candidate, hostRevision: this.hostRevision };
     this.candidates.push(recorded);
     return {
@@ -248,10 +251,10 @@ class ImmediateHost {
       protocol: "a3s.gui.tsx",
       protocolVersion: 1,
       sessionId: "context-boundary-test",
-      messageId: this.hostRevision + 1,
+      messageId: this.hostMessageId,
       renderRevision: candidate.renderRevision,
       payload: {
-        frameId: candidate.frame.frameId,
+        frameId: candidate.payload.frameId,
         hostRevision: this.hostRevision,
         rootId: "root",
         layoutFingerprint: "0000000000000000",
@@ -259,6 +262,28 @@ class ImmediateHost {
       },
     };
   }
+}
+
+function welcome(sessionId) {
+  return {
+    type: "welcome",
+    protocol: "a3s.gui.tsx",
+    protocolVersion: 1,
+    sessionId,
+    messageId: 1,
+    renderRevision: 0,
+    payload: {
+      selectedProtocolVersion: 1,
+      hostVersion: "0.1.0",
+      hostBuildId: "context-boundary-test",
+      platform: "headless",
+      renderer: "software",
+      limits: {
+        maximumFrameBytes: 16 * 1024 * 1024,
+        maximumInFlightRenders: 1,
+      },
+    },
+  };
 }
 
 function textContent(node) {

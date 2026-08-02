@@ -3,12 +3,11 @@ import type { CompiledA3sFrameV1 } from "./frame.ts";
 import {
   TSX_PROTOCOL_NAME,
   TSX_PROTOCOL_VERSION_V1,
+  TSX_PROTOCOL_V1_MAX_EVENT_ITEMS,
   TSX_PROTOCOL_V1_MAX_SAFE_INTEGER,
   type TsxActionInvocationV1,
   type TsxHostMessageV1,
 } from "./generated/protocol.ts";
-
-const MAX_EVENT_INVOCATIONS_V1 = 65_536;
 
 export type TsxCommittedMessageV1 = Extract<
   TsxHostMessageV1,
@@ -99,8 +98,8 @@ interface PreparedInvocationV1 {
  * Owns the bounded callback scopes associated with protocol-1 render revisions.
  *
  * The registry deliberately does not own IPC identity or message-id ordering;
- * the future process session validates those before calling this class. It does
- * enforce the render/host revision pair, the global event sequence, complete
+ * `A3sClientSessionV1` validates those before calling this class. The registry
+ * enforces the render/host revision pair, global event sequence, complete
  * action-vector preflight, and sequential callback execution.
  */
 export class RevisionActionRegistryV1 {
@@ -268,10 +267,10 @@ export class RevisionActionRegistryV1 {
     }
 
     const invocations = message.payload.invocations ?? [];
-    if (!Array.isArray(invocations) || invocations.length > MAX_EVENT_INVOCATIONS_V1) {
+    if (!Array.isArray(invocations) || invocations.length > TSX_PROTOCOL_V1_MAX_EVENT_ITEMS) {
       throw registryError(
         "invalidEvent",
-        `event invocations must be an array of at most ${MAX_EVENT_INVOCATIONS_V1} items`,
+        `event invocations must be an array of at most ${TSX_PROTOCOL_V1_MAX_EVENT_ITEMS} items`,
       );
     }
     const prepared = invocations.map((invocation, index) =>

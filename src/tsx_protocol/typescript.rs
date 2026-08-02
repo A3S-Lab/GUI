@@ -6,7 +6,12 @@ use ts_rs::{Config, TypeVisitor, TS};
 use crate::error::{GuiError, GuiResult};
 
 use super::{
-    TsxClientMessageV1, TsxHostMessageV1, TSX_PROTOCOL_NAME, TSX_PROTOCOL_V1_MAX_SAFE_INTEGER,
+    TsxClientMessageV1, TsxHostMessageV1, TSX_PROTOCOL_NAME, TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES,
+    TSX_PROTOCOL_V1_MAX_ACTION_ID_BYTES, TSX_PROTOCOL_V1_MAX_DIAGNOSTICS,
+    TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES, TSX_PROTOCOL_V1_MAX_ELEMENT_ID_BYTES,
+    TSX_PROTOCOL_V1_MAX_EVENT_ITEMS, TSX_PROTOCOL_V1_MAX_EVENT_VALUE_BYTES,
+    TSX_PROTOCOL_V1_MAX_SAFE_INTEGER, TSX_PROTOCOL_V1_MAX_SESSION_ID_BYTES,
+    TSX_PROTOCOL_V1_MAX_VERSION_BYTES,
 };
 
 pub const TSX_TYPESCRIPT_PROTOCOL_RELATIVE_PATH: &str =
@@ -40,7 +45,16 @@ pub fn tsx_typescript_protocol_declarations_v1() -> GuiResult<String> {
     let mut output = format!(
         "export const TSX_PROTOCOL_NAME = {TSX_PROTOCOL_NAME:?} as const;\n\
 export const TSX_PROTOCOL_VERSION_V1 = 1 as const;\n\
+export const TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES = {TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES} as const;\n\
+export const TSX_PROTOCOL_V1_MAX_ACTION_ID_BYTES = {TSX_PROTOCOL_V1_MAX_ACTION_ID_BYTES} as const;\n\
+export const TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES = {TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES} as const;\n\
+export const TSX_PROTOCOL_V1_MAX_DIAGNOSTICS = {TSX_PROTOCOL_V1_MAX_DIAGNOSTICS} as const;\n\
+export const TSX_PROTOCOL_V1_MAX_ELEMENT_ID_BYTES = {TSX_PROTOCOL_V1_MAX_ELEMENT_ID_BYTES} as const;\n\
+export const TSX_PROTOCOL_V1_MAX_EVENT_ITEMS = {TSX_PROTOCOL_V1_MAX_EVENT_ITEMS} as const;\n\
+export const TSX_PROTOCOL_V1_MAX_EVENT_VALUE_BYTES = {TSX_PROTOCOL_V1_MAX_EVENT_VALUE_BYTES} as const;\n\
 export const TSX_PROTOCOL_V1_MAX_SAFE_INTEGER = {TSX_PROTOCOL_V1_MAX_SAFE_INTEGER} as const;\n\
+export const TSX_PROTOCOL_V1_MAX_SESSION_ID_BYTES = {TSX_PROTOCOL_V1_MAX_SESSION_ID_BYTES} as const;\n\
+export const TSX_PROTOCOL_V1_MAX_VERSION_BYTES = {TSX_PROTOCOL_V1_MAX_VERSION_BYTES} as const;\n\
 export type TsxSafeIntegerV1 = number;\n\n"
     );
 
@@ -144,6 +158,11 @@ mod tests {
         assert!(generated.contains("renderRevision: number"));
         assert!(generated.contains("layoutFingerprint: TsxFingerprintV1"));
         assert!(generated.contains("type TsxFingerprintV1 = string"));
+        assert!(generated
+            .contains("export const TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES = 16777216 as const;"));
+        assert!(
+            generated.contains("export const TSX_PROTOCOL_V1_MAX_EVENT_ITEMS = 65536 as const;")
+        );
         assert!(!generated.contains("bigint"));
     }
 

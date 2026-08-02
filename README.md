@@ -90,13 +90,14 @@ The repository already provides:
   revision-scoped ordered callbacks;
 - a transport-neutral TypeScript `createApp` lifecycle with keyed component
   instances, typed context, render error boundaries, state/reducer/memo/ref/
-  effect hooks, batched rerenders, and post-commit cleanup.
+  effect hooks, batched rerenders, post-commit cleanup, and strict post-handshake
+  session/message identity.
 
 Still required before a production native application:
 
 - real zero-widget macOS, Windows, and Wayland/X11 hosts;
 - production text shaping, text editing, IME, and assistive-technology bridges;
-- supervised TypeScript/Node-to-Rust process I/O and session identity;
+- supervised TypeScript/Node-to-Rust process I/O, crash recovery, and replay;
 - packaging, signing, installer work, and tri-platform visual evidence;
 - full self-drawn conformance evidence for every React Aria family.
 
@@ -153,8 +154,9 @@ native package. Today, the private SDK also has a transport-neutral `createApp`
 lifecycle driven by a typed host object. It owns keyed function-component
 instances, typed nested context, render error boundaries, state/reducer/memo/
 ref/effect hooks, one-microtask rerender batching, revision-scoped callbacks,
-and effect promotion only after `committed`. Process supervision/session
-identity, native host startup, and npm publication remain T2-T5 work.
+effect promotion only after `committed`, full render envelopes, and independent
+client/host message ordering from a validated `welcome`. Process transport and
+supervision, native host startup, and npm publication remain T2-T5 work.
 
 Read [TSX native runtime](docs/tsx-native-runtime.md) for protocol and delivery
 gates.
@@ -277,8 +279,8 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. finish T2 by connecting `createApp` to a supervised Node/Rust protocol
-   session with enforced session/message identity;
+1. finish T2 by supplying `createApp` with a supervised Node/Rust process
+   transport, crash recovery, and committed-frame replay;
 2. land production text shaping/editing primitives on the generic layout/scene
    path;
 3. implement the first raw Windows host, then macOS and Wayland/X11 hosts,

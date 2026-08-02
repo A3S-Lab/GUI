@@ -6,6 +6,12 @@ import type {
 } from "./action-registry.ts";
 import { RevisionActionRegistryV1 } from "./action-registry.ts";
 import {
+  A3sClientSessionV1,
+  type A3sClientSessionStateV1,
+  type TsxRenderMessageV1,
+  type TsxWelcomeMessageV1,
+} from "./client-session.ts";
+import {
   createA3sElement,
   type A3sFunctionComponent,
   type A3sJsxProps,
@@ -14,15 +20,12 @@ import {
   compileFrameWithRuntimeV1,
   type CompileFrameOptions,
 } from "./frame.ts";
-import type { ProtocolUiFrameV1 } from "./generated/protocol.ts";
 import { ComponentHookTree } from "./hook-tree.ts";
 
-export interface A3sRenderCandidateV1 {
-  readonly renderRevision: number;
-  readonly frame: Readonly<ProtocolUiFrameV1>;
-}
+export type A3sRenderCandidateV1 = TsxRenderMessageV1;
 
 export interface A3sApplicationHostV1 {
+  readonly welcome: TsxWelcomeMessageV1;
   submitRender(
     candidate: Readonly<A3sRenderCandidateV1>,
   ): TsxCommittedMessageV1 | Promise<TsxCommittedMessageV1>;
@@ -38,6 +41,7 @@ export interface A3sApplicationStateV1 {
   readonly committedRenders: number;
   readonly activeComponents: number;
   readonly lastError: unknown | null;
+  readonly session: Readonly<A3sClientSessionStateV1>;
   readonly actions: Readonly<A3sActionRegistryStateV1>;
 }
 
@@ -60,6 +64,7 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
   readonly #compileOptions: CompileFrameOptions;
   readonly #onError: ((error: unknown) => void) | null;
   readonly #actions = new RevisionActionRegistryV1();
+  readonly #session: A3sClientSessionV1;
   readonly #hooks: ComponentHookTree;
   #props: Readonly<Props>;
   #status: A3sApplicationStatus = "created";
@@ -70,6 +75,7 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
   #lastError: unknown | null = null;
   #renderStarting = false;
   #inFlight: Promise<boolean> | null = null;
+  #hostMessageTail: Promise<void> = Promise.resolve();
 
   constructor(
     root: A3sFunctionComponent<Props>,
@@ -104,6 +110,7 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
     this.#compileOptions = Object.freeze({ ...(options.compile ?? {}) });
     this.#onError = options.onError ?? null;
     this.#hooks = new ComponentHookTree(() => this.#requestRender());
+    this.#session = new A3sClientSessionV1(options.host.welcome);
   }
 
   get state(): Readonly<A3sApplicationStateV1> {
@@ -114,6 +121,7 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
       committedRenders: this.#committedRenders,
       activeComponents: this.#hooks.activeComponentCount,
       lastError: this.#lastError,
+      session: this.#session.state,
       actions: this.#actions.state,
     });
   }
@@ -188,7 +196,9 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
     let dispatchFailed = false;
     let dispatchError: unknown;
     try {
-      result = await this.#actions.dispatch(message);
+      result = await this.#enqueueHostMessage(() =>
+        this.#session.dispatchEvent(message, this.#actions)
+      );
     } catch (error) {
       dispatchFailed = true;
       dispatchError = error;
@@ -254,6 +264,7 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
     try {
       await this.#host.close?.();
     } finally {
+      this.#session.close();
       this.#status = "closed";
     }
   }
@@ -279,33 +290,11 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
       throw error;
     }
 
-    const renderRevision = (this.#actions.state.active?.renderRevision ?? 0) + 1;
+    const renderRevision = this.#session.state.committedRenderRevision + 1;
+    let candidate: Readonly<A3sRenderCandidateV1>;
     try {
       this.#actions.stage(renderRevision, compiled);
-    } catch (error) {
-      this.#hooks.abortCandidate();
-      throw error;
-    }
-    const candidate = Object.freeze({
-      renderRevision,
-      frame: compiled.frame,
-    });
-
-    try {
-      const committed = await this.#host.submitRender(candidate);
-      this.#actions.commit(committed);
-      this.#batchDepth += 1;
-      let effectErrors;
-      try {
-        effectErrors = this.#hooks.commitCandidate();
-      } finally {
-        this.#batchDepth -= 1;
-      }
-      this.#committedRenders += 1;
-      for (const error of effectErrors) {
-        this.#notifyError(error);
-      }
-      return true;
+      candidate = this.#session.createRender(renderRevision, compiled.frame);
     } catch (error) {
       if (this.#actions.state.pending?.renderRevision === renderRevision) {
         this.#actions.reject(renderRevision);
@@ -313,6 +302,53 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
       this.#hooks.abortCandidate();
       throw error;
     }
+
+    try {
+      const committed = await this.#host.submitRender(candidate);
+      const effectErrors = await this.#enqueueHostMessage(() => {
+        this.#session.commitRender(committed, this.#actions);
+        this.#batchDepth += 1;
+        try {
+          return this.#hooks.commitCandidate();
+        } finally {
+          this.#batchDepth -= 1;
+        }
+      });
+      this.#committedRenders += 1;
+      for (const error of effectErrors) {
+        this.#notifyError(error);
+      }
+      return true;
+    } catch (error) {
+      try {
+        await this.#enqueueHostMessage(() => {
+          if (this.#actions.state.pending?.renderRevision === renderRevision) {
+            this.#actions.reject(renderRevision);
+          }
+          if (this.#session.state.pendingRenderRevision === renderRevision) {
+            this.#session.rejectRender(renderRevision);
+          }
+          this.#hooks.abortCandidate();
+        });
+      } catch (rollbackError) {
+        throw new AggregateError(
+          [error, rollbackError],
+          `render revision ${renderRevision} failed and could not be rolled back`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  #enqueueHostMessage<Result>(
+    operation: () => Result | PromiseLike<Result>,
+  ): Promise<Result> {
+    const result = this.#hostMessageTail.then(operation);
+    this.#hostMessageTail = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 
   #requestRender(): void {

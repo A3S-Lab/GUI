@@ -17,6 +17,15 @@ vector; and awaits callbacks in exact wire order. A callback error consumes
 the sequence and stops later callbacks so a partially executed event is never
 replayed.
 
+`A3sClientSessionV1` owns the post-handshake envelope around that registry. It
+validates and snapshots the host `welcome`, emits complete `render` messages,
+tracks independent client and host message-id sequences, enforces the
+negotiated frame-byte limit, and rejects the wrong session before revision or
+callback preflight. Protocol failures poison the session; an application
+callback failure consumes the event and host message exactly once without
+poisoning it. `createApp` serializes overlapping host events and commit
+acknowledgements so callback execution cannot race callback-scope promotion.
+
 `createApp` owns the transport-neutral root lifecycle. `useState`,
 `useReducer`, `useMemo`, `useRef`, `useContext`, and post-commit `useEffect` use
 deterministic component paths and hook slots. Nested providers are transparent
@@ -52,8 +61,10 @@ The Node process session and actual local I/O, host supervision/replay, the
 native host executable, and the stable full semantic component API remain later
 delivery slices. This package is therefore not a published SDK or a runnable
 native TSX application yet. The current `createApp` requires an explicit typed
-`A3sApplicationHostV1`; the future zero-configuration `run()` API will supply
-the supervised process host.
+`A3sApplicationHostV1` with an already negotiated `welcome`; it sends that host
+full protocol render envelopes rather than bare frames. The future
+zero-configuration `run()` API will create the handshake and supervised process
+host.
 
 Install the pinned development compiler without running dependency scripts:
 

@@ -6,8 +6,8 @@ automatic JSX entry points, keyed function-component instances, strict
 child/key/prop normalization, deterministic frame lowering, state/reducer/
 memo/ref/context/effect hooks, transactional render error boundaries, batched
 rerenders, revision-scoped callback scopes, ordered event dispatch, and
-cross-language golden tests. Actual process I/O/session integration and the
-executable native host are not implemented yet.
+strict post-handshake client/host message sequencing. Actual process I/O,
+supervision/replay, and the executable native host are not implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -290,11 +290,11 @@ Identity must be deterministic across component rerenders and process replay.
 - the target action identity derives from the stable component path, host key,
   and event prop; ids never depend on function source or object address
 
-The current T1 compiler has no stateful component-instance tree yet, so its
-automatic ids use the collision-safe host-key path plus event prop. The T2
-component scheduler must add the stable component-instance prefix before that
-identity contract becomes public. Callback generations already live in
-revision scopes rather than in either id shape.
+The T2 scheduler now owns a stateful keyed component-instance tree. Automatic
+action ids still use the collision-safe host-key path plus event prop, while
+callback generations live in revision scopes. The final public identity
+contract must decide whether to incorporate the separate component-instance
+path before the package is published.
 
 The implemented `RevisionActionRegistryV1` retains one pending scope, the
 active committed scope, and one rollback scope. Staging validates and copies
@@ -436,9 +436,22 @@ body. Canonical hello, counter render, committed, and event fixtures pin the
 wire spelling in Rust and Node 24 tests. The private TypeScript peer now
 provides standard automatic JSX entry points, keyed function-component
 instances, strict normalization, deterministic frame lowering, a stateful
-application scheduler, and a pinned TypeScript 5.9 `react-jsx` fixture. Command
-messages, actual local process I/O, registry/session identity integration,
-and host supervision remain pending.
+application scheduler, a strict post-handshake client session, and a pinned
+TypeScript 5.9 `react-jsx` fixture. Command messages, actual local process I/O,
+and host supervision/replay remain pending.
+
+The current `A3sApplicationHostV1` represents an already negotiated transport:
+it supplies the validated `welcome` message and receives complete `render`
+envelopes. `A3sClientSessionV1` snapshots that welcome, starts both directional
+message sequences at one, and validates every `committed` or `event` identity
+before touching callback state. The process-host slice still needs to emit
+`hello`, perform framed I/O, and construct this host boundary.
+
+Application-level host messages are consumed serially. If an event from the
+active revision overlaps an in-flight render acknowledgement, its ordered
+callbacks finish before the new callback scope is promoted. The queue releases
+before event-triggered rendering is flushed, avoiding a scheduler/commit
+deadlock.
 
 ### Messages
 
@@ -590,10 +603,10 @@ minimum M4 text/input slice.
 
 Status: architecture accepted; the Rust-side strict handshake/framing,
 render/commit/event session, counter parity fixtures, self-drawn adapters, and
-drop-policy DTO/resolver adapter are implemented. Calculator and
-commands, stateful JSX execution, registry/session integration, and Node-side
-transport are pending. Rust-generated declarations, the headless automatic
-JSX core, bounded revision callback scopes, ordered dispatch, and shared
+drop-policy DTO/resolver adapter are implemented. Calculator, commands, and
+Node-side process transport are pending. Rust-generated declarations, the
+headless automatic JSX core, stateful JSX execution, post-handshake session
+integration, bounded revision callback scopes, ordered dispatch, and shared
 Rust/Node counter fixtures are implemented.
 
 - accept process, ownership, identity, protocol, and packaging decisions
@@ -623,8 +636,8 @@ landed.
 
 - extend the landed application messages with command messages and actual
   local process I/O
-- connect the landed callback registry to the process session and enforce
-  session/message identity before its revision/action preflight
+- build the Node process host that performs `hello`/`welcome`, framing, bounded
+  queues, shutdown, crash recovery, and committed-frame replay
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
 - extend the landed static counter parity fixture to the calculator scenario
@@ -654,11 +667,14 @@ Delivered:
 - typed nested context scopes that never enter protocol frames
 - render error boundaries with source-located fallback values/functions,
   partial-candidate rollback, and rejected-fallback last-frame preservation
+- strict post-handshake client session with full render envelopes, independent
+  message-id sequences, byte limits, and identity checks before action preflight
+- serialized event/commit consumption across overlapping host messages
 
 Remaining:
 
-- callback registry integration with session/message identity
 - supervised headless Rust host process I/O, crash recovery, and replay
+- final public component/action identity contract
 - complete keyboard, stale-event, host-crash, and replay gates
 
 Gates:
