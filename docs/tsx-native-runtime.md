@@ -4,10 +4,10 @@ Status: T1 complete; T2 stateful scheduling in progress. The private
 development package contains Rust-generated wire declarations, standard
 automatic JSX entry points, keyed function-component instances, strict
 child/key/prop normalization, deterministic frame lowering, state/reducer/
-memo/ref/effect hooks, batched rerenders, revision-scoped callback scopes,
-ordered event dispatch, and cross-language golden tests. Typed context, error
-boundaries, actual process I/O/session integration, and the executable native
-host are not implemented yet.
+memo/ref/context/effect hooks, transactional render error boundaries, batched
+rerenders, revision-scoped callback scopes, ordered event dispatch, and
+cross-language golden tests. Actual process I/O/session integration and the
+executable native host are not implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -342,6 +342,14 @@ The initial runtime is intentionally smaller than React:
 - batched state updates with at most one pending render per microtask
 - deterministic cleanup on dependency changes, unmount, host loss, and app
   shutdown
+- transparent nested context providers that remain local to Node
+- function-style `ErrorBoundary` fallbacks with failed-candidate rollback
+
+An error boundary catches synchronous errors while resolving its descendant
+component tree. It does not catch event callback, effect, host submission, or
+native presentation failures. The failed descendant Hook candidates are
+discarded before the fallback is resolved. Only a host-committed fallback may
+unmount the previously active subtree and run its cleanup.
 
 `useLayoutEffect`, Suspense, concurrent rendering, portals, server components,
 and class components are not part of protocol 1. A cross-process
@@ -430,7 +438,7 @@ provides standard automatic JSX entry points, keyed function-component
 instances, strict normalization, deterministic frame lowering, a stateful
 application scheduler, and a pinned TypeScript 5.9 `react-jsx` fixture. Command
 messages, actual local process I/O, registry/session identity integration,
-typed context/error boundaries, and host supervision remain pending.
+and host supervision remain pending.
 
 ### Messages
 
@@ -643,10 +651,12 @@ Delivered:
 - deterministic effect/component cleanup on dependency changes, committed
   unmounts, and graceful scheduler shutdown
 - typed transport-neutral host submission and commit acknowledgement
+- typed nested context scopes that never enter protocol frames
+- render error boundaries with source-located fallback values/functions,
+  partial-candidate rollback, and rejected-fallback last-frame preservation
 
 Remaining:
 
-- typed context and error boundaries
 - callback registry integration with session/message identity
 - supervised headless Rust host process I/O, crash recovery, and replay
 - complete keyboard, stale-event, host-crash, and replay gates

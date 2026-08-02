@@ -3,7 +3,10 @@ import {
   describeElementType,
   type A3sFunctionComponent,
 } from "./element.ts";
+import { isA3sContext, type A3sContext } from "./context.ts";
+import { ContextValueStack } from "./context-stack.ts";
 import type {
+  ComponentRenderCheckpoint,
   ComponentRenderRequest,
   ComponentRenderRuntime,
 } from "./component-runtime.ts";
@@ -19,6 +22,7 @@ import {
   type A3sStateUpdate,
   type HookDispatcher,
 } from "./hooks.ts";
+import { dependenciesEqual, snapshotDependencies } from "./hook-dependencies.ts";
 
 type HookKind = HookSlot["kind"];
 
@@ -65,7 +69,11 @@ interface EffectHook {
   readonly changed: boolean;
 }
 
-type HookSlot = StateHook | ReducerHook | MemoHook | RefHook | EffectHook;
+interface ContextHook {
+  readonly kind: "context";
+}
+
+type HookSlot = StateHook | ReducerHook | MemoHook | RefHook | EffectHook | ContextHook;
 
 interface ComponentInstance {
   readonly identity: string;
@@ -90,6 +98,7 @@ export class ComponentHookTree implements ComponentRenderRuntime {
   readonly #scheduleUpdate: () => void;
   #active = new Map<string, ComponentInstance>();
   #candidate: Map<string, ComponentInstance> | null = null;
+  readonly #contexts = new ContextValueStack();
   #renderDepth = 0;
 
   constructor(scheduleUpdate: () => void) {
@@ -155,6 +164,41 @@ export class ComponentHookTree implements ComponentRenderRuntime {
       throw error;
     } finally {
       this.#renderDepth -= 1;
+    }
+  }
+
+  withContextValue<Value, Result>(
+    context: A3sContext<Value>,
+    value: Value,
+    callback: () => Result,
+  ): Result {
+    return this.#contexts.withValue(context, value, callback);
+  }
+
+  readContext<Value>(context: A3sContext<Value>): Value {
+    if (!isA3sContext(context)) {
+      throw new TypeError("useContext requires a context created by createContext");
+    }
+    return this.#contexts.read(context);
+  }
+
+  createCheckpoint(): ComponentRenderCheckpoint {
+    const candidate = this.#requireCandidate();
+    return Object.freeze({
+      candidateIdentities: new Set(candidate.keys()),
+    });
+  }
+
+  rollbackToCheckpoint(checkpoint: ComponentRenderCheckpoint): void {
+    const candidate = this.#requireCandidate();
+    for (const [identity, instance] of candidate) {
+      if (checkpoint.candidateIdentities.has(identity)) {
+        continue;
+      }
+      candidate.delete(identity);
+      if (this.#active.get(identity)?.component !== instance.component) {
+        markInstanceUnmounted(instance);
+      }
     }
   }
 
@@ -270,6 +314,13 @@ export class ComponentHookTree implements ComponentRenderRuntime {
       );
     }
   }
+
+  #requireCandidate(): Map<string, ComponentInstance> {
+    if (this.#candidate === null) {
+      throw new A3sHookError("hookOrder", "component hooks require an active render candidate");
+    }
+    return this.#candidate;
+  }
 }
 
 class InstanceHookDispatcher implements HookDispatcher {
@@ -360,6 +411,13 @@ class InstanceHookDispatcher implements HookDispatcher {
     });
   }
 
+  useContext<Value>(context: A3sContext<Value>): Value {
+    this.#next("context");
+    const value = this.#tree.readContext(context);
+    this.slots.push({ kind: "context" });
+    return value;
+  }
+
   finish(): void {
     const expected = this.#committed?.slots.length ?? this.#index;
     if (this.#committed !== null && this.#index < expected) {
@@ -391,27 +449,6 @@ class InstanceHookDispatcher implements HookDispatcher {
     }
     return previous;
   }
-}
-
-function snapshotDependencies(
-  dependencies: readonly unknown[],
-  hook: string,
-): readonly unknown[] {
-  if (!Array.isArray(dependencies)) {
-    throw new A3sHookError(
-      "invalidDependencies",
-      `${hook} dependencies must be an array`,
-    );
-  }
-  return Object.freeze([...dependencies]);
-}
-
-function dependenciesEqual(
-  previous: readonly unknown[],
-  next: readonly unknown[],
-): boolean {
-  return previous.length === next.length &&
-    previous.every((value, index) => Object.is(value, next[index]));
 }
 
 function collectAllCleanups(instance: ComponentInstance, tasks: CleanupTask[]): void {

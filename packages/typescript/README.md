@@ -18,12 +18,25 @@ the sequence and stops later callbacks so a partially executed event is never
 replayed.
 
 `createApp` owns the transport-neutral root lifecycle. `useState`,
-`useReducer`, `useMemo`, `useRef`, and post-commit `useEffect` use deterministic
-component paths and hook slots. State changes are batched across an entire
-ordered event vector, candidates remain isolated until the typed host returns
-`committed`, and rejected renders retain the previous frame, callbacks, and
-effects. Keyed component reorder preserves state; committed removal and
-shutdown run bounded deterministic cleanup.
+`useReducer`, `useMemo`, `useRef`, `useContext`, and post-commit `useEffect` use
+deterministic component paths and hook slots. Nested providers are transparent
+Node-only scopes and never enter the wire frame. `ErrorBoundary` rolls back a
+failed descendant candidate before resolving its value or function fallback;
+a failed fallback rejects the whole candidate and preserves the committed
+frame, callbacks, and effects. State changes are batched across an entire
+ordered event vector, and candidates remain isolated until the typed host
+returns `committed`. Keyed component reorder preserves state; committed removal
+and shutdown run bounded deterministic cleanup.
+
+```tsx
+const Theme = createContext<"light" | "dark">("light");
+
+<Theme.Provider value="dark">
+  <ErrorBoundary fallback={(error) => <Text>{error.message}</Text>}>
+    <Workspace />
+  </ErrorBoundary>
+</Theme.Provider>;
+```
 
 ```ts
 const compiled = compileFrameV1("counter", <Counter />);
@@ -35,12 +48,12 @@ await callbacks.dispatch(eventMessage);
 callbacks.clear();                  // release all retained callback scopes
 ```
 
-Typed context, error boundaries, the Node process session and actual local I/O,
-host supervision/replay, the native host executable, and the stable full
-semantic component API remain later delivery slices. This package is therefore
-not a published SDK or a runnable native TSX application yet. The current
-`createApp` requires an explicit typed `A3sApplicationHostV1`; the future
-zero-configuration `run()` API will supply the supervised process host.
+The Node process session and actual local I/O, host supervision/replay, the
+native host executable, and the stable full semantic component API remain later
+delivery slices. This package is therefore not a published SDK or a runnable
+native TSX application yet. The current `createApp` requires an explicit typed
+`A3sApplicationHostV1`; the future zero-configuration `run()` API will supply
+the supervised process host.
 
 Install the pinned development compiler without running dependency scripts:
 

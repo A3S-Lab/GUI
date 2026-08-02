@@ -1,3 +1,5 @@
+import type { A3sContext } from "./context.ts";
+
 export type A3sStateUpdate<State> = State | ((previous: State) => State);
 export type A3sStateSetter<State> = (update: A3sStateUpdate<State>) => void;
 export type A3sReducer<State, Action> = (state: State, action: Action) => State;
@@ -37,6 +39,7 @@ export interface HookDispatcher {
   useMemo<Value>(factory: () => Value, dependencies: readonly unknown[]): Value;
   useRef<Value>(initial: Value): A3sMutableRef<Value>;
   useEffect(effect: A3sEffect, dependencies: readonly unknown[] | undefined): void;
+  useContext<Value>(context: A3sContext<Value>): Value;
 }
 
 let currentDispatcher: HookDispatcher | null = null;
@@ -70,6 +73,10 @@ export function useEffect(
   dependencies?: readonly unknown[],
 ): void {
   requireDispatcher("useEffect").useEffect(effect, dependencies);
+}
+
+export function useContext<Value>(context: A3sContext<Value>): Value {
+  return requireDispatcher("useContext").useContext(context);
 }
 
 export function withHookDispatcher<Value>(

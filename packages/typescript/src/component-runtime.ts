@@ -3,6 +3,7 @@ import type {
   A3sJsxProps,
   A3sSourceLocation,
 } from "./element.ts";
+import type { A3sContext } from "./context.ts";
 
 export interface ComponentRenderRequest {
   readonly identity: string;
@@ -11,9 +12,20 @@ export interface ComponentRenderRequest {
   readonly source: A3sSourceLocation | null;
 }
 
+export interface ComponentRenderCheckpoint {
+  readonly candidateIdentities: ReadonlySet<string>;
+}
+
 export interface ComponentRenderRuntime {
   renderComponent(
     request: Readonly<ComponentRenderRequest>,
     invoke: () => unknown,
   ): unknown;
+  withContextValue<Value, Result>(
+    context: A3sContext<Value>,
+    value: Value,
+    callback: () => Result,
+  ): Result;
+  createCheckpoint(): ComponentRenderCheckpoint;
+  rollbackToCheckpoint(checkpoint: ComponentRenderCheckpoint): void;
 }

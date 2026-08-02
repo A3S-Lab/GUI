@@ -31,7 +31,7 @@ or fallback renderer.
 | H2-H4 real hosts | Planned | Windows, macOS, Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
-| T2-T5 TSX product runtime | In progress | `createApp`, keyed hook tree, batched revisions, and post-commit effects; process I/O and native startup missing |
+| T2-T5 TSX product runtime | In progress | `createApp`, keyed hooks, typed context, and error boundaries; process I/O and native startup missing |
 | M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
 No family is yet self-drawn conformant across real macOS, Windows, and Linux
@@ -286,11 +286,13 @@ Delivered:
 - rejected-frame preservation and same-revision retry;
 - deterministic effect cleanup on dependency change, committed unmount, and
   shutdown;
+- typed nested context providers and `useContext`, kept outside the wire tree;
+- transactional render error boundaries with candidate rollback, committed
+  fallback cleanup, and last-frame preservation when fallback rendering fails;
 - source-located hook-order failures and Node interaction tests.
 
 Remaining:
 
-- typed context and error boundaries;
 - session/message identity integration around the action registry;
 - supervised Rust host process I/O, crash recovery, and replay;
 - keyboard/stale-event/replay coverage through that process boundary.
@@ -396,8 +398,8 @@ A release candidate requires:
 
 ## Immediate implementation sequence
 
-1. Complete T2 context/error boundaries and supervised process-session
-   integration around the landed stateful scheduler.
+1. Complete T2 supervised process-session integration around the landed
+   stateful scheduler, including session/message identity and replay.
 2. Land production text measurement/shaping interfaces in layout/scene.
 3. Build the first H2 Windows window/surface/presentation skeleton.
 4. Connect H1 input and frame commits to that host.

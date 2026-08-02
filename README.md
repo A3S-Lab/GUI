@@ -89,14 +89,14 @@ The repository already provides:
   fixtures, automatic JSX lowering, strict frame normalization, and
   revision-scoped ordered callbacks;
 - a transport-neutral TypeScript `createApp` lifecycle with keyed component
-  instances, state/reducer/memo/ref/effect hooks, batched rerenders, and
-  post-commit cleanup.
+  instances, typed context, render error boundaries, state/reducer/memo/ref/
+  effect hooks, batched rerenders, and post-commit cleanup.
 
 Still required before a production native application:
 
 - real zero-widget macOS, Windows, and Wayland/X11 hosts;
 - production text shaping, text editing, IME, and assistive-technology bridges;
-- TypeScript context/error-boundary work and supervised Node/Rust process I/O;
+- supervised TypeScript/Node-to-Rust process I/O and session identity;
 - packaging, signing, installer work, and tri-platform visual evidence;
 - full self-drawn conformance evidence for every React Aria family.
 
@@ -151,10 +151,10 @@ await createApp(Counter).run();
 This is the target zero-configuration application API, not yet a runnable
 native package. Today, the private SDK also has a transport-neutral `createApp`
 lifecycle driven by a typed host object. It owns keyed function-component
-instances, state/reducer/memo/ref/effect hooks, one-microtask rerender batching,
-revision-scoped callbacks, and effect promotion only after `committed`.
-Context, error boundaries, process supervision/session identity, native host
-startup, and npm publication remain T2-T5 work.
+instances, typed nested context, render error boundaries, state/reducer/memo/
+ref/effect hooks, one-microtask rerender batching, revision-scoped callbacks,
+and effect promotion only after `committed`. Process supervision/session
+identity, native host startup, and npm publication remain T2-T5 work.
 
 Read [TSX native runtime](docs/tsx-native-runtime.md) for protocol and delivery
 gates.
@@ -277,8 +277,8 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. finish T2 context/error boundaries and connect `createApp` to a supervised
-   Node/Rust protocol session;
+1. finish T2 by connecting `createApp` to a supervised Node/Rust protocol
+   session with enforced session/message identity;
 2. land production text shaping/editing primitives on the generic layout/scene
    path;
 3. implement the first raw Windows host, then macOS and Wayland/X11 hosts,

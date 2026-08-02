@@ -17,6 +17,18 @@ export type {
   TsxEventMessageV1,
 } from "./action-registry.ts";
 export { Button, Text, View, Window } from "./components.ts";
+export { createContext } from "./context.ts";
+export type {
+  A3sContext,
+  A3sContextProvider,
+  A3sContextProviderProps,
+} from "./context.ts";
+export { ErrorBoundary } from "./error-boundary.ts";
+export type {
+  A3sErrorBoundaryComponent,
+  A3sErrorBoundaryProps,
+  A3sErrorFallback,
+} from "./error-boundary.ts";
 export { A3sJsxError, Fragment, isA3sElement } from "./element.ts";
 export type {
   A3sElement,
@@ -39,6 +51,7 @@ export type {
 } from "./application.ts";
 export {
   A3sHookError,
+  useContext,
   useEffect,
   useMemo,
   useReducer,

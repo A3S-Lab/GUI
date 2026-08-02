@@ -8,6 +8,11 @@ import {
   type A3sJsxProps,
   type A3sSourceLocation,
 } from "./element.ts";
+import {
+  isA3sContextProvider,
+  type A3sContextProvider,
+} from "./context.ts";
+import { isA3sErrorBoundary } from "./error-boundary.ts";
 import type { ComponentRenderRuntime } from "./component-runtime.ts";
 
 export interface DraftBase {
@@ -171,6 +176,12 @@ function resolveElement(
       const drafts = resolveChildren(element, state, [...address, "fragment"]);
       return element.key === null ? clearFallbackKeys(drafts) : scopeDrafts(drafts, element.key);
     }
+    if (isA3sContextProvider(element.type)) {
+      return resolveContextProvider(element, element.type, state, address);
+    }
+    if (isA3sErrorBoundary(element.type)) {
+      return resolveErrorBoundary(element, state, address);
+    }
     if (typeof element.type === "function") {
       const component = element.type;
       let output: unknown;
@@ -255,6 +266,100 @@ function resolveElement(
   } finally {
     state.depth -= 1;
   }
+}
+
+function resolveContextProvider(
+  element: A3sElement,
+  provider: A3sContextProvider<unknown>,
+  state: ResolveState,
+  address: readonly string[],
+): DraftNode[] {
+  assertTransparentProps(element, ["value", "children"]);
+  if (!Object.hasOwn(element.props, "value")) {
+    throw new A3sJsxError("context providers require a value prop", element.source);
+  }
+  const resolve = () => resolveChildren(element, state, [...address, "context"]);
+  const drafts = state.componentRuntime === null
+    ? resolve()
+    : state.componentRuntime.withContextValue(
+      provider.context,
+      element.props.value,
+      resolve,
+    );
+  return scopeTransparentDrafts(element, drafts);
+}
+
+function resolveErrorBoundary(
+  element: A3sElement,
+  state: ResolveState,
+  address: readonly string[],
+): DraftNode[] {
+  assertTransparentProps(element, ["fallback", "children"]);
+  if (!Object.hasOwn(element.props, "fallback")) {
+    throw new A3sJsxError("error boundaries require a fallback prop", element.source);
+  }
+
+  const nodeCheckpoint = state.nodes;
+  const renderCheckpoint = state.componentRuntime?.createCheckpoint() ?? null;
+  let drafts: DraftNode[];
+  try {
+    drafts = resolveChildren(element, state, [...address, "boundary"]);
+  } catch (cause) {
+    state.nodes = nodeCheckpoint;
+    if (renderCheckpoint !== null) {
+      state.componentRuntime?.rollbackToCheckpoint(renderCheckpoint);
+    }
+    const error = normalizeBoundaryError(cause, element.source);
+    let fallback = element.props.fallback;
+    if (typeof fallback === "function") {
+      try {
+        fallback = fallback(error);
+      } catch (fallbackCause) {
+        throw new A3sJsxError(
+          "error boundary fallback threw while rendering",
+          element.source,
+          fallbackCause,
+        );
+      }
+    }
+    drafts = resolveValue(
+      fallback,
+      state,
+      false,
+      element.source,
+      childAddress([...address, "fallback"], fallback, 0),
+    );
+    assignSiblingKeys(drafts);
+  }
+  return scopeTransparentDrafts(element, drafts);
+}
+
+function scopeTransparentDrafts(element: A3sElement, drafts: DraftNode[]): DraftNode[] {
+  return element.key === null ? clearFallbackKeys(drafts) : scopeDrafts(drafts, element.key);
+}
+
+function assertTransparentProps(
+  element: A3sElement,
+  allowed: readonly string[],
+): void {
+  const allowedNames = new Set(allowed);
+  for (const name of Object.keys(element.props)) {
+    if (!allowedNames.has(name)) {
+      throw new A3sJsxError(
+        `${describeElementType(element.type)} does not accept prop ${JSON.stringify(name)}`,
+        element.source,
+      );
+    }
+  }
+}
+
+function normalizeBoundaryError(
+  cause: unknown,
+  source: A3sSourceLocation | null,
+): A3sJsxError {
+  return cause instanceof A3sJsxError
+    ? cause
+    : new A3sJsxError("error boundary caught a descendant render failure", source, cause);
 }
 
 function resolveChildren(
