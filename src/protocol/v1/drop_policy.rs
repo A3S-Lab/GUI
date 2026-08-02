@@ -1,6 +1,7 @@
 use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum ProtocolDropOperationV1 {
     Copy,
@@ -10,6 +11,7 @@ pub enum ProtocolDropOperationV1 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum ProtocolDropPositionV1 {
     Before,
@@ -18,6 +20,7 @@ pub enum ProtocolDropPositionV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(tag = "type", rename_all = "camelCase", deny_unknown_fields)]
 pub enum ProtocolCollectionDropTargetV1 {
     Root,

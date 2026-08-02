@@ -6,11 +6,14 @@ use crate::error::{GuiError, GuiResult};
 use crate::protocol::NATIVE_PROTOCOL_VERSION_V1;
 
 pub const TSX_PROTOCOL_NAME: &str = "a3s.gui.tsx";
+/// Largest integer that JSON/JavaScript peers can represent without loss.
+pub const TSX_PROTOCOL_V1_MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 pub const TSX_PROTOCOL_V1_MAX_SESSION_ID_BYTES: usize = 128;
 pub const TSX_PROTOCOL_V1_MAX_VERSION_BYTES: usize = 128;
 pub const TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES: usize = 4 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum TsxRendererV1 {
     Auto,
@@ -19,6 +22,7 @@ pub enum TsxRendererV1 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum TsxHostPlatformV1 {
     Headless,
@@ -28,6 +32,7 @@ pub enum TsxHostPlatformV1 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum TsxDebugCapabilityV1 {
     ProtocolTrace,
@@ -36,6 +41,7 @@ pub enum TsxDebugCapabilityV1 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum TsxHostCapabilityV1 {
     HeadlessRendering,
@@ -45,6 +51,7 @@ pub enum TsxHostCapabilityV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxHelloPayloadV1 {
     pub sdk_version: String,
@@ -82,6 +89,7 @@ impl TsxHelloPayloadV1 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxProtocolLimitsV1 {
     pub maximum_frame_bytes: u32,
@@ -101,6 +109,7 @@ impl TsxProtocolLimitsV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxWelcomePayloadV1 {
     pub selected_protocol_version: u32,
@@ -148,12 +157,20 @@ impl TsxWelcomePayloadV1 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxLivenessPayloadV1 {
     pub nonce: u64,
 }
 
+impl TsxLivenessPayloadV1 {
+    pub fn validate(&self) -> GuiResult<()> {
+        validate_json_safe_integer("TSX liveness nonce", self.nonce)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum TsxCloseReasonV1 {
     Normal,
@@ -163,6 +180,7 @@ pub enum TsxCloseReasonV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxClosePayloadV1 {
     pub reason: TsxCloseReasonV1,
@@ -177,6 +195,7 @@ impl TsxClosePayloadV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxFatalPayloadV1 {
     pub code: String,
@@ -229,11 +248,14 @@ impl TsxMessageMetadataRefV1<'_> {
         if self.message_id == 0 {
             return Err(GuiError::host("TSX protocol message ids must be non-zero"));
         }
+        validate_json_safe_integer("TSX protocol message id", self.message_id)?;
+        validate_json_safe_integer("TSX render revision", self.render_revision)?;
         Ok(())
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(
     tag = "type",
     rename_all = "camelCase",
@@ -388,13 +410,14 @@ impl TsxClientMessageV1 {
                 let _: crate::protocol::UiFrame = payload.clone().try_into()?;
                 Ok(())
             }
-            Self::Ping { .. } | Self::Pong { .. } => Ok(()),
+            Self::Ping { payload, .. } | Self::Pong { payload, .. } => payload.validate(),
             Self::Close { payload, .. } => payload.validate(),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(
     tag = "type",
     rename_all = "camelCase",
@@ -604,7 +627,7 @@ impl TsxHostMessageV1 {
                 }
                 payload.validate()
             }
-            Self::Ping { .. } | Self::Pong { .. } => Ok(()),
+            Self::Ping { payload, .. } | Self::Pong { payload, .. } => payload.validate(),
             Self::Close { payload, .. } => payload.validate(),
             Self::Fatal { payload, .. } => payload.validate(),
         }
@@ -627,6 +650,15 @@ pub(super) fn validate_bounded_text(
     if value.chars().any(char::is_control) {
         return Err(GuiError::host(format!(
             "{field} cannot contain control characters"
+        )));
+    }
+    Ok(())
+}
+
+pub(super) fn validate_json_safe_integer(field: &str, value: u64) -> GuiResult<()> {
+    if value > TSX_PROTOCOL_V1_MAX_SAFE_INTEGER {
+        return Err(GuiError::host(format!(
+            "{field} exceeds JavaScript's maximum safe integer {TSX_PROTOCOL_V1_MAX_SAFE_INTEGER}"
         )));
     }
     Ok(())

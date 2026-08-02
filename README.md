@@ -6,7 +6,7 @@
   <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
   <img alt="Roadmap milestone M3 current" src="https://img.shields.io/badge/roadmap-M3%20current-0067C0?style=flat-square">
-  <img alt="TSX milestone T1 Rust foundation" src="https://img.shields.io/badge/TSX-T1%20Rust%20foundation-1687D9?style=flat-square">
+  <img alt="TSX milestone T1 protocol SDK" src="https://img.shields.io/badge/TSX-T1%20protocol%20SDK-1687D9?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2F3945?style=flat-square"></a>
 </p>
 
@@ -20,8 +20,9 @@ path uses a DOM, CSSOM, WebView, or framework-owned content renderer.
 > AppKit/GTK4/WinUI control hosts are established dogfood baselines. The first
 > generic self-drawn layout-to-Scene slice has landed; self-drawn text shaping,
 > editing/IME, accessibility bridges, and real thin-host presentation remain
-> roadmap work. The TypeScript runtime, executable process host, and npm
-> packages have not been implemented yet; the landed Rust TSX protocol is not
+> roadmap work. Rust-generated TypeScript wire declarations and a private
+> development package now exist, but the JSX runtime, executable process host,
+> callback/state runtime, and publishable npm packages do not; this is not yet
 > a runnable TSX application. React Aria component parity is not claimed yet.
 
 The target is unambiguous: A3S draws all application content. The existing
@@ -146,12 +147,16 @@ render, host-frame, and event sequences before mutation, preserves the active
 revision after a rejected frame, and maps self-drawn snapshots and dispatches
 directly. Incremental and blocking codecs enforce a little-endian `u32` length
 prefix and reject empty, oversized, truncated, invalid UTF-8, duplicate-field,
-unknown-kind, and unsupported-protocol input. Canonical hello, counter render,
-commit, and event fixtures plus a Rust RSX/TSX Native IR and accessibility
-parity test pin this slice. Actual process I/O, TypeScript declarations, JSX
-runtime, callback registry, and packages remain. The design keeps component
-state and callbacks in Node, platform/GPU handles inside a separate Rust
-process, and Rust as the only native reconciler. Read the
+unknown-kind, and unsupported-protocol input. Numeric `u64` wire values are
+bounded to JavaScript's exact integer range; arbitrary layout/scene
+fingerprints are fixed 16-digit lowercase hexadecimal strings. Rust DTOs now
+generate the checked-in `@a3s/gui/protocol` declarations and declaration
+fingerprint. Canonical hello, counter render, commit, and event fixtures are
+parsed and byte-canonicalized in both Rust and Node 24, while a Rust RSX/TSX
+Native IR and accessibility parity test pins the semantic slice. Actual process
+I/O, the JSX runtime, callback registry/state, and publishable packages remain.
+The design keeps component state and callbacks in Node, platform/GPU handles
+inside a separate Rust process, and Rust as the only native reconciler. Read the
 [TSX native runtime architecture](docs/tsx-native-runtime.md) for protocol,
 identity, failure recovery, packaging, and T0-T5 delivery gates.
 
@@ -361,7 +366,7 @@ independently.
 | M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, typed and collection drag/drop, timed drop activation, and fail-closed dynamic drop policy resolution landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
 | H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, long press, captured move, typed drag/drop negotiation and timed target activation, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
-| T0-T5 · TSX native authoring | T1 Rust foundation in progress | Strict handshake/framing, transactional render/commit/event messages, self-drawn snapshot/dispatch adapters, counter golden/parity fixtures, and revision-scoped drop-policy bridge landed; process I/O, TypeScript declarations, JSX runtime, Node callback registry/state, packages, and stable SDK remain |
+| T0-T5 · TSX native authoring | T1 protocol SDK in progress | Strict handshake/framing, transactional render/commit/event messages, self-drawn adapters, safe JSON integer/fingerprint encoding, Rust-generated TypeScript declarations with drift CI, private package skeleton, counter golden/parity fixtures, and revision-scoped drop-policy bridge landed; process I/O, JSX runtime, Node callback registry/state, calculator parity, and stable SDK remain |
 | M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped; collection DnD authoring/behavior slice landed; eight public parts, full software, accessibility, and three-OS self-drawn evidence remain |
 
 The dependency-ordered plan and acceptance gates are in the
@@ -478,6 +483,10 @@ crate root.
 # Graphics paths, examples, and whitespace.
 just verify
 
+# Focused Rust-to-TypeScript declaration and Node fixture gates.
+just check-tsx-protocol
+just test-typescript
+
 # Matching host-native library tests and all-target compile check.
 just native-ci
 ```
@@ -490,6 +499,7 @@ just native-input-conformance path/to/native-evidence.json
 just winui-input-smoke path/to/winui-smoke.json
 ```
 
+The cross-language fixture gate uses Node 24 LTS and has no npm dependencies.
 The WinUI smoke runner requires an interactive Windows desktop and Windows App
 Runtime 1.7. AppKit and GTK4 native checks require their matching host
 toolchains; GTK4 requires 4.14 or newer development libraries.
@@ -505,7 +515,7 @@ src/
 |- rsx_app/              ComponentCx, hooks, components, and binding scope
 |- rsx_ui/               built-in semantic design-system registry
 |- protocol.rs           versioned frame, event, action, ACK, and recovery boundary
-|- tsx_protocol/         strict handshake/framing plus transactional render, commit, and event sessions
+|- tsx_protocol/         strict session DTOs plus Rust-owned TypeScript declaration generation
 |- native.rs             portable NativeElement UI IR
 |- layout/               deterministic records, style projection, diffs, and tests
 |- drawing.rs            Graphics boundary and reference/GPU renderer wrappers
@@ -518,6 +528,7 @@ src/
 `- *_native/             AppKit, GTK4, and WinUI control hosts during migration
 
 examples/                headless, self-drawn, calculator, dogfood, controls, and playground apps
+packages/typescript/     private @a3s/gui protocol declarations and cross-language fixtures
 docs/                    architecture, contracts, packaging, language, and roadmap
 packaging/               unsigned native smoke-bundle assets and validators
 ```

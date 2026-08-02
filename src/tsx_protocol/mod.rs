@@ -13,12 +13,16 @@ mod framing;
 mod handshake;
 mod message;
 mod session;
+#[cfg(feature = "typescript-schema")]
+mod typescript;
 
 pub use application::*;
 pub use framing::*;
 pub use handshake::*;
 pub use message::*;
 pub use session::*;
+#[cfg(feature = "typescript-schema")]
+pub use typescript::*;
 
 #[cfg(test)]
 mod tests;

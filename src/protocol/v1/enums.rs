@@ -8,6 +8,7 @@ use super::*;
 macro_rules! define_protocol_leaf_enum {
     ($protocol:ident => $internal:ty { $( $variant:ident ),+ $(,)? }) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+        #[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
         #[serde(rename_all = "camelCase")]
         pub enum $protocol {
             $($variant,)+

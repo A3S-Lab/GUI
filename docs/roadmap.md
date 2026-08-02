@@ -626,8 +626,10 @@ Gates:
 Status: architecture accepted; the Rust-side strict handshake/framing,
 transactional render/commit/event session, self-drawn snapshot/event adapters,
 counter golden/parity fixtures, and revision-scoped drop-policy
-protocol/resolver adapter have landed. Process I/O, generated TypeScript, the
-JSX runtime, Node callback registry, and visible TSX application remain.
+protocol/resolver adapter have landed. Rust-generated TypeScript declarations,
+a fixed schema fingerprint, a private `@a3s/gui` package skeleton, and shared
+Rust/Node fixture gates have also landed. Process I/O, the JSX runtime, Node
+callback registry, and visible TSX application remain.
 
 This track is dependency-coupled to the renderer and H0-H5 host programs
 without blocking Rust RSX work. Headless protocol and JSX-runtime work can
@@ -653,7 +655,7 @@ decisions are recorded in
 - reuse the resolved `ProtocolUiFrameV1` input vocabulary behind a new TSX
   session envelope
 - extend the landed Rust RSX/static-TSX counter parity fixture to the
-  calculator and generated TypeScript CI
+  calculator; generated TypeScript and Node fixture CI now cover the counter
 
 Gate: TSX is a peer authoring frontend and cannot bypass Native IR, layout,
 Graphics, interaction, accessibility, or capability checks.
@@ -667,14 +669,17 @@ self-drawn host revisions, 16 MiB-capped little-endian framing, incremental
 decoding, four canonical JSON fixtures, and static counter Native
 IR/accessibility parity have landed. The core remains free of Node and Graphics
 dependencies; self-drawn conversions compile only with `platform-runtime`.
+All numeric `u64` fields are bounded to JavaScript's safe integer range, full
+64-bit scene/layout fingerprints use fixed hexadecimal strings, and optional
+`typescript-schema` generation now produces the checked-in declarations and
+fingerprint. Node 24 independently imports that module and canonicalizes the
+same four fixtures without an npm dependency.
 
-- generated TypeScript declarations from versioned Rust DTOs
 - automatic `jsx-runtime` and `jsx-dev-runtime` exports
 - deterministic child, prop, key, and event normalization
 - add command messages, local process I/O, and generated structured diagnostic
   declarations to the landed application session
-- extend the landed static counter semantic parity to TypeScript CI and the
-  calculator fixture
+- extend the landed static counter semantic parity to the calculator fixture
 
 Gates:
 

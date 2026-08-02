@@ -300,6 +300,19 @@ test-examples:
 test-react-aria-catalog:
     cargo test --locked --test react_aria_component_matrix
 
+# Regenerate the TypeScript wire declarations from versioned Rust DTOs
+generate-tsx-protocol:
+    cargo run --locked --quiet --no-default-features --features typescript-schema --bin a3s-gui-generate-tsx-protocol -- --write
+
+# Reject checked-in TypeScript declarations that drift from Rust DTOs
+check-tsx-protocol:
+    cargo run --locked --quiet --no-default-features --features typescript-schema --bin a3s-gui-generate-tsx-protocol -- --check
+    cargo test --locked --no-default-features --features typescript-schema --lib tsx_protocol::typescript::
+
+# Run dependency-free cross-language protocol fixture tests
+test-typescript:
+    npm --prefix packages/typescript test
+
 # Run adapter planning tests without native OS bindings
 test-platforms:
     cargo test --locked --features appkit,winui,gtk4,gpu
@@ -407,16 +420,17 @@ winui-input-smoke EVIDENCE:
 
 # Lint every target and deny high-confidence Clippy and Rust warnings
 clippy:
-    cargo clippy --locked --all-targets --features appkit,winui,gtk4,gpu,platform-host,platform-runtime -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused
+    cargo clippy --locked --all-targets --features appkit,winui,gtk4,gpu,platform-host,platform-runtime,typescript-schema -- -A clippy::all -D clippy::correctness -D clippy::suspicious -A clippy::unnecessary_get_then_check -D unused
 
 # Build crate documentation and fail on rustdoc warnings
 doc-check:
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-deps --document-private-items
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-default-features --features platform-host --no-deps --document-private-items
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-default-features --features platform-runtime --no-deps --document-private-items
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --no-default-features --features typescript-schema --no-deps --document-private-items
 
 # Run the full local verification suite
-verify: fmt-check check-core check-core-graph check-platform-host check-platform-host-graph check-platform-runtime check-platform-runtime-graph clippy doc-check test test-examples test-react-aria-catalog test-platforms test-platform-host test-platform-runtime test-graphics diff-check
+verify: fmt-check check-core check-core-graph check-platform-host check-platform-host-graph check-platform-runtime check-platform-runtime-graph check-tsx-protocol clippy doc-check test test-examples test-react-aria-catalog test-typescript test-platforms test-platform-host test-platform-runtime test-graphics diff-check
 
 # Run dogfood reducer and protocol-boundary regression tests
 dogfood-regression:

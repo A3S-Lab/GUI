@@ -8,7 +8,9 @@ use crate::protocol::{
     ProtocolUiFrameV1,
 };
 
-use super::{validate_bounded_text, TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES};
+use super::{
+    validate_bounded_text, validate_json_safe_integer, TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES,
+};
 
 pub const TSX_PROTOCOL_V1_MAX_DIAGNOSTICS: usize = 1_024;
 pub const TSX_PROTOCOL_V1_MAX_EVENT_ITEMS: usize = 65_536;
@@ -22,7 +24,59 @@ pub const TSX_PROTOCOL_V1_MAX_EVENT_VALUE_BYTES: usize = 1024 * 1024;
 /// not expose the legacy planned-widget render response to a TSX peer.
 pub type TsxRenderPayloadV1 = ProtocolUiFrameV1;
 
+/// Lossless wire representation of an arbitrary 64-bit self-drawn fingerprint.
+///
+/// JSON numbers cannot carry every `u64` value through JavaScript. Protocol v1
+/// therefore uses exactly sixteen lowercase hexadecimal digits.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
+#[serde(transparent)]
+pub struct TsxFingerprintV1(String);
+
+impl TsxFingerprintV1 {
+    pub fn new(value: impl Into<String>) -> GuiResult<Self> {
+        let value = Self(value.into());
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn from_u64(value: u64) -> Self {
+        Self(format!("{value:016x}"))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn value(&self) -> GuiResult<u64> {
+        self.validate()?;
+        u64::from_str_radix(&self.0, 16)
+            .map_err(|error| GuiError::host(format!("invalid TSX fingerprint: {error}")))
+    }
+
+    pub fn validate(&self) -> GuiResult<()> {
+        if self.0.len() != 16
+            || !self
+                .0
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        {
+            return Err(GuiError::host(
+                "TSX fingerprints must contain exactly sixteen lowercase hexadecimal digits",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl From<u64> for TsxFingerprintV1 {
+    fn from(value: u64) -> Self {
+        Self::from_u64(value)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum TsxDiagnosticSeverityV1 {
     Information,
@@ -31,6 +85,7 @@ pub enum TsxDiagnosticSeverityV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxDiagnosticV1 {
     pub severity: TsxDiagnosticSeverityV1,
@@ -60,6 +115,7 @@ impl TsxDiagnosticV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxCommittedPayloadV1 {
     pub frame_id: String,
@@ -69,8 +125,8 @@ pub struct TsxCommittedPayloadV1 {
     /// ownership while producing identical Native IR.
     pub host_revision: u64,
     pub root_id: String,
-    pub layout_fingerprint: u64,
-    pub scene_fingerprint: u64,
+    pub layout_fingerprint: TsxFingerprintV1,
+    pub scene_fingerprint: TsxFingerprintV1,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub diagnostics: Vec<TsxDiagnosticV1>,
 }
@@ -87,7 +143,10 @@ impl TsxCommittedPayloadV1 {
                 "TSX committed host revisions must be non-zero",
             ));
         }
+        validate_json_safe_integer("TSX committed host revision", self.host_revision)?;
         validate_element_id("TSX committed root id", &self.root_id)?;
+        self.layout_fingerprint.validate()?;
+        self.scene_fingerprint.validate()?;
         if self.diagnostics.len() > TSX_PROTOCOL_V1_MAX_DIAGNOSTICS {
             return Err(GuiError::host(format!(
                 "TSX committed payload exceeds the {TSX_PROTOCOL_V1_MAX_DIAGNOSTICS}-diagnostic limit"
@@ -107,6 +166,7 @@ impl TsxCommittedPayloadV1 {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum TsxInputModalityV1 {
     #[default]
@@ -119,6 +179,7 @@ pub enum TsxInputModalityV1 {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxKeyModifiersV1 {
     pub alt: bool,
@@ -128,6 +189,7 @@ pub struct TsxKeyModifiersV1 {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxPointV1 {
     pub x: f64,
@@ -146,6 +208,7 @@ impl TsxPointV1 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
@@ -162,6 +225,7 @@ pub enum TsxPointerButtonV1 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum TsxWheelDeltaModeV1 {
     Pixels,
@@ -170,6 +234,7 @@ pub enum TsxWheelDeltaModeV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum TsxDropItemV1 {
     Text {
@@ -199,6 +264,7 @@ impl TsxDropItemV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxDragContextV1 {
     pub types: Vec<String>,
@@ -255,6 +321,7 @@ impl TsxDragContextV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxEventContextV1 {
     pub device: u64,
@@ -294,9 +361,14 @@ impl TsxEventContextV1 {
                 "TSX event input device ids must be non-zero",
             ));
         }
+        validate_json_safe_integer("TSX event input device id", self.device)?;
         if self.pointer == Some(0) {
             return Err(GuiError::host("TSX event pointer ids must be non-zero"));
         }
+        if let Some(pointer) = self.pointer {
+            validate_json_safe_integer("TSX event pointer id", pointer)?;
+        }
+        validate_json_safe_integer("TSX event timestamp", self.timestamp_micros)?;
         if let Some(position) = self.position {
             position.validate("TSX event position")?;
         }
@@ -322,6 +394,7 @@ impl TsxEventContextV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxActionInvocationV1 {
     pub node: String,
@@ -354,6 +427,7 @@ impl TsxActionInvocationV1 {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxElementInteractionV1 {
     pub hovered: bool,
@@ -368,6 +442,7 @@ pub struct TsxElementInteractionV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxInteractionChangeV1 {
     pub node: String,
@@ -382,6 +457,7 @@ impl TsxInteractionChangeV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TsxEventPayloadV1 {
     /// Revision of the committed self-drawn snapshot that handled the input.
@@ -402,9 +478,11 @@ impl TsxEventPayloadV1 {
         if self.host_revision == 0 {
             return Err(GuiError::host("TSX event host revisions must be non-zero"));
         }
+        validate_json_safe_integer("TSX event host revision", self.host_revision)?;
         if self.event_sequence == 0 {
             return Err(GuiError::host("TSX event sequences must be non-zero"));
         }
+        validate_json_safe_integer("TSX event sequence", self.event_sequence)?;
         if let Some(target) = &self.target {
             validate_element_id("TSX event target", target)?;
         }
@@ -488,8 +566,8 @@ mod self_drawn {
                 frame_id: frame_id.into(),
                 host_revision: snapshot.revision().get(),
                 root_id: root_id.as_str().to_string(),
-                layout_fingerprint: snapshot.layout_fingerprint(),
-                scene_fingerprint: snapshot.scene_fingerprint(),
+                layout_fingerprint: snapshot.layout_fingerprint().into(),
+                scene_fingerprint: snapshot.scene_fingerprint().into(),
                 diagnostics,
             };
             payload.validate()?;

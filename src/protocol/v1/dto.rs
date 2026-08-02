@@ -1,6 +1,7 @@
 use super::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub enum ProtocolCompiledOrientationV1 {
     Horizontal,
@@ -26,6 +27,7 @@ impl From<ProtocolCompiledOrientationV1> for CompiledOrientation {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(untagged)]
 pub enum ProtocolCompiledStyleValueV1 {
     String(String),
@@ -98,6 +100,7 @@ impl<T> ProtocolEnvelopeV1<T> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolUiActionV1 {
     pub id: String,
@@ -128,6 +131,7 @@ impl From<ProtocolUiActionV1> for UiAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolWindowOptionsV1 {
     pub title: String,
@@ -188,6 +192,7 @@ macro_rules! define_protocol_compiled_props_v1 {
         /// Binding and spread expressions are intentionally absent: a wire frame
         /// is an execution artifact and must be fully resolved before transport.
         #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+        #[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
         #[serde(rename_all = "camelCase", deny_unknown_fields)]
         pub struct ProtocolCompiledPropsV1 {
             $(#[serde(default)] pub $field: $ty,)+
@@ -305,7 +310,13 @@ define_protocol_compiled_props_v1! {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
 pub enum ProtocolCompiledNodeV1 {
     Element {
         key: String,
@@ -369,6 +380,7 @@ impl From<ProtocolCompiledNodeV1> for CompiledRsxNode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript-schema", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ProtocolUiFrameV1 {
     pub frame_id: String,

@@ -977,9 +977,15 @@ committed state on validation or response-encoding failure. It tracks the TSX
 callback-scope revision separately from the self-drawn host snapshot revision,
 so callback-only rerenders can reuse identical Native IR safely. Feature-gated
 adapters consume `SelfDrawnFrameSnapshot` and `SelfDrawnInputDispatch`
-directly. The feature-independent foundation has no Node, Nub, N-API,
-Graphics, legacy renderer, or OS-toolkit dependency; commands, process I/O,
-generated TypeScript, and the Node implementation remain T1 work.
+directly. All numeric `u64` wire values are rejected above JavaScript's safe
+integer limit, while arbitrary layout/scene fingerprints use lossless fixed
+hexadecimal strings. An optional build-only `typescript-schema` feature walks
+the Rust DTO graph, emits a deterministically ordered declaration module, and
+pins it with an FNV-1a fingerprint. A private TypeScript package imports that
+module in Node 24 and independently canonicalizes the Rust golden fixtures.
+The feature-independent foundation has no Node, Nub, N-API, Graphics, legacy
+renderer, or OS-toolkit dependency; commands, process I/O, the JSX runtime,
+and the Node implementation remain T1 work.
 
 Drop policies that participate in hit testing use a separate synchronous
 protocol-v1 exchange rather than an action invocation. A

@@ -1,7 +1,9 @@
 use std::io::Cursor;
 
 use super::*;
-use crate::protocol::{ProtocolNativeEventKindV1, ProtocolUiFrameV1, UiFrame};
+use crate::protocol::{
+    ProtocolCompiledNodeV1, ProtocolNativeEventKindV1, ProtocolUiFrameV1, UiFrame,
+};
 
 const HELLO_FIXTURE: &str = include_str!("../../tests/fixtures/tsx-protocol/hello-v1.json");
 const RENDER_FIXTURE: &str =
@@ -78,8 +80,8 @@ fn counter_committed(host_revision: u64) -> TsxCommittedPayloadV1 {
         frame_id: "counter".to_string(),
         host_revision,
         root_id: "9:increment".to_string(),
-        layout_fingerprint: 11,
-        scene_fingerprint: 17,
+        layout_fingerprint: 11.into(),
+        scene_fingerprint: 17.into(),
         diagnostics: vec![],
     }
 }
@@ -280,6 +282,27 @@ fn nested_application_payloads_reject_unknown_fields() {
     .unwrap_err()
     .to_string()
     .contains("unknown field"));
+}
+
+#[test]
+fn compiled_node_import_source_uses_the_camel_case_wire_name() {
+    let mut frame = ProtocolUiFrameV1::try_from(&counter_frame()).unwrap();
+    let ProtocolCompiledNodeV1::Element { import_source, .. } = &mut frame.root else {
+        unreachable!()
+    };
+    *import_source = Some("@a3s/gui".to_string());
+
+    let value = serde_json::to_value(&frame).unwrap();
+    assert_eq!(value["root"]["importSource"], "@a3s/gui");
+    assert!(value["root"].get("import_source").is_none());
+
+    let legacy = serde_json::to_string(&frame)
+        .unwrap()
+        .replace("importSource", "import_source");
+    assert!(serde_json::from_str::<ProtocolUiFrameV1>(&legacy)
+        .unwrap_err()
+        .to_string()
+        .contains("unknown field"));
 }
 
 #[cfg(feature = "authoring")]
@@ -686,13 +709,67 @@ fn message_sequence_rejects_skips_duplicates_and_overflow_without_advancing() {
     sequence.accept(2).unwrap();
     assert_eq!(sequence.last_message_id(), 2);
 
-    let mut overflow = TsxMessageSequenceV1::from_last_message_id(u64::MAX);
+    let mut overflow = TsxMessageSequenceV1::from_last_message_id(TSX_PROTOCOL_V1_MAX_SAFE_INTEGER);
     assert!(overflow
         .accept(0)
         .unwrap_err()
         .to_string()
-        .contains("overflow"));
-    assert_eq!(overflow.last_message_id(), u64::MAX);
+        .contains("maximum safe integer"));
+    assert_eq!(overflow.last_message_id(), TSX_PROTOCOL_V1_MAX_SAFE_INTEGER);
+}
+
+#[test]
+fn application_wire_integers_and_fingerprints_are_javascript_lossless() {
+    assert_eq!(TsxFingerprintV1::from_u64(11).as_str(), "000000000000000b");
+    assert_eq!(
+        TsxFingerprintV1::from_u64(u64::MAX).value().unwrap(),
+        u64::MAX
+    );
+    assert!(TsxFingerprintV1::new("000000000000000B").is_err());
+    assert!(TsxFingerprintV1::new("b").is_err());
+
+    let invalid_fingerprint = COMMITTED_FIXTURE.replace("000000000000000b", "000000000000000B");
+    let decoded: TsxHostMessageV1 = serde_json::from_str(&invalid_fingerprint).unwrap();
+    assert!(decoded
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("lowercase hexadecimal"));
+
+    let mut unsafe_message = counter_render(2, 1);
+    let TsxClientMessageV1::Render { message_id, .. } = &mut unsafe_message else {
+        unreachable!()
+    };
+    *message_id = TSX_PROTOCOL_V1_MAX_SAFE_INTEGER + 1;
+    assert!(unsafe_message
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("maximum safe integer"));
+
+    let mut unsafe_context = counter_event(1, 1);
+    unsafe_context.invocations[0].context.timestamp_micros = TSX_PROTOCOL_V1_MAX_SAFE_INTEGER + 1;
+    assert!(unsafe_context
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("maximum safe integer"));
+
+    let ping = TsxClientMessageV1::Ping {
+        protocol: TSX_PROTOCOL_NAME.to_string(),
+        protocol_version: 1,
+        session_id: "tsx-fixture".to_string(),
+        message_id: 2,
+        render_revision: 0,
+        payload: TsxLivenessPayloadV1 {
+            nonce: TSX_PROTOCOL_V1_MAX_SAFE_INTEGER + 1,
+        },
+    };
+    assert!(ping
+        .validate()
+        .unwrap_err()
+        .to_string()
+        .contains("maximum safe integer"));
 }
 
 #[test]

@@ -272,9 +272,16 @@ impl TsxMessageSequenceV1 {
     }
 
     pub fn expected_message_id(self) -> GuiResult<u64> {
-        self.last_message_id
+        let expected = self
+            .last_message_id
             .checked_add(1)
-            .ok_or_else(|| GuiError::host("TSX protocol message id sequence overflowed"))
+            .ok_or_else(|| GuiError::host("TSX protocol message id sequence overflowed"))?;
+        if expected > super::TSX_PROTOCOL_V1_MAX_SAFE_INTEGER {
+            return Err(GuiError::host(
+                "TSX protocol message id sequence exceeded JavaScript's maximum safe integer",
+            ));
+        }
+        Ok(expected)
     }
 
     /// Accepts only the exact next id and advances only after validation.

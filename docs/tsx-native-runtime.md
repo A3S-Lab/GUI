@@ -1,7 +1,8 @@
 # TSX to Native Runtime Architecture
 
-Status: proposed API; the Rust T1 protocol foundation is in progress. No
-TypeScript package or executable TSX host is implemented yet.
+Status: proposed API; the T1 protocol SDK foundation is in progress. A private
+development package contains Rust-generated wire declarations and tests, but
+no JSX runtime or executable TSX host is implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -380,6 +381,10 @@ contract and is easy to inspect. Each message is framed as a little-endian
 oversized, truncated, invalid UTF-8, duplicate-field, unknown-kind, and
 unsupported-version messages before state mutation. The initial maximum JSON
 payload size is explicit in the handshake and bounded to 16 MiB or less.
+Every numeric `u64` field is also bounded to `Number.MAX_SAFE_INTEGER` before
+transport. Layout and scene fingerprints may use all 64 bits, so they cross the
+JSON boundary as exactly sixteen lowercase hexadecimal digits instead of
+lossy numbers.
 
 Landed Rust foundation: `tsx_protocol` defines strict direction-specific
 control messages with the fixed `a3s.gui.tsx` identifier, atomic
@@ -393,9 +398,12 @@ ordered `event` batches, permits exactly one render in flight, and leaves the
 active revision unchanged on validation, host, or response-encoding failure.
 Its feature-gated adapters project `SelfDrawnFrameSnapshot` and
 `SelfDrawnInputDispatch` directly; no planned-widget response is involved.
-Canonical hello, counter render, committed, and event fixtures pin the wire
-spelling. Command messages, actual local process I/O, generated TypeScript,
-and the TypeScript peer remain pending.
+The optional `typescript-schema` feature walks these Rust DTOs, writes one
+deterministically ordered TypeScript module, and fingerprints its declaration
+body. Canonical hello, counter render, committed, and event fixtures pin the
+wire spelling in Rust and in dependency-free Node 24 tests. Command messages,
+actual local process I/O, the JSX runtime, and the TypeScript peer remain
+pending.
 
 ### Messages
 
@@ -551,10 +559,12 @@ minimum M4 text/input slice.
 Status: architecture accepted; the Rust-side strict handshake/framing,
 render/commit/event session, counter parity fixtures, self-drawn adapters, and
 drop-policy DTO/resolver adapter are implemented. Calculator and
-cross-language fixtures, commands, and Node-side transport are pending.
+commands, JSX execution, and Node-side transport are pending. Rust-generated
+declarations and shared Rust/Node counter fixtures are implemented.
 
 - accept process, ownership, identity, protocol, and packaging decisions
-- extend the landed Rust golden frame/event fixtures into cross-language CI
+- retain the landed shared Rust/Node golden frame/event gate and extend it to
+  the calculator scenario
 - define the first counter and calculator parity scenarios
 - record unsupported React and browser behaviors explicitly
 
@@ -567,17 +577,18 @@ Status: Rust transport foundation in progress. `hello`/`welcome`, atomic limit
 and renderer negotiation, exact message-id sequencing, 16 MiB-capped framing,
 incremental decoding, strict `render`/`committed`/`event` DTOs, transactional
 session ordering, self-drawn adapters, four canonical JSON fixtures, and the
-static counter Native IR/accessibility parity test have landed.
+static counter Native IR/accessibility parity test have landed. Safe-integer
+validation, hexadecimal 64-bit fingerprints, deterministic Rust-generated
+TypeScript declarations, a fixed schema fingerprint, the private package
+skeleton, and Node 24 declaration/fixture tests have also landed.
 
 - extend the landed application messages with command messages and actual
   local process I/O
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
-- generate TypeScript protocol declarations from Rust DTOs
 - publish local development exports for `jsx-runtime` and `jsx-dev-runtime`
 - implement element/child/prop normalization, keys, and action registration
-- extend the landed static counter parity fixture to generated TypeScript CI
-  and the calculator scenario
+- extend the landed static counter parity fixture to the calculator scenario
 
 Gates:
 
@@ -652,8 +663,8 @@ green.
 
 ## First Reviewable Commit Sequence
 
-1. Add session DTOs, framing limits, and protocol golden fixtures.
-2. Add generated TypeScript wire declarations and drift CI.
+1. Add session DTOs, framing limits, and protocol golden fixtures. Landed.
+2. Add generated TypeScript wire declarations and drift CI. Landed.
 3. Add the automatic JSX runtime with normalization and key tests.
 4. Add action ids, callback scopes, and event-vector dispatch.
 5. Add the headless host binary and a static TSX counter fixture.

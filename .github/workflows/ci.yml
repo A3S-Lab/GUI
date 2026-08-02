@@ -35,6 +35,12 @@ jobs:
         shell: bash
         run: cargo install just --locked
 
+      - name: Install Node.js LTS
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
       - name: Run local verification gate
         shell: bash
         run: just verify
