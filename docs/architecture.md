@@ -970,9 +970,16 @@ limits. `TsxHostHandshakeV1` mutates from unbound to negotiated only after the
 complete response fits the negotiated limit. Both stream and incremental JSON
 codecs validate a little-endian `u32` length before allocation, enforce the
 16 MiB protocol-v1 JSON-payload ceiling, and poison an incremental decoder
-after any framing or strict-JSON violation. This Rust transport foundation has
-no Node, Nub, N-API, Graphics, legacy renderer, or OS-toolkit dependency;
-render/event session messages and the Node implementation remain T1 work.
+after any framing or strict-JSON violation. Strict full-frame `render`, atomic
+`committed`, and ordered multi-invocation `event` messages now feed a
+`TsxHostApplicationSessionV1` that permits one render in flight and advances no
+committed state on validation or response-encoding failure. It tracks the TSX
+callback-scope revision separately from the self-drawn host snapshot revision,
+so callback-only rerenders can reuse identical Native IR safely. Feature-gated
+adapters consume `SelfDrawnFrameSnapshot` and `SelfDrawnInputDispatch`
+directly. The feature-independent foundation has no Node, Nub, N-API,
+Graphics, legacy renderer, or OS-toolkit dependency; commands, process I/O,
+generated TypeScript, and the Node implementation remain T1 work.
 
 Drop policies that participate in hit testing use a separate synchronous
 protocol-v1 exchange rather than an action invocation. A

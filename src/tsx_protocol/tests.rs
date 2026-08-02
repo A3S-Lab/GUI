@@ -1,8 +1,14 @@
 use std::io::Cursor;
 
 use super::*;
+use crate::protocol::{ProtocolNativeEventKindV1, ProtocolUiFrameV1, UiFrame};
 
 const HELLO_FIXTURE: &str = include_str!("../../tests/fixtures/tsx-protocol/hello-v1.json");
+const RENDER_FIXTURE: &str =
+    include_str!("../../tests/fixtures/tsx-protocol/render-counter-v1.json");
+const COMMITTED_FIXTURE: &str =
+    include_str!("../../tests/fixtures/tsx-protocol/committed-counter-v1.json");
+const EVENT_FIXTURE: &str = include_str!("../../tests/fixtures/tsx-protocol/event-counter-v1.json");
 
 fn hello(maximum_frame_bytes: u32, requested_renderer: TsxRendererV1) -> TsxClientMessageV1 {
     TsxClientMessageV1::hello(
@@ -33,6 +39,404 @@ fn host_config(maximum_frame_bytes: u32) -> TsxHostHandshakeConfigV1 {
         vec![TsxDebugCapabilityV1::StructuredDiagnostics],
     )
     .unwrap()
+}
+
+fn negotiated(maximum_frame_bytes: u32) -> TsxNegotiatedSessionV1 {
+    let mut handshake = TsxHostHandshakeV1::new(host_config(maximum_frame_bytes));
+    handshake
+        .accept_hello(&hello(maximum_frame_bytes, TsxRendererV1::Software))
+        .unwrap();
+    handshake.negotiated().unwrap().clone()
+}
+
+fn counter_frame() -> UiFrame {
+    serde_json::from_value(serde_json::json!({
+        "frameId": "counter",
+        "actions": [{"id": "increment"}],
+        "root": {
+            "kind": "element",
+            "key": "increment",
+            "tag": "Button",
+            "props": {"events": {"onPress": "increment"}},
+            "children": [{"kind": "text", "key": "label", "value": "Count 0"}]
+        }
+    }))
+    .unwrap()
+}
+
+fn counter_render(message_id: u64, render_revision: u64) -> TsxClientMessageV1 {
+    TsxClientMessageV1::render(
+        "tsx-fixture",
+        message_id,
+        render_revision,
+        ProtocolUiFrameV1::try_from(&counter_frame()).unwrap(),
+    )
+}
+
+fn counter_committed(host_revision: u64) -> TsxCommittedPayloadV1 {
+    TsxCommittedPayloadV1 {
+        frame_id: "counter".to_string(),
+        host_revision,
+        root_id: "9:increment".to_string(),
+        layout_fingerprint: 11,
+        scene_fingerprint: 17,
+        diagnostics: vec![],
+    }
+}
+
+fn counter_event(host_revision: u64, event_sequence: u64) -> TsxEventPayloadV1 {
+    TsxEventPayloadV1 {
+        host_revision,
+        event_sequence,
+        target: Some("9:increment".to_string()),
+        invocations: vec![TsxActionInvocationV1 {
+            node: "9:increment".to_string(),
+            current_target: None,
+            action: "increment".to_string(),
+            event: ProtocolNativeEventKindV1::Press,
+            context: TsxEventContextV1 {
+                device: 1,
+                pointer: None,
+                modality: TsxInputModalityV1::Keyboard,
+                modifiers: TsxKeyModifiersV1::default(),
+                position: None,
+                delta: None,
+                button: None,
+                pressure: None,
+                wheel_delta_mode: None,
+                repeat: false,
+                click_count: 0,
+                handled_activation: true,
+                related_target: None,
+                drag: None,
+                timestamp_micros: 42,
+            },
+            value: None,
+        }],
+        interaction_changes: vec![TsxInteractionChangeV1 {
+            node: "9:increment".to_string(),
+            before: TsxElementInteractionV1::default(),
+            after: TsxElementInteractionV1 {
+                focused: true,
+                focus_visible: true,
+                ..TsxElementInteractionV1::default()
+            },
+        }],
+        propagation_stopped_at: None,
+    }
+}
+
+#[test]
+fn application_golden_fixtures_are_strict_and_canonical() {
+    let limits = TsxFrameLimitsV1::new(8192).unwrap();
+
+    let render =
+        decode_tsx_json_payload_v1::<TsxClientMessageV1>(RENDER_FIXTURE.trim().as_bytes(), limits)
+            .unwrap();
+    render.validate().unwrap();
+    assert_eq!(render, counter_render(2, 1));
+    assert_eq!(
+        serde_json::to_string(&render).unwrap(),
+        RENDER_FIXTURE.trim()
+    );
+
+    let committed =
+        decode_tsx_json_payload_v1::<TsxHostMessageV1>(COMMITTED_FIXTURE.trim().as_bytes(), limits)
+            .unwrap();
+    committed.validate().unwrap();
+    assert_eq!(
+        committed,
+        TsxHostMessageV1::committed("tsx-fixture", 2, 1, counter_committed(1))
+    );
+    assert_eq!(
+        serde_json::to_string(&committed).unwrap(),
+        COMMITTED_FIXTURE.trim()
+    );
+
+    let event =
+        decode_tsx_json_payload_v1::<TsxHostMessageV1>(EVENT_FIXTURE.trim().as_bytes(), limits)
+            .unwrap();
+    event.validate().unwrap();
+    assert_eq!(
+        event,
+        TsxHostMessageV1::event("tsx-fixture", 3, 1, counter_event(1, 1))
+    );
+    assert_eq!(serde_json::to_string(&event).unwrap(), EVENT_FIXTURE.trim());
+}
+
+#[test]
+fn application_session_commits_and_rejects_atomically() {
+    let mut session = TsxHostApplicationSessionV1::new(&negotiated(1024)).unwrap();
+    let accepted = session.accept_render(&counter_render(2, 1)).unwrap();
+    assert_eq!(accepted.render_revision(), 1);
+    assert_eq!(accepted.frame().frame_id, "counter");
+    assert_eq!(session.committed_render_revision(), 0);
+    assert_eq!(session.last_client_message_id(), 2);
+    assert_eq!(session.pending_render().unwrap().root_key(), "increment");
+
+    assert!(session.reject_pending_render(2).is_err());
+    assert!(session.pending_render().is_some());
+    session.reject_pending_render(1).unwrap();
+    assert!(session.pending_render().is_none());
+    assert_eq!(session.committed_render_revision(), 0);
+
+    assert!(session.accept_render(&counter_render(2, 1)).is_err());
+    assert_eq!(session.last_client_message_id(), 2);
+    session.accept_render(&counter_render(3, 1)).unwrap();
+
+    let mut wrong_frame = counter_committed(1);
+    wrong_frame.frame_id = "other".to_string();
+    assert!(session.commit_pending_render(wrong_frame).is_err());
+    assert_eq!(session.last_host_message_id(), 1);
+    assert_eq!(session.committed_render_revision(), 0);
+    assert!(session.pending_render().is_some());
+
+    let mut oversized = counter_committed(1);
+    oversized.diagnostics.push(TsxDiagnosticV1 {
+        severity: TsxDiagnosticSeverityV1::Warning,
+        code: "large".to_string(),
+        message: "x".repeat(900),
+        element_id: None,
+    });
+    assert!(session.commit_pending_render(oversized).is_err());
+    assert_eq!(session.last_host_message_id(), 1);
+    assert_eq!(session.committed_render_revision(), 0);
+    assert!(session.pending_render().is_some());
+
+    let committed = session.commit_pending_render(counter_committed(1)).unwrap();
+    assert_eq!(committed.metadata().message_id, 2);
+    assert_eq!(committed.metadata().render_revision, 1);
+    assert_eq!(session.committed_render_revision(), 1);
+    assert_eq!(session.committed_host_revision(), Some(1));
+    assert!(session.pending_render().is_none());
+
+    assert!(session.emit_event(counter_event(1, 2)).is_err());
+    assert!(session.emit_event(counter_event(2, 1)).is_err());
+    assert_eq!(session.last_event_sequence(), 0);
+    assert_eq!(session.last_host_message_id(), 2);
+
+    let event = session.emit_event(counter_event(1, 1)).unwrap();
+    assert_eq!(event.metadata().message_id, 3);
+    assert_eq!(event.metadata().render_revision, 1);
+    assert_eq!(session.last_event_sequence(), 1);
+    assert!(session.emit_event(counter_event(1, 1)).is_err());
+    assert_eq!(session.last_host_message_id(), 3);
+}
+
+#[test]
+fn stale_render_metadata_fails_before_session_mutation() {
+    let mut session = TsxHostApplicationSessionV1::new(&negotiated(4096)).unwrap();
+
+    let mut wrong_session = counter_render(2, 1);
+    let TsxClientMessageV1::Render { session_id, .. } = &mut wrong_session else {
+        unreachable!()
+    };
+    *session_id = "other-session".to_string();
+    assert!(session.accept_render(&wrong_session).is_err());
+
+    assert!(session.accept_render(&counter_render(2, 2)).is_err());
+    assert_eq!(session.last_client_message_id(), 1);
+    assert_eq!(session.committed_render_revision(), 0);
+    assert!(session.pending_render().is_none());
+
+    let ping = TsxClientMessageV1::Ping {
+        protocol: TSX_PROTOCOL_NAME.to_string(),
+        protocol_version: 1,
+        session_id: "tsx-fixture".to_string(),
+        message_id: 2,
+        render_revision: 0,
+        payload: TsxLivenessPayloadV1 { nonce: 9 },
+    };
+    session.accept_control(&ping).unwrap();
+    session.accept_render(&counter_render(3, 1)).unwrap();
+    assert_eq!(session.last_client_message_id(), 3);
+}
+
+#[test]
+fn unchanged_host_frame_can_commit_a_new_tsx_callback_scope() {
+    let mut session = TsxHostApplicationSessionV1::new(&negotiated(4096)).unwrap();
+    session.accept_render(&counter_render(2, 1)).unwrap();
+    session.commit_pending_render(counter_committed(7)).unwrap();
+
+    session.accept_render(&counter_render(3, 2)).unwrap();
+    let committed = session.commit_pending_render(counter_committed(7)).unwrap();
+    assert_eq!(committed.metadata().render_revision, 2);
+    assert_eq!(session.committed_render_revision(), 2);
+    assert_eq!(session.committed_host_revision(), Some(7));
+
+    let event = session.emit_event(counter_event(7, 1)).unwrap();
+    assert_eq!(event.metadata().render_revision, 2);
+}
+
+#[test]
+fn nested_application_payloads_reject_unknown_fields() {
+    let limits = TsxFrameLimitsV1::new(8192).unwrap();
+    let unknown_context_field =
+        EVENT_FIXTURE.replace("\"device\":1,", "\"device\":1,\"unexpected\":true,");
+    assert!(decode_tsx_json_payload_v1::<TsxHostMessageV1>(
+        unknown_context_field.as_bytes(),
+        limits
+    )
+    .unwrap_err()
+    .to_string()
+    .contains("unknown field"));
+}
+
+#[cfg(feature = "authoring")]
+#[test]
+fn static_tsx_and_rust_rsx_counter_share_native_and_accessibility_evidence() {
+    use crate::accessibility::AccessibilityNode;
+    use crate::compiler::RsxCompilerBridge;
+
+    let limits = TsxFrameLimitsV1::new(8192).unwrap();
+    let message =
+        decode_tsx_json_payload_v1::<TsxClientMessageV1>(RENDER_FIXTURE.trim().as_bytes(), limits)
+            .unwrap();
+    let TsxClientMessageV1::Render { payload, .. } = message else {
+        panic!("expected render fixture")
+    };
+    let tsx_frame: UiFrame = payload.try_into().unwrap();
+    let rust_frame = UiFrame::from_rsx_source(
+        "counter",
+        r#"
+            <Button key="increment" onPress={increment}>
+              Count 0
+            </Button>
+        "#,
+    )
+    .unwrap();
+
+    let bridge = RsxCompilerBridge::new();
+    let tsx_native = bridge.lower_to_native(&tsx_frame.root).unwrap();
+    let rust_native = bridge.lower_to_native(&rust_frame.root).unwrap();
+    assert_eq!(tsx_native, rust_native);
+    assert_eq!(
+        stable_fixture_fingerprint(format!("{tsx_native:#?}").as_bytes()),
+        stable_fixture_fingerprint(format!("{rust_native:#?}").as_bytes())
+    );
+
+    let tsx_accessibility =
+        serde_json::to_vec(&AccessibilityNode::from_native(&tsx_native)).unwrap();
+    let rust_accessibility =
+        serde_json::to_vec(&AccessibilityNode::from_native(&rust_native)).unwrap();
+    assert_eq!(tsx_accessibility, rust_accessibility);
+    assert_eq!(
+        stable_fixture_fingerprint(&tsx_accessibility),
+        stable_fixture_fingerprint(&rust_accessibility)
+    );
+}
+
+#[cfg(feature = "authoring")]
+fn stable_fixture_fingerprint(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf29ce484222325_u64, |hash, byte| {
+        (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
+    })
+}
+
+#[cfg(feature = "platform-runtime")]
+#[test]
+fn self_drawn_snapshot_and_event_dispatch_feed_the_tsx_session_directly() {
+    use crate::compiler::RsxCompilerBridge;
+    use crate::geometry::Size;
+    use crate::input::{NativeInputModality, NativeKeyModifiers};
+    use crate::platform_host::{
+        PlatformElementId, PlatformHostRevision, PlatformInputDeviceId, PlatformWindowId,
+        PlatformWindowSpec, RecordingPlatformHost,
+    };
+    use crate::platform_runtime::{
+        RecordingScenePresenter, SelfDrawnActionInvocation, SelfDrawnElementInteraction,
+        SelfDrawnEventContext, SelfDrawnInputDispatch, SelfDrawnInteractionChange,
+        SelfDrawnWindowRuntime,
+    };
+    use crate::NativeEventKind;
+
+    let native = RsxCompilerBridge::new()
+        .lower_to_native(&counter_frame().root)
+        .unwrap();
+    let mut runtime = SelfDrawnWindowRuntime::new(
+        RecordingPlatformHost::new(),
+        RecordingScenePresenter::new(),
+        PlatformWindowSpec {
+            id: PlatformWindowId::new(1),
+            title: "TSX counter".to_string(),
+            logical_size: Size::new(160.0, 80.0),
+            min_size: None,
+            max_size: None,
+            resizable: true,
+            visible: true,
+        },
+        1.0,
+    )
+    .unwrap();
+    runtime.render(native).unwrap();
+    let snapshot = runtime.snapshot().unwrap();
+
+    let mut session = TsxHostApplicationSessionV1::new(&negotiated(4096)).unwrap();
+    session.accept_render(&counter_render(2, 1)).unwrap();
+    let committed = session
+        .commit_self_drawn_snapshot("counter", snapshot, vec![])
+        .unwrap();
+    let TsxHostMessageV1::Committed { payload, .. } = committed else {
+        panic!("expected committed message")
+    };
+    assert_eq!(payload.root_id, "9:increment");
+    assert_eq!(payload.host_revision, snapshot.revision().get());
+
+    let revision = snapshot.revision();
+    let target = PlatformElementId::new("9:increment").unwrap();
+    let context = SelfDrawnEventContext {
+        device: PlatformInputDeviceId::new(1),
+        pointer: None,
+        modality: NativeInputModality::Keyboard,
+        modifiers: NativeKeyModifiers::new(),
+        position: None,
+        delta: None,
+        button: None,
+        pressure: None,
+        wheel_delta_mode: None,
+        repeat: false,
+        click_count: 0,
+        handled_activation: true,
+        related_target: None,
+        drag: None,
+        timestamp_micros: 42,
+    };
+    let dispatch = SelfDrawnInputDispatch {
+        frame_revision: revision,
+        event_sequence: 1,
+        target: Some(target.clone()),
+        invocations: vec![SelfDrawnActionInvocation {
+            frame_revision: revision,
+            event_sequence: 1,
+            node: target.clone(),
+            current_target: None,
+            action: "increment".to_string(),
+            event: NativeEventKind::Press,
+            context,
+            value: None,
+        }],
+        interaction_changes: vec![SelfDrawnInteractionChange {
+            node: target,
+            before: SelfDrawnElementInteraction::default(),
+            after: SelfDrawnElementInteraction {
+                focused: true,
+                focus_visible: true,
+                ..SelfDrawnElementInteraction::default()
+            },
+        }],
+        propagation_stopped_at: None,
+    };
+    let event = session.emit_self_drawn_event(&dispatch).unwrap();
+    assert_eq!(event.metadata().render_revision, 1);
+    let TsxHostMessageV1::Event { payload, .. } = event else {
+        panic!("expected event message")
+    };
+    assert_eq!(payload.host_revision, revision.get());
+    assert_eq!(payload.invocations.len(), 1);
+
+    let mut inconsistent = dispatch;
+    inconsistent.invocations[0].frame_revision = PlatformHostRevision::new(revision.get() + 1);
+    assert!(TsxEventPayloadV1::try_from(&inconsistent).is_err());
 }
 
 #[test]

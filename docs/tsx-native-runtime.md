@@ -1,6 +1,7 @@
 # TSX to Native Runtime Architecture
 
-Status: proposed. No TypeScript package or TSX host is implemented yet.
+Status: proposed API; the Rust T1 protocol foundation is in progress. No
+TypeScript package or executable TSX host is implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -385,9 +386,16 @@ control messages with the fixed `a3s.gui.tsx` identifier, atomic
 `TsxHostHandshakeV1` negotiation, exact per-sender `TsxMessageSequenceV1`, and
 blocking plus incremental framed JSON codecs. The decoder validates a declared
 length before allocating, becomes unusable after a framing/JSON violation, and
-has a checked end-of-stream path for partial headers and payloads. A canonical
-`hello-v1.json` fixture pins the current wire spelling. Render/event/command
-messages, actual local process I/O, and the TypeScript peer are still pending.
+has a checked end-of-stream path for partial headers and payloads.
+`TsxHostApplicationSessionV1` now accepts strict full-frame `render` messages,
+promotes them only through a bounded `committed` response, emits complete
+ordered `event` batches, permits exactly one render in flight, and leaves the
+active revision unchanged on validation, host, or response-encoding failure.
+Its feature-gated adapters project `SelfDrawnFrameSnapshot` and
+`SelfDrawnInputDispatch` directly; no planned-widget response is involved.
+Canonical hello, counter render, committed, and event fixtures pin the wire
+spelling. Command messages, actual local process I/O, generated TypeScript,
+and the TypeScript peer remain pending.
 
 ### Messages
 
@@ -413,6 +421,14 @@ strictly increasing event sequence. The TypeScript runtime dispatches the full
 ordered invocation vector, applies batched state updates, and then schedules at
 most one new frame. Stale, skipped, or duplicated sequences are explicit
 session errors.
+
+Protocol `renderRevision` identifies the TSX tree and callback scope.
+`hostRevision` identifies the committed self-drawn snapshot used for layout,
+hit testing, scene, and accessibility. They deliberately are not aliases: a
+TSX rerender may replace callbacks while producing identical Native IR, so the
+self-drawn host can retain its snapshot revision while the TSX render revision
+advances. An event must match the active host revision and is then delivered
+against the active TSX render revision.
 
 ### Commit and Recovery
 
@@ -449,9 +465,11 @@ packages/typescript/
 `- tests/
 
 src/tsx_protocol/
-|- message.rs      strict control DTOs and common envelope metadata
+|- application.rs  strict render, commit, event, context, and diagnostic DTOs
+|- message.rs      direction-specific messages and common envelope metadata
 |- handshake.rs    atomic capability, renderer, and limit negotiation
 |- framing.rs      limits plus blocking and incremental JSON framing
+|- session.rs      one-in-flight transactional revision/event ordering
 `- tests.rs
 
 src/platform_host/       shared zero-widget host contract and OS shells
@@ -530,12 +548,13 @@ minimum M4 text/input slice.
 
 ### T0 - Contract and Architecture
 
-Status: architecture accepted; the Rust-side strict handshake/framing boundary
-and drop-policy DTO/resolver adapter are implemented. The remaining parity
-fixtures, application message set, and Node-side transport are pending.
+Status: architecture accepted; the Rust-side strict handshake/framing,
+render/commit/event session, counter parity fixtures, self-drawn adapters, and
+drop-policy DTO/resolver adapter are implemented. Calculator and
+cross-language fixtures, commands, and Node-side transport are pending.
 
 - accept process, ownership, identity, protocol, and packaging decisions
-- pin cross-language golden frame and event fixtures
+- extend the landed Rust golden frame/event fixtures into cross-language CI
 - define the first counter and calculator parity scenarios
 - record unsupported React and browser behaviors explicitly
 
@@ -546,16 +565,19 @@ cannot bypass Native IR, layout, Graphics, interaction, or accessibility.
 
 Status: Rust transport foundation in progress. `hello`/`welcome`, atomic limit
 and renderer negotiation, exact message-id sequencing, 16 MiB-capped framing,
-incremental decoding, and the first canonical JSON fixture have landed.
+incremental decoding, strict `render`/`committed`/`event` DTOs, transactional
+session ordering, self-drawn adapters, four canonical JSON fixtures, and the
+static counter Native IR/accessibility parity test have landed.
 
-- extend the landed bounded framing and handshake DTOs with render/event/
-  command messages and actual local process I/O
+- extend the landed application messages with command messages and actual
+  local process I/O
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
 - generate TypeScript protocol declarations from Rust DTOs
 - publish local development exports for `jsx-runtime` and `jsx-dev-runtime`
 - implement element/child/prop normalization, keys, and action registration
-- run a static TSX frame through the existing semantic and headless pipelines
+- extend the landed static counter parity fixture to generated TypeScript CI
+  and the calculator scenario
 
 Gates:
 

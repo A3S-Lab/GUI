@@ -6,7 +6,7 @@
   <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
   <img alt="Roadmap milestone M3 current" src="https://img.shields.io/badge/roadmap-M3%20current-0067C0?style=flat-square">
-  <img alt="TSX architecture milestone T0 proposed" src="https://img.shields.io/badge/TSX-T0%20proposed-1687D9?style=flat-square">
+  <img alt="TSX milestone T1 Rust foundation" src="https://img.shields.io/badge/TSX-T1%20Rust%20foundation-1687D9?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2F3945?style=flat-square"></a>
 </p>
 
@@ -20,10 +20,9 @@ path uses a DOM, CSSOM, WebView, or framework-owned content renderer.
 > AppKit/GTK4/WinUI control hosts are established dogfood baselines. The first
 > generic self-drawn layout-to-Scene slice has landed; self-drawn text shaping,
 > editing/IME, accessibility bridges, and real thin-host presentation remain
-> roadmap
-> work. The TSX runtime, local host session, and npm packages are architecture
-> only and have not been implemented yet. React Aria component parity is not
-> claimed yet.
+> roadmap work. The TypeScript runtime, executable process host, and npm
+> packages have not been implemented yet; the landed Rust TSX protocol is not
+> a runnable TSX application. React Aria component parity is not claimed yet.
 
 The target is unambiguous: A3S draws all application content. The existing
 `appkit-native`, `gtk4-native`, and `winui-native` modules create controls only
@@ -137,15 +136,22 @@ await createApp(Counter).run();
 ```
 
 This sample documents the target API; it is not runnable yet. The Rust-side
-session entrance is now executable: strict `hello`/`welcome` DTOs negotiate the
-renderer, capabilities, debug channels, one in-flight render, and a JSON
-payload limit no larger than 16 MiB; incremental and blocking codecs enforce a
-little-endian `u32` length prefix and reject empty, oversized, truncated,
-invalid UTF-8, duplicate-field, unknown-kind, and unsupported-protocol input
-before a session is bound. The remaining design keeps component state and callbacks in Node,
-keeps platform/GPU handles inside a separate Rust process, reuses resolved
-`ProtocolUiFrameV1` records, and sends complete frames so Rust remains the only
-native reconciler. Read the
+session boundary is now executable in Rust: strict `hello`/`welcome` DTOs
+negotiate the renderer, capabilities, debug channels, one in-flight render,
+and a JSON payload limit no larger than 16 MiB. Strict `render`, `committed`,
+and ordered multi-invocation `event` messages reuse resolved
+`ProtocolUiFrameV1` input while keeping legacy planned-widget responses out of
+the TSX wire contract. `TsxHostApplicationSessionV1` validates message,
+render, host-frame, and event sequences before mutation, preserves the active
+revision after a rejected frame, and maps self-drawn snapshots and dispatches
+directly. Incremental and blocking codecs enforce a little-endian `u32` length
+prefix and reject empty, oversized, truncated, invalid UTF-8, duplicate-field,
+unknown-kind, and unsupported-protocol input. Canonical hello, counter render,
+commit, and event fixtures plus a Rust RSX/TSX Native IR and accessibility
+parity test pin this slice. Actual process I/O, TypeScript declarations, JSX
+runtime, callback registry, and packages remain. The design keeps component
+state and callbacks in Node, platform/GPU handles inside a separate Rust
+process, and Rust as the only native reconciler. Read the
 [TSX native runtime architecture](docs/tsx-native-runtime.md) for protocol,
 identity, failure recovery, packaging, and T0-T5 delivery gates.
 
@@ -355,7 +361,7 @@ independently.
 | M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, typed and collection drag/drop, timed drop activation, and fail-closed dynamic drop policy resolution landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
 | H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, long press, captured move, typed drag/drop negotiation and timed target activation, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
-| T0-T5 · TSX native authoring | T1 Rust foundation in progress | Strict handshake, bounded length-prefixed framing, message sequencing, and revision-scoped drop-policy DTO/resolver bridge landed; render/event messages, TypeScript declarations, JSX runtime, Node callback transport, state runtime, self-drawn native window, packages, and stable SDK remain |
+| T0-T5 · TSX native authoring | T1 Rust foundation in progress | Strict handshake/framing, transactional render/commit/event messages, self-drawn snapshot/dispatch adapters, counter golden/parity fixtures, and revision-scoped drop-policy bridge landed; process I/O, TypeScript declarations, JSX runtime, Node callback registry/state, packages, and stable SDK remain |
 | M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped; collection DnD authoring/behavior slice landed; eight public parts, full software, accessibility, and three-OS self-drawn evidence remain |
 
 The dependency-ordered plan and acceptance gates are in the
@@ -499,7 +505,7 @@ src/
 |- rsx_app/              ComponentCx, hooks, components, and binding scope
 |- rsx_ui/               built-in semantic design-system registry
 |- protocol.rs           versioned frame, event, action, ACK, and recovery boundary
-|- tsx_protocol/         strict handshake, message sequencing, and bounded framing
+|- tsx_protocol/         strict handshake/framing plus transactional render, commit, and event sessions
 |- native.rs             portable NativeElement UI IR
 |- layout/               deterministic records, style projection, diffs, and tests
 |- drawing.rs            Graphics boundary and reference/GPU renderer wrappers

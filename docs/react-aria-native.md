@@ -187,11 +187,11 @@ The first shared interaction milestone is available in the portable runtime:
   types, and disallowed operations all fail closed to `cancel`. Strict protocol
   v1 DTOs and `ProtocolDropPolicyResolverV1` bridge this contract without Rust
   evaluating JavaScript. The separate TSX boundary now also has strict atomic
-  handshake negotiation and bounded length-prefixed JSON framing, but its
-  render/event messages and Node callback registry/transport, external
-  files/directories and cross-application transfer, drag previews, and full
-  conformance evidence remain separate M7 work, so no affected family is
-  marked conformant.
+  handshake negotiation, bounded length-prefixed JSON framing, transactional
+  render/commit/event messages, and a direct self-drawn dispatch adapter. Its
+  Node callback registry/transport, external files/directories and
+  cross-application transfer, drag previews, and full conformance evidence
+  remain separate work, so no affected family is marked conformant.
 
 - `NativeInputModality` represents keyboard, mouse, touch, pen, virtual, and
   unknown input.

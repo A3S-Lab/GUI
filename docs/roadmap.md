@@ -623,10 +623,11 @@ Gates:
 
 ## P0-T TSX Native Authoring Track
 
-Status: architecture accepted; the Rust-side strict handshake, bounded framing,
-message sequencing, and revision-scoped drop-policy protocol/resolver adapter
-have landed. Render/event transport messages, generated TypeScript, the JSX
-runtime, Node callback registry, and visible TSX application remain.
+Status: architecture accepted; the Rust-side strict handshake/framing,
+transactional render/commit/event session, self-drawn snapshot/event adapters,
+counter golden/parity fixtures, and revision-scoped drop-policy
+protocol/resolver adapter have landed. Process I/O, generated TypeScript, the
+JSX runtime, Node callback registry, and visible TSX application remain.
 
 This track is dependency-coupled to the renderer and H0-H5 host programs
 without blocking Rust RSX work. Headless protocol and JSX-runtime work can
@@ -651,25 +652,29 @@ decisions are recorded in
   identity, and no-install-script packaging decisions
 - reuse the resolved `ProtocolUiFrameV1` input vocabulary behind a new TSX
   session envelope
-- pin Rust RSX and TSX counter/calculator parity fixtures
+- extend the landed Rust RSX/static-TSX counter parity fixture to the
+  calculator and generated TypeScript CI
 
 Gate: TSX is a peer authoring frontend and cannot bypass Native IR, layout,
 Graphics, interaction, accessibility, or capability checks.
 
 ### T1 - Headless JSX and protocol slice
 
-Status: Rust transport foundation in progress. Strict `hello`/`welcome` DTOs,
-atomic negotiation, the fixed protocol/session/message/revision envelope,
-16 MiB-capped little-endian length framing, incremental decoding, and the first
-canonical JSON fixture have landed without Node or Graphics dependencies.
+Status: Rust transport foundation in progress. Strict `hello`/`welcome` plus
+`render`/`committed`/`event` DTOs, atomic negotiation and commit ordering, the
+fixed protocol/session/message/revision envelope, independent TSX and
+self-drawn host revisions, 16 MiB-capped little-endian framing, incremental
+decoding, four canonical JSON fixtures, and static counter Native
+IR/accessibility parity have landed. The core remains free of Node and Graphics
+dependencies; self-drawn conversions compile only with `platform-runtime`.
 
 - generated TypeScript declarations from versioned Rust DTOs
 - automatic `jsx-runtime` and `jsx-dev-runtime` exports
 - deterministic child, prop, key, and event normalization
-- extend the landed bounded length-prefixed framing, handshake, and message-id
-  sequencing with render revisions, event sequencing, process I/O, and
-  structured diagnostics
-- static TSX counter rendered through the current headless semantic path
+- add command messages, local process I/O, and generated structured diagnostic
+  declarations to the landed application session
+- extend the landed static counter semantic parity to TypeScript CI and the
+  calculator fixture
 
 Gates:
 

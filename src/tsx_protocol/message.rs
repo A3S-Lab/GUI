@@ -233,7 +233,7 @@ impl TsxMessageMetadataRefV1<'_> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "type",
     rename_all = "camelCase",
@@ -249,6 +249,14 @@ pub enum TsxClientMessageV1 {
         message_id: u64,
         render_revision: u64,
         payload: TsxHelloPayloadV1,
+    },
+    Render {
+        protocol: String,
+        protocol_version: u32,
+        session_id: String,
+        message_id: u64,
+        render_revision: u64,
+        payload: super::TsxRenderPayloadV1,
     },
     Ping {
         protocol: String,
@@ -292,9 +300,33 @@ impl TsxClientMessageV1 {
         }
     }
 
+    pub fn render(
+        session_id: impl Into<String>,
+        message_id: u64,
+        render_revision: u64,
+        payload: super::TsxRenderPayloadV1,
+    ) -> Self {
+        Self::Render {
+            protocol: TSX_PROTOCOL_NAME.to_string(),
+            protocol_version: NATIVE_PROTOCOL_VERSION_V1,
+            session_id: session_id.into(),
+            message_id,
+            render_revision,
+            payload,
+        }
+    }
+
     pub fn metadata(&self) -> TsxMessageMetadataRefV1<'_> {
         match self {
             Self::Hello {
+                protocol,
+                protocol_version,
+                session_id,
+                message_id,
+                render_revision,
+                ..
+            }
+            | Self::Render {
                 protocol,
                 protocol_version,
                 session_id,
@@ -347,13 +379,22 @@ impl TsxClientMessageV1 {
                 }
                 payload.validate()
             }
+            Self::Render { payload, .. } => {
+                if metadata.render_revision == 0 {
+                    return Err(GuiError::host(
+                        "TSX render messages require a non-zero render revision",
+                    ));
+                }
+                let _: crate::protocol::UiFrame = payload.clone().try_into()?;
+                Ok(())
+            }
             Self::Ping { .. } | Self::Pong { .. } => Ok(()),
             Self::Close { payload, .. } => payload.validate(),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "type",
     rename_all = "camelCase",
@@ -369,6 +410,22 @@ pub enum TsxHostMessageV1 {
         message_id: u64,
         render_revision: u64,
         payload: TsxWelcomePayloadV1,
+    },
+    Committed {
+        protocol: String,
+        protocol_version: u32,
+        session_id: String,
+        message_id: u64,
+        render_revision: u64,
+        payload: super::TsxCommittedPayloadV1,
+    },
+    Event {
+        protocol: String,
+        protocol_version: u32,
+        session_id: String,
+        message_id: u64,
+        render_revision: u64,
+        payload: super::TsxEventPayloadV1,
     },
     Ping {
         protocol: String,
@@ -420,9 +477,57 @@ impl TsxHostMessageV1 {
         }
     }
 
+    pub fn committed(
+        session_id: impl Into<String>,
+        message_id: u64,
+        render_revision: u64,
+        payload: super::TsxCommittedPayloadV1,
+    ) -> Self {
+        Self::Committed {
+            protocol: TSX_PROTOCOL_NAME.to_string(),
+            protocol_version: NATIVE_PROTOCOL_VERSION_V1,
+            session_id: session_id.into(),
+            message_id,
+            render_revision,
+            payload,
+        }
+    }
+
+    pub fn event(
+        session_id: impl Into<String>,
+        message_id: u64,
+        render_revision: u64,
+        payload: super::TsxEventPayloadV1,
+    ) -> Self {
+        Self::Event {
+            protocol: TSX_PROTOCOL_NAME.to_string(),
+            protocol_version: NATIVE_PROTOCOL_VERSION_V1,
+            session_id: session_id.into(),
+            message_id,
+            render_revision,
+            payload,
+        }
+    }
+
     pub fn metadata(&self) -> TsxMessageMetadataRefV1<'_> {
         match self {
             Self::Welcome {
+                protocol,
+                protocol_version,
+                session_id,
+                message_id,
+                render_revision,
+                ..
+            }
+            | Self::Committed {
+                protocol,
+                protocol_version,
+                session_id,
+                message_id,
+                render_revision,
+                ..
+            }
+            | Self::Event {
                 protocol,
                 protocol_version,
                 session_id,
@@ -479,6 +584,22 @@ impl TsxHostMessageV1 {
                 if metadata.render_revision != 0 {
                     return Err(GuiError::host(
                         "TSX welcome messages require render revision zero",
+                    ));
+                }
+                payload.validate()
+            }
+            Self::Committed { payload, .. } => {
+                if metadata.render_revision == 0 {
+                    return Err(GuiError::host(
+                        "TSX committed messages require a non-zero render revision",
+                    ));
+                }
+                payload.validate()
+            }
+            Self::Event { payload, .. } => {
+                if metadata.render_revision == 0 {
+                    return Err(GuiError::host(
+                        "TSX event messages require a non-zero render revision",
                     ));
                 }
                 payload.validate()
