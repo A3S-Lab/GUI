@@ -20,6 +20,7 @@ import {
   type TsxClientMessageV1,
   type TsxHostMessageV1,
 } from "./generated/protocol.ts";
+import { snapshotA3sProtocolJsonV1 } from "./protocol-json.ts";
 
 export type TsxWelcomeMessageV1 = Extract<
   TsxHostMessageV1,
@@ -723,65 +724,12 @@ function snapshotProtocolValue(
   value: unknown,
   path: string,
   code: A3sClientSessionErrorCodeV1,
-  active = new Set<object>(),
 ): unknown {
-  if (value === null || typeof value === "string" || typeof value === "boolean") {
-    return value;
-  }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      throw sessionError(code, `${path} contains a non-finite number`);
-    }
-    return value;
-  }
-  if (typeof value !== "object") {
-    throw sessionError(code, `${path} contains a non-JSON value`);
-  }
-  if (active.has(value)) {
-    throw sessionError(code, `${path} contains a cycle`);
-  }
-  active.add(value);
-  try {
-    if (Array.isArray(value)) {
-      const clone: unknown[] = [];
-      for (let index = 0; index < value.length; index += 1) {
-        if (!Object.hasOwn(value, index)) {
-          throw sessionError(code, `${path} contains a sparse array`);
-        }
-        clone.push(snapshotProtocolValue(value[index], `${path}[${index}]`, code, active));
-      }
-      return Object.freeze(clone);
-    }
-    const prototype = Object.getPrototypeOf(value);
-    if (prototype !== Object.prototype && prototype !== null) {
-      throw sessionError(code, `${path} must contain only plain objects`);
-    }
-    const descriptors = Object.getOwnPropertyDescriptors(value);
-    const enumerableSymbols = Object.getOwnPropertySymbols(value).filter(
-      (symbol) => Object.getOwnPropertyDescriptor(value, symbol)?.enumerable,
-    );
-    if (enumerableSymbols.length > 0) {
-      throw sessionError(code, `${path} cannot contain symbol fields`);
-    }
-    const clone: Record<string, unknown> = {};
-    for (const [name, descriptor] of Object.entries(descriptors)) {
-      if (!descriptor.enumerable) {
-        continue;
-      }
-      if (!("value" in descriptor)) {
-        throw sessionError(code, `${path}.${name} cannot be an accessor`);
-      }
-      Object.defineProperty(clone, name, {
-        configurable: false,
-        enumerable: true,
-        value: snapshotProtocolValue(descriptor.value, `${path}.${name}`, code, active),
-        writable: false,
-      });
-    }
-    return Object.freeze(clone);
-  } finally {
-    active.delete(value);
-  }
+  return snapshotA3sProtocolJsonV1(
+    value,
+    path,
+    (message) => sessionError(code, message),
+  );
 }
 
 function sessionError(

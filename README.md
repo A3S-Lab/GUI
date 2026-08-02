@@ -91,7 +91,9 @@ The repository already provides:
 - a transport-neutral TypeScript `createApp` lifecycle with keyed component
   instances, typed context, render error boundaries, state/reducer/memo/ref/
   effect hooks, batched rerenders, post-commit cleanup, and strict post-handshake
-  session/message identity.
+  session/message identity;
+- a dependency-free TypeScript client handshake and incremental little-endian
+  JSON frame codec aligned with the Rust protocol boundary.
 
 Still required before a production native application:
 
@@ -154,9 +156,10 @@ native package. Today, the private SDK also has a transport-neutral `createApp`
 lifecycle driven by a typed host object. It owns keyed function-component
 instances, typed nested context, render error boundaries, state/reducer/memo/
 ref/effect hooks, one-microtask rerender batching, revision-scoped callbacks,
-effect promotion only after `committed`, full render envelopes, and independent
-client/host message ordering from a validated `welcome`. Process transport and
-supervision, native host startup, and npm publication remain T2-T5 work.
+effect promotion only after `committed`, full render envelopes, independent
+client/host message ordering, client `hello`/`welcome` negotiation, and bounded
+incremental framing. Process stream integration and supervision, native host
+startup, and npm publication remain T2-T5 work.
 
 Read [TSX native runtime](docs/tsx-native-runtime.md) for protocol and delivery
 gates.

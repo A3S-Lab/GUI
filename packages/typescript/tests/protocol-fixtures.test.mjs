@@ -12,6 +12,7 @@ import {
   TSX_PROTOCOL_V1_MAX_SAFE_INTEGER,
   TSX_PROTOCOL_VERSION_V1,
 } from "../src/generated/protocol.ts";
+import { encodeA3sJsonFrameV1 } from "../src/framing.ts";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(packageRoot, "..", "..");
@@ -61,6 +62,16 @@ test("committed fingerprints are fixed lowercase hexadecimal strings", () => {
   );
   assert.match(committed.payload.layoutFingerprint, /^[0-9a-f]{16}$/u);
   assert.match(committed.payload.sceneFingerprint, /^[0-9a-f]{16}$/u);
+});
+
+test("hello fixture uses the Rust-compatible little-endian JSON frame", () => {
+  const source = readFileSync(resolve(fixtureRoot, "hello-v1.json"), "utf8").trim();
+  const framed = encodeA3sJsonFrameV1(JSON.parse(source), 4_096);
+  assert.equal(
+    new DataView(framed.buffer, framed.byteOffset, 4).getUint32(0, true),
+    new TextEncoder().encode(source).byteLength,
+  );
+  assert.equal(new TextDecoder().decode(framed.subarray(4)), source);
 });
 
 test("generated declarations have a valid Rust-owned fingerprint", () => {

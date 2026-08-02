@@ -17,6 +17,14 @@ export type {
   TsxEventMessageV1,
 } from "./action-registry.ts";
 export { Button, Text, View, Window } from "./components.ts";
+export { A3sClientHandshakeError, A3sClientHandshakeV1 } from "./client-handshake.ts";
+export type {
+  A3sClientHandshakeErrorCodeV1,
+  A3sClientHandshakeOptionsV1,
+  A3sClientHandshakeStateV1,
+  A3sClientHandshakeStatusV1,
+  TsxHelloMessageV1,
+} from "./client-handshake.ts";
 export { A3sClientSessionError, A3sClientSessionV1 } from "./client-session.ts";
 export type {
   A3sClientSessionErrorCodeV1,
@@ -49,6 +57,8 @@ export type {
 } from "./element.ts";
 export { compileFrameV1 } from "./frame.ts";
 export type { CompileFrameOptions, CompiledA3sFrameV1 } from "./frame.ts";
+export { A3sFrameError, A3sJsonFrameDecoderV1, encodeA3sJsonFrameV1 } from "./framing.ts";
+export type { A3sFrameErrorCodeV1 } from "./framing.ts";
 export { A3sApplicationV1, createApp } from "./application.ts";
 export type {
   A3sApplicationHostV1,

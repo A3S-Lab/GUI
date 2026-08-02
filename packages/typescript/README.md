@@ -26,6 +26,14 @@ callback failure consumes the event and host message exactly once without
 poisoning it. `createApp` serializes overlapping host events and commit
 acknowledgements so callback execution cannot race callback-scope promotion.
 
+`A3sClientHandshakeV1` owns the preceding `hello`/`welcome` negotiation, while
+`encodeA3sJsonFrameV1` and `A3sJsonFrameDecoderV1` implement the Rust-compatible
+four-byte little-endian length prefix over strict UTF-8 JSON. The incremental
+decoder accepts arbitrary stream chunking, validates lengths before allocation,
+and becomes unusable after a boundary or JSON violation. Encoding snapshots
+plain JSON data without invoking accessors. These APIs add no runtime package
+dependency.
+
 `createApp` owns the transport-neutral root lifecycle. `useState`,
 `useReducer`, `useMemo`, `useRef`, `useContext`, and post-commit `useEffect` use
 deterministic component paths and hook slots. Nested providers are transparent
@@ -57,7 +65,7 @@ await callbacks.dispatch(eventMessage);
 callbacks.clear();                  // release all retained callback scopes
 ```
 
-The Node process session and actual local I/O, host supervision/replay, the
+The Node process stream integration, host supervision/replay, the
 native host executable, and the stable full semantic component API remain later
 delivery slices. This package is therefore not a published SDK or a runnable
 native TSX application yet. The current `createApp` requires an explicit typed

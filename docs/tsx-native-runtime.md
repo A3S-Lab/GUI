@@ -5,9 +5,10 @@ development package contains Rust-generated wire declarations, standard
 automatic JSX entry points, keyed function-component instances, strict
 child/key/prop normalization, deterministic frame lowering, state/reducer/
 memo/ref/context/effect hooks, transactional render error boundaries, batched
-rerenders, revision-scoped callback scopes, ordered event dispatch, and
-strict post-handshake client/host message sequencing. Actual process I/O,
-supervision/replay, and the executable native host are not implemented yet.
+rerenders, revision-scoped callback scopes, ordered event dispatch, and strict
+client handshake/framing plus post-handshake client/host message sequencing.
+Actual process stream integration, supervision/replay, and the executable
+native host are not implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -436,16 +437,24 @@ body. Canonical hello, counter render, committed, and event fixtures pin the
 wire spelling in Rust and Node 24 tests. The private TypeScript peer now
 provides standard automatic JSX entry points, keyed function-component
 instances, strict normalization, deterministic frame lowering, a stateful
-application scheduler, a strict post-handshake client session, and a pinned
-TypeScript 5.9 `react-jsx` fixture. Command messages, actual local process I/O,
-and host supervision/replay remain pending.
+application scheduler, a strict client handshake/session, an incremental
+little-endian JSON frame codec, and a pinned TypeScript 5.9 `react-jsx` fixture.
+Command messages, actual local process stream integration, and host
+supervision/replay remain pending.
 
-The current `A3sApplicationHostV1` represents an already negotiated transport:
-it supplies the validated `welcome` message and receives complete `render`
-envelopes. `A3sClientSessionV1` snapshots that welcome, starts both directional
-message sequences at one, and validates every `committed` or `event` identity
-before touching callback state. The process-host slice still needs to emit
-`hello`, perform framed I/O, and construct this host boundary.
+`A3sClientHandshakeV1` constructs the exact first `hello`, bounds its encoded
+size, and accepts only a matching negotiated `welcome`. `A3sJsonFrameDecoderV1`
+handles split and consecutive little-endian frames, rejects oversized lengths
+before allocation, and poisons itself after framing or JSON failures. Both use
+an accessor-safe JSON snapshot so protocol serialization cannot execute
+application getters.
+
+The current `A3sApplicationHostV1` still represents an already negotiated
+transport: it supplies the validated `welcome` message and receives complete
+`render` envelopes. `A3sClientSessionV1` starts both directional message
+sequences at one and validates every `committed` or `event` identity before
+touching callback state. The process-host slice still needs to connect the
+landed handshake/codec to supervised streams and construct this host boundary.
 
 Application-level host messages are consumed serially. If an event from the
 active revision overlaps an in-flight render acknowledgement, its ordered
@@ -605,9 +614,9 @@ Status: architecture accepted; the Rust-side strict handshake/framing,
 render/commit/event session, counter parity fixtures, self-drawn adapters, and
 drop-policy DTO/resolver adapter are implemented. Calculator, commands, and
 Node-side process transport are pending. Rust-generated declarations, the
-headless automatic JSX core, stateful JSX execution, post-handshake session
-integration, bounded revision callback scopes, ordered dispatch, and shared
-Rust/Node counter fixtures are implemented.
+headless automatic JSX core, stateful JSX execution, client handshake/framing,
+post-handshake session integration, bounded revision callback scopes, ordered
+dispatch, and shared Rust/Node counter fixtures are implemented.
 
 - accept process, ownership, identity, protocol, and packaging decisions
 - retain the landed shared Rust/Node golden frame/event gate and extend it to
@@ -620,7 +629,7 @@ cannot bypass Native IR, layout, Graphics, interaction, or accessibility.
 
 ### T1 - Headless Protocol and JSX Core
 
-Status: Rust transport foundation in progress. `hello`/`welcome`, atomic limit
+Status: headless protocol and JSX core complete. `hello`/`welcome`, atomic limit
 and renderer negotiation, exact message-id sequencing, 16 MiB-capped framing,
 incremental decoding, strict `render`/`committed`/`event` DTOs, transactional
 session ordering, self-drawn adapters, four canonical JSON fixtures, and the
@@ -636,8 +645,9 @@ landed.
 
 - extend the landed application messages with command messages and actual
   local process I/O
-- build the Node process host that performs `hello`/`welcome`, framing, bounded
-  queues, shutdown, crash recovery, and committed-frame replay
+- build the Node process host that connects the landed `hello`/`welcome` and
+  framing state machines to bounded streams, shutdown, crash recovery, and
+  committed-frame replay
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
 - extend the landed static counter parity fixture to the calculator scenario
@@ -669,6 +679,7 @@ Delivered:
   partial-candidate rollback, and rejected-fallback last-frame preservation
 - strict post-handshake client session with full render envelopes, independent
   message-id sequences, byte limits, and identity checks before action preflight
+- strict client `hello`/`welcome` negotiation and incremental framed JSON codec
 - serialized event/commit consumption across overlapping host messages
 
 Remaining:
@@ -737,10 +748,12 @@ green.
 2. Add generated TypeScript wire declarations and drift CI. Landed.
 3. Add the automatic JSX runtime with normalization and key tests. Landed.
 4. Add action ids, callback scopes, and event-vector dispatch. Landed.
-5. Add the headless host binary and a static TSX counter fixture.
-6. Add state/reducer/effect scheduling and counter interaction tests.
-7. Connect the host to the generic self-drawn window path.
-8. Add Nub watch reload and platform binary packaging only after the native
+5. Add state/reducer/effect scheduling, context, and error boundaries. Landed.
+6. Add client handshake/framing and strict post-handshake session identity.
+   Landed.
+7. Add the supervised headless host binary and interactive TSX counter fixture.
+8. Connect the host to the generic self-drawn window path.
+9. Add Nub watch reload and platform binary packaging only after the native
    presentation gates pass.
 
 Each commit must leave Rust-only builds and the existing Rust authoring path

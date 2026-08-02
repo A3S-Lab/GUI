@@ -31,7 +31,7 @@ or fallback renderer.
 | H2-H4 real hosts | Planned | Windows, macOS, Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
-| T2-T5 TSX product runtime | In progress | Stateful `createApp` plus strict post-handshake session identity; process I/O and native startup missing |
+| T2-T5 TSX product runtime | In progress | Stateful `createApp`, client handshake/framing, and strict session identity; process I/O and native startup missing |
 | M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
 No family is yet self-drawn conformant across real macOS, Windows, and Linux
@@ -292,6 +292,8 @@ Delivered:
 - validated host `welcome`, complete client `render` envelopes, independent
   per-sender message sequencing, negotiated byte limits, and session identity
   before callback-registry preflight;
+- dependency-free client `hello` construction plus an accessor-safe,
+  incremental little-endian JSON frame codec matching the Rust boundary;
 - serialized event/commit consumption when an active-revision callback overlaps
   an in-flight render acknowledgement;
 - source-located hook-order failures and Node interaction tests.
