@@ -8,6 +8,7 @@ import {
   type A3sJsxProps,
   type A3sSourceLocation,
 } from "./element.ts";
+import type { ComponentRenderRuntime } from "./component-runtime.ts";
 
 export interface DraftBase {
   key: string | null;
@@ -38,6 +39,7 @@ export type DraftNode = DraftText | DraftElement | DraftWindow;
 interface ResolveState {
   readonly maximumDepth: number;
   readonly maximumNodes: number;
+  readonly componentRuntime: ComponentRenderRuntime | null;
   depth: number;
   nodes: number;
 }
@@ -48,14 +50,22 @@ export function resolveFrameRoot(
   root: A3sJsxChild,
   maximumDepth: number,
   maximumNodes: number,
+  componentRuntime: ComponentRenderRuntime | null = null,
 ): DraftNode[] {
   const state: ResolveState = {
     maximumDepth,
     maximumNodes,
+    componentRuntime,
     depth: 0,
     nodes: 0,
   };
-  return resolveValue(root, state, false, null);
+  return resolveValue(
+    root,
+    state,
+    false,
+    null,
+    childAddress(["root"], root, 0),
+  );
 }
 
 function resolveValue(
@@ -63,6 +73,7 @@ function resolveValue(
   state: ResolveState,
   staticArray: boolean,
   inheritedSource: A3sSourceLocation | null,
+  address: readonly string[],
 ): DraftNode[] {
   if (value === null || value === undefined || typeof value === "boolean") {
     return [];
@@ -91,10 +102,10 @@ function resolveValue(
     }];
   }
   if (Array.isArray(value)) {
-    return resolveArray(value, state, staticArray, inheritedSource);
+    return resolveArray(value, state, staticArray, inheritedSource, address);
   }
   if (isA3sElement(value)) {
-    return resolveElement(value, state);
+    return resolveElement(value, state, address);
   }
   if (isThenable(value)) {
     throw new A3sJsxError(
@@ -120,11 +131,23 @@ function resolveArray(
   state: ResolveState,
   staticArray: boolean,
   source: A3sSourceLocation | null,
+  address: readonly string[],
 ): DraftNode[] {
   const drafts: DraftNode[] = [];
-  for (const item of items) {
-    const resolved = resolveValue(item, state, false, source);
-    if (!staticArray && resolved.length > 0 && !hasExplicitListIdentity(item)) {
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    const resolved = resolveValue(
+      item,
+      state,
+      false,
+      source,
+      childAddress(address, item, index),
+    );
+    if (
+      !staticArray &&
+      (resolved.length > 0 || isA3sElement(item)) &&
+      !hasExplicitListIdentity(item)
+    ) {
       const itemSource = isA3sElement(item) ? item.source : source;
       throw new A3sJsxError(
         "mutable JSX arrays require an explicit key on every rendered item",
@@ -137,17 +160,33 @@ function resolveArray(
   return drafts;
 }
 
-function resolveElement(element: A3sElement, state: ResolveState): DraftNode[] {
+function resolveElement(
+  element: A3sElement,
+  state: ResolveState,
+  address: readonly string[],
+): DraftNode[] {
   enterDepth(state, element.source);
   try {
     if (element.type === Fragment) {
-      const drafts = resolveChildren(element, state);
+      const drafts = resolveChildren(element, state, [...address, "fragment"]);
       return element.key === null ? clearFallbackKeys(drafts) : scopeDrafts(drafts, element.key);
     }
     if (typeof element.type === "function") {
+      const component = element.type;
       let output: unknown;
       try {
-        output = element.type(element.props);
+        const invoke = () => component(element.props);
+        output = state.componentRuntime === null
+          ? invoke()
+          : state.componentRuntime.renderComponent(
+            {
+              identity: encodeComponentAddress(address),
+              component,
+              props: element.props,
+              source: element.source,
+            },
+            invoke,
+          );
       } catch (error) {
         if (error instanceof A3sJsxError) {
           throw error;
@@ -164,7 +203,13 @@ function resolveElement(element: A3sElement, state: ResolveState): DraftNode[] {
           element.source,
         );
       }
-      const drafts = resolveValue(output, state, false, element.source);
+      const drafts = resolveValue(
+        output,
+        state,
+        false,
+        element.source,
+        childAddress([...address, "output"], output, 0),
+      );
       return element.key === null ? clearFallbackKeys(drafts) : scopeDrafts(drafts, element.key);
     }
 
@@ -173,7 +218,7 @@ function resolveElement(element: A3sElement, state: ResolveState): DraftNode[] {
     }
     countNode(state, element.source);
     if (element.type === "Window") {
-      const children = resolveChildren(element, state);
+      const children = resolveChildren(element, state, [...address, "window"]);
       if (children.length !== 1 || children[0].kind !== "element") {
         throw new A3sJsxError(
           "Window must contain exactly one content element; use View to group content",
@@ -194,7 +239,7 @@ function resolveElement(element: A3sElement, state: ResolveState): DraftNode[] {
       }];
     }
 
-    const children = resolveChildren(element, state);
+    const children = resolveChildren(element, state, [...address, "host"]);
     if (children.some((child) => child.kind === "window")) {
       throw new A3sJsxError("Window is session metadata and can only appear at the root", element.source);
     }
@@ -212,11 +257,21 @@ function resolveElement(element: A3sElement, state: ResolveState): DraftNode[] {
   }
 }
 
-function resolveChildren(element: A3sElement, state: ResolveState): DraftNode[] {
+function resolveChildren(
+  element: A3sElement,
+  state: ResolveState,
+  address: readonly string[],
+): DraftNode[] {
   const children = element.props.children;
   const drafts = Array.isArray(children)
-    ? resolveArray(children, state, element.staticChildren, element.source)
-    : resolveValue(children, state, false, element.source);
+    ? resolveArray(children, state, element.staticChildren, element.source, address)
+    : resolveValue(
+      children,
+      state,
+      false,
+      element.source,
+      childAddress(address, children, 0),
+    );
   assignSiblingKeys(drafts);
   return drafts;
 }
@@ -278,6 +333,21 @@ function encodeSegments(segments: readonly string[]): string {
   return segments
     .map((segment) => `${textEncoder.encode(segment).byteLength}:${segment}`)
     .join("");
+}
+
+function childAddress(
+  parent: readonly string[],
+  value: unknown,
+  index: number,
+): readonly string[] {
+  const segment = isA3sElement(value) && value.key !== null
+    ? `key:${value.key}`
+    : `index:${index}`;
+  return [...parent, segment];
+}
+
+function encodeComponentAddress(address: readonly string[]): string {
+  return `c1:${encodeSegments(address)}`;
 }
 
 export function requireDraftKey(draft: DraftNode): string {

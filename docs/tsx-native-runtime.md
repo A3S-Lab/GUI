@@ -1,12 +1,13 @@
 # TSX to Native Runtime Architecture
 
-Status: proposed API; the T1 headless JSX core is in progress. A private
-development package now contains Rust-generated wire declarations, standard
-automatic JSX entry points, synchronous function-component and child/key/prop
-normalization, deterministic frame lowering, revision-scoped callback scopes,
-ordered event dispatch, and cross-language golden tests. State/hooks, actual
-process I/O and session integration, and the executable native host are not
-implemented yet.
+Status: T1 complete; T2 stateful scheduling in progress. The private
+development package contains Rust-generated wire declarations, standard
+automatic JSX entry points, keyed function-component instances, strict
+child/key/prop normalization, deterministic frame lowering, state/reducer/
+memo/ref/effect hooks, batched rerenders, revision-scoped callback scopes,
+ordered event dispatch, and cross-language golden tests. Typed context, error
+boundaries, actual process I/O/session integration, and the executable native
+host are not implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -425,10 +426,11 @@ The optional `typescript-schema` feature walks these Rust DTOs, writes one
 deterministically ordered TypeScript module, and fingerprints its declaration
 body. Canonical hello, counter render, committed, and event fixtures pin the
 wire spelling in Rust and Node 24 tests. The private TypeScript peer now
-provides standard automatic JSX entry points, synchronous function-component
-expansion, strict normalization, deterministic frame lowering, and a pinned
-TypeScript 5.9 `react-jsx` fixture. Command messages, actual local process I/O,
-registry/session integration, state/hooks, and host supervision remain pending.
+provides standard automatic JSX entry points, keyed function-component
+instances, strict normalization, deterministic frame lowering, a stateful
+application scheduler, and a pinned TypeScript 5.9 `react-jsx` fixture. Command
+messages, actual local process I/O, registry/session identity integration,
+typed context/error boundaries, and host supervision remain pending.
 
 ### Messages
 
@@ -630,11 +632,24 @@ Gates:
 
 ### T2 - Stateful TypeScript Runtime
 
-- function-component instance tree
-- state, reducer, memo, ref, context, and post-commit effect hooks
-- batched state updates around the landed event dispatch and rerender scheduling
-- deterministic effect/component cleanup around the landed action-scope cleanup
-- headless host process supervision and graceful shutdown
+Status: in progress.
+
+Delivered:
+
+- keyed function-component candidate/active instance trees
+- state, reducer, memo, ref, and post-commit effect hooks
+- batched state updates around ordered event dispatch and rerender scheduling
+- candidate hook promotion aligned with callback-scope commit/reject
+- deterministic effect/component cleanup on dependency changes, committed
+  unmounts, and graceful scheduler shutdown
+- typed transport-neutral host submission and commit acknowledgement
+
+Remaining:
+
+- typed context and error boundaries
+- callback registry integration with session/message identity
+- supervised headless Rust host process I/O, crash recovery, and replay
+- complete keyboard, stale-event, host-crash, and replay gates
 
 Gates:
 

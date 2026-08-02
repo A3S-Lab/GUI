@@ -95,6 +95,22 @@ test("mutable arrays require explicit keys and preserve identity when reordered"
     () => render(["same", "same"]),
     /duplicate key "same"/u,
   );
+
+  function EmptyComponent() {
+    return null;
+  }
+  assert.throws(
+    () => compileFrameV1("empty-missing-key", jsx(View, {
+      children: [jsxDEV(
+        EmptyComponent,
+        {},
+        undefined,
+        false,
+        { fileName: "empty-list.tsx", lineNumber: 4, columnNumber: 9 },
+      )],
+    })),
+    /empty-list\.tsx:4:9: mutable JSX arrays require an explicit key/u,
+  );
 });
 
 test("function components resolve before transport and async components fail", () => {

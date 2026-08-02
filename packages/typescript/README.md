@@ -1,11 +1,11 @@
 # @a3s/gui TypeScript development package
 
-This private package contains the first headless protocol-v1 JSX core. It now
-provides the standard `jsx-runtime` and `jsx-dev-runtime` entry points,
-immutable A3S element records, synchronous function-component expansion,
-fragment/child/key/prop normalization, preview `Window`/`View`/`Text`/`Button`
-tokens, and deterministic lowering to the Rust-generated
-`ProtocolUiFrameV1` declarations.
+This private package contains the protocol-v1 JSX core and the first stateful
+application scheduler. It provides the standard `jsx-runtime` and
+`jsx-dev-runtime` entry points, immutable A3S element records, keyed
+function-component instances, fragment/child/key/prop normalization, preview
+`Window`/`View`/`Text`/`Button` tokens, and deterministic lowering to the
+Rust-generated `ProtocolUiFrameV1` declarations.
 
 Function event props become collision-safe action ids. Their functions are
 retained in a read-only callback snapshot and never enter JSON.
@@ -17,6 +17,14 @@ vector; and awaits callbacks in exact wire order. A callback error consumes
 the sequence and stops later callbacks so a partially executed event is never
 replayed.
 
+`createApp` owns the transport-neutral root lifecycle. `useState`,
+`useReducer`, `useMemo`, `useRef`, and post-commit `useEffect` use deterministic
+component paths and hook slots. State changes are batched across an entire
+ordered event vector, candidates remain isolated until the typed host returns
+`committed`, and rejected renders retain the previous frame, callbacks, and
+effects. Keyed component reorder preserves state; committed removal and
+shutdown run bounded deterministic cleanup.
+
 ```ts
 const compiled = compileFrameV1("counter", <Counter />);
 const callbacks = new RevisionActionRegistryV1();
@@ -27,10 +35,12 @@ await callbacks.dispatch(eventMessage);
 callbacks.clear();                  // release all retained callback scopes
 ```
 
-State/hooks and rerender batching, the Node process session and actual local
-I/O, the native host executable, and the stable full semantic component API
-remain later delivery slices. This package is therefore not a published SDK or
-a runnable native TSX application yet.
+Typed context, error boundaries, the Node process session and actual local I/O,
+host supervision/replay, the native host executable, and the stable full
+semantic component API remain later delivery slices. This package is therefore
+not a published SDK or a runnable native TSX application yet. The current
+`createApp` requires an explicit typed `A3sApplicationHostV1`; the future
+zero-configuration `run()` API will supply the supervised process host.
 
 Install the pinned development compiler without running dependency scripts:
 

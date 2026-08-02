@@ -29,3 +29,29 @@ export type {
 } from "./element.ts";
 export { compileFrameV1 } from "./frame.ts";
 export type { CompileFrameOptions, CompiledA3sFrameV1 } from "./frame.ts";
+export { A3sApplicationV1, createApp } from "./application.ts";
+export type {
+  A3sApplicationHostV1,
+  A3sApplicationStateV1,
+  A3sApplicationStatus,
+  A3sRenderCandidateV1,
+  CreateAppOptions,
+} from "./application.ts";
+export {
+  A3sHookError,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "./hooks.ts";
+export type {
+  A3sDispatch,
+  A3sEffect,
+  A3sEffectCleanup,
+  A3sHookErrorCode,
+  A3sMutableRef,
+  A3sReducer,
+  A3sStateSetter,
+  A3sStateUpdate,
+} from "./hooks.ts";

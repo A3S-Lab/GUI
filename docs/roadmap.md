@@ -31,7 +31,7 @@ or fallback renderer.
 | H2-H4 real hosts | Planned | Windows, macOS, Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
-| T2-T5 TSX product runtime | Planned | State/hooks, process I/O, native startup, watch, packaging, publication |
+| T2-T5 TSX product runtime | In progress | `createApp`, keyed hook tree, batched revisions, and post-commit effects; process I/O and native startup missing |
 | M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
 No family is yet self-drawn conformant across real macOS, Windows, and Linux
@@ -273,16 +273,27 @@ Delivered:
 
 ### T2 — stateful TypeScript runtime
 
-Status: next.
+Status: in progress.
 
-Deliver:
+Delivered:
 
-- `createApp` and root lifecycle;
-- `useState`, `useReducer`, memo/effect/ref foundations;
-- deterministic hook order and rerender batching;
-- callback identity updates tied to render revision;
-- error boundaries and controlled shutdown;
-- protocol integration tests with a supervised Rust host.
+- transport-neutral `createApp` start/render/dispatch/rerender/shutdown
+  lifecycle over a typed host object;
+- stable keyed function-component identities and deterministic hook slots;
+- `useState`, `useReducer`, `useMemo`, `useRef`, and post-commit `useEffect`;
+- whole-event batching with at most one immediate follow-up render;
+- transactional candidate hook trees tied to candidate/active callback scopes;
+- rejected-frame preservation and same-revision retry;
+- deterministic effect cleanup on dependency change, committed unmount, and
+  shutdown;
+- source-located hook-order failures and Node interaction tests.
+
+Remaining:
+
+- typed context and error boundaries;
+- session/message identity integration around the action registry;
+- supervised Rust host process I/O, crash recovery, and replay;
+- keyboard/stale-event/replay coverage through that process boundary.
 
 ### T3 — executable self-drawn window
 
@@ -385,12 +396,12 @@ A release candidate requires:
 
 ## Immediate implementation sequence
 
-1. Finish this self-drawn-only deletion and documentation commit.
-2. Implement T2 state/hooks and supervised in-process protocol tests.
-3. Land production text measurement/shaping interfaces in layout/scene.
-4. Build the first H2 Windows window/surface/presentation skeleton.
-5. Connect H1 input and frame commits to that host.
-6. Add text/IME and UI Automation bridges.
-7. Port the same host contract to H3 and H4.
-8. Expand M6 deterministic stories and promote evidence through the matrix.
-9. Restore packaging only after H2-H4 artifacts exist.
+1. Complete T2 context/error boundaries and supervised process-session
+   integration around the landed stateful scheduler.
+2. Land production text measurement/shaping interfaces in layout/scene.
+3. Build the first H2 Windows window/surface/presentation skeleton.
+4. Connect H1 input and frame commits to that host.
+5. Add text/IME and UI Automation bridges.
+6. Port the same host contract to H3 and H4.
+7. Expand M6 deterministic stories and promote evidence through the matrix.
+8. Restore packaging only after H2-H4 artifacts exist.

@@ -37,6 +37,7 @@ import {
   type A3sAction,
   type A3sEventHandler,
 } from "./action.ts";
+import type { ComponentRenderRuntime } from "./component-runtime.ts";
 
 export interface CompileFrameOptions {
   readonly maximumDepth?: number;
@@ -115,12 +116,26 @@ export function compileFrameV1(
   root: A3sJsxChild,
   options: CompileFrameOptions = {},
 ): CompiledA3sFrameV1 {
+  return compileFrameWithRuntimeV1(frameId, root, null, options);
+}
+
+export function compileFrameWithRuntimeV1(
+  frameId: string,
+  root: A3sJsxChild,
+  componentRuntime: ComponentRenderRuntime | null,
+  options: CompileFrameOptions = {},
+): CompiledA3sFrameV1 {
   if (typeof frameId !== "string" || frameId.length === 0) {
     throw new A3sJsxError("A3S frames need a non-empty string frame id");
   }
   const maximumDepth = normalizePositiveLimit(options.maximumDepth, 128, "maximumDepth");
   const maximumNodes = normalizePositiveLimit(options.maximumNodes, 100_000, "maximumNodes");
-  const roots = resolveFrameRoot(root, maximumDepth, maximumNodes);
+  const roots = resolveFrameRoot(
+    root,
+    maximumDepth,
+    maximumNodes,
+    componentRuntime,
+  );
 
   if (roots.length !== 1) {
     throw new A3sJsxError(

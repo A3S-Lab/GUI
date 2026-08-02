@@ -5,7 +5,13 @@ import {
   Window,
   RevisionActionRegistryV1,
   compileFrameV1,
+  createApp,
   defineAction,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
   type A3sJsxProps,
 } from "@a3s/gui";
 
@@ -37,3 +43,55 @@ const compiled = compileFrameV1(
 const callbacks = new RevisionActionRegistryV1();
 callbacks.stage(1, compiled);
 callbacks.state.pending?.renderRevision satisfies number | undefined;
+
+function StatefulCounter() {
+  const [count, setCount] = useState(0);
+  const [offset, dispatch] = useReducer(
+    (value: number, delta: number) => value + delta,
+    0,
+  );
+  const renders = useRef(0);
+  renders.current += 1;
+  const value = useMemo(() => count + offset, [count, offset]);
+  useEffect(() => () => undefined, [value]);
+
+  return (
+    <Window title="Stateful Counter" width={360} height={220}>
+      <View>
+        <Text>Value: {value}; renders: {renders.current}</Text>
+        <Button
+          onPress={() => {
+            setCount((current) => current + 1);
+            dispatch(1);
+          }}
+        >
+          Increment
+        </Button>
+      </View>
+    </Window>
+  );
+}
+
+const typeOnlyHost = {
+  async submitRender(candidate: {
+    readonly renderRevision: number;
+    readonly frame: { readonly frameId: string };
+  }) {
+    candidate.renderRevision satisfies number;
+    candidate.frame.frameId satisfies string;
+    throw new Error("type-only host");
+  },
+};
+
+const app = createApp(StatefulCounter, {
+  frameId: "stateful-counter-typecheck",
+  host: typeOnlyHost,
+});
+app.state.status satisfies "created" | "running" | "closing" | "closed";
+
+createApp(Counter, {
+  host: typeOnlyHost,
+  props: { count: 0, onIncrement: () => undefined },
+});
+// @ts-expect-error required root props cannot be omitted
+createApp(Counter, { host: typeOnlyHost });
