@@ -2,9 +2,13 @@
 
 ## Status
 
-The repository does not currently ship an executable macOS, Windows, or Linux
-window shell. The former platform content-control shells and their examples
-were deleted with their dependencies.
+The repository now contains the first executable Windows TSX shell slice in
+`a3s-gui-tsx-host`. With `host-windows,platform-runtime,gpu`, it creates one raw
+top-level HWND, presents the shared self-drawn scene through Graphics/DX12,
+pumps native input, and returns ordered actions over the framed TSX protocol.
+It is not yet a published or production-complete platform artifact. Concrete
+macOS and Linux shells remain absent. The former platform content-control
+shells and their dependencies remain deleted.
 
 What exists is the shared shell contract:
 
@@ -12,10 +16,11 @@ What exists is the shared shell contract:
 - `SelfDrawnWindowRuntime` for atomic semantic/layout/scene/presentation
   frames;
 - recording and reference implementations for deterministic tests;
+- the raw Windows + GPU TSX executable path;
 - `NativeRuntimeApp` and protocol application loops for headless semantic
   reducer tests.
 
-A concrete OS shell must be built on `PlatformHost`; it must not revive a
+Every additional OS shell must be built on `PlatformHost`; it must not revive a
 content-widget backend.
 
 ## Shared lifecycle

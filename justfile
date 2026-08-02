@@ -108,6 +108,12 @@ check-platform-runtime-graph:
         exit 1
     fi
 
+    native_tsx_graph="$(cargo tree --locked --no-default-features --features host-windows,platform-runtime,gpu --target x86_64-pc-windows-msvc --prefix none)"
+    if grep -Eq '^(gtk4|gdk4|gsk4|winio-winui3|objc2-app-kit) ' <<<"$native_tsx_graph"; then
+        echo "content-toolkit dependencies entered the Windows TSX product graph" >&2
+        exit 1
+    fi
+
 # Run the zero-widget platform-host contract and firewall suites
 test-platform-host:
     cargo test --locked --no-default-features --features platform-host --lib platform_host::
@@ -126,6 +132,7 @@ test-windows-host:
     cargo test --locked --no-default-features --features host-windows --test windows_platform_host -- --test-threads=1
     cargo test --locked --no-default-features --features host-windows,platform-runtime --test windows_platform_host shared_self_drawn_runtime_commits_into_the_real_hidden_win32_host -- --exact --test-threads=1
     cargo test --locked --no-default-features --features host-windows,platform-runtime,gpu --test windows_platform_host graphics_presenter_draws_and_presents_the_first_real_win32_frame -- --exact --test-threads=1
+    cargo test --locked --no-default-features --features host-windows,platform-runtime,gpu --test windows_tsx_host -- --test-threads=1
     cargo test --locked --no-default-features --features host-windows --test platform_host_firewall -- --test-threads=1
 
 # Lint every maintained target and deny high-confidence warnings

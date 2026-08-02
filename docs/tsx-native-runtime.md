@@ -1,7 +1,8 @@
 # TSX to Native Runtime Architecture
 
-Status: T0-T2 complete; T3 awaits a real zero-widget OS host and the minimum
-production text/input slice. The private
+Status: T0-T2 complete; the first T3 Windows executable slice is landed and T3
+still awaits parity, native services/accessibility, the minimum production
+text/input slice, and H3-H4. The private
 development package contains Rust-generated wire declarations, standard
 automatic JSX entry points, keyed function-component instances, strict
 child/key/prop normalization, deterministic frame lowering, state/reducer/
@@ -9,13 +10,15 @@ memo/ref/context/effect hooks, transactional render error boundaries, batched
 rerenders, versioned component/action identities, revision-scoped callback
 scopes, ordered event dispatch, and strict client handshake/framing plus
 post-handshake client/host message sequencing.
-The no-shell Node byte transport, strict software self-drawn Rust process host,
-and ordered `createApp` application pump are implemented, including
+The no-shell Node byte transport, strict self-drawn Rust process host, and
+ordered `createApp` application pump are implemented, including
 bidirectional ping/pong, fixed host liveness deadlines, and protocol close/ack.
 Validated zero-argument startup and automatic event binding are also
 implemented. Opt-in bounded supervision and committed-frame replay across a
 fresh session are implemented and covered by restarted-process keyboard and
-stale-event gates; an executable native OS host is not.
+stale-event gates. On Windows, the process now opens a visible raw HWND,
+presents through Graphics/DX12, pumps native input, and returns pointer and
+window-close actions without creating a content widget.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -463,9 +466,10 @@ provides standard automatic JSX entry points, keyed function-component
 instances, strict normalization, deterministic frame lowering, a stateful
 application scheduler, a strict client handshake/session, an incremental
 little-endian JSON frame codec, a no-shell Node child-process transport, a
-strict software self-drawn Rust process host, an ordered application pump, and
-a pinned TypeScript 5.9 `react-jsx` fixture. Command messages and native
-artifact publication remain pending.
+strict self-drawn Rust process host with native Windows GPU and deterministic
+software-test profiles, an ordered application pump, and a pinned TypeScript
+5.9 `react-jsx` fixture. General command messages and native artifact
+publication remain pending.
 
 `A3sClientHandshakeV1` constructs the exact first `hello`, bounds its encoded
 size, and accepts only a matching negotiated `welcome`. `A3sJsonFrameDecoderV1`
@@ -490,7 +494,7 @@ Fatal, stream, handler, nonce, and timeout failures close the transport without
 pretending the protocol completed. `connectA3sNodeApplicationHostV1` composes
 that pump with the no-shell process transport. The checked-in Node fixture uses
 it to drive two complete `createApp` renders, both ping directions, and graceful
-close through `a3s-gui-tsx-host` and the software self-drawn runtime.
+close through `a3s-gui-tsx-host` and its deterministic software test profile.
 
 After 30 seconds without client traffic, `a3s-gui-tsx-host` emits a host ping
 and requires the matching pong within a fixed five-second deadline. Other
@@ -560,8 +564,11 @@ Protocol `renderRevision` identifies the TSX tree and callback scope.
 hit testing, scene, and accessibility. They deliberately are not aliases: a
 TSX rerender may replace callbacks while producing identical Native IR, so the
 self-drawn host can retain its snapshot revision while the TSX render revision
-advances. An event must match the active host revision and is then delivered
-against the active TSX render revision.
+advances. Conversely, OS redraw, resize, or scale work can advance the host
+snapshot while the TSX tree and callback scope remain unchanged. An event must
+match the active render revision and carry a host revision at least as new as
+the active one; accepting that event atomically advances the host revision for
+later stale-event checks.
 
 ### Commit and Recovery
 
@@ -773,9 +780,10 @@ Delivered:
 - strict client `hello`/`welcome` negotiation and incremental framed JSON codec
 - ordered framed connection and no-shell Node child-process byte transport with
   bounded stderr, timeout-backed shutdown, and success/crash process fixtures
-- strict `a3s-gui-tsx-host` process with software-reference self-drawn commits,
-  independent client/host sequencing, idle host probes, fixed response
-  deadlines, liveness replies, and graceful close
+- strict `a3s-gui-tsx-host` process with native Windows GPU selection and a
+  deterministic software-reference test profile, independent client/host
+  sequencing, idle host probes, fixed response deadlines, liveness replies,
+  native event pumping, and graceful close
 - ordered `A3sFramedApplicationHostV1` sharing the negotiated session with
   `createApp`, including bounded event tasks, bidirectional liveness across
   pending UI work, protocol close/ack, and real Node-to-Rust coverage
@@ -807,6 +815,15 @@ Gates:
 
 Dependencies: host H1, one supported H2-H4 platform slice, and the minimum M4
 text, pointer, keyboard, focus, and accessibility slice.
+
+Windows executable status: the TSX host now selects the raw Win32 host and GPU
+presenter, opens a visible window on the first frame, continuously drains OS
+events, forwards ordered mouse actions and semantic `onClose`, and preserves
+callback identity while autonomous host revisions advance. A target-native
+cross-process test verifies the HWND, title, DX12 commit, Win32 input, close
+action, and protocol shutdown. Calculator parity, reviewed pixels, UI
+Automation, TSF, system commands, physical pen evidence, and H3-H4 are still
+open.
 
 - launch the real host binary from `nub app.tsx`
 - present the TSX counter and shared calculator through A3S Graphics
@@ -869,7 +886,9 @@ green.
 12. Add bounded Host restart and committed-frame replay. Landed.
 13. Finalize component/action identity and restarted-process keyboard/stale
     gates. Landed.
-14. Add Nub watch reload and platform binary packaging only after the native
+14. Connect the Windows process to a visible raw HWND, Graphics/DX12, native
+    input, and semantic window close. Landed.
+15. Add Nub watch reload and platform binary packaging only after the native
    presentation gates pass.
 
 Each commit must leave Rust-only builds and the existing Rust authoring path

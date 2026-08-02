@@ -218,15 +218,16 @@ fn application_session_commits_and_rejects_atomically() {
     assert!(session.pending_render().is_none());
 
     assert!(session.emit_event(counter_event(1, 2)).is_err());
-    assert!(session.emit_event(counter_event(2, 1)).is_err());
     assert_eq!(session.last_event_sequence(), 0);
     assert_eq!(session.last_host_message_id(), 2);
 
-    let event = session.emit_event(counter_event(1, 1)).unwrap();
+    let event = session.emit_event(counter_event(2, 1)).unwrap();
     assert_eq!(event.metadata().message_id, 3);
     assert_eq!(event.metadata().render_revision, 1);
     assert_eq!(session.last_event_sequence(), 1);
-    assert!(session.emit_event(counter_event(1, 1)).is_err());
+    assert_eq!(session.committed_host_revision(), Some(2));
+    assert!(session.emit_event(counter_event(1, 2)).is_err());
+    assert!(session.emit_event(counter_event(2, 1)).is_err());
     assert_eq!(session.last_host_message_id(), 3);
 }
 

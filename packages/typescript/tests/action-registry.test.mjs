@@ -182,6 +182,25 @@ test("ordered vectors await callbacks sequentially and repeat duplicate actions"
   assert.equal(result.callbackCount, 3);
 });
 
+test("host events advance the active self-drawn revision monotonically", async () => {
+  const calls = [];
+  const registry = new RevisionActionRegistryV1();
+  registry.stage(1, compileSingle("window", "press", () => calls.push("press")));
+  registry.commit(committed(1, 20, "window"));
+
+  const advanced = await registry.dispatch(event(1, 23, 1, ["press"]));
+  assert.equal(advanced.hostRevision, 23);
+  assert.equal(registry.state.active.hostRevision, 23);
+  assert.deepEqual(calls, ["press"]);
+
+  await assert.rejects(
+    registry.dispatch(event(1, 22, 2, ["press"])),
+    /event host revision 22 is stale; active host revision is 23/u,
+  );
+  assert.equal(registry.state.lastEventSequence, 1);
+  assert.deepEqual(calls, ["press"]);
+});
+
 test("unknown and disabled actions fail complete-vector preflight", async () => {
   const calls = [];
   const registry = new RevisionActionRegistryV1();

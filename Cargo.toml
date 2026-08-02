@@ -22,7 +22,7 @@ required-features = ["typescript-schema"]
 [[bin]]
 name = "a3s-gui-tsx-host"
 path = "src/bin/tsx_host.rs"
-required-features = ["platform-runtime", "software-reference"]
+required-features = ["platform-runtime"]
 
 [[example]]
 name = "component_playground"

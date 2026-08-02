@@ -77,10 +77,12 @@ callbacks.clear();                  // release all retained callback scopes
 ```
 
 The Rust `a3s-gui-tsx-host` process accepts strict framed
-hello/render/ping/pong/close traffic, commits full frames through the software
+hello/render/ping/pong/close traffic, commits full frames through the shared
 self-drawn runtime, emits idle host pings, and terminates on a fixed unanswered
-probe deadline. `A3sFramedApplicationHostV1` joins the negotiated connection to
-`createApp` with one shared client session, one reader, bounded event tasks,
+probe deadline. Its Windows product build selects the raw Win32 host and
+Graphics GPU presenter; software reference rendering is retained for
+deterministic process tests. `A3sFramedApplicationHostV1` joins the negotiated
+connection to `createApp` with one shared client session, one reader, bounded event tasks,
 ordered commit/event delivery, bidirectional liveness, and protocol close/ack;
 a real Node fixture drives two renders, both ping directions, and graceful
 shutdown through the Rust process. Hostless `createApp` definitions now expose
@@ -90,7 +92,8 @@ running application after its first commit. An explicit bounded recovery policy
 observes Host termination, reconnects with a fresh session identity, replays
 the retained committed frame at revision 1 without resetting component state,
 and gates events until the replay commits. Exhausting the global restart budget
-reports `A3sApplicationRecoveryError` and closes deterministically. Native OS
+reports `A3sApplicationRecoveryError` and closes deterministically. The first
+visible Windows process slice is implemented; native services, macOS/Linux
 hosts, published platform artifacts, and the stable full semantic component API
 remain later delivery slices. This package is therefore not yet a published
 native SDK.

@@ -20,6 +20,8 @@ use super::drag_drop::{SelfDrawnDragCandidate, SelfDrawnDragContext, SelfDrawnDr
 use super::drop_policy::SelfDrawnDropPolicyEvaluation;
 use super::interaction_tree::SelfDrawnInteractionTree;
 
+const HOST_VIRTUAL_INPUT_DEVICE: PlatformInputDeviceId = PlatformInputDeviceId::new(4_294_967_295);
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 /// Normalized details retained while a raw host event becomes semantic actions.
@@ -55,6 +57,26 @@ pub struct SelfDrawnEventContext {
 }
 
 impl SelfDrawnEventContext {
+    pub(crate) fn virtual_event(timestamp_micros: u64) -> Self {
+        Self {
+            device: HOST_VIRTUAL_INPUT_DEVICE,
+            pointer: None,
+            modality: NativeInputModality::Virtual,
+            modifiers: NativeKeyModifiers::new(),
+            position: None,
+            delta: None,
+            button: None,
+            pressure: None,
+            wheel_delta_mode: None,
+            repeat: false,
+            click_count: 0,
+            handled_activation: false,
+            related_target: None,
+            drag: None,
+            timestamp_micros,
+        }
+    }
+
     pub(crate) fn pointer(
         device: PlatformInputDeviceId,
         pointer: PlatformPointerId,
@@ -330,6 +352,44 @@ pub(super) struct RoutedSemanticEvent {
 }
 
 impl SelfDrawnInteractionSession {
+    pub(super) fn route_window_close(
+        &mut self,
+        frame_revision: PlatformHostRevision,
+        tree: &SelfDrawnInteractionTree,
+        timestamp_micros: u64,
+    ) -> GuiResult<SelfDrawnInputDispatch> {
+        let event_sequence = self
+            .event_sequence
+            .checked_add(1)
+            .ok_or_else(|| GuiError::host("self-drawn input event sequence overflowed"))?;
+        let target = tree.root_id().cloned();
+        let mut invocations = Vec::new();
+        if let Some(target) = &target {
+            self.route_event(
+                tree,
+                frame_revision,
+                event_sequence,
+                &RoutedSemanticEvent {
+                    target: target.clone(),
+                    kind: NativeEventKind::Close,
+                    context: SelfDrawnEventContext::virtual_event(timestamp_micros),
+                    value: None,
+                },
+                false,
+                &mut invocations,
+            );
+        }
+        self.event_sequence = event_sequence;
+        Ok(SelfDrawnInputDispatch {
+            frame_revision,
+            event_sequence,
+            target,
+            invocations,
+            interaction_changes: Vec::new(),
+            propagation_stopped_at: None,
+        })
+    }
+
     pub(super) fn reconcile(
         &mut self,
         tree: &SelfDrawnInteractionTree,

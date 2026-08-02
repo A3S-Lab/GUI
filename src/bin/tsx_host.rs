@@ -3,15 +3,21 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+#[path = "tsx_host/event_pump.rs"]
+mod event_pump;
+#[path = "tsx_host/runtime_backend.rs"]
+mod runtime_backend;
+
+use event_pump::{HostEventPump, HOST_EVENT_POLL_INTERVAL};
+use runtime_backend::{selected_profile, HostRuntime, HostRuntimeProfile};
+
 use a3s_gui::tsx_protocol::{
     read_tsx_json_frame_v1, write_tsx_json_frame_v1, TsxClientMessageV1, TsxFrameLimitsV1,
-    TsxHostApplicationSessionV1, TsxHostCapabilityV1, TsxHostHandshakeConfigV1, TsxHostHandshakeV1,
-    TsxHostMessageV1, TsxHostPlatformV1, TsxRendererV1, TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES,
-    TSX_PROTOCOL_V1_MAX_SAFE_INTEGER,
+    TsxHostApplicationSessionV1, TsxHostHandshakeConfigV1, TsxHostHandshakeV1, TsxHostMessageV1,
+    TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES, TSX_PROTOCOL_V1_MAX_SAFE_INTEGER,
 };
 use a3s_gui::{
-    GuiError, GuiResult, PlatformWindowId, PlatformWindowSpec, RecordingPlatformHost,
-    ReferenceScenePresenter, RsxCompilerBridge, SelfDrawnWindowRuntime, Size, UiFrame,
+    GuiError, GuiResult, PlatformWindowId, PlatformWindowSpec, RsxCompilerBridge, Size, UiFrame,
     WindowOptions,
 };
 
@@ -22,8 +28,6 @@ const DEFAULT_LIVENESS_INTERVAL_MS: u64 = 30_000;
 const DEFAULT_LIVENESS_TIMEOUT_MS: u64 = 5_000;
 const MAXIMUM_LIVENESS_DURATION_MS: u64 = 600_000;
 const WINDOW_ID: PlatformWindowId = PlatformWindowId::new(1);
-
-type HeadlessRuntime = SelfDrawnWindowRuntime<RecordingPlatformHost, ReferenceScenePresenter>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct ProcessOptions {
@@ -55,10 +59,11 @@ where
     R: Read + Send + 'static,
     W: Write,
 {
+    let profile = selected_profile()?;
     let hard_limits = TsxFrameLimitsV1::default();
     let hello = read_tsx_json_frame_v1::<_, TsxClientMessageV1>(&mut input, hard_limits)?
         .ok_or_else(|| GuiError::host("TSX host input ended before the required hello message"))?;
-    let mut handshake = TsxHostHandshakeV1::new(host_config()?);
+    let mut handshake = TsxHostHandshakeV1::new(host_config(profile)?);
     let welcome = handshake.accept_hello(&hello)?;
     let negotiated = handshake
         .negotiated()
@@ -95,7 +100,7 @@ fn serve_session<W>(
     limits: TsxFrameLimitsV1,
     options: ProcessOptions,
     session: &mut TsxHostApplicationSessionV1,
-    runtime: &mut Option<HeadlessRuntime>,
+    runtime: &mut Option<HostRuntime>,
 ) -> GuiResult<()>
 where
     W: Write,
@@ -103,12 +108,27 @@ where
     let mut next_ping_at = Instant::now() + options.liveness_interval;
     let mut ping_deadline = None;
     let mut next_nonce = 1;
+    let mut event_pump = HostEventPump::default();
     loop {
-        if ping_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+        event_pump.drain(output, limits, session, runtime)?;
+
+        let now = Instant::now();
+        if ping_deadline.is_some_and(|deadline| now >= deadline) {
             return unanswered_liveness_error(session, options);
         }
+        if ping_deadline.is_none() && now >= next_ping_at {
+            let ping = session.begin_host_ping(next_nonce)?;
+            write_tsx_json_frame_v1(output, &ping, limits)?;
+            ping_deadline = Some(Instant::now() + options.liveness_timeout);
+        }
         let deadline = ping_deadline.unwrap_or(next_ping_at);
-        match input.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+        let protocol_wait = deadline.saturating_duration_since(Instant::now());
+        let wait = if runtime.is_some() {
+            protocol_wait.min(HOST_EVENT_POLL_INTERVAL)
+        } else {
+            protocol_wait
+        };
+        match input.recv_timeout(wait) {
             Ok(SessionInput::Message(message)) => {
                 if handle_session_message(output, limits, session, runtime, &message)? {
                     return Ok(());
@@ -130,14 +150,7 @@ where
             Err(RecvTimeoutError::Disconnected) => {
                 return Err(GuiError::host("TSX host input reader stopped unexpectedly"));
             }
-            Err(RecvTimeoutError::Timeout) => {
-                if ping_deadline.is_some() {
-                    return unanswered_liveness_error(session, options);
-                }
-                let ping = session.begin_host_ping(next_nonce)?;
-                write_tsx_json_frame_v1(output, &ping, limits)?;
-                ping_deadline = Some(Instant::now() + options.liveness_timeout);
-            }
+            Err(RecvTimeoutError::Timeout) => {}
         }
     }
 }
@@ -159,7 +172,7 @@ fn handle_session_message<W>(
     output: &mut W,
     limits: TsxFrameLimitsV1,
     session: &mut TsxHostApplicationSessionV1,
-    runtime: &mut Option<HeadlessRuntime>,
+    runtime: &mut Option<HostRuntime>,
     message: &TsxClientMessageV1,
 ) -> GuiResult<bool>
 where
@@ -273,7 +286,7 @@ fn parse_liveness_duration(option: &str, value: &str) -> GuiResult<Duration> {
 fn render_message(
     session: &mut TsxHostApplicationSessionV1,
     message: &TsxClientMessageV1,
-    runtime: &mut Option<HeadlessRuntime>,
+    runtime: &mut Option<HostRuntime>,
 ) -> GuiResult<TsxHostMessageV1> {
     let accepted = session.accept_render(message)?;
     let render_revision = accepted.render_revision();
@@ -287,7 +300,7 @@ fn render_message(
 fn render_frame(
     session: &mut TsxHostApplicationSessionV1,
     frame: UiFrame,
-    runtime: &mut Option<HeadlessRuntime>,
+    runtime: &mut Option<HostRuntime>,
 ) -> GuiResult<TsxHostMessageV1> {
     let frame_id = frame.frame_id.clone();
     let desired_spec = window_spec(frame.window.as_ref())?;
@@ -306,12 +319,7 @@ fn render_frame(
             }
             runtime
         }
-        slot @ None => slot.insert(HeadlessRuntime::new(
-            RecordingPlatformHost::new(),
-            ReferenceScenePresenter::new(),
-            desired_spec,
-            1.0,
-        )?),
+        slot @ None => slot.insert(HostRuntime::new(desired_spec)?),
     };
     runtime.render(native_root)?;
     let snapshot = runtime
@@ -320,17 +328,14 @@ fn render_frame(
     session.commit_self_drawn_snapshot(frame_id, snapshot, Vec::new())
 }
 
-fn host_config() -> GuiResult<TsxHostHandshakeConfigV1> {
+fn host_config(profile: HostRuntimeProfile) -> GuiResult<TsxHostHandshakeConfigV1> {
     TsxHostHandshakeConfigV1::new(
         env!("CARGO_PKG_VERSION"),
         option_env!("A3S_GUI_BUILD_ID").unwrap_or("development"),
-        TsxHostPlatformV1::Headless,
-        vec![TsxRendererV1::Software],
+        profile.platform,
+        vec![profile.renderer],
         TSX_PROTOCOL_V1_HARD_MAX_FRAME_BYTES,
-        vec![
-            TsxHostCapabilityV1::HeadlessRendering,
-            TsxHostCapabilityV1::SelfDrawnRendering,
-        ],
+        profile.capabilities.to_vec(),
         vec![],
     )
 }
@@ -364,7 +369,7 @@ fn window_spec(options: Option<&WindowOptions>) -> GuiResult<PlatformWindowSpec>
         min_size: partial_min_size(options),
         max_size: partial_max_size(options),
         resizable: options.is_none_or(|window| window.resizable),
-        visible: false,
+        visible: selected_profile()?.window_visible,
     };
     spec.validate()?;
     Ok(spec)

@@ -87,6 +87,7 @@ where
     pub(super) pending_redraw: bool,
     pub(super) closed: bool,
     pub(super) shutdown: bool,
+    pub(super) last_input_timestamp_micros: Option<u64>,
     pub(super) stats: SelfDrawnRuntimeStats,
 }
 
@@ -114,6 +115,10 @@ where
             .field("pending_redraw", &self.pending_redraw)
             .field("closed", &self.closed)
             .field("shutdown", &self.shutdown)
+            .field(
+                "last_input_timestamp_micros",
+                &self.last_input_timestamp_micros,
+            )
             .field("stats", &self.stats)
             .finish_non_exhaustive()
     }
@@ -144,6 +149,7 @@ where
             pending_redraw: false,
             closed: false,
             shutdown: false,
+            last_input_timestamp_micros: None,
             stats: SelfDrawnRuntimeStats::default(),
         })
     }
@@ -206,6 +212,11 @@ where
         self.interaction.event_sequence
     }
 
+    /// Latest monotonic timestamp received from this host's input clock.
+    pub fn last_input_timestamp_micros(&self) -> Option<u64> {
+        self.last_input_timestamp_micros
+    }
+
     pub fn render(&mut self, native_root: NativeElement) -> GuiResult<SelfDrawnFrameCommit> {
         self.ensure_running()?;
         if self.closed {
@@ -233,6 +244,7 @@ where
         self.committed = None;
         self.interaction = SelfDrawnInteractionSession::default();
         self.pending_redraw = false;
+        self.last_input_timestamp_micros = None;
         self.shutdown = true;
         Ok(())
     }

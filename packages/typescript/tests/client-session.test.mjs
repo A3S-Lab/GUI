@@ -52,13 +52,22 @@ test("client session emits exact render envelopes and advances independent direc
   });
 
   const result = await session.dispatchEvent(
-    event(render, 3, 7, 1, "increment"),
+    event(render, 3, 9, 1, "increment"),
     actions,
   );
   assert.deepEqual(calls, ["increment"]);
+  assert.equal(result.hostRevision, 9);
   assert.equal(result.eventSequence, 1);
   assert.equal(session.state.lastHostMessageId, 3);
   assert.equal(session.state.lastClientMessageId, 2);
+  assert.equal(session.state.committedHostRevision, 9);
+  assert.equal(actions.state.active.hostRevision, 9);
+
+  await assert.rejects(
+    session.dispatchEvent(event(render, 4, 8, 2, "increment"), actions),
+    /event host revision 8 is stale; active host revision is 9/u,
+  );
+  assert.deepEqual(calls, ["increment"]);
 });
 
 test("host ping can overtake reserved commit and event application", async () => {

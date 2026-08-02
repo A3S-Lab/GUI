@@ -102,6 +102,10 @@ impl SelfDrawnInteractionTree {
         self.tree_order.iter()
     }
 
+    pub(super) fn root_id(&self) -> Option<&PlatformElementId> {
+        self.tree_order.first()
+    }
+
     pub(super) fn source(&self, id: &PlatformElementId) -> Option<SemanticActionSource<'_>> {
         let node = self.node(id)?;
         Some(SemanticActionSource::from_props(node.role, &node.props))

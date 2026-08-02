@@ -301,6 +301,7 @@ where
         };
         let revision = snapshot.revision();
         let tree = Arc::clone(snapshot.interaction_tree());
+        self.last_input_timestamp_micros = Some(input_timestamp_micros(&event));
         let (dispatch, policy_stats) = self
             .interaction
             .route_input(&event, revision, &tree, resolver)?;
@@ -375,8 +376,25 @@ where
                 self.closed = true;
                 Ok(SelfDrawnHostEventOutcome::StateChanged)
             }
-            event @ (PlatformWindowEvent::FocusChanged { .. }
-            | PlatformWindowEvent::CloseRequested { .. }) => Ok(
+            PlatformWindowEvent::CloseRequested { .. } => {
+                let Some(snapshot) = self.committed.as_ref() else {
+                    return Ok(SelfDrawnHostEventOutcome::Ignored);
+                };
+                let revision = snapshot.revision();
+                let tree = Arc::clone(snapshot.interaction_tree());
+                let dispatch = self.interaction.route_window_close(
+                    revision,
+                    &tree,
+                    self.last_input_timestamp_micros.unwrap_or_default(),
+                )?;
+                self.stats.input_events = self.stats.input_events.saturating_add(1);
+                self.stats.action_invocations = self
+                    .stats
+                    .action_invocations
+                    .saturating_add(dispatch.invocations.len() as u64);
+                Ok(SelfDrawnHostEventOutcome::Input(dispatch))
+            }
+            event @ PlatformWindowEvent::FocusChanged { .. } => Ok(
                 SelfDrawnHostEventOutcome::Forwarded(PlatformHostEvent::Window { event }),
             ),
         }
@@ -435,6 +453,17 @@ fn input_window(event: &PlatformInputEvent) -> PlatformWindowId {
         PlatformInputEvent::Key { event } => event.window,
         PlatformInputEvent::Wheel { event } => event.window,
         PlatformInputEvent::ModifiersChanged { window, .. } => *window,
+    }
+}
+
+fn input_timestamp_micros(event: &PlatformInputEvent) -> u64 {
+    match event {
+        PlatformInputEvent::Pointer { event } => event.timestamp_micros,
+        PlatformInputEvent::Key { event } => event.timestamp_micros,
+        PlatformInputEvent::Wheel { event } => event.timestamp_micros,
+        PlatformInputEvent::ModifiersChanged {
+            timestamp_micros, ..
+        } => *timestamp_micros,
     }
 }
 

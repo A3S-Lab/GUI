@@ -328,7 +328,7 @@ impl TsxHostApplicationSessionV1 {
         let active_host_revision = self.committed_host_revision.ok_or_else(|| {
             GuiError::host("TSX application session has no committed host revision")
         })?;
-        if payload.host_revision != active_host_revision {
+        if payload.host_revision < active_host_revision {
             return Err(GuiError::host(format!(
                 "TSX event host revision {} is stale; active host revision is {active_host_revision}",
                 payload.host_revision
@@ -357,6 +357,7 @@ impl TsxHostApplicationSessionV1 {
 
         self.host_messages.accept(message_id)?;
         self.last_event_sequence = payload.event_sequence;
+        self.committed_host_revision = Some(payload.host_revision);
         Ok(message)
     }
 

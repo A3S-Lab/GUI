@@ -250,7 +250,7 @@ export class RevisionActionRegistryV1 {
         `event render revision ${renderRevision} is stale; active revision is ${active.renderRevision}`,
       );
     }
-    if (hostRevision !== active.hostRevision) {
+    if (hostRevision < active.hostRevision) {
       throw registryError(
         "staleEvent",
         `event host revision ${hostRevision} is stale; active host revision is ${active.hostRevision}`,
@@ -280,6 +280,9 @@ export class RevisionActionRegistryV1 {
 
     this.#dispatching = true;
     this.#lastEventSequence = eventSequence;
+    if (hostRevision > active.hostRevision) {
+      this.#active = Object.freeze({ ...active, hostRevision });
+    }
     let callbackCount = 0;
     try {
       for (let index = 0; index < prepared.length; index += 1) {

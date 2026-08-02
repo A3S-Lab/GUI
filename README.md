@@ -6,7 +6,7 @@
   <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
   <img alt="Self-drawn only" src="https://img.shields.io/badge/renderer-self--drawn%20only-0067C0?style=flat-square">
-  <img alt="TSX T2 complete" src="https://img.shields.io/badge/TSX-T2%20complete-1687D9?style=flat-square">
+  <img alt="TSX T3 Windows slice" src="https://img.shields.io/badge/TSX-T3%20Windows%20slice-1687D9?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2F3945?style=flat-square"></a>
 </p>
 
@@ -121,10 +121,12 @@ The repository already provides:
 - an ordered framed connection and explicit no-shell Node child-process byte
   transport with bounded stderr, shutdown timeout, and real process fixtures.
 - `a3s-gui-tsx-host`, a strict framed stdin/stdout process that negotiates one
-  TSX session, lowers full frames into `NativeElement`, produces real software
-  reference pixels through `SelfDrawnWindowRuntime`, emits idle host liveness
-  probes with fixed response deadlines, and sequences commit, pong, and close
-  replies without a content-widget backend.
+  TSX session and lowers full frames into `NativeElement`. A Windows product
+  build selects `WindowsPlatformHost + GpuScenePresenter`, opens a visible raw
+  HWND, presents through Graphics/DX12, continuously pumps normalized input,
+  returns ordered TSX actions (including window close), and accepts monotonic
+  host revisions after redraw/resize. The software-reference build remains a
+  deterministic process-test facility rather than an alternate product host.
 - `A3sFramedApplicationHostV1`, an ordered single-reader application pump that
   shares the negotiated client session with `createApp`, bounds outstanding
   event work and host-message reordering, answers host pings across pending
@@ -144,7 +146,7 @@ The repository already provides:
 
 Still required before a production native application:
 
-- Windows touch/pen hardware-injection conformance, TSF, UI Automation, system
+- Windows physical-pen conformance, TSF, UI Automation, system
   services, device-loss fault injection, and reviewed GPU capture evidence;
 - real zero-widget macOS and Wayland/X11 hosts;
 - a production font database/shaper and glyph raster/atlas encoder, followed by
@@ -201,25 +203,27 @@ await createApp(Counter).run();
 ```
 
 This zero-argument startup API is implemented and exercised from Node against
-the real Rust software/self-drawn process. It resolves the exact platform
-artifact package and validates its manifest, size, target, protocol range, and
+the deterministic Rust software/self-drawn test process. It resolves the exact
+platform artifact package and validates its manifest, size, target, protocol range, and
 SHA-256 checksum before spawn; the repository test path uses an explicit
 absolute development artifact override plus an unverified-Host opt-in.
-Published native platform packages and an end-to-end GPU-presented visible host
-do not exist yet, so this is still not an end-user native package. The
-underlying scheduler also
+The Windows target lane now drives the same protocol through a visible raw HWND,
+Graphics/DX12 presentation, Win32 mouse input, and semantic window-close action.
+Published native packages, reviewed visual parity, accessibility/IME completion,
+and macOS/Linux hosts do not exist yet, so this is still not an end-user native
+package. The underlying scheduler also
 remains usable with a typed host object. It owns keyed function-component
 instances, typed nested context, render error boundaries, state/reducer/memo/
 ref/effect hooks, one-microtask rerender batching, revision-scoped callbacks,
 effect promotion only after `committed`, full render envelopes, independent
 client/host message ordering, client `hello`/`welcome` negotiation, bounded
 incremental framing, an explicit Node child-process transport, the strict
-`a3s-gui-tsx-host` software/self-drawn process, and an ordered framed
+`a3s-gui-tsx-host` self-drawn process, and an ordered framed
 application host shared with `createApp`, including bidirectional ping/pong,
 fixed host liveness deadlines, protocol-level graceful close, and opt-in
-bounded restart/replay supervision over fresh protocol sessions. Native host
-presentation, platform artifact publication, and npm publication remain T3-T5
-work.
+bounded restart/replay supervision over fresh protocol sessions. Completing
+the native services and parity gates, platform artifact publication, and npm
+publication remain T3-T5 work.
 
 Read [TSX native runtime](docs/tsx-native-runtime.md) for protocol and delivery
 gates.
@@ -334,7 +338,8 @@ src/
 |- platform_host/         zero-widget contracts, recording host, raw Win32 host
 |- platform_runtime/      shared atomic self-drawn window runtime
 |- tsx_protocol/          strict Node/Rust wire protocol
-|- bin/tsx_host.rs        software self-drawn TSX process host
+|- bin/tsx_host.rs        TSX process/session entry point
+|- bin/tsx_host/          native/test backend selection and event pump
 |- semantic_ui/           React Aria-aligned semantic components and hooks
 `- platform/              nonvisual planning/transaction test IR
 packages/typescript/      private automatic JSX runtime and protocol SDK
@@ -346,11 +351,11 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. add Windows touch/pen hardware-injection evidence, TSF, UI Automation,
-   system services, minimize/restore recovery, and device-loss fault injection;
+1. add physical-pen evidence, TSF, UI Automation, system services,
+   minimize/restore recovery, and device-loss fault injection on Windows;
 2. implement the font discovery/shaping and glyph raster/atlas backends on the
    landed generic text contracts, then add editing and IME;
-3. connect the completed T2 TSX runtime to the visible Windows GPU path, then port
+3. pin Rust RSX/TSX calculator parity and reviewed Windows GPU output, then port
    the same zero-widget contract to macOS and Wayland/X11;
 4. close React Aria families milestone by milestone with tri-platform evidence;
 5. restore packaging only after the self-drawn host artifacts exist.

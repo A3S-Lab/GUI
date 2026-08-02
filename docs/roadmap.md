@@ -33,7 +33,8 @@ or fallback renderer.
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
 | T2 TSX stateful runtime | Complete | Stateful `createApp`, public identity contract, bounded recovery/replay, and restarted-process keyboard/stale-event gates |
-| T3-T5 TSX native product | Planned | Visible OS hosts, watch/reload, platform artifacts, and publication remain |
+| T3 TSX native window | In progress | Windows TSX process opens a visible raw HWND, presents through Graphics/DX12, and returns Win32 input/window-close actions; parity, services, a11y, and H3-H4 remain |
+| T4-T5 TSX product | Planned | Watch/reload, platform artifacts, and publication remain |
 | M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
 No family is yet self-drawn conformant across real macOS, Windows, and Linux
@@ -378,10 +379,26 @@ Delivered:
 
 ### T3 — executable self-drawn window
 
-Status: blocked on H2-H4/M4.
+Status: in progress. The first Windows executable slice is landed; completing
+T3 remains gated by Windows parity/services/accessibility plus H3-H4/M4.
 
 Deliver the first real TSX application using the same H1 runtime, with no
 alternate renderer path.
+
+Landed on 2026-08-03:
+
+- `a3s-gui-tsx-host` selects `WindowsPlatformHost + GpuScenePresenter` for the
+  Windows product feature set and keeps software reference rendering confined
+  to deterministic tests;
+- the first TSX frame opens a visible raw HWND and presents through
+  Graphics/DX12;
+- the process continuously drains the native message pump and returns ordered
+  pointer and semantic window-close action vectors;
+- autonomous redraw/resize host revisions advance monotonically inside the
+  active TSX render/callback scope;
+- target-native CI finds the process-owned HWND, verifies visibility/title,
+  injects real Win32 mouse and close messages, observes TSX actions, and closes
+  the process through the framed protocol.
 
 ### T4 — development loop and packaging
 
@@ -500,8 +517,7 @@ HWND now has target-CI evidence for an injected touch press/move/release sequenc
 without compatibility-mouse events. Physical pen, text/IME, accessibility,
 system-service, and reviewed visual-parity evidence remain incomplete.
 
-1. Connect completed T2 frame commits to a visible host executable and add
-   physical pen message-path evidence.
+1. Add physical pen message-path evidence.
 2. Add minimize/restore and device-loss fault injection, then capture the same
    deterministic story through DX12.
 3. Implement production font/shaping and glyph encoder backends, then TSF and

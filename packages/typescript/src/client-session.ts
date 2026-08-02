@@ -472,10 +472,12 @@ export class A3sClientSessionV1 {
     try {
       const result = await actions.dispatch(snapshot);
       this.#hostMessages.apply(snapshot.messageId);
+      this.#committedHostRevision = snapshot.payload.hostRevision;
       return result;
     } catch (cause) {
       if (cause instanceof A3sActionRegistryError && cause.code === "callbackFailed") {
         this.#hostMessages.apply(snapshot.messageId);
+        this.#committedHostRevision = snapshot.payload.hostRevision;
       } else {
         this.#status = "failed";
       }
@@ -566,12 +568,21 @@ export class A3sClientSessionV1 {
       "event payload",
       "invalidMessage",
     );
-    requireSafeInteger(
+    const hostRevision = requireSafeInteger(
       payload.hostRevision,
       "event host revision",
       1,
       "invalidRevision",
     );
+    if (
+      this.#committedHostRevision !== null &&
+      hostRevision < this.#committedHostRevision
+    ) {
+      throw sessionError(
+        "invalidRevision",
+        `event host revision ${hostRevision} is stale; active host revision is ${this.#committedHostRevision}`,
+      );
+    }
     requireSafeInteger(
       payload.eventSequence,
       "event sequence",

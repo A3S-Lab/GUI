@@ -19,7 +19,7 @@ feature links those toolkits.
 | --- | --- | --- |
 | H0 contract | Implemented | Versioned transactions/events, validation limits, recording host, dependency firewall |
 | H1 shared runtime | Implemented | Host-first target staging, typed presenter completion, rollback ordering, input/hit/accessibility routing |
-| H2 Windows host | In progress | Real Win32 lifecycle, owned surface leases, Graphics/DX12 presentation, DPI/size/focus/close, mouse/keyboard/wheel plus WM_POINTER touch/pen input, target CI |
+| H2 Windows host | In progress | Real Win32 lifecycle, owned surface leases, Graphics/DX12 presentation, visible TSX process, DPI/size/focus/close, mouse/keyboard/wheel plus WM_POINTER touch/pen input, target CI |
 | H3 macOS host | Planned | No concrete macOS window/Metal host in the repository |
 | H4 Linux host | Planned | No concrete Wayland/X11/Vulkan host in the repository |
 | H5 product cutover | Planned | Requires all three hosts, packaging, and conformance evidence |
@@ -31,7 +31,9 @@ same bounded pump translates DPI-correct legacy mouse, keyboard, wheel, and
 concurrent `WM_POINTER` touch/pen input, including pressure, modifier, capture,
 and focus-loss state. Target-native tests prove the normalized state machine,
 compile the raw ABI path, and inject a complete touch sequence through a real
-visible HWND while rejecting compatibility-mouse promotion. Physical pen,
+visible HWND while rejecting compatibility-mouse promotion. The native TSX
+process lane also verifies a process-owned visible HWND, GPU commit, normalized
+mouse action, semantic window-close action, and framed shutdown. Physical pen,
 reviewed screenshots, and full Windows conformance remain incomplete.
 `host-macos` and `host-linux` remain capability markers.
 

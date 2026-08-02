@@ -219,8 +219,11 @@ The TSX protocol separates four identities:
 A candidate callback scope is staged with a render, promoted only by the
 matching commit, and discarded on rejection. The active revision and one
 rollback revision are retained. Events validate message, render, host-frame,
-and element identity before any callback executes. Multi-callback vectors run
-sequentially and are awaited in wire order.
+and element identity before any callback executes. A redraw, resize, or scale
+transaction may monotonically advance the host-frame revision without
+replacing the active TSX render/callback scope; accepting its next event
+advances that scope's host revision atomically. Older host revisions remain
+stale. Multi-callback vectors run sequentially and are awaited in wire order.
 
 This prevents stale UI events from mutating current TypeScript state and
 prevents rejected frames from exposing candidate callbacks.
@@ -277,26 +280,28 @@ The portable `just verify` gate covers:
 - React Aria catalog schema and coverage;
 - software and GPU boundary tests.
 
-Target-native CI additionally runs Win32 lifecycle, normalized legacy input and
-cancellation, H1 first-frame transaction, surface-lease rollback, and real
-Graphics/DX12 presentation tests. Equivalent macOS/Linux lanes arrive with
-their hosts. Deleted toolkit and bundle lanes are not retained as migration
-evidence.
+Target-native CI additionally runs Win32 lifecycle, normalized input and
+cancellation, H1 first-frame transaction, surface-lease rollback, real
+Graphics/DX12 presentation, and a cross-process visible TSX window test that
+injects Win32 mouse/close messages and observes ordered TSX actions. Equivalent
+macOS/Linux lanes arrive with their hosts. Deleted toolkit and bundle lanes are
+not retained as migration evidence.
 
 ## Current gaps
 
 The architecture is implemented through the generic scene slice, H0 host
-contract, H1 shared runtime, the first raw H2 Win32 lifecycle/DX12 surface slice,
-and the complete T2 stateful TSX runtime, including the strict software
-self-drawn process host, ordered Node/Rust application pump, finalized
+contract, H1 shared runtime, the raw H2 Win32 lifecycle/DX12/input slice,
+the complete T2 stateful TSX runtime, and the first T3 visible Windows process
+slice, including the strict self-drawn process host, ordered Node/Rust
+application pump, finalized
 component/action identity contract, bounded restart/replay, and
 restarted-process keyboard/stale-event gates. The remaining critical work is:
 
 1. production font discovery/shaping and glyph encoding behind the landed
    generic layout/scene contracts, followed by editing, IME, and accessibility
    semantics;
-2. Windows touch/pen hardware conformance, TSF/UIA, device-loss evidence, and
-   visible TSX completion plus raw macOS and Wayland/X11 hosts;
+2. Windows physical-pen conformance, TSF/UIA, device-loss and reviewed TSX
+   parity evidence, plus raw macOS and Wayland/X11 hosts;
 3. component-by-component React Aria conformance;
 4. packaging, signing, installers, and real tri-platform evidence.
 

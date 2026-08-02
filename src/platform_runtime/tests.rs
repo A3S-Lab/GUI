@@ -591,6 +591,38 @@ fn resize_and_scale_events_rebuild_with_stable_semantic_identity() {
 }
 
 #[test]
+fn close_request_routes_the_window_root_action_without_a_content_widget() {
+    let mut runtime = runtime();
+    let window = NativeElement::new("window", NativeRole::Window).with_props(
+        NativeProps::new().web(
+            WebProps::new()
+                .class_name("h-[80px] w-[100px] bg-white")
+                .event("onClose", "closeWindow"),
+        ),
+    );
+    runtime.render(window).unwrap();
+
+    let outcome = runtime
+        .handle_event(PlatformHostEvent::Window {
+            event: PlatformWindowEvent::CloseRequested { window: spec().id },
+        })
+        .unwrap();
+
+    let SelfDrawnHostEventOutcome::Input(dispatch) = outcome else {
+        panic!("window close should route through the portable action tree")
+    };
+    assert_eq!(dispatch.event_sequence, 1);
+    assert_eq!(dispatch.target.as_ref().unwrap().as_str(), "6:window");
+    assert_eq!(dispatch.invocations.len(), 1);
+    assert_eq!(dispatch.invocations[0].action, "closeWindow");
+    assert_eq!(dispatch.invocations[0].event, NativeEventKind::Close);
+    assert_eq!(
+        dispatch.invocations[0].context.modality,
+        NativeInputModality::Virtual
+    );
+}
+
+#[test]
 fn fractional_scale_is_canonicalized_to_the_graphics_precision() {
     let mut runtime = runtime();
     runtime.render(tree("Run", "bg-white")).unwrap();

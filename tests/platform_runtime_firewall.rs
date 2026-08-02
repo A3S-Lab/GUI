@@ -149,12 +149,11 @@ fn platform_runtime_and_smoke_example_are_feature_gated() {
         .split_once("name = \"a3s-gui-tsx-host\"")
         .map(|(_, rest)| rest.lines().take(3).collect::<Vec<_>>().join("\n"))
         .unwrap();
-    for feature in ["platform-runtime", "software-reference"] {
-        assert!(
-            tsx_host.contains(feature),
-            "headless TSX host must require {feature:?}: {tsx_host}"
-        );
-    }
+    assert!(
+        tsx_host.contains("required-features = [\"platform-runtime\"]"),
+        "TSX host must require only the shared runtime so native builds do not acquire the software test renderer: {tsx_host}"
+    );
+    assert!(!tsx_host.contains("software-reference"));
 }
 
 fn feature_definition(features: &str, name: &str) -> String {
