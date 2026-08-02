@@ -961,6 +961,19 @@ and events are rejected until delivery is acknowledged. Password values remain
 available to in-process reducers but are removed from commands, accessibility,
 responses, session debug output, and retained diagnostics.
 
+The optional TSX process boundary begins in the feature-independent
+`tsx_protocol` module rather than in a Node or native-backend feature. Its
+strict `hello`/`welcome` messages carry the fixed `a3s.gui.tsx` protocol id,
+version range, opaque session id, per-sender message id, render revision,
+renderer request/selection, capabilities, debug channels, and negotiated
+limits. `TsxHostHandshakeV1` mutates from unbound to negotiated only after the
+complete response fits the negotiated limit. Both stream and incremental JSON
+codecs validate a little-endian `u32` length before allocation, enforce the
+16 MiB protocol-v1 JSON-payload ceiling, and poison an incremental decoder
+after any framing or strict-JSON violation. This Rust transport foundation has
+no Node, Nub, N-API, Graphics, legacy renderer, or OS-toolkit dependency;
+render/event session messages and the Node implementation remain T1 work.
+
 Drop policies that participate in hit testing use a separate synchronous
 protocol-v1 exchange rather than an action invocation. A
 `ProtocolDropPolicyQueryV1` carries the session, committed render revision,

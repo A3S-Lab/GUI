@@ -67,6 +67,7 @@ mod semantic_event;
 pub mod semantic_ui;
 pub mod style;
 pub mod svg;
+pub mod tsx_protocol;
 pub mod web;
 #[cfg(feature = "winui")]
 pub mod winui;
@@ -477,6 +478,7 @@ pub use style::{
     VisibilityMode, WhiteSpaceMode, WordBreakMode,
 };
 pub use svg::{SVG_ELEMENTS, SVG_TAG_METADATA_KEY};
+pub use tsx_protocol::*;
 pub use web::WebProps;
 #[cfg(feature = "winui")]
 pub use winui::{

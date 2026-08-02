@@ -1,0 +1,1 @@
+{"type":"hello","protocol":"a3s.gui.tsx","protocolVersion":1,"sessionId":"tsx-fixture","messageId":1,"renderRevision":0,"payload":{"sdkVersion":"0.1.0","minimumProtocolVersion":1,"maximumProtocolVersion":1,"requestedRenderer":"software","maximumFrameBytes":4096,"debugCapabilities":["structuredDiagnostics"]}}

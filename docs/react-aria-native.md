@@ -186,7 +186,9 @@ The first shared interaction milestone is available in the portable runtime:
   timeout/disconnect/failure, mismatched response metadata, wrong decision
   types, and disallowed operations all fail closed to `cancel`. Strict protocol
   v1 DTOs and `ProtocolDropPolicyResolverV1` bridge this contract without Rust
-  evaluating JavaScript. The Node callback registry/transport, external
+  evaluating JavaScript. The separate TSX boundary now also has strict atomic
+  handshake negotiation and bounded length-prefixed JSON framing, but its
+  render/event messages and Node callback registry/transport, external
   files/directories and cross-application transfer, drag previews, and full
   conformance evidence remain separate M7 work, so no affected family is
   marked conformant.

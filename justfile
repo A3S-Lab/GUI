@@ -331,8 +331,8 @@ check-core-graph:
     set -euo pipefail
 
     core_graph="$(cargo tree --locked --no-default-features --prefix none)"
-    if grep -Eq '^(a3s-graphics|wgpu) ' <<<"$core_graph"; then
-        echo "graphics dependencies entered the semantic-only graph" >&2
+    if grep -Eq '^(a3s-graphics|wgpu|napi|napi-derive|neon|neon-build|node-bindgen|node-bindgen-macro|deno_core|rusty_v8) ' <<<"$core_graph"; then
+        echo "graphics or embedded JavaScript/Node dependencies entered the semantic-only graph" >&2
         exit 1
     fi
 

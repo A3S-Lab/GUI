@@ -98,7 +98,7 @@ contract.
 
 ## TSX to native, without a browser
 
-The proposed TypeScript path follows
+The planned TypeScript path follows
 [Nub](https://github.com/nubjs/nub)'s strongest runtime idea: keep stock Node,
 transform `.tsx` through its normal loader pipeline, and let a narrow Rust
 boundary own native work. A3S adds a standard automatic JSX runtime and a
@@ -136,10 +136,16 @@ function Counter() {
 await createApp(Counter).run();
 ```
 
-This sample documents the target API; it is not runnable yet. The proposed
-design keeps component state and callbacks in Node, keeps platform/GPU handles
-inside a separate Rust process, reuses resolved `ProtocolUiFrameV1` records,
-and sends complete frames so Rust remains the only native reconciler. Read the
+This sample documents the target API; it is not runnable yet. The Rust-side
+session entrance is now executable: strict `hello`/`welcome` DTOs negotiate the
+renderer, capabilities, debug channels, one in-flight render, and a JSON
+payload limit no larger than 16 MiB; incremental and blocking codecs enforce a
+little-endian `u32` length prefix and reject empty, oversized, truncated,
+invalid UTF-8, duplicate-field, unknown-kind, and unsupported-protocol input
+before a session is bound. The remaining design keeps component state and callbacks in Node,
+keeps platform/GPU handles inside a separate Rust process, reuses resolved
+`ProtocolUiFrameV1` records, and sends complete frames so Rust remains the only
+native reconciler. Read the
 [TSX native runtime architecture](docs/tsx-native-runtime.md) for protocol,
 identity, failure recovery, packaging, and T0-T5 delivery gates.
 
@@ -349,7 +355,7 @@ independently.
 | M4 · Text and interaction cutover | In progress | Stable-id raw input, long press, move, typed and collection drag/drop, timed drop activation, and fail-closed dynamic drop policy resolution landed; shaping, glyphs, editing/IME, accessibility bridges, overlays, and complete calculator scenarios remain |
 | M5 · Default cutover | Planned | Make self-drawn content the default, then delete the three legacy widget renderers |
 | H0-H5 · Thin platform hosts | H0 complete; H1 in progress | Atomic frames, lifecycle recovery, stable-id raw input/reducers, long press, captured move, typed drag/drop negotiation and timed target activation, zero-toolkit firewalls, and an interactive calculator landed; the Graphics raw-surface edge remains |
-| T0-T5 · TSX native authoring | First protocol slice landed | Rust-side revision-scoped drop-policy DTOs and resolver bridge landed; automatic JSX runtime, Node transport/callback registry, state/event runtime, self-drawn native window, packages, and stable SDK remain |
+| T0-T5 · TSX native authoring | T1 Rust foundation in progress | Strict handshake, bounded length-prefixed framing, message sequencing, and revision-scoped drop-policy DTO/resolver bridge landed; render/event messages, TypeScript declarations, JSX runtime, Node callback transport, state runtime, self-drawn native window, packages, and stable SDK remain |
 | M6-M8 · React Aria components | Catalog pinned; conformance planned | 51/51 families mapped; collection DnD authoring/behavior slice landed; eight public parts, full software, accessibility, and three-OS self-drawn evidence remain |
 
 The dependency-ordered plan and acceptance gates are in the
@@ -493,6 +499,7 @@ src/
 |- rsx_app/              ComponentCx, hooks, components, and binding scope
 |- rsx_ui/               built-in semantic design-system registry
 |- protocol.rs           versioned frame, event, action, ACK, and recovery boundary
+|- tsx_protocol/         strict handshake, message sequencing, and bounded framing
 |- native.rs             portable NativeElement UI IR
 |- layout/               deterministic records, style projection, diffs, and tests
 |- drawing.rs            Graphics boundary and reference/GPU renderer wrappers

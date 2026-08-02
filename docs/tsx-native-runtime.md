@@ -377,8 +377,17 @@ JSON is the protocol-1 payload encoding because it matches the current Serde
 contract and is easy to inspect. Each message is framed as a little-endian
 `u32` byte length followed by UTF-8 JSON. The receiver rejects zero-length,
 oversized, truncated, invalid UTF-8, duplicate-field, unknown-kind, and
-unsupported-version messages before state mutation. The initial maximum frame
-size is explicit in the handshake and bounded to 16 MiB or less.
+unsupported-version messages before state mutation. The initial maximum JSON
+payload size is explicit in the handshake and bounded to 16 MiB or less.
+
+Landed Rust foundation: `tsx_protocol` defines strict direction-specific
+control messages with the fixed `a3s.gui.tsx` identifier, atomic
+`TsxHostHandshakeV1` negotiation, exact per-sender `TsxMessageSequenceV1`, and
+blocking plus incremental framed JSON codecs. The decoder validates a declared
+length before allocating, becomes unusable after a framing/JSON violation, and
+has a checked end-of-stream path for partial headers and payloads. A canonical
+`hello-v1.json` fixture pins the current wire spelling. Render/event/command
+messages, actual local process I/O, and the TypeScript peer are still pending.
 
 ### Messages
 
@@ -440,10 +449,9 @@ packages/typescript/
 `- tests/
 
 src/tsx_protocol/
-|- envelope.rs
-|- message.rs
-|- framing.rs
-|- limits.rs
+|- message.rs      strict control DTOs and common envelope metadata
+|- handshake.rs    atomic capability, renderer, and limit negotiation
+|- framing.rs      limits plus blocking and incremental JSON framing
 `- tests.rs
 
 src/platform_host/       shared zero-widget host contract and OS shells
@@ -522,9 +530,9 @@ minimum M4 text/input slice.
 
 ### T0 - Contract and Architecture
 
-Status: architecture accepted; the Rust-side drop-policy DTO and resolver
-adapter are implemented. The remaining T0 review fixtures and Node-side
-transport are pending.
+Status: architecture accepted; the Rust-side strict handshake/framing boundary
+and drop-policy DTO/resolver adapter are implemented. The remaining parity
+fixtures, application message set, and Node-side transport are pending.
 
 - accept process, ownership, identity, protocol, and packaging decisions
 - pin cross-language golden frame and event fixtures
@@ -536,7 +544,12 @@ cannot bypass Native IR, layout, Graphics, interaction, or accessibility.
 
 ### T1 - Headless Protocol and JSX Core
 
-- add the bounded framed transport and handshake DTOs in Rust
+Status: Rust transport foundation in progress. `hello`/`welcome`, atomic limit
+and renderer negotiation, exact message-id sequencing, 16 MiB-capped framing,
+incremental decoding, and the first canonical JSON fixture have landed.
+
+- extend the landed bounded framing and handshake DTOs with render/event/
+  command messages and actual local process I/O
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
 - generate TypeScript protocol declarations from Rust DTOs

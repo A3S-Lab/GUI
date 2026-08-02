@@ -623,9 +623,10 @@ Gates:
 
 ## P0-T TSX Native Authoring Track
 
-Status: architecture accepted; the first Rust-side revision-scoped drop-policy
-protocol and resolver adapter has landed, while the JSX runtime, Node callback
-registry, process transport, and visible TSX application have not started.
+Status: architecture accepted; the Rust-side strict handshake, bounded framing,
+message sequencing, and revision-scoped drop-policy protocol/resolver adapter
+have landed. Render/event transport messages, generated TypeScript, the JSX
+runtime, Node callback registry, and visible TSX application remain.
 
 This track is dependency-coupled to the renderer and H0-H5 host programs
 without blocking Rust RSX work. Headless protocol and JSX-runtime work can
@@ -657,10 +658,16 @@ Graphics, interaction, accessibility, or capability checks.
 
 ### T1 - Headless JSX and protocol slice
 
+Status: Rust transport foundation in progress. Strict `hello`/`welcome` DTOs,
+atomic negotiation, the fixed protocol/session/message/revision envelope,
+16 MiB-capped little-endian length framing, incremental decoding, and the first
+canonical JSON fixture have landed without Node or Graphics dependencies.
+
 - generated TypeScript declarations from versioned Rust DTOs
 - automatic `jsx-runtime` and `jsx-dev-runtime` exports
 - deterministic child, prop, key, and event normalization
-- bounded length-prefixed IPC, handshake, revisions, event sequencing, and
+- extend the landed bounded length-prefixed framing, handshake, and message-id
+  sequencing with render revisions, event sequencing, process I/O, and
   structured diagnostics
 - static TSX counter rendered through the current headless semantic path
 
