@@ -1,18 +1,21 @@
 # TSX to Native Runtime Architecture
 
-Status: T1 complete; T2 stateful scheduling in progress. The private
+Status: T0-T2 complete; T3 awaits a real zero-widget OS host and the minimum
+production text/input slice. The private
 development package contains Rust-generated wire declarations, standard
 automatic JSX entry points, keyed function-component instances, strict
 child/key/prop normalization, deterministic frame lowering, state/reducer/
 memo/ref/context/effect hooks, transactional render error boundaries, batched
-rerenders, revision-scoped callback scopes, ordered event dispatch, and strict
-client handshake/framing plus post-handshake client/host message sequencing.
+rerenders, versioned component/action identities, revision-scoped callback
+scopes, ordered event dispatch, and strict client handshake/framing plus
+post-handshake client/host message sequencing.
 The no-shell Node byte transport, strict software self-drawn Rust process host,
 and ordered `createApp` application pump are implemented, including
 bidirectional ping/pong, fixed host liveness deadlines, and protocol close/ack.
 Validated zero-argument startup and automatic event binding are also
 implemented. Opt-in bounded supervision and committed-frame replay across a
-fresh session are implemented; an executable native OS host is not.
+fresh session are implemented and covered by restarted-process keyboard and
+stale-event gates; an executable native OS host is not.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -292,14 +295,31 @@ Identity must be deterministic across component rerenders and process replay.
   not create native nodes
 - native sibling keys remain unique and continue through the existing
   collision-safe length-prefixed layout path
-- the target action identity derives from the stable component path, host key,
-  and event prop; ids never depend on function source or object address
+- Node-local component instances use `a3s:c1:` followed by canonical UTF-8
+  byte-length-prefixed address segments
+- automatic action ids use `a3s:a1:` followed by the canonical native key path
+  and canonical event prop; component-instance segments are deliberately absent
+- generated identities never depend on function source, function name, object
+  address, or callback revision
 
-The T2 scheduler now owns a stateful keyed component-instance tree. Automatic
-action ids still use the collision-safe host-key path plus event prop, while
-callback generations live in revision scopes. The final public identity
-contract must decide whether to incorporate the separate component-instance
-path before the package is published.
+This separation is final for protocol 1. Function components are authoring and
+hook boundaries, not native nodes. Adding or removing a transparent function
+component therefore cannot change a native element or automatic action id when
+the native key path is unchanged. Keyed component addresses still retain hook
+state across rerenders and mutable-list reordering. Callback generations remain
+in revision scopes rather than either identity shape.
+
+`A3S_COMPONENT_IDENTITY_PREFIX_V1`,
+`A3S_AUTOMATIC_ACTION_ID_PREFIX_V1`, their template-literal types, and strict
+canonical guards publish the versioned shapes. Rust owns the namespace/prefix
+constants and emits them into the generated TypeScript protocol module. The
+complete `a3s:` namespace is reserved for generated identities. `defineAction`
+accepts only non-whitespace, non-control, non-array-index ids outside that
+namespace and enforces the protocol's 1,024-byte UTF-8 limit. Automatic ids
+enforce the same wire limit at the originating TSX element. Registry staging
+revalidates either a canonical automatic id or a valid explicit id before
+publishing a callback scope, and the Rust Host repeats the validation before
+advancing its session.
 
 The implemented `RevisionActionRegistryV1` retains one pending scope, the
 active committed scope, and one rollback scope. Staging validates and copies
@@ -733,7 +753,7 @@ Gates:
 
 ### T2 - Stateful TypeScript Runtime
 
-Status: in progress.
+Status: complete.
 
 Delivered:
 
@@ -766,12 +786,14 @@ Delivered:
   session identity, transactional revision-1 replay of the retained frame and
   callbacks, gated replacement events, exhaustion cleanup, and a real
   post-commit child-process crash/restart fixture
+- finalized Rust-owned/publicly generated `a3s:c1:` component identities and
+  `a3s:a1:` automatic action ids with canonical UTF-8 segment guards at both
+  process ends, a reserved generated namespace, wire-limit enforcement, and
+  wrapper-independent native actions
+- a real three-generation process gate covering Host crash, replay, keyboard
+  activation, stale-revision rejection before callback execution, and another
+  fresh-session replay
 - serialized event/commit consumption across overlapping host messages
-
-Remaining:
-
-- final public component/action identity contract
-- complete keyboard and stale-event gates across the restarted process
 
 Gates:
 
@@ -845,7 +867,9 @@ green.
 11. Add validated zero-argument `createApp` startup and event binding.
     Landed.
 12. Add bounded Host restart and committed-frame replay. Landed.
-13. Add Nub watch reload and platform binary packaging only after the native
+13. Finalize component/action identity and restarted-process keyboard/stale
+    gates. Landed.
+14. Add Nub watch reload and platform binary packaging only after the native
    presentation gates pass.
 
 Each commit must leave Rust-only builds and the existing Rust authoring path

@@ -121,6 +121,19 @@ test("stage validates the complete callback set before publishing", () => {
   );
   assert.equal(registry.state.pending, null);
 
+  const forgedGeneratedIdentity = {
+    frame: {
+      ...valid.frame,
+      actions: [{ id: "a3s:manual", disabled: false }],
+    },
+    callbacks: new Map(),
+  };
+  assert.throws(
+    () => registry.stage(1, forgedGeneratedIdentity),
+    /compiled frame contains an invalid action id/u,
+  );
+  assert.equal(registry.state.pending, null);
+
   registry.stage(1, valid);
   assert.equal(registry.state.pending.renderRevision, 1);
 });

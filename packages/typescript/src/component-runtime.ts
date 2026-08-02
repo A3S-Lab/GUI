@@ -4,16 +4,17 @@ import type {
   A3sSourceLocation,
 } from "./element.ts";
 import type { A3sContext } from "./context.ts";
+import type { A3sComponentIdentityV1 } from "./identity.ts";
 
 export interface ComponentRenderRequest {
-  readonly identity: string;
+  readonly identity: A3sComponentIdentityV1;
   readonly component: A3sFunctionComponent;
   readonly props: Readonly<A3sJsxProps>;
   readonly source: A3sSourceLocation | null;
 }
 
 export interface ComponentRenderCheckpoint {
-  readonly candidateIdentities: ReadonlySet<string>;
+  readonly candidateIdentities: ReadonlySet<A3sComponentIdentityV1>;
 }
 
 export interface ComponentRenderRuntime {

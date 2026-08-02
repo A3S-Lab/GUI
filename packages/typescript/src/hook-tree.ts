@@ -23,6 +23,7 @@ import {
   type HookDispatcher,
 } from "./hooks.ts";
 import { dependenciesEqual, snapshotDependencies } from "./hook-dependencies.ts";
+import type { A3sComponentIdentityV1 } from "./identity.ts";
 
 type HookKind = HookSlot["kind"];
 
@@ -76,7 +77,7 @@ interface ContextHook {
 type HookSlot = StateHook | ReducerHook | MemoHook | RefHook | EffectHook | ContextHook;
 
 interface ComponentInstance {
-  readonly identity: string;
+  readonly identity: A3sComponentIdentityV1;
   readonly component: A3sFunctionComponent;
   readonly name: string;
   readonly slots: HookSlot[];
@@ -96,8 +97,8 @@ interface SetupTask {
 
 export class ComponentHookTree implements ComponentRenderRuntime {
   readonly #scheduleUpdate: () => void;
-  #active = new Map<string, ComponentInstance>();
-  #candidate: Map<string, ComponentInstance> | null = null;
+  #active = new Map<A3sComponentIdentityV1, ComponentInstance>();
+  #candidate: Map<A3sComponentIdentityV1, ComponentInstance> | null = null;
   readonly #contexts = new ContextValueStack();
   #renderDepth = 0;
 
@@ -315,7 +316,7 @@ export class ComponentHookTree implements ComponentRenderRuntime {
     }
   }
 
-  #requireCandidate(): Map<string, ComponentInstance> {
+  #requireCandidate(): Map<A3sComponentIdentityV1, ComponentInstance> {
     if (this.#candidate === null) {
       throw new A3sHookError("hookOrder", "component hooks require an active render candidate");
     }

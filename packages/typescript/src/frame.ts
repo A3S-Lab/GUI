@@ -38,6 +38,7 @@ import {
   type A3sEventHandler,
 } from "./action.ts";
 import type { ComponentRenderRuntime } from "./component-runtime.ts";
+import { createAutomaticActionIdV1 } from "./identity.ts";
 
 export interface CompileFrameOptions {
   readonly maximumDepth?: number;
@@ -409,12 +410,12 @@ function registerEventAction(
   state: CompileState,
 ): RegisteredAction {
   const explicitAction = typeof value === "function" ? null : value as A3sAction;
-  const id = explicitAction?.id ?? automaticActionId(hostPath, eventName);
-  if (typeof id !== "string" || id.length === 0 || isArrayIndexName(id)) {
-    throw new A3sJsxError(
-      `${eventName} action ids must be non-empty, non-array-index strings`,
-      source,
-    );
+  let id: string;
+  try {
+    id = explicitAction?.id ?? createAutomaticActionIdV1(hostPath, eventName);
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "automatic action identity failed";
+    throw new A3sJsxError(`${eventName} ${message}`, source, cause);
   }
   const handler = explicitAction === null ? value as A3sEventHandler : explicitAction.handler;
   const disabled = explicitAction?.disabled ?? elementDisabled;
@@ -568,14 +569,6 @@ function normalizeEventName(name: string): string {
   return EVENT_ALIASES.get(name) ?? name;
 }
 
-function automaticActionId(hostPath: readonly string[], eventName: string): string {
-  return `a3s:a1:${encodeSegments([...hostPath, eventName])}`;
-}
-
-function encodeSegments(segments: readonly string[]): string {
-  return segments.map((segment) => `${textEncoder.encode(segment).byteLength}:${segment}`).join("");
-}
-
 function normalizePositiveLimit(value: number | undefined, fallback: number, name: string): number {
   if (value === undefined) {
     return fallback;
@@ -694,14 +687,6 @@ function sortedRecord<Value>(values: ReadonlyMap<string, Value>): Record<string,
     });
   }
   return record;
-}
-
-function isArrayIndexName(value: string): boolean {
-  if (!ARRAY_INDEX_NAME.test(value)) {
-    return false;
-  }
-  const index = Number(value);
-  return Number.isInteger(index) && index >= 0 && index < 0xffff_ffff;
 }
 
 function utf8Compare(left: string, right: string): number {

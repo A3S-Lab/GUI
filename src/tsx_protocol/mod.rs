@@ -11,6 +11,7 @@
 mod application;
 mod framing;
 mod handshake;
+mod identity;
 mod message;
 mod session;
 #[cfg(feature = "typescript-schema")]
@@ -19,6 +20,7 @@ mod typescript;
 pub use application::*;
 pub use framing::*;
 pub use handshake::*;
+pub use identity::*;
 pub use message::*;
 pub use session::*;
 #[cfg(feature = "typescript-schema")]

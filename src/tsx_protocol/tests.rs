@@ -5,6 +5,8 @@ use crate::protocol::{
     ProtocolCompiledNodeV1, ProtocolNativeEventKindV1, ProtocolUiFrameV1, UiFrame,
 };
 
+mod identity;
+
 const HELLO_FIXTURE: &str = include_str!("../../tests/fixtures/tsx-protocol/hello-v1.json");
 const RENDER_FIXTURE: &str =
     include_str!("../../tests/fixtures/tsx-protocol/render-counter-v1.json");

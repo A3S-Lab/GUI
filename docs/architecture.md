@@ -204,6 +204,16 @@ sequentially and are awaited in wire order.
 This prevents stale UI events from mutating current TypeScript state and
 prevents rejected frames from exposing candidate callbacks.
 
+Node-local function-component instances use canonical `a3s:c1:` identities
+derived from keyed component addresses. Function components remain erased from
+the native tree. Automatic action ids therefore use a separate canonical
+`a3s:a1:` identity derived only from the native key path and event prop; adding
+or removing a transparent function-component wrapper does not change native or
+action identity. The `a3s:` namespace is reserved for generated identities.
+Rust owns these constants, emits them in the generated TypeScript protocol
+module, and rejects malformed or reserved action identities before advancing a
+Host session.
+
 ## Threading and ownership
 
 - Component state and semantic runtime state are ordinary Rust-owned data.
@@ -251,19 +261,17 @@ evidence.
 ## Current gaps
 
 The architecture is implemented through the generic scene slice, H0 host
-contract, H1 shared runtime, TSX callback/session boundaries, a strict software
-self-drawn TSX process host, and the ordered Node/Rust application pump with
-bidirectional liveness, fixed host response deadlines, graceful protocol
-shutdown, and validated zero-argument `createApp` startup. The remaining
-critical work is:
+contract, H1 shared runtime, and the complete T2 stateful TSX runtime, including
+the strict software self-drawn process host, ordered Node/Rust application
+pump, finalized component/action identity contract, bounded restart/replay,
+and restarted-process keyboard/stale-event gates. The remaining critical work
+is:
 
 1. production text shaping, editing, IME, and accessibility semantics on the
    generic layout/scene path;
 2. concrete Windows, macOS, and Wayland/X11 hosts;
-3. the final TSX component/action identity contract plus keyboard and
-   stale-event gates across the landed restart/replay boundary;
-4. component-by-component React Aria conformance;
-5. packaging, signing, installers, and real tri-platform evidence.
+3. component-by-component React Aria conformance;
+4. packaging, signing, installers, and real tri-platform evidence.
 
 See [Roadmap](roadmap.md), [Platform hosts](platform-hosts.md), and
 [TSX native runtime](tsx-native-runtime.md).

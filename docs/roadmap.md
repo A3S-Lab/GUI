@@ -31,7 +31,8 @@ or fallback renderer.
 | H2-H4 real hosts | Planned | Windows, macOS, Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
-| T2-T5 TSX product runtime | In progress | Stateful `createApp`, validated zero-argument runner, strict session/framing, ordered application pump, software self-drawn Rust host, and bounded recovery/replay; public identity and input gates remain |
+| T2 TSX stateful runtime | Complete | Stateful `createApp`, public identity contract, bounded recovery/replay, and restarted-process keyboard/stale-event gates |
+| T3-T5 TSX native product | Planned | Visible OS hosts, watch/reload, platform artifacts, and publication remain |
 | M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
 No family is yet self-drawn conformant across real macOS, Windows, and Linux
@@ -273,7 +274,7 @@ Delivered:
 
 ### T2 — stateful TypeScript runtime
 
-Status: in progress.
+Status: complete.
 
 Delivered:
 
@@ -315,14 +316,16 @@ Delivered:
   fresh session identity enforcement, transactional committed-frame/callback
   replay, event gating until replay commit, deterministic exhaustion cleanup,
   and a real post-commit child-process crash/restart fixture;
+- Rust-owned, TypeScript-generated public `a3s:c1:` component and `a3s:a1:`
+  automatic-action identity shapes, canonical UTF-8 length validation at both
+  process ends, strict reservation of the generated `a3s:` namespace, and
+  action identity independent of erased function-component wrappers;
+- a real three-generation child-process gate covering initial Host crash,
+  replay, keyboard activation, rejection of an older render revision before
+  callback execution, and a second fresh-session replay;
 - serialized event/commit consumption when an active-revision callback overlaps
   an in-flight render acknowledgement;
 - source-located hook-order failures and Node interaction tests.
-
-Remaining:
-
-- final public component/action identity contract;
-- keyboard and stale-event coverage through the restarted process boundary.
 
 ### T3 — executable self-drawn window
 
@@ -425,12 +428,10 @@ A release candidate requires:
 
 ## Immediate implementation sequence
 
-1. Complete T2 with the final public component/action identity contract plus
-   keyboard and stale-event gates over the landed restart/replay runner.
-2. Land production text measurement/shaping interfaces in layout/scene.
-3. Build the first H2 Windows window/surface/presentation skeleton.
-4. Connect H1 input and frame commits to that host.
-5. Add text/IME and UI Automation bridges.
-6. Port the same host contract to H3 and H4.
-7. Expand M6 deterministic stories and promote evidence through the matrix.
-8. Restore packaging only after H2-H4 artifacts exist.
+1. Land production text measurement/shaping interfaces in layout/scene.
+2. Build the first H2 Windows window/surface/presentation skeleton.
+3. Connect H1 input and completed T2 frame commits to that host.
+4. Add text/IME and UI Automation bridges.
+5. Port the same host contract to H3 and H4.
+6. Expand M6 deterministic stories and promote evidence through the matrix.
+7. Restore packaging only after H2-H4 artifacts exist.

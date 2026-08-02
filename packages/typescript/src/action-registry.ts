@@ -8,6 +8,7 @@ import {
   type TsxActionInvocationV1,
   type TsxHostMessageV1,
 } from "./generated/protocol.ts";
+import { isAcceptedActionIdV1 } from "./identity.ts";
 
 export type TsxCommittedMessageV1 = Extract<
   TsxHostMessageV1,
@@ -345,11 +346,12 @@ function prepareScope(
     if (
       typeof action !== "object" ||
       action === null ||
-      typeof action.id !== "string" ||
-      action.id.length === 0 ||
       typeof action.disabled !== "boolean"
     ) {
       throw registryError("invalidFrame", "compiled frame contains a malformed action");
+    }
+    if (!isAcceptedActionIdV1(action.id)) {
+      throw registryError("invalidFrame", "compiled frame contains an invalid action id");
     }
     if (actions.has(action.id)) {
       throw registryError(

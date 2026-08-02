@@ -6,7 +6,7 @@
   <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
   <img alt="Self-drawn only" src="https://img.shields.io/badge/renderer-self--drawn%20only-0067C0?style=flat-square">
-  <img alt="TSX T2" src="https://img.shields.io/badge/TSX-T2%20recovery%20%2B%20replay-1687D9?style=flat-square">
+  <img alt="TSX T2 complete" src="https://img.shields.io/badge/TSX-T2%20complete-1687D9?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2F3945?style=flat-square"></a>
 </p>
 
@@ -92,6 +92,12 @@ The repository already provides:
   instances, typed context, render error boundaries, state/reducer/memo/ref/
   effect hooks, batched rerenders, post-commit cleanup, and strict post-handshake
   session/message identity;
+- a finalized TSX identity contract: Node-local component instances use
+  canonical `a3s:c1:` identities, automatic actions use canonical `a3s:a1:`
+  ids derived only from native key paths plus event names, and the generated
+  `a3s:` namespace cannot be claimed by explicit actions; Rust owns and
+  validates the constants at the Host boundary and generates their TypeScript
+  declarations;
 - a dependency-free TypeScript client handshake and incremental little-endian
   JSON frame codec aligned with the Rust protocol boundary;
 - an ordered framed connection and explicit no-shell Node child-process byte
@@ -113,14 +119,15 @@ The repository already provides:
 - opt-in bounded Host supervision, which observes abnormal termination,
   negotiates a fresh session, transactionally replays the last committed full
   frame and callback scope, gates events until replay commits, and closes the
-  application after the configured restart budget is exhausted.
+  application after the configured restart budget is exhausted;
+- a real three-generation child-process gate that crashes the first Host,
+  accepts keyboard activation after replay, rejects an older render revision
+  without invoking its callback, and replays again into a fresh session.
 
 Still required before a production native application:
 
 - real zero-widget macOS, Windows, and Wayland/X11 hosts;
 - production text shaping, text editing, IME, and assistive-technology bridges;
-- final public TSX component/action identity plus keyboard and stale-event
-  coverage across a restarted process;
 - packaging, signing, installer work, and tri-platform visual evidence;
 - full self-drawn conformance evidence for every React Aria family.
 
@@ -189,7 +196,7 @@ incremental framing, an explicit Node child-process transport, the strict
 application host shared with `createApp`, including bidirectional ping/pong,
 fixed host liveness deadlines, protocol-level graceful close, and opt-in
 bounded restart/replay supervision over fresh protocol sessions. Native host
-presentation, platform artifact publication, and npm publication remain T2-T5
+presentation, platform artifact publication, and npm publication remain T3-T5
 work.
 
 Read [TSX native runtime](docs/tsx-native-runtime.md) for protocol and delivery
@@ -315,12 +322,11 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. finish T2 with the final public component/action identity contract plus
-   keyboard and stale-event gates across the restarted process boundary;
-2. land production text shaping/editing primitives on the generic layout/scene
+1. land production text shaping/editing primitives on the generic layout/scene
    path;
-3. implement the first raw Windows host, then macOS and Wayland/X11 hosts,
+2. implement the first raw Windows host, then macOS and Wayland/X11 hosts,
    without adding content-widget dependencies;
+3. connect the completed T2 TSX runtime to those visible self-drawn hosts;
 4. close React Aria families milestone by milestone with tri-platform evidence;
 5. restore packaging only after the self-drawn host artifacts exist.
 

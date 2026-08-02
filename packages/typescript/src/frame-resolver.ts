@@ -14,6 +14,10 @@ import {
 } from "./context.ts";
 import { isA3sErrorBoundary } from "./error-boundary.ts";
 import type { ComponentRenderRuntime } from "./component-runtime.ts";
+import {
+  createComponentIdentityV1,
+  encodeIdentitySegmentsV1,
+} from "./identity.ts";
 
 export interface DraftBase {
   key: string | null;
@@ -48,8 +52,6 @@ interface ResolveState {
   depth: number;
   nodes: number;
 }
-
-const textEncoder = new TextEncoder();
 
 export function resolveFrameRoot(
   root: A3sJsxChild,
@@ -191,7 +193,7 @@ function resolveElement(
           ? invoke()
           : state.componentRuntime.renderComponent(
             {
-              identity: encodeComponentAddress(address),
+              identity: createComponentIdentityV1(address),
               component,
               props: element.props,
               source: element.source,
@@ -431,13 +433,7 @@ function assignSiblingKeys(drafts: DraftNode[]): void {
 }
 
 function scopedKey(scope: string, child: string): string {
-  return `s1:${encodeSegments([scope, child])}`;
-}
-
-function encodeSegments(segments: readonly string[]): string {
-  return segments
-    .map((segment) => `${textEncoder.encode(segment).byteLength}:${segment}`)
-    .join("");
+  return `s1:${encodeIdentitySegmentsV1([scope, child])}`;
 }
 
 function childAddress(
@@ -449,10 +445,6 @@ function childAddress(
     ? `key:${value.key}`
     : `index:${index}`;
   return [...parent, segment];
-}
-
-function encodeComponentAddress(address: readonly string[]): string {
-  return `c1:${encodeSegments(address)}`;
 }
 
 export function requireDraftKey(draft: DraftNode): string {

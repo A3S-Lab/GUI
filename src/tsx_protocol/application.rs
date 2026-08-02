@@ -9,7 +9,8 @@ use crate::protocol::{
 };
 
 use super::{
-    validate_bounded_text, validate_json_safe_integer, TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES,
+    validate_bounded_text, validate_json_safe_integer, validate_tsx_action_id,
+    TSX_PROTOCOL_V1_MAX_DIAGNOSTIC_BYTES,
 };
 
 pub const TSX_PROTOCOL_V1_MAX_DIAGNOSTICS: usize = 1_024;
@@ -23,6 +24,18 @@ pub const TSX_PROTOCOL_V1_MAX_EVENT_VALUE_BYTES: usize = 1024 * 1024;
 /// This is intentionally the existing input-only frame vocabulary. It does
 /// not expose the legacy planned-widget render response to a TSX peer.
 pub type TsxRenderPayloadV1 = ProtocolUiFrameV1;
+
+pub(super) fn validate_render_payload_v1(payload: &TsxRenderPayloadV1) -> GuiResult<()> {
+    validate_bounded_text(
+        "TSX render frame id",
+        &payload.frame_id,
+        TSX_PROTOCOL_V1_MAX_ELEMENT_ID_BYTES,
+    )?;
+    for action in &payload.actions {
+        validate_tsx_action_id("TSX render action id", &action.id)?;
+    }
+    Ok(())
+}
 
 /// Lossless wire representation of an arbitrary 64-bit self-drawn fingerprint.
 ///
@@ -413,11 +426,7 @@ impl TsxActionInvocationV1 {
         if let Some(current_target) = &self.current_target {
             validate_element_id("TSX action current target", current_target)?;
         }
-        validate_bounded_text(
-            "TSX action id",
-            &self.action,
-            TSX_PROTOCOL_V1_MAX_ACTION_ID_BYTES,
-        )?;
+        validate_tsx_action_id("TSX action id", &self.action)?;
         self.context.validate()?;
         if let Some(value) = &self.value {
             validate_event_value("TSX action value", value)?;

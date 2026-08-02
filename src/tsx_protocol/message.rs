@@ -407,6 +407,7 @@ impl TsxClientMessageV1 {
                         "TSX render messages require a non-zero render revision",
                     ));
                 }
+                super::application::validate_render_payload_v1(payload)?;
                 let _: crate::protocol::UiFrame = payload.clone().try_into()?;
                 Ok(())
             }

@@ -62,6 +62,17 @@ export type {
   A3sKey,
   A3sSourceLocation,
 } from "./element.ts";
+export {
+  A3S_AUTOMATIC_ACTION_ID_PREFIX_V1,
+  A3S_COMPONENT_IDENTITY_PREFIX_V1,
+  A3S_GENERATED_ID_NAMESPACE_V1,
+  isA3sAutomaticActionIdV1,
+  isA3sComponentIdentityV1,
+} from "./identity.ts";
+export type {
+  A3sAutomaticActionIdV1,
+  A3sComponentIdentityV1,
+} from "./identity.ts";
 export { compileFrameV1 } from "./frame.ts";
 export type { CompileFrameOptions, CompiledA3sFrameV1 } from "./frame.ts";
 export { A3sFrameError, A3sJsonFrameDecoderV1, encodeA3sJsonFrameV1 } from "./framing.ts";

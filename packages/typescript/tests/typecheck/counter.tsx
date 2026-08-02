@@ -1,4 +1,6 @@
 import {
+  A3S_AUTOMATIC_ACTION_ID_PREFIX_V1,
+  A3S_COMPONENT_IDENTITY_PREFIX_V1,
   A3sJsxError,
   Button,
   ErrorBoundary,
@@ -10,6 +12,8 @@ import {
   createApp,
   createContext,
   defineAction,
+  isA3sAutomaticActionIdV1,
+  isA3sComponentIdentityV1,
   useContext,
   useEffect,
   useMemo,
@@ -18,6 +22,8 @@ import {
   useState,
   type A3sApplicationRuntimeV1,
   type A3sApplicationV1,
+  type A3sAutomaticActionIdV1,
+  type A3sComponentIdentityV1,
   type A3sJsxProps,
   type A3sRenderCandidateV1,
   type TsxWelcomeMessageV1,
@@ -49,6 +55,16 @@ const compiled = compileFrameV1(
   "counter-typecheck",
   <Counter count={0} onIncrement={() => increment.handler?.({})} />,
 );
+
+const automaticActionId: unknown = compiled.frame.actions[0]?.id;
+if (isA3sAutomaticActionIdV1(automaticActionId)) {
+  automaticActionId satisfies A3sAutomaticActionIdV1;
+  automaticActionId.startsWith(A3S_AUTOMATIC_ACTION_ID_PREFIX_V1);
+}
+const componentIdentity: unknown = `${A3S_COMPONENT_IDENTITY_PREFIX_V1}4:root7:index:0`;
+if (isA3sComponentIdentityV1(componentIdentity)) {
+  componentIdentity satisfies A3sComponentIdentityV1;
+}
 
 const callbacks = new RevisionActionRegistryV1();
 callbacks.stage(1, compiled);
