@@ -3,9 +3,10 @@
 Status: proposed API; the T1 headless JSX core is in progress. A private
 development package now contains Rust-generated wire declarations, standard
 automatic JSX entry points, synchronous function-component and child/key/prop
-normalization, deterministic frame lowering, and cross-language golden tests.
-The revision-scoped callback registry, state/hooks, process session, and
-executable native host are not implemented yet.
+normalization, deterministic frame lowering, revision-scoped callback scopes,
+ordered event dispatch, and cross-language golden tests. State/hooks, actual
+process I/O and session integration, and the executable native host are not
+implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -286,13 +287,33 @@ Identity must be deterministic across component rerenders and process replay.
   not create native nodes
 - native sibling keys remain unique and continue through the existing
   collision-safe length-prefixed layout path
-- action ids derive from the stable component path, host key, and event prop;
-  the callback generation lives in the revision-scoped registry rather than in
-  the id, and ids do not depend on function source or object address
+- the target action identity derives from the stable component path, host key,
+  and event prop; ids never depend on function source or object address
 
-The action registry retains callbacks for the active committed revision and
-one rollback revision. A commit atomically replaces the active action scope.
-Late events for an older revision are rejected before callback dispatch.
+The current T1 compiler has no stateful component-instance tree yet, so its
+automatic ids use the collision-safe host-key path plus event prop. The T2
+component scheduler must add the stable component-instance prefix before that
+identity contract becomes public. Callback generations already live in
+revision scopes rather than in either id shape.
+
+The implemented `RevisionActionRegistryV1` retains one pending scope, the
+active committed scope, and one rollback scope. Staging validates and copies
+the complete action/callback set before publishing the candidate. A matching
+`committed` message atomically moves the old active scope to rollback, promotes
+the candidate, and drops the older rollback generation; rejection removes only
+the candidate. Late TSX or self-drawn-host revisions and skipped, duplicate, or
+late event sequences are rejected before callback dispatch. The rollback scope
+is retained for bounded recovery only and never accepts stale events.
+
+The registry preflights the complete invocation vector before consuming its
+sequence or running application code, then awaits callbacks one at a time in
+wire order. Repeated action ids therefore run repeatedly and explicit actions
+without a JavaScript handler remain valid no-ops. Unknown or disabled actions
+reject the entire vector. Once the first callback can run, the sequence is
+consumed even if a later callback throws: earlier JavaScript side effects
+cannot be rolled back safely, and replaying the same vector would duplicate
+them. The active and rollback scopes remain intact after that application
+error, while later invocations in the failing vector do not run.
 
 Callbacks that decide hit testing before an event is dispatched are a distinct
 protocol concern. In particular, React Aria's `shouldAcceptItemDrop` and
@@ -408,7 +429,7 @@ wire spelling in Rust and Node 24 tests. The private TypeScript peer now
 provides standard automatic JSX entry points, synchronous function-component
 expansion, strict normalization, deterministic frame lowering, and a pinned
 TypeScript 5.9 `react-jsx` fixture. Command messages, actual local process I/O,
-committed callback scopes, state/hooks, and host supervision remain pending.
+registry/session integration, state/hooks, and host supervision remain pending.
 
 ### Messages
 
@@ -564,9 +585,10 @@ minimum M4 text/input slice.
 Status: architecture accepted; the Rust-side strict handshake/framing,
 render/commit/event session, counter parity fixtures, self-drawn adapters, and
 drop-policy DTO/resolver adapter are implemented. Calculator and
-commands, stateful JSX execution, revision-scoped callbacks, and Node-side
+commands, stateful JSX execution, registry/session integration, and Node-side
 transport are pending. Rust-generated declarations, the headless automatic
-JSX core, and shared Rust/Node counter fixtures are implemented.
+JSX core, bounded revision callback scopes, ordered dispatch, and shared
+Rust/Node counter fixtures are implemented.
 
 - accept process, ownership, identity, protocol, and packaging decisions
 - retain the landed shared Rust/Node golden frame/event gate and extend it to
@@ -589,12 +611,14 @@ TypeScript declarations, a fixed schema fingerprint, the private package
 skeleton, automatic `jsx-runtime`/`jsx-dev-runtime`, immutable element records,
 synchronous function-component expansion, strict child/key/prop/style/window
 normalization, deterministic callback-to-action ids, read-only callback
-snapshots, and Node 24 plus TypeScript 5.9 golden/type tests have also landed.
+snapshots, one pending/active/rollback registry, strict ordered asynchronous
+event dispatch, and Node 24 plus TypeScript 5.9 golden/type tests have also
+landed.
 
 - extend the landed application messages with command messages and actual
   local process I/O
-- promote the landed per-frame callback snapshot into committed/rollback
-  revision scopes and dispatch ordered event vectors against it
+- connect the landed callback registry to the process session and enforce
+  session/message identity before its revision/action preflight
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
 - extend the landed static counter parity fixture to the calculator scenario
@@ -612,8 +636,8 @@ Gates:
 
 - function-component instance tree
 - state, reducer, memo, ref, context, and post-commit effect hooks
-- batched event dispatch and rerender scheduling
-- committed/rollback action scopes and deterministic cleanup
+- batched state updates around the landed event dispatch and rerender scheduling
+- deterministic effect/component cleanup around the landed action-scope cleanup
 - headless host process supervision and graceful shutdown
 
 Gates:
@@ -675,7 +699,7 @@ green.
 1. Add session DTOs, framing limits, and protocol golden fixtures. Landed.
 2. Add generated TypeScript wire declarations and drift CI. Landed.
 3. Add the automatic JSX runtime with normalization and key tests. Landed.
-4. Add action ids, callback scopes, and event-vector dispatch.
+4. Add action ids, callback scopes, and event-vector dispatch. Landed.
 5. Add the headless host binary and a static TSX counter fixture.
 6. Add state/reducer/effect scheduling and counter interaction tests.
 7. Connect the host to the generic self-drawn window path.

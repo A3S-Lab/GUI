@@ -630,8 +630,9 @@ protocol/resolver adapter have landed. Rust-generated TypeScript declarations,
 a fixed schema fingerprint, a private `@a3s/gui` package skeleton, and shared
 Rust/Node fixture gates have also landed. The automatic JSX entry points,
 synchronous function-component expansion, strict frame normalization,
-callback-to-action lowering, and real TSX type gate are now included. Process
-I/O, committed callback scopes, state/hooks, the native host, and a visible TSX
+callback-to-action lowering, committed/rollback callback registry, ordered
+event-vector dispatcher, and real TSX type gate are now included. Process I/O,
+registry/session integration, state/hooks, the native host, and a visible TSX
 application remain.
 
 This track is dependency-coupled to the renderer and H0-H5 host programs
@@ -678,14 +679,19 @@ All numeric `u64` fields are bounded to JavaScript's safe integer range, full
 fingerprint. Standard automatic JSX entry points, immutable elements,
 synchronous function-component expansion, strict child/key/prop/style/window
 normalization, deterministic callback-to-action ids, and read-only per-frame
-callback snapshots now lower into those declarations. Node 24 canonicalizes
-the same four fixtures, while pinned TypeScript 5.9 type-checks a real
+callback snapshots now lower into those declarations. The Node registry stages
+one candidate revision, atomically promotes matching commits, retains one
+rollback scope, rejects stale render/host/event sequences before callbacks,
+and awaits preflighted multi-invocation vectors in wire order. Node 24 runs
+those lifecycle/error/cleanup cases and canonicalizes the same four fixtures,
+while pinned TypeScript 5.9 type-checks a real
 `react-jsx`/`jsxImportSource` counter; the package has no production dependency
 or install script.
 
-- committed/rollback callback scopes and ordered event-vector dispatch
 - add command messages, local process I/O, and generated structured diagnostic
   declarations to the landed application session
+- connect the landed callback registry to that process session and the strict
+  drop-policy query/response transport
 - extend the landed static counter semantic parity to the calculator fixture
 
 Gates:
@@ -700,9 +706,9 @@ Gates:
 
 - function components, state/reducer/memo/ref/context hooks, and post-commit
   effects
-- revision-scoped callback registry and ordered multi-invocation event batches
-- rerender coalescing, rollback, cleanup, graceful shutdown, and development
-  host replay
+- batch state updates around the landed ordered multi-invocation dispatcher
+- rerender coalescing, effect cleanup, graceful shutdown, and development host
+  replay around the landed bounded callback scopes
 
 Gates:
 

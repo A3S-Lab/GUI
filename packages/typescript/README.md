@@ -8,11 +8,29 @@ tokens, and deterministic lowering to the Rust-generated
 `ProtocolUiFrameV1` declarations.
 
 Function event props become collision-safe action ids. Their functions are
-retained in a read-only callback snapshot and never enter JSON. That snapshot
-is not yet the committed/rollback revision registry: event-vector dispatch,
-state/hooks, the Node process session, the native host executable, and the
-stable full semantic component API remain later delivery slices. This package
-is therefore not a published SDK or a runnable native TSX application yet.
+retained in a read-only callback snapshot and never enter JSON.
+`RevisionActionRegistryV1` promotes those snapshots only after a matching
+protocol `committed` message. It keeps one pending, one active, and one
+rollback scope; rejects stale render/host revisions and non-consecutive event
+sequences before callback execution; preflights every action in an event
+vector; and awaits callbacks in exact wire order. A callback error consumes
+the sequence and stops later callbacks so a partially executed event is never
+replayed.
+
+```ts
+const compiled = compileFrameV1("counter", <Counter />);
+const callbacks = new RevisionActionRegistryV1();
+
+callbacks.stage(1, compiled);       // active callbacks are unchanged
+callbacks.commit(committedMessage); // matching revision + frame only
+await callbacks.dispatch(eventMessage);
+callbacks.clear();                  // release all retained callback scopes
+```
+
+State/hooks and rerender batching, the Node process session and actual local
+I/O, the native host executable, and the stable full semantic component API
+remain later delivery slices. This package is therefore not a published SDK or
+a runnable native TSX application yet.
 
 Install the pinned development compiler without running dependency scripts:
 

@@ -3,6 +3,7 @@ import {
   Text,
   View,
   Window,
+  RevisionActionRegistryV1,
   compileFrameV1,
   defineAction,
   type A3sJsxProps,
@@ -28,7 +29,11 @@ function Counter({ count, onIncrement }: CounterProps) {
 
 const increment = defineAction("increment", () => undefined);
 
-compileFrameV1(
+const compiled = compileFrameV1(
   "counter-typecheck",
   <Counter count={0} onIncrement={() => increment.handler?.({})} />,
 );
+
+const callbacks = new RevisionActionRegistryV1();
+callbacks.stage(1, compiled);
+callbacks.state.pending?.renderRevision satisfies number | undefined;

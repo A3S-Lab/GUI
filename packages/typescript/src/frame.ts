@@ -9,15 +9,29 @@ import type {
 } from "./generated/protocol.ts";
 
 import {
-  Fragment,
   A3sJsxError,
-  describeElementType,
-  isA3sElement,
-  type A3sElement,
   type A3sJsxChild,
   type A3sJsxProps,
   type A3sSourceLocation,
 } from "./element.ts";
+import {
+  requireDraftKey,
+  resolveFrameRoot,
+  type DraftElement,
+  type DraftText,
+  type DraftWindow,
+} from "./frame-resolver.ts";
+import {
+  ARRAY_INDEX_NAME,
+  EVENT_ALIASES,
+  NULLABLE_BOOLEAN_PROPS,
+  NUMBER_PROPS,
+  PORTABLE_ATTRIBUTE_NAME,
+  REQUIRED_BOOLEAN_PROPS,
+  RESERVED_WIRE_PROPS,
+  STRING_PROPS,
+  UNSAFE_PROPERTY_NAMES,
+} from "./frame-schema.ts";
 import {
   isA3sAction,
   type A3sAction,
@@ -32,109 +46,6 @@ export interface CompileFrameOptions {
 export interface CompiledA3sFrameV1 {
   readonly frame: Readonly<ProtocolUiFrameV1>;
   readonly callbacks: ReadonlyMap<string, A3sEventHandler>;
-}
-
-type NullableStringField =
-  | "label"
-  | "textValue"
-  | "value"
-  | "placeholder"
-  | "action"
-  | "ariaLabel"
-  | "name"
-  | "form"
-  | "inputType"
-  | "accept"
-  | "capture"
-  | "alt"
-  | "href"
-  | "src"
-  | "srcset"
-  | "sizes"
-  | "media"
-  | "resourceType"
-  | "loading"
-  | "decoding"
-  | "fetchPriority"
-  | "crossOrigin"
-  | "referrerPolicy"
-  | "poster"
-  | "preload"
-  | "trackKind"
-  | "srclang"
-  | "trackLabel"
-  | "list"
-  | "dirname"
-  | "formAction"
-  | "formEnctype"
-  | "formMethod"
-  | "formTarget"
-  | "id"
-  | "className";
-
-type RequiredBooleanField =
-  | "isDisabled"
-  | "isRequired"
-  | "isInvalid"
-  | "isReadOnly"
-  | "isSelected";
-
-type NullableBooleanField =
-  | "isChecked"
-  | "isExpanded"
-  | "controls"
-  | "autoplay"
-  | "loopPlayback"
-  | "muted"
-  | "playsInline"
-  | "defaultTrack"
-  | "formNoValidate";
-
-type NullableNumberField =
-  | "minValue"
-  | "maxValue"
-  | "valueNumber"
-  | "stepValue"
-  | "intrinsicWidth"
-  | "intrinsicHeight";
-
-interface PropTarget<Field extends string> {
-  readonly field: Field;
-  readonly canonical: string;
-  readonly retainAriaAttribute?: boolean;
-}
-
-interface DraftBase {
-  key: string | null;
-  explicitKey: boolean;
-  readonly source: A3sSourceLocation | null;
-}
-
-interface DraftText extends DraftBase {
-  readonly kind: "text";
-  readonly value: string;
-}
-
-interface DraftElement extends DraftBase {
-  readonly kind: "element";
-  readonly tag: string;
-  readonly props: Readonly<A3sJsxProps>;
-  readonly children: DraftNode[];
-}
-
-interface DraftWindow extends DraftBase {
-  readonly kind: "window";
-  readonly props: Readonly<A3sJsxProps>;
-  readonly content: DraftElement;
-}
-
-type DraftNode = DraftText | DraftElement | DraftWindow;
-
-interface ResolveState {
-  readonly maximumDepth: number;
-  readonly maximumNodes: number;
-  depth: number;
-  nodes: number;
 }
 
 interface RegisteredAction {
@@ -197,175 +108,6 @@ class CallbackSnapshot implements ReadonlyMap<string, A3sEventHandler> {
   }
 }
 
-const STRING_PROPS = new Map<string, PropTarget<NullableStringField>>([
-  ["label", { field: "label", canonical: "label" }],
-  ["textValue", { field: "textValue", canonical: "textValue" }],
-  ["value", { field: "value", canonical: "value" }],
-  ["placeholder", { field: "placeholder", canonical: "placeholder" }],
-  ["action", { field: "action", canonical: "action" }],
-  ["aria-label", { field: "ariaLabel", canonical: "aria-label" }],
-  ["ariaLabel", { field: "ariaLabel", canonical: "aria-label" }],
-  ["name", { field: "name", canonical: "name" }],
-  ["form", { field: "form", canonical: "form" }],
-  ["type", { field: "inputType", canonical: "inputType" }],
-  ["inputType", { field: "inputType", canonical: "inputType" }],
-  ["accept", { field: "accept", canonical: "accept" }],
-  ["capture", { field: "capture", canonical: "capture" }],
-  ["alt", { field: "alt", canonical: "alt" }],
-  ["href", { field: "href", canonical: "href" }],
-  ["src", { field: "src", canonical: "src" }],
-  ["srcset", { field: "srcset", canonical: "srcset" }],
-  ["srcSet", { field: "srcset", canonical: "srcset" }],
-  ["sizes", { field: "sizes", canonical: "sizes" }],
-  ["media", { field: "media", canonical: "media" }],
-  ["resourceType", { field: "resourceType", canonical: "resourceType" }],
-  ["loading", { field: "loading", canonical: "loading" }],
-  ["decoding", { field: "decoding", canonical: "decoding" }],
-  ["fetchPriority", { field: "fetchPriority", canonical: "fetchPriority" }],
-  ["crossOrigin", { field: "crossOrigin", canonical: "crossOrigin" }],
-  ["referrerPolicy", { field: "referrerPolicy", canonical: "referrerPolicy" }],
-  ["poster", { field: "poster", canonical: "poster" }],
-  ["preload", { field: "preload", canonical: "preload" }],
-  ["trackKind", { field: "trackKind", canonical: "trackKind" }],
-  ["srclang", { field: "srclang", canonical: "srclang" }],
-  ["srcLang", { field: "srclang", canonical: "srclang" }],
-  ["trackLabel", { field: "trackLabel", canonical: "trackLabel" }],
-  ["list", { field: "list", canonical: "list" }],
-  ["dirname", { field: "dirname", canonical: "dirname" }],
-  ["formAction", { field: "formAction", canonical: "formAction" }],
-  ["formEnctype", { field: "formEnctype", canonical: "formEnctype" }],
-  ["formEncType", { field: "formEnctype", canonical: "formEnctype" }],
-  ["formMethod", { field: "formMethod", canonical: "formMethod" }],
-  ["formTarget", { field: "formTarget", canonical: "formTarget" }],
-  ["id", { field: "id", canonical: "id" }],
-  ["class", { field: "className", canonical: "className" }],
-  ["className", { field: "className", canonical: "className" }],
-]);
-
-const REQUIRED_BOOLEAN_PROPS = new Map<string, PropTarget<RequiredBooleanField>>([
-  ["isDisabled", { field: "isDisabled", canonical: "isDisabled" }],
-  ["disabled", { field: "isDisabled", canonical: "isDisabled" }],
-  [
-    "aria-disabled",
-    { field: "isDisabled", canonical: "isDisabled", retainAriaAttribute: true },
-  ],
-  ["isRequired", { field: "isRequired", canonical: "isRequired" }],
-  ["required", { field: "isRequired", canonical: "isRequired" }],
-  [
-    "aria-required",
-    { field: "isRequired", canonical: "isRequired", retainAriaAttribute: true },
-  ],
-  ["isInvalid", { field: "isInvalid", canonical: "isInvalid" }],
-  ["invalid", { field: "isInvalid", canonical: "isInvalid" }],
-  [
-    "aria-invalid",
-    { field: "isInvalid", canonical: "isInvalid", retainAriaAttribute: true },
-  ],
-  ["isReadOnly", { field: "isReadOnly", canonical: "isReadOnly" }],
-  ["readOnly", { field: "isReadOnly", canonical: "isReadOnly" }],
-  ["readonly", { field: "isReadOnly", canonical: "isReadOnly" }],
-  [
-    "aria-readonly",
-    { field: "isReadOnly", canonical: "isReadOnly", retainAriaAttribute: true },
-  ],
-  ["isSelected", { field: "isSelected", canonical: "isSelected" }],
-  ["selected", { field: "isSelected", canonical: "isSelected" }],
-  [
-    "aria-selected",
-    { field: "isSelected", canonical: "isSelected", retainAriaAttribute: true },
-  ],
-]);
-
-const NULLABLE_BOOLEAN_PROPS = new Map<string, PropTarget<NullableBooleanField>>([
-  ["isChecked", { field: "isChecked", canonical: "isChecked" }],
-  ["checked", { field: "isChecked", canonical: "isChecked" }],
-  [
-    "aria-checked",
-    { field: "isChecked", canonical: "isChecked", retainAriaAttribute: true },
-  ],
-  ["isExpanded", { field: "isExpanded", canonical: "isExpanded" }],
-  ["expanded", { field: "isExpanded", canonical: "isExpanded" }],
-  [
-    "aria-expanded",
-    { field: "isExpanded", canonical: "isExpanded", retainAriaAttribute: true },
-  ],
-  ["controls", { field: "controls", canonical: "controls" }],
-  ["autoplay", { field: "autoplay", canonical: "autoplay" }],
-  ["autoPlay", { field: "autoplay", canonical: "autoplay" }],
-  ["loop", { field: "loopPlayback", canonical: "loopPlayback" }],
-  ["loopPlayback", { field: "loopPlayback", canonical: "loopPlayback" }],
-  ["muted", { field: "muted", canonical: "muted" }],
-  ["playsInline", { field: "playsInline", canonical: "playsInline" }],
-  ["defaultTrack", { field: "defaultTrack", canonical: "defaultTrack" }],
-  ["formNoValidate", { field: "formNoValidate", canonical: "formNoValidate" }],
-]);
-
-const NUMBER_PROPS = new Map<string, PropTarget<NullableNumberField>>([
-  ["min", { field: "minValue", canonical: "minValue" }],
-  ["minValue", { field: "minValue", canonical: "minValue" }],
-  [
-    "aria-valuemin",
-    { field: "minValue", canonical: "minValue", retainAriaAttribute: true },
-  ],
-  ["max", { field: "maxValue", canonical: "maxValue" }],
-  ["maxValue", { field: "maxValue", canonical: "maxValue" }],
-  [
-    "aria-valuemax",
-    { field: "maxValue", canonical: "maxValue", retainAriaAttribute: true },
-  ],
-  ["current", { field: "valueNumber", canonical: "valueNumber" }],
-  ["valueNumber", { field: "valueNumber", canonical: "valueNumber" }],
-  [
-    "aria-valuenow",
-    { field: "valueNumber", canonical: "valueNumber", retainAriaAttribute: true },
-  ],
-  ["step", { field: "stepValue", canonical: "stepValue" }],
-  ["stepValue", { field: "stepValue", canonical: "stepValue" }],
-  ["intrinsicWidth", { field: "intrinsicWidth", canonical: "intrinsicWidth" }],
-  ["intrinsicHeight", { field: "intrinsicHeight", canonical: "intrinsicHeight" }],
-]);
-
-const EVENT_ALIASES = new Map<string, string>([
-  ["onclick", "onClick"],
-  ["onpress", "onPress"],
-  ["onpressstart", "onPressStart"],
-  ["onpressend", "onPressEnd"],
-  ["onpressup", "onPressUp"],
-  ["onpresschange", "onPressChange"],
-  ["onchange", "onChange"],
-  ["oninput", "onInput"],
-  ["onselectionchange", "onSelectionChange"],
-  ["onfocus", "onFocus"],
-  ["onblur", "onBlur"],
-  ["onfocuschange", "onFocusChange"],
-  ["onfocuswithin", "onFocusWithin"],
-  ["onblurwithin", "onBlurWithin"],
-  ["onfocuswithinchange", "onFocusWithinChange"],
-  ["ontoggle", "onToggle"],
-  ["onexpandedchange", "onExpandedChange"],
-  ["onhoverstart", "onHoverStart"],
-  ["onhoverend", "onHoverEnd"],
-  ["onhoverchange", "onHoverChange"],
-  ["onkeydown", "onKeyDown"],
-  ["onkeyup", "onKeyUp"],
-  ["onwheel", "onWheel"],
-  ["oncopy", "onCopy"],
-  ["oncut", "onCut"],
-  ["onpaste", "onPaste"],
-]);
-
-const RESERVED_WIRE_PROPS = new Set([
-  "events",
-  "actionLabels",
-  "explicitProps",
-  "importSource",
-  "dangerouslySetInnerHTML",
-  "innerHTML",
-]);
-const UNSAFE_PROPERTY_NAMES = new Set(["__proto__", "constructor", "prototype"]);
-
-const PORTABLE_ATTRIBUTE_NAME = /^[A-Za-z_][A-Za-z0-9_.:-]*$/u;
-const ARRAY_INDEX_NAME = /^(?:0|[1-9][0-9]*)$/u;
 const textEncoder = new TextEncoder();
 
 export function compileFrameV1(
@@ -378,8 +120,7 @@ export function compileFrameV1(
   }
   const maximumDepth = normalizePositiveLimit(options.maximumDepth, 128, "maximumDepth");
   const maximumNodes = normalizePositiveLimit(options.maximumNodes, 100_000, "maximumNodes");
-  const resolveState: ResolveState = { maximumDepth, maximumNodes, depth: 0, nodes: 0 };
-  const roots = resolveValue(root, resolveState, false, null);
+  const roots = resolveFrameRoot(root, maximumDepth, maximumNodes);
 
   if (roots.length !== 1) {
     throw new A3sJsxError(
@@ -419,218 +160,6 @@ export function compileFrameV1(
     frame: deepFreeze(frame),
     callbacks: new CallbackSnapshot(compileState.callbacks),
   });
-}
-
-function resolveValue(
-  value: unknown,
-  state: ResolveState,
-  staticArray: boolean,
-  inheritedSource: A3sSourceLocation | null,
-): DraftNode[] {
-  if (value === null || value === undefined || typeof value === "boolean") {
-    return [];
-  }
-  if (typeof value === "string") {
-    countNode(state, inheritedSource);
-    return [{
-      kind: "text",
-      key: null,
-      explicitKey: false,
-      source: inheritedSource,
-      value,
-    }];
-  }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      throw new A3sJsxError("numeric JSX children must be finite", inheritedSource);
-    }
-    countNode(state, inheritedSource);
-    return [{
-      kind: "text",
-      key: null,
-      explicitKey: false,
-      source: inheritedSource,
-      value: Object.is(value, -0) ? "0" : String(value),
-    }];
-  }
-  if (Array.isArray(value)) {
-    return resolveArray(value, state, staticArray, inheritedSource);
-  }
-  if (isA3sElement(value)) {
-    return resolveElement(value, state);
-  }
-  if (isThenable(value)) {
-    throw new A3sJsxError(
-      "promise and thenable children are not supported by protocol 1",
-      inheritedSource,
-    );
-  }
-  const kind = typeof value;
-  if (kind === "bigint" || kind === "symbol" || kind === "function") {
-    throw new A3sJsxError(`${kind} values cannot be rendered as JSX children`, inheritedSource);
-  }
-  if (isPlainRecord(value)) {
-    throw new A3sJsxError("plain objects cannot be rendered as JSX children", inheritedSource);
-  }
-  throw new A3sJsxError(
-    `${value?.constructor?.name ?? "object"} instances cannot be rendered as JSX children`,
-    inheritedSource,
-  );
-}
-
-function resolveArray(
-  items: readonly unknown[],
-  state: ResolveState,
-  staticArray: boolean,
-  source: A3sSourceLocation | null,
-): DraftNode[] {
-  const drafts: DraftNode[] = [];
-  for (const item of items) {
-    const resolved = resolveValue(item, state, false, source);
-    if (!staticArray && resolved.length > 0 && !hasExplicitListIdentity(item)) {
-      const itemSource = isA3sElement(item) ? item.source : source;
-      throw new A3sJsxError(
-        "mutable JSX arrays require an explicit key on every rendered item",
-        itemSource,
-      );
-    }
-    drafts.push(...resolved);
-  }
-  assignSiblingKeys(drafts);
-  return drafts;
-}
-
-function resolveElement(element: A3sElement, state: ResolveState): DraftNode[] {
-  enterDepth(state, element.source);
-  try {
-    if (element.type === Fragment) {
-      const drafts = resolveChildren(element, state);
-      return element.key === null ? clearFallbackKeys(drafts) : scopeDrafts(drafts, element.key);
-    }
-    if (typeof element.type === "function") {
-      let output: unknown;
-      try {
-        output = element.type(element.props);
-      } catch (error) {
-        if (error instanceof A3sJsxError) {
-          throw error;
-        }
-        throw new A3sJsxError(
-          `function component ${describeElementType(element.type)} threw while rendering`,
-          element.source,
-          error,
-        );
-      }
-      if (isThenable(output)) {
-        throw new A3sJsxError(
-          `function component ${describeElementType(element.type)} returned a promise; protocol 1 components are synchronous`,
-          element.source,
-        );
-      }
-      const drafts = resolveValue(output, state, false, element.source);
-      return element.key === null ? clearFallbackKeys(drafts) : scopeDrafts(drafts, element.key);
-    }
-
-    if (typeof element.type !== "string") {
-      throw new A3sJsxError("unsupported JSX element type", element.source);
-    }
-    countNode(state, element.source);
-    if (element.type === "Window") {
-      const children = resolveChildren(element, state);
-      if (children.length !== 1 || children[0].kind !== "element") {
-        throw new A3sJsxError(
-          "Window must contain exactly one content element; use View to group content",
-          element.source,
-        );
-      }
-      const content = children[0];
-      if (!content.explicitKey) {
-        content.key = "root";
-      }
-      return [{
-        kind: "window",
-        key: element.key,
-        explicitKey: element.key !== null,
-        source: element.source,
-        props: element.props,
-        content,
-      }];
-    }
-
-    const children = resolveChildren(element, state);
-    if (children.some((child) => child.kind === "window")) {
-      throw new A3sJsxError("Window is session metadata and can only appear at the root", element.source);
-    }
-    return [{
-      kind: "element",
-      key: element.key,
-      explicitKey: element.key !== null,
-      source: element.source,
-      tag: element.type,
-      props: element.props,
-      children,
-    }];
-  } finally {
-    state.depth -= 1;
-  }
-}
-
-function resolveChildren(element: A3sElement, state: ResolveState): DraftNode[] {
-  const children = element.props.children;
-  const drafts = Array.isArray(children)
-    ? resolveArray(children, state, element.staticChildren, element.source)
-    : resolveValue(children, state, false, element.source);
-  assignSiblingKeys(drafts);
-  return drafts;
-}
-
-function scopeDrafts(drafts: DraftNode[], scope: string): DraftNode[] {
-  if (drafts.length === 0) {
-    return drafts;
-  }
-  assignSiblingKeys(drafts);
-  if (drafts.length === 1 && !drafts[0].explicitKey) {
-    drafts[0].key = scope;
-    drafts[0].explicitKey = true;
-    return drafts;
-  }
-  for (const draft of drafts) {
-    draft.key = scopedKey(scope, requireDraftKey(draft));
-    draft.explicitKey = true;
-  }
-  return drafts;
-}
-
-function clearFallbackKeys(drafts: DraftNode[]): DraftNode[] {
-  for (const draft of drafts) {
-    if (!draft.explicitKey) {
-      draft.key = null;
-    }
-  }
-  return drafts;
-}
-
-function assignSiblingKeys(drafts: DraftNode[]): void {
-  let textIndex = 0;
-  let elementIndex = 0;
-  const keys = new Set<string>();
-  for (const draft of drafts) {
-    if (draft.key === null) {
-      draft.key = draft.kind === "text" ? `text-${textIndex}` : `child-${elementIndex}`;
-    }
-    if (draft.kind === "text") {
-      textIndex += 1;
-    } else {
-      elementIndex += 1;
-    }
-    if (keys.has(draft.key)) {
-      throw new A3sJsxError(
-        `compiled sibling nodes need unique keys; duplicate key ${JSON.stringify(draft.key)}`,
-        draft.source,
-      );
-    }
-    keys.add(draft.key);
-  }
 }
 
 function compileNode(
@@ -1032,42 +561,6 @@ function encodeSegments(segments: readonly string[]): string {
   return segments.map((segment) => `${textEncoder.encode(segment).byteLength}:${segment}`).join("");
 }
 
-function scopedKey(scope: string, child: string): string {
-  return `s1:${encodeSegments([scope, child])}`;
-}
-
-function requireDraftKey(draft: DraftNode): string {
-  if (draft.key === null || draft.key.length === 0) {
-    throw new A3sJsxError("compiled JSX nodes need non-empty keys", draft.source);
-  }
-  return draft.key;
-}
-
-function hasExplicitListIdentity(value: unknown): boolean {
-  return isA3sElement(value) && value.key !== null;
-}
-
-function countNode(state: ResolveState, source: A3sSourceLocation | null): void {
-  state.nodes += 1;
-  if (state.nodes > state.maximumNodes) {
-    throw new A3sJsxError(
-      `JSX output exceeds the configured maximum of ${state.maximumNodes} nodes`,
-      source,
-    );
-  }
-}
-
-function enterDepth(state: ResolveState, source: A3sSourceLocation | null): void {
-  state.depth += 1;
-  if (state.depth > state.maximumDepth) {
-    state.depth -= 1;
-    throw new A3sJsxError(
-      `JSX output exceeds the configured maximum depth of ${state.maximumDepth}`,
-      source,
-    );
-  }
-}
-
 function normalizePositiveLimit(value: number | undefined, fallback: number, name: string): number {
   if (value === undefined) {
     return fallback;
@@ -1226,10 +719,4 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   }
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
-}
-
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-  return (
-    (typeof value === "object" && value !== null) || typeof value === "function"
-  ) && typeof (value as { then?: unknown }).then === "function";
 }
