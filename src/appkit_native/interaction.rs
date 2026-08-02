@@ -4,6 +4,7 @@ use crate::event::{
     NumberFieldStepperPressState, NumberFieldStepperTimer, PointerMoveState, PointerPressState,
 };
 use crate::input::{NativeEventContext, NativeInputModality, NativeKeyModifiers};
+use crate::semantic_event::is_press_activation_key;
 
 pub(super) type AppKitActivationContexts = Rc<RefCell<BTreeMap<HostNodeId, NativeEventContext>>>;
 
@@ -286,7 +287,7 @@ impl AppKitNativeSurface {
         self.events.borrow_mut().extend(pending);
 
         if registration.native_press_action
-            && crate::event::is_press_activation_key(registration.profile.role, Some(&key))
+            && is_press_activation_key(registration.profile.role, Some(&key))
         {
             let activation_context =
                 context.handled_activation(registration.profile.normalizes_keyboard_press());
