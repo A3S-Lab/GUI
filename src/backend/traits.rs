@@ -4,7 +4,7 @@ use crate::event::NativeEvent;
 use crate::host::HostNodeId;
 use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{
-    NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfigPatch, NativeWidgetSetter,
+    NativeBackendKind, NativeWidgetBlueprint, NativeWidgetSetter, NativeWidgetSetterBatch,
     PlatformCommand,
 };
 use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
@@ -167,7 +167,7 @@ pub trait NativeHandleAdapter {
         id: HostNodeId,
         handle: &Self::Handle,
         blueprint: &NativeWidgetBlueprint,
-        _patch: &NativeWidgetConfigPatch,
+        _patch: &NativeWidgetSetterBatch,
     ) -> GuiResult<()> {
         self.update_handle(id, handle, blueprint)
     }

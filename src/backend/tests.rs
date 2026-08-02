@@ -7,8 +7,8 @@ use crate::geometry::{Rect, Size};
 use crate::host::HostNodeId;
 use crate::native::{NativeElement, NativeProps, NativeRole};
 use crate::platform::{
-    HeadlessAdapter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfigPatch,
-    NativeWidgetSetter, PlatformAdapter, PlatformCommand,
+    HeadlessAdapter, NativeBackendKind, NativeWidgetBlueprint, NativeWidgetSetter,
+    NativeWidgetSetterBatch, PlatformAdapter, PlatformCommand,
 };
 use crate::runtime::GuiRuntime;
 use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
@@ -260,7 +260,7 @@ impl NativeHandleAdapter for ThreadBoundHandleAdapter {
         id: HostNodeId,
         _handle: &Self::Handle,
         _blueprint: &NativeWidgetBlueprint,
-        patch: &NativeWidgetConfigPatch,
+        patch: &NativeWidgetSetterBatch,
     ) -> GuiResult<()> {
         let setters = patch.setters();
         let label = setters

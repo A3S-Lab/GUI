@@ -4,7 +4,7 @@ use crate::event::NativeEvent;
 use crate::host::HostNodeId;
 use crate::overlay_position::OverlayPositionRequest;
 use crate::platform::{
-    NativeBackendKind, NativeWidgetBlueprint, NativeWidgetConfigPatch, NativeWidgetSetter,
+    NativeBackendKind, NativeWidgetBlueprint, NativeWidgetSetter, NativeWidgetSetterBatch,
 };
 use crate::selection::{CollectionKey, CollectionLayoutSnapshot};
 
@@ -85,7 +85,7 @@ impl<S: NativeWidgetSurface> NativeHandleAdapter for SurfaceHandleAdapter<S> {
         id: HostNodeId,
         handle: &Self::Handle,
         _blueprint: &NativeWidgetBlueprint,
-        patch: &NativeWidgetConfigPatch,
+        patch: &NativeWidgetSetterBatch,
     ) -> GuiResult<()> {
         self.apply_setters(id, handle, patch.as_setters())
     }

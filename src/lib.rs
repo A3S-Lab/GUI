@@ -130,9 +130,9 @@ pub use overlay_position::{
 pub use platform::{
     native_widget_kind, native_widget_name, widget_blueprint, BlueprintHost, HeadlessAdapter,
     NativeBackendKind, NativeConfigValueChange, NativeContainerKind, NativeControlState,
-    NativeTextInputKind, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetConfigPatch,
-    NativeWidgetKind, NativeWidgetReplacement, NativeWidgetSetter, NativeWidgetSetterBatch,
-    PlatformAdapter, PlatformCommand, PlatformPlannedNode, PlatformPlanningHost,
+    NativeTextInputKind, NativeWidgetBlueprint, NativeWidgetConfig, NativeWidgetKind,
+    NativeWidgetReplacement, NativeWidgetSetter, NativeWidgetSetterBatch, PlatformAdapter,
+    PlatformCommand, PlatformPlannedNode, PlatformPlanningHost,
     DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
 };
 #[cfg(feature = "platform-host")]

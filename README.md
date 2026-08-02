@@ -92,7 +92,8 @@ The repository already provides:
   per-monitor-v2 DPI client sizing, message pumping, focus/close/occlusion
   events, DPI-correct legacy mouse/keyboard/wheel translation, capture and
   focus-loss cancellation, bounded concurrent `WM_POINTER` touch/pen
-  translation with pressure and namespaced identities, hidden first-frame
+  translation with pressure and namespaced identities, real-HWND touch
+  injection evidence with compatibility-mouse suppression, hidden first-frame
   staging, owned raw-surface leases that prevent premature HWND destruction,
   atomic prepare/commit/rollback, and Windows-native CI evidence;
 - `SelfDrawnWindowRuntime` with atomic prepare/commit/reject, recovery,
@@ -278,8 +279,7 @@ cargo run --locked --no-default-features \
 
 | Feature | Purpose |
 | --- | --- |
-| `default` | `headless + authoring + design-system + software-reference` |
-| `headless` | Semantic/protocol test host; no visible renderer |
+| `default` | `authoring + design-system + software-reference` |
 | `authoring` | SWC-backed Rust RSX parsing and compilation |
 | `design-system` | Built-in semantic component registrations |
 | `graphics` | GUI-to-A3S-Graphics scene boundary |

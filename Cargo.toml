@@ -34,8 +34,7 @@ required-features = ["authoring", "platform-runtime", "software-reference"]
 
 
 [features]
-default = ["headless", "authoring", "design-system", "software-reference"]
-headless = []
+default = ["authoring", "design-system", "software-reference"]
 graphics = ["dep:a3s-graphics"]
 software-reference = ["graphics", "a3s-graphics/software"]
 gpu = [

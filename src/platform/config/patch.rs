@@ -35,16 +35,12 @@ pub struct NativeConfigValueChange<T> {
 ///
 /// This is the only update representation between a resolved config and a
 /// platform surface. It intentionally replaces the former field-for-field
-/// patch mirror. The compatibility alias [`NativeWidgetConfigPatch`] remains
-/// available while callers migrate to the clearer batch name.
+/// patch mirror.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct NativeWidgetSetterBatch {
     setters: Vec<NativeWidgetSetter>,
     replacement: Option<NativeWidgetReplacement>,
 }
-
-/// Compatibility name for the pre-batch API.
-pub type NativeWidgetConfigPatch = NativeWidgetSetterBatch;
 
 impl NativeWidgetSetterBatch {
     pub fn between(before: &NativeWidgetConfig, after: &NativeWidgetConfig) -> Self {

@@ -9,8 +9,8 @@ mod widget_names;
 pub use adapters::{BlueprintHost, HeadlessAdapter, PlatformAdapter};
 pub use config::{
     apply_widget_setter, apply_widget_setters, push_widget_setter_history, NativeConfigValueChange,
-    NativeWidgetConfig, NativeWidgetConfigPatch, NativeWidgetReplacement, NativeWidgetSetter,
-    NativeWidgetSetterBatch, DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
+    NativeWidgetConfig, NativeWidgetReplacement, NativeWidgetSetter, NativeWidgetSetterBatch,
+    DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
 };
 pub(crate) use planning::PlatformPlanningCheckpoint;
 pub use planning::{PlatformCommand, PlatformPlannedNode, PlatformPlanningHost};

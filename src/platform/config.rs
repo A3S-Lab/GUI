@@ -20,10 +20,7 @@ use super::types::{
 mod patch;
 mod setter;
 
-pub use patch::{
-    NativeConfigValueChange, NativeWidgetConfigPatch, NativeWidgetReplacement,
-    NativeWidgetSetterBatch,
-};
+pub use patch::{NativeConfigValueChange, NativeWidgetReplacement, NativeWidgetSetterBatch};
 pub use setter::{
     apply_widget_setter, apply_widget_setters, push_widget_setter_history, NativeWidgetSetter,
     DEFAULT_NATIVE_SETTER_HISTORY_LIMIT,
@@ -306,8 +303,8 @@ impl NativeWidgetConfig {
         }
     }
 
-    pub fn diff(&self, after: &Self) -> NativeWidgetConfigPatch {
-        NativeWidgetConfigPatch::between(self, after)
+    pub fn diff(&self, after: &Self) -> NativeWidgetSetterBatch {
+        NativeWidgetSetterBatch::between(self, after)
     }
 
     pub fn create_setters(&self) -> Vec<NativeWidgetSetter> {
