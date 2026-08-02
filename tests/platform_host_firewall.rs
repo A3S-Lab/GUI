@@ -139,7 +139,13 @@ fn platform_host_source_has_no_widget_or_toolkit_boundary() {
 #[test]
 fn public_module_is_feature_gated() {
     let library = fs::read_to_string(manifest_path("src/lib.rs")).unwrap();
-    assert!(library.contains("#[cfg(feature = \"platform-host\")]\npub mod platform_host;"));
+    let lines = library.lines().collect::<Vec<_>>();
+    assert!(lines.windows(2).any(|pair| {
+        pair == [
+            "#[cfg(feature = \"platform-host\")]",
+            "pub mod platform_host;",
+        ]
+    }));
 }
 
 fn feature_definition(features: &str, name: &str) -> String {
