@@ -495,12 +495,13 @@ and focus-loss cancellation.
 
 Completed on 2026-08-03: bounded `WM_POINTER` touch/pen translation with
 pressure, stable device and pointer identities, concurrent contacts,
-full-sequence consumption, and capture/focus-loss cancellation. Hardware
-injection, text/IME, accessibility, system-service, and reviewed visual-parity
-evidence remain incomplete.
+full-sequence consumption, and capture/focus-loss cancellation. A real visible
+HWND now has target-CI evidence for an injected touch press/move/release sequence
+without compatibility-mouse events. Physical pen, text/IME, accessibility,
+system-service, and reviewed visual-parity evidence remain incomplete.
 
 1. Connect completed T2 frame commits to a visible host executable and add
-   hardware-injected touch/pen message-path evidence.
+   physical pen message-path evidence.
 2. Add minimize/restore and device-loss fault injection, then capture the same
    deterministic story through DX12.
 3. Implement production font/shaping and glyph encoder backends, then TSF and

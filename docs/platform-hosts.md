@@ -29,9 +29,10 @@ new raw HWND while hidden, leases its lifetime to the Graphics-owned surface,
 commits visibility, and then publishes the prepared frame through DX12. The
 same bounded pump translates DPI-correct legacy mouse, keyboard, wheel, and
 concurrent `WM_POINTER` touch/pen input, including pressure, modifier, capture,
-and focus-loss state. Target-native tests prove the normalized state machine
-and compile the raw ABI path, but are not yet hardware-injection evidence,
-reviewed screenshots, or a full Windows conformance claim.
+and focus-loss state. Target-native tests prove the normalized state machine,
+compile the raw ABI path, and inject a complete touch sequence through a real
+visible HWND while rejecting compatibility-mouse promotion. Physical pen,
+reviewed screenshots, and full Windows conformance remain incomplete.
 `host-macos` and `host-linux` remain capability markers.
 
 ## Target pipeline
@@ -246,6 +247,7 @@ Every host must eventually provide:
 Portable H0/H1 tests remain the cross-platform contract authority. The
 Windows-native lane additionally proves raw lifecycle, lease rollback, legacy
 mouse/keyboard/wheel translation and cancellation, target-compiled
-`WM_POINTER` touch/pen normalization, and Graphics/DX12 presentation. It is not
-hardware-injected touch/pen, text, accessibility-provider, system-service, or
-reviewed visual-conformance evidence yet.
+`WM_POINTER` touch/pen normalization, real-HWND touch injection without
+compatibility-mouse events, and Graphics/DX12 presentation. It is not physical
+pen, text, accessibility-provider, system-service, or reviewed
+visual-conformance evidence yet.
