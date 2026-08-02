@@ -6,7 +6,7 @@
   <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
   <img alt="Self-drawn only" src="https://img.shields.io/badge/renderer-self--drawn%20only-0067C0?style=flat-square">
-  <img alt="TSX T2" src="https://img.shields.io/badge/TSX-T2%20process%20host-1687D9?style=flat-square">
+  <img alt="TSX T2" src="https://img.shields.io/badge/TSX-T2%20application%20pump-1687D9?style=flat-square">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2F3945?style=flat-square"></a>
 </p>
 
@@ -100,13 +100,17 @@ The repository already provides:
   TSX session, lowers full frames into `NativeElement`, produces real software
   reference pixels through `SelfDrawnWindowRuntime`, and sequences commit,
   liveness, and close replies without a content-widget backend.
+- `A3sFramedApplicationHostV1`, an ordered single-reader application pump that
+  shares the negotiated client session with `createApp`, bounds outstanding
+  event work, propagates fatal/close failures, and is exercised from real Node
+  through the Rust software host.
 
 Still required before a production native application:
 
 - real zero-widget macOS, Windows, and Wayland/X11 hosts;
 - production text shaping, text editing, IME, and assistive-technology bridges;
-- the ordered `createApp` process message pump, restart recovery, and
-  committed-frame replay;
+- the zero-configuration `createApp` runner, host-initiated liveness, restart
+  recovery, and committed-frame replay;
 - packaging, signing, installer work, and tri-platform visual evidence;
 - full self-drawn conformance evidence for every React Aria family.
 
@@ -165,10 +169,11 @@ instances, typed nested context, render error boundaries, state/reducer/memo/
 ref/effect hooks, one-microtask rerender batching, revision-scoped callbacks,
 effect promotion only after `committed`, full render envelopes, independent
 client/host message ordering, client `hello`/`welcome` negotiation, bounded
-incremental framing, an explicit Node child-process transport, and the strict
-`a3s-gui-tsx-host` software/self-drawn process. The ordered `createApp` process
-pump, restart/replay supervision, native host startup, and npm publication
-remain T2-T5 work.
+incremental framing, an explicit Node child-process transport, the strict
+`a3s-gui-tsx-host` software/self-drawn process, and an ordered framed
+application host shared with `createApp`. Zero-configuration startup,
+host-initiated liveness, restart/replay supervision, native host startup, and
+npm publication remain T2-T5 work.
 
 Read [TSX native runtime](docs/tsx-native-runtime.md) for protocol and delivery
 gates.
@@ -293,8 +298,8 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. finish T2 by connecting the landed Node transport and Rust self-drawn host
-   through `createApp`, then add restart recovery and committed-frame replay;
+1. finish T2 with zero-configuration startup, host-initiated liveness, restart
+   recovery, and committed-frame replay over the landed application pump;
 2. land production text shaping/editing primitives on the generic layout/scene
    path;
 3. implement the first raw Windows host, then macOS and Wayland/X11 hosts,

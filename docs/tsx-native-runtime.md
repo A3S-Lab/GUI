@@ -7,9 +7,10 @@ child/key/prop normalization, deterministic frame lowering, state/reducer/
 memo/ref/context/effect hooks, transactional render error boundaries, batched
 rerenders, revision-scoped callback scopes, ordered event dispatch, and strict
 client handshake/framing plus post-handshake client/host message sequencing.
-The no-shell Node byte transport and strict software self-drawn Rust process
-host are implemented. The ordered `createApp` process pump,
-supervision/replay, and executable native OS host are not implemented yet.
+The no-shell Node byte transport, strict software self-drawn Rust process host,
+and ordered `createApp` application pump are implemented. Zero-configuration
+startup, host-initiated liveness, supervision/replay, and an executable native
+OS host are not implemented yet.
 
 This document defines an optional TypeScript authoring path for A3S GUI. The
 developer experience is a directly executable `.tsx` application:
@@ -440,9 +441,10 @@ provides standard automatic JSX entry points, keyed function-component
 instances, strict normalization, deterministic frame lowering, a stateful
 application scheduler, a strict client handshake/session, an incremental
 little-endian JSON frame codec, a no-shell Node child-process transport, a
-strict software self-drawn Rust process host, and a pinned TypeScript 5.9
-`react-jsx` fixture. Command messages, the ordered application pump, and
-supervision/replay remain pending.
+strict software self-drawn Rust process host, an ordered application pump, and
+a pinned TypeScript 5.9 `react-jsx` fixture. Command messages,
+zero-configuration startup, host liveness, and supervision/replay remain
+pending.
 
 `A3sClientHandshakeV1` constructs the exact first `hello`, bounds its encoded
 size, and accepts only a matching negotiated `welcome`. `A3sJsonFrameDecoderV1`
@@ -458,13 +460,14 @@ only an explicit command without a shell, drains bounded stderr, reports
 abnormal exit, and escalates shutdown after a timeout. Node process fixtures
 exercise both a complete render round trip and an injected crash.
 
-The current `A3sApplicationHostV1` still represents an already negotiated
-transport: it supplies the validated `welcome` message and receives complete
-`render` envelopes. `A3sClientSessionV1` starts both directional message
-sequences at one and validates every `committed` or `event` identity before
-touching callback state. The next process-host slice must adapt the landed
-connection into this host boundary and pair it with a Rust self-drawn host
-executable.
+`A3sFramedApplicationHostV1` adapts the negotiated connection directly to
+`A3sApplicationHostV1`. It shares the connection's `A3sClientSessionV1` with
+`createApp`, keeps one render in flight, owns the only host reader, bounds
+outstanding event tasks, and propagates fatal, close, stream, and handler
+failures. `connectA3sNodeApplicationHostV1` composes that pump with the no-shell
+process transport. The checked-in Node fixture uses it to drive two complete
+`createApp` renders through `a3s-gui-tsx-host` and the software self-drawn
+runtime.
 
 Application-level host messages are consumed serially. If an event from the
 active revision overlaps an in-flight render acknowledgement, its ordered
@@ -622,9 +625,10 @@ minimum M4 text/input slice.
 
 Status: architecture accepted; the Rust-side strict handshake/framing,
 render/commit/event session, counter parity fixtures, self-drawn adapters,
-drop-policy DTO/resolver adapter, and the software self-drawn Rust process host
-are implemented. Calculator, commands, and the ordered application pump are
-pending. Rust-generated declarations,
+drop-policy DTO/resolver adapter, the software self-drawn Rust process host,
+and the ordered application pump are implemented. Calculator, commands,
+zero-configuration startup, and recovery/replay are pending. Rust-generated
+declarations,
 the headless automatic JSX core, stateful JSX execution, client
 handshake/framing, the Node child-process byte transport, post-handshake session
 integration, bounded revision callback scopes, ordered dispatch, and shared
@@ -656,7 +660,7 @@ event dispatch, and Node 24 plus TypeScript 5.9 golden/type tests have also
 landed.
 
 - extend the landed application messages with command messages
-- adapt the landed Rust TSX host and framed connection to the ordered
+- add zero-configuration startup and event binding over the landed
   `A3sApplicationHostV1` event/commit pump
 - add bounded restart policy, crash recovery, and committed-frame replay
 - connect the landed strict drop-policy query/response DTOs to that transport
@@ -695,11 +699,14 @@ Delivered:
   bounded stderr, timeout-backed shutdown, and success/crash process fixtures
 - strict `a3s-gui-tsx-host` process with software-reference self-drawn commits,
   independent client/host sequencing, liveness replies, and graceful close
+- ordered `A3sFramedApplicationHostV1` sharing the negotiated session with
+  `createApp`, including bounded event tasks and real Node-to-Rust coverage
 - serialized event/commit consumption across overlapping host messages
 
 Remaining:
 
-- ordered `createApp` message pump over the landed process transport and host
+- zero-configuration process startup and `createApp` event binding
+- host-initiated ping/pong handling
 - bounded restart policy, crash recovery, and committed-frame replay
 - final public component/action identity contract
 - complete keyboard, stale-event, host-crash, and replay gates

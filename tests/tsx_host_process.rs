@@ -1,6 +1,7 @@
 #![cfg(all(feature = "platform-runtime", feature = "software-reference"))]
 
 use std::io::Read;
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 
 use a3s_gui::tsx_protocol::{
@@ -196,6 +197,30 @@ fn headless_host_process_rejects_render_before_hello() {
         .read_to_string(&mut stderr)
         .unwrap();
     assert!(stderr.contains("first TSX protocol client message must be hello"));
+}
+
+#[test]
+fn node_create_app_drives_the_real_self_drawn_host_process() {
+    let node = std::env::var_os("A3S_GUI_NODE_BINARY").unwrap_or_else(|| "node".into());
+    let script = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("packages/typescript/tests/fixtures/rust-application-host.mjs");
+    let output = Command::new(node)
+        .arg(script)
+        .arg(env!("CARGO_BIN_EXE_a3s-gui-tsx-host"))
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .env("NO_COLOR", "1")
+        .output()
+        .expect("run the Node-to-Rust TSX application fixture");
+    if !output.status.success() {
+        panic!(
+            "Node-to-Rust TSX fixture exited with {}\nstdout:\n{}\nstderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
+    }
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
 }
 
 fn read_required<R: Read>(reader: &mut R, limits: TsxFrameLimitsV1) -> TsxHostMessageV1 {

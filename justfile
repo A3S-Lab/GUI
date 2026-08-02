@@ -44,7 +44,7 @@ check-tsx-protocol:
 test-typescript:
     npm --prefix packages/typescript test
 
-# Drive the real Rust self-drawn TSX process through framed stdin/stdout
+# Drive protocol fixtures and real Node createApp through the Rust TSX host
 test-tsx-host:
     cargo test --locked --no-default-features --features platform-runtime,software-reference --test tsx_host_process
 

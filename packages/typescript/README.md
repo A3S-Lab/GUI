@@ -73,16 +73,34 @@ await callbacks.dispatch(eventMessage);
 callbacks.clear();                  // release all retained callback scopes
 ```
 
-The Rust `a3s-gui-tsx-host` process now accepts strict framed
+The Rust `a3s-gui-tsx-host` process accepts strict framed
 hello/render/ping/close traffic and commits full frames through the software
-self-drawn runtime. The ordered `createApp` process pump, restart/replay
-supervision, native OS host executable, and stable full semantic component API
-remain later delivery slices. This package is therefore not a published SDK or
-a runnable native TSX application yet. The current `createApp` requires an
-explicit typed `A3sApplicationHostV1` with an already negotiated `welcome`; it
-sends that host full protocol render envelopes rather than bare frames. The
-future zero-configuration `run()` API will create the handshake and supervised
-process host.
+self-drawn runtime. `A3sFramedApplicationHostV1` now joins the negotiated
+connection to `createApp` with one shared client session, one reader, bounded
+event tasks, and ordered commit/event delivery; a real Node fixture drives two
+renders through the Rust process. Restart/replay supervision, host-initiated
+liveness, native OS hosts, and the stable full semantic component API remain
+later delivery slices. This package is therefore not a published SDK or a
+zero-configuration native TSX application yet. The future `run()` API will
+choose the host artifact, bind event dispatch, and supervise recovery.
+
+The explicit development path is runnable when the Rust host artifact is
+already built:
+
+```ts
+const host = await connectA3sNodeApplicationHostV1({
+  process: { command: hostBinary },
+  handshake: {
+    sdkVersion: "0.0.0-development",
+    sessionId: "app-session",
+    requestedRenderer: "software",
+    maximumFrameBytes: 1024 * 1024,
+  },
+});
+const app = createApp(App, { host });
+host.setEventHandler(async (message) => { await app.dispatch(message); });
+await app.start();
+```
 
 Install the pinned development compiler without running dependency scripts:
 

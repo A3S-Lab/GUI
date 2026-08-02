@@ -31,7 +31,7 @@ or fallback renderer.
 | H2-H4 real hosts | Planned | Windows, macOS, Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
 | T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
-| T2-T5 TSX product runtime | In progress | Stateful `createApp`, strict session/framing, no-shell Node transport, and software self-drawn Rust process host; ordered pump/replay missing |
+| T2-T5 TSX product runtime | In progress | Stateful `createApp`, strict session/framing, Node transport, ordered application pump, and software self-drawn Rust host; zero-config/replay missing |
 | M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
 No family is yet self-drawn conformant across real macOS, Windows, and Linux
@@ -299,14 +299,17 @@ Delivered:
   success/crash process fixtures;
 - strict `a3s-gui-tsx-host` framed process with hello/render/ping/close
   sequencing and real `SelfDrawnWindowRuntime` software-reference commits;
+- `A3sFramedApplicationHostV1` with one shared client session, single-reader
+  commit/event pumping, bounded event tasks, fatal propagation, and real
+  Node-to-Rust `createApp` process coverage;
 - serialized event/commit consumption when an active-revision callback overlaps
   an in-flight render acknowledgement;
 - source-located hook-order failures and Node interaction tests.
 
 Remaining:
 
-- ordered `createApp` message pump over the landed Node transport and Rust
-  process host;
+- zero-configuration process startup and event-handler binding for `createApp`;
+- host-initiated liveness control messages;
 - process restart policy, crash recovery, and committed-frame replay;
 - final public component/action identity contract;
 - keyboard/stale-event/replay coverage through that process boundary.
@@ -412,8 +415,8 @@ A release candidate requires:
 
 ## Immediate implementation sequence
 
-1. Complete T2 by joining the landed Node process transport and headless Rust
-   host behind `createApp`, including crash recovery and frame replay.
+1. Complete T2 with zero-configuration startup, host-initiated liveness, crash
+   recovery, and frame replay over the landed application pump.
 2. Land production text measurement/shaping interfaces in layout/scene.
 3. Build the first H2 Windows window/surface/presentation skeleton.
 4. Connect H1 input and frame commits to that host.

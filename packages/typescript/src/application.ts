@@ -26,6 +26,8 @@ export type A3sRenderCandidateV1 = TsxRenderMessageV1;
 
 export interface A3sApplicationHostV1 {
   readonly welcome: TsxWelcomeMessageV1;
+  /** When supplied, `welcome` must be this exact session's validated snapshot. */
+  readonly session?: A3sClientSessionV1;
   submitRender(
     candidate: Readonly<A3sRenderCandidateV1>,
   ): TsxCommittedMessageV1 | Promise<TsxCommittedMessageV1>;
@@ -110,7 +112,11 @@ export class A3sApplicationV1<Props extends A3sJsxProps = A3sJsxProps> {
     this.#compileOptions = Object.freeze({ ...(options.compile ?? {}) });
     this.#onError = options.onError ?? null;
     this.#hooks = new ComponentHookTree(() => this.#requestRender());
-    this.#session = new A3sClientSessionV1(options.host.welcome);
+    const sharedSession = options.host.session;
+    this.#session = sharedSession ?? new A3sClientSessionV1(options.host.welcome);
+    if (sharedSession !== undefined && sharedSession.welcome !== options.host.welcome) {
+      throw new TypeError("createApp host session does not match its welcome message");
+    }
   }
 
   get state(): Readonly<A3sApplicationStateV1> {

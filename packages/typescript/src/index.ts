@@ -77,6 +77,19 @@ export type {
   CreateAppOptions,
 } from "./application.ts";
 export {
+  A3sFramedApplicationHostV1,
+  A3sFramedHostError,
+  connectA3sNodeApplicationHostV1,
+} from "./application-host.ts";
+export type {
+  A3sFramedApplicationHostOptionsV1,
+  A3sFramedApplicationHostStateV1,
+  A3sFramedHostErrorCodeV1,
+  A3sFramedHostStatusV1,
+  A3sHostEventHandlerV1,
+  ConnectA3sNodeApplicationHostOptionsV1,
+} from "./application-host.ts";
+export {
   A3sHookError,
   useContext,
   useEffect,

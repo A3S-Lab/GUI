@@ -251,14 +251,15 @@ evidence.
 ## Current gaps
 
 The architecture is implemented through the generic scene slice, H0 host
-contract, H1 shared runtime, TSX callback/session boundaries, and a strict
-software self-drawn TSX process host. The remaining critical work is:
+contract, H1 shared runtime, TSX callback/session boundaries, a strict software
+self-drawn TSX process host, and the ordered Node/Rust application pump. The
+remaining critical work is:
 
 1. production text shaping, editing, IME, and accessibility semantics on the
    generic layout/scene path;
 2. concrete Windows, macOS, and Wayland/X11 hosts;
-3. the ordered application message pump, crash recovery, and replay between
-   the landed Node transport and Rust process host;
+3. zero-configuration TSX startup, host liveness, crash recovery, and replay
+   over the landed Node/Rust application pump;
 4. component-by-component React Aria conformance;
 5. packaging, signing, installers, and real tri-platform evidence.
 
