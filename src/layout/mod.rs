@@ -7,9 +7,16 @@
 
 mod engine;
 mod resolve;
+mod text;
 mod types;
 
 pub use engine::layout_native_tree;
+pub use text::{
+    LayoutOptions, LayoutText, ShapedGlyph, ShapedGlyphRun, ShapedText, ShapedTextLine,
+    TextContentSource, TextFontFaceId, TextShapeRequest, TextShaper, MAX_TEXT_FACE_ID_BYTES,
+    MAX_TEXT_GLYPHS_PER_NODE, MAX_TEXT_LINES_PER_NODE, MAX_TEXT_RUNS_PER_NODE,
+    MAX_TEXT_SOURCE_BYTES,
+};
 pub use types::{
     LayoutChange, LayoutChangeKind, LayoutColor, LayoutCornerRadii, LayoutDiagnostic,
     LayoutDiagnosticCode, LayoutDiagnosticSeverity, LayoutDiff, LayoutEdgeColors, LayoutEdgeWidths,
@@ -19,3 +26,6 @@ pub use types::{
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod text_tests;

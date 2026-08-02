@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::drawing::{LayoutSceneOptions, Scene};
 use crate::error::{GuiError, GuiResult};
 use crate::geometry::{Rect, Size};
-use crate::layout::{layout_native_tree, LayoutSnapshot};
+use crate::layout::{layout_native_tree, LayoutOptions, LayoutSnapshot};
 use crate::native::NativeElement;
 use crate::platform_host::{
     PlatformAccessibilitySnapshot, PlatformHostRevision, PlatformPresentationRequest,
@@ -212,7 +212,7 @@ pub(super) fn build_snapshot(
         ));
     }
     let scale_factor = f64::from(narrowed_scale);
-    let layout = layout_native_tree(&native_root, logical_size)?;
+    let layout = layout_native_tree(&native_root, LayoutOptions::boxes_only(logical_size))?;
     layout.require_supported()?;
     let interaction = SelfDrawnInteractionTree::build(&native_root, &layout)?;
     let layout_fingerprint = layout.fingerprint()?;

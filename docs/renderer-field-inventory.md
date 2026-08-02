@@ -62,6 +62,9 @@ sibling keys; it must not use a platform handle or a tree index as identity.
   fallback, size/weight/style/features, shaping direction and writing mode,
   line layout, wrapping, alignment, decoration, selection, caret, composition,
   and password redaction. Embedded reference fonts are mandatory for fixtures.
+  The bounded `TextShaper`/`ShapedText`/`TextSceneEncoder` interfaces and
+  pre-shaping password mask are implemented; the concrete font, paragraph,
+  glyph, editing, and decoration backends remain M4 work.
 - Accessibility inventory includes role, name, value sensitivity, description,
   relationships, structural indices/spans, live state, control state, focus,
   selection, checked/expanded state, children, actions, and announcements. It

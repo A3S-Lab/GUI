@@ -4,7 +4,7 @@
 mod calculator;
 
 use a3s_gui::drawing::{scene_from_layout, Color, LayoutSceneOptions, ReferenceRenderer};
-use a3s_gui::layout::{layout_native_tree, LayoutDiagnosticCode, LayoutSnapshot};
+use a3s_gui::layout::{layout_native_tree, LayoutDiagnosticCode, LayoutOptions, LayoutSnapshot};
 use a3s_gui::{NativeRole, RsxCompilerBridge, Size};
 
 fn shared_calculator_layout() -> LayoutSnapshot {
@@ -20,7 +20,7 @@ fn shared_calculator_layout() -> LayoutSnapshot {
         .as_ref()
         .unwrap()
         .wrap_native_root(&frame.frame_id, content);
-    layout_native_tree(&native, Size::new(410.0, 620.0)).unwrap()
+    layout_native_tree(&native, LayoutOptions::boxes_only(Size::new(410.0, 620.0))).unwrap()
 }
 
 #[test]
@@ -47,11 +47,12 @@ fn shared_calculator_native_tree_produces_a_retained_rectangle_scene() {
         LayoutSceneOptions {
             scale_factor: 1.0,
             clear_color: Color::TRANSPARENT,
+            ..LayoutSceneOptions::default()
         },
     )
     .unwrap();
     let scene_fingerprint = scene.fingerprint().unwrap();
-    assert_eq!(layout.fingerprint().unwrap(), 16_529_597_026_056_060_935);
+    assert_eq!(layout.fingerprint().unwrap(), 11_433_846_600_555_364_104);
     assert_eq!(scene_fingerprint, 2_100_550_662_756_266_801);
     let mut renderer = ReferenceRenderer::new();
     let (first_width, first_height, first_damage, first_pixels) = {

@@ -6,7 +6,8 @@ use crate::layout::{
 
 use super::{
     Color, CornerRadii, DrawCommand, DrawId, EdgeWidths, FillRect, FillRoundedRect, Primitive,
-    Rect, Scene, SceneBuilder, Size, StrokeRect,
+    Rect, Scene, SceneBuilder, Size, StrokeRect, TextSceneEncoder, TextSceneRequest,
+    MAX_TEXT_SCENE_PRIMITIVES_PER_NODE,
 };
 
 const DRAW_NAMESPACE: &str = "a3s-gui.layout.v1";
@@ -16,19 +17,42 @@ const BORDER_TOP_SLOT: u32 = 2;
 const BORDER_RIGHT_SLOT: u32 = 3;
 const BORDER_BOTTOM_SLOT: u32 = 4;
 const BORDER_LEFT_SLOT: u32 = 5;
+const TEXT_SLOT_BASE: u32 = 65_536;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct LayoutSceneOptions {
+pub struct LayoutSceneOptions<'a> {
     pub scale_factor: f32,
     pub clear_color: Color,
+    pub text_encoder: Option<&'a mut dyn TextSceneEncoder>,
 }
 
-impl Default for LayoutSceneOptions {
+impl std::fmt::Debug for LayoutSceneOptions<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("LayoutSceneOptions")
+            .field("scale_factor", &self.scale_factor)
+            .field("clear_color", &self.clear_color)
+            .field(
+                "text_encoder",
+                &self.text_encoder.as_ref().map(|_| "configured"),
+            )
+            .finish()
+    }
+}
+
+impl Default for LayoutSceneOptions<'_> {
     fn default() -> Self {
         Self {
             scale_factor: 1.0,
             clear_color: Color::TRANSPARENT,
+            text_encoder: None,
         }
+    }
+}
+
+impl<'a> LayoutSceneOptions<'a> {
+    pub fn with_text_encoder(mut self, text_encoder: &'a mut dyn TextSceneEncoder) -> Self {
+        self.text_encoder = Some(text_encoder);
+        self
     }
 }
 
@@ -36,7 +60,10 @@ impl Default for LayoutSceneOptions {
 ///
 /// Error-level M3 diagnostics are rejected before any command is emitted, so
 /// required layout or paint fields cannot disappear silently.
-pub fn scene_from_layout(layout: &LayoutSnapshot, options: LayoutSceneOptions) -> GuiResult<Scene> {
+pub fn scene_from_layout(
+    layout: &LayoutSnapshot,
+    mut options: LayoutSceneOptions<'_>,
+) -> GuiResult<Scene> {
     if layout.schema_version != LAYOUT_SCHEMA_VERSION {
         return Err(GuiError::graphics(format!(
             "unsupported GUI layout schema {}; expected {}",
@@ -57,12 +84,27 @@ pub fn scene_from_layout(layout: &LayoutSnapshot, options: LayoutSceneOptions) -
     let mut nodes = layout.nodes.iter().collect::<Vec<_>>();
     nodes.sort_by_key(|node| node.paint_order);
     for node in nodes {
-        push_node(&mut builder, node)?;
+        push_node(
+            &mut builder,
+            node,
+            options.scale_factor,
+            &mut options.text_encoder,
+        )?;
     }
     Ok(builder.finish()?)
 }
 
-fn push_node(builder: &mut SceneBuilder, node: &LayoutNodeRecord) -> GuiResult<()> {
+fn push_node(
+    builder: &mut SceneBuilder,
+    node: &LayoutNodeRecord,
+    scale_factor: f32,
+    text_encoder: &mut Option<&mut dyn TextSceneEncoder>,
+) -> GuiResult<()> {
+    push_box(builder, node)?;
+    push_text(builder, node, scale_factor, text_encoder)
+}
+
+fn push_box(builder: &mut SceneBuilder, node: &LayoutNodeRecord) -> GuiResult<()> {
     let rect = graphics_rect(node.border_box, "layout border box")?;
     if rect.is_empty() {
         return Ok(());
@@ -163,6 +205,69 @@ fn push_node(builder: &mut SceneBuilder, node: &LayoutNodeRecord) -> GuiResult<(
         push_edge_borders(builder, node, rect, widths, clip, opacity)?;
     }
     Ok(())
+}
+
+fn push_text(
+    builder: &mut SceneBuilder,
+    node: &LayoutNodeRecord,
+    scale_factor: f32,
+    text_encoder: &mut Option<&mut dyn TextSceneEncoder>,
+) -> GuiResult<()> {
+    let Some(text) = node.text.as_ref() else {
+        return Ok(());
+    };
+    text.validate().map_err(|error| {
+        GuiError::graphics(format!(
+            "layout node {} contains invalid shaped text: {error}",
+            node.id
+        ))
+    })?;
+    let encoder = text_encoder.as_deref_mut().ok_or_else(|| {
+        GuiError::graphics(format!(
+            "layout node {} contains shaped text but no text scene encoder was configured",
+            node.id
+        ))
+    })?;
+    let primitives = encoder.encode(TextSceneRequest { text, scale_factor })?;
+    if primitives.len() > MAX_TEXT_SCENE_PRIMITIVES_PER_NODE {
+        return Err(GuiError::graphics(format!(
+            "layout node {} text encoder exceeds its {}-primitive limit",
+            node.id, MAX_TEXT_SCENE_PRIMITIVES_PER_NODE
+        )));
+    }
+    let opacity = finite_f32(node.paint.opacity, "layout text opacity")?;
+    let clip = text
+        .clip
+        .map(|clip| graphics_rect(clip, "layout text clip"))
+        .transpose()?;
+    let ink_bounds = text
+        .ink_bounds()
+        .map(|bounds| graphics_rect(bounds, "layout text ink bounds"))
+        .transpose()?;
+    for (index, primitive) in primitives.into_iter().enumerate() {
+        let primitive_bounds = primitive.local_bounds();
+        if !primitive_bounds.is_empty()
+            && !ink_bounds.is_some_and(|ink| contains_rect(ink, primitive_bounds))
+        {
+            return Err(GuiError::graphics(format!(
+                "layout node {} text primitive lies outside its shaped ink bounds",
+                node.id
+            )));
+        }
+        let slot = TEXT_SLOT_BASE
+            .checked_add(index as u32)
+            .ok_or_else(|| GuiError::graphics("layout text draw slot exceeds u32 capacity"))?;
+        push_command(builder, node, slot, primitive, clip, opacity)?;
+    }
+    Ok(())
+}
+
+fn contains_rect(outer: Rect, inner: Rect) -> bool {
+    const TOLERANCE: f32 = 1.0 / 64.0;
+    inner.x + TOLERANCE >= outer.x
+        && inner.y + TOLERANCE >= outer.y
+        && inner.right() <= outer.right() + TOLERANCE
+        && inner.bottom() <= outer.bottom() + TOLERANCE
 }
 
 fn push_edge_borders(
@@ -344,105 +449,4 @@ fn finite_f32(value: f64, field: &str) -> GuiResult<f32> {
         )));
     }
     Ok(narrowed)
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::geometry::Size as GuiSize;
-    use crate::layout::layout_native_tree;
-    use crate::native::{NativeElement, NativeProps, NativeRole};
-    use crate::web::WebProps;
-
-    use super::*;
-
-    fn styled(key: &str, class_name: &str) -> NativeElement {
-        NativeElement::new(key, NativeRole::View)
-            .with_props(NativeProps::new().web(WebProps::new().class_name(class_name)))
-    }
-
-    #[test]
-    fn scene_rejects_error_level_layout_diagnostics() {
-        let root = NativeElement::new("root", NativeRole::View).with_props(
-            NativeProps::new().web(WebProps::new().style("width", "calc(100% - 2rem)")),
-        );
-        let layout = layout_native_tree(&root, GuiSize::new(10.0, 10.0)).unwrap();
-
-        let error = scene_from_layout(&layout, LayoutSceneOptions::default()).unwrap_err();
-
-        assert!(error
-            .to_string()
-            .contains("layout field support is incomplete"));
-    }
-
-    #[test]
-    fn stable_element_paths_produce_stable_draw_ids() {
-        let tree = |reversed: bool| {
-            let mut children = vec![
-                styled("a", "absolute left-[0px] top-[0px] h-2 w-2 bg-black"),
-                styled("b", "absolute left-[2px] top-[0px] h-2 w-2 bg-white"),
-            ];
-            if reversed {
-                children.reverse();
-            }
-            styled("root", "relative h-2 w-4").children(children)
-        };
-        let first = layout_native_tree(&tree(false), GuiSize::new(4.0, 2.0)).unwrap();
-        let second = layout_native_tree(&tree(true), GuiSize::new(4.0, 2.0)).unwrap();
-        let first = scene_from_layout(&first, LayoutSceneOptions::default()).unwrap();
-        let second = scene_from_layout(&second, LayoutSceneOptions::default()).unwrap();
-        let mut first_ids = first
-            .commands
-            .iter()
-            .map(|command| command.id)
-            .collect::<Vec<_>>();
-        let mut second_ids = second
-            .commands
-            .iter()
-            .map(|command| command.id)
-            .collect::<Vec<_>>();
-        first_ids.sort();
-        second_ids.sort();
-
-        assert_eq!(first_ids, second_ids);
-    }
-
-    #[cfg(feature = "software-reference")]
-    #[test]
-    fn sibling_z_index_controls_scene_paint_order() {
-        let root = styled("root", "relative h-2 w-2")
-            .child(styled(
-                "front",
-                "absolute left-[0px] top-[0px] z-10 h-2 w-2 bg-black",
-            ))
-            .child(styled(
-                "back",
-                "absolute left-[0px] top-[0px] z-0 h-2 w-2 bg-white",
-            ));
-        let layout = layout_native_tree(&root, GuiSize::new(2.0, 2.0)).unwrap();
-        let scene = scene_from_layout(&layout, LayoutSceneOptions::default()).unwrap();
-        let mut renderer = crate::drawing::ReferenceRenderer::new();
-
-        let frame = renderer.render(scene).unwrap();
-
-        assert_eq!(&frame.rgba8()[0..4], &[0, 0, 0, 255]);
-    }
-
-    #[cfg(feature = "software-reference")]
-    #[test]
-    fn rectangle_layout_lowers_through_the_reference_renderer() {
-        let root = styled("root", "relative h-3 w-4 bg-white").child(styled(
-            "pixel",
-            "absolute left-[1px] top-[1px] h-1 w-2 bg-black",
-        ));
-        let layout = layout_native_tree(&root, GuiSize::new(4.0, 3.0)).unwrap();
-        let scene = scene_from_layout(&layout, LayoutSceneOptions::default()).unwrap();
-        let mut renderer = crate::drawing::ReferenceRenderer::new();
-
-        let frame = renderer.render(scene).unwrap();
-
-        assert_eq!((frame.width(), frame.height()), (4, 3));
-        assert_eq!(&frame.rgba8()[0..4], &[255, 255, 255, 255]);
-        let black = ((4 + 1) * 4) as usize;
-        assert_eq!(&frame.rgba8()[black..black + 4], &[0, 0, 0, 255]);
-    }
 }

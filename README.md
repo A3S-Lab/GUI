@@ -80,6 +80,10 @@ The repository already provides:
 - portable style resolution across all 504 top-level `PortableStyle` fields;
 - deterministic layout snapshots, stable scene identity, software reference
   output, retained damage, and a reviewed GPU calculator slice;
+- explicit production text boundaries: a bounded `TextShaper` produces the
+  only intrinsic measurement and retained glyph record, password values are
+  masked before shaping, and a stateful `TextSceneEncoder` consumes that same
+  record without receiving source text or escaping its ink bounds;
 - a bounded `PlatformHost` transaction/event contract with dependency
   firewalls;
 - `SelfDrawnWindowRuntime` with atomic prepare/commit/reject, recovery,
@@ -127,7 +131,8 @@ The repository already provides:
 Still required before a production native application:
 
 - real zero-widget macOS, Windows, and Wayland/X11 hosts;
-- production text shaping, text editing, IME, and assistive-technology bridges;
+- a production font database/shaper and glyph raster/atlas encoder, followed by
+  text editing, IME, and assistive-technology bridges;
 - packaging, signing, installer work, and tri-platform visual evidence;
 - full self-drawn conformance evidence for every React Aria family.
 
@@ -322,10 +327,10 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. land production text shaping/editing primitives on the generic layout/scene
-   path;
-2. implement the first raw Windows host, then macOS and Wayland/X11 hosts,
+1. implement the first raw Windows host, then macOS and Wayland/X11 hosts,
    without adding content-widget dependencies;
+2. implement the font discovery/shaping and glyph raster/atlas backends on the
+   landed generic text contracts, then add editing and IME;
 3. connect the completed T2 TSX runtime to those visible self-drawn hosts;
 4. close React Aria families milestone by milestone with tri-platform evidence;
 5. restore packaging only after the self-drawn host artifacts exist.

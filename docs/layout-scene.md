@@ -1,6 +1,6 @@
 # Layout and Scene Contract
 
-Updated: 2026-08-01
+Updated: 2026-08-02
 
 The first self-drawn renderer slice consumes the existing `NativeElement`
 tree. It does not define a calculator-specific visual tree or copy component
@@ -8,10 +8,13 @@ state into a renderer model.
 
 ```rust
 use a3s_gui::drawing::{scene_from_layout, LayoutSceneOptions};
-use a3s_gui::layout::layout_native_tree;
+use a3s_gui::layout::{layout_native_tree, LayoutOptions};
 use a3s_gui::Size;
 
-let layout = layout_native_tree(&native, Size::new(410.0, 620.0))?;
+let layout = layout_native_tree(
+    &native,
+    LayoutOptions::boxes_only(Size::new(410.0, 620.0)),
+)?;
 layout.require_supported()?;
 let scene = scene_from_layout(&layout, LayoutSceneOptions::default())?;
 # Ok::<(), a3s_gui::GuiError>(())
@@ -23,12 +26,15 @@ available only with the `graphics` feature, while rendering remains behind
 
 ## Versioned records
 
-`LayoutSnapshot` schema version 1 contains:
+`LayoutSnapshot` schema version 2 contains:
 
 - logical surface size and boxes quantized to 1/64 logical point
 - flat `LayoutNodeRecord` values with role, parent identity, border/content
   boxes, inherited clip, z-index, paint order, hit eligibility, and box paint
 - separate `LayoutHitRegion` values keyed to the same semantic elements
+- optional source-free `LayoutText` values containing content class,
+  sensitivity, shaped byte count, origin, clip, color, and validated
+  line/run/glyph geometry
 - structured warnings and errors with element and field attribution
 - deterministic serialization, fingerprinting, and node-level layout diffs
 
@@ -37,8 +43,35 @@ sibling does not change its identity, and `/` or other punctuation in a key
 cannot make two paths collide. The Graphics adapter derives each `DrawId` from
 that path plus a stable paint slot.
 
-The snapshot contains no labels, values, passwords, native handles, GPU
-objects, or product state.
+The snapshot contains no source labels, values, passwords, native handles, GPU
+objects, or product state. Text-capable snapshots retain glyph identifiers,
+UTF-8 cluster ranges, and geometry only. Sensitive control values are converted
+to display bullets before a shaper can observe them.
+
+## M4 text measurement and scene interfaces
+
+The production interfaces are implemented without a heuristic fallback:
+
+- `LayoutOptions::with_text(size, shaper)` explicitly opts into text;
+- `TextShaper` receives the visible display text, semantic source class,
+  sensitivity, language, base direction, writing mode, available size, and the
+  portable style input;
+- each `ShapedText` result is bounded and validated for UTF-8 clusters, line
+  coverage, bidi-level direction, stable font-face identities, finite metrics,
+  and line/run/glyph counts;
+- the result is quantized once, supplies intrinsic size, and is retained for
+  scene extraction, so paint cannot silently measure the text again;
+- `TextSceneEncoder` is mutable so a production implementation can own a glyph
+  cache or atlas, and receives the device scale factor, but it never receives
+  source text;
+- scene extraction rejects a missing encoder, excessive primitive output, or
+  primitives outside the retained ink bounds.
+
+`LayoutOptions::boxes_only` is the explicit M3 fixture and H1 protocol mode.
+It emits no shaped text and never estimates character widths. The repository
+does not yet contain a production font database/shaper or glyph raster/atlas
+encoder. Tests use a private deterministic fixture implementation and do not
+claim visible text support.
 
 ## Implemented M3 slice
 
@@ -71,9 +104,10 @@ slice.
 Every effective `PortableStyle` field is checked against the executable
 [renderer field inventory](renderer-field-inventory.md).
 
-- A later-milestone field produces a warning. Text and control roles therefore
-  retain their M3 boxes while their visible content remains an explicit M4
-  item.
+- A later-milestone field produces a warning. In box-only mode, text and
+  control roles retain only their M3 boxes. With a shaper, their primary text
+  may use the M4 contract while complete control visuals and interaction remain
+  explicit M4/P1 items.
 - An M3 field or value that this slice cannot project produces an error.
 - A property retained in `PortableStyle::unsupported` produces an error.
 - `scene_from_layout` rejects any snapshot containing an error before it emits
@@ -105,7 +139,7 @@ but remain separate from paint commands.
 lowers it through `RsxCompilerBridge`, wraps the real 410 by 620 window native
 tree, and then uses this generic path. The fixture pins:
 
-- layout fingerprint `16529597026056060935`
+- layout fingerprint `11433846600555364104`
 - Graphics scene fingerprint `2100550662756266801`
 - exact repeated software output and retained no-damage behavior
 - background, transparent exterior, ordinary-key, and equals-key pixels
@@ -117,5 +151,5 @@ pixels and a maximum channel delta of 96 while requiring the listed solid
 pixels to match exactly.
 
 An unavailable adapter skips the local GPU test and is not cross-platform
-evidence. Metal and Vulkan runs, real window presentation, text, input, IME,
-and accessibility remain separate roadmap gates.
+evidence. Metal and Vulkan runs, real window presentation, production font and
+glyph backends, input, IME, and accessibility remain separate roadmap gates.

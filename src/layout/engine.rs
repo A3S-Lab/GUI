@@ -10,12 +10,14 @@ use crate::style::{
 };
 
 use super::resolve::{
-    diagnose_style_inventory, push_warning, resolve_paint, resolve_style, Edges, Insets,
-    ResolvedStyle,
+    diagnose_style_inventory, push_warning, resolve_paint, resolve_style, resolve_text_color,
+    Edges, Insets, ResolvedStyle,
 };
+use super::text::{shape_node_text, MeasuredText};
+use super::types::quantize;
 use super::{
     LayoutDiagnostic, LayoutDiagnosticCode, LayoutElementId, LayoutHitRegion, LayoutNodeRecord,
-    LayoutPaint, LayoutSnapshot, LAYOUT_QUANTIZATION, LAYOUT_SCHEMA_VERSION,
+    LayoutOptions, LayoutPaint, LayoutSnapshot, LayoutText, LAYOUT_SCHEMA_VERSION,
 };
 
 #[derive(Debug, Clone)]
@@ -53,7 +55,14 @@ struct MeasuredNode {
     explicit_width: bool,
     explicit_height: bool,
     paint: LayoutPaint,
+    text: Option<MeasuredNodeText>,
     children: Vec<MeasuredNode>,
+}
+
+#[derive(Debug, Clone)]
+struct MeasuredNodeText {
+    measured: MeasuredText,
+    color: super::LayoutColor,
 }
 
 struct Placement<'a> {
@@ -63,14 +72,35 @@ struct Placement<'a> {
     next_paint_order: u32,
 }
 
-pub fn layout_native_tree(root: &NativeElement, logical_size: Size) -> GuiResult<LayoutSnapshot> {
+/// Builds one deterministic layout snapshot using the explicit text mode in
+/// `options`.
+///
+/// Text-capable layout fails on invalid shaper output. Box-only layout emits no
+/// text records and performs no character-width estimation.
+pub fn layout_native_tree(
+    root: &NativeElement,
+    options: LayoutOptions<'_>,
+) -> GuiResult<LayoutSnapshot> {
+    let logical_size = options.logical_size;
     validate_logical_size(logical_size)?;
     let logical_size = Size::new(quantize(logical_size.width), quantize(logical_size.height));
     validate_logical_size(logical_size)?;
     let mut diagnostics = Vec::new();
     let root_id = LayoutElementId::root(root.key.as_str());
-    let prepared = prepare_node(root, root_id, None, &mut diagnostics)?;
-    let measured = measure_node(prepared, logical_size, true, &mut diagnostics);
+    let prepared = prepare_node(
+        root,
+        root_id,
+        None,
+        options.text_shaper().is_some(),
+        &mut diagnostics,
+    )?;
+    let measured = measure_node(
+        prepared,
+        logical_size,
+        true,
+        options.text_shaper(),
+        &mut diagnostics,
+    )?;
     let mut nodes = Vec::new();
     let mut hit_regions = Vec::new();
 
@@ -118,6 +148,7 @@ fn prepare_node(
     element: &NativeElement,
     id: LayoutElementId,
     parent_id: Option<LayoutElementId>,
+    text_enabled: bool,
     diagnostics: &mut Vec<LayoutDiagnostic>,
 ) -> GuiResult<PreparedNode> {
     if element.key.as_str().is_empty() {
@@ -134,10 +165,17 @@ fn prepare_node(
             &id,
             LayoutDiagnosticCode::DeferredRole,
             None,
-            format!(
-                "role {:?} receives only its generic M3 box; visible content is deferred to {role_milestone:?}",
-                element.role
-            ),
+            if text_enabled && role_milestone == RenderFieldMilestone::M4InteractionText {
+                format!(
+                    "role {:?} can use the M4 text contract, but its complete visuals and interaction remain deferred to {role_milestone:?}",
+                    element.role
+                )
+            } else {
+                format!(
+                    "role {:?} receives only its generic M3 box; visible content is deferred to {role_milestone:?}",
+                    element.role
+                )
+            },
         );
     }
 
@@ -159,6 +197,7 @@ fn prepare_node(
             child,
             id.child(key),
             Some(id.clone()),
+            text_enabled,
             diagnostics,
         )?);
     }
@@ -177,11 +216,12 @@ fn measure_node(
     mut node: PreparedNode,
     available: Size,
     is_root: bool,
+    text_shaper: Option<&dyn super::TextShaper>,
     diagnostics: &mut Vec<LayoutDiagnostic>,
-) -> Option<MeasuredNode> {
+) -> GuiResult<Option<MeasuredNode>> {
     let resolved = resolve_style(&node.style, &node.props, &node.id, available, diagnostics);
     if resolved.hidden {
-        return None;
+        return Ok(None);
     }
 
     let horizontal_chrome =
@@ -215,12 +255,19 @@ fn measure_node(
         (provisional_height - vertical_chrome).max(0.0),
     );
 
-    let children = std::mem::take(&mut node.children)
-        .into_iter()
-        .filter_map(|child| measure_node(child, child_available, false, diagnostics))
-        .collect::<Vec<_>>();
+    let shaped_text = text_shaper
+        .map(|shaper| shape_node_text(shaper, node.role, &node.props, &node.style, child_available))
+        .transpose()?
+        .flatten();
+    let mut children = Vec::with_capacity(node.children.len());
+    for child in std::mem::take(&mut node.children) {
+        if let Some(child) = measure_node(child, child_available, false, text_shaper, diagnostics)?
+        {
+            children.push(child);
+        }
+    }
     let (desired_content_width, desired_content_height) =
-        desired_content_size(&children, &resolved);
+        desired_content_size(&children, &resolved, shaped_text.as_ref());
     let fills_available_width = is_root
         || !matches!(
             node.style.display,
@@ -266,8 +313,19 @@ fn measure_node(
         resolved.opacity,
         diagnostics,
     );
+    let text = shaped_text.map(|measured| MeasuredNodeText {
+        measured,
+        color: resolve_text_color(&node.style, &node.id, diagnostics),
+    });
 
-    Some(measured_node(node, resolved, border_size, paint, children))
+    Ok(Some(measured_node(
+        node,
+        resolved,
+        border_size,
+        paint,
+        text,
+        children,
+    )))
 }
 
 fn measured_node(
@@ -275,6 +333,7 @@ fn measured_node(
     resolved: ResolvedStyle,
     border_size: Size,
     paint: LayoutPaint,
+    text: Option<MeasuredNodeText>,
     children: Vec<MeasuredNode>,
 ) -> MeasuredNode {
     MeasuredNode {
@@ -301,44 +360,56 @@ fn measured_node(
         explicit_width: resolved.explicit_width,
         explicit_height: resolved.explicit_height,
         paint,
+        text,
         children,
     }
 }
 
-fn desired_content_size(children: &[MeasuredNode], style: &ResolvedStyle) -> (f64, f64) {
+fn desired_content_size(
+    children: &[MeasuredNode],
+    style: &ResolvedStyle,
+    text: Option<&MeasuredText>,
+) -> (f64, f64) {
     let flow = children
         .iter()
         .filter(|child| !is_out_of_flow(child.position))
         .collect::<Vec<_>>();
-    if flow.is_empty() {
-        return (0.0, 0.0);
-    }
-    match style.orientation {
-        Orientation::Vertical => {
-            let width = flow
-                .iter()
-                .map(|child| child.margin.horizontal() + child.border_size.width)
-                .fold(0.0, f64::max);
-            let height = flow
-                .iter()
-                .map(|child| child.margin.vertical() + child.border_size.height)
-                .sum::<f64>()
-                + style.row_gap * (flow.len().saturating_sub(1) as f64);
-            (width, height)
+    let child_size = if flow.is_empty() {
+        (0.0, 0.0)
+    } else {
+        match style.orientation {
+            Orientation::Vertical => {
+                let width = flow
+                    .iter()
+                    .map(|child| child.margin.horizontal() + child.border_size.width)
+                    .fold(0.0, f64::max);
+                let height = flow
+                    .iter()
+                    .map(|child| child.margin.vertical() + child.border_size.height)
+                    .sum::<f64>()
+                    + style.row_gap * (flow.len().saturating_sub(1) as f64);
+                (width, height)
+            }
+            Orientation::Horizontal => {
+                let width = flow
+                    .iter()
+                    .map(|child| child.margin.horizontal() + child.border_size.width)
+                    .sum::<f64>()
+                    + style.column_gap * (flow.len().saturating_sub(1) as f64);
+                let height = flow
+                    .iter()
+                    .map(|child| child.margin.vertical() + child.border_size.height)
+                    .fold(0.0, f64::max);
+                (width, height)
+            }
         }
-        Orientation::Horizontal => {
-            let width = flow
-                .iter()
-                .map(|child| child.margin.horizontal() + child.border_size.width)
-                .sum::<f64>()
-                + style.column_gap * (flow.len().saturating_sub(1) as f64);
-            let height = flow
-                .iter()
-                .map(|child| child.margin.vertical() + child.border_size.height)
-                .fold(0.0, f64::max);
-            (width, height)
-        }
-    }
+    };
+    text.map_or(child_size, |text| {
+        (
+            child_size.0.max(text.shape.logical_size.width),
+            child_size.1.max(text.shape.logical_size.height),
+        )
+    })
 }
 
 fn declared_to_border(value: f64, box_sizing: BoxSizing, chrome: f64) -> f64 {
@@ -397,6 +468,14 @@ fn place_node(
     let border_box = quantize_rect(border_box);
     let content_box = quantize_rect(content_box);
     let clip = inherited_clip.map(quantize_rect);
+    let text_clip = descendant_clip(
+        inherited_clip,
+        padding_box,
+        placement.viewport,
+        node.clip_x,
+        node.clip_y,
+    )
+    .map(quantize_rect);
     validate_rect(border_box, "layout border box")?;
     validate_rect(content_box, "layout content box")?;
     if let Some(clip) = clip {
@@ -413,6 +492,16 @@ fn place_node(
         paint_order,
         hit_testable: node.hit_testable,
         paint,
+        text: node.text.as_ref().map(|text| LayoutText {
+            source: text.measured.source,
+            sensitivity: text.measured.sensitivity,
+            shaped_text_bytes: text.measured.shaped_text_bytes,
+            origin_x: quantize(content_box.x),
+            origin_y: quantize(content_box.y),
+            clip: text_clip,
+            color: text.color,
+            shape: text.measured.shape.clone(),
+        }),
     });
 
     if node.hit_testable {
@@ -431,13 +520,7 @@ fn place_node(
         }
     }
 
-    let child_clip = descendant_clip(
-        inherited_clip,
-        padding_box,
-        placement.viewport,
-        node.clip_x,
-        node.clip_y,
-    );
+    let child_clip = text_clip;
     place_children(node, content_box, child_clip, cumulative_opacity, placement)
 }
 
@@ -740,13 +823,4 @@ fn validate_rect(rect: Rect, field: &str) -> GuiResult<()> {
         )));
     }
     Ok(())
-}
-
-fn quantize(value: f64) -> f64 {
-    let value = (value / LAYOUT_QUANTIZATION).round() * LAYOUT_QUANTIZATION;
-    if value == -0.0 {
-        0.0
-    } else {
-        value
-    }
 }

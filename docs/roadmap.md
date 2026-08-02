@@ -24,7 +24,7 @@ or fallback renderer.
 | M1 architecture cleanup | Complete | Layer boundaries and graph gates; content-toolkit code/dependencies deleted |
 | M2 GPU foundation | In progress | Reviewed calculator GPU slice; tri-platform surface/presentation evidence missing |
 | M3 generic layout/scene | In progress | Generic calculator layout/scene/software fixture and all-style ownership matrix |
-| M4 text/input/a11y visuals | Planned | Semantic behavior exists; production self-drawn text/editing/IME/AT bridges missing |
+| M4 text/input/a11y visuals | In progress | Bounded shaper/layout/scene contracts landed; concrete font, glyph, editing, IME, and AT backends missing |
 | M5 cutover/deletion | Partial | Legacy deletion complete; real OS-host cutover cannot occur until H2-H4 |
 | H0 host contract | Complete | Zero-widget transaction/event/API contract and dependency firewall |
 | H1 shared runtime | Complete | Atomic self-drawn frames, input/hit/a11y routing, recovery, presenters |
@@ -137,16 +137,30 @@ Delivered:
 
 Remaining:
 
-- general text measurement and paragraph layout;
+- production font/shaping implementation and paragraph algorithms behind the
+  landed measurement contract;
 - complete scroll/clipping/transform behavior;
 - reusable visual primitives for M6 components;
 - larger story corpus and performance budgets.
 
 ### M4 — text, editing, IME, accessibility, overlays
 
-Status: planned.
+Status: in progress; the measurement/shaping and scene-encoding contracts are
+complete, while production backends and the remaining M4 capabilities are not.
 
-Deliver:
+Delivered:
+
+- explicit `LayoutOptions` modes with no character-width fallback;
+- bounded, handle-free `TextShaper` requests and owned glyph/run/line output;
+- one quantized shape record shared by intrinsic layout and scene extraction;
+- UTF-8 cluster, bidi direction, finite geometry, resource-count, and font-face
+  identity validation;
+- source-free retained text records and pre-shaping password masking;
+- a stateful `TextSceneEncoder` edge with stable draw slots, clipping, opacity,
+  primitive limits, and shaped ink-bound enforcement;
+- layout-diff damage that includes visible text ink outside explicit boxes.
+
+Remaining:
 
 - production font discovery, shaping, fallback, bidi, line breaking, selection,
   caret, and text decoration;
@@ -428,10 +442,13 @@ A release candidate requires:
 
 ## Immediate implementation sequence
 
-1. Land production text measurement/shaping interfaces in layout/scene.
-2. Build the first H2 Windows window/surface/presentation skeleton.
-3. Connect H1 input and completed T2 frame commits to that host.
-4. Add text/IME and UI Automation bridges.
-5. Port the same host contract to H3 and H4.
-6. Expand M6 deterministic stories and promote evidence through the matrix.
-7. Restore packaging only after H2-H4 artifacts exist.
+Completed on 2026-08-02: production text measurement/shaping interfaces in
+layout/scene.
+
+1. Build the first H2 Windows window/surface/presentation skeleton.
+2. Connect H1 input and completed T2 frame commits to that host.
+3. Implement the production font/shaping and glyph encoder backends, then add
+   text/IME and UI Automation bridges.
+4. Port the same host contract to H3 and H4.
+5. Expand M6 deterministic stories and promote evidence through the matrix.
+6. Restore packaging only after H2-H4 artifacts exist.

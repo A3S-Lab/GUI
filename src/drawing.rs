@@ -12,6 +12,10 @@ pub use a3s_graphics::{
 
 mod layout_scene;
 pub use layout_scene::{scene_from_layout, LayoutSceneOptions};
+#[cfg(test)]
+mod layout_scene_tests;
+mod layout_text;
+pub use layout_text::{TextSceneEncoder, TextSceneRequest, MAX_TEXT_SCENE_PRIMITIVES_PER_NODE};
 
 #[cfg(feature = "gpu")]
 pub use a3s_graphics::{

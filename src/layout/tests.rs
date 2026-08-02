@@ -4,6 +4,10 @@ use crate::web::WebProps;
 
 use super::*;
 
+fn layout_native_tree(root: &NativeElement, size: Size) -> crate::GuiResult<LayoutSnapshot> {
+    super::layout_native_tree(root, LayoutOptions::boxes_only(size))
+}
+
 fn element(key: &str, role: NativeRole, class_name: &str) -> NativeElement {
     NativeElement::new(key, role)
         .with_props(NativeProps::new().web(WebProps::new().class_name(class_name)))

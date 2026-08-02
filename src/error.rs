@@ -22,6 +22,9 @@ pub enum GuiError {
     Internationalization {
         message: String,
     },
+    Text {
+        message: String,
+    },
     Graphics {
         message: String,
     },
@@ -50,6 +53,7 @@ impl Display for GuiError {
             GuiError::Internationalization { message } => {
                 write!(f, "internationalization error: {message}")
             }
+            GuiError::Text { message } => write!(f, "text layout error: {message}"),
             GuiError::Graphics { message } => write!(f, "graphics error: {message}"),
             GuiError::Host { message } => write!(f, "native host error: {message}"),
         }
@@ -73,6 +77,12 @@ impl GuiError {
 
     pub fn internationalization(message: impl Into<String>) -> Self {
         GuiError::Internationalization {
+            message: message.into(),
+        }
+    }
+
+    pub fn text(message: impl Into<String>) -> Self {
+        GuiError::Text {
             message: message.into(),
         }
     }

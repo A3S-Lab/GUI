@@ -111,8 +111,20 @@ primitives. Stable layout paths derive stable `DrawId` values. The software
 reference path supplies deterministic pixel evidence; the GPU path supplies
 the production renderer boundary.
 
-Text shaping, editing, and complete component visuals are intentionally
-unfinished. They must land in this generic path, not in per-OS renderers.
+The first M4 text boundary is implemented in this generic path:
+
+- `LayoutOptions::with_text` requires an explicit, bounded `TextShaper`;
+- one validated, 1/64-point-quantized `ShapedText` value supplies both
+  intrinsic layout measurement and retained glyph/cluster records;
+- source strings are not retained, and password values are masked before the
+  shaper is called;
+- `TextSceneEncoder` consumes that exact record, may maintain a glyph cache,
+  and is rejected if its primitives escape the shaped ink bounds;
+- box-only M3 layout remains explicit and never estimates character widths.
+
+The concrete font database, fallback/shaping implementation, glyph raster or
+atlas encoder, editing model, and complete component visuals remain unfinished.
+They must also live in this generic path, not in per-OS renderers.
 
 ## Platform host contract (H0)
 
@@ -267,8 +279,9 @@ pump, finalized component/action identity contract, bounded restart/replay,
 and restarted-process keyboard/stale-event gates. The remaining critical work
 is:
 
-1. production text shaping, editing, IME, and accessibility semantics on the
-   generic layout/scene path;
+1. production font discovery/shaping and glyph encoding behind the landed
+   generic layout/scene contracts, followed by editing, IME, and accessibility
+   semantics;
 2. concrete Windows, macOS, and Wayland/X11 hosts;
 3. component-by-component React Aria conformance;
 4. packaging, signing, installers, and real tri-platform evidence.

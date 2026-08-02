@@ -325,6 +325,16 @@ pub(super) fn resolve_paint(
     }
 }
 
+pub(super) fn resolve_text_color(
+    style: &PortableStyle,
+    id: &LayoutElementId,
+    diagnostics: &mut Vec<LayoutDiagnostic>,
+) -> LayoutColor {
+    style.color.as_ref().map_or(LayoutColor::BLACK, |color| {
+        resolve_color_checked(color, None, "color", id, diagnostics).unwrap_or(LayoutColor::BLACK)
+    })
+}
+
 fn diagnose_layout_modes(
     style: &PortableStyle,
     id: &LayoutElementId,

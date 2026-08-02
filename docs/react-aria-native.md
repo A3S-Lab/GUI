@@ -226,7 +226,8 @@ hosts.
 
 ## Immediate priorities
 
-1. finish generic text shaping, paragraph layout, text editing, and IME;
+1. implement font shaping and glyph backends on the landed generic text
+   contracts, then finish paragraph layout, text editing, and IME;
 2. implement the first concrete zero-widget host and accessibility bridge;
 3. close the eight explicit authoring-part gaps;
 4. move M6 primitives from semantic-only coverage to scene/pixel evidence;

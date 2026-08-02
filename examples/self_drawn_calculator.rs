@@ -218,7 +218,7 @@ mod tests {
         assert_eq!(result.event_sequence, 8);
         assert_eq!(result.action_invocations, 4);
         assert_eq!(result.display, "10");
-        assert_eq!(result.layout_fingerprint, 16_529_597_026_056_060_935);
+        assert_eq!(result.layout_fingerprint, 11_433_846_600_555_364_104);
         assert_eq!(result.scene_fingerprint, 2_100_550_662_756_266_801);
         assert_eq!((result.width, result.height), (410, 620));
         assert_eq!(result.pixel_bytes, 410 * 620 * 4);

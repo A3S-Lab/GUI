@@ -7,8 +7,19 @@ use crate::error::{GuiError, GuiResult};
 use crate::geometry::{Rect, Size};
 use crate::native::NativeRole;
 
-pub const LAYOUT_SCHEMA_VERSION: u16 = 1;
+use super::text::LayoutText;
+
+pub const LAYOUT_SCHEMA_VERSION: u16 = 2;
 pub const LAYOUT_QUANTIZATION: f64 = 1.0 / 64.0;
+
+pub(super) fn quantize(value: f64) -> f64 {
+    let value = (value / LAYOUT_QUANTIZATION).round() * LAYOUT_QUANTIZATION;
+    if value == -0.0 {
+        0.0
+    } else {
+        value
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -178,6 +189,17 @@ pub struct LayoutNodeRecord {
     pub paint_order: u32,
     pub hit_testable: bool,
     pub paint: LayoutPaint,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<LayoutText>,
+}
+
+impl LayoutNodeRecord {
+    pub fn visual_bounds(&self) -> Rect {
+        self.text
+            .as_ref()
+            .and_then(LayoutText::ink_bounds)
+            .map_or(self.border_box, |ink| rect_union(self.border_box, ink))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -319,7 +341,7 @@ impl LayoutSnapshot {
                     &mut dirty_bounds,
                     LayoutChangeKind::Removed,
                     (*id).clone(),
-                    Some(node.border_box),
+                    Some(node.visual_bounds()),
                     None,
                 ),
                 Some(next_node)
@@ -330,8 +352,8 @@ impl LayoutSnapshot {
                         &mut dirty_bounds,
                         LayoutChangeKind::Changed,
                         (*id).clone(),
-                        Some(node.border_box),
-                        Some(next_node.border_box),
+                        Some(node.visual_bounds()),
+                        Some(next_node.visual_bounds()),
                     )
                 }
                 Some(_) => {}
@@ -345,7 +367,7 @@ impl LayoutSnapshot {
                     LayoutChangeKind::Added,
                     id.clone(),
                     None,
-                    Some(node.border_box),
+                    Some(node.visual_bounds()),
                 );
             }
         }
