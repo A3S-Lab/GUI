@@ -58,7 +58,9 @@ pub use drop_policy::{
 };
 pub use frame::{PlatformRenderFrame, SelfDrawnFrameSnapshot};
 #[cfg(feature = "gpu")]
-pub use gpu_presenter::{GpuPreparedSceneFrame, GpuPresentedSceneFrame, GpuScenePresenter};
+pub use gpu_presenter::{
+    GpuCapturedSceneFrame, GpuPreparedSceneFrame, GpuPresentedSceneFrame, GpuScenePresenter,
+};
 pub use interaction::{
     SelfDrawnActionInvocation, SelfDrawnActionPropagation, SelfDrawnElementInteraction,
     SelfDrawnEventContext, SelfDrawnInputDispatch, SelfDrawnInteractionChange,

@@ -534,7 +534,7 @@ fn routes_native_platform_activation_key_names_to_primary_action() {
             &NativeEvent::new(HostNodeId::new(22), NativeEventKind::KeyDown).value("Return"),
         )
         .unwrap();
-    let gtk_space = EventRouter::new()
+    let space_key = EventRouter::new()
         .route(
             &blueprint,
             &NativeEvent::new(HostNodeId::new(22), NativeEventKind::KeyDown).value("space"),
@@ -542,7 +542,7 @@ fn routes_native_platform_activation_key_names_to_primary_action() {
         .unwrap();
 
     assert_eq!(return_key.action, "saveDocument");
-    assert_eq!(gtk_space.action, "saveDocument");
+    assert_eq!(space_key.action, "saveDocument");
 }
 
 #[test]

@@ -22,8 +22,8 @@ uses a DOM, CSSOM, WebView, or platform content-widget toolkit.
 > `platform-runtime` implements the shared atomic self-drawn frame runtime, and
 > `host-windows` provides the first raw Win32 window lifecycle, owned surface
 > lease, and normalized mouse/keyboard/wheel/touch/pen input. The Graphics-owned
-> presenter submits and presents the first real DX12 window frame. Raw
-> macOS/Linux hosts remain roadmap work.
+> presenter submits, presents, and can capture the exact prepared DX12
+> swapchain frame. Raw macOS/Linux hosts remain roadmap work.
 
 ## One semantic tree, one owned-pixel pipeline
 
@@ -70,6 +70,20 @@ and Graphics never infers behavior from pixels.
 Read [Architecture](docs/architecture.md) and
 [Self-drawn platform hosts](docs/platform-hosts.md) for the contracts.
 
+## Current DX12 evidence
+
+<p align="center">
+  <img src="./docs/assets/calculator-tsx-dx12.png" width="410" alt="Exact DX12 swapchain capture of the current self-drawn calculator geometry and colors">
+</p>
+
+This is the exact prepared swapchain image from the canonical TSX calculator,
+not a browser or toolkit mock. The same model produces byte-identical software
+output from Rust RSX; the reviewed DX12 run differs at 940 of 254,200 pixels
+(0.370%) with a maximum channel delta of 91. The
+[capture manifest](docs/assets/calculator-tsx-dx12.json) pins the evidence.
+Labels are intentionally absent because the production font/shaping/glyph
+backend is the next renderer milestone.
+
 ## Current implementation
 
 The repository already provides:
@@ -81,7 +95,8 @@ The repository already provides:
   drag/drop policy, live regions, and accessibility snapshots;
 - portable style resolution across all 504 top-level `PortableStyle` fields;
 - deterministic layout snapshots, stable scene identity, software reference
-  output, retained damage, and a reviewed GPU calculator slice;
+  output, retained damage, canonical RSX/TSX calculator parity, and reviewed
+  offscreen plus exact native-surface DX12 evidence;
 - explicit production text boundaries: a bounded `TextShaper` produces the
   only intrinsic measurement and retained glyph record, password values are
   masked before shaping, and a stateful `TextSceneEncoder` consumes that same
@@ -108,6 +123,10 @@ The repository already provides:
   DX12, verifies the submitted scene fingerprint, destroys the attached device
   through an explicit fault-injection feature, recreates the device and surface,
   and releases the GPU surface before destroying the HWND;
+- a one-shot presenter capture contract that copies the exact prepared
+  swapchain texture before presentation, normalizes BGRA to RGBA, and compares
+  the visible TSX calculator against the shared deterministic RSX/TSX scene in
+  target-native CI;
 - Rust-generated TypeScript protocol declarations, canonical cross-language
   fixtures, automatic JSX lowering, strict frame normalization, and
   revision-scoped ordered callbacks;
@@ -152,7 +171,7 @@ The repository already provides:
 Still required before a production native application:
 
 - Windows hardware-device pen capture plus tilt/rotation/eraser conformance,
-  TSF, UI Automation, system services, and reviewed GPU capture evidence;
+  TSF, UI Automation, and system services;
 - real zero-widget macOS and Wayland/X11 hosts;
 - a production font database/shaper and glyph raster/atlas encoder, followed by
   text editing, IME, and assistive-technology bridges;
@@ -331,7 +350,8 @@ just test-tsx-host
 all Rust tests and examples, the React Aria catalog, TypeScript fixtures, and
 whitespace. CI adds Windows-native lifecycle and minimize/restore ordering,
 touch/pen system injection, input/cancellation, H1 transaction, real DX12
-presentation, and device-loss recreation evidence.
+presentation, exact calculator swapchain capture parity, and device-loss
+recreation evidence.
 Toolkit-specific content-host and legacy bundle lanes do not exist.
 
 ## Repository map
@@ -358,12 +378,11 @@ docs/                     architecture, roadmap, protocol, and conformance
 
 The next critical path is:
 
-1. add hardware-device pen capture and tilt/rotation/eraser semantics, TSF,
-   UI Automation, and system services on Windows;
-2. implement the font discovery/shaping and glyph raster/atlas backends on the
+1. implement the font discovery/shaping and glyph raster/atlas backends on the
    landed generic text contracts, then add editing and IME;
-3. pin Rust RSX/TSX calculator parity and reviewed Windows GPU output, then port
-   the same zero-widget contract to macOS and Wayland/X11;
+2. add hardware-device pen capture and tilt/rotation/eraser semantics, TSF,
+   UI Automation, and system services on Windows;
+3. port the same zero-widget capture contract to macOS and Wayland/X11;
 4. close React Aria families milestone by milestone with tri-platform evidence;
 5. restore packaging only after the self-drawn host artifacts exist.
 

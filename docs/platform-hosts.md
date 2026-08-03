@@ -195,15 +195,17 @@ Delivered:
 - native user-resize reconciliation before the replacement scene is staged;
 - explicit Graphics device destruction, typed `SurfaceLost` deferral, surface
   lease release, and successful DX12 device/surface recreation;
+- one-shot readback of the exact prepared swapchain image, with BGRA-to-RGBA
+  normalization, deterministic calculator software parity, reviewed PNG and
+  manifest evidence, and target-native CI coverage;
 - real Windows lifecycle/H1/DX12 tests and unsafe/dependency firewalls.
 
 Remaining:
 
-- reviewed GPU capture evidence;
 - hardware-device pen capture plus tilt, rotation, and eraser conformance;
 - TSF text input and UI Automation snapshot/action bridge;
 - clipboard and explicit file-picker smoke;
-- deterministic reference story plus GPU screenshot evidence.
+- production glyph output in deterministic and GPU stories.
 
 Acceptance requires no WinUI/XAML dependency or runtime component.
 
@@ -268,6 +270,7 @@ Windows-native lane additionally proves raw lifecycle, lease rollback, legacy
 mouse/keyboard/wheel translation and cancellation, target-compiled
 `WM_POINTER` touch/pen normalization, real-HWND touch injection without
 compatibility-mouse events, User32 synthetic-pen pressure/motion/barrel state,
-ordered minimize/restore recovery, and Graphics/DX12 device-loss recreation. It
-is not hardware-device pen, text, accessibility-provider, system-service, or
-reviewed visual-conformance evidence yet.
+ordered minimize/restore recovery, Graphics/DX12 device-loss recreation, and
+reviewed calculator swapchain capture parity. It is not hardware-device pen,
+production text, accessibility-provider, system-service, or tri-platform
+visual-conformance evidence yet.

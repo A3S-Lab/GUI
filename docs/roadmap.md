@@ -22,8 +22,8 @@ or fallback renderer.
 | --- | --- | --- |
 | M0 Graphics boundary | Complete | Feature-gated Graphics edge, deterministic reference presenter, stable draw IDs |
 | M1 architecture cleanup | Complete | Layer boundaries and graph gates; content-toolkit code/dependencies deleted |
-| M2 GPU foundation | In progress | Reviewed calculator GPU slice plus real Graphics-owned DX12 window presentation; Metal/Vulkan and visual parity evidence missing |
-| M3 generic layout/scene | In progress | Generic calculator layout/scene/software fixture and all-style ownership matrix |
+| M2 GPU foundation | In progress | Reviewed calculator offscreen and native-surface DX12 parity plus device-loss recovery; Metal/Vulkan evidence missing |
+| M3 generic layout/scene | In progress | Shared RSX/TSX calculator Native IR/layout/scene/software fixture and all-style ownership matrix |
 | M4 text/input/a11y visuals | In progress | Bounded shaper/layout/scene contracts landed; concrete font, glyph, editing, IME, and AT backends missing |
 | M5 cutover/deletion | Partial | Legacy deletion complete; real OS-host cutover cannot occur until H2-H4 |
 | H0 host contract | Complete | Zero-widget transaction/event/API contract and dependency firewall |
@@ -31,9 +31,9 @@ or fallback renderer.
 | H2 Windows host | In progress | Real HWND lifecycle, owned surface leases, Graphics/DX12 presentation, PMv2 DPI, mouse/keyboard/wheel and system-injected WM_POINTER touch/pen input, atomic transactions, Windows CI |
 | H3-H4 real hosts | Planned | macOS and Wayland/X11 implementations absent |
 | T0 TSX contract | Complete | Process ownership, wire protocol, strict DTOs, generated declarations |
-| T1 TSX headless slice | Complete | Automatic JSX, canonical counter, revision-scoped ordered callbacks |
+| T1 TSX headless slice | Complete | Automatic JSX, canonical counter/calculator fixtures, revision-scoped ordered callbacks |
 | T2 TSX stateful runtime | Complete | Stateful `createApp`, public identity contract, bounded recovery/replay, and restarted-process keyboard/stale-event gates |
-| T3 TSX native window | In progress | Windows TSX process opens a visible raw HWND, presents through Graphics/DX12, and returns Win32 input/window-close actions; parity, services, a11y, and H3-H4 remain |
+| T3 TSX native window | In progress | Visible raw HWND/DX12 process plus reviewed calculator swapchain capture parity; services, a11y, glyphs, and H3-H4 remain |
 | T4-T5 TSX product | Planned | Watch/reload, platform artifacts, and publication remain |
 | M6-M8 React Aria | Planned | 51-family versioned matrix; Button scene smoke only |
 
@@ -118,6 +118,8 @@ Delivered:
 - local reviewed DX12 readback evidence;
 - safe Graphics-owned native surfaces with prepared-frame commit tokens;
 - real Win32/DX12 submission and presentation completion evidence;
+- exact prepared-swapchain capture with reviewed calculator software parity,
+  checked-in PNG/manifest evidence, and target-native CI;
 - explicit Graphics device destruction, typed loss propagation, and successful
   device/surface recreation through the Windows runtime.
 
@@ -125,7 +127,6 @@ Remaining:
 
 - real Metal and Vulkan host surfaces and presentation;
 - Metal/DX12/Vulkan parity stories;
-- reviewed native-runtime GPU capture evidence;
 - production text and clipping coverage.
 
 ### M3 — generic layout and scene vertical slice
@@ -263,15 +264,17 @@ Delivered:
   replacement-scene presentation;
 - explicit Graphics-owned device destruction with typed `SurfaceLost`
   deferral, lease release, and successful DX12 device/surface recreation;
+- exact prepared DX12 swapchain capture for the canonical TSX calculator,
+  compared against the byte-identical RSX/TSX software scene within the
+  reviewed 0.5%/96 bounds;
 - source/dependency firewalls confining unsafe Win32 ABI calls and rejecting
   content toolkits.
 
 Remaining:
 
-- reviewed GPU capture evidence;
 - hardware-device pen capture plus tilt, rotation, and eraser conformance;
 - TSF, UI Automation, clipboard, and explicit system services;
-- visible RSX/TSX story plus deterministic/GPU capture evidence.
+- production glyph output and the equivalent Metal/Vulkan story evidence.
 
 No WinUI/XAML dependency or application-content control is allowed.
 
@@ -330,6 +333,8 @@ Delivered:
 - stale revision rejection;
 - ordered awaited multi-callback dispatch;
 - real TSX counter parity with Rust RSX through Native IR and accessibility.
+- canonical calculator parity across Rust RSX and automatic TSX through Native
+  IR, accessibility, layout, scene, and byte-identical software pixels.
 
 ### T2 — stateful TypeScript runtime
 
@@ -408,6 +413,9 @@ Landed on 2026-08-03:
 - target-native CI finds the process-owned HWND, verifies visibility/title,
   injects real Win32 mouse and close messages, observes TSX actions, and closes
   the process through the framed protocol.
+- the canonical TSX calculator reaches a visible HWND and exact prepared DX12
+  swapchain readback; its reviewed capture remains within 0.5%/96 of the shared
+  deterministic reference.
 
 ### T4 — development loop and packaging
 
@@ -539,12 +547,17 @@ the staged present as `SurfaceLost`, releases the target lease, and recreates a
 DX12 device and surface on retry. The TSX event pump drives at most one retained
 recovery retry per turn.
 
-1. Capture and review the deterministic RSX/TSX story through DX12.
-2. Implement production font/shaping and glyph encoder backends, then TSF and
+Completed on 2026-08-03: the canonical automatic-TSX calculator and Rust RSX
+calculator now share Native IR, accessibility, layout, scene, and software
+pixels. Graphics copies the exact prepared DX12 swapchain image before present;
+the Windows gate enforces reviewed 0.5%/96 parity and records a PNG plus
+machine-readable manifest.
+
+1. Implement production font/shaping and glyph encoder backends, then TSF and
    UI Automation bridges.
-3. Add Windows clipboard/system-service smokes and port the same contract to
+2. Add Windows clipboard/system-service smokes and port the same contract to
    H3 and H4.
-4. Add hardware-device pen capture and extend the portable pen contract with
+3. Add hardware-device pen capture and extend the portable pen contract with
    tilt, rotation, and eraser semantics.
-5. Expand M6 deterministic stories and promote evidence through the matrix.
-6. Restore packaging only after H2-H4 artifacts exist.
+4. Expand M6 deterministic stories and promote evidence through the matrix.
+5. Restore packaging only after H2-H4 artifacts exist.

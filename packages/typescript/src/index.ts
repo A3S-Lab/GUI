@@ -16,7 +16,7 @@ export type {
   TsxCommittedMessageV1,
   TsxEventMessageV1,
 } from "./action-registry.ts";
-export { Button, Text, View, Window } from "./components.ts";
+export { Button, Text, Toolbar, View, Window } from "./components.ts";
 export { A3sClientHandshakeError, A3sClientHandshakeV1 } from "./client-handshake.ts";
 export type {
   A3sClientHandshakeErrorCodeV1,

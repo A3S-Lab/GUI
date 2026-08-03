@@ -712,7 +712,8 @@ Status: architecture accepted; the Rust-side strict handshake/framing,
 render/commit/event session, counter parity fixtures, self-drawn adapters,
 drop-policy DTO/resolver adapter, the software self-drawn Rust process host,
 and the ordered application runner plus bounded recovery/replay are implemented.
-Calculator and commands are pending. Rust-generated
+The canonical calculator model/parity/capture slice is implemented; commands
+are pending. Rust-generated
 declarations,
 the headless automatic JSX core, stateful JSX execution, client
 handshake/framing, the Node child-process byte transport, post-handshake session
@@ -720,9 +721,8 @@ integration, bounded revision callback scopes, ordered dispatch, and shared
 Rust/Node counter fixtures are implemented.
 
 - accept process, ownership, identity, protocol, and packaging decisions
-- retain the landed shared Rust/Node golden frame/event gate and extend it to
-  the calculator scenario
-- define the first counter and calculator parity scenarios
+- retain the landed shared Rust/Node counter and calculator golden-frame gates
+- retain the counter and calculator parity scenarios
 - record unsupported React and browser behaviors explicitly
 
 Gate: architecture review agrees that TSX is a peer authoring frontend and
@@ -733,8 +733,9 @@ cannot bypass Native IR, layout, Graphics, interaction, or accessibility.
 Status: headless protocol and JSX core complete. `hello`/`welcome`, atomic limit
 and renderer negotiation, exact message-id sequencing, 16 MiB-capped framing,
 incremental decoding, strict `render`/`committed`/`event` DTOs, transactional
-session ordering, self-drawn adapters, four canonical JSON fixtures, and the
-static counter Native IR/accessibility parity test have landed. Safe-integer
+session ordering, self-drawn adapters, five canonical JSON fixtures, and the
+counter plus calculator Native IR/accessibility parity tests have landed.
+Safe-integer
 validation, hexadecimal 64-bit fingerprints, deterministic Rust-generated
 TypeScript declarations, a fixed schema fingerprint, the private package
 skeleton, automatic `jsx-runtime`/`jsx-dev-runtime`, immutable element records,
@@ -747,15 +748,17 @@ landed.
 - extend the landed application messages with command messages
 - connect the landed strict drop-policy query/response DTOs to that transport
   and the Node callback registry
-- extend the landed static counter parity fixture to the calculator scenario
+- extend the story corpus beyond the landed counter and calculator scenarios
 
 Gates:
 
-- TypeScript golden frames decode and canonicalize byte-for-byte in Rust
+- TypeScript golden frames remain `JSON.stringify`-stable, decode strictly in
+  Rust, and preserve the same typed protocol values
 - malformed, oversized, stale, duplicate, and unknown messages fail before
   state mutation
-- the Rust RSX and TSX versions of the static counter have identical Native IR
-  and accessibility fingerprints
+- the Rust RSX and TSX versions of the counter and calculator have identical
+  Native IR and accessibility evidence; the calculator also pins layout,
+  scene, and software pixels
 - `cargo check --no-default-features --lib` remains free of Node and Graphics
 
 ### T2 - Stateful TypeScript Runtime
@@ -823,12 +826,16 @@ callback identity while autonomous host revisions advance. After draining each
 turn it attempts at most one retained redraw, allowing typed surface/device loss
 to recreate Graphics resources without a busy retry loop. A target-native
 cross-process test verifies the HWND, title, DX12 commit, Win32 input, close
-action, and protocol shutdown. Calculator parity, reviewed pixels, UI
-Automation, TSF, system commands, physical pen evidence, and H3-H4 are still
-open.
+action, and protocol shutdown. The canonical automatic-JSX calculator now
+matches the Rust RSX calculator through Native IR, accessibility, layout,
+scene, and software pixels. A target-native test presents that TSX model in a
+visible raw HWND, reads the exact prepared DX12 swapchain image, and enforces
+the reviewed 0.5%/96 parity bounds. UI Automation, TSF, system commands,
+physical pen evidence, production glyphs, and H3-H4 are still open.
 
 - launch the real host binary from `nub app.tsx`
-- present the TSX counter and shared calculator through A3S Graphics
+- retain the TSX counter process and shared calculator Graphics/DX12 capture
+  gates
 - return native input as ordered action invocations
 - expose typed focus, clipboard, window-close, and inspector commands
 

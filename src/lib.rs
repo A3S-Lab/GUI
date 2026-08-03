@@ -155,7 +155,9 @@ pub use platform_host::{
     MAX_PLATFORM_HOST_TRANSACTION_BYTES,
 };
 #[cfg(all(feature = "platform-runtime", feature = "gpu"))]
-pub use platform_runtime::{GpuPreparedSceneFrame, GpuPresentedSceneFrame, GpuScenePresenter};
+pub use platform_runtime::{
+    GpuCapturedSceneFrame, GpuPreparedSceneFrame, GpuPresentedSceneFrame, GpuScenePresenter,
+};
 #[cfg(feature = "platform-runtime")]
 pub use platform_runtime::{
     PlatformRenderFrame, PlatformSceneDeferral, PlatformScenePreparation, PlatformScenePresenter,

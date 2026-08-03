@@ -39,7 +39,7 @@ fn raw_surface_ownership_stays_behind_the_pinned_graphics_edge() {
         .find(|line| line.starts_with("a3s-graphics ="))
         .expect("a3s-graphics dependency must stay explicit");
     assert!(dependency.contains("https://github.com/A3S-Lab/Graphics"));
-    assert!(dependency.contains("a1b1113a5f229a7b02f655dab9de41ad5454fed4"));
+    assert!(dependency.contains("a6b5e3d41eeadca5d15c87bfc0849f3c0da44aad"));
     assert!(dependency.contains("default-features = false"));
     let features = manifest
         .split_once("[features]")

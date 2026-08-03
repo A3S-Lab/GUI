@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "story": "calculator-default",
+  "authoringFrontends": ["rust-rsx", "typescript-tsx"],
+  "platform": "windows",
+  "backend": "direct3d12",
+  "width": 410,
+  "height": 620,
+  "scaleFactor": 1,
+  "layoutFingerprint": "5d433964d6cf7d58",
+  "sceneFingerprint": "a1534264ea6d8853",
+  "rgbaFingerprint": "33003f6d1e3c6ce5",
+  "pngSha256": "76fd0def38bff16743ef48243e1423a8eb37aaad79a7910c8d15351a210f0cae",
+  "softwareParity": {
+    "differentPixels": 940,
+    "totalPixels": 254200,
+    "differentPercent": 0.369788,
+    "maximumChannelDelta": 91,
+    "allowedDifferentPercent": 0.5,
+    "allowedMaximumChannelDelta": 96
+  },
+  "graphicsRevision": "a6b5e3d41eeadca5d15c87bfc0849f3c0da44aad",
+  "sourceTest": "tests/windows_calculator_capture.rs"
+}

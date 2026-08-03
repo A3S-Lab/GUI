@@ -135,22 +135,32 @@ but remain separate from paint commands.
 
 ## Calculator evidence
 
-`tests/calculator_layout_scene.rs` compiles the existing shared calculator RSX,
-lowers it through `RsxCompilerBridge`, wraps the real 410 by 620 window native
-tree, and then uses this generic path. The fixture pins:
+`tests/calculator_layout_scene.rs` compiles the shared calculator RSX, lowers
+it through `RsxCompilerBridge`, wraps the real 410 by 620 window native tree,
+and then uses this generic path. `tests/calculator_tsx_parity.rs` decodes the
+canonical automatic-JSX calculator fixture and proves that TSX and RSX produce
+the same Native IR, accessibility tree, layout, scene, and software pixels.
+The reference fixture pins:
 
 - layout fingerprint `11433846600555364104`
 - Graphics scene fingerprint `2100550662756266801`
 - exact repeated software output and retained no-damage behavior
 - background, transparent exterior, ordinary-key, and equals-key pixels
 
-On the 2026-08-01 local Direct3D 12 run, GPU readback differed from the software
-reference at 940 of 254,200 pixels (0.370%), all around rasterized edges, with a
-maximum channel delta of 91. The reviewed non-text gate allows at most 0.5% of
-pixels and a maximum channel delta of 96 while requiring the listed solid
-pixels to match exactly.
+`tests/windows_calculator_capture.rs` sends the TSX model through a visible raw
+HWND and copies the exact prepared DX12 swapchain image before presentation.
+On the reviewed 2026-08-03 capture, it differed from the software reference at
+940 of 254,200 pixels (0.370%), all around rasterized edges, with a maximum
+channel delta of 91. The target-native gate allows at most 0.5% of pixels and a
+maximum channel delta of 96 while requiring the listed solid pixels to match
+exactly. The checked-in [PNG](assets/calculator-tsx-dx12.png) and
+[machine-readable manifest](assets/calculator-tsx-dx12.json) record that run.
 
-An unavailable adapter skips the local GPU test and is not cross-platform
-evidence. The Win32 lane now proves DX12 window presentation, but Metal/Vulkan
-runs, reviewed real-window capture parity, production font and glyph backends,
-input, IME, and accessibility remain separate roadmap gates.
+The capture deliberately contains geometry and color but no labels. Production
+font discovery, shaping, glyph rasterization, and atlas encoding are still M4
+work; the evidence does not substitute text drawn by another toolkit.
+
+An unavailable adapter skips the local offscreen GPU test and is not
+cross-platform evidence. The Win32 lane now proves DX12 window presentation
+and prepared-surface capture parity, but Metal/Vulkan runs, production font and
+glyph backends, IME, and accessibility remain separate roadmap gates.

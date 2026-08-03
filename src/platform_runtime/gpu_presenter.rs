@@ -1,5 +1,5 @@
 use a3s_graphics::{
-    FramePlanner, GpuCapabilities, GpuPreparedSurfaceFrame, GpuRendererOptions,
+    FramePlanner, GpuCapabilities, GpuPreparedSurfaceFrame, GpuReadback, GpuRendererOptions,
     GpuSurfaceAcquireStatus, GpuSurfaceFrame, GpuSurfacePreparation, GpuSurfaceRenderer,
     GraphicsError,
 };
@@ -43,6 +43,31 @@ impl GpuPresentedSceneFrame {
     }
 }
 
+/// Exact host-readable pixels copied from one successfully presented surface frame.
+#[derive(Debug, Clone)]
+pub struct GpuCapturedSceneFrame {
+    frame: PlatformRenderFrame,
+    gpu: GpuSurfaceFrame,
+    image: GpuReadback,
+}
+
+impl GpuCapturedSceneFrame {
+    /// Runtime frame whose prepared swapchain image was captured.
+    pub fn frame(&self) -> &PlatformRenderFrame {
+        &self.frame
+    }
+
+    /// Presentation metadata for the captured swapchain image.
+    pub const fn gpu(&self) -> GpuSurfaceFrame {
+        self.gpu
+    }
+
+    /// Straight-alpha sRGB pixels normalized to RGBA8 channel order.
+    pub fn image(&self) -> &GpuReadback {
+        &self.image
+    }
+}
+
 /// Graphics-owned presenter for a host-provided native window target.
 ///
 /// This type creates no window or platform widget. It owns the Graphics
@@ -53,6 +78,9 @@ pub struct GpuScenePresenter {
     planner: FramePlanner,
     renderer: Option<GpuSurfaceRenderer>,
     committed: Option<GpuPresentedSceneFrame>,
+    captured: Option<GpuCapturedSceneFrame>,
+    capture_next_frame: bool,
+    capture_failure: Option<String>,
     prepare_count: u64,
     publish_count: u64,
     discard_count: u64,
@@ -72,6 +100,12 @@ impl std::fmt::Debug for GpuScenePresenter {
                 "committed_revision",
                 &self.committed.as_ref().map(|frame| frame.frame.revision),
             )
+            .field(
+                "captured_revision",
+                &self.captured.as_ref().map(|frame| frame.frame.revision),
+            )
+            .field("capture_next_frame", &self.capture_next_frame)
+            .field("capture_failure", &self.capture_failure)
             .field("prepare_count", &self.prepare_count)
             .field("publish_count", &self.publish_count)
             .field("discard_count", &self.discard_count)
@@ -100,6 +134,9 @@ impl GpuScenePresenter {
             planner: FramePlanner::new(),
             renderer: None,
             committed: None,
+            captured: None,
+            capture_next_frame: false,
+            capture_failure: None,
             prepare_count: 0,
             publish_count: 0,
             discard_count: 0,
@@ -116,6 +153,34 @@ impl GpuScenePresenter {
 
     pub fn committed(&self) -> Option<&GpuPresentedSceneFrame> {
         self.committed.as_ref()
+    }
+
+    /// Requests a readback of the next frame that reaches native presentation.
+    ///
+    /// The request is one-shot and clears any older capture or capture error.
+    /// Normal presentation remains available when the native surface does not
+    /// support readback; inspect [`Self::capture_failure`] for that outcome.
+    pub fn request_next_frame_capture(&mut self) -> GuiResult<()> {
+        self.ensure_running()?;
+        self.captured = None;
+        self.capture_failure = None;
+        self.capture_next_frame = true;
+        Ok(())
+    }
+
+    /// Returns whether a one-shot request is waiting for a presented frame.
+    pub const fn capture_pending(&self) -> bool {
+        self.capture_next_frame
+    }
+
+    /// Last successfully captured native-surface frame.
+    pub fn captured(&self) -> Option<&GpuCapturedSceneFrame> {
+        self.captured.as_ref()
+    }
+
+    /// Last capture-only error; presentation errors remain in [`Self::last_failure`].
+    pub fn capture_failure(&self) -> Option<&str> {
+        self.capture_failure.as_deref()
     }
 
     pub const fn prepare_count(&self) -> u64 {
@@ -247,6 +312,20 @@ where
 
     fn publish(&mut self, prepared: Self::PreparedFrame) -> PlatformScenePublishStatus {
         let GpuPreparedSceneFrame { frame, inner } = prepared;
+        let capture_requested = std::mem::take(&mut self.capture_next_frame);
+        let capture_ticket = if capture_requested {
+            self.renderer
+                .as_ref()
+                .ok_or_else(|| {
+                    GuiError::graphics("GPU surface renderer was detached before capture")
+                })
+                .and_then(|renderer| {
+                    pollster::block_on(renderer.request_readback(&inner)).map_err(GuiError::from)
+                })
+                .map(Some)
+        } else {
+            Ok(None)
+        };
         let result = self
             .renderer
             .as_mut()
@@ -256,10 +335,28 @@ where
             Ok(gpu) => {
                 self.publish_count = self.publish_count.saturating_add(1);
                 self.last_failure = None;
+                match capture_ticket {
+                    Ok(Some(ticket)) => match ticket.finish() {
+                        Ok(image) => {
+                            self.capture_failure = None;
+                            self.captured = Some(GpuCapturedSceneFrame {
+                                frame: frame.clone(),
+                                gpu,
+                                image,
+                            });
+                        }
+                        Err(error) => self.capture_failure = Some(error.to_string()),
+                    },
+                    Err(error) => self.capture_failure = Some(error.to_string()),
+                    Ok(None) => {}
+                }
                 self.committed = Some(GpuPresentedSceneFrame { frame, gpu });
                 PlatformScenePublishStatus::Presented
             }
             Err(error) => {
+                if capture_requested {
+                    self.capture_next_frame = true;
+                }
                 self.last_failure = Some(error.to_string());
                 self.detach_surface();
                 PlatformScenePublishStatus::SurfaceLost
@@ -331,5 +428,12 @@ mod tests {
         assert_send_sync::<GpuScenePresenter>();
         assert_send::<GpuPreparedSceneFrame>();
         assert_send_sync::<GpuPresentedSceneFrame>();
+        assert_send_sync::<GpuCapturedSceneFrame>();
+    }
+
+    #[test]
+    fn gpu_presenter_exposes_one_shot_surface_capture() {
+        let _ = GpuScenePresenter::request_next_frame_capture;
+        let _ = GpuScenePresenter::captured;
     }
 }

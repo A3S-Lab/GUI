@@ -167,7 +167,9 @@ export function compileFrameWithRuntimeV1(
     wireRoot = compileNode(rootDraft, [], compileState);
   }
 
-  const actions = [...compileState.actions.values()].map((entry) => entry.wire);
+  const actions = [...compileState.actions.values()]
+    .sort((left, right) => utf8Compare(left.wire.id, right.wire.id))
+    .map((entry) => entry.wire);
   const frame: ProtocolUiFrameV1 = window === undefined
     ? { frameId, root: wireRoot, actions }
     : { frameId, root: wireRoot, actions, window };

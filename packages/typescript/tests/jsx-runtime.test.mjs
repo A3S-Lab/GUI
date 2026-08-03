@@ -15,6 +15,7 @@ import {
 import { Fragment, jsx, jsxs } from "../src/jsx-runtime.ts";
 import { jsxDEV } from "../src/jsx-dev-runtime.ts";
 import { counterCompilation } from "./fixtures/counter.automatic.mjs";
+import { calculatorCompilation } from "./fixtures/calculator.automatic.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repositoryRoot = resolve(packageRoot, "..", "..");
@@ -213,6 +214,17 @@ test("explicit actions produce the shared Rust-canonical counter fixture", () =>
     payload: counterCompilation.frame,
   };
   assert.equal(JSON.stringify(message), fixtureSource);
+});
+
+test("automatic JSX produces the shared calculator fixture", () => {
+  const fixtureSource = readFileSync(
+    resolve(repositoryRoot, "tests", "fixtures", "tsx-protocol", "render-calculator-v1.json"),
+    "utf8",
+  ).trim();
+  const fixture = JSON.parse(fixtureSource);
+
+  assert.deepEqual(calculatorCompilation.frame, fixture.payload);
+  assert.equal(calculatorCompilation.callbacks.size, 0);
 });
 
 test("Window lowers to session metadata and never becomes a content node", () => {
