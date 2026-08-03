@@ -117,13 +117,15 @@ Delivered:
 - deterministic non-text calculator scene;
 - local reviewed DX12 readback evidence;
 - safe Graphics-owned native surfaces with prepared-frame commit tokens;
-- real Win32/DX12 submission and presentation completion evidence.
+- real Win32/DX12 submission and presentation completion evidence;
+- explicit Graphics device destruction, typed loss propagation, and successful
+  device/surface recreation through the Windows runtime.
 
 Remaining:
 
 - real Metal and Vulkan host surfaces and presentation;
 - Metal/DX12/Vulkan parity stories;
-- device-loss fault injection plus minimize/restore and capture evidence;
+- reviewed native-runtime GPU capture evidence;
 - production text and clipping coverage.
 
 ### M3 — generic layout and scene vertical slice
@@ -255,13 +257,18 @@ Delivered:
   contacts, compatibility-mouse suppression, and capture/focus cancellation;
 - real-HWND User32 synthetic-pen injection covering pressure, motion, stable
   identity, and barrel-button state;
+- real-HWND minimize/restore ordering that retains hidden state, applies
+  restored nonzero geometry, and redraws only after exposure;
+- native user-resize reconciliation into the host transaction model before
+  replacement-scene presentation;
+- explicit Graphics-owned device destruction with typed `SurfaceLost`
+  deferral, lease release, and successful DX12 device/surface recreation;
 - source/dependency firewalls confining unsafe Win32 ABI calls and rejecting
   content toolkits.
 
 Remaining:
 
-- device-loss fault injection, minimize/restore recovery, and reviewed GPU
-  capture evidence;
+- reviewed GPU capture evidence;
 - hardware-device pen capture plus tilt, rotation, and eraser conformance;
 - TSF, UI Automation, clipboard, and explicit system services;
 - visible RSX/TSX story plus deterministic/GPU capture evidence.
@@ -524,8 +531,15 @@ state. The production normalizer consumes `PEN_FLAG_BARREL`; the test-only ABI
 does not enable Win32 content-control bindings. Hardware-device capture and
 tilt/rotation/eraser semantics remain incomplete.
 
-1. Add minimize/restore and device-loss fault injection, then capture the same
-   deterministic story through DX12.
+Completed on 2026-08-03: native Win32 resize is reconciled into the host model,
+and restore queues current nonzero geometry before exposure, so hidden semantic
+updates are rebuilt without pixels and replayed once at the restored size. An
+explicit conformance feature destroys the Graphics-owned device; H1 rolls back
+the staged present as `SurfaceLost`, releases the target lease, and recreates a
+DX12 device and surface on retry. The TSX event pump drives at most one retained
+recovery retry per turn.
+
+1. Capture and review the deterministic RSX/TSX story through DX12.
 2. Implement production font/shaping and glyph encoder backends, then TSF and
    UI Automation bridges.
 3. Add Windows clipboard/system-service smokes and port the same contract to

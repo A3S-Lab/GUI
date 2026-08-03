@@ -5,7 +5,7 @@ version = 4
 [[package]]
 name = "a3s-graphics"
 version = "0.1.0"
-source = "git+https://github.com/A3S-Lab/Graphics?rev=0afa90bc40ef05f158b1a6ffa4dc7583af3a32a9#0afa90bc40ef05f158b1a6ffa4dc7583af3a32a9"
+source = "git+https://github.com/A3S-Lab/Graphics?rev=a1b1113a5f229a7b02f655dab9de41ad5454fed4#a1b1113a5f229a7b02f655dab9de41ad5454fed4"
 dependencies = [
  "bytemuck",
  "raw-window-handle",

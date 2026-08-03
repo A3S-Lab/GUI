@@ -283,11 +283,13 @@ The portable `just verify` gate covers:
 Target-native CI additionally runs Win32 lifecycle, normalized input and
 cancellation, real-HWND touch and User32 synthetic-pen injection, H1
 first-frame transaction, surface-lease rollback, real Graphics/DX12
-presentation, and a cross-process visible TSX window test that injects Win32
-mouse/close messages and observes ordered TSX actions. The pen gate covers
-pressure, motion, identity, and barrel state without enabling content-control
-bindings. Equivalent macOS/Linux lanes arrive with their hosts. Deleted toolkit
-and bundle lanes are not retained as migration evidence.
+presentation, geometry-before-exposure minimize/restore recovery, explicit
+device destruction followed by DX12 recreation, and a cross-process visible
+TSX window test that injects Win32 mouse/close messages and observes ordered
+TSX actions. The pen gate covers pressure, motion, identity, and barrel state
+without enabling content-control bindings. Equivalent macOS/Linux lanes arrive
+with their hosts. Deleted toolkit and bundle lanes are not retained as migration
+evidence.
 
 ## Current gaps
 
@@ -303,8 +305,7 @@ restarted-process keyboard/stale-event gates. The remaining critical work is:
    generic layout/scene contracts, followed by editing, IME, and accessibility
    semantics;
 2. Windows hardware-device pen capture and extended pen properties, TSF/UIA,
-   device-loss and reviewed TSX parity evidence, plus raw macOS and Wayland/X11
-   hosts;
+   reviewed TSX parity evidence, plus raw macOS and Wayland/X11 hosts;
 3. component-by-component React Aria conformance;
 4. packaging, signing, installers, and real tri-platform evidence.
 

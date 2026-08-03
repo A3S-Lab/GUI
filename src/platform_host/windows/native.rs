@@ -284,6 +284,10 @@ impl NativeWindow {
         self.spec.visible = visible;
     }
 
+    pub(super) fn observe_logical_size(&mut self, logical_size: Size) {
+        self.spec.logical_size = logical_size;
+    }
+
     pub(super) fn invalidate(&self) -> GuiResult<()> {
         // SAFETY: hwnd is live; a null RECT invalidates the complete client
         // area and erase=false preserves the self-drawn surface.
@@ -544,15 +548,28 @@ unsafe fn window_proc_inner(hwnd: HWND, message: u32, wparam: WPARAM, lparam: LP
         }
         WM_SIZE => {
             let minimized = wparam as u32 == SIZE_MINIMIZED;
-            if minimized != context.occluded {
-                context.occluded = minimized;
-                context.window_event(PlatformWindowEvent::OcclusionChanged {
-                    window: context.id,
-                    occluded: minimized,
-                });
-            }
-            if !minimized {
+            if minimized {
+                if !context.occluded {
+                    context.occluded = true;
+                    context.window_event(PlatformWindowEvent::OcclusionChanged {
+                        window: context.id,
+                        occluded: true,
+                    });
+                }
+            } else {
+                // Reconcile restored geometry while the portable runtime still
+                // considers the window occluded. Exposure can then replay the
+                // retained scene once at the current size instead of briefly
+                // presenting the pre-minimize geometry.
                 context.resized(hwnd);
+                let was_occluded = context.occluded;
+                context.occluded = false;
+                if was_occluded {
+                    context.window_event(PlatformWindowEvent::OcclusionChanged {
+                        window: context.id,
+                        occluded: false,
+                    });
+                }
             }
             0
         }

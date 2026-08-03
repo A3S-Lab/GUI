@@ -184,6 +184,24 @@ impl WindowsPlatformHost {
         }
     }
 
+    fn pop_event(&mut self) -> GuiResult<Option<PlatformHostEvent>> {
+        let event = self.events.pop()?;
+        if let Some(PlatformHostEvent::Window {
+            event:
+                PlatformWindowEvent::Resized {
+                    window,
+                    logical_size,
+                },
+        }) = &event
+        {
+            if let Some(record) = self.windows.get_mut(window) {
+                record.state.spec.logical_size = *logical_size;
+                record.native.observe_logical_size(*logical_size);
+            }
+        }
+        Ok(event)
+    }
+
     fn current_state(&self) -> BTreeMap<PlatformWindowId, WindowsWindowState> {
         self.windows
             .iter()
@@ -421,11 +439,11 @@ impl PlatformHost for WindowsPlatformHost {
 
     fn poll_event(&mut self) -> GuiResult<Option<PlatformHostEvent>> {
         self.ensure_running()?;
-        if let Some(event) = self.events.pop()? {
+        if let Some(event) = self.pop_event()? {
             return Ok(Some(event));
         }
         pump_messages(&self.events);
-        self.events.pop()
+        self.pop_event()
     }
 
     fn shutdown(&mut self) -> GuiResult<()> {

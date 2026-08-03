@@ -81,6 +81,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --no-default-features --features host-windows,platform-runtime,gpu --test windows_platform_host graphics_presenter_draws_and_presents_the_first_real_win32_frame -- --exact --test-threads=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --no-default-features --features host-windows,platform-runtime,gpu-fault-injection --test windows_lifecycle -- --test-threads=1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --no-default-features --features host-windows,platform-runtime,gpu --test windows_tsx_host -- --test-threads=1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --no-default-features --features host-windows --test platform_host_firewall -- --test-threads=1

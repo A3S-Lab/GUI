@@ -19,7 +19,7 @@ feature links those toolkits.
 | --- | --- | --- |
 | H0 contract | Implemented | Versioned transactions/events, validation limits, recording host, dependency firewall |
 | H1 shared runtime | Implemented | Host-first target staging, typed presenter completion, rollback ordering, input/hit/accessibility routing |
-| H2 Windows host | In progress | Real Win32 lifecycle, owned surface leases, Graphics/DX12 presentation, visible TSX process, DPI/size/focus/close, mouse/keyboard/wheel plus WM_POINTER touch/pen input, target CI |
+| H2 Windows host | In progress | Real Win32 lifecycle and minimize/restore recovery, owned surface leases, Graphics/DX12 presentation and device-loss recreation, visible TSX process, DPI/size/focus/close, mouse/keyboard/wheel plus WM_POINTER touch/pen input, target CI |
 | H3 macOS host | Planned | No concrete macOS window/Metal host in the repository |
 | H4 Linux host | Planned | No concrete Wayland/X11/Vulkan host in the repository |
 | H5 product cutover | Planned | Requires all three hosts, packaging, and conformance evidence |
@@ -35,8 +35,11 @@ through a real visible HWND. The pen gate verifies pressure, motion, stable
 identity, and barrel-button state without enabling Win32 content-control
 bindings. The native TSX process lane also verifies a process-owned visible
 HWND, GPU commit, normalized mouse action, semantic window-close action, and
-framed shutdown. Hardware-device pen capture, reviewed screenshots, and full
-Windows conformance remain incomplete.
+framed shutdown. A lifecycle lane proves native resize is reconciled into the
+host transaction model and nonzero restored geometry is applied before exposure
+redraw. An explicit conformance feature destroys the Graphics-owned device and
+verifies typed surface release plus DX12 recreation. Hardware-device pen
+capture, reviewed screenshots, and full Windows conformance remain incomplete.
 `host-macos` and `host-linux` remain capability markers.
 
 ## Target pipeline
@@ -144,6 +147,12 @@ target, commits the host, presents, and advances the matching logical snapshot.
 Any pre-commit failure discards Graphics work and releases its lease before
 host rollback. A post-commit drop or surface loss is typed, retains logical
 state matching the host commit, and schedules replay.
+Prepare-time device loss follows the same recoverable path: the GPU presenter
+detaches its device and surface, the host rolls back the staged presentation,
+and the retained scene is replayed against a fresh Graphics renderer.
+The shared runtime exposes a single retained-redraw retry operation. The TSX
+event pump invokes it at most once per turn after draining native events, so a
+repeated timeout or loss cannot create a tight retry loop.
 
 The recording and reference implementations are executable specifications for
 future OS hosts.
@@ -181,12 +190,16 @@ Delivered:
   capture/focus-loss cancellation;
 - real-HWND User32 touch and synthetic-pen injection, including pen pressure,
   movement, stable identity, and barrel-button normalization;
+- ordered minimize/restore handling that commits current nonzero geometry while
+  occluded and redraws only after exposure;
+- native user-resize reconciliation before the replacement scene is staged;
+- explicit Graphics device destruction, typed `SurfaceLost` deferral, surface
+  lease release, and successful DX12 device/surface recreation;
 - real Windows lifecycle/H1/DX12 tests and unsafe/dependency firewalls.
 
 Remaining:
 
-- device-loss fault injection, minimize/restore recovery, and reviewed GPU
-  capture evidence;
+- reviewed GPU capture evidence;
 - hardware-device pen capture plus tilt, rotation, and eraser conformance;
 - TSF text input and UI Automation snapshot/action bridge;
 - clipboard and explicit file-picker smoke;
@@ -255,6 +268,6 @@ Windows-native lane additionally proves raw lifecycle, lease rollback, legacy
 mouse/keyboard/wheel translation and cancellation, target-compiled
 `WM_POINTER` touch/pen normalization, real-HWND touch injection without
 compatibility-mouse events, User32 synthetic-pen pressure/motion/barrel state,
-and Graphics/DX12 presentation. It is not hardware-device pen, text,
-accessibility-provider, system-service, or reviewed visual-conformance evidence
-yet.
+ordered minimize/restore recovery, and Graphics/DX12 device-loss recreation. It
+is not hardware-device pen, text, accessibility-provider, system-service, or
+reviewed visual-conformance evidence yet.

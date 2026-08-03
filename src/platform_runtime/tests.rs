@@ -681,6 +681,8 @@ fn occlusion_defers_pixels_until_the_window_is_exposed() {
     assert!(!hidden.presentation_requested);
     assert!(runtime.pending_redraw());
     assert_eq!(runtime.presenter().publish_count(), 1);
+    assert!(runtime.retry_pending_redraw().unwrap().is_none());
+    assert_eq!(runtime.presenter().publish_count(), 1);
 
     let exposed = runtime
         .handle_event(PlatformHostEvent::Window {

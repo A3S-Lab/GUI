@@ -43,6 +43,7 @@ gpu = [
     "dep:pollster",
     "dep:raw-window-handle",
 ]
+gpu-fault-injection = ["gpu", "a3s-graphics/gpu-fault-injection"]
 platform-host = []
 platform-runtime = ["platform-host", "graphics"]
 host-macos = ["platform-host"]
@@ -60,7 +61,7 @@ design-system = ["authoring"]
 typescript-schema = ["dep:ts-rs"]
 
 [dependencies]
-a3s-graphics = { git = "https://github.com/A3S-Lab/Graphics", rev = "0afa90bc40ef05f158b1a6ffa4dc7583af3a32a9", optional = true, default-features = false }
+a3s-graphics = { git = "https://github.com/A3S-Lab/Graphics", rev = "a1b1113a5f229a7b02f655dab9de41ad5454fed4", optional = true, default-features = false }
 fixed_decimal = { version = "0.7.2", features = ["ryu"] }
 icu_collator = "2.2.1"
 icu_datetime = "2.2.0"

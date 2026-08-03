@@ -819,7 +819,9 @@ text, pointer, keyboard, focus, and accessibility slice.
 Windows executable status: the TSX host now selects the raw Win32 host and GPU
 presenter, opens a visible window on the first frame, continuously drains OS
 events, forwards ordered mouse actions and semantic `onClose`, and preserves
-callback identity while autonomous host revisions advance. A target-native
+callback identity while autonomous host revisions advance. After draining each
+turn it attempts at most one retained redraw, allowing typed surface/device loss
+to recreate Graphics resources without a busy retry loop. A target-native
 cross-process test verifies the HWND, title, DX12 commit, Win32 input, close
 action, and protocol shutdown. Calculator parity, reviewed pixels, UI
 Automation, TSF, system commands, physical pen evidence, and H3-H4 are still

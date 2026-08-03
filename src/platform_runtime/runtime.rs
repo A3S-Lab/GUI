@@ -323,6 +323,10 @@ where
                         };
                     let rollback = self.host.rollback();
                     rollback_staged_surface(surface_cleanup, rollback)?;
+                    if status == PlatformPresentationStatus::SurfaceLost {
+                        self.stats.surface_recoveries =
+                            self.stats.surface_recoveries.saturating_add(1);
+                    }
                     self.pending_redraw = true;
                     let retained_revision = self
                         .committed

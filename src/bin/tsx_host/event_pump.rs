@@ -74,6 +74,7 @@ impl HostEventPump {
                 emit_runtime_dispatch(output, limits, session, &dispatch)?;
             }
         }
+        let _ = runtime.retry_pending_redraw()?;
         Ok(())
     }
 

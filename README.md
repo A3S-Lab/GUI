@@ -94,16 +94,20 @@ The repository already provides:
   focus-loss cancellation, bounded concurrent `WM_POINTER` touch/pen
   translation with pressure and namespaced identities, real-HWND touch and
   User32 synthetic-pen injection evidence, compatibility-mouse suppression,
-  barrel-button normalization, hidden first-frame staging, owned raw-surface
-  leases that prevent premature HWND destruction, atomic
+  barrel-button normalization, geometry-before-exposure minimize/restore
+  recovery, native-resize transaction reconciliation, hidden first-frame
+  staging, owned raw-surface leases that prevent premature HWND destruction,
+  atomic
   prepare/commit/rollback, and Windows-native CI evidence;
 - `SelfDrawnWindowRuntime` with atomic prepare/commit/reject, recovery,
   typed presentation outcomes, normalized input, hit testing, drag/drop,
-  accessibility actions, and reference/recording/GPU presenters;
+  accessibility actions, retained redraw retry, and reference/recording/GPU
+  presenters; the TSX event pump attempts at most one pending recovery per turn;
 - a real Windows presentation gate that prepares a Graphics swapchain frame
   against the staged HWND, commits and shows the raw window, presents through
-  DX12, verifies the submitted scene fingerprint, and releases the GPU surface
-  before destroying the HWND;
+  DX12, verifies the submitted scene fingerprint, destroys the attached device
+  through an explicit fault-injection feature, recreates the device and surface,
+  and releases the GPU surface before destroying the HWND;
 - Rust-generated TypeScript protocol declarations, canonical cross-language
   fixtures, automatic JSX lowering, strict frame normalization, and
   revision-scoped ordered callbacks;
@@ -148,8 +152,7 @@ The repository already provides:
 Still required before a production native application:
 
 - Windows hardware-device pen capture plus tilt/rotation/eraser conformance,
-  TSF, UI Automation, system services, device-loss fault injection, and
-  reviewed GPU capture evidence;
+  TSF, UI Automation, system services, and reviewed GPU capture evidence;
 - real zero-widget macOS and Wayland/X11 hosts;
 - a production font database/shaper and glyph raster/atlas encoder, followed by
   text editing, IME, and assistive-technology bridges;
@@ -291,6 +294,7 @@ cargo run --locked --no-default-features \
 | `graphics` | GUI-to-A3S-Graphics scene boundary |
 | `software-reference` | Deterministic software presenter |
 | `gpu` | Graphics-owned offscreen and native-surface GPU paths |
+| `gpu-fault-injection` | Explicit conformance-only device destruction; never enabled by default |
 | `platform-host` | Zero-widget OS boundary contracts and recording host |
 | `platform-runtime` | Shared self-drawn frame/input/accessibility runtime |
 | `host-windows` | Raw Win32 top-level host, owned `HWND` surface target, and normalized legacy input; no WinUI/XAML |
@@ -325,8 +329,9 @@ just test-tsx-host
 
 `just verify` also checks dependency firewalls, formatting, Clippy, rustdoc,
 all Rust tests and examples, the React Aria catalog, TypeScript fixtures, and
-whitespace. CI adds Windows-native lifecycle, touch/pen system injection,
-input/cancellation, H1 transaction, and real DX12 presentation evidence.
+whitespace. CI adds Windows-native lifecycle and minimize/restore ordering,
+touch/pen system injection, input/cancellation, H1 transaction, real DX12
+presentation, and device-loss recreation evidence.
 Toolkit-specific content-host and legacy bundle lanes do not exist.
 
 ## Repository map
@@ -354,8 +359,7 @@ docs/                     architecture, roadmap, protocol, and conformance
 The next critical path is:
 
 1. add hardware-device pen capture and tilt/rotation/eraser semantics, TSF,
-   UI Automation, system services, minimize/restore recovery, and device-loss
-   fault injection on Windows;
+   UI Automation, and system services on Windows;
 2. implement the font discovery/shaping and glyph raster/atlas backends on the
    landed generic text contracts, then add editing and IME;
 3. pin Rust RSX/TSX calculator parity and reviewed Windows GPU output, then port

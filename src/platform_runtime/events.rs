@@ -71,6 +71,9 @@ where
                     .then(|| self.presenter.surface_lost(replay.window()));
                 let rollback = self.host.rollback();
                 rollback_staged_surface(surface_cleanup, rollback)?;
+                if status == PlatformPresentationStatus::SurfaceLost {
+                    self.stats.surface_recoveries = self.stats.surface_recoveries.saturating_add(1);
+                }
                 self.pending_redraw = true;
                 return Ok(SelfDrawnFrameCommit {
                     status: SelfDrawnFrameCommitStatus::Deferred,
@@ -120,6 +123,22 @@ where
             presentation_status: Some(presentation_status),
             host_commands: 1,
         })
+    }
+
+    /// Retries one retained redraw when recovery is pending and the window is
+    /// exposed.
+    ///
+    /// Event loops should call this at most once per turn after draining host
+    /// events. A repeated surface deferral remains pending for a later turn,
+    /// which avoids spinning on an occluded or temporarily unavailable surface.
+    /// A first frame that never committed has no retained snapshot and must be
+    /// submitted again through [`Self::render`].
+    pub fn retry_pending_redraw(&mut self) -> GuiResult<Option<SelfDrawnFrameCommit>> {
+        self.ensure_running()?;
+        if !self.pending_redraw || self.occluded || self.committed.is_none() {
+            return Ok(None);
+        }
+        self.redraw().map(Some)
     }
 
     pub fn handle_event(

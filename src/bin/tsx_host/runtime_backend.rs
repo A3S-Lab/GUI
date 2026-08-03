@@ -218,6 +218,23 @@ impl HostRuntime {
         }
     }
 
+    pub(super) fn retry_pending_redraw(&mut self) -> GuiResult<Option<SelfDrawnFrameCommit>> {
+        match self {
+            #[cfg(all(target_os = "windows", feature = "host-windows", feature = "gpu"))]
+            Self::Native(runtime) => runtime.retry_pending_redraw(),
+            #[cfg(all(
+                feature = "software-reference",
+                not(all(target_os = "windows", feature = "host-windows", feature = "gpu"))
+            ))]
+            Self::Reference(runtime) => runtime.retry_pending_redraw(),
+            #[cfg(not(any(
+                all(target_os = "windows", feature = "host-windows", feature = "gpu"),
+                feature = "software-reference"
+            )))]
+            _ => unreachable!(),
+        }
+    }
+
     pub(super) fn next_interaction_deadline_micros(&self) -> Option<u64> {
         match self {
             #[cfg(all(target_os = "windows", feature = "host-windows", feature = "gpu"))]

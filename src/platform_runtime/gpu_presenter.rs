@@ -1,6 +1,7 @@
 use a3s_graphics::{
     FramePlanner, GpuCapabilities, GpuPreparedSurfaceFrame, GpuRendererOptions,
     GpuSurfaceAcquireStatus, GpuSurfaceFrame, GpuSurfacePreparation, GpuSurfaceRenderer,
+    GraphicsError,
 };
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
@@ -145,6 +146,19 @@ impl GpuScenePresenter {
         self.shutdown
     }
 
+    /// Destroys the attached Graphics device between frames so recovery tests
+    /// can exercise the typed device-loss path.
+    #[cfg(feature = "gpu-fault-injection")]
+    pub fn inject_device_loss(&mut self) -> GuiResult<()> {
+        self.ensure_running()?;
+        let renderer = self
+            .renderer
+            .as_mut()
+            .ok_or_else(|| GuiError::graphics("GPU scene presenter has no attached device"))?;
+        renderer.inject_device_loss();
+        Ok(())
+    }
+
     fn ensure_running(&self) -> GuiResult<()> {
         if self.shutdown {
             Err(GuiError::host("GPU scene presenter is shut down"))
@@ -157,6 +171,12 @@ impl GpuScenePresenter {
         self.renderer = None;
         self.planner.reset();
         self.committed = None;
+    }
+
+    fn defer_device_loss(&mut self, error: GraphicsError) {
+        self.deferred_count = self.deferred_count.saturating_add(1);
+        self.last_failure = Some(error.to_string());
+        self.detach_surface();
     }
 }
 
@@ -174,10 +194,16 @@ where
         self.ensure_running()?;
         frame.validate()?;
         if self.renderer.is_none() {
-            self.renderer = Some(pollster::block_on(GpuSurfaceRenderer::request(
-                target,
-                self.options,
-            ))?);
+            match pollster::block_on(GpuSurfaceRenderer::request(target, self.options)) {
+                Ok(renderer) => self.renderer = Some(renderer),
+                Err(error @ GraphicsError::GpuDeviceLost { .. }) => {
+                    self.defer_device_loss(error);
+                    return Ok(PlatformScenePreparation::Deferred(
+                        PlatformSceneDeferral::SurfaceLost,
+                    ));
+                }
+                Err(error) => return Err(error.into()),
+            }
         }
         let graphics_frame = self.planner.plan((*frame.scene).clone())?;
         if graphics_frame.fingerprint != frame.scene_fingerprint {
@@ -192,6 +218,12 @@ where
             .ok_or_else(|| GuiError::graphics("GPU surface renderer was not attached"))?;
         let preparation = match pollster::block_on(renderer.prepare(&graphics_frame)) {
             Ok(preparation) => preparation,
+            Err(error @ GraphicsError::GpuDeviceLost { .. }) => {
+                self.defer_device_loss(error);
+                return Ok(PlatformScenePreparation::Deferred(
+                    PlatformSceneDeferral::SurfaceLost,
+                ));
+            }
             Err(error) => {
                 self.planner.reset();
                 return Err(error.into());

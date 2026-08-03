@@ -45,6 +45,7 @@ fn first_deferred_frame_releases_the_staged_target_and_retains_no_snapshot() {
     );
     assert!(runtime.snapshot().is_none());
     assert!(runtime.pending_redraw());
+    assert!(runtime.retry_pending_redraw().unwrap().is_none());
     assert_eq!(runtime.presenter().surface_loss_count(), 1);
     assert!(runtime.host().committed().is_empty());
 }
@@ -68,4 +69,37 @@ fn deferred_redraw_keeps_the_previous_snapshot_and_surface() {
     assert!(runtime.pending_redraw());
     assert_eq!(runtime.presenter().surface_loss_count(), 0);
     assert_eq!(runtime.host().committed().len(), 1);
+}
+
+#[test]
+fn pending_surface_loss_retries_once_against_the_retained_scene() {
+    let mut runtime = runtime();
+    let revision = runtime
+        .render(NativeElement::new("root", NativeRole::View))
+        .unwrap()
+        .revision;
+    runtime
+        .presenter_mut()
+        .defer_next_prepare(PlatformSceneDeferral::SurfaceLost);
+
+    let lost = runtime.redraw().unwrap();
+
+    assert_eq!(lost.status, SelfDrawnFrameCommitStatus::Deferred);
+    assert_eq!(lost.revision, revision);
+    assert_eq!(
+        lost.presentation_status,
+        Some(PlatformPresentationStatus::SurfaceLost)
+    );
+    assert_eq!(runtime.stats().surface_recoveries, 1);
+    assert!(runtime.pending_redraw());
+
+    let recovered = runtime.retry_pending_redraw().unwrap().unwrap();
+
+    assert_eq!(recovered.status, SelfDrawnFrameCommitStatus::Committed);
+    assert_eq!(
+        recovered.presentation_status,
+        Some(PlatformPresentationStatus::Presented)
+    );
+    assert!(!runtime.pending_redraw());
+    assert!(runtime.retry_pending_redraw().unwrap().is_none());
 }
