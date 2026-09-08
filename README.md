@@ -2,6 +2,13 @@
   <img src="./assets/readme/hero.svg" width="100%" alt="A3S GUI turns Rust RSX and TypeScript TSX into one self-drawn semantic, layout, interaction, accessibility, and Graphics pipeline">
 </p>
 
+
+<p align="center">
+  <strong>Language / 语言:</strong>
+  <a href="README.md">English</a> ·
+  <a href="README.zh-CN.md">中文</a>
+</p>
+
 <p align="center">
   <a href="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/A3S-Lab/GUI/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Rust 1.95.0" src="https://img.shields.io/badge/Rust-1.95.0-2F3945?style=flat-square&logo=rust&logoColor=white">
